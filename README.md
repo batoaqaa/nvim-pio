@@ -1,21 +1,17 @@
 <h1 align="center">
     <img src="https://github.com/user-attachments/assets/fa3f7663-802e-4845-b4f7-0992e34899f2" style="height: 1em; vertical-align: bottom;">
-    nvim-platformio.lua
+    nvim-pio.lua
 </h1>
 
 <p align="center"> PlatformIO wrapper for Neovim written in Lua.</p>
-
-### Demo
-
-https://github.com/user-attachments/assets/fdbb6655-4b2d-4a2b-81d1-fd8af6e7d9f1
 
 <br>
 
 Try the plugin with this minimal standalone config without modifying your existing nvim setup. **This is especially useful if you're encountering errors during installation or usage**.
 
 ```sh
-wget https://raw.githubusercontent.com/batoaqaa/nvim-platformio.lua/refs/heads/main/mini_nvimPlatformio.lua
-nvim -u mini_nvimPlatformio.lua
+wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/mini_nvimpio.lua
+nvim -u mini_nvimpio.lua
 
 # Now run :Pioinit
 ```
