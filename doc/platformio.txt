@@ -1,10 +1,10 @@
-*platformio.lua* Wrapper of PlatformIO for Neovim
+*nvim-pio* Wrapper of PlatformIO for Neovim
 
 Author:  Anurag Kumar Singh
 Repo:    https://github.com/anurag3301/nvim-platformio.lua
 License: MIT
 
-INTRODUCTION                                                   *PlatformIO*
+INTRODUCTION                                                   *nvim-pio*
 
 A plugin for wrapping PlatformIO commands with user-friendly Neovim commands.
 

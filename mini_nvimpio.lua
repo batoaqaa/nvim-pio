@@ -324,10 +324,10 @@ local plugins = {
         -- if platformio.ini file and .pio folder exist in cwd, enable plugin to install plugin (if not istalled) and load it.
         vim.g.platformioRootDir = platformioRootDir
       elseif (vim.uv or vim.loop).fs_stat(vim.env.XDG_DATA_HOME .. '/lazy/nvim-pio') == nil then
-        -- if nvim-platformio not installed, enable plugin to install it first time
+        -- if nvim-pio not installed, enable plugin to install it first time
         -- vim.g.platformioRootDir = vim.fn.getcwd()
         vim.g.platformioRootDir = vim.uv.cwd()
-      else -- if nvim-platformio.lua installed but disabled, create Pioinit command
+      else -- if nvim-pio installed but disabled, create Pioinit command
         vim.api.nvim_create_user_command('Pioinit', function() --available only if no platformio.ini and .pio in cwd
           vim.api.nvim_create_autocmd('User', {
             pattern = { 'LazyRestore', 'LazyLoad' },
@@ -502,7 +502,7 @@ if not vim.uv.fs_stat(pynvim_env) then
 end
 
 ----------------------------------------------------------------------------------------
--- INFO: configure nvim-platformio and load
+-- INFO: configure nvim-pio and load
 -----------------------------------------------------------------------------------------
 local tok, telescope = pcall(require, 'telescope')
 if tok then
