@@ -214,7 +214,3 @@ It's possible to lazy load the plugin using Lazy.nvim, this will load the plugin
 ```lua
 cmd = { 'Pioinit', 'Piorun', 'Piocmdh', 'Piocmdf', 'Piolib', 'Piomon', 'Piodebug', 'Piodb' },
 ```
-
-### TODO
-
-- Connect Piodebug with DAP
