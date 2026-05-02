@@ -28,7 +28,7 @@ Install the plugin using lazy
 
 ```lua
 return {
-    'batoaqaa/nvim-platformio.lua',
+    'batoaqaa/nvim-pio',
     -- cmd = { 'Pioinit', 'Piorun', 'Piocmdh', 'Piocmdf', 'Piolib', 'Piomon', 'Piodebug', 'Piodb' },
 
   -- optional: cond used to enable/disable platformio
@@ -40,7 +40,7 @@ return {
       if platformioRootDir and vim.fs.find('.pio', { path = platformioRootDir, type = 'directory' })[1] then
           -- if platformio.ini file and .pio folder exist in cwd, enable plugin to install plugin (if not istalled) and load it.
         vim.g.platformioRootDir = platformioRootDir
-      elseif (vim.uv or vim.loop).fs_stat(vim.fn.stdpath('data') .. '/lazy/nvim-platformio.lua') == nil then
+      elseif (vim.uv or vim.loop).fs_stat(vim.fn.stdpath('data') .. '/lazy/nvim-pio') == nil then
         -- if nvim-platformio not installed, enable plugin to install it first time
         vim.g.platformioRootDir = vim.fn.getcwd()
       else -- if nvim-platformio.lua installed but disabled, create Pioinit command
@@ -50,15 +50,15 @@ return {
             once = true,
             callback = function(args)
               if args.match == 'LazyRestore' then
-                  require('lazy').load({ plugins = { 'nvim-platformio.lua' } })
+                  require('lazy').load({ plugins = { 'nvim-pio' } })
               elseif args.match == 'LazyLoad' then
-                vim.notify('PlatformIO loaded', vim.log.levels.INFO, { title = 'PlatformIO' })
+                vim.notify('nvim-pio loaded', vim.log.levels.INFO, { title = 'nvim-pio' })
                 vim.cmd('Pioinit')
               end
             end,
           })
           vim.g.platformioRootDir = vim.fn.getcwd()
-          require('lazy').restore({ plguins = { 'nvim-platformio.lua' }, show = false })
+          require('lazy').restore({ plguins = { 'nvim-pio' }, show = false })
         end, {})
       end
       return vim.g.platformioRootDir ~= nil
@@ -99,8 +99,8 @@ return {
       menu_key = '<leader>\\', -- replace this menu key  to your convenience
       menu_name = 'PlatformIO', -- replace this menu name to your convenience
     }
-    local pok, platformio = pcall(require, 'platformio')
-    if pok then platformio.setup(vim.g.pioConfig) end
+    local pok, nvimpio = pcall(require, 'nvimpio')
+    if pok then nvimpio.setup(vim.g.pioConfig) end
 ```
 
 ### Keybinds
@@ -108,9 +108,9 @@ return {
 These are the default keybindings, which you can override in your configuration.
 
 ```lua
-    local pok, platformio = pcall(require, 'platformio')
+    local pok, nvimpio = pcall(require, 'nvimpio')
     if pok then
-      platformio.setup({
+      nvimpio.setup({
         lspClangd = {
           enabled = false,
           attach = {
