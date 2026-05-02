@@ -323,7 +323,7 @@ local plugins = {
       if platformioRootDir and vim.fs.find('.pio', { path = platformioRootDir, type = 'directory' })[1] then
         -- if platformio.ini file and .pio folder exist in cwd, enable plugin to install plugin (if not istalled) and load it.
         vim.g.platformioRootDir = platformioRootDir
-      elseif (vim.uv or vim.loop).fs_stat(vim.env.XDG_DATA_HOME .. '/lazy/nvim-platformio.lua') == nil then
+      elseif (vim.uv or vim.loop).fs_stat(vim.env.XDG_DATA_HOME .. '/lazy/nvim-pio') == nil then
         -- if nvim-platformio not installed, enable plugin to install it first time
         -- vim.g.platformioRootDir = vim.fn.getcwd()
         vim.g.platformioRootDir = vim.uv.cwd()
@@ -334,16 +334,16 @@ local plugins = {
             once = true,
             callback = function(args)
               if args.match == 'LazyRestore' then
-                require('lazy').load({ plugins = { 'nvim-platformio.lua' } })
+                require('lazy').load({ plugins = { 'nvim-pio' } })
               elseif args.match == 'LazyLoad' then
-                vim.notify('PlatformIO loaded', vim.log.levels.INFO, { title = 'PlatformIO' })
+                vim.notify('nvim-pio loaded', vim.log.levels.INFO, { title = 'nvim-pio' })
                 vim.cmd('Pioinit')
               end
             end,
           })
           -- vim.g.platformioRootDir = vim.fn.getcwd()
           vim.g.platformioRootDir = vim.uv.cwd()
-          require('lazy').restore({ plguins = { 'nvim-platformio.lua' }, show = false })
+          require('lazy').restore({ plguins = { 'nvim-pio' }, show = false })
         end, {})
       end
       return vim.g.platformioRootDir ~= nil
