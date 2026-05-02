@@ -316,7 +316,7 @@ local plugins = {
   },
 
   {
-    'batoaqaa/nvim-platformio.lua',
+    'batoaqaa/nvim-pio',
     cond = function()
       -- local platformioRootDir = (vim.fn.filereadable('platformio.ini') == 1) and vim.fn.getcwd() or nil
       local platformioRootDir = (vim.fn.filereadable('platformio.ini') == 1) and vim.uv.cwd() or nil
