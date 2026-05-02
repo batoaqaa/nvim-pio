@@ -1,0 +1,303 @@
+M = {}
+
+local clangdRestart = require('nvimpio.lspConfig.tools').clangdRestart
+local boilerplate = require('nvimpio.boilerplate')
+local boilerplate_gen = boilerplate.boilerplate_gen
+
+-- =============================================================================
+-- INFO:
+-- Unified hashing for change detection
+local function get_hash(path)
+  if vim.fn.filereadable(path) == 0 then
+    return nil
+  end
+  -- local ok, data = pcall(vim.fn.readfile, path) -- readfile is safer than io.open
+  -- return ok and vim.fn.sha256(table.concat(data, '\n')) or nil
+  local ok, data = vim.misc.readFile(path) -- readfile is safer than io.open
+  return (ok and type(data) == 'string' and data ~= '') and vim.fn.sha256(data) or ''
+end
+
+
+--INFO:
+--stylua: ignore
+--=============================================================================
+function M.pio_refresh(callback, from)
+  local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
+  vim.notify(msg ..'Config sync ...', vim.log.levels.INFO)
+
+  local function on_done(active_env)
+    if active_env then vim.notify(msg .. 'active_env= ' .. active_env, vim.log.levels.INFO) end
+    if active_env then vim.pio.fetch_metadata(callback, active_env, from, 1) end
+  end
+  vim.pio.fetch_config(on_done, from)
+end
+
+--INFO:
+--=============================================================================
+--  watchers setup
+--=============================================================================
+-- Ensure this is at the TOP of your file, outside any functions
+local uv = vim.uv or vim.loop
+M.watcher_handles = {}
+local debounce_timer = uv.new_timer()
+local last_mtime = 0
+
+-- --INFO:
+-- --stylua: ignore
+-- --1.run_compiledb after platformio.ini changed
+-- --=============================================================================
+-- function M.run_compiledb(target)
+--   if target.isBusy then return end
+--   if _G.metadata.isBusy == true then return end
+--
+--   local env = vim.pio.get_active__env()
+--   if not env then return end
+--   target.isBusy = true
+--     vim.notify('PIO platformio.ini change: compiledb update ...', vim.log.levels.INFO, { title = 'PlatformIO' })
+--     vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
+--       vim.schedule(function()
+--         target.isBusy = false
+--
+--         if obj.code == 0 then
+--           vim.schedule(function ()
+--             M.pio_refresh(function()
+--               vim.notify('PIO platformio.ini change: compiledb update Success', vim.log.levels.INFO, { title = 'PlatformIO' })
+--               clangdRestart()
+--             end, 'PIO platformio.ini  change: ')
+--           end)
+--         else
+--           local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
+--           vim.notify('PIO Build Failed: ' .. err, vim.log.levels.ERROR, { title = 'PlatformIO' })
+--         end
+--         _G.metadata.isBusy = false
+--       end)
+--     end)
+-- end
+--
+--INFO:
+--stylua: ignore
+--1.stop_watchers 
+--=============================================================================
+function M.stop_watchers()
+  if not M.watcher_handles or (type(M.watcher_handles) ~= 'table') then M.watcher_handles = {} return end
+
+  for _, handle in ipairs(M.watcher_handles) do
+    if handle and not handle:is_closing() then
+      handle:stop()
+      handle:close() -- CRITICAL: This allows Neovim to quit instantly
+    end
+  end
+  M.watcher_handles = {}
+end
+
+--INFO:
+--stylua: ignore
+--2.watcher cleanup
+--=============================================================================
+function M.cleanup()
+  M.stop_watchers()
+  if debounce_timer and not debounce_timer:is_closing() then
+    debounce_timer:stop()
+    debounce_timer:close()
+  end
+end
+
+-- Force cleanup when leaving Neovim to prevent :qa lag
+vim.api.nvim_create_autocmd('VimLeavePre', {
+  callback = function()
+    M.cleanup()
+  end,
+})
+
+--INFO:
+--stylua: ignore
+--3. MAIN WATCHER: Efficient Folder Monitoring
+--=============================================================================
+local function watch_file(target, callback)
+  local folder_path = target.path:match('(.*[/\\])')
+  local target_filename = target.path:match('[^/\\]+$')
+
+  local handle = uv.new_fs_event()
+  if not handle then return end
+
+  handle:start(folder_path, {}, function(err, filename)
+    if err then return end
+
+    -- Early Exit Filters
+    if target.isBusy or (filename and filename ~= target_filename) then return end
+
+    -- local f = io.open(target.path, "r")
+    -- if f then f:close()
+    -- else return end -- Not readable (protected, locked, or missing)
+
+    if not uv.fs_access(target.path, 'R') then return end
+
+    -- Protected Execution
+    local ok, result = pcall(function()
+      local stat = uv.fs_stat(target.path)
+      if not stat or stat.mtime.sec <= last_mtime then return end
+
+      vim.schedule(function()
+        if debounce_timer then
+          debounce_timer:stop()
+          local retries = 0
+          local max_retries = 15 -- 15 seconds max wait
+
+          local function attempt_callback()
+            -- Check if busy (checks both local M and global _G)
+            if target.isBusy then --or (_G.metadata and _G.metadata.isBusy) then
+              if retries < max_retries then
+                retries = retries + 1
+                debounce_timer:start(1000, 0, vim.schedule_wrap(attempt_callback))
+                return
+              end
+              vim.notify('PIO: Sync timed out (busy)', vim.log.levels.ERROR)
+              return
+            end
+
+            -- Final validation & run
+            local final_stat = uv.fs_stat(target.path)
+            if final_stat and final_stat.mtime.sec > last_mtime then
+              last_mtime = final_stat.mtime.sec
+              callback(target)
+            end
+          end
+
+          debounce_timer:start(1000, 0, vim.schedule_wrap(attempt_callback))
+        end
+      end)
+    end)
+
+    if not ok then
+      vim.schedule(function()
+        vim.notify('PIO Watcher Error: ' .. tostring(result), vim.log.levels.ERROR)
+      end)
+    end
+  end)
+
+  table.insert(M.watcher_handles, handle)
+  return handle
+end
+
+--INFO:
+--stylua: ignore
+--4. start_watches
+--=============================================================================
+function M.start_watchers()
+  -- Clean up any existing watchers first to prevent duplicates
+  if next(M.watcher_handles) then M.stop_watchers() end
+
+  local project_root = vim.uv.cwd() -- Use dynamic CWD instead of hardcoded path
+
+  local targets = {
+    { -- watcher for platformio.ini
+      name = 'ini',
+      isBusy = false,
+      last_hash = '',
+      path = vim.misc.joinPath(project_root, 'platformio.ini'),
+      cb = function(self)
+        if self.isBusy then return end
+        if _G.metadata.isBusy == true then return end
+        local new_hash = get_hash(self.path) or ''
+        if new_hash and new_hash ~= self.last_hash then
+          self.last_hash = new_hash
+          local env = vim.pio.get_active__env()
+          if not env then return end
+          self.isBusy = true
+          vim.notify('PIO platformio.ini change: compiledb update ...', vim.log.levels.INFO, { title = 'PlatformIO' })
+          vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
+            vim.schedule(function()
+              if obj.code == 0 then
+                vim.schedule(function ()
+                  M.pio_refresh(function()
+                    vim.notify('PIO platformio.ini change: compiledb update Success', vim.log.levels.INFO, { title = 'PlatformIO' })
+                    clangdRestart()
+                  end, 'PIO platformio.ini  change: ')
+                end)
+              else
+                local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
+                vim.notify('PIO Build Failed: ' .. err, vim.log.levels.ERROR, { title = 'PlatformIO' })
+              end
+              self.isBusy = false
+            end)
+          end)
+          -- M.run_compiledb(self) -- Smart: Auto-update DB if config changes
+        end
+      end,
+    },
+    { -- watcher for ./.pio/build/projct.checksum
+      name = 'checksum',
+      isBusy = false,
+      path = vim.misc.joinPath(project_root, '.pio', 'build', 'project.checksum'), --checksum_path
+      cb = function(self)
+        if self.isBusy then return end
+        local ok, current_checksum = vim.misc.readFile(self.path)
+        -- Check if we should exit early
+        if ok and type(current_checksum) == 'string' and current_checksum ~= '' then
+          if current_checksum == _G.metadata.last_projectChecksum then
+            return
+          end
+
+          self.isBusy = true
+          vim.defer_fn(function ()
+            M.pio_refresh(function()
+              self.isBusy = false
+              vim.notify('PIO checksum: Metadata synced', vim.log.levels.INFO)
+              clangdRestart()
+            end, 'PIO checksum: ')
+          end, 500)
+        end
+      end
+    },
+  }
+
+  for _, target in ipairs(targets) do
+    --[[ wrap the callback in a small anonymous function,
+        so it passes the target (self) back into it.]]
+    watch_file(target, target.cb)
+  end
+end
+
+--INFO: 6.  Exported setup function
+--stylua: ignore
+--=============================================================================
+function M.init()
+  local config = require('nvimpio').config
+  if config.lspClangd.enabled == true then
+    vim.notify('PIO start: initialize', vim.log.levels.INFO)
+
+    -- activate meta save and upload and env switch
+    local metadata = require('nvimpio.pio.metadata')
+    metadata.load_project_config()
+
+    require('nvimpio.lspConfig.clangd')
+    if config.lspClangd.attach.enabled then
+      require('nvimpio.lspConfig.attach')
+    end
+
+    -- Always start the watcher so it can catch a future 'pio init'
+    M.start_watchers()
+
+    -- boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
+    -- If the file already exists, do an initial sync
+    if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
+      ----------------------------------------------------------------------------------------
+      --INFO: create clangd required files
+      -----------------------------------------------------------------------------------------
+      -- boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
+      -- boilerplate_gen([[.clangd]], vim.fs.joinpath(vim.env.XDG_CONFIG_HOME, 'clangd'), 'config.yaml')
+      -- boilerplate_gen([[.clangd]], _G.metadata.core_dir)
+      boilerplate.core_dir = _G.metadata.core_dir
+      boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
+      ---------------------------------------------------------------------------------
+      -- M.run_compiledb() -- Smart: Auto-update DB if config changes
+      M.pio_refresh(function()
+        -- vim.schedule(function()
+        --   lsp_restart('clangd')
+        -- end)
+      end, 'PIO start: ')
+    end
+  end
+end
+
+return M
