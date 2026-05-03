@@ -12,6 +12,9 @@ M.queue = {}
 local term = require('nvimpio.utils.term')
 local clangdRestart = require('nvimpio.lspConfig.tools').pioClangdRestart
 
+-- INFO:
+-- =============================================================================
+-- stylua: ignore
 local function filter_bad_args_with_clangd(args_table)
   -- 1. Find where clangd is located (to ensure we use the LSP binary)
   local clangd_bin = vim.fn.exepath('clangd')
@@ -35,6 +38,7 @@ local function filter_bad_args_with_clangd(args_table)
     cmd_args = cmd_args .. string.format(' --extra-arg="%s"', flag)
   end
 
+  print(cmd_args)
   local cmd = string.format('%s --check=%s %s 2>&1', clangd_bin, temp_file, cmd_args)
 
   -- 4. Run it and capture output
