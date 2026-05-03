@@ -14,6 +14,7 @@ function M.pioClangdRestart()
   vim.lsp.enable(name, false)
   vim.lsp.enable(name, true)
   vim.cmd('checktime')
+  _G.metadata.isBusy = false
   -- end)
 end
 

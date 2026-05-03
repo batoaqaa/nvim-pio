@@ -470,11 +470,12 @@ function M.stdoutcallback(_, _, data)
     -- Join all complete parts (everything except the very last partial line)
     for i = 2, #data - 1 do lines_to_process = lines_to_process .. data[i] end
 
+    -- save the trailing part for the next chunk
+    pio_buffer = data[#data]
+
     -- 3. Search for the status in the complete chunk
     local status = lines_to_process:match('_CMMNDS_:(%a+)')
     if status and callBack then vim.schedule(function() callBack(status) end) end
-    -- save the trailing part for the next chunk
-    pio_buffer = data[#data]
   else
     -- Only one element in data means no newline yet; just update the partial buffer
     pio_buffer = lines_to_process
@@ -509,8 +510,8 @@ M.run_sequence = function(tasks)
   callBack = tasks.cb -- 1. Save the callback in a local variable
 
   commandPassed = 1
-  _G.metadata.isBusy = true
 
+  _G.metadata.isBusy = false
   term.stdout_callback = M.stdoutcallback
   vim.schedule(function() if callBack then callBack('INIT') end end)
 end
@@ -536,7 +537,10 @@ function M.handlePioinitDb(result)
     -- boilerplate_gen([[.clangd]], vim.fs.joinpath(vim.env.XDG_CONFIG_HOME, 'clangd'), 'config.yaml')
 
     win_id = vim.misc.showMessage('************ Project Initializing ************')
-    if #M.queue > 0 then trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')end
+    if #M.queue > 0 then
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      _G.metadata.isBusy = true
+    end
   elseif result == 'PASS' then
     -- if commandPassed == 1 then
     -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
