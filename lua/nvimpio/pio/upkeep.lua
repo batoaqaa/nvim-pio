@@ -16,6 +16,7 @@ local function filter_bad_args_with_clangd(args_table)
   -- 1. Find where clangd is located (to ensure we use the LSP binary)
   local clangd_bin = vim.fn.exepath('clangd')
   if clangd_bin == '' then
+    print('no clangd_bin')
     return {}
   end
 
