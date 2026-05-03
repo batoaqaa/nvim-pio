@@ -48,7 +48,8 @@ local function finalize_setup()
   local sample_flag = wizard_data.sample == 'Yes' and ' --sample-code' or ''
   local init_cmd = string.format('pio project init --ide vim --board %s -O "framework=%s"%s', wizard_data.board_id, wizard_data.framework, sample_flag)
 
-  local db_cmd = string.format('pio run -t compiledb -e %s', wizard_data.board_id)
+  -- local db_cmd = string.format('pio run -t compiledb -e %s', wizard_data.board_id)
+  local db_cmd = string.format('pio run -t compiledb')
   local commands = { init_cmd, db_cmd }
   local final_cb = pio.handlePioinitDb
 
