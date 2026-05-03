@@ -530,16 +530,17 @@ local win_id
 function M.cleanup_pio_session()
   M.queue = {}
   if win_id then vim.misc.closeMessage(win_id) end
-  -- term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
+  term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
   if trm then trm:close() end
   _G.metadata.isBusy = false
-  commandPassed = 1 -- Reset for next time
 end
 -- stylua: ignore
 function M.handlePioinitDb(result, board)
   local boilerplate = require('nvimpio.boilerplate')
   local boilerplate_gen = boilerplate.boilerplate_gen
   if result == 'INIT' then
+    boilerplate.core_dir = _G.metadata.core_dir
+    boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
     boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
     boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
     -- boilerplate_gen([[.clangd]], _G.metadata.core_dir)
@@ -553,13 +554,11 @@ function M.handlePioinitDb(result, board)
   elseif result == 'PASS' then
     if commandPassed == 1 then
       local active_env = M.get_active__env('PIO init+db: ')
+      print(active_env)
       if not active_env or (active_env == board) then
         local pio_refresh = require('nvimpio.pio.watcher').pio_refresh
         pio_refresh(function()
-
           boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-          boilerplate.core_dir = _G.metadata.core_dir
-          boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
 
           vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
           -- vim.misc.closeMessage(win_id)
