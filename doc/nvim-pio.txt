@@ -4,13 +4,13 @@ Author:  Anurag Kumar Singh
 Repo:    https://github.com/anurag3301/nvim-platformio.lua
 License: MIT
 
-INTRODUCTION                                                   *nvim-pio*
+INTRODUCTION                                                   *nvimpio*
 
 A plugin for wrapping PlatformIO commands with user-friendly Neovim commands.
 
 ==============================================================================
 
-USAGE                                                    *nvim-piousage*
+USAGE                                                    *nvim-pio-usage*
 
                                    *:Pioinit*
 :Pioinit                 Open Neovim in a fresh directory, run `:Pioinit`, and
