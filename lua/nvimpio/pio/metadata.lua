@@ -51,7 +51,6 @@ _G.metadata = setmetatable({}, {
         local sep = (vim.fn.has('win32') == 1 and ';' or ':')
         -- vim.env.PATH = binPath .. sep .. vim.env.PATH
         vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
-        print(vim.env.PATH)
         vim.notify('PIO env: ' .. binPath .. ' added to path', vim.log.levels.INFO, { title = 'PlatformIO', render = 'compact' })
       elseif key == 'last_projectChecksum' then
       elseif key == 'active_env' then
