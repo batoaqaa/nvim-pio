@@ -16,46 +16,36 @@ local clangdRestart = require('nvimpio.lspConfig.tools').pioClangdRestart
 -- =============================================================================
 -- stylua: ignore
 local function filter_bad_args_with_clangd(args_table)
-  -- 1. Find where clangd is located (to ensure we use the LSP binary)
-  local clangd_bin = vim.fn.exepath('clangd')
-  if clangd_bin == '' then
-    print('no clangd_bin')
-    return {}
-  end
+    local clangd_bin = vim.fn.exepath('clangd')
+    if clangd_bin == "" then return {} end
 
-  -- 2. Create a dummy file for the check
-  local temp_file = vim.fn.tempname() .. '.cpp'
-  local f = io.open(temp_file, 'w')
-  if f then
-    f:write('int main() {}')
-    f:close()
-  end
+    local temp_file = vim.fn.tempname() .. ".cpp"
+    local f = io.open(temp_file, "w")
+    if f then f:write("int main() {}") f:close() end
 
-  -- 3. Build the command string
-  -- Every flag in your table becomes an '--extra-arg="flag"'
-  local cmd_args = ''
-  for _, flag in ipairs(args_table) do
-    cmd_args = cmd_args .. string.format(' --extra-arg="%s"', flag)
-  end
-
-  local cmd = string.format('%s --check=%s %s 2>&1', clangd_bin, temp_file, cmd_args)
-
-  -- 4. Run it and capture output
-  local output = vim.fn.system(cmd):lower()
-  print(output)
-  local unknown = {}
-
-  -- 5. Scan the output for errors related to your flags
-  for _, arg in ipairs(args_table) do
-    local escaped = vim.pesc(arg:lower())
-    if output:match("unknown argument: '" .. escaped .. "'") or output:match("unused during compilation: '" .. escaped .. "'") then
-      table.insert(unknown, arg)
+    -- 1. Build the command as a table (No manual quoting needed!)
+    local cmd = { clangd_bin, "--check=" .. temp_file }
+    for _, flag in ipairs(args_table) do
+        table.insert(cmd, "--extra-arg=" .. flag)
     end
-  end
 
-  -- Cleanup
-  os.remove(temp_file)
-  return unknown
+    -- 2. Run synchronously using :wait()
+    local obj = vim.system(cmd, { text = true }):wait()
+    local output = (obj.stdout or "") .. (obj.stderr or "")
+    output = output:lower()
+
+    -- 3. Filter flags
+    local unknown = {}
+    for _, arg in ipairs(args_table) do
+        local escaped = vim.pesc(arg:lower())
+        if output:match("unknown argument: '" .. escaped .. "'") or 
+           output:match("unused during compilation: '" .. escaped .. "'") then
+            table.insert(unknown, arg)
+        end
+    end
+
+    os.remove(temp_file)
+    return unknown
 end
 
 -- INFO:
