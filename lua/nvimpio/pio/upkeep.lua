@@ -14,38 +14,43 @@ local clangdRestart = require('nvimpio.lspConfig.tools').pioClangdRestart
 
 -- INFO:
 -- =============================================================================
--- stylua: ignore
+--- stylua: ignore
 local function filter_bad_args_with_clangd(args_table)
-    local clangd_bin = vim.fn.exepath('clangd')
-    if clangd_bin == "" then return {} end
+  local clangd_bin = vim.fn.exepath('clangd')
+  if clangd_bin == '' then
+    return {}
+  end
 
-    local temp_file = vim.fn.tempname() .. ".cpp"
-    local f = io.open(temp_file, "w")
-    if f then f:write("int main() {}") f:close() end
+  local temp_file = vim.fn.tempname() .. '.cpp'
+  local f = io.open(temp_file, 'w')
+  if f then
+    f:write('int main() {}')
+    f:close()
+  end
 
-    -- 1. Build the command as a table (No manual quoting needed!)
-    local cmd = { clangd_bin, "--check=" .. temp_file }
-    for _, flag in ipairs(args_table) do
-        table.insert(cmd, "--extra-arg=" .. flag)
+  -- 1. Build the command as a table (No manual quoting needed!)
+  local cmd = { clangd_bin, '--check=' .. temp_file }
+  for _, flag in ipairs(args_table) do
+    table.insert(cmd, '--extra-arg=' .. flag)
+  end
+
+  -- 2. Run synchronously using :wait()
+  local obj = vim.system(cmd, { text = true }):wait()
+  local output = (obj.stdout or '') .. (obj.stderr or '')
+  output = output:lower()
+  print(output)
+
+  -- 3. Filter flags
+  local unknown = {}
+  for _, arg in ipairs(args_table) do
+    local escaped = vim.pesc(arg:lower())
+    if output:match("unknown argument: '" .. escaped .. "'") or output:match("unused during compilation: '" .. escaped .. "'") then
+      table.insert(unknown, arg)
     end
+  end
 
-    -- 2. Run synchronously using :wait()
-    local obj = vim.system(cmd, { text = true }):wait()
-    local output = (obj.stdout or "") .. (obj.stderr or "")
-    output = output:lower()
-
-    -- 3. Filter flags
-    local unknown = {}
-    for _, arg in ipairs(args_table) do
-        local escaped = vim.pesc(arg:lower())
-        if output:match("unknown argument: '" .. escaped .. "'") or 
-           output:match("unused during compilation: '" .. escaped .. "'") then
-            table.insert(unknown, arg)
-        end
-    end
-
-    os.remove(temp_file)
-    return unknown
+  os.remove(temp_file)
+  return unknown
 end
 
 -- INFO:
