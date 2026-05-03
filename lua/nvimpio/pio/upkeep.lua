@@ -13,6 +13,49 @@ local term = require('nvimpio.utils.term')
 local clangdRestart = require('nvimpio.lspConfig.tools').pioClangdRestart
 
 -- INFO:
+--
+
+local function fix_clangd_args()
+  local file_path = vim.fn.expand('%') -- Current file
+  local clangd_path = 'C:\\Program Files\\LLVM\\bin\\clangd.exe'
+
+  -- 1. Run clangd check and capture output
+  local cmd = string.format('"%s" --check=%s --log=error', clangd_path, file_path)
+  local output = vim.fn.systemlist(cmd)
+
+  -- 2. Extract unknown arguments using regex
+  local unknown_args = {}
+  for _, line in ipairs(output) do
+    local arg = line:match("unknown argument[:%s]+'([^']+)'")
+    if arg then
+      table.insert(unknown_args, arg)
+    end
+  end
+
+  if #unknown_args == 0 then
+    print('No unknown arguments found!')
+    return
+  end
+
+  -- 3. Format for .clangd (YAML)
+  local new_content = {
+    'CompileFlags:',
+    '  Remove: [' .. table.concat(unknown_args, ', ') .. ']',
+  }
+
+  -- 4. Write to .clangd file in current directory
+  local clangd_config = vim.fn.getcwd() .. '/.clangd'
+  vim.fn.writefile(new_content, clangd_config)
+
+  print('Updated .clangd with: ' .. table.concat(unknown_args, ', '))
+
+  -- 5. Restart LSP to apply changes
+  vim.cmd('LspRestart')
+end
+
+-- Create a command to run it
+vim.api.nvim_create_user_command('ClangdFixArgs', fix_clangd_args, {})
+
 -- =============================================================================
 --- stylua: ignore
 local function filter_bad_args_with_clangd(args_table)
@@ -600,13 +643,13 @@ function M.handlePioinitDb(result, board)
           boilerplate_gen([[.clangd]], _G.metadata.core_dir)
           vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
           vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
-          local flags = filter_bad_args_with_clangd(_G.metadata.cxx_flags)
-
-          local include_flags = table.concat(vim.tbl_map(function(item)
-            return '"' .. item .. '"'
-          end, flags), ", ")
-          print(include_flags)
-
+          -- local flags = filter_bad_args_with_clangd(_G.metadata.cxx_flags)
+          --
+          -- local include_flags = table.concat(vim.tbl_map(function(item)
+          --   return '"' .. item .. '"'
+          -- end, flags), ", ")
+          -- print(include_flags)
+          fix_clangd_args()
           commandPassed = commandPassed + 1
           if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
         end, 'PIO init+db: ')
