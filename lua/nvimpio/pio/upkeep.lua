@@ -526,7 +526,6 @@ local win_id
 -- Handle after pioinit execution
 -- =============================================================================
 -- stylua: ignore
--- Helper to avoid repeating cleanup code
 function M.cleanup_pio_session()
   M.queue = {}
   if win_id then vim.misc.closeMessage(win_id) end
@@ -534,6 +533,7 @@ function M.cleanup_pio_session()
   if trm then trm:close() end
   _G.metadata.isBusy = false
 end
+
 -- stylua: ignore
 function M.handlePioinitDb(result, board)
   local boilerplate = require('nvimpio.boilerplate')
@@ -555,6 +555,7 @@ function M.handlePioinitDb(result, board)
     if commandPassed == 1 then
       local active_env = M.get_active__env('PIO init+db: ')
       print(active_env)
+      print(board)
       if not active_env or (active_env == board) then
         local pio_refresh = require('nvimpio.pio.watcher').pio_refresh
         pio_refresh(function()
