@@ -100,12 +100,13 @@ _G.metadata = setmetatable({}, {
         local binPath = value .. '/bin'
         local sep = (vim.fn.has('win32') == 1 and ';' or ':')
 
+        local oldPath = _pio_metadata[key] .. '/bin'
         local start_time = vim.loop.hrtime()
-        -- remove_nearby_front(binPath)
+        -- remove_nearby_front(oldPath)
         remove_from_path(binPath)
         local end_time = vim.loop.hrtime()
         local duration = (end_time - start_time) / 1e6
-        vim.notify(string.format('PIO env: ' .. binPath .. ' removed from path in %.2fms', duration), vim.log.levels.INFO)
+        vim.notify(string.format('PIO env: ' .. oldPath .. ' removed from path in %.2fms', duration), vim.log.levels.INFO)
 
         vim.env.PATH = binPath .. sep .. vim.env.PATH
         -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
