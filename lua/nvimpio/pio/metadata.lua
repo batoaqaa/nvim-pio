@@ -91,6 +91,7 @@ _G.metadata = setmetatable({}, {
       return
     end -- Performance check
     -- print('Newindex attempt for: ' .. tostring(key)) -- DEBUG LINE
+    local oldValue = _pio_metadata[key]
     _pio_metadata[key] = value
 
     -- Trigger background actions
@@ -100,10 +101,10 @@ _G.metadata = setmetatable({}, {
         local binPath = value .. '/bin'
         local sep = (vim.fn.has('win32') == 1 and ';' or ':')
 
-        local oldPath = _pio_metadata[key] .. '/bin'
+        local oldPath = oldValue .. '/bin'
         local start_time = vim.loop.hrtime()
         -- remove_nearby_front(oldPath)
-        remove_from_path(binPath)
+        remove_from_path(oldPath)
         local end_time = vim.loop.hrtime()
         local duration = (end_time - start_time) / 1e6
         vim.notify(string.format('PIO env: ' .. oldPath .. ' removed from path in %.2fms', duration), vim.log.levels.INFO)
