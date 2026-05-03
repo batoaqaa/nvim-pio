@@ -47,7 +47,7 @@ vim.misc = require('nvimpio.utils.misc')
 vim.pio = require('nvimpio.pio.upkeep')
 
 -- INFO: fix paths in compile_commands.json
-vim.api.nvim_create_user_command('PioFixPaths', function()
+vim.api.nvim_create_user_command('Piofixpaths', function()
   vim.pio.compile_commandsFix()
 end, {})
 
@@ -55,12 +55,12 @@ end, {})
 local piolsserial = require('nvimpio.piolsserial')
 
 -- Pioinit
-vim.api.nvim_create_user_command('PioInit', function()
+vim.api.nvim_create_user_command('Pioinit', function()
   require('nvimpio.pioInit').pioInit()
 end, { force = true })
 
 -- Piolsp
-vim.api.nvim_create_user_command('PioClangdRestart', function()
+vim.api.nvim_create_user_command('Pioclangdrestart', function()
   vim.schedule(function()
     require('nvimpio.pioCommands').pioClangdRestart()
   end)
