@@ -51,7 +51,10 @@ local function finalize_setup()
   -- local db_cmd = string.format('pio run -t compiledb -e %s', wizard_data.board_id)
   local db_cmd = string.format('pio run -t compiledb')
   local commands = { init_cmd, db_cmd }
-  local final_cb = pio.handlePioinitDb
+  -- local final_cb = pio.handlePioinitDb
+  local final_cb = function(status)
+    pio.handlePioinitDb(status, wizard_data.board_id)
+  end
 
   -- local commands = { init_cmd }
   -- local final_cb = pio.handlePioinit
