@@ -28,7 +28,7 @@ local _pio_metadata = {
   toolchain_root = '',
   sysroot = '',
   fallbackFlags = {},
-  originalPath = '',
+  originalPath = vim.env.PATH,
   last_projectChecksum = '', -- Used to track changes
 }
 -- 2. The Reactive Proxy Wrapper
@@ -109,7 +109,6 @@ function M.load_project_config()
   end
   -- If no file, initialize hash with defaults
   last_saved_hash = vim.fn.sha256(vim.misc.jsonFormat(_pio_metadata))
-  _G.metadata.originalPath = vim.env.PATH
 end
 
 --INFO:
