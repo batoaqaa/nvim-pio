@@ -565,14 +565,14 @@ function M.handlePioinitDb(result)
     vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
     M.queue = {}
     term.stdout_callback = nil
-    trm:close()
+    if trm then trm:close()end
     _G.metadata.isBusy = false
   elseif result == 'FAIL' then
     _G.metadata.isBusy = false
     vim.misc.closeMessage(win_id)
     M.queue = {}
     term.stdout_callback = nil
-    trm:close()
+    if trm then trm:close()end
   end
 end
 
@@ -595,7 +595,10 @@ function M.handlePioinit(result)
     -- boilerplate_gen([[.clangd]], vim.fs.joinpath(vim.env.XDG_CONFIG_HOME, 'clangd'), 'config.yaml')
 
     win_id = vim.misc.showMessage('************ Project Initializing ************')
-    if #M.queue > 0 then trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')end
+    if #M.queue > 0 then
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      _G.metadata.isBusy = true
+    end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
       vim.notify('PIO init:  pass ' .. commandPassed, vim.log.levels.INFO)
@@ -644,7 +647,10 @@ end
 -- stylua: ignore
 function M.handlePiolib(result)
   if result == 'INIT' then
-    if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float')end
+    if #M.queue > 0 then
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      _G.metadata.isBusy = true
+    end
   elseif result == 'DONE' then -- result of the only and the last command
     vim.notify('PIO lib:  pass ' .. commandPassed, vim.log.levels.INFO)
     vim.notify('PIO lib: Done', vim.log.levels.INFO)
@@ -664,7 +670,10 @@ end
 -- stylua: ignore
 function M.handlePiodb(target, result)
   if result == 'INIT' then
-    if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float')end
+    if #M.queue > 0 then
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      _G.metadata.isBusy = true
+    end
   elseif result == 'DONE' then -- result of the only and the last command
     vim.notify('PIO db:  pass ' .. commandPassed, vim.log.levels.INFO)
     vim.notify('PIO db: Done', vim.log.levels.INFO)
