@@ -22,7 +22,7 @@ local function fix_clangd_args()
   -- 1. Run clangd check and capture output
   local cmd = string.format('"%s" --check=%s --log=error', clangd_path, file_path)
   local output = vim.fn.systemlist(cmd)
-
+  print(vim.inspect(output))
   -- 2. Extract unknown arguments using regex
   local unknown_args = {}
   for _, line in ipairs(output) do
