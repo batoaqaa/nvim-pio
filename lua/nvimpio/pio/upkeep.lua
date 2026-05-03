@@ -12,8 +12,14 @@ M.queue = {}
 local term = require('nvimpio.utils.term')
 local clangdRestart = require('nvimpio.lspConfig.tools').pioClangdRestart
 
-local function filter_bad_args_with_clangd(args)
-  -- Create a dummy file for clangd to "check"
+local function filter_bad_args_with_clangd(args_table)
+  -- 1. Find where clangd is located (to ensure we use the LSP binary)
+  local clangd_bin = vim.fn.exepath('clangd')
+  if clangd_bin == '' then
+    return {}
+  end
+
+  -- 2. Create a dummy file for the check
   local temp_file = vim.fn.tempname() .. '.cpp'
   local f = io.open(temp_file, 'w')
   if f then
@@ -21,28 +27,31 @@ local function filter_bad_args_with_clangd(args)
     f:close()
   end
 
-  -- Build the check command
-  -- We use --log=error to keep output clean and --check to test the file
-  -- Arguments for the compiler are passed as if they were in a shell command
-  local flags = table.concat(args, ' ')
-  local cmd = string.format('clangd --check=%s --extra-arg=%s 2>&1', temp_file, flags)
+  -- 3. Build the command string
+  -- Every flag in your table becomes an '--extra-arg="flag"'
+  local cmd_args = ''
+  for _, flag in ipairs(args_table) do
+    cmd_args = cmd_args .. string.format(' --extra-arg="%s"', flag)
+  end
 
+  local cmd = string.format('%s --check=%s %s 2>&1', clangd_bin, temp_file, cmd_args)
+
+  -- 4. Run it and capture output
   local output = vim.fn.system(cmd):lower()
   local unknown = {}
 
-  -- Clean up the temp file
-  os.remove(temp_file)
-
-  for _, arg in ipairs(args) do
-    -- Clangd logs unknown arguments with a specific error code or text
-    if output:match("unknown argument: '" .. vim.pesc(arg) .. "'") or output:match("unused during compilation: '" .. vim.pesc(arg) .. "'") then
+  -- 5. Scan the output for errors related to your flags
+  for _, arg in ipairs(args_table) do
+    local escaped = vim.pesc(arg:lower())
+    if output:match("unknown argument: '" .. escaped .. "'") or output:match("unused during compilation: '" .. escaped .. "'") then
       table.insert(unknown, arg)
     end
   end
 
+  -- Cleanup
+  os.remove(temp_file)
   return unknown
 end
-
 
 -- INFO:
 -- =============================================================================
@@ -591,6 +600,7 @@ function M.handlePioinitDb(result, board)
           boilerplate_gen([[.clangd]], _G.metadata.core_dir)
           vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
           vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
+          filter_bad_args_with_clangd(_G.metadata.cxx_flags)
           commandPassed = commandPassed + 1
           if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
         end, 'PIO init+db: ')
