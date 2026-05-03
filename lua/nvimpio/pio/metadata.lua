@@ -105,7 +105,7 @@ _G.metadata = setmetatable({}, {
         remove_from_path(binPath)
         local end_time = vim.loop.hrtime()
         local duration = (end_time - start_time) / 1e6
-        vim.notify(string.format('compiledb: paths fixed in %.2fms', duration), vim.log.levels.INFO)
+        vim.notify(string.format('PIO env: ' .. binPath .. ' removed from path in %.2fms', duration), vim.log.levels.INFO)
 
         vim.env.PATH = binPath .. sep .. vim.env.PATH
         -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
