@@ -526,16 +526,21 @@ local win_id
 -- Handle after pioinit execution
 -- =============================================================================
 -- stylua: ignore
+-- Helper to avoid repeating cleanup code
+function M.cleanup_pio_session()
+  M.queue = {}
+  if win_id then vim.misc.closeMessage(win_id) end
+  -- term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
+  if trm then trm:close() end
+  _G.metadata.isBusy = false
+  commandPassed = 1 -- Reset for next time
+end
+-- stylua: ignore
 function M.handlePioinitDb(result, board)
+  local boilerplate = require('nvimpio.boilerplate')
+  local boilerplate_gen = boilerplate.boilerplate_gen
   if result == 'INIT' then
-    local boilerplate = require('nvimpio.boilerplate')
-    local boilerplate_gen = boilerplate.boilerplate_gen
-
-    boilerplate.core_dir = _G.metadata.core_dir
-    boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
-
     boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
-
     boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
     -- boilerplate_gen([[.clangd]], _G.metadata.core_dir)
     -- boilerplate_gen([[.clangd]], vim.fs.joinpath(vim.env.XDG_CONFIG_HOME, 'clangd'), 'config.yaml')
@@ -548,11 +553,14 @@ function M.handlePioinitDb(result, board)
   elseif result == 'PASS' then
     if commandPassed == 1 then
       local active_env = M.get_active__env('PIO init+db: ')
-      if(not active_env or (active_env and active_env == board))then
+      if not active_env or (active_env == board) then
         local pio_refresh = require('nvimpio.pio.watcher').pio_refresh
         pio_refresh(function()
-          local boilerplate_gen = require('nvimpio.boilerplate').boilerplate_gen
+
           boilerplate_gen([[.clangd]], _G.metadata.core_dir)
+          boilerplate.core_dir = _G.metadata.core_dir
+          boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
+
           vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
           -- vim.misc.closeMessage(win_id)
           -- clangdRestart()
@@ -562,12 +570,7 @@ function M.handlePioinitDb(result, board)
           if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
         end, 'PIO init+db: ')
       else
-        M.queue = {}
-        vim.misc.closeMessage(win_id)
-        term.stdout_callback = nil
-        if trm then trm:close()end
-        _G.metadata.isBusy = false
-        -- clangdRestart()
+        M.cleanup_pio_session()
       end
     -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
     end
@@ -584,17 +587,9 @@ function M.handlePioinitDb(result, board)
       --   -- term.ToggleTerminal('echo "************ project Initialization success ************"', 'float')
       -- end, 'PIO init+db: ')
     end)
-    M.queue = {}
-    vim.misc.closeMessage(win_id)
-    term.stdout_callback = nil
-    if trm then trm:close()end
-    _G.metadata.isBusy = false
+    M.cleanup_pio_session()
   elseif result == 'FAIL' then
-    _G.metadata.isBusy = false
-    vim.misc.closeMessage(win_id)
-    M.queue = {}
-    term.stdout_callback = nil
-    if trm then trm:close()end
+    M.cleanup_pio_session()
   end
 end
 
