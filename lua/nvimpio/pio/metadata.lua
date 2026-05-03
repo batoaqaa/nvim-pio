@@ -28,7 +28,7 @@ local _pio_metadata = {
   toolchain_root = '',
   sysroot = '',
   fallbackFlags = {},
-  dbTrigger = false,
+  originalPath = '',
   last_projectChecksum = '', -- Used to track changes
 }
 -- 2. The Reactive Proxy Wrapper
@@ -49,25 +49,9 @@ _G.metadata = setmetatable({}, {
       if key == 'toolchain_root' then
         local binPath = value .. '/bin'
         local sep = (vim.fn.has('win32') == 1 and ';' or ':')
-        vim.env.PATH = binPath .. sep .. vim.env.PATH
+        -- vim.env.PATH = binPath .. sep .. vim.env.PATH
+        vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
         vim.notify('PIO env: ' .. binPath .. ' added to path', vim.log.levels.INFO, { title = 'PlatformIO', render = 'compact' })
-        -- vim.notify('Env: ' .. value, vim.log.levels.INFO, { title = 'PlatformIO', render = 'compact' })
-        -- pcall(function()
-        --   if _pio_metadata.dbTrigger then
-        --     vim.notify('Env: dbTrigger', vim.log.levels.INFO, { title = 'PlatformIO', render = 'compact' })
-        --     local dbFix = pio.compile_commandsFix
-        --     local ok, _ = pcall(dbFix)
-        --     if not ok then
-        --       print('Env: dbTrigger, fail to call dbFix')
-        --     end
-        --     -- dbFix()
-        --     _pio_metadata.dbTrigger = false
-        --   else
-        --     local LspRestart = require('nvimpio.lspConfigConfig.tools').lsp_restart
-        --     LspRestart('clangd')
-        --     vim.notify('Env: LspRestart', vim.log.levels.INFO, { title = 'PlatformIO', render = 'compact' })
-        --   end
-        -- end)
       elseif key == 'last_projectChecksum' then
       elseif key == 'active_env' then
       end
@@ -125,6 +109,7 @@ function M.load_project_config()
   end
   -- If no file, initialize hash with defaults
   last_saved_hash = vim.fn.sha256(vim.misc.jsonFormat(_pio_metadata))
+  _G.metadata.originalPath = vim.env.PATH
 end
 
 --INFO:
