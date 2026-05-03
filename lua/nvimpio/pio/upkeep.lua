@@ -543,7 +543,6 @@ function M.handlePioinitDb(result, board)
     boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
     boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
     boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
-    -- boilerplate_gen([[.clangd]], _G.metadata.core_dir)
     -- boilerplate_gen([[.clangd]], vim.fs.joinpath(vim.env.XDG_CONFIG_HOME, 'clangd'), 'config.yaml')
 
     win_id = vim.misc.showMessage('************ Project Initializing ************')
@@ -554,17 +553,11 @@ function M.handlePioinitDb(result, board)
   elseif result == 'PASS' then
     if commandPassed == 1 then
       local active_env = M.get_active__env('PIO init+db: ')
-      print(active_env)
-      print(board)
       if not active_env or (active_env == board) then
         local pio_refresh = require('nvimpio.pio.watcher').pio_refresh
         pio_refresh(function()
           boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-
           vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
-          -- vim.misc.closeMessage(win_id)
-          -- clangdRestart()
-          -- term.ToggleTerminal('echo "************ project Initialization success ************"', 'float')
           vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
           commandPassed = commandPassed + 1
           if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
@@ -579,13 +572,7 @@ function M.handlePioinitDb(result, board)
       vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
       vim.notify('PIO init+db: Done', vim.log.levels.INFO)
       vim.misc.gitignore_lsp_configs('compile_commands.json')
-      -- local pio_refresh = require('nvimpio.pio.watcher').pio_refresh
-      -- pio_refresh(function()
-      --   local boilerplate_gen = require('nvimpio.boilerplate').boilerplate_gen
-      --   boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-        clangdRestart()
-      --   -- term.ToggleTerminal('echo "************ project Initialization success ************"', 'float')
-      -- end, 'PIO init+db: ')
+      clangdRestart()
     end)
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
