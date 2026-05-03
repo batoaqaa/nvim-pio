@@ -461,28 +461,30 @@ local pio_buffer = '' -- Persistent stream buffer
 -- stylua: ignore
 -- =============================================================================
 function M.stdoutcallback(_, _, data)
-  if not data then return end
+  if not data or #data == 0 then return end
 
-  -- 1. Combine the last partial line with the new first line
-  local lines_to_process = pio_buffer .. data[1]
+  -- 1. Correctly handle Neovim's data chunks
+  -- data[1] is the continuation of the previous chunk
+  -- data[#data] is a partial line (no newline yet)
 
-  -- 2. If there are newlines, we have complete lines to check
   if #data > 1 then
-    -- Join all complete parts (everything except the very last partial line)
-    for i = 2, #data - 1 do lines_to_process = lines_to_process .. data[i] end
+    -- Join the buffer with the first element and all middle elements
+    --(everything except the last partial line)
+    local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
+    pio_buffer = data[#data] -- Save the new partial line
 
-    -- save the trailing part for the next chunk
-    pio_buffer = data[#data]
+    -- 2. Search for the status in the complete chunk
+    --change the pattern to: content:match('_CMMNDS_:([^%s]+)')
+    --this will grab everything until the next space or newline.
+    local status = content:match('_CMMNDS_:(%a+)') -- pattern %a+ only matches letters (A-Z)
 
-    -- 3. Search for the status in the complete chunk
-    local status = lines_to_process:match('_CMMNDS_:(%a+)')
     if status and callBack then vim.schedule(function() callBack(status) end) end
   else
-    -- Only one element in data means no newline yet; just update the partial buffer
-    pio_buffer = lines_to_process
+    -- Only one element (no newline yet;) means the line isn't finished yet
+    pio_buffer = pio_buffer .. data[1]
   end
 
-  -- 4. Safety Trim (Prevents memory leaks if no newline ever comes)
+  -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
   if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
 end
 
@@ -511,6 +513,7 @@ M.run_sequence = function(tasks)
   callBack = tasks.cb -- 1. Save the callback in a local variable
 
   commandPassed = 1
+  pio_buffer = ''
 
   _G.metadata.isBusy = false
   term.stdout_callback = M.stdoutcallback
@@ -523,7 +526,7 @@ local win_id
 -- Handle after pioinit execution
 -- =============================================================================
 -- stylua: ignore
-function M.handlePioinitDb(result)
+function M.handlePioinitDb(result, board)
   if result == 'INIT' then
     local boilerplate = require('nvimpio.boilerplate')
     local boilerplate_gen = boilerplate.boilerplate_gen
@@ -543,28 +546,46 @@ function M.handlePioinitDb(result)
       _G.metadata.isBusy = true
     end
   elseif result == 'PASS' then
-    -- if commandPassed == 1 then
+    if commandPassed == 1 then
+      local active_env = M.get_active__env('PIO init+db: ')
+      if(not active_env or (active_env and active_env == board))then
+        local pio_refresh = require('nvimpio.pio.watcher').pio_refresh
+        pio_refresh(function()
+          local boilerplate_gen = require('nvimpio.boilerplate').boilerplate_gen
+          boilerplate_gen([[.clangd]], _G.metadata.core_dir)
+          vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
+          -- vim.misc.closeMessage(win_id)
+          -- clangdRestart()
+          -- term.ToggleTerminal('echo "************ project Initialization success ************"', 'float')
+          vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
+          commandPassed = commandPassed + 1
+          if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
+        end, 'PIO init+db: ')
+      else
+        M.queue = {}
+        vim.misc.closeMessage(win_id)
+        term.stdout_callback = nil
+        if trm then trm:close()end
+        _G.metadata.isBusy = false
+        -- clangdRestart()
+      end
     -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
-    -- end
-    vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
-    commandPassed = commandPassed + 1
-    if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
+    end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
       vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
       vim.notify('PIO init+db: Done', vim.log.levels.INFO)
       vim.misc.gitignore_lsp_configs('compile_commands.json')
-      local pio_refresh = require('nvimpio.pio.watcher').pio_refresh
-      pio_refresh(function()
-        local boilerplate_gen = require('nvimpio.boilerplate').boilerplate_gen
-        boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-        vim.misc.closeMessage(win_id)
+      -- local pio_refresh = require('nvimpio.pio.watcher').pio_refresh
+      -- pio_refresh(function()
+      --   local boilerplate_gen = require('nvimpio.boilerplate').boilerplate_gen
+      --   boilerplate_gen([[.clangd]], _G.metadata.core_dir)
         clangdRestart()
-        -- term.ToggleTerminal('echo "************ project Initialization success ************"', 'float')
-      end, 'PIO init+db: ')
+      --   -- term.ToggleTerminal('echo "************ project Initialization success ************"', 'float')
+      -- end, 'PIO init+db: ')
     end)
-    vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
     M.queue = {}
+    vim.misc.closeMessage(win_id)
     term.stdout_callback = nil
     if trm then trm:close()end
     _G.metadata.isBusy = false

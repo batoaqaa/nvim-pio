@@ -156,7 +156,7 @@ local function watch_file(target, callback)
                 debounce_timer:start(1000, 0, vim.schedule_wrap(attempt_callback))
                 return
               end
-              vim.notify('PIO: Sync timed out (busy)', vim.log.levels.ERROR)
+              vim.notify('PIO Watcher: Sync timed out (busy)', vim.log.levels.ERROR)
               return
             end
 
@@ -175,7 +175,7 @@ local function watch_file(target, callback)
 
     if not ok then
       vim.schedule(function()
-        vim.notify('PIO Watcher Error: ' .. tostring(result), vim.log.levels.ERROR)
+        vim.notify('PIO Watcher: Error; ' .. tostring(result), vim.log.levels.ERROR)
       end)
     end
   end)
@@ -206,22 +206,22 @@ function M.start_watchers()
         local new_hash = get_hash(self.path) or ''
         if new_hash and new_hash ~= self.last_hash then
           self.last_hash = new_hash
-          local env = vim.pio.get_active__env()
+          local env = vim.pio.get_active__env('PIO platformio.ini change: ')
           if not env then return end
           self.isBusy = true
           vim.notify('PIO platformio.ini change: compiledb update ...', vim.log.levels.INFO, { title = 'PlatformIO' })
           vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
             vim.schedule(function()
               if obj.code == 0 then
-                vim.schedule(function ()
+                -- vim.schedule(function ()
                   M.pio_refresh(function()
                     vim.notify('PIO platformio.ini change: compiledb update Success', vim.log.levels.INFO, { title = 'PlatformIO' })
                     clangdRestart()
                   end, 'PIO platformio.ini  change: ')
-                end)
+                -- end)
               else
                 local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
-                vim.notify('PIO Build Failed: ' .. err, vim.log.levels.ERROR, { title = 'PlatformIO' })
+                vim.notify('PIO platformio.ini change: Build Failed: ' .. err, vim.log.levels.ERROR, { title = 'PlatformIO' })
               end
               self.isBusy = false
             end)
