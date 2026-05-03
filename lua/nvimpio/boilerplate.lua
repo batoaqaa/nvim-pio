@@ -183,6 +183,8 @@ CompileFlags:
     - "-Wno-unknown-warning-option"
     - "-Wno-unused-includes"
   Remove: 
+    - "-mlongcalls"
+    - "-mdisable-hardware-atomics"
     - "-Wunknown-warning-option"
     - "-fno-tree-switch-conversion"
     - "-fno-fat-lto-objects"
