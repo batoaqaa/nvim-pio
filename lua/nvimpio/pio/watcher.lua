@@ -25,11 +25,16 @@ function M.pio_refresh(callback, from)
   local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
   vim.notify(msg ..'Config sync ...', vim.log.levels.INFO)
 
-  local function on_done(active_env)
-    if active_env then vim.notify(msg .. 'active_env= ' .. active_env, vim.log.levels.INFO) end
-    if active_env then vim.pio.fetch_metadata(callback, active_env, from, 1) end
+  -- local function on_done(active_env)
+  --   if active_env then vim.notify(msg .. 'active_env= ' .. active_env, vim.log.levels.INFO) end
+  --   if active_env then vim.pio.fetch_metadata(callback, active_env, from, 1) end
+  -- end
+  -- vim.pio.fetch_config(on_done, from)
+  local active_env = vim.pio.get_active__env(from)
+  if active_env then
+    vim.notify(msg .. 'active_env= ' .. active_env, vim.log.levels.INFO)
+    vim.pio.fetch_metadata(callback, active_env, from, 1)
   end
-  vim.pio.fetch_config(on_done, from)
 end
 
 --INFO:

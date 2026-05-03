@@ -66,7 +66,8 @@ end
 -- Fast environment detection from platformio.ini file(no external calls)
 -- stylua: ignore
 --=============================================================================
-function M.get_active__env()
+function M.get_active__env(from)
+  local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
   local path
 
   for _, dir in ipairs({ vim.api.nvim_buf_get_name(0):match('(.*[/\\])'), (vim.uv.cwd() .. '/') }) do
@@ -77,11 +78,11 @@ function M.get_active__env()
       break
     end
   end
-  if not path or path == '' then return vim.notify('PIO: platformio.ini not found or no [env] defined.', vim.log.levels.ERROR) end
+  if not path or path == '' then return vim.notify(msg .. 'platformio.ini not found or no [env] defined.', vim.log.levels.ERROR) end
 
   -- Read file content (returns string or nil)
   local ok, content = vim.misc.readFile(path)
-  if not ok or not content then return vim.notify('PIO: platformio.ini not found in ' .. path, vim.log.levels.WARN) end
+  if not ok or not content then return vim.notify(msg .. 'platformio.ini not found in ' .. path, vim.log.levels.WARN) end
 
   local default_envs_raw = ''
   local first_env = nil
@@ -108,7 +109,7 @@ function M.get_active__env()
     end
   end
 
-  -- Validation: Find the first default_env that actually exists as a block
+  -- Validation: Find the first default_env that actually exists as a block [env:]
   if default_envs_raw ~= '' then
     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
       if valid_envs[env_name] then return env_name end
@@ -293,9 +294,9 @@ function M.fetch_config(on_done, from)
         return vim.notify(msg .. 'Failed to decode config JSON', vim.log.levels.ERROR)
       end
 
-      -- local formated = vim.misc.jsonFormat(decoded)
-      -- local file = vim.misc.joinPath(vim.uv.cwd(), 'config.json')
-      -- vim.misc.writeFile(file, formated, {})
+      local formated = vim.misc.jsonFormat(decoded)
+      local file = vim.misc.joinPath(vim.uv.cwd(), 'config.json')
+      vim.misc.writeFile(file, formated, {})
 
       -- Reset core structure
       meta.envs = {}
