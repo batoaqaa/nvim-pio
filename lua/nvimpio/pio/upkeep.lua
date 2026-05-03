@@ -10,7 +10,7 @@ M.is_processing = false
 M.queue = {}
 
 local term = require('nvimpio.utils.term')
-local clangdRestart = require('nvimpio.lspConfig.tools').clangdRestart
+local clangdRestart = require('nvimpio.lspConfig.tools').pioClangdRestart
 
 -- INFO:
 -- =============================================================================

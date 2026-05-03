@@ -1,6 +1,6 @@
 M = {}
 
-local clangdRestart = require('nvimpio.lspConfig.tools').clangdRestart
+local clangdRestart = require('nvimpio.lspConfig.tools').pioClangdRestart
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 

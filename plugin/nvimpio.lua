@@ -51,31 +51,18 @@ vim.api.nvim_create_user_command('PioFixPaths', function()
   vim.pio.compile_commandsFix()
 end, {})
 
--- -- Pioinit2
--- local pio_wiz = require('nvimpio.pioinit2')
---
--- -- Create a keybinding to trigger the wizard
--- vim.keymap.set('n', '<leader>pi', function()
---   pio_wiz.launch()
--- end, { desc = 'Run PIO Project Wizard' })
---
--- -- Alternatively, create a user command
--- vim.api.nvim_create_user_command('PioWizard', function()
---   pio_wiz.launch()
--- end, {})
---
 ------------------------------------------------------
 local piolsserial = require('nvimpio.piolsserial')
 
 -- Pioinit
-vim.api.nvim_create_user_command('Pioinit', function()
-  require('nvimpio.pioinit').pioinit()
+vim.api.nvim_create_user_command('PioInit', function()
+  require('nvimpio.pioInit').pioInit()
 end, { force = true })
 
 -- Piolsp
-vim.api.nvim_create_user_command('PioLSP', function()
+vim.api.nvim_create_user_command('PioClangdRestart', function()
   vim.schedule(function()
-    require('nvimpio.pioCommands').piolsp()
+    require('nvimpio.pioCommands').pioClangdRestart()
   end)
 end, {})
 

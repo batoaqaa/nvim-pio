@@ -7,8 +7,8 @@ local misc = vim.misc
 -- stylua: ignore
 --INFO: PioLSP
 ------------------------------------------------------
-function M.piolsp()
-  require('nvimpio.lspConfig.tools').clangdRestart()
+function M.pioClangdRestart()
+  require('nvimpio.lspConfig.tools').pioClangdRestart()
 end
 
 -- stylua: ignore

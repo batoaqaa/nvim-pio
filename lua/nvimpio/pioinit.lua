@@ -155,5 +155,5 @@ local function launch_project_init()
 end
 
 return {
-  pioinit = launch_project_init,
+  pioInit = launch_project_init,
 }

@@ -12,7 +12,9 @@ M.config = {
   debug = false,
 
   menu_bindings = {
+    { node = 'item', desc = '[I]nitiate project', shortcut = 's', command = 'PioInit' },
     { node = 'item', desc = '[L]ist terminals', shortcut = 'l', command = 'PioTermList' },
+    { node = 'item', desc = 're[S]art clangd', shortcut = 's', command = 'PioClangdRestart' },
     { node = 'item', desc = '[T]erminal Core CLI', shortcut = 't', command = 'Piocmdf' },
     {
       node = 'menu',
