@@ -167,6 +167,8 @@ boilerplate['.clangd_config'] = {
 --   External:
 --     File: .clangd_index
 
+-- - "-mlongcalls"
+-- - "-mdisable-hardware-atomics"
 -- INFO: .clangd
 -- boilerplate['.clangd']
 boilerplate['.clangd'] = {
@@ -183,8 +185,6 @@ CompileFlags:
     - "-Wno-unknown-warning-option"
     - "-Wno-unused-includes"
   Remove: 
-    - "-mlongcalls"
-    - "-mdisable-hardware-atomics"
     - "-Wunknown-warning-option"
     - "-fno-tree-switch-conversion"
     - "-fno-fat-lto-objects"
@@ -198,6 +198,7 @@ CompileFlags:
     - "-fipa-pta.*"
 Diagnostics:
   Suppress: 
+    - "drv_unknown_argument"
     - "pp_file_not_found"
     - "pp_file_not_found_angled_not_fatal"
     - "pp_included_file_not_found"
