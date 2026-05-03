@@ -38,11 +38,11 @@ local function filter_bad_args_with_clangd(args_table)
     cmd_args = cmd_args .. string.format(' --extra-arg="%s"', flag)
   end
 
-  print(cmd_args)
   local cmd = string.format('%s --check=%s %s 2>&1', clangd_bin, temp_file, cmd_args)
 
   -- 4. Run it and capture output
   local output = vim.fn.system(cmd):lower()
+  print(output)
   local unknown = {}
 
   -- 5. Scan the output for errors related to your flags
