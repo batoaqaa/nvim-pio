@@ -12,6 +12,38 @@ M.queue = {}
 local term = require('nvimpio.utils.term')
 local clangdRestart = require('nvimpio.lspConfig.tools').pioClangdRestart
 
+local function filter_bad_args_with_clangd(args)
+  -- Create a dummy file for clangd to "check"
+  local temp_file = vim.fn.tempname() .. '.cpp'
+  local f = io.open(temp_file, 'w')
+  if f then
+    f:write('int main() {}')
+    f:close()
+  end
+
+  -- Build the check command
+  -- We use --log=error to keep output clean and --check to test the file
+  -- Arguments for the compiler are passed as if they were in a shell command
+  local flags = table.concat(args, ' ')
+  local cmd = string.format('clangd --check=%s --extra-arg=%s 2>&1', temp_file, flags)
+
+  local output = vim.fn.system(cmd):lower()
+  local unknown = {}
+
+  -- Clean up the temp file
+  os.remove(temp_file)
+
+  for _, arg in ipairs(args) do
+    -- Clangd logs unknown arguments with a specific error code or text
+    if output:match("unknown argument: '" .. vim.pesc(arg) .. "'") or output:match("unused during compilation: '" .. vim.pesc(arg) .. "'") then
+      table.insert(unknown, arg)
+    end
+  end
+
+  return unknown
+end
+
+
 -- INFO:
 -- =============================================================================
 -- UNIVERSAL TOOLCHAIN DETECTION
@@ -214,9 +246,9 @@ function M.fetch_metadata(callback, env, from, attempts)
     if idok and (type(content) == 'string' and content ~= '') then
       local cok, decoded = pcall(vim.json.decode, content)
 
-      -- local formated = vim.misc.jsonFormat(decoded)
-      -- local file = vim.misc.joinPath(vim.uv.cwd(), 'idedata.json')
-      -- vim.misc.writeFile(file, formated, {})
+      local formated = vim.misc.jsonFormat(decoded)
+      local file = vim.misc.joinPath(vim.uv.cwd(), 'idedata.json')
+      vim.misc.writeFile(file, formated, {})
 
       if cok and apply_metadata(decoded, current_checksum) then
         local metadata = require('nvimpio.pio.metadata')
