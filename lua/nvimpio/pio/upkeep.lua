@@ -595,7 +595,13 @@ function M.handlePioinitDb(result, board)
           boilerplate_gen([[.clangd]], _G.metadata.core_dir)
           vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
           vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
-          filter_bad_args_with_clangd(_G.metadata.cxx_flags)
+          local flags = filter_bad_args_with_clangd(_G.metadata.cxx_flags)
+
+          local include_flags = table.concat(vim.tbl_map(function(item)
+            return '"' .. item .. '"'
+          end, flags), ", ")
+          print(include_flags)
+
           commandPassed = commandPassed + 1
           if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
         end, 'PIO init+db: ')
