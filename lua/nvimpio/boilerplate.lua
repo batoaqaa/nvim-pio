@@ -1,6 +1,7 @@
 M = {}
 
 M.core_dir = ''
+M.args = {}
 
 local boilerplate = {}
 
@@ -174,7 +175,8 @@ boilerplate['.clangd_config'] = {
 boilerplate['.clangd'] = {
   rewrite = false,
   read = false,
-  content = [[
+  -- content = [[
+  template = [[
 ---
 CompileFlags:
   Remove: [
@@ -211,6 +213,14 @@ Diagnostics:
   ClangTidy:
     Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
 ]],
+  content = function(self)
+    local formatted_args = table.concat(M.args, ',\n    ')
+    -- Add a trailing comma ONLY if we actually found args to prevent syntax errors
+    if #M.args > 0 then
+      formatted_args = formatted_args .. ','
+    end
+    return string.format(self.template, formatted_args)
+  end,
   -- template = [[
   --   content = [[
   -- ---

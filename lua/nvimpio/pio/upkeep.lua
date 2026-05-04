@@ -39,16 +39,15 @@ local function get_clangd_unknown_args()
 
   -- 3. Execute and parse
   local output = vim.fn.system(cmd)
-  local results = {}
-
+  local args_table = {}
   for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
-    table.insert(results, arg)
+    table.insert(args_table, string.format('%q', arg))
   end
 
   print('Checked: ' .. first_file)
-  print('Unknown args: ' .. table.concat(results, ', '))
+  print('Unknown args: ' .. table.concat(args_table, ', '))
 
-  return results
+  return args_table
 end
 
 vim.api.nvim_create_user_command('ClangdCheckArgs', get_clangd_unknown_args, {})
@@ -664,7 +663,6 @@ function M.handlePioinitDb(result, board)
     boilerplate.core_dir = _G.metadata.core_dir
     boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
     boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
-    boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
     -- boilerplate_gen([[.clangd]], vim.fs.joinpath(vim.env.XDG_CONFIG_HOME, 'clangd'), 'config.yaml')
 
     win_id = vim.misc.showMessage('************ Project Initializing ************')
@@ -678,7 +676,6 @@ function M.handlePioinitDb(result, board)
       if not active_env or (active_env == board) then
         local pio_refresh = require('nvimpio.pio.watcher').pio_refresh
         pio_refresh(function()
-          boilerplate_gen([[.clangd]], _G.metadata.core_dir)
           vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
           vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
           -- local flags = filter_bad_args_with_clangd(_G.metadata.cxx_flags)
@@ -688,6 +685,9 @@ function M.handlePioinitDb(result, board)
           -- end, flags), ", ")
           -- print(include_flags)
           -- fix_clangd_args()
+          boilerplate.args = get_clangd_unknown_args()
+          boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
+          boilerplate_gen([[.clangd]], _G.metadata.core_dir)
           commandPassed = commandPassed + 1
           if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
         end, 'PIO init+db: ')
