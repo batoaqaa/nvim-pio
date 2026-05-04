@@ -100,7 +100,7 @@ vim.lsp.config('*', {
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
----stylua: ignore
+--stylua: ignore
 function _G.get_clangd_config()
   local new_root_dir = vim.uv.cwd() or '.'
   if not new_root_dir then
@@ -108,7 +108,7 @@ function _G.get_clangd_config()
   end
 
   -- 1. Safe defaults (Standard clangd behavior)
-  local q_driver, formatted_str = '**', ''
+  local q_driver, merged_json = '**', ''
   -- local f_flags = [["-std=c++17", "-xc++"]]
 
   -- 2. Run your toolchain detection
@@ -133,30 +133,33 @@ function _G.get_clangd_config()
   end
 
   -- 3. Format your template string
-  local table_config = boilerplate_gen([[.clangd_config]], vim.g.platformioRootDir)
-  if not table_config then
+  local json_config = boilerplate_gen([[.clangd_config.json]], vim.g.platformioRootDir)
+  if not json_config then
     return nil
   end
 
+  local _, count = json_config:gsub('%%s', '')
+  if count <= 1 then merged_json = string.format(json_config or '', q_driver) end
+
+  -- 'decode' converts JSON string -> Lua table
+  local tok, clangd_config = pcall(vim.json.decode, merged_json)
+
+  if not tok then return nil end
   -- Only use string.format if there is one or less %s
-  local _, count = table_config:gsub('%%s', '')
-  if count <= 1 then
-    formatted_str = string.format(table_config or '', q_driver)
-  end
   -- local formatted_str = string.format(table_config or '', q_driver, f_flags, vim.misc.normalizePath(new_root_dir))
   -- local formatted_str = string.format(table_config or '', q_driver, '', vim.misc.normalizePath(new_root_dir))
   -- local formatted_str = string.format(table_config or '', q_driver, '', vim.g.platformioRootDir)
 
   -- 4. Load the config table
-  local cok, clangd_config = pcall(function()
-    return load('return ' .. formatted_str)() -- load table from string
-  end)
+  -- local cok, clangd_config = pcall(function()
+  --   return load('return ' .. formatted_str)() -- load table from string
+  -- end)
 
-  local formated = vim.misc.jsonFormat(clangd_config)
-  local file = vim.misc.joinPath(vim.uv.cwd(), 'clangd_config.json')
-  vim.misc.writeFile(file, formated, {})
+  -- local formated = vim.misc.jsonFormat(clangd_config)
+  -- local file = vim.misc.joinPath(vim.uv.cwd(), '.clangd_config.json')
+  -- vim.misc.writeFile(file, formated, {})
 
-  if cok and clangd_config then
+  if clangd_config then
     -- print(vim.inspect(clangd_config))
     return clangd_config
   end

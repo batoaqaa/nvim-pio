@@ -64,12 +64,12 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
 -- =============================================================================
 -- Note: %q is used for paths to handle escaping and spaces automatically.
 -- INFO: .clangd_config
-boilerplate['.clangd_config'] = {
+boilerplate['.clangd_config.json'] = {
   rewrite = false,
   read = true,
   content = [[
 {
-  cmd = {
+  "cmd": [
     "clangd",
     "--all-scopes-completion",
     "--background-index",
@@ -87,28 +87,37 @@ boilerplate['.clangd_config'] = {
     "--sync",
     "--offset-encoding=utf-16",
     "--query-driver=%s"
+  ],
+  "filetypes": [
+    "c",
+    "cpp",
+    "objc",
+    "objcpp",
+    "cuda",
+    "proto"
+  ],
+  "init_options": {
+    "clangdFileStatus": true,
+    "compilationDatabasePath": ".",
+    "completeUnimported": true,
+    "fallbackFlags": [
+
+    ],
+    "usePlaceholders": true
   },
-  filetypes = { 'c', 'cpp', 'objc', 'objcpp', 'cuda', 'proto' },
-  root_markers = {
-    'platformio.ini',
-    'CMakeLists.txt',
-    '.clangd',
-    '.clang-tidy',
-    '.clang-format',
-    'compile_commands.json',
-    'compile_flags.txt',
-    'configure.ac',
-    '.git',
-  },
-  workspace_required = true,
-  single_file_support = true,
-  init_options = {
-    usePlaceholders = true,
-    completeUnimported = true,
-    fallbackFlags = {},
-    clangdFileStatus = true,
-    compilationDatabasePath = '.',
-  }
+  "root_markers": [
+    "platformio.ini",
+    "CMakeLists.txt",
+    ".clangd",
+    ".clang-tidy",
+    ".clang-format",
+    "compile_commands.json",
+    "compile_flags.txt",
+    "configure.ac",
+    ".git"
+  ],
+  "single_file_support": true,
+  "workspace_required": true
 }
 ]],
 }
