@@ -183,7 +183,7 @@ CompileFlags:
     %s
     "-Wunknown-warning-option",
     "-fno-tree-switch-conversion",
-    "-fno-fat-lto-objects"
+    "-fno-fat-lto-objects",
     "-fno-canonical-system-headers",
     "-mtext-section-literals",
     "-mlong-calls",
