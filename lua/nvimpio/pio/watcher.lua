@@ -215,12 +215,9 @@ function M.start_watchers()
               if obj.code == 0 then
                 -- vim.schedule(function ()
                   M.pio_refresh(function()
-                    boilerplate.args = vim.upkeep.get_clangd_unknown_args()
-                    boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
-                    boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-
+                    vim.upkeep.get_clangd_unknown_args()
                     vim.notify('PIO platformio.ini change: compiledb update Success', vim.log.levels.INFO, { title = 'PlatformIO' })
-                    clangdRestart()
+                    -- clangdRestart()
                   end, 'PIO platformio.ini  change: ')
                 -- end)
               else

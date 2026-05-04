@@ -4,6 +4,8 @@ local M = {}
 -- to fix require loop, this value is set in plugin/platformio
 local misc = vim.misc
 
+local boilerplate = require('nvimpio.boilerplate')
+local boilerplate_gen = boilerplate.boilerplate_gen
 -- local sep = package.config:sub(1, 1) -- Dynamic OS separator (\ or /)
 M.selected_framework = ''
 M.is_processing = false
@@ -13,10 +15,9 @@ local term = require('nvimpio.utils.term')
 local clangdRestart = require('nvimpio.lspConfig.tools').clangdRestart
 
 -- INFO:
---
+-- stylua: ignore
 -- Example: Call it with a keymap or command
 function M.get_clangd_unknown_args()
-  -- 1. Find the first file in ./src
   local src_path = vim.fn.getcwd() .. '/src'
   local files = vim.fn.readdir(src_path)
   local first_file = ''
@@ -29,25 +30,28 @@ function M.get_clangd_unknown_args()
     end
   end
 
-  if first_file == '' then
-    print('No source files found in ./src')
-    return {}
-  end
+  if first_file == '' then return {} end
 
-  -- 2. Build the command dynamically
-  local cmd = string.format('clangd --compile-commands-dir ./ --check=%s --log=error', first_file)
+  local cmd = {"clangd", "--compile-commands-dir", "./", "--check=" .. first_file, "--log=error"}
+  vim.system(cmd, { text = true }, function(obj)
+    local output = (obj.stdout or '') .. (obj.stderr or '')
+    -- Everything inside this function happens "later"
+    if obj.code ~= 0 then
+      local errmsg = obj.code == 127 and "'pio' not found" or (obj.stderr or 'Unknown Error')
+      return vim.notify('Config Error: ' .. errmsg, vim.log.levels.ERROR)
+    end
+    local args_table = {}
 
-  -- 3. Execute and parse
-  local output = vim.fn.system(cmd)
-  local args_table = {}
-  for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
-    table.insert(args_table, string.format('%q', arg))
-  end
+    for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
+      table.insert(args_table, string.format('%q', arg))
+      -- table.insert(args_table, string.format('"%s"', arg))
+    end
 
-  -- print('Checked: ' .. first_file)
-  -- print('Unknown args: ' .. table.concat(args_table, ', '))
-
-  return args_table
+    boilerplate.args = args_table
+    boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
+    boilerplate_gen([[.clangd]], _G.metadata.core_dir)
+    clangdRestart()
+  end)
 end
 
 vim.api.nvim_create_user_command('ClangdCheckArgs', M.get_clangd_unknown_args, {})
@@ -659,8 +663,6 @@ end
 
 -- stylua: ignore
 function M.handlePioinitDb(result, board)
-  local boilerplate = require('nvimpio.boilerplate')
-  local boilerplate_gen = boilerplate.boilerplate_gen
   if result == 'INIT' then
     boilerplate.core_dir = _G.metadata.core_dir
     boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
@@ -700,11 +702,8 @@ function M.handlePioinitDb(result, board)
       vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
       vim.notify('PIO init+db: Done', vim.log.levels.INFO)
       vim.misc.gitignore_lsp_configs('compile_commands.json')
-
-      boilerplate.args = M.get_clangd_unknown_args()
-      boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
-      boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-      clangdRestart()
+      M.get_clangd_unknown_args()
+      -- clangdRestart()
     end)
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
@@ -718,8 +717,6 @@ end
 -- stylua: ignore
 function M.handlePioinit(result)
   if result == 'INIT' then
-    local boilerplate = require('nvimpio.boilerplate')
-    local boilerplate_gen = boilerplate.boilerplate_gen
 
     boilerplate.core_dir = _G.metadata.core_dir
     boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
