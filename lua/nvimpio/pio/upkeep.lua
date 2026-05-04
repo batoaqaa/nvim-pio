@@ -74,8 +74,8 @@ function M.get_clangd_unknown_args()
   end
 
   -- Get the ABSOLUTE path to your current directory
-  local project_root = vim.fn.getcwd()
-  local abs_first_file = project_root .. '/src/' .. first_file:gsub('^./src/', '')
+  local project_root = vim.uv.cwd()
+  local abs_first_file = vim.fn.fnamemodify(first_file, ':p')
 
   -- Run clangd in a "clean" environment (the system temp folder)
   local cmd = {
@@ -84,9 +84,8 @@ function M.get_clangd_unknown_args()
     '--check=' .. abs_first_file,
     '--log=error',
   }
-
   -- local cmd = { 'clangd', '--compile-commands-dir', './', '--check=' .. first_file, '--log=error' }
-  vim.system(cmd, { text = true, cwd = vim.fn.tempname() }, function(obj)
+  vim.system(cmd, { text = true, cwd = '..' }, function(obj)
     -- Everything inside this function happens "later"
     if obj.code == 127 then
       vim.schedule(function()
