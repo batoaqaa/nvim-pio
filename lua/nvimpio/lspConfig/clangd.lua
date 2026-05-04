@@ -108,7 +108,8 @@ function _G.get_clangd_config()
   end
 
   -- 1. Safe defaults (Standard clangd behavior)
-  local f_flags, q_driver, formatted_str = [["-std=c++17", "-xc++"]], '**', ''
+  local q_driver, formatted_str = '**', ''
+  -- local f_flags = [["-std=c++17", "-xc++"]]
 
   -- 2. Run your toolchain detection
   if _G.metadata and _G.metadata.cc_compiler and _G.metadata.cc_compiler ~= '' then
@@ -121,7 +122,7 @@ function _G.get_clangd_config()
       --   return '"' .. item .. '"'
       -- end, _G.metadata.includes_toolchain), ", ")
 
-      f_flags = ''
+      -- f_flags = ''
       -- f_flags = string.format([["-std=gnu++17", "-xc++", "-D__cplusplus=201703L", "--target=%s", "--sysroot=%s", %s, %s]], _G.metadata.triplet, _G.metadata.sysroot, includes_toolchain, include_flags)
       -- f_flags = string.format('"--sysroot=%s"', _G.metadata.sysroot)
       -- f_flags = string.format([["--sysroot=%s", %s]], _G.metadata.sysroot, include_flags)
@@ -156,7 +157,7 @@ function _G.get_clangd_config()
   vim.misc.writeFile(file, formated, {})
 
   if cok and clangd_config then
-    print(vim.inspect(clangd_config))
+    -- print(vim.inspect(clangd_config))
     return clangd_config
   end
 end
