@@ -213,9 +213,11 @@ Diagnostics:
     Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
 ]],
   content = function(self)
-    local formatted_args = table.concat(M.args, ',\n    ')
+    -- This line is the magic fix: if M.args is nil, it uses {}
+    local args = M.args or {}
+    local formatted_args = table.concat(args, ',\n    ')
     -- Add a trailing comma ONLY if we actually found args to prevent syntax errors
-    if #M.args > 0 then
+    if #args > 0 then
       formatted_args = formatted_args .. ',\n    '
     end
     return string.format(self.template, formatted_args)
