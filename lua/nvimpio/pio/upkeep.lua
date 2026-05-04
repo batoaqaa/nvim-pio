@@ -19,7 +19,12 @@ local clangdRestart = require('nvimpio.lspConfig.tools').clangdRestart
 -- Example: Call it with a keymap or command
 function M.get_clangd_unknown_args()
   local src_path = vim.fn.getcwd() .. '/src'
-  local files = vim.fn.readdir(src_path)
+  local ok, files = pcall(vim.fn.readdir, src_path)
+  if not ok then
+    vim.notify("src directory not found", vim.log.levels.WARN)
+    return
+  end
+
   local first_file = ''
 
   for _, file in ipairs(files) do
@@ -30,26 +35,32 @@ function M.get_clangd_unknown_args()
     end
   end
 
-  if first_file == '' then return {} end
+  if first_file == '' then
+    vim.notify("No .cpp or .c files found in src/", vim.log.levels.WARN)
+    return
+  end
 
   local cmd = {"clangd", "--compile-commands-dir", "./", "--check=" .. first_file, "--log=error"}
   vim.system(cmd, { text = true }, function(obj)
-    local output = (obj.stdout or '') .. (obj.stderr or '')
     -- Everything inside this function happens "later"
     if obj.code ~= 0 then
-      local errmsg = obj.code == 127 and "'pio' not found" or (obj.stderr or 'Unknown Error')
-      return vim.notify('Config Error: ' .. errmsg, vim.log.levels.ERROR)
+      local errmsg = obj.code == 127 and "'clang' not found" or (obj.stderr or 'Unknown Error')
+      vim.schedule(function()
+        vim.notify('Clangd Check Error: ' .. errmsg, vim.log.levels.ERROR)
+      end)
+      return
     end
+
+    local output = (obj.stdout or '') .. (obj.stderr or '')
     local args_table = {}
 
     for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
       table.insert(args_table, string.format('%q', arg))
-      -- table.insert(args_table, string.format('"%s"', arg))
     end
 
     boilerplate.args = args_table
-    print(string.format("Updated .clangd (%d new args)", #args_table))
     vim.schedule(function()
+      print(string.format("Updated .clangd with %d new args", #args_table))
       boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
       boilerplate_gen([[.clangd]], _G.metadata.core_dir)
       clangdRestart()
