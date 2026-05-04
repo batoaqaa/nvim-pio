@@ -760,6 +760,7 @@ function M.handlePioinitDb(result, board)
     end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
+      boilerplate.core_dir = _G.metadata.core_dir
       vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
       vim.notify('PIO init+db: Done', vim.log.levels.INFO)
       vim.misc.gitignore_lsp_configs('compile_commands.json')
