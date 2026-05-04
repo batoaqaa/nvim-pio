@@ -39,7 +39,7 @@ function M.set_clang_format_style()
 end
 
 -- Create a command to trigger the menu
-vim.api.nvim_create_user_command('ClangFormatPick', set_clang_format_style, {})
+vim.api.nvim_create_user_command('ClangFormatPick', M.set_clang_format_style, {})
 -- INFO:
 -- stylua: ignore
 -- Example: Call it with a keymap or command
