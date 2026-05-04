@@ -271,6 +271,10 @@ function M.init()
   if config.lspClangd.enabled == true then
     vim.notify('PIO start: initialize', vim.log.levels.INFO)
 
+
+
+
+
     -- activate meta save and upload and env switch
     local metadata = require('nvimpio.pio.metadata')
     metadata.load_project_config()

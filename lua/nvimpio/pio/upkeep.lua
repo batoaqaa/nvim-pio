@@ -14,6 +14,31 @@ local clangdRestart = require('nvimpio.lspConfig.tools').pioClangdRestart
 
 -- INFO:
 --
+local function get_clangd_unknown_args()
+  -- Define the command (using double brackets for long strings)
+  local cmd = 'clangd --compile-commands-dir ./ --check=./src/main.cpp --log=error'
+
+  -- Execute and capture output
+  local output = vim.fn.system(cmd)
+  local results = {}
+
+  -- Pattern: look for text inside single quotes following 'unknown argument'
+  for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
+    table.insert(results, arg)
+  end
+
+  -- Feedback in Neovim
+  if #results > 0 then
+    print('Found unknown args: ' .. table.concat(results, ', '))
+  else
+    print('No unknown arguments found.')
+  end
+
+  return results
+end
+
+-- Example: Call it with a keymap or command
+vim.api.nvim_create_user_command('ClangdCheckArgs', get_clangd_unknown_args, {})
 
 local function fix_clangd_args()
   local file_path = vim.fn.expand('%') -- Current file
@@ -649,7 +674,7 @@ function M.handlePioinitDb(result, board)
           --   return '"' .. item .. '"'
           -- end, flags), ", ")
           -- print(include_flags)
-          fix_clangd_args()
+          -- fix_clangd_args()
           commandPassed = commandPassed + 1
           if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
         end, 'PIO init+db: ')
