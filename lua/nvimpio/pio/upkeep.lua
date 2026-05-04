@@ -82,7 +82,8 @@ function M.get_clangd_unknown_args()
   -- Run clangd in a "clean" environment (the system temp folder)
   local cmd = {
     'clangd',
-    '--config-file=' .. fake_config('--compile-commands-dir=') .. project_root,
+    '--config-file=' .. fake_config,
+    '--compile-commands-dir=' .. project_root,
     '--check=' .. abs_first_file,
     '--log=error',
   }
@@ -103,7 +104,8 @@ function M.get_clangd_unknown_args()
     local args_table = {}
     -- 2. Extract flags even if code is not 0
     for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
-      table.insert(args_table, string.format('%q', arg))
+      local clean_arg = arg:gsub('[;%.]$', '')
+      table.insert(args_table, string.format('%q', clean_arg))
     end
 
     -- 3. ALWAYS update the module table (use empty table if nothing found)
