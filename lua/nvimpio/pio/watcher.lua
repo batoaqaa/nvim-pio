@@ -1,6 +1,6 @@
 M = {}
 
-local clangdRestart = require('nvimpio.lspConfig.tools').pioClangdRestart
+local clangdRestart = require('nvimpio.lspConfig.tools').clangdRestart
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 
@@ -27,13 +27,13 @@ function M.pio_refresh(callback, from)
 
   local function on_done(active_env)
     if active_env then vim.notify(msg .. 'active_env= ' .. active_env, vim.log.levels.INFO) end
-    if active_env then vim.pio.fetch_metadata(callback, active_env, from, 1) end
+    if active_env then vim.upkeep.fetch_metadata(callback, active_env, from, 1) end
   end
-  vim.pio.fetch_config(on_done, from)
-  -- local active_env = vim.pio.get_active__env(from)
+  vim.upkeep.fetch_config(on_done, from)
+  -- local active_env = vim.upkeep.get_active__env(from)
   -- if active_env then
   --   vim.notify(msg .. 'active_env= ' .. active_env, vim.log.levels.INFO)
-  --   vim.pio.fetch_metadata(callback, active_env, from, 1)
+  --   vim.upkeep.fetch_metadata(callback, active_env, from, 1)
   -- end
 end
 
@@ -55,7 +55,7 @@ local last_mtime = 0
 --   if target.isBusy then return end
 --   if _G.metadata.isBusy == true then return end
 --
---   local env = vim.pio.get_active__env()
+--   local env = vim.upkeep.get_active__env()
 --   if not env then return end
 --   target.isBusy = true
 --     vim.notify('PIO platformio.ini change: compiledb update ...', vim.log.levels.INFO, { title = 'PlatformIO' })
@@ -206,7 +206,7 @@ function M.start_watchers()
         local new_hash = get_hash(self.path) or ''
         if new_hash and new_hash ~= self.last_hash then
           self.last_hash = new_hash
-          local env = vim.pio.get_active__env('PIO platformio.ini change: ')
+          local env = vim.upkeep.get_active__env('PIO platformio.ini change: ')
           if not env then return end
           self.isBusy = true
           vim.notify('PIO platformio.ini change: compiledb update ...', vim.log.levels.INFO, { title = 'PlatformIO' })
@@ -215,6 +215,10 @@ function M.start_watchers()
               if obj.code == 0 then
                 -- vim.schedule(function ()
                   M.pio_refresh(function()
+                    boilerplate.args = vim.upkeep.get_clangd_unknown_args()
+                    boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
+                    boilerplate_gen([[.clangd]], _G.metadata.core_dir)
+
                     vim.notify('PIO platformio.ini change: compiledb update Success', vim.log.levels.INFO, { title = 'PlatformIO' })
                     clangdRestart()
                   end, 'PIO platformio.ini  change: ')
@@ -270,10 +274,6 @@ function M.init()
   local config = require('nvimpio').config
   if config.lspClangd.enabled == true then
     vim.notify('PIO start: initialize', vim.log.levels.INFO)
-
-
-
-
 
     -- activate meta save and upload and env switch
     local metadata = require('nvimpio.pio.metadata')

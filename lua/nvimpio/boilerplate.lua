@@ -173,7 +173,7 @@ boilerplate['.clangd_config'] = {
 -- INFO: .clangd
 -- boilerplate['.clangd']
 boilerplate['.clangd'] = {
-  rewrite = false,
+  rewrite = true,
   read = false,
   -- content = [[
   template = [[

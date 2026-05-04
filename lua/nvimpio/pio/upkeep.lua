@@ -15,7 +15,7 @@ local clangdRestart = require('nvimpio.lspConfig.tools').clangdRestart
 -- INFO:
 --
 -- Example: Call it with a keymap or command
-local function get_clangd_unknown_args()
+function M.get_clangd_unknown_args()
   -- 1. Find the first file in ./src
   local src_path = vim.fn.getcwd() .. '/src'
   local files = vim.fn.readdir(src_path)
@@ -50,7 +50,7 @@ local function get_clangd_unknown_args()
   return args_table
 end
 
-vim.api.nvim_create_user_command('ClangdCheckArgs', get_clangd_unknown_args, {})
+vim.api.nvim_create_user_command('ClangdCheckArgs', M.get_clangd_unknown_args, {})
 
 local function fix_clangd_args()
   local file_path = vim.fn.expand('%') -- Current file
@@ -699,7 +699,7 @@ function M.handlePioinitDb(result, board)
       vim.notify('PIO init+db: Done', vim.log.levels.INFO)
       vim.misc.gitignore_lsp_configs('compile_commands.json')
 
-      boilerplate.args = get_clangd_unknown_args()
+      boilerplate.args = M.get_clangd_unknown_args()
       boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
       boilerplate_gen([[.clangd]], _G.metadata.core_dir)
       clangdRestart()
