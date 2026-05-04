@@ -56,40 +56,55 @@ function M.get_clangd_unknown_args()
     os.remove(config_path)
   end
 
-  -- 2. Robust File Search: Get the first file from the list
-  local files = vim.fn.globpath(project_root .. '/src', '*.cpp', false, true)
-  if #files == 0 then
-    files = vim.fn.globpath(project_root .. '/src', '*.c', false, true)
+  -- 2. Robust File Search: Find the first source file manually
+  local first_file = nil
+  local src_dir = project_root .. '/src'
+
+  local handle = vim.loop.fs_scandir(src_dir)
+  if handle then
+    while true do
+      local name, type = vim.loop.fs_scandir_next(handle)
+      if not name then
+        break
+      end
+      if type == 'file' and (name:match('%.cpp$') or name:match('%.c$')) then
+        first_file = src_dir .. '/' .. name
+        break
+      end
+    end
   end
 
-  -- Ensure we actually found a file string
-  local first_file = files[1]
-  if not first_file or first_file == '' then
-    vim.notify('No source files found in src/', vim.log.levels.WARN)
+  if not first_file then
+    vim.notify('No .cpp or .c files found in ' .. src_dir, vim.log.levels.WARN)
     return
   end
 
   -- 3. Run the check
-  -- We use absolute paths to avoid any "file not found" issues
-  local cmd = { 'clangd', '--compile-commands-dir=' .. project_root, '--check=' .. first_file, '--log=error' }
+  local cmd = {
+    'clangd',
+    '--compile-commands-dir=' .. project_root,
+    '--check=' .. first_file,
+    '--log=error',
+  }
 
   vim.system(cmd, { text = true }, function(obj)
     local output = (obj.stdout or '') .. (obj.stderr or '')
     local args_table = {}
 
-    -- Auto-extract: match everything between ' ' in "unknown argument '-flag'"
+    -- Extract whatever clangd hates
     for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
       table.insert(args_table, string.format('%q', arg))
     end
 
-    -- 4. Pass the new list to your generator
     boilerplate.args = args_table
 
     vim.schedule(function()
-      print(string.format('Auto-extracted %d flags from %s', #args_table, vim.fn.fnamemodify(first_file, ':t')))
+      print(string.format('Discovered %d unknown flags', #args_table))
 
-      -- Re-generate .clangd
-      boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
+      -- 4. Re-generate .clangd
+      if type(boilerplate_gen) == 'function' then
+        boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
+      end
 
       if clangdRestart then
         clangdRestart()
