@@ -10,7 +10,7 @@ M.is_processing = false
 M.queue = {}
 
 local term = require('nvimpio.utils.term')
-local clangdRestart = require('nvimpio.lspConfig.tools').pioClangdRestart
+local clangdRestart = require('nvimpio.lspConfig.tools').clangdRestart
 
 -- INFO:
 --
@@ -44,8 +44,8 @@ local function get_clangd_unknown_args()
     table.insert(args_table, string.format('%q', arg))
   end
 
-  print('Checked: ' .. first_file)
-  print('Unknown args: ' .. table.concat(args_table, ', '))
+  -- print('Checked: ' .. first_file)
+  -- print('Unknown args: ' .. table.concat(args_table, ', '))
 
   return args_table
 end
@@ -648,11 +648,11 @@ local win_id
 -- =============================================================================
 -- stylua: ignore
 function M.cleanup_pio_session()
+  _G.metadata.isBusy = false
   M.queue = {}
   if win_id then vim.misc.closeMessage(win_id) end
   term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
   if trm then trm:close() end
-  _G.metadata.isBusy = false
 end
 
 -- stylua: ignore
@@ -667,8 +667,8 @@ function M.handlePioinitDb(result, board)
 
     win_id = vim.misc.showMessage('************ Project Initializing ************')
     if #M.queue > 0 then
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       _G.metadata.isBusy = true
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then

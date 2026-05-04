@@ -60,9 +60,9 @@ vim.api.nvim_create_user_command('Pioinit', function()
 end, { force = true })
 
 -- Piolsp
-vim.api.nvim_create_user_command('Pioclangdrestart', function()
+vim.api.nvim_create_user_command('Clangdrestart', function()
   vim.schedule(function()
-    require('nvimpio.pioCommands').pioClangdRestart()
+    require('nvimpio.pioCommands').clangdRestart()
   end)
 end, {})
 
