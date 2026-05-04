@@ -180,8 +180,7 @@ boilerplate['.clangd'] = {
 ---
 CompileFlags:
   Remove: [
-    %s
-    "-Wunknown-warning-option",
+    %s"-Wunknown-warning-option",
     "-fno-tree-switch-conversion",
     "-fno-fat-lto-objects",
     "-fno-canonical-system-headers",
@@ -217,7 +216,7 @@ Diagnostics:
     local formatted_args = table.concat(M.args, ',\n    ')
     -- Add a trailing comma ONLY if we actually found args to prevent syntax errors
     if #M.args > 0 then
-      formatted_args = formatted_args .. ','
+      formatted_args = formatted_args .. ',\n    '
     end
     return string.format(self.template, formatted_args)
   end,

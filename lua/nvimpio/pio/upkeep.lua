@@ -48,6 +48,7 @@ function M.get_clangd_unknown_args()
     end
 
     boilerplate.args = args_table
+    print(string.format("Updated .clangd (%d new args)", #args_table))
     vim.schedule(function()
       boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
       boilerplate_gen([[.clangd]], _G.metadata.core_dir)
