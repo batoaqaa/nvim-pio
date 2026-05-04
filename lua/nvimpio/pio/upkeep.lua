@@ -48,43 +48,47 @@ end
 vim.api.nvim_create_user_command('ClangFormatPick', M.set_clang_format_style, {})
 
 function M.get_clangd_unknown_args()
-  -- 1. Reset: Delete the old config so clangd sees everything fresh
   local project_root = vim.fn.getcwd()
+
+  -- 1. Reset: Delete the old config so clangd sees everything fresh
   local config_path = project_root .. '/.clangd'
   if vim.fn.filereadable(config_path) == 1 then
     os.remove(config_path)
   end
 
-  -- 2. Simple file find: Grab the first .cpp or .c in src/
+  -- 2. Robust File Search: Get the first file from the list
   local files = vim.fn.globpath(project_root .. '/src', '*.cpp', false, true)
   if #files == 0 then
     files = vim.fn.globpath(project_root .. '/src', '*.c', false, true)
   end
 
+  -- Ensure we actually found a file string
   local first_file = files[1]
-  if not first_file then
+  if not first_file or first_file == '' then
     vim.notify('No source files found in src/', vim.log.levels.WARN)
     return
   end
 
   -- 3. Run the check
-  local cmd = { 'clangd', '--compile-commands-dir=.', '--check=' .. first_file, '--log=error' }
+  -- We use absolute paths to avoid any "file not found" issues
+  local cmd = { 'clangd', '--compile-commands-dir=' .. project_root, '--check=' .. first_file, '--log=error' }
 
   vim.system(cmd, { text = true }, function(obj)
     local output = (obj.stdout or '') .. (obj.stderr or '')
     local args_table = {}
 
-    -- Auto-extract: if clangd says it's unknown, we catch it
-    for arg in string.gmatch(output, "unknown argument[:%s]+'?([^'%s;]+)'?") do
-      table.insert(args_table, string.format('%q', arg:gsub('[;%.]$', '')))
+    -- Auto-extract: match everything between ' ' in "unknown argument '-flag'"
+    for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
+      table.insert(args_table, string.format('%q', arg))
     end
 
+    -- 4. Pass the new list to your generator
     boilerplate.args = args_table
 
     vim.schedule(function()
-      print(string.format('Detected %d flags to remove', #args_table))
+      print(string.format('Auto-extracted %d flags from %s', #args_table, vim.fn.fnamemodify(first_file, ':t')))
 
-      -- 4. Re-generate .clangd with the discovered flags
+      -- Re-generate .clangd
       boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
 
       if clangdRestart then
@@ -93,6 +97,7 @@ function M.get_clangd_unknown_args()
     end)
   end)
 end
+
 -- INFO:
 --- stylua: ignore
 -- Example: Call it with a keymap or command
