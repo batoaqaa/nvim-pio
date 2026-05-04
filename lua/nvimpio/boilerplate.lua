@@ -120,60 +120,6 @@ boilerplate['.clangd_config.json'] = {
 }
 ]],
 }
--- CompileFlags:
---   Add:
---     - "-xc++"
---     - "-std=c++17"
---     - "-D__cplusplus=201703L"
---     - "-isystemC:/Users/batoaqaa/.platformio/packages/toolchain-riscv32-esp/riscv32-esp-elf/include/c++/14.2.0"
---     - "-isystemC:/Users/batoaqaa/.platformio/packages/toolchain-riscv32-esp/riscv32-esp-elf/include/c++/14.2.0/riscv32-esp-elf"
---     - "-isystemC:/Users/batoaqaa/.platformio/packages/toolchain-riscv32-esp/lib/gcc/riscv32-esp-elf/14.2.0/include"
---     - "-isystemC:/Users/batoaqaa/.platformio/packages/toolchain-riscv32-esp/lib/gcc/riscv32-esp-elf/14.2.0/include-fixed"
---     - "-isystemC:/Users/batoaqaa/.platformio/packages/toolchain-riscv32-esp/riscv32-esp-elf/include"
---   Remove:
---     - "-target=*"
---     - "-target"
---     - "riscv32-esp-elf"
---     - "-fno-fat-lto-objects"
---     - "-fno%%-fat%%-lto%%-objects"
---     - "-fno%%-canonical%%-system%%-headers"
---     - "-misc-definitions-in-headers"
---     - "-fno-tree-switch-conversion"
---     - "-mtext-section-literals"
---     - "-mlong-calls"
---     - "-mlongcalls"
---     - "-fstrict-volatile-bitfields"
---     - "-free*"
---     - "-fipa-pta*"
---     - "-march=*"
---     - "-mabi=*"
---     - "-mcpu=*"
--- Diagnostics:
---   Suppress:
---     - "misc-definitions-in-headers"
---     - "pp_including_mainfile_in_preamble"
---     - "misc-unused-using-decls"
---     - "unused-includes"
---   ClangTidy:
---     Remove:
---       - "readability-*"
---       - "cert-err58-cpp"
---       - "llvmlibc-*"
---       - "fuchsia-*"
---       - "hicpp-avoid-c-arrays"
---       - "cppcoreguidelines-*"
---       - "llvm-*"
---       - "google-*"
---       - "bugprone-*"
---       - "hicpp-vararg"
---       - "modernize-*"
--- Index:
---   Background: Build
---   External:
---     File: .clangd_index
-
--- - "-mlongcalls"
--- - "-mdisable-hardware-atomics"
 
 --  INFO: ['.clangd']
 -- stylua: ignore
@@ -191,7 +137,7 @@ CompileFlags:
 ---
 CompileFlags:
   Remove: [
-    %s"-Wunknown-warning-option",
+    "-Wunknown-warning-option",
     "-fno-tree-switch-conversion",
     "-fno-fat-lto-objects",
     "-fno-canonical-system-headers",
