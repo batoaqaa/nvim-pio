@@ -77,10 +77,12 @@ function M.get_clangd_unknown_args()
   local project_root = vim.uv.cwd()
   local abs_first_file = vim.fn.fnamemodify(first_file, ':p')
 
+  local fake_config = vim.fn.tempname() .. '.yaml'
+
   -- Run clangd in a "clean" environment (the system temp folder)
   local cmd = {
     'clangd',
-    '--compile-commands-dir=' .. project_root,
+    '--config-file=' .. fake_config('--compile-commands-dir=') .. project_root,
     '--check=' .. abs_first_file,
     '--log=error',
   }
