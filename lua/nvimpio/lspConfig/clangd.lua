@@ -156,7 +156,7 @@ function _G.get_clangd_config()
   vim.misc.writeFile(file, formated, {})
 
   if cok and clangd_config then
-    -- print(vim.inspect(clangd_config))
+    print(vim.inspect(clangd_config))
     return clangd_config
   end
 end
