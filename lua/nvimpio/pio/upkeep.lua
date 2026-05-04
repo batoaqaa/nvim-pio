@@ -62,9 +62,6 @@ function M.get_clangd_unknown_args()
       boilerplate.args = args_table
       vim.schedule(function()
         print(string.format("Updated .clangd with %d new args", #args_table))
-        boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
-        boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-        if clangdRestart then clangdRestart() end
       end)
     elseif obj.code ~= 0 then
       -- If code was non-zero but we didn't find "unknown arguments", 
@@ -73,98 +70,12 @@ function M.get_clangd_unknown_args()
         vim.notify('Clangd Check failed: ' .. (obj.stderr or 'Unknown Error'), vim.log.levels.WARN)
       end)
     end
-    -- boilerplate.args = args_table
-    -- vim.schedule(function()
-    --   print(string.format("Updated .clangd with %d new args", #args_table))
-    --   boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
-    --   boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-    --   clangdRestart()
-    -- end)
+    boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
+    boilerplate_gen([[.clangd]], _G.metadata.core_dir)
+    if clangdRestart then clangdRestart() end
   end)
 end
-
 vim.api.nvim_create_user_command('ClangdCheckArgs', M.get_clangd_unknown_args, {})
-
-local function fix_clangd_args()
-  local file_path = vim.fn.expand('%') -- Current file
-  local clangd_path = 'C:\\Program Files\\LLVM\\bin\\clangd.exe'
-
-  -- 1. Run clangd check and capture output
-  local cmd = string.format('"%s" --check=%s --log=error', clangd_path, file_path)
-  local output = vim.fn.systemlist(cmd)
-  print(vim.inspect(output))
-  -- 2. Extract unknown arguments using regex
-  local unknown_args = {}
-  for _, line in ipairs(output) do
-    local arg = line:match("unknown argument[:%s]+'([^']+)'")
-    if arg then
-      table.insert(unknown_args, arg)
-    end
-  end
-
-  if #unknown_args == 0 then
-    print('No unknown arguments found!')
-    return
-  end
-
-  -- 3. Format for .clangd (YAML)
-  local new_content = {
-    'CompileFlags:',
-    '  Remove: [' .. table.concat(unknown_args, ', ') .. ']',
-  }
-
-  -- 4. Write to .clangd file in current directory
-  local clangd_config = vim.fn.getcwd() .. '/.clangd'
-  vim.fn.writefile(new_content, clangd_config)
-
-  print('Updated .clangd with: ' .. table.concat(unknown_args, ', '))
-
-  -- 5. Restart LSP to apply changes
-  vim.cmd('LspRestart')
-end
-
--- Create a command to run it
-vim.api.nvim_create_user_command('ClangdFixArgs', fix_clangd_args, {})
-
--- =============================================================================
---- stylua: ignore
-local function filter_bad_args_with_clangd(args_table)
-  local clangd_bin = vim.fn.exepath('clangd')
-  if clangd_bin == '' then
-    return {}
-  end
-
-  local temp_file = vim.fn.tempname() .. '.cpp'
-  local f = io.open(temp_file, 'w')
-  if f then
-    f:write('int main() {}')
-    f:close()
-  end
-
-  -- 1. Build the command as a table (No manual quoting needed!)
-  local cmd = { clangd_bin, '--check=' .. temp_file }
-  for _, flag in ipairs(args_table) do
-    table.insert(cmd, '--extra-arg=' .. flag)
-  end
-
-  -- 2. Run synchronously using :wait()
-  local obj = vim.system(cmd, { text = true }):wait()
-  local output = (obj.stdout or '') .. (obj.stderr or '')
-  output = output:lower()
-  print(output)
-
-  -- 3. Filter flags
-  local unknown = {}
-  for _, arg in ipairs(args_table) do
-    local escaped = vim.pesc(arg:lower())
-    if output:match("unknown argument: '" .. escaped .. "'") or output:match("unused during compilation: '" .. escaped .. "'") then
-      table.insert(unknown, arg)
-    end
-  end
-
-  os.remove(temp_file)
-  return unknown
-end
 
 -- INFO:
 -- =============================================================================
@@ -681,7 +592,6 @@ local win_id
 -- =============================================================================
 -- stylua: ignore
 function M.cleanup_pio_session()
-  print('closing')
   _G.metadata.isBusy = false
   M.queue = {}
   if win_id then vim.misc.closeMessage(win_id) end
@@ -782,7 +692,6 @@ function M.handlePioinit(result)
 
       local pio_refresh = require('nvimpio.pio.watcher').pio_refresh
       pio_refresh(function()
-        local boilerplate_gen = require('nvimpio.boilerplate').boilerplate_gen
         boilerplate_gen([[.clangd]], _G.metadata.core_dir)
         vim.misc.closeMessage(win_id)
         clangdRestart()
