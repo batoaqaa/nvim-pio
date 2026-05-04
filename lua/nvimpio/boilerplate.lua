@@ -1,4 +1,4 @@
-M = {}
+local M = {}
 
 M.core_dir = ''
 M.args = {}
