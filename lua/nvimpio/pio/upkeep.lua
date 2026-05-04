@@ -87,7 +87,7 @@ function M.get_clangd_unknown_args()
     return
   end
 
-  local cmd = {"clangd", "--check-no-config", "--compile-commands-dir", "./", "--check=" .. first_file, "--log=error"}
+  local cmd = {"clangd", "--compile-commands-dir", "./", "--check=" .. first_file, "--log=error"}
   vim.system(cmd, { text = true }, function(obj)
     -- 2. Bring the .clangd file back immediately after the check finishes
     if vim.fn.filereadable(backup_path) == 1 then
