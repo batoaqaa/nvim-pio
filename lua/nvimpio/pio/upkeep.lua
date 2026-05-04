@@ -92,6 +92,7 @@ function M.get_clangd_unknown_args()
 
     -- 1. Combine output immediately
     local output = (obj.stdout or '') .. (obj.stderr or '')
+    print(output)
 
     local args_table = {}
     -- 2. Extract flags even if code is not 0
