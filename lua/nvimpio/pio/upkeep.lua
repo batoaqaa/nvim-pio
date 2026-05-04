@@ -71,9 +71,10 @@ function M.get_clangd_unknown_args()
       end
 
       print(string.format("Generated .clangd with %d unknown flags", #boilerplate.args))
+      print(vim.inspect(boilerplate.args))
 
       boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
-      boilerplate_gen([[.clangd]], _G.metadata.core_dir)
+      -- boilerplate_gen([[.clangd]], _G.metadata.core_dir)
 
       if clangdRestart then clangdRestart() end
     end)
