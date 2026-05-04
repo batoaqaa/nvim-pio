@@ -1,4 +1,4 @@
-M = {}
+local M = {}
 
 local clangdRestart = require('nvimpio.lspConfig.tools').clangdRestart
 local boilerplate = require('nvimpio.boilerplate')
