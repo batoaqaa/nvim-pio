@@ -174,6 +174,8 @@ Diagnostics:
     local coreClangd = vim.misc.joinPath(M.core_dir, '.clangd')
     local staticBlock, dynamicBlock = '', ''
 
+    print(cwdClangd)
+    print(coreClangd)
     if vim.uv.fs_stat(cwdClangd) then
       local ok, content = vim.misc.readFile(cwdClangd)
 
