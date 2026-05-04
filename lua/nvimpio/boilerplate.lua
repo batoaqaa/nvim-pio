@@ -174,40 +174,77 @@ boilerplate['.clangd_config'] = {
 boilerplate['.clangd'] = {
   rewrite = false,
   read = false,
-  -- template = [[
   content = [[
 ---
 CompileFlags:
-  Add:
-    - "-xc++"
-    - "-std=gnu++17"
-    - "-Wno-pragma-system-header-outside-header"
-    - "-Wno-unknown-warning-option"
-    - "-Wno-unused-includes"
-  Remove: 
-    - "-Wunknown-warning-option"
-    - "-fno-tree-switch-conversion"
-    - "-fno-fat-lto-objects"
-    - "-fno-canonical-system-headers"
-    - "-mtext-section-literals"
-    - "-mlong-calls"
-    - "-fstrict-volatile-bitfields"
-    - "-march=.*"
-    - "-mabi=.*"
-    - "-mcpu=.*"
-    - "-fipa-pta.*"
+  Remove: [
+    %s
+    "-Wunknown-warning-option",
+    "-fno-tree-switch-conversion",
+    "-fno-fat-lto-objects"
+    "-fno-canonical-system-headers",
+    "-mtext-section-literals",
+    "-mlong-calls",
+    "-fstrict-volatile-bitfields",
+    "-march=.*",
+    "-mabi=.*",
+    "-mcpu=.*",
+    "-fipa-pta.*",
+    ]
+  Add:  [
+    "-xc++",
+    "-std=gnu++17",
+    "-Wno-pragma-system-header-outside-header",
+    "-Wno-unknown-warning-option",
+    "-Wno-unused-includes",
+    ]
 Diagnostics:
-  Suppress: 
-    - "drv_unknown_argument"
-    - "pp_file_not_found"
-    - "pp_file_not_found_angled_not_fatal"
-    - "pp_included_file_not_found"
-    - "pp_including_mainfile_in_preamble"
-    - "unused-includes"
-    - "misc-definitions-in-headers"
+  Suppress:  [ 
+    "drv_unknown_argument",
+    "pp_file_not_found",
+    "pp_file_not_found_angled_not_fatal",
+    "pp_included_file_not_found",
+    "pp_including_mainfile_in_preamble",
+    "unused-includes",
+    "misc-definitions-in-headers",
+    ]
   ClangTidy:
     Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
 ]],
+  -- template = [[
+  --   content = [[
+  -- ---
+  -- CompileFlags:
+  --   Remove:
+  --     - "-Wunknown-warning-option"
+  --     - "-fno-tree-switch-conversion"
+  --     - "-fno-fat-lto-objects"
+  --     - "-fno-canonical-system-headers"
+  --     - "-mtext-section-literals"
+  --     - "-mlong-calls"
+  --     - "-fstrict-volatile-bitfields"
+  --     - "-march=.*"
+  --     - "-mabi=.*"
+  --     - "-mcpu=.*"
+  --     - "-fipa-pta.*"
+  --   Add:
+  --     - "-xc++"
+  --     - "-std=gnu++17"
+  --     - "-Wno-pragma-system-header-outside-header"
+  --     - "-Wno-unknown-warning-option"
+  --     - "-Wno-unused-includes"
+  -- Diagnostics:
+  --   Suppress:
+  --     - "drv_unknown_argument"
+  --     - "pp_file_not_found"
+  --     - "pp_file_not_found_angled_not_fatal"
+  --     - "pp_included_file_not_found"
+  --     - "pp_including_mainfile_in_preamble"
+  --     - "unused-includes"
+  --     - "misc-definitions-in-headers"
+  --   ClangTidy:
+  --     Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
+  -- ]],
   -- content = function(self)
   --   local sysroot = '--sysroot=' .. _G.metadata.sysroot
   --   local triplet = '--target=' .. _G.metadata.triplet
