@@ -14,30 +14,43 @@ local clangdRestart = require('nvimpio.lspConfig.tools').pioClangdRestart
 
 -- INFO:
 --
+-- Example: Call it with a keymap or command
 local function get_clangd_unknown_args()
-  -- Define the command (using double brackets for long strings)
-  local cmd = 'clangd --compile-commands-dir ./ --check=./src/main.cpp --log=error'
+  -- 1. Find the first file in ./src
+  local src_path = vim.fn.getcwd() .. '/src'
+  local files = vim.fn.readdir(src_path)
+  local first_file = ''
 
-  -- Execute and capture output
+  for _, file in ipairs(files) do
+    -- Ensure it's a file (simple check for extension)
+    if file:match('%.cpp$') or file:match('%.c$') then
+      first_file = './src/' .. file
+      break
+    end
+  end
+
+  if first_file == '' then
+    print('No source files found in ./src')
+    return {}
+  end
+
+  -- 2. Build the command dynamically
+  local cmd = string.format('clangd --compile-commands-dir ./ --check=%s --log=error', first_file)
+
+  -- 3. Execute and parse
   local output = vim.fn.system(cmd)
   local results = {}
 
-  -- Pattern: look for text inside single quotes following 'unknown argument'
   for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
     table.insert(results, arg)
   end
 
-  -- Feedback in Neovim
-  if #results > 0 then
-    print('Found unknown args: ' .. table.concat(results, ', '))
-  else
-    print('No unknown arguments found.')
-  end
+  print('Checked: ' .. first_file)
+  print('Unknown args: ' .. table.concat(results, ', '))
 
   return results
 end
 
--- Example: Call it with a keymap or command
 vim.api.nvim_create_user_command('ClangdCheckArgs', get_clangd_unknown_args, {})
 
 local function fix_clangd_args()
