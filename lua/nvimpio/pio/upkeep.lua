@@ -648,9 +648,11 @@ local win_id
 -- =============================================================================
 -- stylua: ignore
 function M.cleanup_pio_session()
+  print('closing')
   _G.metadata.isBusy = false
   M.queue = {}
   if win_id then vim.misc.closeMessage(win_id) end
+  win_id = nil
   term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
   if trm then trm:close() end
 end
@@ -672,12 +674,12 @@ function M.handlePioinitDb(result, board)
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then
+      vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
+      vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
       local active_env = M.get_active__env('PIO init+db: ')
       if not active_env or (active_env == board) then
         local pio_refresh = require('nvimpio.pio.watcher').pio_refresh
         pio_refresh(function()
-          vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
-          vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
           -- local flags = filter_bad_args_with_clangd(_G.metadata.cxx_flags)
           --
           -- local include_flags = table.concat(vim.tbl_map(function(item)
