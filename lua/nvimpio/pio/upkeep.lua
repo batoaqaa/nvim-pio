@@ -58,6 +58,13 @@ vim.api.nvim_create_user_command('ClangFormatPick', M.set_clang_format_style, {}
 -- stylua: ignore
 -- Example: Call it with a keymap or command
 function M.get_clangd_unknown_args()
+  local config_path = vim.fn.getcwd() .. "/.clangd"
+  local backup_path = config_path .. ".bak"
+  -- 1. Temporarily hide the .clangd file so clangd can see the raw errors
+  if vim.fn.filereadable(config_path) == 1 then
+    os.rename(config_path, backup_path)
+  end
+
   local src_path = vim.fn.getcwd() .. '/src'
   local ok, files = pcall(vim.fn.readdir, src_path)
   if not ok then
@@ -82,6 +89,11 @@ function M.get_clangd_unknown_args()
 
   local cmd = {"clangd", "--check-no-config", "--compile-commands-dir", "./", "--check=" .. first_file, "--log=error"}
   vim.system(cmd, { text = true }, function(obj)
+    -- 2. Bring the .clangd file back immediately after the check finishes
+    if vim.fn.filereadable(backup_path) == 1 then
+      os.rename(backup_path, config_path)
+    end
+
     -- Everything inside this function happens "later"
     if obj.code == 127 then
       vim.schedule(function()
@@ -102,9 +114,7 @@ function M.get_clangd_unknown_args()
 
     -- 3. ALWAYS update the module table (use empty table if nothing found)
     -- This prevents the "table expected, got nil" error
-    if #args_table > 0 then
-      boilerplate.args = args_table
-    end
+    boilerplate.args = args_table
 
     -- 4. Execute the generation regardless of the exit code
     vim.schedule(function()
