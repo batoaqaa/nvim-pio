@@ -100,16 +100,18 @@ vim.lsp.config('*', {
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
---stylua: ignore
+---stylua: ignore
 function _G.get_clangd_config()
   local new_root_dir = vim.uv.cwd() or '.'
-  if not new_root_dir then return end
+  if not new_root_dir then
+    return
+  end
 
   -- 1. Safe defaults (Standard clangd behavior)
-  local f_flags, q_driver = [["-std=c++17", "-xc++"]], '--query-driver=**'
+  local f_flags, q_driver, formatted_str = [["-std=c++17", "-xc++"]], '**', ''
 
   -- 2. Run your toolchain detection
-  if _G.metadata and _G.metadata.cc_compiler and  _G.metadata.cc_compiler ~= '' then
+  if _G.metadata and _G.metadata.cc_compiler and _G.metadata.cc_compiler ~= '' then
     if _G.metadata.triplet and _G.metadata.triplet ~= '' then
       -- local include_flags = table.concat(vim.tbl_map(function(item)
       --   return '"' .. item .. '"'
@@ -125,18 +127,29 @@ function _G.get_clangd_config()
       -- f_flags = string.format([["--sysroot=%s", %s]], _G.metadata.sysroot, include_flags)
 
       -- q_driver =  '**' --_G.metadata.query_driver .. ',C:/PROGRA~1/LLVM/bin/*'  -- use with "--query-driver=%s"
-      q_driver =  _G.metadata.query_driver --.. ',C:/PROGRA~1/LLVM/bin/*'          -- use with "--query-driver=%s"
+      q_driver = _G.metadata.query_driver --.. ',C:/PROGRA~1/LLVM/bin/*'          -- use with "--query-driver=%s"
     end
   end
 
   -- 3. Format your template string
   local table_config = boilerplate_gen([[.clangd_config]], vim.g.platformioRootDir)
-  local formatted_str = string.format(table_config or '', q_driver, f_flags, vim.misc.normalizePath(new_root_dir))
+  if not table_config then
+    return nil
+  end
+
+  -- Only use string.format if there is one or less %s
+  local _, count = table_config:gsub('%%s', '')
+  if count <= 1 then
+    formatted_str = string.format(table_config or '', q_driver)
+  end
+  -- local formatted_str = string.format(table_config or '', q_driver, f_flags, vim.misc.normalizePath(new_root_dir))
   -- local formatted_str = string.format(table_config or '', q_driver, '', vim.misc.normalizePath(new_root_dir))
   -- local formatted_str = string.format(table_config or '', q_driver, '', vim.g.platformioRootDir)
 
   -- 4. Load the config table
-  local cok, clangd_config = pcall(function() return load('return ' .. formatted_str)() end)
+  local cok, clangd_config = pcall(function()
+    return load('return ' .. formatted_str)() -- load table from string
+  end)
 
   local formated = vim.misc.jsonFormat(clangd_config)
   local file = vim.misc.joinPath(vim.uv.cwd(), 'clangd_config.json')

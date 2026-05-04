@@ -111,7 +111,7 @@ boilerplate['.clangd_config'] = {
     completeUnimported = true,
     fallbackFlags = {%s},
     clangdFileStatus = true,
-    compilationDatabasePath = %q,
+    compilationDatabasePath = '.',
   }
 }
 ]],
@@ -170,8 +170,23 @@ boilerplate['.clangd_config'] = {
 
 -- - "-mlongcalls"
 -- - "-mdisable-hardware-atomics"
--- INFO: .clangd
--- boilerplate['.clangd']
+
+-- INFO: [.clangdT]
+boilerplate['.clangdT'] = {
+  template = [[
+---
+# Dynamic configuration block
+CompileFlags:
+  Remove: [
+    %s
+    ]
+]],
+  content = function(self)
+    local args = M.args or {}
+    return string.format(self.template, table.concat(args, ',\n    '))
+  end,
+}
+--  INFO: ['.clangd']
 boilerplate['.clangd'] = {
   rewrite = true,
   read = false,
