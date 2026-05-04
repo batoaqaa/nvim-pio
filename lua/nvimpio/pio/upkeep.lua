@@ -34,12 +34,6 @@ function M.set_clang_format_style()
       vim.notify('Created .clang-format (' .. choice .. ')', vim.log.levels.INFO)
 
       -- 3. Restart clangd to apply the new formatting rules
-      -- We find the clangd client specifically to avoid restarting other LSPs
-      local clients = vim.lsp.get_active_clients({ name = 'clangd' })
-      for _, client in ipairs(clients) do
-        vim.lsp.stop_client(client.id)
-      end
-
       -- Slight delay to ensure file is written before LSP restarts
       vim.defer_fn(function()
         clangdRestart()
@@ -53,22 +47,14 @@ end
 -- Create a command to trigger the menu
 vim.api.nvim_create_user_command('ClangFormatPick', M.set_clang_format_style, {})
 
-
 -- INFO:
--- stylua: ignore
+--- stylua: ignore
 -- Example: Call it with a keymap or command
 function M.get_clangd_unknown_args()
-  local config_path = vim.fn.getcwd() .. "/.clangd"
-  local backup_path = config_path .. ".bak"
-  -- 1. Temporarily hide the .clangd file so clangd can see the raw errors
-  if vim.fn.filereadable(config_path) == 1 then
-    os.rename(config_path, backup_path)
-  end
-
   local src_path = vim.fn.getcwd() .. '/src'
   local ok, files = pcall(vim.fn.readdir, src_path)
   if not ok then
-    vim.notify("src directory not found", vim.log.levels.WARN)
+    vim.notify('src directory not found', vim.log.levels.WARN)
     return
   end
 
@@ -83,17 +69,24 @@ function M.get_clangd_unknown_args()
   end
 
   if first_file == '' then
-    vim.notify("No .cpp or .c files found in src/", vim.log.levels.WARN)
+    vim.notify('No .cpp or .c files found in src/', vim.log.levels.WARN)
     return
   end
 
-  local cmd = {"clangd", "--compile-commands-dir", "./", "--check=" .. first_file, "--log=error"}
-  vim.system(cmd, { text = true }, function(obj)
-    -- 2. Bring the .clangd file back immediately after the check finishes
-    if vim.fn.filereadable(backup_path) == 1 then
-      os.rename(backup_path, config_path)
-    end
+  -- Get the ABSOLUTE path to your current directory
+  local project_root = vim.fn.getcwd()
+  local abs_first_file = project_root .. '/src/' .. first_file:gsub('^./src/', '')
 
+  -- Run clangd in a "clean" environment (the system temp folder)
+  local cmd = {
+    'clangd',
+    '--compile-commands-dir=' .. project_root,
+    '--check=' .. abs_first_file,
+    '--log=error',
+  }
+
+  -- local cmd = { 'clangd', '--compile-commands-dir', './', '--check=' .. first_file, '--log=error' }
+  vim.system(cmd, { text = true, cwd = vim.fn.tempname() }, function(obj)
     -- Everything inside this function happens "later"
     if obj.code == 127 then
       vim.schedule(function()
@@ -120,16 +113,18 @@ function M.get_clangd_unknown_args()
     vim.schedule(function()
       -- If it's a real crash (no clangd), notify but still try to gen with empty args
       if obj.code == 127 then
-        vim.notify("Clangd not found, generating default .clangd", vim.log.levels.WARN)
+        vim.notify('Clangd not found, generating default .clangd', vim.log.levels.WARN)
       end
 
-      print(string.format("Generated .clangd with %d unknown flags", #boilerplate.args))
+      print(string.format('Generated .clangd with %d unknown flags', #boilerplate.args))
       print(vim.inspect(boilerplate.args))
 
       boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
       -- boilerplate_gen([[.clangd]], _G.metadata.core_dir)
 
-      if clangdRestart then clangdRestart() end
+      if clangdRestart then
+        clangdRestart()
+      end
     end)
   end)
 end
