@@ -170,7 +170,7 @@ Diagnostics:
     Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
 ]],
   content = function(self)
-    local cwdClangd = vim.misc.joinPath(vim.uv.cwd(), '.clangd')
+    local cwdClangd = vim.misc.joinPath(vim.g.platformioRootDir, '.clangd')
     local coreClangd = vim.misc.joinPath(M.core_dir, '.clangd')
     local staticBlock, dynamicBlock = '', ''
 
