@@ -13,13 +13,9 @@ boilerplate['arduino'] = {
   content = [[
 #include <Arduino.h>
 
-void setup() {
+void setup() { }
 
-}
-
-void loop() {
-
-}
+void loop() { }
 ]],
 }
 
@@ -109,7 +105,7 @@ boilerplate['.clangd_config'] = {
   init_options = {
     usePlaceholders = true,
     completeUnimported = true,
-    fallbackFlags = {%s},
+    fallbackFlags = {},
     clangdFileStatus = true,
     compilationDatabasePath = '.',
   }
