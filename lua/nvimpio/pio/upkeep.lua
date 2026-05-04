@@ -80,7 +80,7 @@ function M.get_clangd_unknown_args()
     return
   end
 
-  local cmd = {"clangd", "--no-config", "--compile-commands-dir", "./", "--check=" .. first_file, "--log=error"}
+  local cmd = {"clangd", "--check-no-config", "--compile-commands-dir", "./", "--check=" .. first_file, "--log=error"}
   vim.system(cmd, { text = true }, function(obj)
     -- Everything inside this function happens "later"
     if obj.code == 127 then
