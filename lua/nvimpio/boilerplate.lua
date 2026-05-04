@@ -58,7 +58,6 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
   end,
 }
 
--- "--config-file=%s"
 -- =============================================================================
 -- DYNAMIC CLANGD CONFIGURATION TEMPLATE
 -- =============================================================================
@@ -176,9 +175,11 @@ boilerplate['.clangd_config.json'] = {
 -- - "-mlongcalls"
 -- - "-mdisable-hardware-atomics"
 
--- INFO: [.clangdT]
-boilerplate['.clangdT'] = {
-  template = [[
+--  INFO: ['.clangd']
+-- stylua: ignore
+boilerplate['.clangd'] = {
+  -- content = [[
+  dynamic = [[
 ---
 # Dynamic configuration block
 CompileFlags:
@@ -186,17 +187,7 @@ CompileFlags:
     %s
     ]
 ]],
-  content = function(self)
-    local args = M.args or {}
-    return string.format(self.template, table.concat(args, ',\n    '))
-  end,
-}
---  INFO: ['.clangd']
-boilerplate['.clangd'] = {
-  rewrite = true,
-  read = false,
-  -- content = [[
-  template = [[
+  static = [[
 ---
 CompileFlags:
   Remove: [
@@ -233,54 +224,29 @@ Diagnostics:
     Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
 ]],
   content = function(self)
-    -- This line is the magic fix: if M.args is nil, it uses {}
+    local cwdClangd = vim.misc.joinPath(vim.uv.cwd(), '.clangd')
+    local coreClangd = vim.misc.joinPath(M.core_dir, '.clangd')
+    local staticBlock, dynamicBlock = '', ''
+
+    if vim.uv.fs_stat(cwdClangd) then
+      local ok, content = vim.misc.readFile(cwdClangd)
+
+      if not ok or not content then return nil end
+
+       -- Strip out any previous dynamic blocks to prevent endless growing
+      if ok then staticBlock = content:gsub('\n%-%-%-\n# Dynamic configuration block.*', '') end
+    else staticBlock = self.static end
+
     local args = M.args or {}
-    local formatted_args = table.concat(args, ',\n    ')
-    -- Add a trailing comma ONLY if we actually found args to prevent syntax errors
-    if #args > 0 then
-      formatted_args = formatted_args .. ',\n    '
-    end
-    return string.format(self.template, formatted_args)
+    dynamicBlock = string.format(self.dynamic, table.concat(args, ',\n    '))
+
+    local final_content = staticBlock .. '\n' .. dynamicBlock
+
+    vim.misc.writeFile(cwdClangd, final_content, {})
+    vim.misc.writeFile(coreClangd, final_content, {})
+    return final_content
   end,
-  -- template = [[
-  --   content = [[
-  -- ---
-  -- CompileFlags:
-  --   Remove:
-  --     - "-Wunknown-warning-option"
-  --     - "-fno-tree-switch-conversion"
-  --     - "-fno-fat-lto-objects"G
-  --     - "-fno-canonical-system-headers"
-  --     - "-mtext-section-literals"
-  --     - "-mlong-calls"
-  --     - "-fstrict-volatile-bitfields"
-  --     - "-march=.*"
-  --     - "-mabi=.*"
-  --     - "-mcpu=.*"
-  --     - "-fipa-pta.*"
-  --   Add:
-  --     - "-xc++"
-  --     - "-std=gnu++17"
-  --     - "-Wno-pragma-system-header-outside-header"
-  --     - "-Wno-unknown-warning-option"
-  --     - "-Wno-unused-includes"
-  -- Diagnostics:
-  --   Suppress:
-  --     - "drv_unknown_argument"
-  --     - "pp_file_not_found"
-  --     - "pp_file_not_found_angled_not_fatal"
-  --     - "pp_included_file_not_found"
-  --     - "pp_including_mainfile_in_preamble"
-  --     - "unused-includes"
-  --     - "misc-definitions-in-headers"
-  --   ClangTidy:
-  --     Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
-  -- ]],
-  -- content = function(self)
-  --   local sysroot = '--sysroot=' .. _G.metadata.sysroot
-  --   local triplet = '--target=' .. _G.metadata.triplet
-  --   return string.format(self.template, triplet, sysroot)
-  -- end,
+
 }
 
 -- INFO: .clang-format
@@ -540,6 +506,9 @@ function M.boilerplate_gen(framework, src_path, filename)
   filename = filename or framework
   local entry = boilerplate[framework]
   if not entry then return '' end
+
+  if framework == '.clangd' then return entry:content() end
+
   local file_path = vim.fs.normalize(src_path .. '/' .. filename)
 
   if vim.uv.fs_stat(file_path) then
