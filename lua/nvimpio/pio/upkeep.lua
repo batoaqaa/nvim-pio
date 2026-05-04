@@ -43,10 +43,9 @@ function M.get_clangd_unknown_args()
   local cmd = {"clangd", "--compile-commands-dir", "./", "--check=" .. first_file, "--log=error"}
   vim.system(cmd, { text = true }, function(obj)
     -- Everything inside this function happens "later"
-    if obj.code ~= 0 then
-      local errmsg = obj.code == 127 and "'clang' not found" or (obj.stderr or 'Unknown Error')
+    if obj.code == 127 then
       vim.schedule(function()
-        vim.notify('Clangd Check Error: ' .. errmsg, vim.log.levels.ERROR)
+        vim.notify("Clangd Check Error: 'clangd' executable not found", vim.log.levels.ERROR)
       end)
       return
     end
@@ -58,13 +57,29 @@ function M.get_clangd_unknown_args()
       table.insert(args_table, string.format('%q', arg))
     end
 
-    boilerplate.args = args_table
-    vim.schedule(function()
-      print(string.format("Updated .clangd with %d new args", #args_table))
-      boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
-      boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-      clangdRestart()
-    end)
+    -- (This prevents rewriting the file unnecessarily if the check failed completely)
+    if #args_table > 0 then
+      boilerplate.args = args_table
+      vim.schedule(function()
+        print(string.format("Updated .clangd with %d new args", #args_table))
+        boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
+        boilerplate_gen([[.clangd]], _G.metadata.core_dir)
+        if clangdRestart then clangdRestart() end
+      end)
+    elseif obj.code ~= 0 then
+      -- If code was non-zero but we didn't find "unknown arguments", 
+      -- then it's a real crash/error we should report.
+      vim.schedule(function()
+        vim.notify('Clangd Check failed: ' .. (obj.stderr or 'Unknown Error'), vim.log.levels.WARN)
+      end)
+    end
+    -- boilerplate.args = args_table
+    -- vim.schedule(function()
+    --   print(string.format("Updated .clangd with %d new args", #args_table))
+    --   boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
+    --   boilerplate_gen([[.clangd]], _G.metadata.core_dir)
+    --   clangdRestart()
+    -- end)
   end)
 end
 
