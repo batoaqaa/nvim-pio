@@ -50,29 +50,33 @@ function M.get_clangd_unknown_args()
       return
     end
 
+    -- 1. Combine output immediately
     local output = (obj.stdout or '') .. (obj.stderr or '')
     local args_table = {}
 
+    -- 2. Extract flags even if code is not 0
     for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
       table.insert(args_table, string.format('%q', arg))
     end
 
-    -- (This prevents rewriting the file unnecessarily if the check failed completely)
-    if #args_table > 0 then
-      boilerplate.args = args_table
-      vim.schedule(function()
-        print(string.format("Updated .clangd with %d new args", #args_table))
-      end)
-    elseif obj.code ~= 0 then
-      -- If code was non-zero but we didn't find "unknown arguments", 
-      -- then it's a real crash/error we should report.
-      vim.schedule(function()
-        vim.notify('Clangd Check failed: ' .. (obj.stderr or 'Unknown Error'), vim.log.levels.WARN)
-      end)
-    end
-    boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
-    boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-    if clangdRestart then clangdRestart() end
+    -- 3. ALWAYS update the module table (use empty table if nothing found)
+    -- This prevents the "table expected, got nil" error
+    boilerplate.args = args_table
+
+    -- 4. Execute the generation regardless of the exit code
+    vim.schedule(function()
+      -- If it's a real crash (no clangd), notify but still try to gen with empty args
+      if obj.code == 127 then
+        vim.notify("Clangd not found, generating default .clangd", vim.log.levels.WARN)
+      end
+
+      print(string.format("Generated .clangd with %d unknown flags", #args_table))
+
+      boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
+      boilerplate_gen([[.clangd]], _G.metadata.core_dir)
+
+      if clangdRestart then clangdRestart() end
+    end)
   end)
 end
 vim.api.nvim_create_user_command('ClangdCheckArgs', M.get_clangd_unknown_args, {})
