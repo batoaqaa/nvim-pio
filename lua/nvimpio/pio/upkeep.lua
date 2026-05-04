@@ -92,9 +92,8 @@ function M.get_clangd_unknown_args()
 
     -- 1. Combine output immediately
     local output = (obj.stdout or '') .. (obj.stderr or '')
-    print(output)
-    local args_table = {}
 
+    local args_table = {}
     -- 2. Extract flags even if code is not 0
     for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
       table.insert(args_table, string.format('%q', arg))
@@ -102,7 +101,9 @@ function M.get_clangd_unknown_args()
 
     -- 3. ALWAYS update the module table (use empty table if nothing found)
     -- This prevents the "table expected, got nil" error
-    boilerplate.args = args_table
+    if #args_table > 0 then
+      boilerplate.args = args_table
+    end
 
     -- 4. Execute the generation regardless of the exit code
     vim.schedule(function()
