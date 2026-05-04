@@ -229,7 +229,7 @@ Diagnostics:
   --   Remove:
   --     - "-Wunknown-warning-option"
   --     - "-fno-tree-switch-conversion"
-  --     - "-fno-fat-lto-objects"
+  --     - "-fno-fat-lto-objects"G
   --     - "-fno-canonical-system-headers"
   --     - "-mtext-section-literals"
   --     - "-mlong-calls"

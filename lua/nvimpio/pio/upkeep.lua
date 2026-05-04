@@ -70,7 +70,7 @@ function M.get_clangd_unknown_args()
         vim.notify("Clangd not found, generating default .clangd", vim.log.levels.WARN)
       end
 
-      print(string.format("Generated .clangd with %d unknown flags", #args_table))
+      print(string.format("Generated .clangd with %d unknown flags", #boilerplate.args))
 
       boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
       boilerplate_gen([[.clangd]], _G.metadata.core_dir)
