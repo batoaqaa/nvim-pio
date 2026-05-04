@@ -6,40 +6,54 @@ local misc = vim.misc
 
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
+
+local term = require('nvimpio.utils.term')
+local clangdRestart = require('nvimpio.clangd.tools').clangdRestart
 -- local sep = package.config:sub(1, 1) -- Dynamic OS separator (\ or /)
 M.selected_framework = ''
 M.is_processing = false
 M.queue = {}
 
-local term = require('nvimpio.utils.term')
-local clangdRestart = require('nvimpio.clangd.tools').clangdRestart
-
 function M.set_clang_format_style()
-  -- List of available base styles
   local styles = { 'LLVM', 'Google', 'Chromium', 'Mozilla', 'WebKit', 'Microsoft', 'Linux' }
 
   vim.ui.select(styles, {
     prompt = 'Select Clang-Format base style:',
   }, function(choice)
-    if choice then
-      -- Construct the shell command
-      -- Using 'cmd /c' because we are on Windows
-      local cmd = string.format('cmd /c "clang-format -style=%s -dump-config > .clang-format"', choice)
+    if not choice then
+      return
+    end
 
-      -- Execute the command
-      local result = os.execute(cmd)
+    -- 1. Generate the command (Windows compatible)
+    local cmd = string.format('cmd /c "clang-format -style=%s -dump-config > .clang-format"', choice:lower())
 
-      if result then
-        print('Successfully created .clang-format with ' .. choice .. ' style.')
-      else
-        print('Error: Could not create .clang-format. Is clang-format installed?')
+    -- 2. Execute and check result
+    local success = os.execute(cmd)
+
+    if success then
+      vim.notify('Created .clang-format (' .. choice .. ')', vim.log.levels.INFO)
+
+      -- 3. Restart clangd to apply the new formatting rules
+      -- We find the clangd client specifically to avoid restarting other LSPs
+      local clients = vim.lsp.get_active_clients({ name = 'clangd' })
+      for _, client in ipairs(clients) do
+        vim.lsp.stop_client(client.id)
       end
+
+      -- Slight delay to ensure file is written before LSP restarts
+      vim.defer_fn(function()
+        clangdRestart()
+        print('LSP Reloaded: Using ' .. choice .. ' style.')
+      end, 100)
+    else
+      vim.notify('Failed to generate .clang-format. Is clang-format in your PATH?', vim.log.levels.ERROR)
     end
   end)
 end
-
 -- Create a command to trigger the menu
 vim.api.nvim_create_user_command('ClangFormatPick', M.set_clang_format_style, {})
+
+
 -- INFO:
 -- stylua: ignore
 -- Example: Call it with a keymap or command
@@ -66,7 +80,7 @@ function M.get_clangd_unknown_args()
     return
   end
 
-  local cmd = {"clangd", "--compile-commands-dir", "./", "--check=" .. first_file, "--log=error"}
+  local cmd = {"clangd", "--no-config", "--compile-commands-dir", "./", "--check=" .. first_file, "--log=error"}
   vim.system(cmd, { text = true }, function(obj)
     -- Everything inside this function happens "later"
     if obj.code == 127 then
