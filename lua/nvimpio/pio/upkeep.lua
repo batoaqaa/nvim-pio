@@ -14,36 +14,53 @@ M.selected_framework = ''
 M.is_processing = false
 M.queue = {}
 
-function M.set_clang_format_style()
-  local styles = { 'LLVM', 'Google', 'Chromium', 'Mozilla', 'WebKit', 'Microsoft', 'Linux' }
+function M.get_clangd_unknown_args()
+  -- 1. Reset: Delete the old config so clangd sees everything fresh
+  local project_root = vim.fn.getcwd()
+  local config_path = project_root .. '/.clangd'
+  if vim.fn.filereadable(config_path) == 1 then
+    os.remove(config_path)
+  end
 
-  vim.ui.select(styles, {
-    prompt = 'Select Clang-Format base style:',
-  }, function(choice)
-    if not choice then
-      return
+  -- 2. Simple file find: Grab the first .cpp or .c in src/
+  local files = vim.fn.globpath(project_root .. '/src', '*.cpp', false, true)
+  if #files == 0 then
+    files = vim.fn.globpath(project_root .. '/src', '*.c', false, true)
+  end
+
+  local first_file = files[1]
+  if not first_file then
+    vim.notify('No source files found in src/', vim.log.levels.WARN)
+    return
+  end
+
+  -- 3. Run the check
+  local cmd = { 'clangd', '--compile-commands-dir=.', '--check=' .. first_file, '--log=error' }
+
+  vim.system(cmd, { text = true }, function(obj)
+    local output = (obj.stdout or '') .. (obj.stderr or '')
+    local args_table = {}
+
+    -- Auto-extract: if clangd says it's unknown, we catch it
+    for arg in string.gmatch(output, "unknown argument[:%s]+'?([^'%s;]+)'?") do
+      table.insert(args_table, string.format('%q', arg:gsub('[;%.]$', '')))
     end
 
-    -- 1. Generate the command (Windows compatible)
-    local cmd = string.format('cmd /c "clang-format -style=%s -dump-config > .clang-format"', choice:lower())
+    boilerplate.args = args_table
 
-    -- 2. Execute and check result
-    local success = os.execute(cmd)
+    vim.schedule(function()
+      print(string.format('Detected %d flags to remove', #args_table))
 
-    if success then
-      vim.notify('Created .clang-format (' .. choice .. ')', vim.log.levels.INFO)
+      -- 4. Re-generate .clangd with the discovered flags
+      boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
 
-      -- 3. Restart clangd to apply the new formatting rules
-      -- Slight delay to ensure file is written before LSP restarts
-      vim.defer_fn(function()
+      if clangdRestart then
         clangdRestart()
-        print('LSP Reloaded: Using ' .. choice .. ' style.')
-      end, 100)
-    else
-      vim.notify('Failed to generate .clang-format. Is clang-format in your PATH?', vim.log.levels.ERROR)
-    end
+      end
+    end)
   end)
 end
+
 -- Create a command to trigger the menu
 vim.api.nvim_create_user_command('ClangFormatPick', M.set_clang_format_style, {})
 
