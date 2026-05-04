@@ -14,6 +14,39 @@ M.selected_framework = ''
 M.is_processing = false
 M.queue = {}
 
+function M.set_clang_format_style()
+  local styles = { 'LLVM', 'Google', 'Chromium', 'Mozilla', 'WebKit', 'Microsoft', 'Linux' }
+
+  vim.ui.select(styles, {
+    prompt = 'Select Clang-Format base style:',
+  }, function(choice)
+    if not choice then
+      return
+    end
+
+    -- 1. Generate the command (Windows compatible)
+    local cmd = string.format('cmd /c "clang-format -style=%s -dump-config > .clang-format"', choice:lower())
+
+    -- 2. Execute and check result
+    local success = os.execute(cmd)
+
+    if success then
+      vim.notify('Created .clang-format (' .. choice .. ')', vim.log.levels.INFO)
+
+      -- 3. Restart clangd to apply the new formatting rules
+      -- Slight delay to ensure file is written before LSP restarts
+      vim.defer_fn(function()
+        clangdRestart()
+        print('LSP Reloaded: Using ' .. choice .. ' style.')
+      end, 100)
+    else
+      vim.notify('Failed to generate .clang-format. Is clang-format in your PATH?', vim.log.levels.ERROR)
+    end
+  end)
+end
+-- Create a command to trigger the menu
+vim.api.nvim_create_user_command('ClangFormatPick', M.set_clang_format_style, {})
+
 function M.get_clangd_unknown_args()
   -- 1. Reset: Delete the old config so clangd sees everything fresh
   local project_root = vim.fn.getcwd()
@@ -60,53 +93,6 @@ function M.get_clangd_unknown_args()
     end)
   end)
 end
-
--- Create a command to trigger the menu
-vim.api.nvim_create_user_command('ClangFormatPick', M.set_clang_format_style, {})
-
-function M.get_clangd_unknown_args()
-  -- 1. Just delete the file. This resets clangd's "memory" instantly.
-  local config_path = vim.fn.getcwd() .. '/.clangd'
-  if vim.fn.filereadable(config_path) == 1 then
-    os.remove(config_path)
-  end
-
-  -- 2. Find your file (main.cpp)
-  local first_file = vim.fn.glob('./src/*.cpp'):map(function(_, v)
-    return v
-  end)[1] or vim.fn.glob('./src/*.c'):map(function(_, v)
-    return v
-  end)[1]
-
-  if not first_file then
-    return
-  end
-
-  -- 3. Run the check. Since .clangd is gone, it ALWAYS finds the errors.
-  local cmd = { 'clangd', '--compile-commands-dir=.', '--check=' .. first_file, '--log=error' }
-
-  vim.system(cmd, { text = true }, function(obj)
-    local output = (obj.stdout or '') .. (obj.stderr or '')
-    local args_table = {}
-
-    -- Auto-extract whatever clangd complains about
-    for arg in string.gmatch(output, "unknown argument[:%s]+'?([^'%s;]+)'?") do
-      table.insert(args_table, string.format('%q', arg:gsub('[;%.]$', '')))
-    end
-
-    -- 4. Pass the new list to your generator
-    boilerplate.args = args_table
-
-    vim.schedule(function()
-      boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
-      if clangdRestart then
-        clangdRestart()
-      end
-      print('Auto-extracted and removed ' .. #args_table .. ' flags.')
-    end)
-  end)
-end
-
 -- INFO:
 --- stylua: ignore
 -- Example: Call it with a keymap or command
