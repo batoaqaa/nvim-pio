@@ -1,6 +1,6 @@
 local M = {}
 
-local clangdRestart = require('nvimpio.lspConfig.tools').clangdRestart
+local clangdRestart = require('nvimpio.clangd.tools').clangdRestart
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 
@@ -276,9 +276,9 @@ function M.init()
     local metadata = require('nvimpio.pio.metadata')
     metadata.load_project_config()
 
-    require('nvimpio.lspConfig.clangd')
+    require('nvimpio.clangd.clangd')
     if config.lspClangd.attach.enabled then
-      require('nvimpio.lspConfig.attach')
+      require('nvimpio.clangd.attach')
     end
 
     -- Always start the watcher so it can catch a future 'pio init'

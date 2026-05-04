@@ -12,8 +12,34 @@ M.is_processing = false
 M.queue = {}
 
 local term = require('nvimpio.utils.term')
-local clangdRestart = require('nvimpio.lspConfig.tools').clangdRestart
+local clangdRestart = require('nvimpio.clangd.tools').clangdRestart
 
+function M.set_clang_format_style()
+  -- List of available base styles
+  local styles = { 'LLVM', 'Google', 'Chromium', 'Mozilla', 'WebKit', 'Microsoft', 'Linux' }
+
+  vim.ui.select(styles, {
+    prompt = 'Select Clang-Format base style:',
+  }, function(choice)
+    if choice then
+      -- Construct the shell command
+      -- Using 'cmd /c' because we are on Windows
+      local cmd = string.format('cmd /c "clang-format -style=%s -dump-config > .clang-format"', choice)
+
+      -- Execute the command
+      local result = os.execute(cmd)
+
+      if result then
+        print('Successfully created .clang-format with ' .. choice .. ' style.')
+      else
+        print('Error: Could not create .clang-format. Is clang-format installed?')
+      end
+    end
+  end)
+end
+
+-- Create a command to trigger the menu
+vim.api.nvim_create_user_command('ClangFormatPick', set_clang_format_style, {})
 -- INFO:
 -- stylua: ignore
 -- Example: Call it with a keymap or command

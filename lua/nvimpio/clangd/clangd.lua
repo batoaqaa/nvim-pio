@@ -275,5 +275,5 @@ local pyrefly = {
 vim.lsp.config('pyrefly', pyrefly)
 
 -- restart lsp
--- require('nvimpio.lspConfig.tools').lsp_restart('clangd')
+-- require('nvimpio.clangd.tools').lsp_restart('clangd')
 ----------------------------------------------------------------------------------
