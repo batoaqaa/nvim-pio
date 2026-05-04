@@ -47,90 +47,133 @@ end
 -- Create a command to trigger the menu
 vim.api.nvim_create_user_command('ClangFormatPick', M.set_clang_format_style, {})
 
--- INFO:
---- stylua: ignore
--- Example: Call it with a keymap or command
 function M.get_clangd_unknown_args()
-  local src_path = vim.fn.getcwd() .. '/src'
-  local ok, files = pcall(vim.fn.readdir, src_path)
-  if not ok then
-    vim.notify('src directory not found', vim.log.levels.WARN)
+  -- 1. Just delete the file. This resets clangd's "memory" instantly.
+  local config_path = vim.fn.getcwd() .. '/.clangd'
+  if vim.fn.filereadable(config_path) == 1 then
+    os.remove(config_path)
+  end
+
+  -- 2. Find your file (main.cpp)
+  local first_file = vim.fn.glob('./src/*.cpp'):map(function(_, v)
+    return v
+  end)[1] or vim.fn.glob('./src/*.c'):map(function(_, v)
+    return v
+  end)[1]
+
+  if not first_file then
     return
   end
 
-  local first_file = ''
+  -- 3. Run the check. Since .clangd is gone, it ALWAYS finds the errors.
+  local cmd = { 'clangd', '--compile-commands-dir=.', '--check=' .. first_file, '--log=error' }
 
-  for _, file in ipairs(files) do
-    -- Ensure it's a file (simple check for extension)
-    if file:match('%.cpp$') or file:match('%.c$') then
-      first_file = './src/' .. file
-      break
-    end
-  end
-
-  if first_file == '' then
-    vim.notify('No .cpp or .c files found in src/', vim.log.levels.WARN)
-    return
-  end
-
-  -- Get the ABSOLUTE path to your current directory
-  local project_root = vim.uv.cwd()
-  local abs_first_file = vim.fn.fnamemodify(first_file, ':p')
-
-  local fake_config = vim.fn.tempname() .. '.yaml'
-
-  -- Run clangd in a "clean" environment (the system temp folder)
-  local cmd = {
-    'clangd',
-    '--config-file=' .. fake_config,
-    '--compile-commands-dir=' .. project_root,
-    '--check=' .. abs_first_file,
-    '--log=error',
-  }
-  -- local cmd = { 'clangd', '--compile-commands-dir', './', '--check=' .. first_file, '--log=error' }
   vim.system(cmd, { text = true }, function(obj)
-    -- Everything inside this function happens "later"
-    if obj.code == 127 then
-      vim.schedule(function()
-        vim.notify("Clangd Check Error: 'clangd' executable not found", vim.log.levels.ERROR)
-      end)
-      return
-    end
-
-    -- 1. Combine output immediately
     local output = (obj.stdout or '') .. (obj.stderr or '')
-    print(output)
-
     local args_table = {}
-    -- 2. Extract flags even if code is not 0
-    for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
-      local clean_arg = arg:gsub('[;%.]$', '')
-      table.insert(args_table, string.format('%q', clean_arg))
+
+    -- Auto-extract whatever clangd complains about
+    for arg in string.gmatch(output, "unknown argument[:%s]+'?([^'%s;]+)'?") do
+      table.insert(args_table, string.format('%q', arg:gsub('[;%.]$', '')))
     end
 
-    -- 3. ALWAYS update the module table (use empty table if nothing found)
-    -- This prevents the "table expected, got nil" error
+    -- 4. Pass the new list to your generator
     boilerplate.args = args_table
 
-    -- 4. Execute the generation regardless of the exit code
     vim.schedule(function()
-      -- If it's a real crash (no clangd), notify but still try to gen with empty args
-      if obj.code == 127 then
-        vim.notify('Clangd not found, generating default .clangd', vim.log.levels.WARN)
-      end
-
-      print(string.format('Generated .clangd with %d unknown flags', #boilerplate.args))
-      print(vim.inspect(boilerplate.args))
-
       boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
-      -- boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-
       if clangdRestart then
         clangdRestart()
       end
+      print('Auto-extracted and removed ' .. #args_table .. ' flags.')
     end)
   end)
 end
+
+-- INFO:
+--- stylua: ignore
+-- Example: Call it with a keymap or command
+-- function M.get_clangd_unknown_args()
+--   local src_path = vim.fn.getcwd() .. '/src'
+--   local ok, files = pcall(vim.fn.readdir, src_path)
+--   if not ok then
+--     vim.notify('src directory not found', vim.log.levels.WARN)
+--     return
+--   end
+--
+--   local first_file = ''
+--
+--   for _, file in ipairs(files) do
+--     -- Ensure it's a file (simple check for extension)
+--     if file:match('%.cpp$') or file:match('%.c$') then
+--       first_file = './src/' .. file
+--       break
+--     end
+--   end
+--
+--   if first_file == '' then
+--     vim.notify('No .cpp or .c files found in src/', vim.log.levels.WARN)
+--     return
+--   end
+--
+--   -- Get the ABSOLUTE path to your current directory
+--   local project_root = vim.uv.cwd()
+--   local abs_first_file = vim.fn.fnamemodify(first_file, ':p')
+--
+--   local fake_config = vim.fn.tempname() .. '.yaml'
+--
+--   -- Run clangd in a "clean" environment (the system temp folder)
+--   local cmd = {
+--     'clangd',
+--     '--config-file=' .. fake_config,
+--     '--compile-commands-dir=' .. project_root,
+--     '--check=' .. abs_first_file,
+--     '--log=error',
+--   }
+--   -- local cmd = { 'clangd', '--compile-commands-dir', './', '--check=' .. first_file, '--log=error' }
+--   vim.system(cmd, { text = true }, function(obj)
+--     -- Everything inside this function happens "later"
+--     if obj.code == 127 then
+--       vim.schedule(function()
+--         vim.notify("Clangd Check Error: 'clangd' executable not found", vim.log.levels.ERROR)
+--       end)
+--       return
+--     end
+--
+--     -- 1. Combine output immediately
+--     local output = (obj.stdout or '') .. (obj.stderr or '')
+--     print(output)
+--
+--     local args_table = {}
+--     -- 2. Extract flags even if code is not 0
+--     for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
+--       local clean_arg = arg:gsub('[;%.]$', '')
+--       table.insert(args_table, string.format('%q', clean_arg))
+--     end
+--
+--     -- 3. ALWAYS update the module table (use empty table if nothing found)
+--     -- This prevents the "table expected, got nil" error
+--     boilerplate.args = args_table
+--
+--     -- 4. Execute the generation regardless of the exit code
+--     vim.schedule(function()
+--       -- If it's a real crash (no clangd), notify but still try to gen with empty args
+--       if obj.code == 127 then
+--         vim.notify('Clangd not found, generating default .clangd', vim.log.levels.WARN)
+--       end
+--
+--       print(string.format('Generated .clangd with %d unknown flags', #boilerplate.args))
+--       print(vim.inspect(boilerplate.args))
+--
+--       boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
+--       -- boilerplate_gen([[.clangd]], _G.metadata.core_dir)
+--
+--       if clangdRestart then
+--         clangdRestart()
+--       end
+--     end)
+--   end)
+-- end
 vim.api.nvim_create_user_command('ClangdCheckArgs', M.get_clangd_unknown_args, {})
 
 -- INFO:
