@@ -279,6 +279,7 @@ function M.init()
   require('nvimpio.pio.commands')
 
   -- activate meta save and upload and env switch
+  require('nvimpio.pio.metadata')
   require('nvimpio.pio.metadata').load_project_config()
 
   -- Always start the watcher so it can catch a future 'pio init'
