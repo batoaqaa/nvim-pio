@@ -4,9 +4,9 @@ local clangdRestart = require('nvimpio.clangd.control').clangdRestart
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 
--- =============================================================================
 -- INFO:
 -- Unified hashing for change detection
+-------------------------------------------------------------------------------
 local function get_hash(path)
   if vim.fn.filereadable(path) == 0 then
     return nil
@@ -20,7 +20,7 @@ end
 
 --INFO:
 --stylua: ignore
---=============================================================================
+-------------------------------------------------------------------------------
 function M.pio_refresh(callback, from)
   local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
   vim.notify(msg ..'Config sync ...', vim.log.levels.INFO)
@@ -42,6 +42,7 @@ end
 --  watchers setup
 --=============================================================================
 -- Ensure this is at the TOP of your file, outside any functions
+-------------------------------------------------------------------------------
 local uv = vim.uv or vim.loop
 M.watcher_handles = {}
 local debounce_timer = uv.new_timer()
@@ -50,7 +51,7 @@ local last_mtime = 0
 -- --INFO:
 -- --stylua: ignore
 -- --1.run_compiledb after platformio.ini changed
--- --=============================================================================
+-- -----------------------------------------------------------------------------
 -- function M.run_compiledb(target)
 --   if target.isBusy then return end
 --   if _G.metadata.isBusy == true then return end
@@ -82,7 +83,7 @@ local last_mtime = 0
 --INFO:
 --stylua: ignore
 --1.stop_watchers 
---=============================================================================
+-------------------------------------------------------------------------------
 function M.stop_watchers()
   if not M.watcher_handles or (type(M.watcher_handles) ~= 'table') then M.watcher_handles = {} return end
 
@@ -98,7 +99,7 @@ end
 --INFO:
 --stylua: ignore
 --2.watcher cleanup
---=============================================================================
+-------------------------------------------------------------------------------
 function M.cleanup()
   M.stop_watchers()
   if debounce_timer and not debounce_timer:is_closing() then
@@ -117,7 +118,7 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
 --INFO:
 --stylua: ignore
 --3. MAIN WATCHER: Efficient Folder Monitoring
---=============================================================================
+-------------------------------------------------------------------------------
 local function watch_file(target, callback)
   local folder_path = target.path:match('(.*[/\\])')
   local target_filename = target.path:match('[^/\\]+$')
@@ -187,7 +188,7 @@ end
 --INFO:
 --stylua: ignore
 --4. start_watches
---=============================================================================
+-------------------------------------------------------------------------------
 function M.start_watchers()
   -- Clean up any existing watchers first to prevent duplicates
   if next(M.watcher_handles) then M.stop_watchers() end
@@ -266,7 +267,7 @@ end
 
 --INFO: 6.  Exported setup function
 --stylua: ignore
---=============================================================================
+-------------------------------------------------------------------------------
 function M.init()
     vim.notify('PIO Watcher: initialize', vim.log.levels.INFO)
 

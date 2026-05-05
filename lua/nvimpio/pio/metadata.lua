@@ -37,23 +37,93 @@ local last_saved_hash = ''
 --   return false
 -- end
 
-local function remove_from_path(path_to_remove)
+-- function M.updateDefaultEnv()
+--   local pio_ini = vim.fn.getcwd() .. '/platformio.ini'
+--   local active_env = _G.metadata.active_env
+--
+--   if not active_env or active_env == '' then
+--     vim.notify('No active_env found in metadata', vim.log.levels.WARN)
+--     return
+--   end
+--
+--   if vim.fn.filereadable(pio_ini) == 0 then
+--     vim.notify('platformio.ini not found', vim.log.levels.ERROR)
+--     return
+--   end
+--
+--   local lines = vim.fn.readfile(pio_ini)
+--   local updated = false
+--
+--   for i, line in ipairs(lines) do
+--     -- Matches 'default_envs =' with any amount of whitespace
+--     if line:match('^%s*default_envs%s*=') then
+--       lines[i] = 'default_envs = ' .. active_env
+--       updated = true
+--       break
+--     end
+--   end
+--
+--   if updated then
+--     vim.fn.writefile(lines, pio_ini)
+--     print('✅ platformio.ini updated: default_envs = ' .. active_env)
+--   else
+--     vim.notify("Could not find 'default_envs =' line in platformio.ini", vim.log.levels.WARN)
+--   end
+-- end
+
+--INFO:
+-- stylua: ignore
+-------------------------------------------------------------------------------
+function M.updateDefaultEnv()
+  local path = vim.fn.getcwd() .. '/platformio.ini'
+  local active_env = _G.metadata.active_env
+
+  if not active_env or active_env == '' then return end
+
+  local ok, content = M.readFile(path)
+  if not ok then return end
+
+  -- 1. Try to replace existing line
+  local new_content, count = content:gsub('(default_envs%s*=%s*)[^\r\n]*', '%1' .. active_env)
+
+  -- 2. If line was NOT found, insert it in the [platformio] section
+  if count == 0 then
+    -- Find [platformio] and append the line immediately after it
+    if content:match('%[platformio%]') then
+      new_content = content:gsub('(%[platformio%][^\r\n]*)', '%1\ndefault_envs = ' .. active_env)
+      count = 1
+    else
+      -- If even [platformio] is missing, prepend it to the whole file
+      new_content = '[platformio]\ndefault_envs = ' .. active_env .. '\n\n' .. content
+      count = 1
+    end
+  end
+
+  -- 3. Save using your robust writeFile
+  if count > 0 then
+    M.writeFile(path, new_content)
+    print('✅ default_envs set to: ' .. active_env)
+  end
+end
+
+--INFO:
+-- stylua: ignore
+-------------------------------------------------------------------------------
+local function removeFromPath(path_to_remove)
   local sep = vim.fn.has('win32') == 1 and ';' or ':'
   -- Split the path by the separator
   local paths = vim.split(vim.env.PATH, sep, { trimempty = true })
 
   -- Filter out the path we want to remove
-  local new_paths = vim.tbl_filter(function(p)
-    return p ~= path_to_remove
-  end, paths)
+  local new_paths = vim.tbl_filter(function(p) return p ~= path_to_remove end, paths)
 
   -- Rejoin and update the environment
   vim.env.PATH = table.concat(new_paths, sep)
 end
 
--- Usage:
-
 --INFO:
+-------------------------------------------------------------------------------
+-- Usage:
 -- 1. Internal State & Defaults
 local _pio_metadata = {
   isBusy = false,
@@ -104,7 +174,7 @@ _G.metadata = setmetatable({}, {
         local oldPath = oldValue .. '/bin'
         local start_time = vim.loop.hrtime()
         -- remove_nearby_front(oldPath)
-        remove_from_path(oldPath)
+        removeFromPath(oldPath)
         local end_time = vim.loop.hrtime()
         local duration = (end_time - start_time) / 1e6
         vim.notify(string.format('PIO env: ' .. oldPath .. ' removed from path in %.2fms', duration), vim.log.levels.INFO)
@@ -115,6 +185,9 @@ _G.metadata = setmetatable({}, {
         vim.notify('PIO env: ' .. binPath .. ' added to path', vim.log.levels.INFO, { title = 'PlatformIO', render = 'compact' })
       elseif key == 'last_projectChecksum' then
       elseif key == 'active_env' then
+        _pio_metadata['isBusy'] = true
+        M.updateDefaultEnv()
+        _pio_metadata['isBusy'] = false
       end
     end)
   end,
@@ -126,6 +199,7 @@ local config_path = vim.fs.joinpath(vim.uv.cwd(), '.project_config.json')
 -- local misc = vim.misc
 --INFO:
 -- 2. Save Logic (Uses sha256 for stability)
+-------------------------------------------------------------------------------
 function M.save_project_config(from)
   -- 1. Generate the formatted string directly, jsonFormat already returns a string!
   local ok, pretty_json = pcall(vim.misc.jsonFormat, _pio_metadata)
@@ -152,6 +226,7 @@ end
 
 --INFO:
 -- 3. Load Logic (Populates proxy safely)
+-------------------------------------------------------------------------------
 function M.load_project_config()
   if vim.fn.filereadable(config_path) == 1 then
     local _, json_data = vim.misc.readFile(config_path)
@@ -174,6 +249,7 @@ end
 
 --INFO:
 -- 4. Initialization
+-------------------------------------------------------------------------------
 M.load_project_config()
 
 return M
