@@ -242,7 +242,6 @@ function M.setup(userConfig)
   if userConfig then
     user_config = userConfig
   end
-  print(vim.inspect(user_config))
   -- 1. Merge user settings with defaults
   if user_config.lspClangd then
     vim.validate('lspClangd', user_config.lspClangd, 'table', true)
