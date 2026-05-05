@@ -273,18 +273,6 @@ function M.setup(opts)
   end
   M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
 
-  -- stylua: ignore
-  -- INFO: Pioini
-  vim.api.nvim_create_user_command('Pioinit',
-    function()
-      require('nvimpio.pioInit').pioInit()
-    end,
-    {
-      force = true,
-      desc = 'Start the PlatformIO guided setup wizard'
-    }
-  )
-
   -- 2. Try to activate if we are already in a PIO project
   if vim.fn.filereadable('platformio.ini') == 1 and (next(user_config) ~= nil) then
     M.activate()
