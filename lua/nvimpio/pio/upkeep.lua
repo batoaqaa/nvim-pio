@@ -666,6 +666,8 @@ end
 local commandPassed = 0
 M.queue = {}
 
+local nvimpio = require('nvimpio')
+
 -- INFO: commands sequencer
 -- stylua: ignore
 -- =============================================================================
@@ -690,8 +692,10 @@ M.run_sequence = function(tasks)
   commandPassed = 1
   pio_buffer = ''
 
-  require('nvimpio.pio.metadata')._G.metadata.isBusy = false
-  -- _G.metadata.isBusy = false
+  if not nvimpio.is_active then
+    require('nvimpio.pio.metadata')
+  end
+  _G.metadata.isBusy = false
   term.stdout_callback = M.stdoutcallback
   vim.schedule(function() if callBack then callBack('INIT') end end)
 end
@@ -733,7 +737,6 @@ function M.handlePioinitDb(result, board)
         local pio_refresh = require('nvimpio.pio.control').pio_refresh
         pio_refresh(function()
 
-        local nvimpio = require('nvimpio')
         -- 1. Ensure the plugin is active (Safe to call even if already active)
         if not nvimpio.is_active then
           nvimpio.setup()
