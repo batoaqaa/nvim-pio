@@ -242,6 +242,26 @@ function M.activate()
   M.isActive = true
 end
 
+-- This function runs on EVERY startup, even when lazy-loaded
+M.init = function()
+  local has_ini = vim.fn.filereadable('platformio.ini') == 1
+  local has_pio = vim.fn.isdirectory('.pio') == 1
+
+  -- 1. THE INTERNAL COND: Automatic Activation
+  if has_ini and has_pio then
+    -- We are in a project! Tell lazy.nvim to load the rest of the plugin NOW
+    require('lazy').load({ plugins = { 'nvim-pio' } })
+    return
+  end
+
+  -- 2. THE BOOTSTRAP: Register command globally without loading full logic
+  vim.api.nvim_create_user_command('Pioinit', function()
+    -- Manually load the plugin only when the command is run
+    require('lazy').load({ plugins = { 'nvim-pio' } })
+    require('nvimpio.pioInit').pioInit()
+  end, { desc = 'Bootstrap PIO Project' })
+end
+
 local user_config = {}
 -- INFO:
 --stylua: ignore
