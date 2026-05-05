@@ -395,7 +395,7 @@ function M.fetch_config(on_done, from)
         end
       end
       meta.active_env = active_env
-      vim.misc.updateDefaultEnv()
+      M.updateDefaultEnv()
 
       -- 5. Resolve Paths (INI -> Env -> Default)
       local path_map = {
