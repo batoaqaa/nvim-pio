@@ -92,39 +92,94 @@ function M.updateDefaultEnv()
   --   print('✅ default_envs set to: ' .. active_env)
   -- end
 
+
+  -- local path = vim.fn.getcwd() .. "/platformio.ini"
+  -- local active_env = _G.metadata.active_env
+  --
+  -- if not active_env or active_env == "" then return end
+  --
+  -- local ok, content = vim.misc.readFile(path)
+  -- if not ok or not content then return end
+  --
+  -- -- 1. Surgical replacement
+  -- -- Pattern: finds 'default_envs', spaces, '=', more spaces, and then 
+  -- -- any characters that ARE NOT a newline.
+  -- local new_content, count = content:gsub("(default_envs%s*=%s*)[^\r\n]*", "%1" .. active_env)
+  --
+  -- -- 2. If line doesn't exist, insert it safely before [env]
+  -- if count == 0 then
+  --   if content:match("%%[env%%]") then
+  --     -- Use a function to return the string to avoid % backreference issues
+  --     new_content = content:gsub("%%[env%%]", function()
+  --       return "default_envs = " .. active_env .. "\n\n[env]"
+  --     end)
+  --     count = 1
+  --   else
+  --     -- Fallback to [platformio] section
+  --     new_content = content:gsub("(%%[platformio%%][^\r\n]*)", "%1\ndefault_envs = " .. active_env)
+  --     count = 1
+  --   end
+  -- end
+  --
+  -- if count > 0 then
+  --   vim.misc.writeFile(path, new_content, {})
+  --   print("✅ Sync: default_envs = " .. active_env)
+  -- end
+  --
+
+
   local path = vim.fn.getcwd() .. "/platformio.ini"
   local active_env = _G.metadata.active_env
-
   if not active_env or active_env == "" then return end
 
+  -- 1. Read raw string using your uv-based readFile
   local ok, content = vim.misc.readFile(path)
   if not ok or not content then return end
 
-  -- 1. Surgical replacement
-  -- Pattern: finds 'default_envs', spaces, '=', more spaces, and then 
-  -- any characters that ARE NOT a newline.
-  local new_content, count = content:gsub("(default_envs%s*=%s*)[^\r\n]*", "%1" .. active_env)
+  -- 2. Split into lines (handles both Windows \r\n and Linux \n)
+  local lines = {}
+  for line in content:gmatch("([^\r\n]*)\r?\n?") do
+    table.insert(lines, line)
+  end
+  -- Note: gmatch often adds an extra empty line at the end, remove it if needed
+  if lines[#lines] == "" then table.remove(lines) end
 
-  -- 2. If line doesn't exist, insert it safely before [env]
-  if count == 0 then
-    if content:match("%%[env%%]") then
-      -- Use a function to return the string to avoid % backreference issues
-      new_content = content:gsub("%%[env%%]", function()
-        return "default_envs = " .. active_env .. "\n\n[env]"
-      end)
-      count = 1
-    else
-      -- Fallback to [platformio] section
-      new_content = content:gsub("(%%[platformio%%][^\r\n]*)", "%1\ndefault_envs = " .. active_env)
-      count = 1
+  local found = false
+  local platformio_index = -1
+
+  -- 3. Process the lines
+  for i, line in ipairs(lines) do
+    if line:match("^%s*%[platformio%]") then
+      platformio_index = i
+    end
+
+    if line:match("^%s*default_envs%s*=") then
+      lines[i] = "default_envs = " .. active_env
+      found = true
+      break
     end
   end
 
-  if count > 0 then
-    vim.misc.writeFile(path, new_content, {})
-    print("✅ Sync: default_envs = " .. active_env)
+  -- 4. Injection logic if the key was missing
+  if not found then
+    if platformio_index ~= -1 then
+      table.insert(lines, platformio_index + 1, "default_envs = " .. active_env)
+    else
+      table.insert(lines, 1, "[platformio]")
+      table.insert(lines, 2, "default_envs = " .. active_env)
+    end
   end
 
+  -- 5. Reconstruct and write using your uv-based writeFile
+  -- We use \n for joining; PlatformIO/Python handles this fine on Windows
+  local final_content = table.concat(lines, "\n")
+
+  local write_ok, err = vim.misc.writeFile(path, final_content, {})
+  if write_ok then
+    print("✅ Sync successful: default_envs = " .. active_env)
+  else
+    vim.notify("Write failed: " .. err, vim.log.levels.ERROR)
+  end
 end
 
 --INFO:
