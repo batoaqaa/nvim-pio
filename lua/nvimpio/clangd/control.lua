@@ -45,7 +45,7 @@ function M.setFormatStyle()
       -- 3. Restart clangd to apply the new formatting rules
       -- Slight delay to ensure file is written before LSP restarts
       vim.defer_fn(function()
-        M.clangdRestart()
+        M.restart()
         print('LSP Reloaded: Using ' .. choice .. ' style.')
       end, 100)
     else
@@ -90,7 +90,7 @@ function M.getUnknownArgs()
       boilerplate.args = args_table
       boilerplate_gen('.clangd', vim.g.platformioRootDir)
 
-      M.clangdRestart()
+      M.restart()
       print('✅ Done: Extracted ' .. #args_table .. ' flags.')
     end)
   end)

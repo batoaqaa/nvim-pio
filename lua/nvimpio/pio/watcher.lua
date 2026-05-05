@@ -27,13 +27,13 @@ function M.pio_refresh(callback, from)
 
   local function on_done(active_env)
     if active_env then vim.notify(msg .. 'active_env= ' .. active_env, vim.log.levels.INFO) end
-    if active_env then vim.upkeep.fetch_metadata(callback, active_env, from, 1) end
+    if active_env then vim.pio.fetch_metadata(callback, active_env, from, 1) end
   end
-  vim.upkeep.fetch_config(on_done, from)
-  -- local active_env = vim.upkeep.get_active__env(from)
+  vim.pio.fetch_config(on_done, from)
+  -- local active_env = vim.pio.get_active__env(from)
   -- if active_env then
   --   vim.notify(msg .. 'active_env= ' .. active_env, vim.log.levels.INFO)
-  --   vim.upkeep.fetch_metadata(callback, active_env, from, 1)
+  --   vim.pio.fetch_metadata(callback, active_env, from, 1)
   -- end
 end
 
@@ -55,7 +55,7 @@ local last_mtime = 0
 --   if target.isBusy then return end
 --   if _G.metadata.isBusy == true then return end
 --
---   local env = vim.upkeep.get_active__env()
+--   local env = vim.pio.get_active__env()
 --   if not env then return end
 --   target.isBusy = true
 --     vim.notify('PIO platformio.ini change: compiledb update ...', vim.log.levels.INFO, { title = 'PlatformIO' })
@@ -206,7 +206,7 @@ function M.start_watchers()
         local new_hash = get_hash(self.path) or ''
         if new_hash and new_hash ~= self.last_hash then
           self.last_hash = new_hash
-          local env = vim.upkeep.get_active__env('PIO platformio.ini change: ')
+          local env = vim.pio.get_active__env('PIO platformio.ini change: ')
           if not env then return end
           self.isBusy = true
           vim.notify('PIO platformio.ini change: compiledb update ...', vim.log.levels.INFO, { title = 'PlatformIO' })

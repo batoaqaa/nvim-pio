@@ -17,7 +17,7 @@
 --       return t.misc
 --     end
 --
---     -- Alias vim.upkeep to the pio module for convenience
+--     -- Alias vim.pio to the pio module for convenience
 --     if k == 'pio' then
 --       t.pio = require('nvimpio.utils.pio')
 --       return t.pio
@@ -44,12 +44,12 @@
 --   end,
 -- })
 vim.misc = require('nvimpio.utils.misc')
-vim.upkeep = require('nvimpio.pio.upkeep')
+vim.pio = require('nvimpio.pio.upkeep')
 vim.clangd = require('nvimpio.clangd.control')
 
 -- INFO: fix paths in compile_commands.json
 vim.api.nvim_create_user_command('Piofixpaths', function()
-  vim.upkeep.compile_commandsFix()
+  vim.pio.compile_commandsFix()
 end, {})
 
 ------------------------------------------------------
