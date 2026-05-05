@@ -48,67 +48,41 @@ end
 vim.api.nvim_create_user_command('ClangFormatPick', M.set_clang_format_style, {})
 
 function M.get_clangd_unknown_args()
-  local project_root = vim.fn.getcwd()
+  -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
+  boilerplate.args = {}
+  boilerplate_gen('.clangd', vim.g.platformioRootDir)
 
-  -- 1. Reset: Delete the old config so clangd sees everything fresh
-  local config_path = project_root .. '/.clangd'
-  if vim.fn.filereadable(config_path) == 1 then
-    os.remove(config_path)
-  end
+  -- 2. FIND: Grab the first .cpp or .c file in /src
+  local check_file = vim.fs.find(function(name)
+    return name:match('%.cpp$') or name:match('%.c$')
+  end, { limit = 1, path = vim.fn.getcwd() .. '/src' })[1]
 
-  -- 2. Robust File Search: Find the first source file manually
-  local first_file = nil
-  local src_dir = project_root .. '/src'
-
-  local handle = vim.loop.fs_scandir(src_dir)
-  if handle then
-    while true do
-      local name, type = vim.loop.fs_scandir_next(handle)
-      if not name then
-        break
-      end
-      if type == 'file' and (name:match('%.cpp$') or name:match('%.c$')) then
-        first_file = src_dir .. '/' .. name
-        break
-      end
-    end
-  end
-
-  if not first_file then
-    vim.notify('No .cpp or .c files found in ' .. src_dir, vim.log.levels.WARN)
+  if not check_file then
+    print('No source file found to check.')
     return
   end
 
-  -- 3. Run the check
-  local cmd = {
-    'clangd',
-    '--compile-commands-dir=' .. project_root,
-    '--check=' .. first_file,
-    '--log=error',
-  }
+  -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
+  local cmd = { 'clangd', '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
 
   vim.system(cmd, { text = true }, function(obj)
     local output = (obj.stdout or '') .. (obj.stderr or '')
     local args_table = {}
 
-    -- Extract whatever clangd hates
+    -- Extract anything clangd reports as an 'unknown argument'
     for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
-      table.insert(args_table, string.format('%q', arg))
+      table.insert(args_table, string.format('"%s"', arg:gsub('[;%.]$', '')))
     end
 
-    boilerplate.args = args_table
-
+    -- 4. UPDATE: Rebuild with the new discovered flags
     vim.schedule(function()
-      print(string.format('Discovered %d unknown flags', #args_table))
-
-      -- 4. Re-generate .clangd
-      if type(boilerplate_gen) == 'function' then
-        boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
-      end
+      boilerplate.args = args_table
+      boilerplate_gen('.clangd', vim.g.platformioRootDir)
 
       if clangdRestart then
         clangdRestart()
       end
+      print('✅ Done: Extracted ' .. #args_table .. ' flags.')
     end)
   end)
 end
