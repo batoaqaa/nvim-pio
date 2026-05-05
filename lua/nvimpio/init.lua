@@ -260,6 +260,7 @@ M.init = function()
     require('lazy').load({ plugins = { 'nvim-pio' } })
     require('nvimpio.pioInit').pioInit()
   end, { desc = 'Bootstrap PIO Project' })
+  print('here you are')
 end
 
 local user_config = {}
