@@ -99,28 +99,33 @@ function M.updateDefaultEnv()
   local ok, content = vim.misc.readFile(path)
   if not ok or not content then return end
 
-  -- 1. Use a more surgical pattern to handle empty or existing values
-  -- This looks for 'default_envs', any spaces, the '=', more spaces, and then matches
-  -- any existing characters (even none) until it hits the end of the line.
+  -- 1. Try to replace existing line
   local new_content, count = content:gsub("(default_envs%s*=%s*)[^\r\n]*", "default_envs = " .. active_env)
 
-  -- 2. Insertion logic if the line doesn't exist at all
+  -- 2. If NOT found, insert it safely
   if count == 0 then
-    -- Find [platformio] header, capture it and its immediate newline
-    if content:match("%[platformio%]") then
-      new_content = content:gsub("(%[platformio%]%s*[\r\n]+)", "%1default_envs = " .. active_env .. "\n")
+    -- Best way: Insert it right before the first [env] section
+    -- This keeps the [platformio] variables separate from the [env] variables
+    if content:match("%[env%]") then
+      new_content = content:gsub("(%[env%])", "default_envs = " .. active_env .. "\n\n%1")
+      count = 1
+    elseif content:match("%[platformio%]") then
+      -- Fallback: If no [env] exists, put it after [platformio] with double newlines
+      new_content = content:gsub("(%[platformio%]%s*[\r\n]+)", "%1default_envs = " .. active_env .. "\n\n")
       count = 1
     else
+      -- Absolute Fallback: New section at the top
       new_content = "[platformio]\ndefault_envs = " .. active_env .. "\n\n" .. content
       count = 1
     end
   end
 
-  -- 3. Write back
   if count > 0 then
     vim.misc.writeFile(path, new_content, {})
-    print("✅ platformio.ini: default_envs set to " .. active_env)
+    print("✅ Environment synced: " .. active_env)
   end
+
+
 end
 
 --INFO:
