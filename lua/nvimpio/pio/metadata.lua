@@ -74,41 +74,6 @@ local last_saved_hash = ''
 --INFO:
 -- stylua: ignore
 -------------------------------------------------------------------------------
-function M.updateDefaultEnv()
-  local path = vim.fn.getcwd() .. '/platformio.ini'
-  local active_env = _G.metadata.active_env
-
-  if not active_env or active_env == '' then return end
-
-  local ok, content = M.readFile(path)
-  if not ok then return end
-
-  -- 1. Try to replace existing line
-  local new_content, count = content:gsub('(default_envs%s*=%s*)[^\r\n]*', '%1' .. active_env)
-
-  -- 2. If line was NOT found, insert it in the [platformio] section
-  if count == 0 then
-    -- Find [platformio] and append the line immediately after it
-    if content:match('%[platformio%]') then
-      new_content = content:gsub('(%[platformio%][^\r\n]*)', '%1\ndefault_envs = ' .. active_env)
-      count = 1
-    else
-      -- If even [platformio] is missing, prepend it to the whole file
-      new_content = '[platformio]\ndefault_envs = ' .. active_env .. '\n\n' .. content
-      count = 1
-    end
-  end
-
-  -- 3. Save using your robust writeFile
-  if count > 0 then
-    M.writeFile(path, new_content)
-    print('✅ default_envs set to: ' .. active_env)
-  end
-end
-
---INFO:
--- stylua: ignore
--------------------------------------------------------------------------------
 local function removeFromPath(path_to_remove)
   local sep = vim.fn.has('win32') == 1 and ';' or ':'
   -- Split the path by the separator
@@ -184,10 +149,10 @@ _G.metadata = setmetatable({}, {
 
         vim.notify('PIO env: ' .. binPath .. ' added to path', vim.log.levels.INFO, { title = 'PlatformIO', render = 'compact' })
       elseif key == 'last_projectChecksum' then
-      elseif key == 'active_env' then
-        _pio_metadata['isBusy'] = true
-        M.updateDefaultEnv()
-        _pio_metadata['isBusy'] = false
+        -- elseif key == 'active_env' then
+        --   _pio_metadata['isBusy'] = true
+        --   vim.misc.updateDefaultEnv()
+        --   _pio_metadata['isBusy'] = false
       end
     end)
   end,

@@ -59,6 +59,41 @@ function M.get_sysroot_triplet(cc_compiler)
 end
 
 --INFO:
+-- stylua: ignore
+-------------------------------------------------------------------------------
+function M.updateDefaultEnv()
+  local path = vim.fn.getcwd() .. '/platformio.ini'
+  local active_env = _G.metadata.active_env
+
+  if not active_env or active_env == '' then return end
+
+  local ok, content = vim.misc.readFile(path)
+  if not ok or not content then return end
+
+  -- 1. Try to replace existing line
+  local new_content, count = content:gsub('(default_envs%s*=%s*)[^\r\n]*', '%1' .. active_env)
+
+  -- 2. If line was NOT found, insert it in the [platformio] section
+  if count == 0 then
+    -- Find [platformio] and append the line immediately after it
+    if content:match('%[platformio%]') then
+      new_content = content:gsub('(%[platformio%][^\r\n]*)', '%1\ndefault_envs = ' .. active_env)
+      count = 1
+    else
+      -- If even [platformio] is missing, prepend it to the whole file
+      new_content = '[platformio]\ndefault_envs = ' .. active_env .. '\n\n' .. content
+      count = 1
+    end
+  end
+
+  -- 3. Save using your robust writeFile
+  if count > 0 then
+    vim.misc.writeFile(path, new_content, {})
+    print('✅ default_envs set to: ' .. active_env)
+  end
+end
+
+--INFO:
 -- Fast environment detection from platformio.ini file(no external calls)
 -- stylua: ignore
 --=============================================================================
@@ -81,7 +116,7 @@ function M.get_active__env(from)
   if not ok or not content then return vim.notify(msg .. 'platformio.ini not found in ' .. path, vim.log.levels.WARN) end
 
   local default_envs_raw = ''
-  local first_env = nil
+  local default_envs = nil
   local valid_envs = {}
   local in_platformio_block = false
 
@@ -93,7 +128,7 @@ function M.get_active__env(from)
       in_platformio_block = (section == 'platformio')
       local env_name = section:match('^env:(.+)')
       if env_name then
-        if not first_env then first_env = env_name end
+        if not default_envs then default_envs = env_name end
         valid_envs[env_name] = true
       end
     end
@@ -108,12 +143,16 @@ function M.get_active__env(from)
   -- Validation: Find the first default_env that actually exists as a block [env:]
   if default_envs_raw ~= '' then
     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
-      if valid_envs[env_name] then return env_name end
+      if valid_envs[env_name] then default_envs = env_name end
     end
   end
 
+  if (_G.metadata.active_env ~= default_envs)then
+    _G.metadata.active_env = default_envs
+    M.updateDefaultEnv()
+  end
   -- Fallback to the very first [env:...] block found in the file
-  return first_env
+  return default_envs
 end
 
 
@@ -326,6 +365,7 @@ function M.fetch_config(on_done, from)
         end
       end
       meta.active_env = active_env
+      vim.misc.updateDefaultEnv()
 
       -- 5. Resolve Paths (INI -> Env -> Default)
       local path_map = {
