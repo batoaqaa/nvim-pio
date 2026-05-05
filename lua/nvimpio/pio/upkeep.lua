@@ -62,34 +62,64 @@ end
 -- stylua: ignore
 -------------------------------------------------------------------------------
 function M.updateDefaultEnv()
-  local path = vim.fn.getcwd() .. '/platformio.ini'
+  -- local path = vim.fn.getcwd() .. '/platformio.ini'
+  -- local active_env = _G.metadata.active_env
+  --
+  -- if not active_env or active_env == '' then return end
+  --
+  -- local ok, content = vim.misc.readFile(path)
+  -- if not ok or not content then return end
+  --
+  -- -- 1. Try to replace existing line
+  -- local new_content, count = content:gsub('(default_envs%s*=%s*)[^\r\n]*', '%1' .. active_env)
+  --
+  -- -- 2. If line was NOT found, insert it in the [platformio] section
+  -- if count == 0 then
+  --   -- Find [platformio] and append the line immediately after it
+  --   if content:match('%[platformio%]') then
+  --     new_content = content:gsub('(%[platformio%][^\r\n]*)', '%1\ndefault_envs = ' .. active_env)
+  --     count = 1
+  --   else
+  --     -- If even [platformio] is missing, prepend it to the whole file
+  --     new_content = '[platformio]\ndefault_envs = ' .. active_env .. '\n\n' .. content
+  --     count = 1
+  --   end
+  -- end
+  --
+  -- -- 3. Save using your robust writeFile
+  -- if count > 0 then
+  --   vim.misc.writeFile(path, new_content, {})
+  --   print('✅ default_envs set to: ' .. active_env)
+  -- end
+  local path = vim.fn.getcwd() .. "/platformio.ini"
   local active_env = _G.metadata.active_env
 
-  if not active_env or active_env == '' then return end
+  if not active_env or active_env == "" then return end
 
   local ok, content = vim.misc.readFile(path)
   if not ok or not content then return end
 
-  -- 1. Try to replace existing line
-  local new_content, count = content:gsub('(default_envs%s*=%s*)[^\r\n]*', '%1' .. active_env)
+  -- 1. Use a more surgical pattern to handle empty or existing values
+  -- This looks for 'default_envs', any spaces, the '=', more spaces, and then matches
+  -- any existing characters (even none) until it hits the end of the line.
+  local new_content, count = content:gsub("(default_envs%s*=%s*)[^\r\n]*", "default_envs = " .. active_env)
 
-  -- 2. If line was NOT found, insert it in the [platformio] section
+  -- 2. Insertion logic if the line doesn't exist at all
   if count == 0 then
-    -- Find [platformio] and append the line immediately after it
-    if content:match('%[platformio%]') then
-      new_content = content:gsub('(%[platformio%][^\r\n]*)', '%1\ndefault_envs = ' .. active_env)
+    -- Find [platformio] header, capture it and its immediate newline
+    if content:match("%[platformio%]") then
+      new_content = content:gsub("(%[platformio%]%s*[\r\n]+)", "%1default_envs = " .. active_env .. "\n")
       count = 1
     else
-      -- If even [platformio] is missing, prepend it to the whole file
-      new_content = '[platformio]\ndefault_envs = ' .. active_env .. '\n\n' .. content
+      new_content = "[platformio]\ndefault_envs = " .. active_env .. "\n\n" .. content
       count = 1
     end
   end
 
-  -- 3. Save using your robust writeFile
+  -- 3. Write back
   if count > 0 then
     vim.misc.writeFile(path, new_content, {})
-    print('✅ default_envs set to: ' .. active_env)
+    print("✅ platformio.ini: default_envs set to " .. active_env)
   end
 end
 
