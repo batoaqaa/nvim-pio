@@ -211,7 +211,9 @@ function M.activate()
 
   -- Always start the Control so it can catch a future 'pio init'
   vim.schedule(function()
+    M.piomenu(M.config)
     require('nvimpio.pio.control').init()
+    vim.notify('nvimpio started', vim.log.levels.INFO)
   end)
 
   M.is_active = true
@@ -250,14 +252,6 @@ function M.setup(user_config)
     -- 3. Otherwise, set up the "Watchman" to wake up when .ini is created
     M.setup_watchman()
   end
-end
-
-if vim.g.platformioRootDir and (next(user_config) ~= nil) then
-  M.piomenu(M.config)
-  vim.schedule(function()
-    require('nvimpio.clangd.control').init()
-  end)
-  vim.notify('nvimpio started', vim.log.levels.INFO)
 end
 
 return M

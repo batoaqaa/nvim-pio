@@ -731,6 +731,13 @@ function M.handlePioinitDb(result, board)
       if not active_env or (active_env == board) then
         local pio_refresh = require('nvimpio.pio.control').pio_refresh
         pio_refresh(function()
+
+        local nvimpio = require('nvimpio')
+        -- 1. Ensure the plugin is active (Safe to call even if already active)
+        if not nvimpio.is_active then
+          nvimpio.setup()
+        end
+
           -- local flags = filter_bad_args_with_clangd(_G.metadata.cxx_flags)
           --
           -- local include_flags = table.concat(vim.tbl_map(function(item)
