@@ -91,6 +91,7 @@ function M.updateDefaultEnv()
   --   vim.misc.writeFile(path, new_content, {})
   --   print('✅ default_envs set to: ' .. active_env)
   -- end
+
   local path = vim.fn.getcwd() .. "/platformio.ini"
   local active_env = _G.metadata.active_env
 
@@ -104,17 +105,15 @@ function M.updateDefaultEnv()
 
   -- 2. If NOT found, insert it safely
   if count == 0 then
-    -- Best way: Insert it right before the first [env] section
-    -- This keeps the [platformio] variables separate from the [env] variables
+    -- We look for [env] and replace it with: default_envs + two newlines + [env]
     if content:match("%[env%]") then
-      new_content = content:gsub("(%[env%])", "default_envs = " .. active_env .. "\n\n%1")
+      -- Use a function in gsub to avoid %1 backreference issues
+      new_content = content:gsub("%[env%]", "default_envs = " .. active_env .. "\n\n[env]")
       count = 1
     elseif content:match("%[platformio%]") then
-      -- Fallback: If no [env] exists, put it after [platformio] with double newlines
       new_content = content:gsub("(%[platformio%]%s*[\r\n]+)", "%1default_envs = " .. active_env .. "\n\n")
       count = 1
     else
-      -- Absolute Fallback: New section at the top
       new_content = "[platformio]\ndefault_envs = " .. active_env .. "\n\n" .. content
       count = 1
     end
@@ -124,7 +123,6 @@ function M.updateDefaultEnv()
     vim.misc.writeFile(path, new_content, {})
     print("✅ Environment synced: " .. active_env)
   end
-
 
 end
 
