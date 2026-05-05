@@ -232,10 +232,6 @@ function M.activate()
   vim.schedule(function()
     M.piomenu(M.config)
 
-    vim.misc = require('nvimpio.utils.misc')
-    vim.pio = require('nvimpio.pio.upkeep')
-    vim.clangd = require('nvimpio.clangd.control')
-
     require('nvimpio.pio.control').init()
     vim.notify('nvimpio started', vim.log.levels.INFO)
   end)
