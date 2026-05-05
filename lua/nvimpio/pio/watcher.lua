@@ -204,6 +204,7 @@ function M.start_watchers()
       cb = function(self)
         if self.isBusy then return end
         if _G.metadata.isBusy == true then return end
+        _G.metadata.isBusy = true
         local new_hash = get_hash(self.path) or ''
         if new_hash and new_hash ~= self.last_hash then
           self.last_hash = new_hash
@@ -226,6 +227,7 @@ function M.start_watchers()
                 vim.notify('PIO platformio.ini change: Build Failed: ' .. err, vim.log.levels.ERROR, { title = 'PlatformIO' })
               end
               self.isBusy = false
+             _G.metadata.isBusy = false
             end)
           end)
           -- M.run_compiledb(self) -- Smart: Auto-update DB if config changes
@@ -238,6 +240,8 @@ function M.start_watchers()
       path = vim.misc.joinPath(project_root, '.pio', 'build', 'project.checksum'), --checksum_path
       cb = function(self)
         if self.isBusy then return end
+        if _G.metadata.isBusy == true then return end
+        _G.metadata.isBusy = true
         local ok, current_checksum = vim.misc.readFile(self.path)
         -- Check if we should exit early
         if ok and type(current_checksum) == 'string' and current_checksum ~= '' then
@@ -249,6 +253,7 @@ function M.start_watchers()
           vim.defer_fn(function ()
             M.pio_refresh(function()
               self.isBusy = false
+             _G.metadata.isBusy = false
               vim.notify('PIO checksum: Metadata synced', vim.log.levels.INFO)
               clangdRestart()
             end, 'PIO checksum: ')

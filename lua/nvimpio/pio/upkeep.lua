@@ -593,6 +593,7 @@ local win_id
 -- =============================================================================
 -- stylua: ignore
 function M.cleanup_pio_session()
+  vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
   _G.metadata.isBusy = false
   M.queue = {}
   if win_id then vim.misc.closeMessage(win_id) end
@@ -616,7 +617,6 @@ function M.handlePioinitDb(result, board)
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then
-      vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
       vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
       local active_env = M.get_active__env('PIO init+db: ')
       if not active_env or (active_env == board) then
@@ -699,17 +699,9 @@ function M.handlePioinit(result)
         -- term.ToggleTerminal('echo "************ project Initialization success ************"', 'float')
       end, 'PIO init: ')
     end)
-    vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
-    M.queue = {}
-    term.stdout_callback = nil
-    trm:close()
-    _G.metadata.isBusy = false
+    M.cleanup_pio_session()
   elseif result == 'FAIL' then
-    _G.metadata.isBusy = false
-    vim.misc.closeMessage(win_id)
-    M.queue = {}
-    term.stdout_callback = nil
-    trm:close()
+    M.cleanup_pio_session()
   end
 end
 
