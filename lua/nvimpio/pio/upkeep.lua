@@ -66,67 +66,117 @@ function M.updateDefaultEnv()
   local active_env = _G.metadata.active_env
   if not active_env or active_env == "" then return end
 
-  -- 1. Read raw string via your uv.readFile
   local ok, content = vim.misc.readFile(path)
-  if not ok then return end
+  if not ok or not content then return end
 
   local new_lines = {}
-  local env_updated = false
-  local in_platformio_section = false
+  local updated = false
+  local in_platformio = false
 
-  -- 2. Process line by line with a State Machine
-  -- This pattern handles \r\n and \n correctly without leaving phantom chars
-  for line in (content .. "\n"):gmatch("([^\r\n]*)[\r\n]+") do
-    local is_platformio_header = line:match("^%s*%[platformio%]")
-    local is_other_header = line:match("^%s*%[") and not is_platformio_header
-    local is_default_envs = line:match("^%s*default_envs%s*=")
+  -- Process text and newline separately to maintain file integrity
+  for text, newline in content:gmatch("([^\r\n]*)([\r\n]+)") do
+    local is_header = text:match("^%s*%[([^%]]+)%]")
 
-    -- Track if we are inside the [platformio] section
-    if is_platformio_header then
-      in_platformio_section = true
-    elseif is_other_header then
-      -- If we are leaving [platformio] and haven't updated yet, insert it now
-      if in_platformio_section and not env_updated then
-        table.insert(new_lines, "default_envs = " .. active_env)
-        env_updated = true
+    if is_header == "platformio" then
+      in_platformio = true
+    elseif is_header then
+      -- If leaving [platformio] without updating, insert it now
+      if in_platformio and not updated then
+        table.insert(new_lines, "default_envs = " .. active_env .. newline)
+        updated = true
       end
-      in_platformio_section = false
+      in_platformio = false
     end
 
-    -- Update or keep the line
-    if is_default_envs then
-      table.insert(new_lines, "default_envs = " .. active_env)
-      env_updated = true
+    if in_platformio and text:match("^%s*default_envs%s*=") then
+      table.insert(new_lines, "default_envs = " .. active_env .. newline)
+      updated = true
     else
-      table.insert(new_lines, line)
+      -- Keep original text and original newline (preserves spacing)
+      table.insert(new_lines, text .. newline)
     end
   end
 
-  -- 3. Final Fallbacks
-  if not env_updated then
-    if in_platformio_section then
-      -- We were in the section but hit the end of the file
-      table.insert(new_lines, "default_envs = " .. active_env)
+  -- Fallback for missing sections
+  if not updated then
+    if in_platformio then
+      table.insert(new_lines, "default_envs = " .. active_env .. "\n")
     else
-      -- No [platformio] section existed at all
-      table.insert(new_lines, 1, "[platformio]")
-      table.insert(new_lines, 2, "default_envs = " .. active_env)
-      table.insert(new_lines, 3, "")
+      table.insert(new_lines, 1, "[platformio]\ndefault_envs = " .. active_env .. "\n\n")
     end
   end
 
-  -- 4. Reconstruct and write via your uv.writeFile
-  -- Joining with \n is the most portable; Python/PIO will handle it on Windows.
-  local final_content = table.concat(new_lines, "\n")
+  vim.misc.writeFile(path, table.concat(new_lines), {})
+  print("🚀 PIO Sync: " .. active_env)
 
-  local write_ok, err = vim.misc.writeFile(path, final_content, {})
-  if write_ok then
-    -- print("🚀 PIO Sync: " .. active_env)
-    vim.notify("🚀 PIO Sync: " .. active_env, vim.log.levels.INFO)
-  else
-    vim.notify("PIO Sync Failed: " .. err, vim.log.levels.ERROR)
-  end
 
+  --#1 working robust but no space line(s) between sections
+  -- local path = vim.fn.getcwd() .. "/platformio.ini"
+  -- local active_env = _G.metadata.active_env
+  -- if not active_env or active_env == "" then return end
+  --
+  -- -- 1. Read raw string via your uv.readFile
+  -- local ok, content = vim.misc.readFile(path)
+  -- if not ok then return end
+  --
+  -- local new_lines = {}
+  -- local env_updated = false
+  -- local in_platformio_section = false
+  --
+  -- -- 2. Process line by line with a State Machine
+  -- -- This pattern handles \r\n and \n correctly without leaving phantom chars
+  -- for line in (content .. "\n"):gmatch("([^\r\n]*)[\r\n]+") do
+  --   local is_platformio_header = line:match("^%s*%[platformio%]")
+  --   local is_other_header = line:match("^%s*%[") and not is_platformio_header
+  --   local is_default_envs = line:match("^%s*default_envs%s*=")
+  --
+  --   -- Track if we are inside the [platformio] section
+  --   if is_platformio_header then
+  --     in_platformio_section = true
+  --   elseif is_other_header then
+  --     -- If we are leaving [platformio] and haven't updated yet, insert it now
+  --     if in_platformio_section and not env_updated then
+  --       table.insert(new_lines, "default_envs = " .. active_env)
+  --       env_updated = true
+  --     end
+  --     in_platformio_section = false
+  --   end
+  --
+  --   -- Update or keep the line
+  --   if is_default_envs then
+  --     table.insert(new_lines, "default_envs = " .. active_env)
+  --     env_updated = true
+  --   else
+  --     table.insert(new_lines, line)
+  --   end
+  -- end
+  --
+  -- -- 3. Final Fallbacks
+  -- if not env_updated then
+  --   if in_platformio_section then
+  --     -- We were in the section but hit the end of the file
+  --     table.insert(new_lines, "default_envs = " .. active_env)
+  --   else
+  --     -- No [platformio] section existed at all
+  --     table.insert(new_lines, 1, "[platformio]")
+  --     table.insert(new_lines, 2, "default_envs = " .. active_env)
+  --     table.insert(new_lines, 3, "")
+  --   end
+  -- end
+  --
+  -- -- 4. Reconstruct and write via your uv.writeFile
+  -- -- Joining with \n is the most portable; Python/PIO will handle it on Windows.
+  -- local final_content = table.concat(new_lines, "\n")
+  --
+  -- local write_ok, err = vim.misc.writeFile(path, final_content, {})
+  -- if write_ok then
+  --   -- print("🚀 PIO Sync: " .. active_env)
+  --   vim.notify("🚀 PIO Sync: " .. active_env, vim.log.levels.INFO)
+  -- else
+  --   vim.notify("PIO Sync Failed: " .. err, vim.log.levels.ERROR)
+  -- end
+-------------------------------------------------------------------------------
+--#2 working not robust
   -- local path = vim.fn.getcwd() .. "/platformio.ini"
   -- local active_env = _G.metadata.active_env
   -- if not active_env or active_env == "" then return end
@@ -179,6 +229,7 @@ function M.updateDefaultEnv()
   -- else
   --   vim.notify("Write failed: " .. err, vim.log.levels.ERROR)
   -- end
+-------------------------------------------------------------------------------
 end
 
 --INFO:
