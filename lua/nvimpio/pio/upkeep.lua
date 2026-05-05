@@ -690,7 +690,8 @@ M.run_sequence = function(tasks)
   commandPassed = 1
   pio_buffer = ''
 
-  _G.metadata.isBusy = false
+  require('nvimpio.pio.metadata')._G.metadata.isBusy = false
+  -- _G.metadata.isBusy = false
   term.stdout_callback = M.stdoutcallback
   vim.schedule(function() if callBack then callBack('INIT') end end)
 end
