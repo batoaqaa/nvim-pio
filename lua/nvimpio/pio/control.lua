@@ -276,10 +276,6 @@ end
 function M.init()
   vim.notify('PIO Control: initialize', vim.log.levels.INFO)
 
-  vim.misc = require('nvimpio.utils.misc')
-  vim.pio = require('nvimpio.pio.upkeep')
-  vim.clangd = require('nvimpio.clangd.control')
-
   require('nvimpio.pio.commands')
   local meta = require('nvimpio.pio.metadata')
   meta.load_project_config()
