@@ -203,7 +203,7 @@ end
 
 function M.setup_watchman()
   -- We only create this if the plugin isn't already active
-  if M.is_active then
+  if M.isActive then
     return
   end
 
@@ -220,7 +220,7 @@ function M.setup_watchman()
 end
 
 function M.activate()
-  if M.is_active then
+  if M.isActive then
     return
   end -- Don't activate twice
 
@@ -234,7 +234,7 @@ function M.activate()
     vim.notify('nvimpio started', vim.log.levels.INFO)
   end)
 
-  M.is_active = true
+  M.isActive = true
 end
 local user_config = nil
 function M.setup(userConfig)
