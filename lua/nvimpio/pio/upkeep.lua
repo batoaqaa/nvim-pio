@@ -100,28 +100,29 @@ function M.updateDefaultEnv()
   local ok, content = vim.misc.readFile(path)
   if not ok or not content then return end
 
-  -- 1. Try to replace existing line
-  local new_content, count = content:gsub("(default_envs%s*=%s*)[^\r\n]*", "default_envs = " .. active_env)
+  -- 1. Surgical replacement
+  -- Pattern: finds 'default_envs', spaces, '=', more spaces, and then 
+  -- any characters that ARE NOT a newline.
+  local new_content, count = content:gsub("(default_envs%s*=%s*)[^\r\n]*", "%1" .. active_env)
 
-  -- 2. If NOT found, insert it safely
+  -- 2. If line doesn't exist, insert it safely before [env]
   if count == 0 then
-    -- We look for [env] and replace it with: default_envs + two newlines + [env]
-    if content:match("%[env%]") then
-      -- Use a function in gsub to avoid %1 backreference issues
-      new_content = content:gsub("%[env%]", "default_envs = " .. active_env .. "\n\n[env]")
-      count = 1
-    elseif content:match("%[platformio%]") then
-      new_content = content:gsub("(%[platformio%]%s*[\r\n]+)", "%1default_envs = " .. active_env .. "\n\n")
+    if content:match("%%[env%%]") then
+      -- Use a function to return the string to avoid % backreference issues
+      new_content = content:gsub("%%[env%%]", function()
+        return "default_envs = " .. active_env .. "\n\n[env]"
+      end)
       count = 1
     else
-      new_content = "[platformio]\ndefault_envs = " .. active_env .. "\n\n" .. content
+      -- Fallback to [platformio] section
+      new_content = content:gsub("(%%[platformio%%][^\r\n]*)", "%1\ndefault_envs = " .. active_env)
       count = 1
     end
   end
 
   if count > 0 then
     vim.misc.writeFile(path, new_content, {})
-    print("✅ Environment synced: " .. active_env)
+    print("✅ Sync: default_envs = " .. active_env)
   end
 
 end
