@@ -287,7 +287,7 @@ function M.init()
 
   print('here 111')
   local config = require('nvimpio').config
-  if config.lspClangd.enabled == true then require('nvimpio.clangd.config').init() end
+  if config.lspClangd.enabled == true then require('nvimpio.clangd.control').init() end
 
   -- If the file already exists, do an initial sync
   if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
