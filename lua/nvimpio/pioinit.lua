@@ -138,6 +138,9 @@ end
 
 -- Entry point
 local function launch_project_init()
+  vim.misc = require('nvimpio.utils.misc')
+  vim.pio = require('nvimpio.pio.upkeep')
+  vim.clangd = require('nvimpio.clangd.control')
   wizard_data = {} -- Reset state
   notify('Fetching board database...')
 
