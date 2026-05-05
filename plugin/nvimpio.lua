@@ -1,6 +1,3 @@
-vim.misc = require('nvimpio.utils.misc')
-vim.pio = require('nvimpio.pio.upkeep')
-vim.clangd = require('nvimpio.clangd.control')
 
 -- stylua: ignore
 -- INFO: Pioini

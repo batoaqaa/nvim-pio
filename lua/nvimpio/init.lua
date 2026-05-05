@@ -219,13 +219,14 @@ function M.setup_watchman()
   })
 end
 
+-- INFO:
+--stylua: ignore
+-------------------------------------------------------------------------------
 function M.activate()
-  if M.isActive then
-    return
-  end -- Don't activate twice
+  if M.isActive then return end -- Don't activate twice
 
   -- Set the root directory for the whole plugin to use
-  vim.g.platformioRootDir = vim.fn.getcwd()
+  vim.g.platformioRootDir = vim.uv.cwd()
 
   -- Always start the Control so it can catch a future 'pio init'
   vim.schedule(function()
@@ -237,11 +238,12 @@ function M.activate()
   M.isActive = true
 end
 
-local user_config = nil
-function M.setup(userConfig)
-  if userConfig then
-    user_config = userConfig
-  end
+local user_config = {}
+-- INFO:
+--stylua: ignore
+-------------------------------------------------------------------------------
+function M.setup(opts)
+  if opts then user_config = opts end
   -- 1. Merge user settings with defaults
   if user_config.lspClangd then
     vim.validate('lspClangd', user_config.lspClangd, 'table', true)
