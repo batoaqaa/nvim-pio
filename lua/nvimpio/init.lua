@@ -201,37 +201,63 @@ function M.piomenu(config)
   wk.add(wk_table)
 end
 
+function M.activate()
+  if M.is_active then
+    return
+  end -- Don't activate twice
+
+  -- Set the root directory for the whole plugin to use
+  vim.g.platformioRootDir = vim.fn.getcwd()
+
+  -- Always start the Control so it can catch a future 'pio init'
+  vim.schedule(function()
+    require('nvimpio.pio.control').init()
+  end)
+
+  M.is_active = true
+end
+
 function M.setup(user_config)
-  if vim.g.platformioRootDir and (next(user_config) ~= nil) then
-    if user_config.lspClangd then
-      vim.validate('lspClangd', user_config.lspClangd, 'table', true)
-      vim.validate('lspClangdEnabled', user_config.lspClangd.enabled, 'boolean', true)
-      if user_config.lspClangd.attach then
-        vim.validate('lspAttach', user_config.lspClangd.attach, 'table', true)
-        vim.validate('lspAttachEnabled', user_config.lspClangd.attach.enabled, 'boolean', true)
-        vim.validate('lspKeymaps', user_config.lspClangd.attach.keyMaps, 'boolean', true)
-      end
+  -- 1. Merge user settings with defaults
+  if user_config.lspClangd then
+    vim.validate('lspClangd', user_config.lspClangd, 'table', true)
+    vim.validate('lspClangdEnabled', user_config.lspClangd.enabled, 'boolean', true)
+    if user_config.lspClangd.attach then
+      vim.validate('lspAttach', user_config.lspClangd.attach, 'table', true)
+      vim.validate('lspAttachEnabled', user_config.lspClangd.attach.enabled, 'boolean', true)
+      vim.validate('lspKeymaps', user_config.lspClangd.attach.keyMaps, 'boolean', true)
     end
-
-    vim.validate('menu_key', user_config.lspClangd_enable, 'string', true)
-    vim.validate('menu_name', user_config.menu_name, 'string', true)
-    vim.validate('debug', user_config.debug, 'boolean', true)
-    vim.validate('menu_bindings', user_config.menu_bindings, 'table', true)
-
-    if user_config.menu_bindings then
-      if not validateMenu(user_config.menu_bindings) then
-        user_config.menu_bindings = nil -- if validation error, cancel merging menu_bindings with M.config
-        -- else
-        --   print('good validation')
-      end
-    end
-    M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
-    M.piomenu(M.config)
-    vim.schedule(function()
-      require('nvimpio.clangd.control').init()
-    end)
-    vim.notify('nvimpio started', vim.log.levels.INFO)
   end
+
+  vim.validate('menu_key', user_config.lspClangd_enable, 'string', true)
+  vim.validate('menu_name', user_config.menu_name, 'string', true)
+  vim.validate('debug', user_config.debug, 'boolean', true)
+  vim.validate('menu_bindings', user_config.menu_bindings, 'table', true)
+
+  if user_config.menu_bindings then
+    if not validateMenu(user_config.menu_bindings) then
+      user_config.menu_bindings = nil -- if validation error, cancel merging menu_bindings with M.config
+      -- else
+      --   print('good validation')
+    end
+  end
+  M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
+
+  -- 2. Try to activate if we are already in a PIO project
+  if vim.fn.filereadable('platformio.ini') == 1 and (next(user_config) ~= nil) then
+    M.activate()
+  else
+    -- 3. Otherwise, set up the "Watchman" to wake up when .ini is created
+    M.setup_watchman()
+  end
+end
+
+if vim.g.platformioRootDir and (next(user_config) ~= nil) then
+  M.piomenu(M.config)
+  vim.schedule(function()
+    require('nvimpio.clangd.control').init()
+  end)
+  vim.notify('nvimpio started', vim.log.levels.INFO)
 end
 
 return M

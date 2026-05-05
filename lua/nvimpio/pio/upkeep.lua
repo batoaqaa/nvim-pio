@@ -729,7 +729,7 @@ function M.handlePioinitDb(result, board)
       vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
       local active_env = M.get_active__env('PIO init+db: ')
       if not active_env or (active_env == board) then
-        local pio_refresh = require('nvimpio.pio.watcher').pio_refresh
+        local pio_refresh = require('nvimpio.pio.control').pio_refresh
         pio_refresh(function()
           -- local flags = filter_bad_args_with_clangd(_G.metadata.cxx_flags)
           --
@@ -800,7 +800,7 @@ function M.handlePioinit(result)
       -- local clean_msg = string.format('\27[G\27[2K\27[33m%s\27[0m', msg)
       -- vim.api.nvim_chan_send(trm.job_id, clean_msg)
 
-      local pio_refresh = require('nvimpio.pio.watcher').pio_refresh
+      local pio_refresh = require('nvimpio.pio.control').pio_refresh
       pio_refresh(function()
         boilerplate_gen([[.clangd]], _G.metadata.core_dir)
         vim.misc.closeMessage(win_id)

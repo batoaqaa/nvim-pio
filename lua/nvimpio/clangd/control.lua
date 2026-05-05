@@ -100,29 +100,14 @@ end
 --stylua: ignore
 --=============================================================================
 function M.init()
+  vim.notify('Clangd LSP: initialize', vim.log.levels.INFO)
+  boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
+
   local config = require('nvimpio').config
-  if config.lspClangd.enabled == true then
-    vim.notify('Clangd LSP: initialize', vim.log.levels.INFO)
-
-    require('nvimpio.clangd.config')
-    if config.lspClangd.attach.enabled then
-      require('nvimpio.clangd.attach')
-    end
-
-    -- Always start the watcher so it can catch a future 'pio init'
-    vim.schedule(function()
-      require('nvimpio.pio.watcher').init()
-    end)
-
-    --------------------------------------------------------------------------------
-    -- ClangFormatterPick
-    vim.api.nvim_create_user_command('ClangFormatterPick', M.setFormatStyle, {})
-    -- ClangdCheckArgs
-    vim.api.nvim_create_user_command('ClangdCheckArgs', M.getUnknownArgs, {})
-    -- Clangdrestart
-    vim.api.nvim_create_user_command('Clangdrestart', M.restart, {})
-    --------------------------------------------------------------------------------
+  if config.lspClangd.attach.enabled then
+    require('nvimpio.clangd.attach')
   end
+  require('nvimpio.clangd.commands')
 end
 
 return M

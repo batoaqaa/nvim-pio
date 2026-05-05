@@ -157,7 +157,7 @@ local function watch_file(target, callback)
                 debounce_timer:start(1000, 0, vim.schedule_wrap(attempt_callback))
                 return
               end
-              vim.notify('PIO Watcher: Sync timed out (busy)', vim.log.levels.ERROR)
+              vim.notify('PIO Control: Sync timed out (busy)', vim.log.levels.ERROR)
               return
             end
 
@@ -176,7 +176,7 @@ local function watch_file(target, callback)
 
     if not ok then
       vim.schedule(function()
-        vim.notify('PIO Watcher: Error; ' .. tostring(result), vim.log.levels.ERROR)
+        vim.notify('PIO Control: Error; ' .. tostring(result), vim.log.levels.ERROR)
       end)
     end
   end)
@@ -274,22 +274,25 @@ end
 --stylua: ignore
 -------------------------------------------------------------------------------
 function M.init()
-    vim.notify('PIO Watcher: initialize', vim.log.levels.INFO)
+  vim.notify('PIO Control: initialize', vim.log.levels.INFO)
 
-    -- activate meta save and upload and env switch
-    require('nvimpio.pio.metadata').load_project_config()
+  require('nvimpio.pio.commands')
 
-    -- Always start the watcher so it can catch a future 'pio init'
-    M.start_watchers()
+  -- activate meta save and upload and env switch
+  require('nvimpio.pio.metadata').load_project_config()
 
-    -- If the file already exists, do an initial sync
-    if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
+  -- Always start the watcher so it can catch a future 'pio init'
+  M.start_watchers()
+
+  local config = require('nvimpio').config
+  if config.lspClangd.enabled == true then require('nvimpio.clangd.config').init() end
+
+  -- If the file already exists, do an initial sync
+  if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
+    M.pio_refresh(function()
       boilerplate.core_dir = _G.metadata.core_dir
-      boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
-      ---------------------------------------------------------------------------------
-      M.pio_refresh(function()
-      end, 'PIO start: ')
-    end
+    end, 'PIO start: ')
+  end
 end
 
 return M
