@@ -9,9 +9,31 @@ M.devNul = M.is_windows and ' 2>./nul' or ' 2>/dev/null'
 -- M.extra = 'printf \'\\\\n\\\\033[0;33mPlease Press ENTER to continue \\\\033[0m\'; read'
 -- M.extra = ' && echo . && echo . && echo Please Press ENTER to continue'
 
-------------------------------------------------------
 --INFO:
+------------------------------------------------------
+function M.isReadable(path)
+  local stat = vim.uv.fs_stat(path)
 
+  -- Check if it exists and is a regular file
+  local is_file = stat ~= nil and stat.type == 'file'
+
+  -- Return both: the boolean check and the full metadata table
+  return is_file, stat
+end
+
+--INFO:
+------------------------------------------------------
+function M.isDir(path)
+  local stat = vim.uv.fs_stat(path)
+
+  -- Returns true ONLY if the path exists AND is a directory
+  local is_dir = stat ~= nil and stat.type == 'directory'
+
+  return is_dir, stat
+end
+
+--INFO:
+------------------------------------------------------
 -- stylua: ignore
 function M.showMessage(msg)
   local bufnr = vim.api.nvim_create_buf(false, true)
@@ -62,6 +84,9 @@ function M.showMessage(msg)
   return { win = win_id, timer = blink_timer }
 end
 
+--INFO:
+-- stylua: ignore
+------------------------------------------------------
 function M.closeMessage(status_obj)
   if status_obj then
     if status_obj.timer then
@@ -74,9 +99,9 @@ function M.closeMessage(status_obj)
   end
 end
 
-------------------------------------------------------
 --INFO:
 -- stylua: ignore
+------------------------------------------------------
 function M.deleteFile(path)
   local file = vim.fn.fnamemodify(path, ':t')
   if vim.fn.filereadable(path) == 1 then
@@ -87,17 +112,18 @@ function M.deleteFile(path)
   else vim.notify('PlatformIO: ' .. file .. ' file not found', vim.log.levels.WARN) end
 end
 
-------------------------------------------------------
 --INFO:
 --  Version-Safe Path Joining (Fallback for Neovim < 0.10.0)
 -- stylua: ignore
+------------------------------------------------------
 M.joinPath = vim.fs.joinpath or function(...)
   return table.concat({ ... }, '/'):gsub('//+', '/')
 end
-------------------------------------------------------
+
 --INFO:
 -- iterrative loop 48ms
 -- stylua: ignore
+------------------------------------------------------
 function M.jsonFormat(root_data)
   local buffer = {}
   -- Stack stores: { val = item, lvl = depth, stage = "start"|"items", keys = {}, index = 0 }
@@ -195,14 +221,13 @@ function M.jsonFormat(root_data)
   return table.concat(buffer)
 end
 
-
-------------------------------------------------------
 --INFO:
 -- Example Usage
 -- local content = readFile("compile_commands.json")
 -- if content then local data = vim.json.decode(content) end
 -- stylua: ignore
 ---@param path string
+------------------------------------------------------
 function M.readFile(path)
   -- 1. Check if file exists before opening to avoid "noisy" errors
   local stat = uv.fs_stat(path)
@@ -229,6 +254,7 @@ end
 ---@param path string
 ---@param data string
 ---@param opts table
+------------------------------------------------------
 function M.writeFile(path, data, opts)
   -- opts.overwrite: boolean (default true)
   -- opts.mkdir: boolean (default true)
@@ -278,7 +304,6 @@ function M.writeFile(path, data, opts)
   return true, 'Success'
 end
 
-
 ------------------------------------------------------
 --[[ 
 Targets Windows paths, normalizes slashes, and fixes smashed PlatformIO paths.
@@ -306,6 +331,7 @@ Cleans and repairs compiler flags in a command string.
 --- @param flags string: The raw command string (e.g., from compile_commands.json)
 --- @return string: The cleaned command string
 --INFO:
+------------------------------------------------------
 function M.normalizeFlags(flags)
   if not flags or flags == '' then
     return ''
@@ -335,15 +361,15 @@ function M.normalizeFlags(flags)
   return cleaned_cmd
 end
 
-------------------------------------------------------
 --INFO:
+------------------------------------------------------
 function M.normalizePath(path)
   -- return path:gsub('[\\]+', '/'):gsub('[//]+', '/')
   return path:gsub('[\\/]+', '/')
 end
 
-------------------------------------------------------
 --INFO:
+------------------------------------------------------
 function M.strsplit(inputstr, del)
   local t = {}
   if type(inputstr) == 'string' and inputstr and inputstr ~= '' then
@@ -354,22 +380,22 @@ function M.strsplit(inputstr, del)
   return t
 end
 
-------------------------------------------------------
 --INFO:
+------------------------------------------------------
 function M.check_prefix(str, prefix)
   return str:sub(1, #prefix) == prefix
 end
 
-------------------------------------------------------
 --INFO:
+------------------------------------------------------
 local function pathmul(n)
   return '..' .. string.rep('/..', n)
 end
 
 local paths = { '.', '..', pathmul(1), pathmul(2), pathmul(3), pathmul(4), pathmul(5) }
 
-------------------------------------------------------
 --INFO:
+------------------------------------------------------
 function M.file_exists(name)
   local f = io.open(name, 'r')
   if f ~= nil then
@@ -380,8 +406,8 @@ function M.file_exists(name)
   end
 end
 
-------------------------------------------------------
 --INFO:
+------------------------------------------------------
 function M.set_platformioRootDir()
   if vim.g.platformioRootDir ~= nil then
     return
@@ -395,15 +421,15 @@ function M.set_platformioRootDir()
   vim.notify('Could not find platformio.ini, run :Pioinit to create a new project', vim.log.levels.ERROR)
 end
 
-------------------------------------------------------
 --INFO:
+------------------------------------------------------
 function M.cd_pioini()
   -- M.set_platformioRootDir()
   vim.cmd('cd ' .. vim.g.platformioRootDir)
 end
 
-------------------------------------------------------
 --INFO:
+------------------------------------------------------
 function M.pio_install_check()
   local handle = (jit.os == 'Windows') and assert(io.popen('where.exe pio 2>./nul')) or assert(io.popen('which pio 2>/dev/null'))
   local pio_path = assert(handle:read('*a'))
@@ -416,8 +442,8 @@ function M.pio_install_check()
   return true
 end
 
-------------------------------------------------------
 --INFO:
+------------------------------------------------------
 function M.async_shell_cmd(cmd, callback)
   local output = {}
 
@@ -441,8 +467,8 @@ function M.async_shell_cmd(cmd, callback)
   })
 end
 
-------------------------------------------------------
 --INFO:
+------------------------------------------------------
 function M.shell_cmd_blocking(command)
   local handle = io.popen(command, 'r')
   if not handle then
@@ -455,8 +481,8 @@ function M.shell_cmd_blocking(command)
   return result
 end
 
-------------------------------------------------------
 --INFO:
+------------------------------------------------------
 function M.gitignore_lsp_configs(config_file)
   local gitignore_path = vim.fs.joinpath(vim.g.platformioRootDir, '.gitignore')
   local file = io.open(gitignore_path, 'r')

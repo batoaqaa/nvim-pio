@@ -1,4 +1,7 @@
 local M = {}
+
+M.isActive = false
+
 M.config = {
   lspClangd = {
     enabled = false,
@@ -223,15 +226,12 @@ function M.setup(user_config)
       end
     end
     M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
+    M.piomenu(M.config)
+    vim.schedule(function()
+      require('nvimpio.clangd.control').init()
+    end)
+    vim.notify('nvimpio started', vim.log.levels.INFO)
   end
-
-  M.piomenu(M.config)
-
-  vim.schedule(function()
-    require('nvimpio.clangd.control').init()
-  end)
 end
-
-vim.notify('nvimpio started', vim.log.levels.INFO)
 
 return M
