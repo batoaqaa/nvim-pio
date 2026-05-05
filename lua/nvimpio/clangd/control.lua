@@ -101,8 +101,8 @@ end
 --=============================================================================
 function M.init()
   vim.notify('Clangd LSP: initialize', vim.log.levels.INFO)
-  boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
 
+  require('nvimpio.clangd.config')
   local config = require('nvimpio').config
   if config.lspClangd.attach.enabled then
     require('nvimpio.clangd.attach')
