@@ -201,23 +201,23 @@ function M.piomenu(config)
   wk.add(wk_table)
 end
 
-function M.setup_watchman()
-  -- We only create this if the plugin isn't already active
-  if M.isActive then
-    return
-  end
-
-  vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufNewFile' }, {
-    group = vim.api.nvim_create_augroup('PioWatchman', { clear = true }),
-    pattern = 'platformio.ini',
-    callback = function()
-      -- The moment the file is seen, we trigger setup()
-      -- setup() will then call activate() and the watchman's job is done.
-      M.setup()
-      return true -- This deletes the watchman autocmd (cleanup)
-    end,
-  })
-end
+-- function M.setup_watchman()
+--   -- We only create this if the plugin isn't already active
+--   if M.isActive then
+--     return
+--   end
+--
+--   vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufNewFile' }, {
+--     group = vim.api.nvim_create_augroup('PioWatchman', { clear = true }),
+--     pattern = 'platformio.ini',
+--     callback = function()
+--       -- The moment the file is seen, we trigger setup()
+--       -- setup() will then call activate() and the watchman's job is done.
+--       M.setup()
+--       return true -- This deletes the watchman autocmd (cleanup)
+--     end,
+--   })
+-- end
 
 -- INFO:
 --stylua: ignore
@@ -243,25 +243,25 @@ function M.activate()
 end
 
 -- This function runs on EVERY startup, even when lazy-loaded
-M.init = function()
-  local has_ini = vim.fn.filereadable('platformio.ini') == 1
-  local has_pio = vim.fn.isdirectory('.pio') == 1
-
-  -- 1. THE INTERNAL COND: Automatic Activation
-  if has_ini and has_pio then
-    -- We are in a project! Tell lazy.nvim to load the rest of the plugin NOW
-    require('lazy').load({ plugins = { 'nvim-pio' } })
-    return
-  end
-
-  -- 2. THE BOOTSTRAP: Register command globally without loading full logic
-  vim.api.nvim_create_user_command('Pioinit', function()
-    -- Manually load the plugin only when the command is run
-    require('lazy').load({ plugins = { 'nvim-pio' } })
-    require('nvimpio.pioInit').pioInit()
-  end, { desc = 'Bootstrap PIO Project' })
-  print('here you are')
-end
+-- M.init = function()
+--   local has_ini = vim.fn.filereadable('platformio.ini') == 1
+--   local has_pio = vim.fn.isdirectory('.pio') == 1
+--
+--   -- 1. THE INTERNAL COND: Automatic Activation
+--   if has_ini and has_pio then
+--     -- We are in a project! Tell lazy.nvim to load the rest of the plugin NOW
+--     require('lazy').load({ plugins = { 'nvim-pio' } })
+--     return
+--   end
+--
+--   -- 2. THE BOOTSTRAP: Register command globally without loading full logic
+--   vim.api.nvim_create_user_command('Pioinit', function()
+--     -- Manually load the plugin only when the command is run
+--     require('lazy').load({ plugins = { 'nvim-pio' } })
+--     require('nvimpio.pioInit').pioInit()
+--   end, { desc = 'Bootstrap PIO Project' })
+--   print('here you are')
+-- end
 
 local user_config = {}
 -- INFO:
@@ -294,12 +294,25 @@ function M.setup(opts)
   end
   M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
 
+  -- INFO: Pioini
+  vim.api.nvim_create_user_command('Pioinit',
+    function()
+      -- vim.misc = require('nvimpio.utils.misc')
+      -- vim.pio = require('nvimpio.pio.upkeep')
+      -- vim.clangd = require('nvimpio.clangd.control')
+      require('nvimpio.pioInit').pioInit()
+    end,
+    {
+      force = true,
+      desc = 'Start the PlatformIO guided setup wizard'
+    }
+  )
   -- 2. Try to activate if we are already in a PIO project
   if vim.fn.filereadable('platformio.ini') == 1 and (next(user_config) ~= nil) then
     M.activate()
-  else
-    -- 3. Otherwise, set up the "Watchman" to wake up when .ini is created
-    M.setup_watchman()
+  -- else
+  --   -- 3. Otherwise, set up the "Watchman" to wake up when .ini is created
+  --   M.setup_watchman()
   end
 end
 
