@@ -5,7 +5,6 @@ local action_state = require('telescope.actions.state')
 local previewers = require('telescope.previewers')
 local telescope_conf = require('telescope.config').values
 local themes = require('telescope.themes')
-local pio = require('nvimpio.pio.upkeep')
 
 local wizard_data = {}
 
@@ -53,14 +52,14 @@ local function finalize_setup()
   local commands = { init_cmd, db_cmd }
   -- local final_cb = pio.handlePioinitDb
   local final_cb = function(status)
-    pio.handlePioinitDb(status, wizard_data.board_id)
+    vim.pio.handlePioinitDb(status, wizard_data.board_id)
   end
 
   -- local commands = { init_cmd }
   -- local final_cb = pio.handlePioinit
 
   notify('Starting project setup for ' .. wizard_data.board_id .. '...')
-  pio.run_sequence({ cmnds = commands, cb = final_cb })
+  vim.pio.run_sequence({ cmnds = commands, cb = final_cb })
 end
 
 --- SEQUENTIAL STEPS ---

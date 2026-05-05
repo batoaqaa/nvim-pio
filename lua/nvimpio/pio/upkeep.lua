@@ -1,177 +1,12 @@
 ---@class platformio.utils.pio
 local M = {}
 
--- to fix require loop, this value is set in plugin/platformio
 local misc = vim.misc
 
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 
 local term = require('nvimpio.utils.term')
-local clangdRestart = require('nvimpio.clangd.tools').clangdRestart
--- local sep = package.config:sub(1, 1) -- Dynamic OS separator (\ or /)
-M.selected_framework = ''
-M.is_processing = false
-M.queue = {}
-
-function M.set_clang_format_style()
-  local styles = { 'LLVM', 'Google', 'Chromium', 'Mozilla', 'WebKit', 'Microsoft', 'Linux' }
-
-  vim.ui.select(styles, {
-    prompt = 'Select Clang-Format base style:',
-  }, function(choice)
-    if not choice then
-      return
-    end
-
-    -- 1. Generate the command (Windows compatible)
-    local cmd = string.format('cmd /c "clang-format -style=%s -dump-config > .clang-format"', choice:lower())
-
-    -- 2. Execute and check result
-    local success = os.execute(cmd)
-
-    if success then
-      vim.notify('Created .clang-format (' .. choice .. ')', vim.log.levels.INFO)
-
-      -- 3. Restart clangd to apply the new formatting rules
-      -- Slight delay to ensure file is written before LSP restarts
-      vim.defer_fn(function()
-        clangdRestart()
-        print('LSP Reloaded: Using ' .. choice .. ' style.')
-      end, 100)
-    else
-      vim.notify('Failed to generate .clang-format. Is clang-format in your PATH?', vim.log.levels.ERROR)
-    end
-  end)
-end
--- Create a command to trigger the menu
-vim.api.nvim_create_user_command('ClangFormatPick', M.set_clang_format_style, {})
-
-function M.get_clangd_unknown_args()
-  -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
-  boilerplate.args = {}
-  boilerplate_gen('.clangd', vim.g.platformioRootDir)
-
-  -- 2. FIND: Grab the first .cpp or .c file in /src
-  local check_file = vim.fs.find(function(name)
-    return name:match('%.cpp$') or name:match('%.c$')
-  end, { limit = 1, path = vim.fn.getcwd() .. '/src' })[1]
-
-  if not check_file then
-    print('No source file found to check.')
-    return
-  end
-
-  -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
-  local cmd = { 'clangd', '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
-
-  vim.system(cmd, { text = true }, function(obj)
-    local output = (obj.stdout or '') .. (obj.stderr or '')
-    local args_table = {}
-
-    -- Extract anything clangd reports as an 'unknown argument'
-    for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
-      table.insert(args_table, string.format('"%s"', arg:gsub('[;%.]$', '')))
-    end
-
-    -- 4. UPDATE: Rebuild with the new discovered flags
-    vim.schedule(function()
-      boilerplate.args = args_table
-      boilerplate_gen('.clangd', vim.g.platformioRootDir)
-
-      if clangdRestart then
-        clangdRestart()
-      end
-      print('✅ Done: Extracted ' .. #args_table .. ' flags.')
-    end)
-  end)
-end
-
--- INFO:
---- stylua: ignore
--- Example: Call it with a keymap or command
--- function M.get_clangd_unknown_args()
---   local src_path = vim.fn.getcwd() .. '/src'
---   local ok, files = pcall(vim.fn.readdir, src_path)
---   if not ok then
---     vim.notify('src directory not found', vim.log.levels.WARN)
---     return
---   end
---
---   local first_file = ''
---
---   for _, file in ipairs(files) do
---     -- Ensure it's a file (simple check for extension)
---     if file:match('%.cpp$') or file:match('%.c$') then
---       first_file = './src/' .. file
---       break
---     end
---   end
---
---   if first_file == '' then
---     vim.notify('No .cpp or .c files found in src/', vim.log.levels.WARN)
---     return
---   end
---
---   -- Get the ABSOLUTE path to your current directory
---   local project_root = vim.uv.cwd()
---   local abs_first_file = vim.fn.fnamemodify(first_file, ':p')
---
---   local fake_config = vim.fn.tempname() .. '.yaml'
---
---   -- Run clangd in a "clean" environment (the system temp folder)
---   local cmd = {
---     'clangd',
---     '--config-file=' .. fake_config,
---     '--compile-commands-dir=' .. project_root,
---     '--check=' .. abs_first_file,
---     '--log=error',
---   }
---   -- local cmd = { 'clangd', '--compile-commands-dir', './', '--check=' .. first_file, '--log=error' }
---   vim.system(cmd, { text = true }, function(obj)
---     -- Everything inside this function happens "later"
---     if obj.code == 127 then
---       vim.schedule(function()
---         vim.notify("Clangd Check Error: 'clangd' executable not found", vim.log.levels.ERROR)
---       end)
---       return
---     end
---
---     -- 1. Combine output immediately
---     local output = (obj.stdout or '') .. (obj.stderr or '')
---     print(output)
---
---     local args_table = {}
---     -- 2. Extract flags even if code is not 0
---     for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
---       local clean_arg = arg:gsub('[;%.]$', '')
---       table.insert(args_table, string.format('%q', clean_arg))
---     end
---
---     -- 3. ALWAYS update the module table (use empty table if nothing found)
---     -- This prevents the "table expected, got nil" error
---     boilerplate.args = args_table
---
---     -- 4. Execute the generation regardless of the exit code
---     vim.schedule(function()
---       -- If it's a real crash (no clangd), notify but still try to gen with empty args
---       if obj.code == 127 then
---         vim.notify('Clangd not found, generating default .clangd', vim.log.levels.WARN)
---       end
---
---       print(string.format('Generated .clangd with %d unknown flags', #boilerplate.args))
---       print(vim.inspect(boilerplate.args))
---
---       boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
---       -- boilerplate_gen([[.clangd]], _G.metadata.core_dir)
---
---       if clangdRestart then
---         clangdRestart()
---       end
---     end)
---   end)
--- end
-vim.api.nvim_create_user_command('ClangdCheckArgs', M.get_clangd_unknown_args, {})
 
 -- INFO:
 -- =============================================================================
@@ -604,7 +439,7 @@ function M.compile_commandsFix() --M.dbPathsFix()
     local end_time = vim.loop.hrtime()
     local duration = (end_time - start_time) / 1e6
     vim.notify(string.format('compiledb: paths fixed in %.2fms', duration), vim.log.levels.INFO)
-    clangdRestart()
+    vim.clangd.restart()
   end
   _G.metadata.isBusy = false
 end
@@ -613,7 +448,6 @@ end
 -- INFO:
 --configuration for running sequential commands on ToggleTerminal
 -- stylua: ignore
--- =============================================================================
 -- =============================================================================
 local callBack = nil
 local pio_buffer = '' -- Persistent stream buffer
@@ -649,8 +483,9 @@ function M.stdoutcallback(_, _, data)
   if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
 end
 
+-- =============================================================================
 local commandPassed = 0
-
+M.queue = {}
 
 -- INFO: commands sequencer
 -- stylua: ignore
@@ -738,8 +573,7 @@ function M.handlePioinitDb(result, board)
       vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
       vim.notify('PIO init+db: Done', vim.log.levels.INFO)
       vim.misc.gitignore_lsp_configs('compile_commands.json')
-      M.get_clangd_unknown_args()
-      -- clangdRestart()
+      vim.clangd.getUnknownArgs()
     end)
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
@@ -791,7 +625,7 @@ function M.handlePioinit(result)
       pio_refresh(function()
         boilerplate_gen([[.clangd]], _G.metadata.core_dir)
         vim.misc.closeMessage(win_id)
-        clangdRestart()
+        vim.clangd.restart()
         -- term.ToggleTerminal('echo "************ project Initialization success ************"', 'float')
       end, 'PIO init: ')
     end)

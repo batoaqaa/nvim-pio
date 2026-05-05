@@ -157,7 +157,7 @@ CompileFlags:
     "-Wno-unused-includes",
     ]
 Diagnostics:
-  Suppress:  [ 
+  Suppress:  [
     "drv_unknown_argument",
     "pp_file_not_found",
     "pp_file_not_found_angled_not_fatal",
@@ -170,12 +170,10 @@ Diagnostics:
     Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
 ]],
   content = function(self)
-    local cwdClangd = vim.misc.joinPath(vim.g.platformioRootDir, '.clangd')
+    local cwdClangd = vim.misc.joinPath(vim.uv.cwd(), '.clangd')
     local coreClangd = vim.misc.joinPath(M.core_dir, '.clangd')
     local staticBlock, dynamicBlock = '', ''
 
-    print(cwdClangd)
-    print(coreClangd)
     if vim.uv.fs_stat(cwdClangd) then
       local ok, content = vim.misc.readFile(cwdClangd)
 

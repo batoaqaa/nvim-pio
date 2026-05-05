@@ -1,5 +1,4 @@
 local M = {}
-local misc = require('nvimpio.utils.misc')
 
 M.tty_list = {}
 
@@ -16,14 +15,14 @@ function M.parse_tty(lines)
 end
 
 function M.sync_ttylist()
-  misc.async_shell_cmd({ 'platformio', 'device', 'list', '--json-output' }, M.parse_tty)
+  vim.misc.async_shell_cmd({ 'platformio', 'device', 'list', '--json-output' }, M.parse_tty)
 end
 
 function M.sync_ttylist_await()
   local done = false
   local result = nil
 
-  misc.async_shell_cmd({ 'platformio', 'device', 'list', '--json-output' }, function(lines, code)
+  vim.misc.async_shell_cmd({ 'platformio', 'device', 'list', '--json-output' }, function(lines, code)
     result = { lines = lines, code = code }
     done = true
   end)

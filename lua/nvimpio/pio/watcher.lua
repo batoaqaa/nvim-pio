@@ -1,6 +1,6 @@
 local M = {}
 
-local clangdRestart = require('nvimpio.clangd.tools').clangdRestart
+local clangdRestart = require('nvimpio.clangd.control').clangdRestart
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 
@@ -215,7 +215,7 @@ function M.start_watchers()
               if obj.code == 0 then
                 -- vim.schedule(function ()
                   M.pio_refresh(function()
-                    vim.upkeep.get_clangd_unknown_args()
+                    vim.clangd.getUnknownArgs()
                     vim.notify('PIO platformio.ini change: compiledb update Success', vim.log.levels.INFO, { title = 'PlatformIO' })
                     -- clangdRestart()
                   end, 'PIO platformio.ini  change: ')
@@ -268,42 +268,22 @@ end
 --stylua: ignore
 --=============================================================================
 function M.init()
-  local config = require('nvimpio').config
-  if config.lspClangd.enabled == true then
-    vim.notify('PIO start: initialize', vim.log.levels.INFO)
+    vim.notify('PIO Watcher: initialize', vim.log.levels.INFO)
 
     -- activate meta save and upload and env switch
-    local metadata = require('nvimpio.pio.metadata')
-    metadata.load_project_config()
-
-    require('nvimpio.clangd.clangd')
-    if config.lspClangd.attach.enabled then
-      require('nvimpio.clangd.attach')
-    end
+    require('nvimpio.pio.metadata').load_project_config()
 
     -- Always start the watcher so it can catch a future 'pio init'
     M.start_watchers()
 
-    -- boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
     -- If the file already exists, do an initial sync
     if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
-      ----------------------------------------------------------------------------------------
-      --INFO: create clangd required files
-      -----------------------------------------------------------------------------------------
-      -- boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
-      -- boilerplate_gen([[.clangd]], vim.fs.joinpath(vim.env.XDG_CONFIG_HOME, 'clangd'), 'config.yaml')
-      -- boilerplate_gen([[.clangd]], _G.metadata.core_dir)
       boilerplate.core_dir = _G.metadata.core_dir
       boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
       ---------------------------------------------------------------------------------
-      -- M.run_compiledb() -- Smart: Auto-update DB if config changes
       M.pio_refresh(function()
-        -- vim.schedule(function()
-        --   lsp_restart('clangd')
-        -- end)
       end, 'PIO start: ')
     end
-  end
 end
 
 return M

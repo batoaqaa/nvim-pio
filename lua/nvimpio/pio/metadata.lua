@@ -3,39 +3,39 @@ local M = {}
 -------------------------------------------------------------------------------------------------------
 local last_saved_hash = ''
 
-local function remove_nearby_front(target_path)
-  local start_time = vim.loop.hrtime()
-  local sep = vim.fn.has('win32') == 1 and ';' or ':'
-  local path = vim.env.PATH
-
-  -- Escape special characters in the path for Lua pattern matching
-  local escaped_target = vim.pesc(target_path)
-
-  -- Pattern logic:
-  -- 1. ^(.-)      -> Capture any characters at the very start (up to our target)
-  -- 2. sep?       -> Match an optional separator before the target
-  -- 3. target     -> Match your specific path
-  -- 4. sep?       -> Match an optional separator after the target
-  -- 5. (.*)$      -> Capture everything else until the end
-  local pattern = '^(.-)' .. sep .. '?' .. escaped_target .. sep .. '?' .. '(.*)$'
-
-  local prefix, suffix = path:match(pattern)
-
-  -- If we found it, verify it was near the front (e.g., within 3 separators)
-  if prefix and suffix then
-    local _, sep_count = prefix:gsub(sep, '')
-    if sep_count < 3 then
-      -- Reconstruct the path, ensuring we don't double-up separators
-      local new_path = prefix .. (prefix ~= '' and suffix ~= '' and sep or '') .. suffix
-      vim.env.PATH = new_path
-      local end_time = vim.loop.hrtime()
-      local duration = (end_time - start_time) / 1e6
-      vim.notify(string.format('compiledb: paths fixed in %.2fms', duration), vim.log.levels.INFO)
-      return true
-    end
-  end
-  return false
-end
+-- local function remove_nearby_front(target_path)
+--   local start_time = vim.loop.hrtime()
+--   local sep = vim.fn.has('win32') == 1 and ';' or ':'
+--   local path = vim.env.PATH
+--
+--   -- Escape special characters in the path for Lua pattern matching
+--   local escaped_target = vim.pesc(target_path)
+--
+--   -- Pattern logic:
+--   -- 1. ^(.-)      -> Capture any characters at the very start (up to our target)
+--   -- 2. sep?       -> Match an optional separator before the target
+--   -- 3. target     -> Match your specific path
+--   -- 4. sep?       -> Match an optional separator after the target
+--   -- 5. (.*)$      -> Capture everything else until the end
+--   local pattern = '^(.-)' .. sep .. '?' .. escaped_target .. sep .. '?' .. '(.*)$'
+--
+--   local prefix, suffix = path:match(pattern)
+--
+--   -- If we found it, verify it was near the front (e.g., within 3 separators)
+--   if prefix and suffix then
+--     local _, sep_count = prefix:gsub(sep, '')
+--     if sep_count < 3 then
+--       -- Reconstruct the path, ensuring we don't double-up separators
+--       local new_path = prefix .. (prefix ~= '' and suffix ~= '' and sep or '') .. suffix
+--       vim.env.PATH = new_path
+--       local end_time = vim.loop.hrtime()
+--       local duration = (end_time - start_time) / 1e6
+--       vim.notify(string.format('compiledb: paths fixed in %.2fms', duration), vim.log.levels.INFO)
+--       return true
+--     end
+--   end
+--   return false
+-- end
 
 local function remove_from_path(path_to_remove)
   local sep = vim.fn.has('win32') == 1 and ';' or ':'

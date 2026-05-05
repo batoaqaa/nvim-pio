@@ -4,12 +4,6 @@ local M = {}
 local ToggleTerminal = require('nvimpio.utils.term').ToggleTerminal
 local misc = vim.misc
 
--- stylua: ignore
---INFO: PioLSP
-------------------------------------------------------
-function M.clangdRestart()
-  require('nvimpio.clangd.tools').clangdRestart()
-end
 
 -- stylua: ignore
 --INFO: Piocmd(h/f)

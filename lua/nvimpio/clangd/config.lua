@@ -101,7 +101,7 @@ vim.lsp.config('*', {
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
 --stylua: ignore
-function _G.get_clangd_config()
+function _G.getClangdConfig()
   local new_root_dir = vim.uv.cwd() or '.'
   if not new_root_dir then
     return
@@ -151,7 +151,7 @@ function _G.get_clangd_config()
 end
 
 -- Apply and Enable
-vim.lsp.config('clangd', _G.get_clangd_config())
+vim.lsp.config('clangd', _G.getClangdConfig())
 vim.lsp.enable('clangd')
 
 ----------------------------------------------------------------------------------------
@@ -274,6 +274,4 @@ local pyrefly = {
 }
 vim.lsp.config('pyrefly', pyrefly)
 
--- restart lsp
--- require('nvimpio.clangd.tools').lsp_restart('clangd')
 ----------------------------------------------------------------------------------

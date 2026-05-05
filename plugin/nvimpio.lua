@@ -45,6 +45,7 @@
 -- })
 vim.misc = require('nvimpio.utils.misc')
 vim.upkeep = require('nvimpio.pio.upkeep')
+vim.clangd = require('nvimpio.clangd.control')
 
 -- INFO: fix paths in compile_commands.json
 vim.api.nvim_create_user_command('Piofixpaths', function()
@@ -58,13 +59,6 @@ local piolsserial = require('nvimpio.piolsserial')
 vim.api.nvim_create_user_command('Pioinit', function()
   require('nvimpio.pioInit').pioInit()
 end, { force = true })
-
--- Piolsp
-vim.api.nvim_create_user_command('Clangdrestart', function()
-  vim.schedule(function()
-    require('nvimpio.pioCommands').clangdRestart()
-  end)
-end, {})
 
 -- Piorun
 vim.api.nvim_create_user_command('Piorun', function(opts)

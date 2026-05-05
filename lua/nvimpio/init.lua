@@ -228,7 +228,7 @@ function M.setup(user_config)
   M.piomenu(M.config)
 
   vim.schedule(function()
-    require('nvimpio.pio.watcher').init()
+    require('nvimpio.clangd.control').init()
   end)
 end
 
