@@ -236,8 +236,11 @@ function M.activate()
 
   M.is_active = true
 end
-
-function M.setup(user_config)
+local user_config = nil
+function M.setup(userConfig)
+  if userConfig then
+    user_config = userConfig
+  end
   -- 1. Merge user settings with defaults
   if user_config.lspClangd then
     vim.validate('lspClangd', user_config.lspClangd, 'table', true)
