@@ -285,6 +285,7 @@ function M.init()
   -- Always start the watcher so it can catch a future 'pio init'
   M.start_watchers()
 
+  print('here 111')
   local config = require('nvimpio').config
   if config.lspClangd.enabled == true then require('nvimpio.clangd.config').init() end
 
