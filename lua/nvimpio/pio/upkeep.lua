@@ -66,6 +66,7 @@ function M.updateDefaultEnv()
   local active_env = _G.metadata.active_env
   if not active_env or active_env == "" then return end
 
+print('ahmed:fixini')
   _G.metadata.isBusy = true
   local ok, content = vim.misc.readFile(path)
   if not ok or not content then
