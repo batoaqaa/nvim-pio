@@ -130,7 +130,7 @@ local function watch_file(target, callback)
     if err then return end
 
     -- Early Exit Filters
-    if target.isBusy or _G.metadata.isBusy or (filename and filename ~= target_filename) or not events or not (events.change or events["rename"]) then return end
+    if target.isBusy or _G.metadata.isBusy or (filename and filename ~= target_filename) or (events and not (events.change or events["rename"])) then return end
 
     -- local f = io.open(target.path, "r")
     -- if f then f:close()
@@ -203,7 +203,7 @@ function M.start_watchers()
       path = vim.misc.joinPath(project_root, 'platformio.ini'),
       cb = function(self)
         if self.isBusy then return end
-        if _G.metadata.isBusy then return end
+        -- if _G.metadata.isBusy then return end
         local new_hash = get_hash(self.path) or ''
         if new_hash and new_hash ~= self.last_hash then
           self.last_hash = new_hash
