@@ -33,41 +33,82 @@ Comment: Grey
 ---@param msg string The message to display
 ---@param level string|integer|nil
 function M.notify(msg, level)
-  local icons = {
-    [vim.log.levels.INFO] = '',
-    [vim.log.levels.WARN] = '',
-    [vim.log.levels.ERROR] = '',
-    [vim.log.levels.DEBUG] = '',
-  }
+local string_to_level = {
+  info  = vim.log.levels.INFO,
+  warn  = vim.log.levels.WARN,
+  error = vim.log.levels.ERROR,
+  debug = vim.log.levels.DEBUG,
+}
 
-  -- Mapping string inputs to official levels
-  local level_map = {
-    info  = vim.log.levels.INFO,  -- 2
-    warn  = vim.log.levels.WARN,  -- 3
-    error = vim.log.levels.ERROR, -- 4
-    debug = vim.log.levels.DEBUG, -- 1
-  }
+local icons = {
+  [vim.log.levels.INFO]  = "",
+  [vim.log.levels.WARN]  = "",
+  [vim.log.levels.ERROR] = "",
+  [vim.log.levels.DEBUG] = "",
+}
 
-  -- vim.cmd("redraw")
-  -- 1. If 'level' is a string, convert it using our map
-  -- 2. If it's already a number, use it
-  -- 3. Default to INFO if nothing is provided
-  if type(level) == 'string' then
-    level = level_map[level:lower()] -- :lower() makes it case-insensitive
+-- Map levels to colors (Highlight Groups)
+local level_colors = {
+  [vim.log.levels.INFO]  = "DiagnosticInfo",  -- Blue-ish
+  [vim.log.levels.WARN]  = "DiagnosticWarn",  -- Yellow
+  [vim.log.levels.ERROR] = "DiagnosticError", -- Red
+  [vim.log.levels.DEBUG] = "Debug",           -- Grey/Purple
+}
+
+  if type(level) == "string" then
+    level = string_to_level[level:lower()]
   end
 
-  -- Log level (defaults to INFO)
   level = level or vim.log.levels.INFO
   local icon = icons[level] or ""
+  local color = level_colors[level] or "Normal"
 
-  local full_message = string.format("[ %s] %s  %s", pluginName, icon, msg)
-  -- local message = '  '.. pluginName .. ' [' .. icon .. '   ]: ' .. msg
-  last_notification = vim.notify(full_message, level, {
-    title = pluginName,
-    icon = icon,
-    replace = last_notification,
-  })
+  -- 1. Clear the command line to prevent "Press ENTER"
+  vim.cmd("redraw")
+
+  -- 2. Use nvim_echo for a single-line update
+  vim.api.nvim_echo({
+    { "[  nvim-pio] ", "Identifier" },      -- Plugin Name
+    { "[" .. icon .. "] ", color },           -- Icon with Level Color
+    { msg, "Normal" }                         -- The message text
+  }, false, {}) -- Set to 'false' so it doesn't stack in history
 end
+-- function M.notify(msg, level)
+--   local icons = {
+--     [vim.log.levels.INFO] = '',
+--     [vim.log.levels.WARN] = '',
+--     [vim.log.levels.ERROR] = '',
+--     [vim.log.levels.DEBUG] = '',
+--   }
+--
+--   -- Mapping string inputs to official levels
+--   local level_map = {
+--     info  = vim.log.levels.INFO,  -- 2
+--     warn  = vim.log.levels.WARN,  -- 3
+--     error = vim.log.levels.ERROR, -- 4
+--     debug = vim.log.levels.DEBUG, -- 1
+--   }
+--
+--   -- vim.cmd("redraw")
+--   -- 1. If 'level' is a string, convert it using our map
+--   -- 2. If it's already a number, use it
+--   -- 3. Default to INFO if nothing is provided
+--   if type(level) == 'string' then
+--     level = level_map[level:lower()] -- :lower() makes it case-insensitive
+--   end
+--
+--   -- Log level (defaults to INFO)
+--   level = level or vim.log.levels.INFO
+--   local icon = icons[level] or ""
+--
+--   local full_message = string.format("[ %s] %s  %s", pluginName, icon, msg)
+--   -- local message = '  '.. pluginName .. ' [' .. icon .. '   ]: ' .. msg
+--   last_notification = vim.notify(full_message, level, {
+--     title = pluginName,
+--     icon = icon,
+--     replace = last_notification,
+--   })
+-- end
 
 --INFO:
 ------------------------------------------------------
