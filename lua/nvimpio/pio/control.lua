@@ -285,15 +285,15 @@ function M.init(lspClangd)
   require('nvimpio.pio.commands')
   require('nvimpio.pio.metadata').load_project_config()
 
+  if lspClangd.enabled == true then
+    vim.schedule(function() require('nvimpio.clangd.control').init(lspClangd) end)
+  end
   -- Always start the watcher so it can catch a future 'pio init'
   M.start_watchers()
 
   -- If the file already exists, do an initial sync
   if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
     M.pio_refresh(function()
-      if lspClangd.enabled == true then
-        vim.schedule(function() require('nvimpio.clangd.control').init(lspClangd) end)
-      end
       boilerplate.core_dir = _G.metadata.core_dir
     end, 'PIO start: ')
   end
