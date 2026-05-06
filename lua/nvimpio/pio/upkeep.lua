@@ -111,7 +111,7 @@ function M.updateDefaultEnv()
   end
 
   vim.misc.writeFile(path, table.concat(new_lines), {})
-  print("PIO reset default_envs: " .. active_env)
+  vim.misc.notify("PIO reset default_envs: " .. active_env)
   _G.metadata.isBusy = false
 
 
