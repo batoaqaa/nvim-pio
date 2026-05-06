@@ -193,6 +193,7 @@ function M.start_watchers()
   -- Clean up any existing watchers first to prevent duplicates
   if next(M.watcher_handles) then M.stop_watchers() end
 
+  print('watcher')
   local project_root = vim.uv.cwd() -- Use dynamic CWD instead of hardcoded path
 
   local targets = {
