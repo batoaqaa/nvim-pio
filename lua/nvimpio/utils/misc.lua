@@ -43,7 +43,7 @@ function M.notify(msg, level)
   level = level or vim.log.levels.INFO
   local icon = icons[level] or '  '
 
-  local message = '[  '.. pluginName .. '('.. icon .. ')]: ' .. msg
+  local message = '  '.. pluginName .. ' [' .. icon .. ']: ' .. msg
   vim.notify(message, level, {
     title = pluginName,
     icon = icon,
