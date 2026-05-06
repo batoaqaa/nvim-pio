@@ -317,7 +317,20 @@ local plugins = {
 
   {
     'batoaqaa/nvim-pio',
-    cmd = { 'Pioinit' },
+    init = function(self)
+      if require('lazy.core.config').plugins[self.name]._.loaded then
+        return
+      end
+      if vim.fn.filereadable('platformio.ini') == 1 then
+        require('lazy').load({ plugins = { self.name } })
+      else
+        vim.api.nvim_create_user_command('Pioinit', function(opts)
+          require('lazy').load({ plugins = { self.name } })
+          vim.cmd('Pioinit ' .. opts.args)
+        end, { nargs = '*' })
+      end
+    end,
+    -- cmd = { 'Pioinit' },
     -- cond = function()
     --   -- local platformioRootDir = (vim.fn.filereadable('platformio.ini') == 1) and vim.fn.getcwd() or nil
     --   local platformioRootDir = (vim.fn.filereadable('platformio.ini') == 1) and vim.uv.cwd() or nil
