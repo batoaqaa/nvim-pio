@@ -317,6 +317,7 @@ local plugins = {
 
   {
     'batoaqaa/nvim-pio',
+    lazy = true,
     init = function(self)
       if require('lazy.core.config').plugins[self.name]._.loaded then
         return
