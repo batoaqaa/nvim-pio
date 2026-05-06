@@ -10,7 +10,7 @@ local wizard_data = {}
 
 -- Visual Notifications
 local function notify(msg, level)
-  vim.misc.notify('PIO init+db: ' .. msg, level or vim.log.levels.INFO)
+  vim.misc.notify('PIO init+db: ' .. msg, level or "info")
 end
 
 -- Reusable Small Menu for Yes/No and Frameworks
@@ -153,7 +153,7 @@ local function launch_project_init()
 
   local ok, json_data = pcall(vim.json.decode, result)
   if not ok or type(json_data) ~= 'table' then
-    notify('Failed to parse board data.', vim.log.levels.ERROR)
+    notify('Failed to parse board data.', "error")
     return
   end
 

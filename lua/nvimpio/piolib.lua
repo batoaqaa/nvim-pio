@@ -67,7 +67,7 @@ local function pick_library(json_data)
         vim.pio.run_sequence({
             cmnds = {'pio pkg install --library "' .. pkg_name .. '"'},
             cb = vim.pio.handlePiolib
-          --function () vim.misc.notify('Piolib: Done', vim.log.levels.INFO) end
+          --function () vim.misc.notify('Piolib: Done', "info") end
         })
       end)
       return true
@@ -140,7 +140,7 @@ end
 --         local pio = require('nvimpio.utils.pio')
 --         pio.run_sequence({
 --             cmnds = {'pio pkg install --library "' .. pkg_name .. '"'},
---             cb = function () vim.misc.notify('Piolib: Done', vim.log.levels.INFO) end
+--             cb = function () vim.misc.notify('Piolib: Done', "info") end
 --         })
 --       end)
 --       return true
@@ -198,7 +198,7 @@ function M.piolib(lib_arg_list)
   else
     vim.misc.notify(
       'API Request to platformio return HTTP code: ' .. res['status'] .. '\nplease run `curl -LI ' .. url .. '` for complete information',
-      vim.log.levels.ERROR
+      "error"
     )
   end
 end

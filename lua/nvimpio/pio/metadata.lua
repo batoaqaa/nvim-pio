@@ -30,7 +30,7 @@ local last_saved_hash = ''
 --       vim.env.PATH = new_path
 --       local end_time = vim.loop.hrtime()
 --       local duration = (end_time - start_time) / 1e6
---       vim.misc.notify(string.format('compiledb: paths fixed in %.2fms', duration), vim.log.levels.INFO)
+--       vim.misc.notify(string.format('compiledb: paths fixed in %.2fms', duration), "info")
 --       return true
 --     end
 --   end
@@ -42,12 +42,12 @@ local last_saved_hash = ''
 --   local active_env = _G.metadata.active_env
 --
 --   if not active_env or active_env == '' then
---     vim.misc.notify('No active_env found in metadata', vim.log.levels.WARN)
+--     vim.misc.notify('No active_env found in metadata', "warn")
 --     return
 --   end
 --
 --   if vim.fn.filereadable(pio_ini) == 0 then
---     vim.misc.notify('platformio.ini not found', vim.log.levels.ERROR)
+--     vim.misc.notify('platformio.ini not found', "error")
 --     return
 --   end
 --
@@ -67,7 +67,7 @@ local last_saved_hash = ''
 --     vim.fn.writefile(lines, pio_ini)
 --     print('✅ platformio.ini updated: default_envs = ' .. active_env)
 --   else
---     vim.misc.notify("Could not find 'default_envs =' line in platformio.ini", vim.log.levels.WARN)
+--     vim.misc.notify("Could not find 'default_envs =' line in platformio.ini", "warn")
 --   end
 -- end
 
@@ -142,12 +142,12 @@ _G.metadata = setmetatable({}, {
         removeFromPath(oldPath)
         local end_time = vim.loop.hrtime()
         local duration = (end_time - start_time) / 1e6
-        vim.misc.notify(string.format('PIO env: ' .. oldPath .. ' removed from path in %.2fms', duration), vim.log.levels.INFO)
+        vim.misc.notify(string.format('PIO env: ' .. oldPath .. ' removed from path in %.2fms', duration), "info")
 
         vim.env.PATH = binPath .. sep .. vim.env.PATH
         -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
 
-        vim.misc.notify('PIO env: ' .. binPath .. ' added to path', vim.log.levels.INFO)
+        vim.misc.notify('PIO env: ' .. binPath .. ' added to path', "info")
       elseif key == 'last_projectChecksum' then
         -- elseif key == 'active_env' then
         --   _pio_metadata['isBusy'] = true
@@ -182,9 +182,9 @@ function M.save_project_config(from)
 
     if status then
       last_saved_hash = current_hash
-      vim.misc.notify(from .. 'config save success', vim.log.levels.INFO)
+      vim.misc.notify(from .. 'config save success', "info")
     else
-      vim.misc.notify(from .. 'config save failed==> ' .. (err or 'unknown error'), vim.log.levels.ERROR)
+      vim.misc.notify(from .. 'config save failed==> ' .. (err or 'unknown error'), "error")
     end
   end
 end

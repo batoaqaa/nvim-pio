@@ -11,21 +11,44 @@ M.devNul = M.is_windows and ' 2>./nul' or ' 2>/dev/null'
 
 local pluginName = 'nvim-pio'
 
----@param msg string The message to display
----@param level integer|nil Log level (defaults to INFO)
 --INFO:
-------------------------------------------------------
 -- stylua: ignore
+------------------------------------------------------
+---@param msg string The message to display
+---@param level string|integer|nil
 function M.notify(msg, level)
-  -- Use the default level if none is provided
+  local icons = {
+    [vim.log.levels.INFO] = '',
+    [vim.log.levels.WARN] = '',
+    [vim.log.levels.ERROR] = '',
+    [vim.log.levels.DEBUG] = '',
+  }
+
+  -- Mapping string inputs to official levels
+  local level_map = {
+    info  = vim.log.levels.INFO,  -- 2
+    warn  = vim.log.levels.WARN,  -- 3
+    error = vim.log.levels.ERROR, -- 4
+    debug = vim.log.levels.DEBUG, -- 1
+  }
+
+  -- 1. If 'level' is a string, convert it using our map
+  -- 2. If it's already a number, use it
+  -- 3. Default to INFO if nothing is provided
+  if type(level) == 'string' then
+    level = level_map[level:lower()] -- :lower() makes it case-insensitive
+  end
+
+  -- Log level (defaults to INFO)
   level = level or vim.log.levels.INFO
+  local icon = icons[level] or '  '
 
   vim.notify('  '.. msg, level, {
     title = pluginName,
-    -- Optional: add a custom icon if the user has nvim-notify
-    icon = '  ',
+    icon = icon,
   })
 end
+
 --INFO:
 ------------------------------------------------------
 function M.isReadable(path)
@@ -124,9 +147,9 @@ function M.deleteFile(path)
   if vim.fn.filereadable(path) == 1 then
     local success = vim.fn.delete(path)
 
-    if success == 0 then vim.misc.notify('PlatformIO: ' .. file .. ' file removed', vim.log.levels.INFO)
-    else vim.misc.notify('PlatformIO: Failed to delete ' .. file, vim.log.levels.ERROR) end
-  else vim.misc.notify('PlatformIO: ' .. file .. ' file not found', vim.log.levels.WARN) end
+    if success == 0 then vim.misc.notify('PlatformIO: ' .. file .. ' file removed', 'info')
+    else vim.misc.notify('PlatformIO: Failed to delete ' .. file, 'error') end
+  else vim.misc.notify('PlatformIO: ' .. file .. ' file not found', 'warn') end
 end
 
 --INFO:
@@ -435,7 +458,7 @@ function M.set_platformioRootDir()
       return
     end
   end
-  vim.misc.notify('Could not find platformio.ini, run :Pioinit to create a new project', vim.log.levels.ERROR)
+  vim.misc.notify('Could not find platformio.ini, run :Pioinit to create a new project', 'error')
 end
 
 --INFO:
@@ -453,7 +476,7 @@ function M.pio_install_check()
   handle:close()
 
   if #pio_path == 0 then
-    vim.misc.notify('Platformio not found in the path', vim.log.levels.ERROR)
+    vim.misc.notify('Platformio not found in the path', 'error')
     return false
   end
   return true

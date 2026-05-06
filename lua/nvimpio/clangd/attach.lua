@@ -19,11 +19,11 @@ vim.api.nvim_create_autocmd('LspAttach', {
           local params = vim.lsp.util.make_text_document_params(bufnr)
           client:request('textDocument/switchSourceHeader', params, function(err, result)
             if err then
-              vim.misc.notify('LSP Attach: Clangd Error ' .. tostring(err), vim.log.levels.ERROR)
+              vim.misc.notify('LSP Attach: Clangd Error ' .. tostring(err), "error")
               return
             end
             if not result or result == '' then
-              vim.misc.notify('LSP Attach: Corresponding file cannot be determined', vim.log.levels.WARN)
+              vim.misc.notify('LSP Attach: Corresponding file cannot be determined', "warn")
               return
             end
             -- Use vim.schedule to ensure we aren't editing while the LSP is in a callback

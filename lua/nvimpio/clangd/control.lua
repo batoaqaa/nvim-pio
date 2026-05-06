@@ -9,7 +9,7 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 function M.restart()
   local name = 'clangd'
   -- vim.schedule_wrap(function()
-  vim.misc.notify('LSP: Clangd restart.', vim.log.levels.WARN)
+  vim.misc.notify('LSP: Clangd restart.', "warn")
 
   local clangConfig = _G.getClangdConfig()
   -- print(vim.inspect(clangConfig))
@@ -40,7 +40,7 @@ function M.setFormatStyle()
     local success = os.execute(cmd)
 
     if success then
-      vim.misc.notify('Created .clang-format (' .. choice .. ')', vim.log.levels.INFO)
+      vim.misc.notify('Created .clang-format (' .. choice .. ')', "info")
 
       -- 3. Restart clangd to apply the new formatting rules
       -- Slight delay to ensure file is written before LSP restarts
@@ -49,7 +49,7 @@ function M.setFormatStyle()
         print('LSP Reloaded: Using ' .. choice .. ' style.')
       end, 100)
     else
-      vim.misc.notify('Failed to generate .clang-format. Is clang-format in your PATH?', vim.log.levels.ERROR)
+      vim.misc.notify('Failed to generate .clang-format. Is clang-format in your PATH?', "error")
     end
   end)
 end
@@ -100,7 +100,7 @@ end
 --stylua: ignore
 --=============================================================================
 function M.init(lspClangd)
-  vim.misc.notify('Clangd LSP: initialize', vim.log.levels.INFO)
+  vim.misc.notify('Clangd LSP: initialize', "info")
 
   require('nvimpio.clangd.config')
   require('nvimpio.clangd.commands')

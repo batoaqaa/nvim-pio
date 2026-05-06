@@ -232,7 +232,7 @@ function M.setup(opts)
   M.piomenu(M.config)
 
   require('nvimpio.pio.control').init(M.config.lspClangd)
-  -- vim.misc.notify('nvimpio started', vim.log.levels.INFO)
+  -- vim.misc.notify('nvimpio started', "info")
 end
 
 return M

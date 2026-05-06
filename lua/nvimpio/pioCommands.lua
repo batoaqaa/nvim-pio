@@ -53,7 +53,7 @@ function M.piomon(args_table)
     command = string.format('pio device monitor -b %s -p %s', baud_rate, port)
   end
 
-  if command == nil then vim.misc.notify('Usage: Piomon <baud> <port>', vim.log.levels.ERROR)
+  if command == nil then vim.misc.notify('Usage: Piomon <baud> <port>', "error")
   else ToggleTerminal(command, 'horizontal') end
 end
 
@@ -99,7 +99,7 @@ function M.piorun(arg_table)
   elseif arg_table[1] == 'clean' then
     M.pioclean()
   else
-    vim.misc.notify('Invalid argument: build, upload, uploadfs or clean', vim.log.levels.WARN)
+    vim.misc.notify('Invalid argument: build, upload, uploadfs or clean', "warn")
   end
 end
 
