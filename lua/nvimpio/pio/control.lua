@@ -203,7 +203,7 @@ function M.start_watchers()
       path = vim.misc.joinPath(project_root, 'platformio.ini'),
       cb = function(self)
         if self.isBusy then return end
-        -- if _G.metadata.isBusy == true then return end
+        if _G.metadata.isBusy then return end
         local new_hash = get_hash(self.path) or ''
         print('ahmed:old=' .. self.last_hash .. ' new=' .. new_hash)
         if new_hash and new_hash ~= self.last_hash then
@@ -241,7 +241,7 @@ function M.start_watchers()
       path = vim.misc.joinPath(project_root, '.pio', 'build', 'project.checksum'), --checksum_path
       cb = function(self)
         if self.isBusy then return end
-        if _G.metadata.isBusy == true then return end
+        if _G.metadata.isBusy then return end
         local ok, current_checksum = vim.misc.readFile(self.path)
         -- Check if we should exit early
         if ok and type(current_checksum) == 'string' and current_checksum ~= '' then
