@@ -20,7 +20,7 @@ function M.notify(msg, level)
   -- Use the default level if none is provided
   level = level or vim.log.levels.INFO
 
-  vim.notify(msg, level, {
+  vim.notify('  '.. msg, level, {
     title = pluginName,
     -- Optional: add a custom icon if the user has nvim-notify
     icon = '  ',
