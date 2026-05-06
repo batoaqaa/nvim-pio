@@ -286,11 +286,22 @@ function M.get_active__env(from)
 
   -- Validation: Find the first default_env that actually exists as a block
   if default_envs_raw ~= '' then
+    vim.misc.notify(default_envs_raw, "info")
     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
       if valid_envs[env_name] then return env_name end
     end
   end
 
+
+  -- if _G.metadata.default_envs[1] ~= nil and _G.metadata.active_env == _G.metadata.default_envs[1] then
+  --   _G.metadata.active_env = default_envs
+    -- M.updateDefaultEnv()
+  -- end
+
+  -- if (_G.metadata.active_env ~= default_envs)then
+  --   _G.metadata.active_env = default_envs
+  --   -- M.updateDefaultEnv()
+  -- end
   -- Fallback to the very first [env:...] block found in the file
   return first_env
 end
