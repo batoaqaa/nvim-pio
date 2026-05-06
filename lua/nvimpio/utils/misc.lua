@@ -46,7 +46,7 @@ function M.notify(msg, level)
 
   local full_message = string.format("[ %s] %s  %s", pluginName, icon, msg)
   -- local message = '  '.. pluginName .. ' [' .. icon .. '   ]: ' .. msg
-  vim.notify(full_message, level, {
+  last_notification = vim.notify(full_message, level, {
     title = pluginName,
     icon = icon,
     replace = last_notification,
