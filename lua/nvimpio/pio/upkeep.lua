@@ -66,10 +66,13 @@ function M.updateDefaultEnv()
   local active_env = _G.metadata.active_env
   if not active_env or active_env == "" then return end
 
-  local ok, content = vim.misc.readFile(path)
-  if not ok or not content then return end
-
   _G.metadata.isBusy = true
+  local ok, content = vim.misc.readFile(path)
+  if not ok or not content then
+    _G.metadata.isBusy = false
+    return
+  end
+
   local new_lines = {}
   local updated = false
   local in_platformio = false
