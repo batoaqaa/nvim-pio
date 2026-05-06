@@ -40,6 +40,8 @@ local string_to_level = {
   debug = vim.log.levels.DEBUG,
 }
 
+-- Example for a Neovim statusline or breadcrumb
+-- local clangd_icon = "" -- Using the Seti C icon
 local icons = {
   [vim.log.levels.INFO]  = " ",
   [vim.log.levels.WARN]  = " ",
