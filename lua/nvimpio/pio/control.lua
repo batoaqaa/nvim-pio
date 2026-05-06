@@ -275,13 +275,13 @@ end
 --stylua: ignore
 -------------------------------------------------------------------------------
 function M.init(lspClangd)
-  vim.misc.notify('PIO Control: initialize', vim.log.levels.INFO)
-
   vim.g.platformioRootDir = vim.fn.getcwd()
 
   vim.pio = require('nvimpio.pio.upkeep')
   vim.misc = require('nvimpio.utils.misc')
   vim.clangd = require('nvimpio.clangd.control')
+
+  vim.misc.notify('PIO Control: initialize', vim.log.levels.INFO)
 
   require('nvimpio.pio.metadata') --.load_project_config()
   require('nvimpio.pio.commands')
