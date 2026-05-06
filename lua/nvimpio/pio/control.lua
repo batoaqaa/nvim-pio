@@ -210,7 +210,7 @@ function M.start_watchers()
           self.last_hash = new_hash
           local env = vim.pio.get_active__env('PIO platformio.ini change: ')
           if not env then return end
-          -- _G.metadata.isBusy = true
+          _G.metadata.isBusy = true
           self.isBusy = true
           vim.notify('PIO platformio.ini change: compiledb update ...', vim.log.levels.INFO, { title = 'PlatformIO' })
           vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
@@ -248,16 +248,18 @@ function M.start_watchers()
           if current_checksum == _G.metadata.last_projectChecksum then
             return
           end
-          -- _G.metadata.isBusy = true
+          _G.metadata.isBusy = true
           self.isBusy = true
-          vim.defer_fn(function ()
+          -- vim.defer_fn(function ()
+          vim.schedule(function ()
             M.pio_refresh(function()
               self.isBusy = false
              _G.metadata.isBusy = false
               vim.notify('PIO checksum: Metadata synced', vim.log.levels.INFO)
               clangdRestart()
             end, 'PIO checksum: ')
-          end, 500)
+          end)
+          -- end, 500)
         end
       end
     },
