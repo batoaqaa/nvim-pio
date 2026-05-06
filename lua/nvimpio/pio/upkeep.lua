@@ -69,6 +69,7 @@ function M.updateDefaultEnv()
   local ok, content = vim.misc.readFile(path)
   if not ok or not content then return end
 
+  _G.metadata.isBusy = true
   local new_lines = {}
   local updated = false
   local in_platformio = false
@@ -108,6 +109,7 @@ function M.updateDefaultEnv()
 
   vim.misc.writeFile(path, table.concat(new_lines), {})
   print("🚀 PIO Sync: " .. active_env)
+  _G.metadata.isBusy = false
 
 
   --#1 working robust but no space line(s) between sections
