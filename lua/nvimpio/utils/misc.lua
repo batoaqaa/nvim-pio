@@ -12,6 +12,21 @@ M.devNul = M.is_windows and ' 2>./nul' or ' 2>/dev/null'
 local pluginName = 'nvim-pio'
 local last_notification = nil -- Store the active notification here
 
+
+-- vim.api.nvim_echo({
+--   { "PlatformIO: ", "Identifier" },      -- Light Blue/Orange
+--   { "Success! ", "DiagnosticOk" },      -- Green
+--   { "File compiled.", "Comment" }       -- Grey
+-- }, true, {})
+
+--[[
+DiagnosticError: Red
+DiagnosticWarn: Yellow
+DiagnosticInfo: Blue
+DiagnosticOk: Green
+String: Green (usually)
+Comment: Grey
+]]
 --INFO:
 -- stylua: ignore
 ------------------------------------------------------
@@ -33,7 +48,7 @@ function M.notify(msg, level)
     debug = vim.log.levels.DEBUG, -- 1
   }
 
-  vim.cmd("redraw")
+  -- vim.cmd("redraw")
   -- 1. If 'level' is a string, convert it using our map
   -- 2. If it's already a number, use it
   -- 3. Default to INFO if nothing is provided
