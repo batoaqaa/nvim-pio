@@ -278,12 +278,13 @@ function M.init(lspClangd)
 
   vim.g.platformioRootDir = vim.fn.getcwd()
 
-  require('nvimpio.pio.metadata').load_project_config()
-  require('nvimpio.pio.commands')
 
   vim.pio = require('nvimpio.pio.upkeep')
   vim.misc = require('nvimpio.utils.misc')
   vim.clangd = require('nvimpio.clangd.control')
+
+  require('nvimpio.pio.metadata').load_project_config()
+  require('nvimpio.pio.commands')
 
 
   if lspClangd.enabled == true then vim.clangd.init(lspClangd) end
