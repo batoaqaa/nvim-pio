@@ -277,8 +277,8 @@ function M.init()
   vim.notify('PIO Control: initialize', vim.log.levels.INFO)
 
   require('nvimpio.pio.commands')
-  local meta = require('nvimpio.pio.metadata')
-  meta.load_project_config()
+  require('nvimpio.pio.metadata')
+  require('nvimpio.pio.metadata').load_project_config()
 
   -- Always start the watcher so it can catch a future 'pio init'
   M.start_watchers()
