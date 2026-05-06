@@ -205,7 +205,7 @@ function M.start_watchers()
         if self.isBusy then return end
         if _G.metadata.isBusy then return end
         local new_hash = get_hash(self.path) or ''
-        print('ahmed:pio.control')
+        print('ahmed:ini')
         if new_hash and new_hash ~= self.last_hash then
           self.last_hash = new_hash
           local env = vim.pio.get_active__env('PIO platformio.ini change: ')
@@ -244,6 +244,7 @@ function M.start_watchers()
         if _G.metadata.isBusy then return end
         local ok, current_checksum = vim.misc.readFile(self.path)
         -- Check if we should exit early
+        print('ahmed:checksum')
         if ok and type(current_checksum) == 'string' and current_checksum ~= '' then
           if current_checksum == _G.metadata.last_projectChecksum then
             return
