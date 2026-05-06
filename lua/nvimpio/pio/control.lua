@@ -278,17 +278,15 @@ function M.init(lspClangd)
 
   vim.g.platformioRootDir = vim.fn.getcwd()
 
-  vim.misc = require('nvimpio.utils.misc')
+  require('nvimpio.pio.metadata').load_project_config()
+  require('nvimpio.pio.commands')
+
   vim.pio = require('nvimpio.pio.upkeep')
+  vim.misc = require('nvimpio.utils.misc')
   vim.clangd = require('nvimpio.clangd.control')
 
-  require('nvimpio.pio.commands')
-  require('nvimpio.pio.metadata').load_project_config()
 
-  if lspClangd.enabled == true then
-    print("clangd")
-    require('nvimpio.clangd.control').init(lspClangd)
-  end
+  if lspClangd.enabled == true then vim.clangd.init(lspClangd) end
   -- Always start the watcher so it can catch a future 'pio init'
   M.start_watchers()
 
