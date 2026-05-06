@@ -193,7 +193,6 @@ function M.start_watchers()
   -- Clean up any existing watchers first to prevent duplicates
   if next(M.watcher_handles) then M.stop_watchers() end
 
-  print('watcher')
   local project_root = vim.uv.cwd() -- Use dynamic CWD instead of hardcoded path
 
   local targets = {
@@ -205,12 +204,12 @@ function M.start_watchers()
       cb = function(self)
         if self.isBusy then return end
         if _G.metadata.isBusy == true then return end
-        _G.metadata.isBusy = true
         local new_hash = get_hash(self.path) or ''
         if new_hash and new_hash ~= self.last_hash then
           self.last_hash = new_hash
           local env = vim.pio.get_active__env('PIO platformio.ini change: ')
           if not env then return end
+          _G.metadata.isBusy = true
           self.isBusy = true
           vim.notify('PIO platformio.ini change: compiledb update ...', vim.log.levels.INFO, { title = 'PlatformIO' })
           vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
@@ -242,14 +241,13 @@ function M.start_watchers()
       cb = function(self)
         if self.isBusy then return end
         if _G.metadata.isBusy == true then return end
-        _G.metadata.isBusy = true
         local ok, current_checksum = vim.misc.readFile(self.path)
         -- Check if we should exit early
         if ok and type(current_checksum) == 'string' and current_checksum ~= '' then
           if current_checksum == _G.metadata.last_projectChecksum then
             return
           end
-
+          _G.metadata.isBusy = true
           self.isBusy = true
           vim.defer_fn(function ()
             M.pio_refresh(function()
