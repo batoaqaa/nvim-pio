@@ -280,19 +280,20 @@ function M.init()
   vim.pio = require('nvimpio.pio.upkeep')
   vim.clangd = require('nvimpio.clangd.control')
   -- Always start the watcher so it can catch a future 'pio init'
+
+  require('nvimpio.pio.commands')
+
+  -- activate meta save and upload and env switch
+  -- local metadata = require('nvimpio.pio.metadata')
+  -- metadata.load_project_config()
+
+  -- require('nvimpio.pio.metadata')
+  require('nvimpio.pio.metadata').load_project_config()
+
   M.start_watchers()
 
   -- If the file already exists, do an initial sync
   if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
-    require('nvimpio.pio.commands')
-
-    -- activate meta save and upload and env switch
-    -- local metadata = require('nvimpio.pio.metadata')
-    -- metadata.load_project_config()
-
-    -- require('nvimpio.pio.metadata')
-    require('nvimpio.pio.metadata').load_project_config()
-
     local config = require('nvimpio').config
     if type(config) == 'table' and config.lspClangd.enabled == true then
       require('nvimpio.clangd.control').init()
