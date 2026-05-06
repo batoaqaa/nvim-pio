@@ -294,6 +294,7 @@ function M.get_active__env(from)
 
   if (_G.metadata.active_env ~= default_envs)then
     _G.metadata.active_env = default_envs
+    print('ahmed: fixenv')
     M.updateDefaultEnv()
   end
   -- Fallback to the very first [env:...] block found in the file
