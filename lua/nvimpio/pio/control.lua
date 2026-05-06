@@ -126,11 +126,11 @@ local function watch_file(target, callback)
   local handle = uv.new_fs_event()
   if not handle then return end
 
-  handle:start(folder_path, {}, function(err, filename)
+  handle:start(folder_path, {recursive = false}, function(err, filename, events)
     if err then return end
 
     -- Early Exit Filters
-    if target.isBusy or (filename and filename ~= target_filename) then return end
+    if target.isBusy or _G.metadata.isBusy or (filename and filename ~= target_filename) or not events or not (events.change or events["rename"]) then return end
 
     -- local f = io.open(target.path, "r")
     -- if f then f:close()

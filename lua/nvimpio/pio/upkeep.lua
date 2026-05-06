@@ -293,7 +293,7 @@ function M.get_active__env(from)
 
   if (_G.metadata.active_env ~= default_envs)then
     _G.metadata.active_env = default_envs
-    -- M.updateDefaultEnv()
+    M.updateDefaultEnv()
   end
   -- Fallback to the very first [env:...] block found in the file
   return default_envs
@@ -509,7 +509,7 @@ function M.fetch_config(on_done, from)
         end
       end
       meta.active_env = active_env
-      -- M.updateDefaultEnv()
+      M.updateDefaultEnv()
 
       -- 5. Resolve Paths (INI -> Env -> Default)
       local path_map = {
