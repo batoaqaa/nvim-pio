@@ -201,23 +201,23 @@ function M.piomenu(config)
   wk.add(wk_table)
 end
 
--- function M.setup_watchman()
---   -- We only create this if the plugin isn't already active
---   if M.isActive then
---     return
---   end
---
---   vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufNewFile' }, {
---     group = vim.api.nvim_create_augroup('PioWatchman', { clear = true }),
---     pattern = 'platformio.ini',
---     callback = function()
---       -- The moment the file is seen, we trigger setup()
---       -- setup() will then call activate() and the watchman's job is done.
---       M.setup()
---       return true -- This deletes the watchman autocmd (cleanup)
---     end,
---   })
--- end
+function M.setup_watchman()
+  -- We only create this if the plugin isn't already active
+  if M.isActive then
+    return
+  end
+
+  vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufNewFile' }, {
+    group = vim.api.nvim_create_augroup('PioWatchman', { clear = true }),
+    pattern = 'platformio.ini',
+    callback = function()
+      -- The moment the file is seen, we trigger setup()
+      -- setup() will then call activate() and the watchman's job is done.
+      M.setup()
+      return true -- This deletes the watchman autocmd (cleanup)
+    end,
+  })
+end
 
 -- INFO:
 --stylua: ignore
