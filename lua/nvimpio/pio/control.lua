@@ -297,7 +297,9 @@ function M.init()
   if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
     local config = require('nvimpio').config
     if type(config) == 'table' and config.lspClangd.enabled == true then
-      require('nvimpio.clangd.control').init()
+      vim.schedule(function()
+        require('nvimpio.clangd.control').init()
+      end)
     end
 
     M.pio_refresh(function()
