@@ -205,7 +205,7 @@ function M.start_watchers()
         if self.isBusy then return end
         if _G.metadata.isBusy then return end
         local new_hash = get_hash(self.path) or ''
-        print('ahmed:old=' .. self.last_hash .. ' new=' .. new_hash)
+        print('ahmed:pio.control')
         if new_hash and new_hash ~= self.last_hash then
           self.last_hash = new_hash
           local env = vim.pio.get_active__env('PIO platformio.ini change: ')
@@ -282,7 +282,7 @@ function M.init(lspClangd)
   vim.misc = require('nvimpio.utils.misc')
   vim.clangd = require('nvimpio.clangd.control')
 
-  require('nvimpio.pio.metadata').load_project_config()
+  require('nvimpio.pio.metadata') --.load_project_config()
   require('nvimpio.pio.commands')
 
 

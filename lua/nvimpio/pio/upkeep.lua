@@ -376,6 +376,7 @@ function M.fetch_metadata(callback, env, from, attempts)
   ---------------------------------------------------------
   local ok, current_checksum = vim.misc.readFile(checksum_file)
   if ok and (type(current_checksum) == 'string' and current_checksum ~= '') then
+        print('ahmed:old=' .. meta.last_projectChecksum .. ' new=' .. current_checksum)
     if current_checksum == meta.last_projectChecksum then
       vim.notify(msg .. 'Metadata synced with cache', vim.log.levels.INFO)
       -- if callback then callback() end
