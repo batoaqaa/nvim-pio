@@ -276,6 +276,7 @@ end
 function M.init()
   vim.notify('PIO Control: initialize', vim.log.levels.INFO)
 
+  vim.g.platformioRootDir = vim.fn.getcwd()
   vim.misc = require('nvimpio.utils.misc')
   vim.pio = require('nvimpio.pio.upkeep')
   vim.clangd = require('nvimpio.clangd.control')
