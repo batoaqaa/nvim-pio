@@ -9,6 +9,23 @@ M.devNul = M.is_windows and ' 2>./nul' or ' 2>/dev/null'
 -- M.extra = 'printf \'\\\\n\\\\033[0;33mPlease Press ENTER to continue \\\\033[0m\'; read'
 -- M.extra = ' && echo . && echo . && echo Please Press ENTER to continue'
 
+local pluginName = 'nvim-pio'
+
+---@param msg string The message to display
+---@param level integer|nil Log level (defaults to INFO)
+--INFO:
+------------------------------------------------------
+-- stylua: ignore
+function M.notify(msg, level)
+  -- Use the default level if none is provided
+  level = level or vim.log.levels.INFO
+
+  vim.notify(msg, level, {
+    title = pluginName,
+    -- Optional: add a custom icon if the user has nvim-notify
+    icon = '  ',
+  })
+end
 --INFO:
 ------------------------------------------------------
 function M.isReadable(path)
@@ -107,9 +124,9 @@ function M.deleteFile(path)
   if vim.fn.filereadable(path) == 1 then
     local success = vim.fn.delete(path)
 
-    if success == 0 then vim.notify('PlatformIO: ' .. file .. ' file removed', vim.log.levels.INFO)
-    else vim.notify('PlatformIO: Failed to delete ' .. file, vim.log.levels.ERROR) end
-  else vim.notify('PlatformIO: ' .. file .. ' file not found', vim.log.levels.WARN) end
+    if success == 0 then vim.misc.notify('PlatformIO: ' .. file .. ' file removed', vim.log.levels.INFO)
+    else vim.misc.notify('PlatformIO: Failed to delete ' .. file, vim.log.levels.ERROR) end
+  else vim.misc.notify('PlatformIO: ' .. file .. ' file not found', vim.log.levels.WARN) end
 end
 
 --INFO:
@@ -418,7 +435,7 @@ function M.set_platformioRootDir()
       return
     end
   end
-  vim.notify('Could not find platformio.ini, run :Pioinit to create a new project', vim.log.levels.ERROR)
+  vim.misc.notify('Could not find platformio.ini, run :Pioinit to create a new project', vim.log.levels.ERROR)
 end
 
 --INFO:
@@ -436,7 +453,7 @@ function M.pio_install_check()
   handle:close()
 
   if #pio_path == 0 then
-    vim.notify('Platformio not found in the path', vim.log.levels.ERROR)
+    vim.misc.notify('Platformio not found in the path', vim.log.levels.ERROR)
     return false
   end
   return true

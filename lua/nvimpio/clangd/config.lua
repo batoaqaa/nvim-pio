@@ -45,19 +45,19 @@ mr.refresh(function()
           result:install({}, function(success, _)
             if not success then
               vim.defer_fn(function()
-                vim.notify('LSP: clangd; ' .. tool .. ' failed to install', vim.log.levels.ERROR)
+                vim.misc.notify('LSP: clangd; ' .. tool .. ' failed to install', vim.log.levels.ERROR)
               end, 0)
             end
           end)
         else
           vim.defer_fn(function()
-            vim.notify('LSP: clangd; ' .. tool .. ' already installed', vim.log.levels.WARN)
+            vim.misc.notify('LSP: clangd; ' .. tool .. ' already installed', vim.log.levels.WARN)
           end, 0)
         end
       end
     else
       vim.defer_fn(function()
-        vim.notify('LSP: clangd; Failed to get package: ' .. tool, vim.log.levels.WARN)
+        vim.misc.notify('LSP: clangd; Failed to get package: ' .. tool, vim.log.levels.WARN)
       end, 0)
     end
   end

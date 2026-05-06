@@ -10,7 +10,7 @@ local wizard_data = {}
 
 -- Visual Notifications
 local function notify(msg, level)
-  vim.notify('PIO init+db: ' .. msg, level or vim.log.levels.INFO)
+  vim.misc.notify('PIO init+db: ' .. msg, level or vim.log.levels.INFO)
 end
 
 -- Reusable Small Menu for Yes/No and Frameworks

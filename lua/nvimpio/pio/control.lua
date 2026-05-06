@@ -23,16 +23,16 @@ end
 -------------------------------------------------------------------------------
 function M.pio_refresh(callback, from)
   local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
-  vim.notify(msg ..'Config sync ...', vim.log.levels.INFO)
+  vim.misc.notify(msg ..'Config sync ...', vim.log.levels.INFO)
 
   local function on_done(active_env)
-    if active_env then vim.notify(msg .. 'active_env= ' .. active_env, vim.log.levels.INFO) end
+    if active_env then vim.misc.notify(msg .. 'active_env= ' .. active_env, vim.log.levels.INFO) end
     if active_env then vim.pio.fetch_metadata(callback, active_env, from, 1) end
   end
   vim.pio.fetch_config(on_done, from)
   -- local active_env = vim.pio.get_active__env(from)
   -- if active_env then
-  --   vim.notify(msg .. 'active_env= ' .. active_env, vim.log.levels.INFO)
+  --   vim.misc.notify(msg .. 'active_env= ' .. active_env, vim.log.levels.INFO)
   --   vim.pio.fetch_metadata(callback, active_env, from, 1)
   -- end
 end
@@ -59,7 +59,7 @@ local last_mtime = 0
 --   local env = vim.pio.get_active__env()
 --   if not env then return end
 --   target.isBusy = true
---     vim.notify('PIO platformio.ini change: compiledb update ...', vim.log.levels.INFO, { title = 'PlatformIO' })
+--     vim.misc.notify('PIO platformio.ini change: compiledb update ...', vim.log.levels.INFO)
 --     vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
 --       vim.schedule(function()
 --         target.isBusy = false
@@ -67,13 +67,13 @@ local last_mtime = 0
 --         if obj.code == 0 then
 --           vim.schedule(function ()
 --             M.pio_refresh(function()
---               vim.notify('PIO platformio.ini change: compiledb update Success', vim.log.levels.INFO, { title = 'PlatformIO' })
+--               vim.misc.notify('PIO platformio.ini change: compiledb update Success', vim.log.levels.INFO)
 --               clangdRestart()
 --             end, 'PIO platformio.ini  change: ')
 --           end)
 --         else
 --           local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
---           vim.notify('PIO Build Failed: ' .. err, vim.log.levels.ERROR, { title = 'PlatformIO' })
+--           vim.misc.notify('PIO Build Failed: ' .. err, vim.log.levels.ERROR)
 --         end
 --         _G.metadata.isBusy = false
 --       end)
@@ -157,7 +157,7 @@ local function watch_file(target, callback)
                 debounce_timer:start(1000, 0, vim.schedule_wrap(attempt_callback))
                 return
               end
-              vim.notify('PIO Control: Sync timed out (busy)', vim.log.levels.ERROR)
+              vim.misc.notify('PIO Control: Sync timed out (busy)', vim.log.levels.ERROR)
               return
             end
 
@@ -176,7 +176,7 @@ local function watch_file(target, callback)
 
     if not ok then
       vim.schedule(function()
-        vim.notify('PIO Control: Error; ' .. tostring(result), vim.log.levels.ERROR)
+        vim.misc.notify('PIO Control: Error; ' .. tostring(result), vim.log.levels.ERROR)
       end)
     end
   end)
@@ -211,20 +211,20 @@ function M.start_watchers()
           if not env then return end
           _G.metadata.isBusy = true
           self.isBusy = true
-          vim.notify('PIO platformio.ini change: compiledb update ...', vim.log.levels.INFO, { title = 'PlatformIO' })
+          vim.misc.notify('PIO platformio.ini change: compiledb update ...', vim.log.levels.INFO)
           vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
             vim.schedule(function()
               if obj.code == 0 then
                 -- vim.schedule(function ()
                   M.pio_refresh(function()
                     vim.clangd.getUnknownArgs()
-                    vim.notify('PIO platformio.ini change: compiledb update Success', vim.log.levels.INFO, { title = 'PlatformIO' })
+                    vim.misc.notify('PIO platformio.ini change: compiledb update Success', vim.log.levels.INFO)
                     -- clangdRestart()
                   end, 'PIO platformio.ini  change: ')
                 -- end)
               else
                 local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
-                vim.notify('PIO platformio.ini change: Build Failed: ' .. err, vim.log.levels.ERROR, { title = 'PlatformIO' })
+                vim.misc.notify('PIO platformio.ini change: Build Failed: ' .. err, vim.log.levels.ERROR)
               end
               self.isBusy = false
              _G.metadata.isBusy = false
@@ -254,7 +254,7 @@ function M.start_watchers()
             M.pio_refresh(function()
               self.isBusy = false
              _G.metadata.isBusy = false
-              vim.notify('PIO checksum: Metadata synced', vim.log.levels.INFO)
+              vim.misc.notify('PIO checksum: Metadata synced', vim.log.levels.INFO)
               clangdRestart()
             end, 'PIO checksum: ')
           end)
@@ -275,7 +275,7 @@ end
 --stylua: ignore
 -------------------------------------------------------------------------------
 function M.init(lspClangd)
-  vim.notify('PIO Control: initialize', vim.log.levels.INFO, { title = 'nvim-pio' })
+  vim.misc.notify('PIO Control: initialize', vim.log.levels.INFO)
 
   vim.g.platformioRootDir = vim.fn.getcwd()
 

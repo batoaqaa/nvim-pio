@@ -41,7 +41,7 @@ function M.get_sysroot_triplet(cc_compiler)
   local sysroot = vim.misc.normalizePath(toolchain_root .. '/' .. triplet)
   local query_driver = vim.misc.normalizePath(bin_path .. '/' .. triplet .. '-*')
 
-  -- vim.notify('triplet= ' .. triplet, vim.log.levels.INFO)
+  -- vim.misc.notify('triplet= ' .. triplet, vim.log.levels.INFO)
   -- Only return data if the sysroot folder actually exists on disk
   if vim.fn.isdirectory(sysroot) == 1 then
     _G.metadata.triplet = triplet
@@ -111,7 +111,7 @@ function M.updateDefaultEnv()
   end
 
   vim.misc.writeFile(path, table.concat(new_lines), {})
-  print("🚀 PIO Sync: " .. active_env)
+  print("PIO reset default_envs: " .. active_env)
   _G.metadata.isBusy = false
 
 
@@ -176,9 +176,9 @@ function M.updateDefaultEnv()
   -- local write_ok, err = vim.misc.writeFile(path, final_content, {})
   -- if write_ok then
   --   -- print("🚀 PIO Sync: " .. active_env)
-  --   vim.notify("🚀 PIO Sync: " .. active_env, vim.log.levels.INFO)
+  --   vim.misc.notify("🚀 PIO Sync: " .. active_env, vim.log.levels.INFO)
   -- else
-  --   vim.notify("PIO Sync Failed: " .. err, vim.log.levels.ERROR)
+  --   vim.misc.notify("PIO Sync Failed: " .. err, vim.log.levels.ERROR)
   -- end
 -------------------------------------------------------------------------------
 --#2 working not robust
@@ -232,7 +232,7 @@ function M.updateDefaultEnv()
   -- if write_ok then
   --   print("✅ Sync successful: default_envs = " .. active_env)
   -- else
-  --   vim.notify("Write failed: " .. err, vim.log.levels.ERROR)
+  --   vim.misc.notify("Write failed: " .. err, vim.log.levels.ERROR)
   -- end
 -------------------------------------------------------------------------------
 end
@@ -253,11 +253,11 @@ function M.get_active__env(from)
       break
     end
   end
-  if not path or path == '' then return vim.notify(msg .. 'platformio.ini not found or no [env] defined.', vim.log.levels.ERROR) end
+  if not path or path == '' then return vim.misc.notify(msg .. 'platformio.ini not found or no [env] defined.', vim.log.levels.ERROR) end
 
   -- Read file content (returns string or nil)
   local ok, content = vim.misc.readFile(path)
-  if not ok or not content then return vim.notify(msg .. 'platformio.ini not found in ' .. path, vim.log.levels.WARN) end
+  if not ok or not content then return vim.misc.notify(msg .. 'platformio.ini not found in ' .. path, vim.log.levels.WARN) end
 
   local default_envs_raw = ''
   local default_envs = nil
@@ -362,14 +362,14 @@ function M.fetch_metadata(callback, env, from, attempts)
   --Generate idedata.json
   ---------------------------------------------------------
   local function buildIdedata()
-    vim.notify(msg .. 'Initializing project metadata...', vim.log.levels.INFO)
+    vim.misc.notify(msg .. 'Initializing project metadata...', vim.log.levels.INFO)
     vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
       vim.schedule(function()
         if obj.code == 0 then
-          vim.notify(msg .. 'Initializing project metadata success.', vim.log.levels.INFO)
+          vim.misc.notify(msg .. 'Initializing project metadata success.', vim.log.levels.INFO)
           M.fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
         else
-          vim.notify(msg .. 'Initialization failed. Build project manually.', vim.log.levels.ERROR)
+          vim.misc.notify(msg .. 'Initialization failed. Build project manually.', vim.log.levels.ERROR)
         end
       end)
     end)
@@ -382,7 +382,7 @@ function M.fetch_metadata(callback, env, from, attempts)
   local ok, current_checksum = vim.misc.readFile(checksum_file)
   if ok and (type(current_checksum) == 'string' and current_checksum ~= '') then
     if current_checksum == meta.last_projectChecksum then
-      vim.notify(msg .. 'Metadata synced with cache', vim.log.levels.INFO)
+      vim.misc.notify(msg .. 'Metadata synced with cache', vim.log.levels.INFO)
       -- if callback then callback() end
       if callback then vim.schedule(callback) end
       return true
@@ -400,7 +400,7 @@ function M.fetch_metadata(callback, env, from, attempts)
       if cok and apply_metadata(decoded, current_checksum) then
         local metadata = require('nvimpio.pio.metadata')
         metadata.save_project_config(msg)
-        vim.notify(msg .. 'Metadata synced from cache', vim.log.levels.INFO)
+        vim.misc.notify(msg .. 'Metadata synced from cache', vim.log.levels.INFO)
         -- if callback then vim.schedule(callback) end
 
         if type(callback) == "function" then
@@ -424,7 +424,7 @@ function M.fetch_metadata(callback, env, from, attempts)
   ---------------------------------------------------------
   -- STEP 4: Standard CLI Fallback (The Slow Path)
   ---------------------------------------------------------
-  -- vim.notify(msg .. 'Metadata sync ...', vim.log.levels.INFO)
+  -- vim.misc.notify(msg .. 'Metadata sync ...', vim.log.levels.INFO)
   -- vim.system({ 'pio', 'project', 'metadata', '-e', active_env, '--json-output' }, { text = true }, function(obj)
   --   vim.schedule(function()
   --     if obj.code ~= 0 then
@@ -432,17 +432,17 @@ function M.fetch_metadata(callback, env, from, attempts)
   --         vim.defer_fn(function() M.fetch_metadata(attempts - 1, env) end, 500)
   --         return
   --       end
-  --       return vim.notify(msg .. 'Metadata Error: ' .. (obj.stderr or 'Unknown'), vim.log.levels.WARN)
+  --       return vim.misc.notify(msg .. 'Metadata Error: ' .. (obj.stderr or 'Unknown'), vim.log.levels.WARN)
   --     end
   --
   --     local ook, raw_data = pcall(vim.json.decode, obj.stdout or '')
   --     local _, data = next(raw_data or {})
   --
   --     if ook and apply_metadata(data, current_checksum) then
-  --       vim.notify(msg .. 'Metadata synced from CLI', vim.log.levels.INFO)
+  --       vim.misc.notify(msg .. 'Metadata synced from CLI', vim.log.levels.INFO)
   --       if callback then vim.schedule(callback) end
   --     else
-  --       vim.notify(msg .. 'Failed to parse metadata output', vim.log.levels.WARN)
+  --       vim.misc.notify(msg .. 'Failed to parse metadata output', vim.log.levels.WARN)
   --     end
   --   end)
   -- end)
@@ -464,13 +464,13 @@ function M.fetch_config(on_done, from)
       -- 1. Check Execution
       if obj.code ~= 0 then
         local errmsg = obj.code == 127 and "'pio' not found" or (obj.stderr or 'Unknown Error')
-        return vim.notify(msg .. 'Config Error: ' .. errmsg, vim.log.levels.ERROR)
+        return vim.misc.notify(msg .. 'Config Error: ' .. errmsg, vim.log.levels.ERROR)
       end
 
       -- 2. Decode JSON safely
       local ok, decoded = pcall(vim.json.decode, obj.stdout or '')
       if not ok or type(decoded) ~= 'table' then
-        return vim.notify(msg .. 'Failed to decode config JSON', vim.log.levels.ERROR)
+        return vim.misc.notify(msg .. 'Failed to decode config JSON', vim.log.levels.ERROR)
       end
 
       local formated = vim.misc.jsonFormat(decoded)
@@ -532,13 +532,13 @@ function M.fetch_config(on_done, from)
       end
 
       -- if active_env then
-      --   vim.notify(msg .. 'active_env= ' .. active_env, vim.log.levels.INFO)
+      --   vim.misc.notify(msg .. 'active_env= ' .. active_env, vim.log.levels.INFO)
       -- end
       -- 6. Trigger next step
       if meta.active_env ~= '' then
-        vim.notify(msg .. 'Config sync successful', vim.log.levels.INFO)
+        vim.misc.notify(msg .. 'Config sync successful', vim.log.levels.INFO)
       else
-        vim.notify(msg .. 'No [env:] found. Please add a board.', vim.log.levels.ERROR)
+        vim.misc.notify(msg .. 'No [env:] found. Please add a board.', vim.log.levels.ERROR)
       end
 
       if on_done then
@@ -622,7 +622,7 @@ function M.compile_commandsFix() --M.dbPathsFix()
 
     local end_time = vim.loop.hrtime()
     local duration = (end_time - start_time) / 1e6
-    vim.notify(string.format('compiledb: paths fixed in %.2fms', duration), vim.log.levels.INFO)
+    vim.misc.notify(string.format('compiledb: paths fixed in %.2fms', duration), vim.log.levels.INFO)
     vim.clangd.restart()
   end
   _G.metadata.isBusy = false
@@ -736,7 +736,7 @@ function M.handlePioinitDb(result, board)
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then
-      vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
+      vim.misc.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
       local active_env = M.get_active__env('PIO init+db: ')
       if not active_env or (active_env == board) then
         local pio_refresh = require('nvimpio.pio.control').pio_refresh
@@ -765,8 +765,8 @@ function M.handlePioinitDb(result, board)
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
       boilerplate.core_dir = _G.metadata.core_dir
-      vim.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
-      vim.notify('PIO init+db: Done', vim.log.levels.INFO)
+      vim.misc.notify('PIO init+db:  pass ' .. commandPassed, vim.log.levels.INFO)
+      vim.misc.notify('PIO init+db: Done', vim.log.levels.INFO)
       vim.misc.gitignore_lsp_configs('compile_commands.json')
       vim.clangd.getUnknownArgs()
     end)
@@ -799,8 +799,8 @@ function M.handlePioinit(result)
     end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
-      vim.notify('PIO init:  pass ' .. commandPassed, vim.log.levels.INFO)
-      vim.notify('PIO init: Done', vim.log.levels.INFO)
+      vim.misc.notify('PIO init:  pass ' .. commandPassed, vim.log.levels.INFO)
+      vim.misc.notify('PIO init: Done', vim.log.levels.INFO)
       vim.misc.gitignore_lsp_configs('compile_commands.json')
 
       -- \27[s   : Save current cursor position (the prompt)
@@ -841,8 +841,8 @@ function M.handlePiolib(result)
       _G.metadata.isBusy = true
     end
   elseif result == 'DONE' then -- result of the only and the last command
-    vim.notify('PIO lib:  pass ' .. commandPassed, vim.log.levels.INFO)
-    vim.notify('PIO lib: Done', vim.log.levels.INFO)
+    vim.misc.notify('PIO lib:  pass ' .. commandPassed, vim.log.levels.INFO)
+    vim.misc.notify('PIO lib: Done', vim.log.levels.INFO)
     commandPassed = commandPassed + 1
     M.queue = {}
     term.stdout_callback = nil
@@ -864,8 +864,8 @@ function M.handlePiodb(target, result)
       _G.metadata.isBusy = true
     end
   elseif result == 'DONE' then -- result of the only and the last command
-    vim.notify('PIO db:  pass ' .. commandPassed, vim.log.levels.INFO)
-    vim.notify('PIO db: Done', vim.log.levels.INFO)
+    vim.misc.notify('PIO db:  pass ' .. commandPassed, vim.log.levels.INFO)
+    vim.misc.notify('PIO db: Done', vim.log.levels.INFO)
     commandPassed = commandPassed + 1
     target.isBusy = false
     M.queue = {}
