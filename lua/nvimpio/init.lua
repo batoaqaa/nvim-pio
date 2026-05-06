@@ -199,38 +199,6 @@ function M.piomenu(config)
   wk.add(wk_table)
 end
 
-function M.setup_watchman()
-  -- We only create this if the plugin isn't already active
-  if M.isActive then
-    return
-  end
-
-  vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufNewFile' }, {
-    group = vim.api.nvim_create_augroup('PioWatchman', { clear = true }),
-    pattern = 'platformio.ini',
-    callback = function()
-      -- The moment the file is seen, we trigger setup()
-      -- setup() will then call activate() and the watchman's job is done.
-      M.setup()
-      return true -- This deletes the watchman autocmd (cleanup)
-    end,
-  })
-end
-
--- INFO:
---stylua: ignore
--------------------------------------------------------------------------------
-function M.activate()
-  if M.isActive then return end -- Don't activate twice
-
-  -- Set the root directory for the whole plugin to use
-  vim.g.platformioRootDir = vim.uv.cwd()
-
-  -- Always start the Control so it can catch a future 'pio init'
-
-  M.isActive = true
-end
-
 local user_config = {}
 -- INFO:
 --stylua: ignore
@@ -264,9 +232,6 @@ function M.setup(opts)
 
   M.piomenu(M.config)
 
-  vim.misc = require('nvimpio.utils.misc')
-  vim.pio = require('nvimpio.pio.upkeep')
-  vim.clangd = require('nvimpio.clangd.control')
   require('nvimpio.pio.control').init()
   vim.notify('nvimpio started', vim.log.levels.INFO)
 end
