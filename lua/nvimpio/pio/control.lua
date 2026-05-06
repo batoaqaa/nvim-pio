@@ -295,8 +295,10 @@ function M.init(lspClangd)
 
   -- If the file already exists, do an initial sync
   if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
+    _G.metadata.isBusy = true
     M.pio_refresh(function()
       boilerplate.core_dir = _G.metadata.core_dir
+      _G.metadata.isBusy = false
     end, 'PIO start: ')
   end
 end
