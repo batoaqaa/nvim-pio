@@ -68,9 +68,10 @@ local level_colors = {
 
   -- 2. Use nvim_echo for a single-line update
   vim.api.nvim_echo({
-    { "[ ] ", "Identifier" },      -- Plugin Name
-    { "[" .. icon .. "] ", color },           -- Icon with Level Color
-    { msg, color }                         -- The message text
+    { "  ", "Identifier" },      -- Plugin Name
+    { "[" .. icon .. " ", color },           -- Icon with Level Color
+    { msg, color },                         -- The message text
+    {"]", color}
   }, true, {}) -- Set to 'false' so it doesn't stack in history
 end
 -- function M.notify(msg, level)
