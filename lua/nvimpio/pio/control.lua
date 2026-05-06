@@ -205,10 +205,10 @@ function M.start_watchers()
         if self.isBusy then return end
         if _G.metadata.isBusy == true then return end
         local new_hash = get_hash(self.path) or ''
+        print('ahmed:old=' .. self.last_hash .. ' new=' .. new_hash)
         if new_hash and new_hash ~= self.last_hash then
           self.last_hash = new_hash
           local env = vim.pio.get_active__env('PIO platformio.ini change: ')
-        print('ahmed:' .. env)
           if not env then return end
           _G.metadata.isBusy = true
           self.isBusy = true
