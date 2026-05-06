@@ -276,15 +276,14 @@ end
 function M.init()
   vim.notify('PIO Control: initialize', vim.log.levels.INFO)
 
+  vim.misc = require('nvimpio.utils.misc')
+  vim.pio = require('nvimpio.pio.upkeep')
+  vim.clangd = require('nvimpio.clangd.control')
   -- Always start the watcher so it can catch a future 'pio init'
   M.start_watchers()
 
   -- If the file already exists, do an initial sync
   if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
-    vim.misc = require('nvimpio.utils.misc')
-    vim.pio = require('nvimpio.pio.upkeep')
-    vim.clangd = require('nvimpio.clangd.control')
-
     require('nvimpio.pio.commands')
 
     -- activate meta save and upload and env switch
