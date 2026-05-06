@@ -376,7 +376,7 @@ function M.fetch_metadata(callback, env, from, attempts)
           vim.misc.notify(msg .. 'Initializing project metadata success.', "info")
           M.fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
         else
-          vim.misc.notify(msg .. 'Initialization failed. Build project manually.', "error")
+          vim.misc.notify(msg .. 'Initialization failed. Build project manually.: ' .. obj.stderr, "error")
         end
       end)
     end)
