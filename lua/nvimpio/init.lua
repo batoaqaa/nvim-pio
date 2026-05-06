@@ -233,7 +233,7 @@ function M.setup(opts)
   M.piomenu(M.config)
 
   require('nvimpio.pio.control').init()
-  vim.notify('nvimpio started', vim.log.levels.INFO)
+  -- vim.notify('nvimpio started', vim.log.levels.INFO)
 end
 
 return M
