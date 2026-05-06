@@ -215,7 +215,6 @@ function M.setup(opts)
       vim.validate('lspKeymaps', user_config.lspClangd.attach.keyMaps, 'boolean', true)
     end
   end
-
   vim.validate('menu_key', user_config.lspClangd_enable, 'string', true)
   vim.validate('menu_name', user_config.menu_name, 'string', true)
   vim.validate('debug', user_config.debug, 'boolean', true)
@@ -232,7 +231,7 @@ function M.setup(opts)
 
   M.piomenu(M.config)
 
-  require('nvimpio.pio.control').init()
+  require('nvimpio.pio.control').init(M.config.lspClangd)
   -- vim.notify('nvimpio started', vim.log.levels.INFO)
 end
 

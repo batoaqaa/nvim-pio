@@ -99,15 +99,12 @@ end
 
 --stylua: ignore
 --=============================================================================
-function M.init()
+function M.init(lspClangd)
   vim.notify('Clangd LSP: initialize', vim.log.levels.INFO, { title = 'nvim-pio' })
 
   require('nvimpio.clangd.config')
-  local config = require('nvimpio').config
-  if config.lspClangd.attach.enabled then
-    require('nvimpio.clangd.attach')
-  end
   require('nvimpio.clangd.commands')
+  if lspClangd.attach.enabled then require('nvimpio.clangd.attach') end
 end
 
 return M

@@ -271,39 +271,29 @@ function M.start_watchers()
 end
 
 --INFO: 6.  Exported setup function
----stylua: ignore
+--stylua: ignore
 -------------------------------------------------------------------------------
-
-function M.init()
+function M.init(lspClangd)
   vim.notify('PIO Control: initialize', vim.log.levels.INFO, { title = 'nvim-pio' })
 
   vim.g.platformioRootDir = vim.fn.getcwd()
+
   vim.misc = require('nvimpio.utils.misc')
   vim.pio = require('nvimpio.pio.upkeep')
   vim.clangd = require('nvimpio.clangd.control')
-  -- Always start the watcher so it can catch a future 'pio init'
 
   require('nvimpio.pio.commands')
-
-  -- activate meta save and upload and env switch
-  -- local metadata = require('nvimpio.pio.metadata')
-  -- metadata.load_project_config()
-
-  -- require('nvimpio.pio.metadata')
   require('nvimpio.pio.metadata').load_project_config()
 
+  -- Always start the watcher so it can catch a future 'pio init'
   M.start_watchers()
 
   -- If the file already exists, do an initial sync
   if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
-    local config = require('nvimpio').config
-    if type(config) == 'table' and config.lspClangd.enabled == true then
-      vim.schedule(function()
-        require('nvimpio.clangd.control').init()
-      end)
-    end
-
     M.pio_refresh(function()
+      if lspClangd.enabled == true then
+        vim.schedule(function() require('nvimpio.clangd.control').init(lspClangd) end)
+      end
       boilerplate.core_dir = _G.metadata.core_dir
     end, 'PIO start: ')
   end
