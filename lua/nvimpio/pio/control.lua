@@ -286,6 +286,7 @@ function M.init(lspClangd)
   require('nvimpio.pio.metadata').load_project_config()
 
   if lspClangd.enabled == true then
+    print("clangd")
     require('nvimpio.clangd.control').init(lspClangd)
   end
   -- Always start the watcher so it can catch a future 'pio init'
