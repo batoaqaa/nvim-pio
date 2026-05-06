@@ -260,7 +260,7 @@ function M.get_active__env(from)
   if not ok or not content then return vim.misc.notify(msg .. 'platformio.ini not found in ' .. path, "warn") end
 
   local default_envs_raw = ''
-  local default_envs = nil
+  local first_env = nil
   local valid_envs = {}
   local in_platformio_block = false
 
@@ -272,7 +272,7 @@ function M.get_active__env(from)
       in_platformio_block = (section == 'platformio')
       local env_name = section:match('^env:(.+)')
       if env_name then
-        if not default_envs then default_envs = env_name end
+        if not first_env then first_env = env_name end
         valid_envs[env_name] = true
       end
     end
@@ -284,25 +284,15 @@ function M.get_active__env(from)
     end
   end
 
-  -- Validation: Find the first default_env that actually exists as a block [env:]
+  -- Validation: Find the first default_env that actually exists as a block
   if default_envs_raw ~= '' then
-    if default_envs then vim.misc.notify(default_envs, "info")end
     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
-      if valid_envs[env_name] then default_envs = env_name end
+      if valid_envs[env_name] then return env_name end
     end
   end
 
-  -- if _G.metadata.default_envs[1] ~= nil and _G.metadata.active_env == _G.metadata.default_envs[1] then
-  --   _G.metadata.active_env = default_envs
-    M.updateDefaultEnv()
-  -- end
-
-  if (_G.metadata.active_env ~= default_envs)then
-    _G.metadata.active_env = default_envs
-    -- M.updateDefaultEnv()
-  end
   -- Fallback to the very first [env:...] block found in the file
-  return default_envs
+  return first_env
 end
 
 
