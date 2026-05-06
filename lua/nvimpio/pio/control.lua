@@ -273,8 +273,9 @@ end
 --INFO: 6.  Exported setup function
 ---stylua: ignore
 -------------------------------------------------------------------------------
+
 function M.init()
-  vim.notify('PIO Control: initialize', vim.log.levels.INFO)
+  vim.notify('PIO Control: initialize', vim.log.levels.INFO, { title = 'nvim-pio' })
 
   vim.g.platformioRootDir = vim.fn.getcwd()
   vim.misc = require('nvimpio.utils.misc')

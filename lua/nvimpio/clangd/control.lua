@@ -100,7 +100,7 @@ end
 --stylua: ignore
 --=============================================================================
 function M.init()
-  vim.notify('Clangd LSP: initialize', vim.log.levels.INFO)
+  vim.notify('Clangd LSP: initialize', vim.log.levels.INFO, { title = 'nvim-pio' })
 
   require('nvimpio.clangd.config')
   local config = require('nvimpio').config
