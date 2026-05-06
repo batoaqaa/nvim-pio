@@ -33,6 +33,7 @@ function M.notify(msg, level)
     debug = vim.log.levels.DEBUG, -- 1
   }
 
+  vim.cmd("redraw")
   -- 1. If 'level' is a string, convert it using our map
   -- 2. If it's already a number, use it
   -- 3. Default to INFO if nothing is provided
@@ -42,7 +43,7 @@ function M.notify(msg, level)
 
   -- Log level (defaults to INFO)
   level = level or vim.log.levels.INFO
-  local icon = icons[level] or '  '
+  local icon = icons[level] or ""
 
   local full_message = string.format("[ %s] %s  %s", pluginName, icon, msg)
   -- local message = '  '.. pluginName .. ' [' .. icon .. '   ]: ' .. msg
