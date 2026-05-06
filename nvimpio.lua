@@ -325,9 +325,9 @@ local plugins = {
       if vim.fn.filereadable('platformio.ini') == 1 then
         require('lazy').load({ plugins = { self.name } })
       else
-        vim.api.nvim_create_user_command('Pioinit', function(opts)
+        vim.api.nvim_create_user_command('Pioinit', function()
           require('lazy').load({ plugins = { self.name } })
-          vim.cmd('Pioinit ' .. opts.args)
+          require('nvimpio.pioInit').pioInit()
         end, { nargs = '*' })
       end
     end,
