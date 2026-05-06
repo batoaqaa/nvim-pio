@@ -240,7 +240,7 @@ function M.start_watchers()
       path = vim.misc.joinPath(project_root, '.pio', 'build', 'project.checksum'), --checksum_path
       cb = function(self)
         if self.isBusy then return end
-        if _G.metadata.isBusy then return end
+        -- if _G.metadata.isBusy then return end
         local ok, current_checksum = vim.misc.readFile(self.path)
         -- Check if we should exit early
         if ok and type(current_checksum) == 'string' and current_checksum ~= '' then

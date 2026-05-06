@@ -64,7 +64,7 @@ local level_colors = {
   local color = level_colors[level] or "Normal"
 
   -- 1. Clear the command line to prevent "Press ENTER"
-  vim.cmd("redraw")
+  -- vim.cmd("redraw")
 
   -- 2. Use nvim_echo for a single-line update
   vim.api.nvim_echo({
