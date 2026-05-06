@@ -204,7 +204,6 @@ function M.start_watchers()
       cb = function(self)
         if self.isBusy then return end
         if _G.metadata.isBusy == true then return end
-        print('watchers')
         local new_hash = get_hash(self.path) or ''
         if new_hash and new_hash ~= self.last_hash then
           self.last_hash = new_hash
@@ -217,6 +216,7 @@ function M.start_watchers()
             vim.schedule(function()
               if obj.code == 0 then
                 -- vim.schedule(function ()
+        print('watchers')
                   M.pio_refresh(function()
                     vim.clangd.getUnknownArgs()
                     vim.notify('PIO platformio.ini change: compiledb update Success', vim.log.levels.INFO, { title = 'PlatformIO' })
