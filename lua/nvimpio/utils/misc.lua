@@ -10,6 +10,7 @@ M.devNul = M.is_windows and ' 2>./nul' or ' 2>/dev/null'
 -- M.extra = ' && echo . && echo . && echo Please Press ENTER to continue'
 
 local pluginName = 'nvim-pio'
+local last_notification = nil -- Store the active notification here
 
 --INFO:
 -- stylua: ignore
@@ -48,6 +49,7 @@ function M.notify(msg, level)
   vim.notify(full_message, level, {
     title = pluginName,
     icon = icon,
+    replace = last_notification,
   })
 end
 
