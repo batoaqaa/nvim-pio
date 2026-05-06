@@ -71,7 +71,7 @@ local level_colors = {
     { "[  nvim-pio] ", "Identifier" },      -- Plugin Name
     { "[" .. icon .. "] ", color },           -- Icon with Level Color
     { msg, "Normal" }                         -- The message text
-  }, false, {}) -- Set to 'false' so it doesn't stack in history
+  }, true, {}) -- Set to 'false' so it doesn't stack in history
 end
 -- function M.notify(msg, level)
 --   local icons = {
