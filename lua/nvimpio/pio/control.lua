@@ -203,7 +203,7 @@ function M.start_watchers()
       path = vim.misc.joinPath(project_root, 'platformio.ini'),
       cb = function(self)
         if self.isBusy then return end
-        if _G.metadata.isBusy == true then return end
+        -- if _G.metadata.isBusy == true then return end
         local new_hash = get_hash(self.path) or ''
         print('ahmed:old=' .. self.last_hash .. ' new=' .. new_hash)
         if new_hash and new_hash ~= self.last_hash then
