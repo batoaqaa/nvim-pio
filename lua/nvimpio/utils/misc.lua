@@ -41,10 +41,10 @@ local string_to_level = {
 }
 
 local icons = {
-  [vim.log.levels.INFO]  = "",
-  [vim.log.levels.WARN]  = "",
-  [vim.log.levels.ERROR] = "",
-  [vim.log.levels.DEBUG] = "",
+  [vim.log.levels.INFO]  = " ",
+  [vim.log.levels.WARN]  = " ",
+  [vim.log.levels.ERROR] = " ",
+  [vim.log.levels.DEBUG] = " ",
 }
 
 -- Map levels to colors (Highlight Groups)
@@ -60,7 +60,7 @@ local level_colors = {
   end
 
   level = level or vim.log.levels.INFO
-  local icon = icons[level] or ""
+  local icon = icons[level] or " "
   local color = level_colors[level] or "Normal"
 
   -- 1. Clear the command line to prevent "Press ENTER"
@@ -70,7 +70,7 @@ local level_colors = {
   vim.api.nvim_echo({
     { "[  nvim-pio] ", "Identifier" },      -- Plugin Name
     { "[" .. icon .. "] ", color },           -- Icon with Level Color
-    { msg, "Normal" }                         -- The message text
+    { msg, color }                         -- The message text
   }, true, {}) -- Set to 'false' so it doesn't stack in history
 end
 -- function M.notify(msg, level)
