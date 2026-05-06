@@ -64,11 +64,11 @@ local level_colors = {
   local color = level_colors[level] or "Normal"
 
   -- 1. Clear the command line to prevent "Press ENTER"
-  -- vim.cmd("redraw")
+  vim.cmd("redraw")
 
   -- 2. Use nvim_echo for a single-line update
   vim.api.nvim_echo({
-    { "[  nvim-pio] ", "Identifier" },      -- Plugin Name
+    { "[ ] ", "Identifier" },      -- Plugin Name
     { "[" .. icon .. "] ", color },           -- Icon with Level Color
     { msg, color }                         -- The message text
   }, true, {}) -- Set to 'false' so it doesn't stack in history

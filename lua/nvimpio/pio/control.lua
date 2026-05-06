@@ -128,9 +128,9 @@ local function watch_file(target, callback)
 
   handle:start(folder_path, {recursive = false}, function(err, filename, events)
     if err then return end
-
-    -- Early Exit Filters
-    if target.isBusy or _G.metadata.isBusy or (filename and filename ~= target_filename) or (events and not (events.change or events["rename"])) then return end
+    if events and not (events.change or events["rename"]) then return end
+    if _G.metadata.isBusy then return end
+    if target.isBusy or (filename and filename ~= target_filename) then return end
 
     -- local f = io.open(target.path, "r")
     -- if f then f:close()
@@ -169,7 +169,7 @@ local function watch_file(target, callback)
             end
           end
 
-          debounce_timer:start(1000, 0, vim.schedule_wrap(attempt_callback))
+          debounce_timer:start(500, 0, vim.schedule_wrap(attempt_callback))
         end
       end)
     end)
