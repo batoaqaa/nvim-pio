@@ -11,6 +11,8 @@ boilerplate['main.cpp'] = {
   rewrite = false,
   read = false,
   content = [[
+#include <main.hpp>
+
 void setup() { }
 
 void loop() { }
