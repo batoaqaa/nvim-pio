@@ -1,7 +1,7 @@
 local M = {}
 
 function M.check()
-  vim.health.start('PlatformIO Check')
+  vim.health.start('nvimpio Check')
 
   -- 1. Check Python installation
   local python = vim.fn.has('win32') == 1 and 'python' or 'python3'
