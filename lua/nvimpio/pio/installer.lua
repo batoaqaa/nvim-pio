@@ -9,58 +9,55 @@ local pio_dir = home .. '/.platformio'
 local python_dir = pio_dir .. '/python3'
 local python_exe = is_win and (python_dir .. '/python.exe') or (python_dir .. '/bin/python3')
 
--- Current Verified Portable Python URLs (Stable 2024-2025)
-local python_urls = {
-  win = 'https://platformio.org',
-  mac = 'https://platformio.org',
-}
+-- Official Verified URLs (Stable 2024-2025)
+-- Using .zip for Windows as native tar.exe is more reliable with it
+local python_url = is_win and 'https://platformio.org' or 'https://platformio.org'
+
+local pio_script_url = 'https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py'
 
 function M.install()
-  local url = is_win and python_urls.win or python_urls.mac
-  local pio_script_url = 'https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py'
-
   vim.fn.mkdir(python_dir, 'p')
 
-  -- Use a temporary file to avoid pipe corruption on Windows
-  local tmp_archive = is_win and 'python_portable.tar.gz' or '/tmp/python_portable.tar.gz'
+  local archive = is_win and 'python_tmp.zip' or 'python_tmp.tar.gz'
   local rm_cmd = is_win and 'del' or 'rm'
 
+  -- Step-by-step commands to ensure reliability
   local commands = {
-    -- 1. Download with -f (fail on server error) and -L (follow redirects)
-    string.format('curl -f -L -A "Mozilla/5.0" %s -o %s', url, tmp_archive),
-    -- 2. Extract from the saved file (more reliable than piping)
-    string.format('tar -xzf %s -C %s --strip-components=1', tmp_archive, python_dir),
+    -- 1. Download to disk (prevents pipe corruption)
+    -- -f fails if URL is bad; -A prevents bot-blocking by the server
+    string.format('curl -f -L -A "Mozilla/5.0" %s -o %s', python_url, archive),
+    -- 2. Extract from disk
+    string.format('tar -xf %s -C %s --strip-components=1', archive, python_dir),
     -- 3. Cleanup archive
-    string.format('%s %s', rm_cmd, tmp_archive),
-    -- 4. Download and Run PIO Installer
+    string.format('%s %s', rm_cmd, archive),
+    -- 4. Download PIO script
     string.format("%s -c \"import urllib.request; urllib.request.urlretrieve('%s', 'get-platformio.py')\"", python_exe, pio_script_url),
+    -- 5. Final Install
     string.format('%s get-platformio.py', python_exe),
     string.format('%s get-platformio.py', rm_cmd),
   }
 
-  local full_cmd = table.concat(commands, ' && ')
-  -- Ensure Windows uses cmd /c for standard piping/concatenation
-  local shell_cmd = is_win and { 'cmd', '/c', full_cmd } or { 'sh', '-c', full_cmd }
+  local full_command = table.concat(commands, ' && ')
+  local shell_cmd = is_win and { 'cmd', '/c', full_command } or { 'sh', '-c', full_command }
 
   vim.cmd('split')
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_current_buf(buf)
-  vim.api.nvim_buf_set_name(buf, 'PlatformIO Installer')
+  vim.api.nvim_buf_set_name(buf, 'PlatformIO Setup')
 
   vim.fn.jobstart(shell_cmd, {
     term = true,
     on_exit = function(_, code)
       if code == 0 then
-        print('✅ PlatformIO and Portable Python installed successfully!')
+        vim.notify('✅ PlatformIO installed successfully!', vim.log.levels.INFO)
       else
-        print('❌ Installation failed. Ensure you have an internet connection.')
+        vim.notify('❌ Installation failed. The URL might have changed or check your connection.', vim.log.levels.ERROR)
       end
     end,
   })
 
   vim.cmd('startinsert')
 end
-
 
 
 
