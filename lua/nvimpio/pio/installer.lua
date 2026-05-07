@@ -3,7 +3,7 @@ local M = {}
 local win_id
 _G.pio_status = ''
 
-function M.install_platformio()
+function M.install()
   -- 1. Detect environment details
   local is_windows = vim.fn.has('win32') == 1
   local python = is_windows and 'python' or 'python3'
