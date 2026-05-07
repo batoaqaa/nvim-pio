@@ -41,7 +41,7 @@ function M.check()
     -- Run clangd --version synchronously for the health report
     local obj = vim.system({ 'clangd', '--version' }, { text = true }):wait()
     if obj.code == 0 then
-      vim.health.ok('clangd executable found: ' .. vim.trim(obj.stdout))
+      vim.health.ok('clangd executable found: ' .. vim.trim(obj.stdout:match('[^\n]+')))
     else
       vim.health.error('clangd found but failed to execute: ' .. (obj.stderr or 'Unknown error'))
     end
