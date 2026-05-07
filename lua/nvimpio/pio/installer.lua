@@ -20,23 +20,25 @@ function M.install()
   _G.pio_status = '⏳ Installing PIO...'
   vim.cmd('redrawstatus')
 
-  vim.system(shell, { args = { cmd }, text = true }, function(obj)
-    vim.schedule(function()
-      if obj.code == 0 then
-        _G.pio_status = '✅ PIO Ready'
-        os.remove('get-platformio.py')
-        if win_id then
-          vim.misc.closeMessage(win_id)
-        end
-      else
-        _G.pio_status = '❌ PIO Failed'
-        if win_id then
-          vim.misc.closeMessage(win_id)
-        end
-      end
-      vim.cmd('redrawstatus')
-    end)
-  end)
+local term = require('nvimpio.utils.term')
+       term.ToggleTerminal(cmd, 'float')
+  -- vim.system(shell, { args = { cmd }, text = true }, function(obj)
+  --   vim.schedule(function()
+  --     if obj.code == 0 then
+  --       _G.pio_status = '✅ PIO Ready'
+  --       os.remove('get-platformio.py')
+  --       if win_id then
+  --         vim.misc.closeMessage(win_id)
+  --       end
+  --     else
+  --       _G.pio_status = '❌ PIO Failed'
+  --       if win_id then
+  --         vim.misc.closeMessage(win_id)
+  --       end
+  --     end
+  --     vim.cmd('redrawstatus')
+  --   end)
+  -- end)
 end
 
 function M.get_pio_bin_dir()
