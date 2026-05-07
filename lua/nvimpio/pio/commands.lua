@@ -43,7 +43,7 @@ local piolsserial = require('nvimpio.pio.ui.piolsserial')
 ------------------------------------------------------
 vim.api.nvim_create_user_command('Piorun', function(opts)
   local args = opts.args
-  require('nvimpio.piocommands').piorun({ args })
+  require('nvimpio.commands').piorun({ args })
 end, {
   nargs = '?',
   complete = function(_, _, _)
