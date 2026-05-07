@@ -6,7 +6,16 @@
 -- +: At least one argument.
 -- -1: Zero or one argument (like ?, explicitly).
 
+-- stylua: ignore
+-- INFO: PlatformIO installation
 ----------------------------------------------------------------
+vim.api.nvim_create_user_command('PioInstall', function()
+    require('pio.installer').install()
+end, { desc = "Install PlatformIO Core" })
+
+-- Example Keymap (Optional: Plugin authors usually let users define this)
+vim.keymap.set('n', '<leader>pi', ':PioInstall<CR>', { desc = 'PlatformIO Install' })
+
 
 -- stylua: ignore
 -- INFO: List ToggleTerminals

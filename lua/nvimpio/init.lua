@@ -1,6 +1,10 @@
 local M = {}
 
 M.config = {
+  pio = {
+    auto_update_path = true,
+    notify_on_missing = true,
+  },
   lspClangd = {
     enabled = false,
     attach = {
@@ -201,10 +205,12 @@ end
 
 local user_config = {}
 -- INFO:
---stylua: ignore
+---stylua: ignore
 -------------------------------------------------------------------------------
 function M.setup(opts)
-  if opts then user_config = opts end
+  if opts then
+    user_config = opts
+  end
   -- 1. Merge user settings with defaults
   if user_config.lspClangd then
     vim.validate('lspClangd', user_config.lspClangd, 'table', true)
@@ -215,6 +221,8 @@ function M.setup(opts)
       vim.validate('lspKeymaps', user_config.lspClangd.attach.keyMaps, 'boolean', true)
     end
   end
+  vim.validate('auto_update_path', user_config.pio.auto_update_path, 'boolean', true)
+  vim.validate('notify_on_missing', user_config.pio.notify_on_missing, 'boolean', true)
   vim.validate('menu_key', user_config.lspClangd_enable, 'string', true)
   vim.validate('menu_name', user_config.menu_name, 'string', true)
   vim.validate('debug', user_config.debug, 'boolean', true)
@@ -231,6 +239,30 @@ function M.setup(opts)
 
   M.piomenu(M.config)
 
+  if M.config.notify_on_missing then
+    if vim.fn.executable('pio') == 0 then
+      vim.notify('PlatformIO core not found. Run :PioInstall to set it up.', vim.log.levels.WARN, { title = 'PlatformIO Plugin' })
+    end
+  end
+
+  local installer = require('nvimpio.pio.installer')
+  if M.config.auto_update_path then
+    local pio_bin = installer.get_pio_bin_dir()
+
+    if vim.fn.isdirectory(pio_bin) == 1 then
+      local sep = vim.fn.has('win32') == 1 and ';' or ':'
+      vim.env.PATH = pio_bin .. sep .. vim.env.PATH
+
+      -- Validation Check
+      if M.config.verbose_validation then
+        if vim.fn.executable('pio') == 1 then
+          print('✅ PlatformIO detected in PATH')
+        else
+          print("⚠️ PlatformIO path updated, but 'pio' executable not found.")
+        end
+      end
+    end
+  end
   require('nvimpio.pio.control').init(M.config.lspClangd)
   -- vim.misc.notify('nvimpio started', "info")
 end

@@ -16,11 +16,15 @@ nvim -u mini_nvimpio.lua
 # Now run :Pioinit
 ```
 
+## Features
+
+- 🚀 **PlatformIO Install**: Run `:PioInstall` to set up PIO in the background.
+-  **Project initialize**: Run `:Pioinit` to set up PIO in the background.
+- 🛠️ **PIO Autoupdate Path**: Automatically adds PIO binaries to your Neovim `$PATH`.
+- 🩺 **Health Check**: Run `:checkhealth pio` to verify your setup.
+- 🔔 **Smart Alerts**: Notifies you if PIO is missing
+
 ## Installation
-
-#### PlatformIO Core
-
-Follow the installation instructions in the [PlatformIO documentation](https://docs.platformio.org/en/latest/core/installation/index.html).
 
 #### Plugin
 
@@ -45,7 +49,6 @@ return {
         end, { nargs = '*' })
       end
     end,
-
     dependencies = {
         { 'akinsho/toggleterm.nvim' },
         { 'nvim-telescope/telescope.nvim' },
@@ -71,6 +74,10 @@ return {
 
 ```lua
     vim.g.pioConfig ={
+      pio = {
+        auto_update_path = true,
+        notify_on_missing = true,
+      },
       lspClangd = {
         enabled = true,
         attach = {
@@ -93,6 +100,10 @@ These are the default keybindings, which you can override in your configuration.
     local pok, nvimpio = pcall(require, 'nvimpio')
     if pok then
       nvimpio.setup({
+        pio = {
+          auto_update_path = true,
+          notify_on_missing = true,
+        },
         lspClangd = {
           enabled = false,
           attach = {

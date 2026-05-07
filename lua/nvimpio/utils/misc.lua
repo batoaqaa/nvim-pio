@@ -2,28 +2,23 @@
 
 local M = {}
 
-M.is_windows = jit.os == 'Windows'
+M.isMac = vim.fn.has('mac') == 1
+M.isWindows = jit.os == 'Windows'
+M.pluginName = 'nvim-pio'
+
 local uv = vim.uv or vim.loop
 
-M.devNul = M.is_windows and ' 2>./nul' or ' 2>/dev/null'
+M.devNul = M.isWindows and ' 2>./nul' or ' 2>/dev/null'
 -- M.extra = 'printf \'\\\\n\\\\033[0;33mPlease Press ENTER to continue \\\\033[0m\'; read'
 -- M.extra = ' && echo . && echo . && echo Please Press ENTER to continue'
 
-local pluginName = 'nvim-pio'
-local last_notification = nil -- Store the active notification here
-
-
--- vim.api.nvim_echo({
---   { "PlatformIO: ", "Identifier" },      -- Light Blue/Orange
---   { "Success! ", "DiagnosticOk" },      -- Green
---   { "File compiled.", "Comment" }       -- Grey
--- }, true, {})
 
 --[[
 DiagnosticError: Red
 DiagnosticWarn: Yellow
 DiagnosticInfo: Blue
 DiagnosticOk: Green
+Identifier: Orange
 String: Green (usually)
 Comment: Grey
 ]]
@@ -76,42 +71,6 @@ local level_colors = {
     {"]", color}
   }, true, {}) -- Set to 'false' so it doesn't stack in history
 end
--- function M.notify(msg, level)
---   local icons = {
---     [vim.log.levels.INFO] = '',
---     [vim.log.levels.WARN] = '',
---     [vim.log.levels.ERROR] = '',
---     [vim.log.levels.DEBUG] = '',
---   }
---
---   -- Mapping string inputs to official levels
---   local level_map = {
---     info  = vim.log.levels.INFO,  -- 2
---     warn  = vim.log.levels.WARN,  -- 3
---     error = vim.log.levels.ERROR, -- 4
---     debug = vim.log.levels.DEBUG, -- 1
---   }
---
---   -- vim.cmd("redraw")
---   -- 1. If 'level' is a string, convert it using our map
---   -- 2. If it's already a number, use it
---   -- 3. Default to INFO if nothing is provided
---   if type(level) == 'string' then
---     level = level_map[level:lower()] -- :lower() makes it case-insensitive
---   end
---
---   -- Log level (defaults to INFO)
---   level = level or vim.log.levels.INFO
---   local icon = icons[level] or ""
---
---   local full_message = string.format("[ %s] %s  %s", pluginName, icon, msg)
---   -- local message = '  '.. pluginName .. ' [' .. icon .. '   ]: ' .. msg
---   last_notification = vim.notify(full_message, level, {
---     title = pluginName,
---     icon = icon,
---     replace = last_notification,
---   })
--- end
 
 --INFO:
 ------------------------------------------------------
