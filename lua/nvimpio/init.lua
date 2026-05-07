@@ -5,12 +5,9 @@ M.config = {
     auto_update_path = true,
     notify_on_missing = true,
   },
-  lspClangd = {
-    enabled = false,
-    attach = {
-      enabled = false,
-      keymaps = false,
-    },
+  clangd = {
+    support = false,
+    install = false,
   },
   menu_key = '<leader>\\', -- replace this menu key  to your convenience
   menu_name = 'PlatformIO', -- replace this menu name to your convenience
@@ -212,18 +209,14 @@ function M.setup(opts)
     user_config = opts
   end
   -- 1. Merge user settings with defaults
-  if user_config.lspClangd then
-    vim.validate('lspClangd', user_config.lspClangd, 'table', true)
-    vim.validate('lspClangdEnabled', user_config.lspClangd.enabled, 'boolean', true)
-    if user_config.lspClangd.attach then
-      vim.validate('lspAttach', user_config.lspClangd.attach, 'table', true)
-      vim.validate('lspAttachEnabled', user_config.lspClangd.attach.enabled, 'boolean', true)
-      vim.validate('lspKeymaps', user_config.lspClangd.attach.keyMaps, 'boolean', true)
-    end
+  if user_config.clangd then
+    vim.validate('clangd', user_config.clangd, 'table', true)
+    vim.validate('clangdsupport', user_config.clangd.support, 'boolean', true)
+    vim.validate('clangdinstall', user_config.clangd.install, 'boolean', true)
   end
   vim.validate('auto_update_path', user_config.pio.auto_update_path, 'boolean', true)
   vim.validate('notify_on_missing', user_config.pio.notify_on_missing, 'boolean', true)
-  vim.validate('menu_key', user_config.lspClangd_enable, 'string', true)
+  vim.validate('menu_key', user_config.menu_key, 'string', true)
   vim.validate('menu_name', user_config.menu_name, 'string', true)
   vim.validate('debug', user_config.debug, 'boolean', true)
   vim.validate('menu_bindings', user_config.menu_bindings, 'table', true)
@@ -265,7 +258,7 @@ function M.setup(opts)
     end
   end
   require('nvimpio.commands')
-  require('nvimpio.pio.control').init(M.config.lspClangd)
+  require('nvimpio.pio.control').init(M.config.clangd)
   -- vim.misc.notify('nvimpio started', "info")
 end
 

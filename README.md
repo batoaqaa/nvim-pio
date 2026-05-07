@@ -78,12 +78,9 @@ return {
         auto_update_path = true,
         notify_on_missing = true,
       },
-      lspClangd = {
-        enabled = true,
-        attach = {
-          enabled = true,
-          keymaps = true,
-        },
+      clangd = {
+        support = true,
+        install = true,
       },
       menu_key = '<leader>\\', -- replace this menu key  to your convenience
       menu_name = 'PlatformIO', -- replace this menu name to your convenience
@@ -104,12 +101,9 @@ These are the default keybindings, which you can override in your configuration.
           auto_update_path = true,
           notify_on_missing = true,
         },
-        lspClangd = {
-          enabled = false,
-          attach = {
-            enabled = false,
-            keymaps = false,
-          },
+        clangd = {
+          support = false,
+          install = false
         },
         menu_key = '<leader>\\', -- replace this menu key  to your convenience
         menu_name = 'PlatformIO', -- replace this menu name to your convenience

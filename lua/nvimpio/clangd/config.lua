@@ -45,19 +45,19 @@ mr.refresh(function()
           result:install({}, function(success, _)
             if not success then
               vim.defer_fn(function()
-                vim.misc.notify('LSP: clangd; ' .. tool .. ' failed to install', "error")
+                vim.misc.notify('LSP: clangd; ' .. tool .. ' failed to install', 'error')
               end, 0)
             end
           end)
         else
           vim.defer_fn(function()
-            vim.misc.notify('LSP: clangd; ' .. tool .. ' already installed', "warn")
+            vim.misc.notify('LSP: clangd; ' .. tool .. ' already installed', 'warn')
           end, 0)
         end
       end
     else
       vim.defer_fn(function()
-        vim.misc.notify('LSP: clangd; Failed to get package: ' .. tool, "warn")
+        vim.misc.notify('LSP: clangd; Failed to get package: ' .. tool, 'warn')
       end, 0)
     end
   end
@@ -274,4 +274,5 @@ local pyrefly = {
 }
 vim.lsp.config('pyrefly', pyrefly)
 
+require('nvimpio.clangd.attach')
 ----------------------------------------------------------------------------------

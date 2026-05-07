@@ -230,7 +230,6 @@ function M.start_watchers()
              _G.metadata.isBusy = false
             end)
           end)
-          -- M.run_compiledb(self) -- Smart: Auto-update DB if config changes
         end
       end,
     },
@@ -274,7 +273,7 @@ end
 --INFO: 6.  Exported setup function
 --stylua: ignore
 -------------------------------------------------------------------------------
-function M.init(lspClangd)
+function M.init(clangd)
   vim.g.platformioRootDir = vim.fn.getcwd()
 
   vim.pio = require('nvimpio.pio.upkeep')
@@ -285,9 +284,10 @@ function M.init(lspClangd)
 
   require('nvimpio.pio.metadata') --.load_project_config()
 
+  if clangd.support then vim.clangd.init(clangd) end
+
   -- Always start the watcher so it can catch a future 'pio init'
   M.start_watchers()
-  if lspClangd.enabled == true then vim.clangd.init(lspClangd) end
 
   -- If the file already exists, do an initial sync
   if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then

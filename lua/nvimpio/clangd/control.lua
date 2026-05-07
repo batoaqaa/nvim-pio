@@ -9,7 +9,7 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 function M.restart()
   local name = 'clangd'
   -- vim.schedule_wrap(function()
-  vim.misc.notify('LSP: Clangd restart.', "warn")
+  vim.misc.notify('LSP: Clangd restart.', 'warn')
 
   local clangConfig = _G.getClangdConfig()
   -- print(vim.inspect(clangConfig))
@@ -99,12 +99,14 @@ end
 
 --stylua: ignore
 --=============================================================================
-function M.init(lspClangd)
+function M.init(clangd)
   vim.misc.notify('Clangd LSP: initialize', "info")
 
-  require('nvimpio.clangd.config')
   require('nvimpio.clangd.commands')
-  if lspClangd.attach.enabled then require('nvimpio.clangd.attach') end
+
+  if clangd.install then
+    require('nvimpio.clangd.config')
+  end
 end
 
 return M

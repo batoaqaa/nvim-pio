@@ -528,18 +528,31 @@ if tok then
   vim.keymap.set('n', '<leader>fb', '<cmd>Telescope buffers<cr>', { desc = 'Find Buffers' })
 end
 
+-- local pioConfig = {
+--   pio = {
+--     auto_update_path = true,
+--     notify_on_missing = true,
+--   },
+--   lspClangd = {
+--     -- enabled = false,
+--     enabled = true,
+--     attach = {
+--       enabled = true,
+--       keymaps = true,
+--     },
+--   },
+--   -- menu_key = "<leader>\\", -- replace this menu key  to your convenience
+--   -- menu_name = "PlatformIO", -- replace this menu name to your convenience
+--   -- debug = false,
+-- }
 local pioConfig = {
   pio = {
     auto_update_path = true,
     notify_on_missing = true,
   },
-  lspClangd = {
-    -- enabled = false,
-    enabled = true,
-    attach = {
-      enabled = true,
-      keymaps = true,
-    },
+  clangd = {
+    support = true,
+    install = true,
   },
   -- menu_key = "<leader>\\", -- replace this menu key  to your convenience
   -- menu_name = "PlatformIO", -- replace this menu name to your convenience
