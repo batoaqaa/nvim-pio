@@ -7,15 +7,23 @@ local boilerplate = {}
 
 -- INFO: main.cpp
 --- stylua: ignore
-boilerplate['arduino'] = {
+boilerplate['main.cpp'] = {
+  rewrite = false,
+  read = false,
+  content = [[
+void setup() { }
+
+void loop() { }
+]],
+}
+
+-- INFO: main.hpp
+--- stylua: ignore
+boilerplate['main.hpp'] = {
   rewrite = false,
   read = false,
   content = [[
 #include <Arduino.h>
-
-void setup() { }
-
-void loop() { }
 ]],
 }
 

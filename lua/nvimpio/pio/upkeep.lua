@@ -760,6 +760,8 @@ function M.handlePioinitDb(result, board)
       local pio_refresh = require('nvimpio.pio.control').pio_refresh
       pio_refresh(function()
         boilerplate.core_dir = _G.metadata.core_dir
+        boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
+        boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
         vim.misc.notify('PIO init+db:  pass ' .. commandPassed, "info")
         vim.misc.notify('PIO init+db: Done', "info")
         vim.misc.gitignore_lsp_configs('compile_commands.json')
