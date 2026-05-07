@@ -9,15 +9,21 @@ local pio_dir = home .. '/.platformio'
 local python_dir = pio_dir .. '/python3'
 local python_exe = is_win and (python_dir .. '/python.exe') or (python_dir .. '/bin/python3')
 
+-- URLs for Portable Python (Official PIO binaries)
+local python_urls = {
+  win = 'https://platformio.org',
+  mac = 'https://platformio.org',
+}
+
 function M.install()
-  local url = is_win and 'https://platformio.org' or 'https://platformio.org'
+  local url = is_win and python_urls.win or python_urls.mac
 
   local install_script_url = 'https://githubusercontent.com'
 
   vim.fn.mkdir(python_dir, 'p')
 
   -- Build the combined command
-  local cmd_python = string.format('curl -L %s | tar -xz -C %s --strip-components=1', url, python_dir)
+  local cmd_python = string.format('curl -f -L %s | tar -xz -C %s --strip-components=1', url, python_dir)
   local cmd_pio = string.format(
     "%s -c \"import urllib.request; urllib.request.urlretrieve('%s', 'get-platformio.py')\" && %s get-platformio.py",
     python_exe,
