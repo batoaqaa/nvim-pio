@@ -9,7 +9,16 @@ local pio_dir = home .. '/.platformio'
 local python_dir = pio_dir .. '/python3'
 local python_exe = is_win and (python_dir .. '/python.exe') or (python_dir .. '/bin/python3')
 -- Verified Stable PlatformIO Portable Python URLs
-local python_url = is_win and 'https://platformio.org' or 'https://platformio.org'
+-- local python_url = is_win and 'https://platformio.org' or 'https://platformio.org'
+
+local python_urls = {
+  win = 'https://dl.platformio.org/python/portable/python-portable-windows_amd64-1.31100.0.zip',
+  mac = '',
+}
+
+-- Detect OS to use the correct archive
+local python_url = vim.fn.has('win32') == 1 and python_urls.win or python_urls.mac
+
 local pio_script_url = 'https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py'
 
 function M.get_bin_dir()
