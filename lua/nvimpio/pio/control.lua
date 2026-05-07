@@ -285,7 +285,7 @@ function M.init(lspClangd)
 
   require('nvimpio.pio.metadata') --.load_project_config()
   require('nvimpio.pio.commands')
-  require('nvimpio.pio.install')
+  require('nvimpio.pio.installer')
 
   -- Always start the watcher so it can catch a future 'pio init'
   M.start_watchers()
