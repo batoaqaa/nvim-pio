@@ -249,6 +249,7 @@ function M.setup(opts)
   if M.config.pio.auto_update_path then
     local pio_bin = installer.get_pio_bin_dir()
 
+    print(pio_bin)
     if vim.fn.isdirectory(pio_bin) == 1 then
       local sep = vim.fn.has('win32') == 1 and ';' or ':'
       vim.env.PATH = pio_bin .. sep .. vim.env.PATH

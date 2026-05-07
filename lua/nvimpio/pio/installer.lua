@@ -43,7 +43,6 @@ function M.get_pio_bin_dir()
   -- 1. Check for custom environment variable first
   local pio_core = os.getenv('PLATFORMIO_CORE_DIR')
 
-  print(pio_core)
   -- 2. Fallback to default if not set
   if not pio_core then
     local home = os.getenv('HOME') or os.getenv('USERPROFILE')
@@ -55,8 +54,8 @@ function M.get_pio_bin_dir()
   local bin_subfolder = is_windows and 'penv/Scripts' or 'penv/bin'
 
   -- Normalize the path to handle mix of '/' and '\' on Windows
-  local full_path = pio_core .. '/' .. bin_subfolder
-  return is_windows and full_path:gsub('/', '\\') or full_path
+  local full_path = vim.fs.normalize(pio_core .. '/' .. bin_subfolder)
+  return full_path
 end
 
 function M.verify_version()
