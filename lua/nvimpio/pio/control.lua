@@ -203,14 +203,18 @@ function M.start_watchers()
       path = vim.misc.joinPath(project_root, 'platformio.ini'),
       cb = function(self)
         if self.isBusy then return end
+        _G.metadata.isBusy = true
+        self.isBusy = true
         -- if _G.metadata.isBusy then return end
         local new_hash = get_hash(self.path) or ''
         if new_hash and new_hash ~= self.last_hash then
           self.last_hash = new_hash
           local env = vim.pio.get_active__env('PIO platformio.ini change: ')
-          if not env then return end
-          _G.metadata.isBusy = true
-          self.isBusy = true
+          if not env then
+            self.isBusy = false
+            _G.metadata.isBusy = false
+            return
+          end
           vim.misc.notify('PIO platformio.ini change: compiledb update ...', "info")
           vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
             vim.schedule(function()
@@ -227,7 +231,7 @@ function M.start_watchers()
                 vim.misc.notify('PIO platformio.ini change: Build Failed: ' .. err, "error")
               end
               self.isBusy = false
-             _G.metadata.isBusy = false
+              _G.metadata.isBusy = false
             end)
           end)
         end
@@ -239,20 +243,22 @@ function M.start_watchers()
       path = vim.misc.joinPath(project_root, '.pio', 'build', 'project.checksum'), --checksum_path
       cb = function(self)
         if self.isBusy then return end
+        _G.metadata.isBusy = true
+        self.isBusy = true
         -- if _G.metadata.isBusy then return end
         local ok, current_checksum = vim.misc.readFile(self.path)
         -- Check if we should exit early
         if ok and type(current_checksum) == 'string' and current_checksum ~= '' then
           if current_checksum == _G.metadata.last_projectChecksum then
+            self.isBusy = false
+            _G.metadata.isBusy = false
             return
           end
-          _G.metadata.isBusy = true
-          self.isBusy = true
           -- vim.defer_fn(function ()
           vim.schedule(function ()
             M.pio_refresh(function()
               self.isBusy = false
-             _G.metadata.isBusy = false
+              _G.metadata.isBusy = false
               vim.misc.notify('PIO checksum: Metadata synced', "info")
               clangdRestart()
             end, 'PIO checksum: ')
