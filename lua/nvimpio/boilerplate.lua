@@ -25,7 +25,12 @@ boilerplate['main.hpp'] = {
   rewrite = false,
   read = false,
   content = [[
+#ifndef mainHEAD
+#define mainHEAD
+
 #include <Arduino.h>
+
+#endif
 ]],
 }
 
