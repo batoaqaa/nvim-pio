@@ -78,13 +78,13 @@ end, {
 
 --INFO: Piolsserial
 vim.api.nvim_create_user_command('Piolsserial', function()
-  require('nvimpio.piolsserial').print_tty_list()
+  require('nvimpio.pio.ui.piolsserial').print_tty_list()
 end, {})
 
 --INFO: Piolib
 vim.api.nvim_create_user_command('Piolib', function(opts)
   local args = vim.split(opts.args, ' ')
-  require('nvimpio.piolib').piolib(args)
+  require('nvimpio.pio.ui.piolib').piolib(args)
 end, {
   nargs = '+',
 })
