@@ -37,7 +37,7 @@ vim.api.nvim_create_user_command('Piofixpaths', function()
 end, {})
 
 ------------------------------------------------------
-local piolsserial = require('nvimpio.piolsserial')
+local piolsserial = require('nvimpio.pio.ui.piolsserial')
 
 --INFO: Piorun
 ------------------------------------------------------
