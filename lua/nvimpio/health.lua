@@ -39,9 +39,11 @@ function M.check()
   -- 4. Check clangd installation
   if vim.fn.executable('clangd') == 1 then
     -- Run clangd --version synchronously for the health report
-    local obj = vim.system({ 'clangd', '--version' }, { text = true }):wait()
+    local full_path = vim.fn.exepath('clangd')
+    local obj = vim.system({ full_path, '--version' }, { text = true }):wait()
     if obj.code == 0 then
       vim.health.ok('clangd executable found: ' .. vim.trim(obj.stdout:match('[^\n]+'):match('^(.-)%s*%(')))
+      vim.health.ok('clangd executable directory: ' .. vim.fn.fnamemodify(full_path, ':h'))
     else
       vim.health.error('clangd found but failed to execute: ' .. (obj.stderr or 'Unknown error'))
     end
