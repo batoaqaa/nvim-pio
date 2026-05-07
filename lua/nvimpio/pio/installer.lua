@@ -43,6 +43,7 @@ function M.get_pio_bin_dir()
   -- 1. Check for custom environment variable first
   local pio_core = os.getenv('PLATFORMIO_CORE_DIR')
 
+  print(pio_core)
   -- 2. Fallback to default if not set
   if not pio_core then
     local home = os.getenv('HOME') or os.getenv('USERPROFILE')
