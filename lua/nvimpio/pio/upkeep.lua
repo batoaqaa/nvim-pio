@@ -719,7 +719,7 @@ local win_id
 -- =============================================================================
 -- stylua: ignore
 function M.cleanup_pio_session()
-  vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
+  -- vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
   _G.metadata.isBusy = false
   M.queue = {}
   if win_id then vim.misc.closeMessage(win_id) end
