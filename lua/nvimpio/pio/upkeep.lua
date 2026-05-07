@@ -383,9 +383,9 @@ function M.fetch_metadata(callback, env, from, attempts)
     return true
   end
 
-  ---------------------------------------------------------
+  -------------------------------------------------------------------
   -- STEP 1: Fast Checksum Check (project.checksum and idedata.json)
-  ---------------------------------------------------------
+  -------------------------------------------------------------------
   local ok, current_checksum = vim.misc.readFile(checksum_file)
   if ok and (type(current_checksum) == 'string' and current_checksum ~= '') then
     if current_checksum == meta.last_projectChecksum then
@@ -395,7 +395,9 @@ function M.fetch_metadata(callback, env, from, attempts)
       return true
     end -- Already updated
 
+    ----------------------------------------------------------------
     -- STEP 2: Cache Path (idedata.json exists and checksum changed)
+    ----------------------------------------------------------------
     local idok, content = vim.misc.readFile(idedata_file)
     if idok and (type(content) == 'string' and content ~= '') then
       local cok, decoded = pcall(vim.json.decode, content)
@@ -423,9 +425,9 @@ function M.fetch_metadata(callback, env, from, attempts)
     end
   -- else
   end
-  ---------------------------------------------------------
+  ------------------------------------------------------------------------------------
   -- STEP 3: Auto-Initialize (If files project.checksum and idedata.json are missing)
-  ---------------------------------------------------------
+  ------------------------------------------------------------------------------------
   buildIdedata()
 
   ---------------------------------------------------------
@@ -746,24 +748,8 @@ function M.handlePioinitDb(result, board)
       vim.misc.notify('PIO init+db:  pass ' .. commandPassed, "info")
       local active_env = M.get_active__env('PIO init+db: ')
       if not active_env or (active_env == board) then
-        local pio_refresh = require('nvimpio.pio.control').pio_refresh
-        pio_refresh(function()
-
-        -- 1. Ensure the plugin is active (Safe to call even if already active)
-        if not nvimpio.is_active then
-          nvimpio.setup()
-        end
-
-          -- local flags = filter_bad_args_with_clangd(_G.metadata.cxx_flags)
-          --
-          -- local include_flags = table.concat(vim.tbl_map(function(item)
-          --   return '"' .. item .. '"'
-          -- end, flags), ", ")
-          -- print(include_flags)
-          -- fix_clangd_args()
-          commandPassed = commandPassed + 1
-          if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
-        end, 'PIO init+db: ')
+        commandPassed = commandPassed + 1
+        if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
       else
         M.cleanup_pio_session()
       end
@@ -771,11 +757,14 @@ function M.handlePioinitDb(result, board)
     end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
-      boilerplate.core_dir = _G.metadata.core_dir
-      vim.misc.notify('PIO init+db:  pass ' .. commandPassed, "info")
-      vim.misc.notify('PIO init+db: Done', "info")
-      vim.misc.gitignore_lsp_configs('compile_commands.json')
-      vim.clangd.getUnknownArgs()
+      local pio_refresh = require('nvimpio.pio.control').pio_refresh
+      pio_refresh(function()
+        boilerplate.core_dir = _G.metadata.core_dir
+        vim.misc.notify('PIO init+db:  pass ' .. commandPassed, "info")
+        vim.misc.notify('PIO init+db: Done', "info")
+        vim.misc.gitignore_lsp_configs('compile_commands.json')
+        vim.clangd.getUnknownArgs()
+      end, 'PIO init+db: ')
     end)
     M.cleanup_pio_session()
   elseif result == 'FAIL' then

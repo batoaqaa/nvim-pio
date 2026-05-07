@@ -10,7 +10,7 @@ local wizard_data = {}
 
 -- Visual Notifications
 local function notify(msg, level)
-  vim.misc.notify('PIO init+db: ' .. msg, level or "info")
+  vim.misc.notify('PIO init+db: ' .. msg, level or 'info')
 end
 
 -- Reusable Small Menu for Yes/No and Frameworks
@@ -45,7 +45,7 @@ local function finalize_setup()
   -- local pio = require('nvimpio.pio.upkeep')
 
   local sample_flag = wizard_data.sample == 'Yes' and ' --sample-code' or ''
-  local init_cmd = string.format('pio project init --ide vim --board %s -O "framework=%s"%s', wizard_data.board_id, wizard_data.framework, sample_flag)
+  local init_cmd = string.format('pio project init --board %s -O "framework=%s"%s', wizard_data.board_id, wizard_data.framework, sample_flag)
 
   -- local db_cmd = string.format('pio run -t compiledb -e %s', wizard_data.board_id)
   local db_cmd = string.format('pio run -t compiledb -e ' .. wizard_data.board_id)
@@ -150,7 +150,7 @@ local function launch_project_init()
 
   local ok, json_data = pcall(vim.json.decode, result)
   if not ok or type(json_data) ~= 'table' then
-    notify('Failed to parse board data.', "error")
+    notify('Failed to parse board data.', 'error')
     return
   end
 
