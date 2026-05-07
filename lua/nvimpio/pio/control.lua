@@ -46,7 +46,6 @@ end
 local uv = vim.uv or vim.loop
 M.watcher_handles = {}
 local debounce_timer = uv.new_timer()
-local last_mtime = 0
 
 -- --INFO:
 -- --stylua: ignore
@@ -122,63 +121,80 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
 local function watch_file(target, callback)
   local folder_path = target.path:match('(.*[/\\])')
   local target_filename = target.path:match('[^/\\]+$')
+  local last_mtime = 0
 
   local handle = uv.new_fs_event()
-  if not handle then return end
+  if not handle then
+    return
+  end
 
-  handle:start(folder_path, {recursive = false}, function(err, filename, events)
-    if err then return end
-    if events and not (events.change or events["rename"]) then return end
-    if _G.metadata.isBusy then return end
-    if target.isBusy or (filename and filename ~= target_filename) then return end
-
-    -- local f = io.open(target.path, "r")
-    -- if f then f:close()
-    -- else return end -- Not readable (protected, locked, or missing)
+  handle:start(folder_path, { recursive = false }, function(err, filename, events)
+    if err or (filename and filename ~= target_filename) then return end
+    if target.isBusy or (_G.metadata and _G.metadata.isBusy) then return end
+    if events and not (events.change or events['rename']) then return end
 
     if not uv.fs_access(target.path, 'R') then return end
 
-    -- Protected Execution
-    local ok, result = pcall(function()
-      local stat = uv.fs_stat(target.path)
-      if not stat or stat.mtime.sec <= last_mtime then return end
+    if debounce_timer then
+      debounce_timer:stop()
+      debounce_timer:start(
+        500,
+        0,
+        vim.schedule_wrap(function()
+          local stat = uv.fs_stat(target.path)
+          if stat and stat.mtime.sec > last_mtime then
+            last_mtime = stat.mtime.sec
 
-      vim.schedule(function()
-        if debounce_timer then
-          debounce_timer:stop()
-          local retries = 0
-          local max_retries = 15 -- 15 seconds max wait
+            -- Set Busy flags before entering the heavy callback
+            target.isBusy = true
+            if _G.metadata then _G.metadata.isBusy = true end
 
-          local function attempt_callback()
-            -- Check if busy (checks both local M and global _G)
-            if target.isBusy then --or (_G.metadata and _G.metadata.isBusy) then
-              if retries < max_retries then
-                retries = retries + 1
-                debounce_timer:start(1000, 0, vim.schedule_wrap(attempt_callback))
-                return
-              end
-              vim.misc.notify('PIO Control: Sync timed out (busy)', "error")
-              return
-            end
-
-            -- Final validation & run
-            local final_stat = uv.fs_stat(target.path)
-            if final_stat and final_stat.mtime.sec > last_mtime then
-              last_mtime = final_stat.mtime.sec
-              callback(target)
-            end
+            callback(target)
           end
-
-          debounce_timer:start(500, 0, vim.schedule_wrap(attempt_callback))
-        end
-      end)
-    end)
-
-    if not ok then
-      vim.schedule(function()
-        vim.misc.notify('PIO Control: Error; ' .. tostring(result), "error")
-      end)
+        end)
+      )
     end
+    -- Protected Execution
+    -- local ok, result = pcall(function()
+    --   local stat = uv.fs_stat(target.path)
+    --   if not stat or stat.mtime.sec <= last_mtime then return end
+    --
+    --   vim.schedule(function()
+    --     if debounce_timer then
+    --       debounce_timer:stop()
+    --       local retries = 0
+    --       local max_retries = 15 -- 15 seconds max wait
+    --
+    --       local function attempt_callback()
+    --         -- Check if busy (checks both local M and global _G)
+    --         if target.isBusy then --or (_G.metadata and _G.metadata.isBusy) then
+    --           if retries < max_retries then
+    --             retries = retries + 1
+    --             debounce_timer:start(1000, 0, vim.schedule_wrap(attempt_callback))
+    --             return
+    --           end
+    --           vim.misc.notify('PIO Control: Sync timed out (busy)', "error")
+    --           return
+    --         end
+    --
+    --         -- Final validation & run
+    --         local final_stat = uv.fs_stat(target.path)
+    --         if final_stat and final_stat.mtime.sec > last_mtime then
+    --           last_mtime = final_stat.mtime.sec
+    --           callback(target)
+    --         end
+    --       end
+    --
+    --       debounce_timer:start(500, 0, vim.schedule_wrap(attempt_callback))
+    --     end
+    --   end)
+    -- end)
+    --
+    -- if not ok then
+    --   vim.schedule(function()
+    --     vim.misc.notify('PIO Control: Error; ' .. tostring(result), "error")
+    --   end)
+    -- end
   end)
 
   table.insert(M.watcher_handles, handle)
@@ -191,7 +207,9 @@ end
 -------------------------------------------------------------------------------
 function M.start_watchers()
   -- Clean up any existing watchers first to prevent duplicates
-  if next(M.watcher_handles) then M.stop_watchers() end
+  if next(M.watcher_handles) then
+    M.stop_watchers()
+  end
 
   local project_root = vim.uv.cwd() -- Use dynamic CWD instead of hardcoded path
 
@@ -202,39 +220,51 @@ function M.start_watchers()
       last_hash = '',
       path = vim.misc.joinPath(project_root, 'platformio.ini'),
       cb = function(self)
-        if self.isBusy then return end
-        _G.metadata.isBusy = true
-        self.isBusy = true
+        -- if self.isBusy then
+        --   return
+        -- end
+        -- _G.metadata.isBusy = true
+        -- self.isBusy = true
         -- if _G.metadata.isBusy then return end
+
+        -- If no real change, unlock immediately and exit
         local new_hash = get_hash(self.path) or ''
-        if new_hash and new_hash ~= self.last_hash then
-          self.last_hash = new_hash
-          local env = vim.pio.get_active__env('PIO platformio.ini change: ')
-          if not env then
-            self.isBusy = false
-            _G.metadata.isBusy = false
-            return
-          end
-          vim.misc.notify('PIO platformio.ini change: compiledb update ...', "info")
-          vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
-            vim.schedule(function()
-              if obj.code == 0 then
-                -- vim.schedule(function ()
-                  M.pio_refresh(function()
-                    vim.clangd.getUnknownArgs()
-                    vim.misc.notify('PIO platformio.ini change: compiledb update Success', "info")
-                    -- clangdRestart()
-                  end, 'PIO platformio.ini  change: ')
-                -- end)
-              else
-                local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
-                vim.misc.notify('PIO platformio.ini change: Build Failed: ' .. err, "error")
-              end
-              self.isBusy = false
-              _G.metadata.isBusy = false
-            end)
-          end)
+        if new_hash == self.last_hash then
+          self.isBusy = false
+          if _G.metadata then _G.metadata.isBusy = false end
+          return
         end
+
+        self.last_hash = new_hash
+        local env = vim.pio.get_active__env('PIO platformio.ini change: ')
+
+        if not env then
+          self.isBusy = false
+          if _G.metadata then _G.metadata.isBusy = false end
+          return
+        end
+
+        vim.misc.notify('PIO platformio.ini change: compiledb update ...', 'info')
+        vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
+          vim.schedule(function()
+            if obj.code == 0 then
+              -- vim.schedule(function ()
+              M.pio_refresh(function()
+                vim.clangd.getUnknownArgs()
+                vim.misc.notify('PIO platformio.ini change: compiledb update Success', 'info')
+                self.isBusy = false
+                if _G.metadata then _G.metadata.isBusy = false end
+                -- clangdRestart()
+              end, 'PIO platformio.ini  change: ')
+              -- end)
+            else
+              local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
+              vim.misc.notify('PIO platformio.ini change: Build Failed: ' .. err, 'error')
+              self.isBusy = false
+              if _G.metadata then _G.metadata.isBusy = false end
+            end
+          end)
+        end)
       end,
     },
     { -- watcher for ./.pio/build/projct.checksum
@@ -242,30 +272,32 @@ function M.start_watchers()
       isBusy = false,
       path = vim.misc.joinPath(project_root, '.pio', 'build', 'project.checksum'), --checksum_path
       cb = function(self)
-        if self.isBusy then return end
-        _G.metadata.isBusy = true
-        self.isBusy = true
+        -- if self.isBusy then
+        --   return
+        -- end
+        -- _G.metadata.isBusy = true
+        -- self.isBusy = true
         -- if _G.metadata.isBusy then return end
         local ok, current_checksum = vim.misc.readFile(self.path)
         -- Check if we should exit early
         if ok and type(current_checksum) == 'string' and current_checksum ~= '' then
           if current_checksum == _G.metadata.last_projectChecksum then
             self.isBusy = false
-            _G.metadata.isBusy = false
+            if _G.metadata then _G.metadata.isBusy = false end
             return
           end
           -- vim.defer_fn(function ()
-          vim.schedule(function ()
+          vim.schedule(function()
             M.pio_refresh(function()
               self.isBusy = false
-              _G.metadata.isBusy = false
-              vim.misc.notify('PIO checksum: Metadata synced', "info")
+              if _G.metadata then _G.metadata.isBusy = false end
+              vim.misc.notify('PIO checksum: Metadata synced', 'info')
               clangdRestart()
             end, 'PIO checksum: ')
           end)
           -- end, 500)
         end
-      end
+      end,
     },
   }
 
