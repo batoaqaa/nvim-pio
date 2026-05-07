@@ -8,56 +8,58 @@ local home = os.getenv('HOME') or os.getenv('USERPROFILE')
 local pio_dir = home .. '/.platformio'
 local python_dir = pio_dir .. '/python3'
 local python_exe = is_win and (python_dir .. '/python.exe') or (python_dir .. '/bin/python3')
-
 -- Verified Stable PlatformIO Portable Python URLs
 local python_url = is_win and 'https://platformio.org' or 'https://platformio.org'
-
-local pio_script_url = 'https://githubusercontent.com'
+local pio_script_url = 'https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py'
 
 function M.get_bin_dir()
   return is_win and (pio_dir .. '/penv/Scripts') or (pio_dir .. '/penv/bin')
 end
 
 function M.install()
-  -- Ensure the base directory exists
+  -- Step 0: Pre-cleanup (Ensures no half-downloaded files cause the 'Unrecognized archive' error)
+  if vim.fn.isdirectory(python_dir) == 1 then
+    vim.fn.delete(python_dir, 'rf')
+  end
   vim.fn.mkdir(python_dir, 'p')
 
-  -- Temporary files for the process
   local archive = is_win and 'python_tmp.zip' or 'python_tmp.tar.gz'
   local rm_cmd = is_win and 'del' or 'rm'
 
-  -- Command Chain (Robust Version)
-  -- 1. Download Python (using -f to fail if 404, -L to follow redirects)
-  -- 2. Extract Python (using -xf which works for .zip and .tar.gz)
-  -- 3. Run PIO installer script using the new Portable Python
+  -- Step-by-step commands to ensure reliability
   local commands = {
+    -- 1. Download to disk (prevents pipe corruption)
+    -- -f fails if URL is bad; -A prevents bot-blocking
     string.format('curl -f -L -A "Mozilla/5.0" %s -o %s', python_url, archive),
+    -- 2. Extract from disk (native Windows tar handles .zip better)
     string.format('tar -xf %s -C %s --strip-components=1', archive, python_dir),
+    -- 3. Cleanup archive
     string.format('%s %s', rm_cmd, archive),
+    -- 4. Run PIO installer script
     string.format("%s -c \"import urllib.request; urllib.request.urlretrieve('%s', 'get-platformio.py')\"", python_exe, pio_script_url),
     string.format('%s get-platformio.py', python_exe),
     string.format('%s get-platformio.py', rm_cmd),
   }
 
   local full_command = table.concat(commands, ' && ')
-  local shell = is_win and { 'cmd', '/c', full_command } or { 'sh', '-c', full_command }
+  local shell_cmd = is_win and { 'cmd', '/c', full_command } or { 'sh', '-c', full_command }
 
-  -- Create UI for output
   vim.cmd('split')
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_current_buf(buf)
   vim.api.nvim_buf_set_name(buf, 'PlatformIO Setup')
 
-  vim.fn.jobstart(shell, {
+  vim.fn.jobstart(shell_cmd, {
     term = true,
     on_exit = function(_, code)
       if code == 0 then
         vim.notify('✅ PlatformIO installed successfully!', vim.log.levels.INFO)
       else
-        vim.notify('❌ Installation failed. Check terminal for error.', vim.log.levels.ERROR)
+        vim.notify('❌ Installation failed. Check internet or manual download at ' .. python_url, vim.log.levels.ERROR)
       end
     end,
   })
+
   vim.cmd('startinsert')
 end
 
