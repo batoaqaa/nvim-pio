@@ -9,8 +9,8 @@
 -- stylua: ignore
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
-vim.api.nvim_create_user_command('PioInstall', function()
-    require('pio.installer').install()
+vim.api.nvim_create_user_command('Pioinstall', function()
+    require('nvimpio.pio.installer').install()
 end, { desc = "Install PlatformIO Core" })
 
 -- Example Keymap (Optional: Plugin authors usually let users define this)
