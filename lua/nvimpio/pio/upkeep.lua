@@ -402,9 +402,9 @@ function M.fetch_metadata(callback, env, from, attempts)
     if idok and (type(content) == 'string' and content ~= '') then
       local cok, decoded = pcall(vim.json.decode, content)
 
-      local formated = vim.misc.jsonFormat(decoded)
-      local file = vim.misc.joinPath(vim.uv.cwd(), 'idedata.json')
-      vim.misc.writeFile(file, formated, {})
+      -- local formated = vim.misc.jsonFormat(decoded)
+      -- local file = vim.misc.joinPath(vim.uv.cwd(), 'idedata.json')
+      -- vim.misc.writeFile(file, formated, {})
 
       if cok and apply_metadata(decoded, current_checksum) then
         local metadata = require('nvimpio.pio.metadata')
@@ -482,9 +482,9 @@ function M.fetch_config(on_done, from)
         return vim.misc.notify(msg .. 'Failed to decode config JSON', "error")
       end
 
-      local formated = vim.misc.jsonFormat(decoded)
-      local file = vim.misc.joinPath(vim.uv.cwd(), 'config.json')
-      vim.misc.writeFile(file, formated, {})
+      -- local formated = vim.misc.jsonFormat(decoded)
+      -- local file = vim.misc.joinPath(vim.uv.cwd(), 'config.json')
+      -- vim.misc.writeFile(file, formated, {})
 
       -- Reset core structure
       meta.envs = {}

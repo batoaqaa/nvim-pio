@@ -97,59 +97,6 @@ vim.lsp.config('*', {
   workspace_required = false,
 })
 
-----------------------------------------------------------------------------------------
--- INFO: configure clangd lsp server
------------------------------------------------------------------------------------------
---stylua: ignore
-function _G.getClangdConfig()
-  local new_root_dir = vim.uv.cwd() or '.'
-  if not new_root_dir then
-    return
-  end
-
-  -- 1. Safe defaults (Standard clangd behavior)
-  local q_driver, merged_json = '**', ''
-  -- local f_flags = [["-std=c++17", "-xc++"]]
-
-  -- 2. Run your toolchain detection
-  if _G.metadata and _G.metadata.cc_compiler and _G.metadata.cc_compiler ~= '' then
-    if _G.metadata.triplet and _G.metadata.triplet ~= '' then
-      -- local include_flags = table.concat(vim.tbl_map(function(item)
-      --   return '"' .. item .. '"'
-      -- end, _G.metadata.fallbackFlags), ", ")
-
-      -- local includes_toolchain = table.concat(vim.tbl_map(function(item)
-      --   return '"' .. item .. '"'
-      -- end, _G.metadata.includes_toolchain), ", ")
-
-      -- f_flags = string.format([["-std=gnu++17", "-xc++", "-D__cplusplus=201703L", "--target=%s", "--sysroot=%s", %s, %s]], _G.metadata.triplet, _G.metadata.sysroot, includes_toolchain, include_flags)
-
-      q_driver = _G.metadata.query_driver --.. ',C:/PROGRA~1/LLVM/bin/*'          -- use with "--query-driver=%s"
-    end
-  end
-
-  -- 3. Format your template string
-  local json_config = boilerplate_gen([[.clangd_config.json]], vim.g.platformioRootDir)
-  if not json_config then
-    return nil
-  end
-
-  local _, count = json_config:gsub('%%s', '')
-  -- Only use string.format if there is one or less %s
-  if count <= 1 then merged_json = string.format(json_config or '', q_driver) end
-  -- local formatted_str = string.format(table_config or '', q_driver, f_flags, vim.misc.normalizePath(new_root_dir))
-
-  -- 'decode' converts JSON string -> Lua table
-  local tok, clangd_config = pcall(vim.json.decode, merged_json)
-
-  if not tok then return nil end
-
-  if clangd_config then
-    -- print(vim.inspect(clangd_config))
-    return clangd_config
-  end
-end
-
 -- Apply and Enable
 vim.lsp.config('clangd', _G.getClangdConfig())
 vim.lsp.enable('clangd')
