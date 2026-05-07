@@ -33,7 +33,7 @@ vim.api.nvim_create_user_command('PioTermList',
 --INFO: fix paths in compile_commands.json
 ------------------------------------------------------
 vim.api.nvim_create_user_command('Piofixpaths', function()
-  vim.pio.compile_commandsFix()
+  require('nvimpio.pio.upkeep').compile_commandsFix()
 end, {})
 
 ------------------------------------------------------
@@ -43,7 +43,7 @@ local piolsserial = require('nvimpio.pio.ui.piolsserial')
 ------------------------------------------------------
 vim.api.nvim_create_user_command('Piorun', function(opts)
   local args = opts.args
-  require('nvimpio.commands').piorun({ args })
+  require('nvimpio.pio.cli').piorun({ args })
 end, {
   nargs = '?',
   complete = function(_, _, _)
@@ -55,7 +55,7 @@ end, {
 -- piolsserial.sync_ttylist()
 vim.api.nvim_create_user_command('Piomon', function(opts)
   local args = opts.fargs
-  require('nvimpio.commands').piomon(args)
+  require('nvimpio.pio.cli').piomon(args)
 end, {
   nargs = '*',
 
@@ -92,7 +92,7 @@ end, {
 --INFO: Piocmdh    Piocmd horizontal terminal
 vim.api.nvim_create_user_command('Piocmdh', function(opts)
   local cmd_table = vim.split(opts.args, ' ')
-  require('nvimpio.commands').piocmd(cmd_table, 'horizontal')
+  require('nvimpio.pio.cli').piocmd(cmd_table, 'horizontal')
 end, {
   nargs = '*',
 })
@@ -100,12 +100,12 @@ end, {
 --INFO: Piocmdf    Piocmd float terminal
 vim.api.nvim_create_user_command('Piocmdf', function(opts)
   local cmd_table = vim.split(opts.args, ' ')
-  require('nvimpio.commands').piocmd(cmd_table, 'float')
+  require('nvimpio.pio.cli').piocmd(cmd_table, 'float')
 end, {
   nargs = '*',
 })
 
 --INFO: Piodebug
 vim.api.nvim_create_user_command('Piodebug', function()
-  require('nvimpio.commands').piodebug()
+  require('nvimpio.pio.cli').piodebug()
 end, {})

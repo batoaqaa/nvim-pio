@@ -284,7 +284,6 @@ function M.init(lspClangd)
   vim.misc.notify('PIO Control: initialize', "info")
 
   require('nvimpio.pio.metadata') --.load_project_config()
-  require('nvimpio.pio.commands')
   require('nvimpio.pio.installer')
 
   -- Always start the watcher so it can catch a future 'pio init'
