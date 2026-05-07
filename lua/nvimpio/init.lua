@@ -239,14 +239,14 @@ function M.setup(opts)
 
   M.piomenu(M.config)
 
-  if M.config.notify_on_missing then
+  if M.config.pio.notify_on_missing then
     if vim.fn.executable('pio') == 0 then
       vim.notify('PlatformIO core not found. Run :PioInstall to set it up.', vim.log.levels.WARN, { title = 'PlatformIO Plugin' })
     end
   end
 
   local installer = require('nvimpio.pio.installer')
-  if M.config.auto_update_path then
+  if M.config.pio.auto_update_path then
     local pio_bin = installer.get_pio_bin_dir()
 
     if vim.fn.isdirectory(pio_bin) == 1 then
