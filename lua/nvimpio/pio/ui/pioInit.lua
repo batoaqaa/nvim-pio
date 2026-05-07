@@ -44,7 +44,7 @@ end
 local function finalize_setup()
   -- local pio = require('nvimpio.pio.upkeep')
 
-  local sample_flag = wizard_data.sample == 'Yes' and ' --sample-code' or ''
+  local sample_flag = '' --wizard_data.sample == 'Yes' and ' --sample-code' or ''
   local init_cmd = string.format('pio project init --board %s -O "framework=%s"%s', wizard_data.board_id, wizard_data.framework, sample_flag)
 
   -- local db_cmd = string.format('pio run -t compiledb -e %s', wizard_data.board_id)
@@ -85,7 +85,8 @@ end
 local function pick_framework(board_details)
   small_menu('Select Framework', board_details.frameworks, function(choice)
     wizard_data.framework = choice
-    pick_sample()
+    -- pick_sample()
+    finalize_setup()
   end)
 end
 
