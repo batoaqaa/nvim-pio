@@ -55,7 +55,7 @@ end, {
 -- piolsserial.sync_ttylist()
 vim.api.nvim_create_user_command('Piomon', function(opts)
   local args = opts.fargs
-  require('nvimpio.pioCommands').piomon(args)
+  require('nvimpio.commands').piomon(args)
 end, {
   nargs = '*',
 
@@ -92,7 +92,7 @@ end, {
 --INFO: Piocmdh    Piocmd horizontal terminal
 vim.api.nvim_create_user_command('Piocmdh', function(opts)
   local cmd_table = vim.split(opts.args, ' ')
-  require('nvimpio.pioCommands').piocmd(cmd_table, 'horizontal')
+  require('nvimpio.commands').piocmd(cmd_table, 'horizontal')
 end, {
   nargs = '*',
 })
@@ -100,12 +100,12 @@ end, {
 --INFO: Piocmdf    Piocmd float terminal
 vim.api.nvim_create_user_command('Piocmdf', function(opts)
   local cmd_table = vim.split(opts.args, ' ')
-  require('nvimpio.pioCommands').piocmd(cmd_table, 'float')
+  require('nvimpio.commands').piocmd(cmd_table, 'float')
 end, {
   nargs = '*',
 })
 
 --INFO: Piodebug
 vim.api.nvim_create_user_command('Piodebug', function()
-  require('nvimpio.pioCommands').piodebug()
+  require('nvimpio.commands').piodebug()
 end, {})
