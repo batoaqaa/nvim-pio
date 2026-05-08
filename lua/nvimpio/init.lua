@@ -3,7 +3,6 @@ local M = {}
 M.config = {
   pio = {
     auto_update_path = true,
-    notify_on_missing = true,
   },
   clangd = {
     support = false,
@@ -234,25 +233,83 @@ function M.setup(opts)
 
   M.piomenu(M.config)
 
-  if M.config.pio.notify_on_missing then
-    vim.notify('Notify on missing', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
-    if vim.fn.executable('pio') == 1 then
-      vim.notify('✅ PlatformIO detected in PATH', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
-      local installer = require('nvimpio.pio.upkeep')
-      if M.config.pio.auto_update_path then
-        local pio_bin = installer.get_pio_bin_dir()
-        if vim.fn.isdirectory(pio_bin) == 1 then
-          local sep = vim.fn.has('win32') == 1 and ';' or ':'
-          vim.env.PATH = pio_bin .. sep .. vim.env.PATH
-        end
-      end
-    else
-      vim.notify('PlatformIO core not found. Run :PioInstall to set it up.', vim.log.levels.WARN, { title = 'nvim-pio Plugin' })
+  local function get_pio_bin_dir()
+    local is_win = vim.fn.has('win32') == 1
+    local bin_subfolder = is_win and 'penv/Scripts' or 'penv/bin'
+
+    local core_dir = os.getenv('PLATFORMIO_CORE_DIR')
+    local home = (os.getenv('HOME') or os.getenv('USERPROFILE') or '')
+    if not core_dir then
+      core_dir = vim.fs.joinpath(home, '.platformio')
     end
+    -- Normalize the path to handle mix of '/' and '\' on Windows
+    local pio_bin = vim.fs.joinpath(core_dir, bin_subfolder)
+    return pio_bin
   end
 
-  require('nvimpio.pio.control').init(M.config.clangd)
-  -- vim.misc.notify('nvimpio started', "info")
+  local function startPluginInternals()
+    vim.notify('PlatformIO installed', vim.log.levels.INFO)
+    if M.config.pio.auto_update_path then
+      local pio_bin = get_pio_bin_dir()
+      if vim.fn.isdirectory(pio_bin) == 1 then
+        local sep = vim.fn.has('win32') == 1 and ';' or ':'
+        vim.env.PATH = pio_bin .. sep .. vim.env.PATH
+      end
+    end
+    require('nvimpio.pio.control').init(M.config.clangd)
+  end
+
+  local function pioInstall()
+    -- 1. If missing, ask the user
+    local choice = vim.fn.confirm('PlatformIO not found. Install it now?', '&Yes\n&No', 2)
+    if choice ~= 1 then
+      vim.notify('Plugin load cancelled: PlatformIO Core required.', vim.log.levels.WARN)
+      return
+    end
+
+    -- 2. Create the Floating Terminal
+    local buf = vim.api.nvim_create_buf(false, true)
+    local win = vim.api.nvim_open_win(buf, true, {
+      relative = 'editor',
+      width = 80,
+      height = 20,
+      row = 10,
+      col = 10,
+      border = 'rounded',
+      title = ' Installer ',
+    })
+
+    local cmd =
+      "python -c \"import urllib.request; urllib.request.urlretrieve('https://githubusercontent.com', 'get-platformio.py')\" && python get-platformio.py"
+    vim.cmd.term(cmd)
+
+    -- 3. The Decision Point (Async)
+    vim.api.nvim_create_autocmd('TermClose', {
+      buffer = buf,
+      once = true,
+      callback = function()
+        local success = (vim.v.event.status == 0)
+        if success then
+          vim.api.nvim_win_close(win, true)
+          vim.notify('Installation success! Loading plugin...', vim.log.levels.INFO)
+
+          -- CONTINUE LOADING
+          startPluginInternals()
+        else
+          vim.notify('Installation failed. Plugin will not load.', vim.log.levels.ERROR)
+        end
+      end,
+    })
+  end
+
+  -- vim.notify('PlatformIO core not found. Run :PioInstall to set it up.', vim.log.levels.WARN, { title = 'nvim-pio Plugin' })
+  --
+  if vim.fn.executable('pio') == 1 then
+    vim.notify('✅ PlatformIO detected in PATH', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
+    startPluginInternals()
+  else
+    pioInstall()
+  end
 end
 
 return M

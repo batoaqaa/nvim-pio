@@ -9,7 +9,7 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 local term = require('nvimpio.utils.term')
 
 local is_win = vim.fn.has('win32') == 1
-local home = os.getenv('HOME') or os.getenv('USERPROFILE')
+local home = (os.getenv('HOME') or os.getenv('USERPROFILE') or ''):gsub('[\\/]+$', '')
 
 local core_dir = os.getenv('PLATFORMIO_CORE_DIR')
 -- stylua: ignore
@@ -375,7 +375,6 @@ end
 function M.fetch_config(on_done, from)
   local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
   local meta = _G.metadata
-  local home = (os.getenv('HOME') or os.getenv('USERPROFILE') or ''):gsub('[\\/]+$', '')
 
   local active_env
   vim.system({ 'pio', 'project', 'config', '--json-output' }, { text = true }, function(obj)
