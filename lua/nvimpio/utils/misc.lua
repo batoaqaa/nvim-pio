@@ -812,7 +812,7 @@ end
 
 local sep = vim.fn.has("win32") == 1 and "\\" or "/"
 
--- Helper: Write current table to .gitignore
+-- Helper: Write current table to .gitignore and notify
 function M.write_gitignore(lines)
   local path = vim.fn.getcwd() .. sep .. '.gitignore'
   local f = io.open(path, 'w')
@@ -825,6 +825,7 @@ function M.write_gitignore(lines)
   end)
 end
 
+-- Main function
 function M.manage_gitignore()
   local path = vim.fn.getcwd() .. sep .. '.gitignore'
   local ignored = {}
@@ -848,7 +849,7 @@ function M.manage_gitignore()
     ignored_lookup[norm] = true
   end
 
-  -- 3. Filter current directory files
+  -- 3. Filter current directory files using readdir (Main thread context)
   local ok, files = pcall(vim.fn.readdir, vim.fn.getcwd())
   if not ok then
     return
@@ -862,28 +863,38 @@ function M.manage_gitignore()
     end
   end
 
-  -- 4. Build UI Items (1-indexed for the user)
-  local items = { ' [1] ➡️ START BATCH ACTION (+add, -remove, manual)' }
+  -- 4. Build Persistent UI Items
+  local items = {
+    ' [1] ➡️  SUBMIT BATCH (+add, -remove, manual)',
+    ' [2] ❌ EXIT MANAGER',
+  }
+
+  -- Indexing for files NOT ignored
   for i, file in ipairs(not_ignored) do
     local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
-    table.insert(items, string.format(' [%d] %s%s', i + 1, icon, file))
+    table.insert(items, string.format(' [%d] %s%s', i + 2, icon, file))
   end
+
   table.insert(items, '--- Current Ignores ---')
+
+  -- Indexing for current ignores
   for i, pattern in ipairs(ignored) do
-    table.insert(items, string.format(' [%d] 🚫 %s', i + 1 + #not_ignored, pattern))
+    table.insert(items, string.format(' [%d] 🚫 %s', i + 2 + #not_ignored, pattern))
   end
 
   -- 5. Show Picker
-  vim.ui.select(items, { prompt = 'GitIgnore Manager (Type number & Enter):' }, function(choice)
-    if not choice or choice == '' then
+  vim.ui.select(items, { prompt = 'GitIgnore Manager (1 for Batch, 2 to Exit):' }, function(choice)
+    -- Exit logic
+    if not choice or choice:match('EXIT') then
       return
     end
 
-    -- DEFER: Prevents the input box from disappearing immediately on Windows/Native UI
+    -- Use defer to prevent UI collision
     vim.defer_fn(function()
-      vim.ui.input({ prompt = 'Batch (e.g. +2,3-10) or manual pattern: ' }, function(input)
+      vim.ui.input({ prompt = 'Batch (e.g. +3,4-12) or manual pattern: ' }, function(input)
         if not input or input == '' or input:lower() == 'q' then
-          return
+          -- Re-open menu if they just hit enter/escape on input
+          return M.manage_gitignore()
         end
 
         local found_batch = false
@@ -892,8 +903,7 @@ function M.manage_gitignore()
           found_batch = true
           for num in group:gmatch('%d+') do
             local n = tonumber(num)
-            -- Subtract 1 because item [1] is the instruction line
-            local idx = n - 1
+            local idx = n - 2 -- Adjust for the two instruction lines at top
 
             if action == '+' and not_ignored[idx] then
               local p = not_ignored[idx] .. (vim.fn.isdirectory(not_ignored[idx]) == 1 and '/' or '')
@@ -907,12 +917,12 @@ function M.manage_gitignore()
           end
         end
 
-        -- Manual Entry Fallback
+        -- Manual Entry Fallback (if no + or - found)
         if not found_batch then
           table.insert(ignored, input)
         end
 
-        -- Clean up deleted items and write
+        -- Cleanup placeholders and finalize
         local final_list = {}
         for _, val in ipairs(ignored) do
           if val ~= '__DELETE__' then
@@ -920,7 +930,11 @@ function M.manage_gitignore()
           end
         end
 
+        -- Write and RE-OPEN
         M.write_gitignore(final_list)
+        vim.defer_fn(function()
+          M.manage_gitignore()
+        end, 100)
       end)
     end, 50)
   end)
