@@ -651,11 +651,11 @@ function M.add_to_gitignore(patterns)
   end)
 end
 
--- stylua: ignore
+--- stylua: ignore
 local function manage_gitignore()
   local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
 
-  -- 1. Read .gitignore to see what's already there
+  -- 1. Read .gitignore in the background
   uv.fs_open(path, 'a+', 438, function(err, fd)
     if err or not fd then
       return
@@ -666,39 +666,42 @@ local function manage_gitignore()
       end
       local size = stat.size or 0
 
-      local function open_picker(current_content)
-        -- Get current ignored list
-        local ignored = vim.split(current_content:gsub('\r\n', '\n'), '\n', { trimempty = true })
+      local function process_and_show(current_content)
+        -- Schedule back to main thread to use vim.fn.readdir and vim.ui
+        vim.schedule(function()
+          local ignored = vim.split(current_content:gsub('\r\n', '\n'), '\n', { trimempty = true })
 
-        -- Get current files/folders in CWD
-        local scan = vim.fn.readdir(uv.cwd() or '.')
+          -- Fix E5560: readdir is now called on the main thread
+          local ok, scan = pcall(vim.fn.readdir, vim.fn.getcwd())
+          if not ok then
+            uv.fs_close(fd)
+            return
+          end
 
-        -- Build the menu items
-        local items = { '➕ [Manual Entry]' }
+          local items = { '➕ [Manual Entry]' }
 
-        -- Add files/folders that ARE NOT already ignored
-        for _, name in ipairs(scan) do
-          local exists = false
-          for _, pattern in ipairs(ignored) do
-            if pattern == name or pattern == (name .. '/') then
-              exists = true
-              break
+          -- Build list of files not yet ignored
+          for _, name in ipairs(scan) do
+            local exists = false
+            for _, pattern in ipairs(ignored) do
+              if pattern == name or pattern == (name .. '/') then
+                exists = true
+                break
+              end
+            end
+            if not exists then
+              table.insert(items, '📁 ' .. name)
             end
           end
-          if not exists then
-            table.insert(items, '📁 ' .. name)
-          end
-        end
 
-        -- Add currently ignored items (for viewing)
-        if #ignored > 0 then
-          table.insert(items, '--- Already Ignored ---')
-          for _, pattern in ipairs(ignored) do
-            table.insert(items, '🚫 ' .. pattern)
+          -- Show currently ignored items
+          if #ignored > 0 then
+            table.insert(items, '--- Already Ignored ---')
+            for _, pattern in ipairs(ignored) do
+              table.insert(items, '🚫 ' .. pattern)
+            end
           end
-        end
 
-        vim.schedule(function()
           vim.ui.select(items, {
             prompt = 'Select to ignore / View status:',
           }, function(choice)
@@ -713,9 +716,7 @@ local function manage_gitignore()
                 end
               end)
             else
-              -- Remove the icon (📁 ) and add to gitignore
               local pattern = choice:sub(5)
-              -- If it's a directory, add a trailing slash
               if vim.fn.isdirectory(pattern) == 1 then
                 pattern = pattern .. '/'
               end
@@ -723,19 +724,20 @@ local function manage_gitignore()
             end
           end)
         end)
+
+        -- Always close the file descriptor
         uv.fs_close(fd)
       end
 
       if size > 0 then
         uv.fs_read(fd, size, 0, function(_, data)
-          open_picker(data or '')
+          process_and_show(data or '')
         end)
       else
-        open_picker('')
+        process_and_show('')
       end
     end)
   end)
 end
-
 vim.api.nvim_create_user_command('GitIgnore', manage_gitignore, {})
 return M
