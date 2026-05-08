@@ -652,49 +652,92 @@ function M.add_to_gitignore(patterns)
 end
 
 -- stylua: ignore
-function M.manage_gitignore()
-  local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
+local function manage_gitignore()
+  local uv = vim.uv or vim.loop
+  local sep = vim.fn.has('win32') == 1 and '\\' or '/'
+  local path = vim.fn.getcwd() .. sep .. '.gitignore'
 
-  -- 1. Asynchronously read the file to populate the menu
+  -- 1. Read .gitignore to see what's already there
   uv.fs_open(path, 'a+', 438, function(err, fd)
-    if err or not fd then return end
+    if err or not fd then
+      return
+    end
     uv.fs_fstat(fd, function(ferr, stat)
-      if ferr or not stat then return end
+      if ferr or not stat then
+        return
+      end
       local size = stat.size or 0
 
-      -- Helper to handle the read result
-      local function show_menu(content)
-        -- Split content into a list of lines, removing empty ones
-        local lines = vim.split(content:gsub('\r\n', '\n'), '\n', { trimempty = true })
-        table.insert(lines, 1, '➕ [Add New Pattern]') -- Add entry for new items
+      local function open_picker(current_content)
+        -- Get current ignored list
+        local ignored = vim.split(current_content:gsub('\r\n', '\n'), '\n', { trimempty = true })
+
+        -- Get current files/folders in CWD
+        local scan = vim.fn.readdir(vim.fn.getcwd())
+
+        -- Build the menu items
+        local items = { '➕ [Manual Entry]' }
+
+        -- Add files/folders that ARE NOT already ignored
+        for _, name in ipairs(scan) do
+          local exists = false
+          for _, pattern in ipairs(ignored) do
+            if pattern == name or pattern == (name .. '/') then
+              exists = true
+              break
+            end
+          end
+          if not exists then
+            table.insert(items, '📁 ' .. name)
+          end
+        end
+
+        -- Add currently ignored items (for viewing)
+        if #ignored > 0 then
+          table.insert(items, '--- Already Ignored ---')
+          for _, pattern in ipairs(ignored) do
+            table.insert(items, '🚫 ' .. pattern)
+          end
+        end
 
         vim.schedule(function()
-          vim.ui.select(lines, {
-            prompt = 'GitIgnore Manager (Search/View):',
-            format_item = function(item)
-              return item
-            end,
+          vim.ui.select(items, {
+            prompt = 'Select to ignore / View status:',
           }, function(choice)
-            if not choice then return end
+            if not choice or choice:match('^---') or choice:match('^🚫') then
+              return
+            end
 
-            if choice == '➕ [Add New Pattern]' then
-              -- Call input to add a new pattern
-              -- Use your "long" add function here
-              vim.ui.input({ prompt = 'New ignore pattern: ' }, function(input) if input and input ~= '' then M.add_to_gitignore({ input }) end end)
-            -- Optional: Do something when an existing pattern is selected
-            else print('Selected: ' .. choice) end
+            if choice == '➕ [Manual Entry]' then
+              vim.ui.input({ prompt = 'Pattern: ' }, function(input)
+                if input and input ~= '' then
+                  add_to_gitignore({ input })
+                end
+              end)
+            else
+              -- Remove the icon (📁 ) and add to gitignore
+              local pattern = choice:sub(5)
+              -- If it's a directory, add a trailing slash
+              if vim.fn.isdirectory(pattern) == 1 then
+                pattern = pattern .. '/'
+              end
+              add_to_gitignore({ pattern })
+            end
           end)
         end)
         uv.fs_close(fd)
       end
 
-      if size > 0 then uv.fs_read(fd, size, 0, function(_, data) show_menu(data or '') end)
-      else show_menu('') end
+      if size > 0 then
+        uv.fs_read(fd, size, 0, function(_, data)
+          open_picker(data or '')
+        end)
+      else
+        open_picker('')
+      end
     end)
   end)
 end
 
--- Create a user command for easy access
-vim.api.nvim_create_user_command('GitIgnore', M.manage_gitignore, {})
-
+vim.api.nvim_create_user_command('GitIgnore', manage_gitignore, {})
 return M
