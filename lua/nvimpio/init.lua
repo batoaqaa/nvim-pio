@@ -249,20 +249,24 @@ function M.setup(opts)
 
   --- stylua: ignore
   local function pioCheck(on_complete)
-    -- if vim.fn.executable('pio') == 1 then
-    --   if on_complete then on_complete(true) end
-    --   vim.notify('✅ PlatformIO detected in PATH', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
-    --   return
-    -- end
-    --
-    -- -- 1. If missing, ask the user
-    -- local choice = vim.fn.confirm('PlatformIO not found. Install it now?', '&Yes\n&No', 2)
-    -- if choice ~= 1 then
-    --   if on_complete then on_complete(false) end
-    --   vim.notify('Plugin load cancelled: PlatformIO Core required.', vim.log.levels.WARN)
-    --   return
-    -- end
-    --
+    if vim.fn.executable('pio') == 1 then
+      if on_complete then
+        on_complete(true)
+      end
+      vim.notify('✅ PlatformIO detected in PATH', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
+      return
+    end
+
+    -- 1. If missing, ask the user
+    local choice = vim.fn.confirm('PlatformIO not found. Install it now?', '&Yes\n&No', 2)
+    if choice ~= 1 then
+      if on_complete then
+        on_complete(false)
+      end
+      vim.notify('Plugin load cancelled: PlatformIO Core required.', vim.log.levels.WARN)
+      return
+    end
+
     -- -- 2. Create the Floating Terminal
     -- local buf = vim.api.nvim_create_buf(false, true)
     -- local width = math.ceil(vim.o.columns * 0.7)
@@ -305,6 +309,7 @@ function M.setup(opts)
     -- Neovim doesn't have a 'native' permanent scrollbar, but we can enable line numbers
     -- or use a sign column to give visual depth.
     vim.api.nvim_set_option_value('number', true, { win = win })
+
     local cmd =
       "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py', 'get-platformio.py')\" && python get-platformio.py"
     -- "python -c \"import urllib.request; urllib.request.urlretrieve('https://githubusercontent.com', 'get-platformio.py')\" && python get-platformio.py"
