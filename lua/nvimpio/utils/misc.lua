@@ -671,7 +671,7 @@ local function manage_gitignore()
         local ignored = vim.split(current_content:gsub('\r\n', '\n'), '\n', { trimempty = true })
 
         -- Get current files/folders in CWD
-        local scan = vim.fn.readdir(vim.fn.getcwd())
+        local scan = vim.fn.readdir(uv.cwd() or '.')
 
         -- Build the menu items
         local items = { '➕ [Manual Entry]' }
