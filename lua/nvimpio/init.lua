@@ -235,6 +235,7 @@ function M.setup(opts)
   M.piomenu(M.config)
 
   if M.config.pio.notify_on_missing then
+    vim.notify('Notify on missing', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
     if vim.fn.executable('pio') == 1 then
       vim.notify('✅ PlatformIO detected in PATH', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
       local installer = require('nvimpio.pio.upkeep')
