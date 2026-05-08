@@ -236,7 +236,7 @@ function M.start_watchers()
         end
 
         self.last_hash = new_hash
-        local env = vim.pio.get_active__env('PIO platformio.ini change: ')
+        local env = vim.pio.get_active__env('PIO platformio.ini change:')
 
         if not env then
           self.isBusy = false

@@ -748,6 +748,8 @@ function M.handlePioinitDb(result, board)
       vim.misc.notify('PIO init+db:  pass ' .. commandPassed, "info")
       local active_env = M.get_active__env('PIO init+db: ')
       if not active_env or (active_env == board) then
+        boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
+        boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
         commandPassed = commandPassed + 1
         if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
       else
@@ -760,8 +762,6 @@ function M.handlePioinitDb(result, board)
       local pio_refresh = require('nvimpio.pio.control').pio_refresh
       pio_refresh(function()
         boilerplate.core_dir = _G.metadata.core_dir
-        boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
-        boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
         vim.misc.notify('PIO init+db:  pass ' .. commandPassed, "info")
         vim.misc.notify('PIO init+db: Done', "info")
         vim.misc.gitignore_lsp_configs('compile_commands.json')
