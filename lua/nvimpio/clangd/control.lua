@@ -7,7 +7,7 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
 --stylua: ignore
-function _G.getClangdConfig()
+function M.getClangdConfig()
   local new_root_dir = vim.uv.cwd() or '.'
   if not new_root_dir then return end
 
@@ -57,7 +57,7 @@ function M.restart()
   -- vim.schedule_wrap(function()
   vim.misc.notify('LSP: Clangd restart.', 'warn')
 
-  local clangConfig = _G.getClangdConfig()
+  local clangConfig = M.getClangdConfig()
   -- print(vim.inspect(clangConfig))
   vim.lsp.config(name, clangConfig)
   vim.lsp.enable(name, false)
@@ -137,7 +137,7 @@ function M.getUnknownArgs()
       boilerplate_gen('.clangd', vim.g.platformioRootDir)
 
       M.restart()
-      print('✅ Done: Extracted ' .. #args_table .. ' flags.')
+      vim.misc.notify('Clangd: ✅Extracted ' .. #args_table .. ' flags.')
     end)
   end)
 end

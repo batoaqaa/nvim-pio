@@ -3,74 +3,6 @@ local M = {}
 -------------------------------------------------------------------------------------------------------
 local last_saved_hash = ''
 
--- local function remove_nearby_front(target_path)
---   local start_time = vim.loop.hrtime()
---   local sep = vim.fn.has('win32') == 1 and ';' or ':'
---   local path = vim.env.PATH
---
---   -- Escape special characters in the path for Lua pattern matching
---   local escaped_target = vim.pesc(target_path)
---
---   -- Pattern logic:
---   -- 1. ^(.-)      -> Capture any characters at the very start (up to our target)
---   -- 2. sep?       -> Match an optional separator before the target
---   -- 3. target     -> Match your specific path
---   -- 4. sep?       -> Match an optional separator after the target
---   -- 5. (.*)$      -> Capture everything else until the end
---   local pattern = '^(.-)' .. sep .. '?' .. escaped_target .. sep .. '?' .. '(.*)$'
---
---   local prefix, suffix = path:match(pattern)
---
---   -- If we found it, verify it was near the front (e.g., within 3 separators)
---   if prefix and suffix then
---     local _, sep_count = prefix:gsub(sep, '')
---     if sep_count < 3 then
---       -- Reconstruct the path, ensuring we don't double-up separators
---       local new_path = prefix .. (prefix ~= '' and suffix ~= '' and sep or '') .. suffix
---       vim.env.PATH = new_path
---       local end_time = vim.loop.hrtime()
---       local duration = (end_time - start_time) / 1e6
---       vim.misc.notify(string.format('compiledb: paths fixed in %.2fms', duration), "info")
---       return true
---     end
---   end
---   return false
--- end
-
--- function M.updateDefaultEnv()
---   local pio_ini = vim.fn.getcwd() .. '/platformio.ini'
---   local active_env = _G.metadata.active_env
---
---   if not active_env or active_env == '' then
---     vim.misc.notify('No active_env found in metadata', "warn")
---     return
---   end
---
---   if vim.fn.filereadable(pio_ini) == 0 then
---     vim.misc.notify('platformio.ini not found', "error")
---     return
---   end
---
---   local lines = vim.fn.readfile(pio_ini)
---   local updated = false
---
---   for i, line in ipairs(lines) do
---     -- Matches 'default_envs =' with any amount of whitespace
---     if line:match('^%s*default_envs%s*=') then
---       lines[i] = 'default_envs = ' .. active_env
---       updated = true
---       break
---     end
---   end
---
---   if updated then
---     vim.fn.writefile(lines, pio_ini)
---     print('✅ platformio.ini updated: default_envs = ' .. active_env)
---   else
---     vim.misc.notify("Could not find 'default_envs =' line in platformio.ini", "warn")
---   end
--- end
-
 --INFO:
 -- stylua: ignore
 -------------------------------------------------------------------------------
@@ -142,12 +74,12 @@ _G.metadata = setmetatable({}, {
         removeFromPath(oldPath)
         local end_time = vim.loop.hrtime()
         local duration = (end_time - start_time) / 1e6
-        vim.misc.notify(string.format('PIO env: ' .. oldPath .. ' removed from path in %.2fms', duration), "info")
+        vim.misc.notify(string.format('PIO env: ' .. oldPath .. ' removed from path in %.2fms', duration), 'info')
 
         vim.env.PATH = binPath .. sep .. vim.env.PATH
         -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
 
-        vim.misc.notify('PIO env: ' .. binPath .. ' added to path', "info")
+        vim.misc.notify('PIO env: ' .. binPath .. ' added to path', 'info')
       elseif key == 'last_projectChecksum' then
         -- elseif key == 'active_env' then
         --   _pio_metadata['isBusy'] = true
@@ -182,9 +114,9 @@ function M.save_project_config(from)
 
     if status then
       last_saved_hash = current_hash
-      vim.misc.notify(from .. 'config save success', "info")
+      vim.misc.notify(from .. 'config save success', 'info')
     else
-      vim.misc.notify(from .. 'config save failed==> ' .. (err or 'unknown error'), "error")
+      vim.misc.notify(from .. 'config save failed==> ' .. (err or 'unknown error'), 'error')
     end
   end
 end

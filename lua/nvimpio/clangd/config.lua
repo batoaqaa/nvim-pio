@@ -98,8 +98,11 @@ vim.lsp.config('*', {
 })
 
 -- Apply and Enable
-vim.lsp.config('clangd', _G.getClangdConfig())
-vim.lsp.enable('clangd')
+local getClangdConfig = require('nvimpio.clangd.control').getClangdConfig()
+if getClangdConfig then
+  vim.lsp.config('clangd', getClangdConfig())
+  vim.lsp.enable('clangd')
+end
 
 ----------------------------------------------------------------------------------------
 -- INFO: configure jsonls lsp server
