@@ -324,6 +324,16 @@ function M.setup(opts)
           vim.notify('🚫 Installation failed! Review the logs above, then press :q to close.', vim.log.levels.ERROR)
         end
 
+        os.remove('get-platformio.py')
+        -- 2. Find and remove random temp folders like .piocore-installer-xxxx
+        -- vim.fn.glob returns a list of files/folders matching the pattern
+        local temp_patterns = { ".piocore-installer-*", "platformio-core-installer-*" }
+        for _, pattern in ipairs(temp_patterns) do
+          local matches = vim.fn.glob(pattern, true, true)
+          for _, path in ipairs(matches) do
+            if vim.fn.isdirectory(path) == 1 then vim.fn.delete(path, "rf") end
+          end
+        end
         if on_complete then
           on_complete(success)
         end
@@ -337,11 +347,11 @@ function M.setup(opts)
   vim.api.nvim_create_user_command('Pioinit', function()
     pioCheck(function(success)
       if success then
-  vim.g.platformioRootDir = vim.fn.getcwd()
+        vim.g.platformioRootDir = vim.fn.getcwd()
 
-  vim.pio = require('nvimpio.pio.upkeep')
-  vim.misc = require('nvimpio.utils.misc')
-  vim.clangd = require('nvimpio.clangd.control')
+        vim.pio = require('nvimpio.pio.upkeep')
+        vim.misc = require('nvimpio.utils.misc')
+        vim.clangd = require('nvimpio.clangd.control')
         require('nvimpio.pio.ui.pioInit').pioInit()
       end
     end)
@@ -354,11 +364,11 @@ function M.setup(opts)
   local function startPluginInternals(success)
     local sep = vim.fn.has('win32') == 1 and ';' or ':'
     if success then
-  vim.g.platformioRootDir = vim.fn.getcwd()
+      vim.g.platformioRootDir = vim.fn.getcwd()
 
-  vim.pio = require('nvimpio.pio.upkeep')
-  vim.misc = require('nvimpio.utils.misc')
-  vim.clangd = require('nvimpio.clangd.control')
+      vim.pio = require('nvimpio.pio.upkeep')
+      vim.misc = require('nvimpio.utils.misc')
+      vim.clangd = require('nvimpio.clangd.control')
       if M.config.pio.auto_update_path then
         local pio_bin = get_pio_bin_dir()
         if vim.fn.isdirectory(pio_bin) == 1 then vim.env.PATH = pio_bin .. sep .. vim.env.PATH end
