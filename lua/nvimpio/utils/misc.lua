@@ -568,163 +568,73 @@ function M.gitignore_lsp_configs(config_file)
   end
 end
 
--- HELPER: Detect Path Separator
+local sep = vim.fn.has('win32') == 1 and '\\' or '/'
 
--- FUNCTION: Add pattern to .gitignore (No Duplicates)
--- stylua: ignore
-function M.add_to_gitignore(patterns)
-  if not patterns then
-    return
+function M.write_gitignore(lines)
+  local path = vim.fn.getcwd() .. sep .. '.gitignore'
+  local f = io.open(path, 'w')
+  if f then
+    f:write(table.concat(lines, '\n') .. '\n')
+    f:close()
   end
-  local patterns_list = type(patterns) == 'string' and { patterns } or patterns
-  local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
-
-  uv.fs_open(path, 'a+', 438, function(err, fd)
-    if err or not fd then return end
-    uv.fs_fstat(fd, function(ferr, stat)
-      if ferr or not stat then return end
-      local size = stat.size or 0
-      uv.fs_read(fd, size, 0, function(_, data)
-        local content = (data or ''):gsub('\r\n', '\n')
-        local to_add = ''
-        for _, p in ipairs(patterns_list) do
-          local esc = p:gsub('[%^%$%(%)%%%.%[%]%*%+%-%?]', '%%%1')
-          if not content:find('[\n^]' .. esc .. '[\n$]') then
-            to_add = to_add .. (#content + #to_add > 0 and content:sub(-1) ~= '\n' and '\n' or '') .. p .. '\n'
-          end
-        end
-        if to_add ~= '' then uv.fs_write(fd, to_add, -1) end
-        uv.fs_close(fd)
-      end)
-    end)
+  vim.schedule(function()
+    vim.notify('Gitignore updated')
   end)
 end
 
--- FUNCTION: Remove pattern from .gitignore
--- stylua: ignore
-function M.remove_from_gitignore(pattern)
-  local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
-
-  uv.fs_open(path, 'r+', 438, function(err, fd)
-    if err or not fd then return end
-    uv.fs_fstat(fd, function(ferr, stat)
-      if ferr or not stat then return end
-      uv.fs_read(fd, stat.size or 0, 0, function(_, data)
-        local lines = vim.split((data or ''):gsub('\r\n', '\n'), '\n', { trimempty = true })
-        local new_lines = {}
-        for _, line in ipairs(lines) do
-          if line ~= pattern then table.insert(new_lines, line) end
-        end
-        local new_content = table.concat(new_lines, '\n') .. (#new_lines > 0 and '\n' or '')
-        uv.fs_ftruncate(fd, 0, function()
-          uv.fs_write(fd, new_content, 0, function()
-            uv.fs_close(fd)
-            vim.schedule(function()
-              print('➖ Removed: ' .. pattern)
-            end)
-          end)
-        end)
-      end)
-    end)
-  end)
-end
-
--- MAIN: Manage GitIgnore with Bulk Selection
--- stylua: ignore
 function M.manage_gitignore()
-  local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
+  local path = vim.fn.getcwd() .. sep .. '.gitignore'
+  local ignored = {}
+  local f = io.open(path, 'r')
+  if f then
+    for line in f:lines() do
+      if line ~= '' then
+        table.insert(ignored, line)
+      end
+    end
+    f:close()
+  end
 
-  uv.fs_open(path, 'a+', 438, function(err, fd)
-    if err or not fd then return end
-    uv.fs_fstat(fd, function(ferr, stat)
-      if ferr or not stat then return end
-      uv.fs_read(fd, stat.size or 0, 0, function(_, data)
-        local current_raw = data or ''
-        uv.fs_close(fd) -- Close early, we have the data
+  local files = vim.fn.readdir(vim.fn.getcwd())
+  local items = { '[+] Add / [-] Remove (e.g. +1,2 -5)' }
 
-        vim.schedule(function()
-          local ignored = vim.split(current_raw:gsub('\r\n', '\n'), '\n', { trimempty = true })
-          local ok, scan = pcall(vim.fn.readdir, vim.fn.getcwd())
-          if not ok then return end
+  -- Build the visual list
+  for i, f in ipairs(files) do
+    local icon = vim.fn.isdirectory(f) == 1 and '📁 ' or '📄 '
+    table.insert(items, string.format('%d: %s%s', i, icon, f))
+  end
+  table.insert(items, '--- Current Ignores ---')
+  for i, f in ipairs(ignored) do
+    table.insert(items, string.format('%d: 🚫 %s', i + #files, f))
+  end
 
-          local items = { '➕ [Manual Entry]', '🔢 [Bulk Select: e.g. +1,2 or -4,5]' }
-          local selectable_files = {}
+  vim.ui.select(items, { prompt = 'GitIgnore Manager:' }, function(choice)
+    if not choice then
+      return
+    end
+    vim.ui.input({ prompt = 'Action (+add, -remove, or manual): ' }, function(input)
+      if not input or input == '' then
+        return
+      end
 
-          -- Build list of items NOT currently ignored
-          for _, name in ipairs(scan) do
-            local exists = false
-            for _, pattern in ipairs(ignored) do
-              if pattern == name or pattern == (name .. '/') then
-                exists = true
-                break
-              end
-            end
-            if not exists then table.insert(selectable_files, name) end
+      local action = input:sub(1, 1)
+      if action ~= '+' and action ~= '-' then
+        table.insert(ignored, input) -- Manual entry
+      else
+        for num in input:gmatch('%d+') do
+          local n = tonumber(num)
+          if action == '+' and files[n] then
+            local p = files[n] .. (vim.fn.isdirectory(files[n]) == 1 and '/' or '')
+            table.insert(ignored, p)
+          elseif action == '-' and ignored[n - #files] then
+            table.remove(ignored, n - #files)
           end
-
-          -- Add files with indices to the menu
-          for i, name in ipairs(selectable_files) do
-            local icon = vim.fn.isdirectory(name) == 1 and '📁 ' or '📄 '
-            table.insert(items, string.format('[%d] %s%s', i, icon, name))
-          end
-
-          -- Add ignored items with indices
-          if #ignored > 0 then
-            table.insert(items, '--- Currently Ignored (Selection to Remove) ---')
-            for i, pattern in ipairs(ignored) do
-              table.insert(items, string.format('[%d] 🚫 %s', i + #selectable_files, pattern))
-            end
-          end
-
-          vim.ui.select(items, { prompt = 'GitIgnore (Bulk Select: +add / -remove):' }, function(choice)
-            if not choice or choice:match('^---') then return end
-
-            local function bulk_process(input)
-              local action = input:sub(1, 1) -- "+" or "-"
-              local nums = {}
-              for n in input:gmatch('%d+') do table.insert(nums, tonumber(n)) end
-
-              for _, n in ipairs(nums) do
-                if action == '+' and selectable_files[n] then
-                  local p = selectable_files[n]
-                  if vim.fn.isdirectory(p) == 1 then p = p .. '/' end
-                  M.add_to_gitignore(p)
-                elseif action == '-' then
-                  local idx = n - #selectable_files
-                  if ignored[idx] then M.remove_from_gitignore(ignored[idx]) end
-                end
-              end
-            end
-
-            if choice:match('^🔢') then
-              vim.ui.input({ prompt = 'Batch Action (+/- followed by numbers): ' }, function(input)
-                if input then bulk_process(input) end
-              end)
-            elseif choice:match('^➕') then
-              vim.ui.input({ prompt = 'Manual Pattern: ' }, function(input)
-                if input then M.add_to_gitignore(input) end
-              end)
-            else
-              -- Single selection fallback
-              local num = choice:match('%[(%d+)%]')
-              if num then
-                local n = tonumber(num)
-                if n <= #selectable_files then
-                  local p = selectable_files[n]
-                  if vim.fn.isdirectory(p) == 1 then p = p .. '/' end
-                  M.add_to_gitignore(p)
-                else
-                  M.remove_from_gitignore(ignored[n - #selectable_files])
-                end
-              end
-            end
-          end)
-        end)
-      end)
+        end
+      end
+      M.write_gitignore(ignored)
     end)
   end)
 end
-
 
 
 
