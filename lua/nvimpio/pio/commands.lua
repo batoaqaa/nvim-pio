@@ -10,13 +10,21 @@
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
 vim.api.nvim_create_user_command('PioInstall', function()
-    require('nvimpio.pio.installer').install()
+    require('nvimpio.pio.ui.pioInstall').pioInstall()
 end, { desc = "Install PlatformIO Core" })
 
 -- stylua: ignore
 -- INFO: manage gitignore
 ------------------------------------------------------
-vim.api.nvim_create_user_command('GitIgnore', vim.misc.manage_gitignore, {})
+vim.api.nvim_create_user_command('Pioinit',
+  function()
+    require('nvimpio.pio.ui.pioGitIgnore').pioGitIgnore()
+  end,
+  {
+    force = true,
+    desc = 'add/remove files/folder to/from gitignore'
+  }
+)
 
 -- stylua: ignore
 -- INFO: List ToggleTerminals

@@ -12,8 +12,7 @@ function M.check()
   end
 
   -- 2. Check Binary Path
-  local installer = require('nvimpio.pio.installer')
-  local pio_bin = installer.get_pio_bin_dir()
+  local pio_bin = vim.pio.get_pio_bin_dir()
   if vim.fn.isdirectory(pio_bin) == 1 then
     vim.health.ok('PlatformIO core directory exists: ' .. pio_bin)
   else

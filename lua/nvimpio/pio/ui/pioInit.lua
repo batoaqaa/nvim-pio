@@ -73,13 +73,13 @@ end
 -- end
 
 -- Step 3: Sample Code
-local function pick_sample()
-  small_menu('Include Sample Code?', { 'Yes', 'No' }, function(choice)
-    wizard_data.sample = choice
-    -- pick_compiledb()
-    finalize_setup()
-  end)
-end
+-- local function pick_sample()
+--   small_menu('Include Sample Code?', { 'Yes', 'No' }, function(choice)
+--     wizard_data.sample = choice
+--     -- pick_compiledb()
+--     finalize_setup()
+--   end)
+-- end
 
 -- Step 2: Framework
 local function pick_framework(board_details)

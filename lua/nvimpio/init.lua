@@ -235,30 +235,21 @@ function M.setup(opts)
   M.piomenu(M.config)
 
   if M.config.pio.notify_on_missing then
-    if vim.fn.executable('pio') == 0 then
-      vim.notify('PlatformIO core not found. Run :PioInstall to set it up.', vim.log.levels.WARN, { title = 'PlatformIO Plugin' })
-    end
-  end
-
-  local installer = require('nvimpio.pio.installer')
-  if M.config.pio.auto_update_path then
-    local pio_bin = installer.get_pio_bin_dir()
-
-    print(pio_bin)
-    if vim.fn.isdirectory(pio_bin) == 1 then
-      local sep = vim.fn.has('win32') == 1 and ';' or ':'
-      vim.env.PATH = pio_bin .. sep .. vim.env.PATH
-
-      -- Validation Check
-      if M.config.verbose_validation then
-        if vim.fn.executable('pio') == 1 then
-          print('✅ PlatformIO detected in PATH')
-        else
-          print("⚠️ 'pio' executable not found. run :PioInstall to fix")
+    if vim.fn.executable('pio') == 1 then
+      vim.notify('✅ PlatformIO detected in PATH', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
+      local installer = require('nvimpio.pio.upkeep')
+      if M.config.pio.auto_update_path then
+        local pio_bin = installer.get_pio_bin_dir()
+        if vim.fn.isdirectory(pio_bin) == 1 then
+          local sep = vim.fn.has('win32') == 1 and ';' or ':'
+          vim.env.PATH = pio_bin .. sep .. vim.env.PATH
         end
       end
+    else
+      vim.notify('PlatformIO core not found. Run :PioInstall to set it up.', vim.log.levels.WARN, { title = 'nvim-pio Plugin' })
     end
   end
+
   require('nvimpio.pio.control').init(M.config.clangd)
   -- vim.misc.notify('nvimpio started', "info")
 end

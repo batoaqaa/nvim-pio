@@ -1,39 +1,12 @@
 local M = {}
 
-_G.pio_status = ''
-
 local is_win = vim.fn.has('win32') == 1
 local home = os.getenv('HOME') or os.getenv('USERPROFILE')
 
--- 1. Check for custom environment variable first
 local core_dir = os.getenv('PLATFORMIO_CORE_DIR')
-
 -- stylua: ignore
--- 2. Fallback to default if not set
 if not core_dir then core_dir = vim.fs.joinpath(home, '.platformio') end
 
---INFO: Install platformio
--- stylua: ignore
-------------------------------------------------------
-function M.install()
-  -- 1. Detect environment details
-  local python = is_win and 'python' or 'python3'
-
-  -- 2. CORRECTED URL: Added 'raw.' prefix
-  local url = 'https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py'
-
-  -- 3. Construction of the cross-platform command string
-  -- We use double quotes for Python's internal string to ensure compatibility with Windows cmd
-  local download_py = string.format("%s -c \"import urllib.request; urllib.request.urlretrieve('%s', 'get-platformio.py')\"", python, url)
-  local install_py = python .. ' get-platformio.py'
-  local full_cmd = download_py .. ' && ' .. install_py
-
-  -- Update UI status
-  _G.pio_status = '⏳ Installing PIO...'
-  vim.cmd('redrawstatus')
-
-  vim.pio.run_sequence({ cmnds = { full_cmd }, cb = vim.pio.handlePioInstall })
-end
 
 --INFO: get PIO binary folder
 -- stylua: ignore
