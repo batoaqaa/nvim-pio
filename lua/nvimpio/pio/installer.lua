@@ -1,6 +1,5 @@
 local M = {}
 
-local win_id
 _G.pio_status = ''
 
 local is_win = vim.fn.has('win32') == 1
@@ -19,7 +18,6 @@ local python_urls = {
 }
 
 function M.install()
-  win_id = vim.misc.showMessage('************ PlatfromIO python env setup ************')
   -- 1. Detect environment details
   local python = is_win and 'python' or 'python3'
   local shell = is_win and { 'cmd', '/c' } or { 'sh', '-c' }
