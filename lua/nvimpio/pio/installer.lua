@@ -11,6 +11,10 @@ local core_dir = os.getenv('PLATFORMIO_CORE_DIR')
 -- stylua: ignore
 -- 2. Fallback to default if not set
 if not core_dir then core_dir = vim.fs.joinpath(home, '.platformio') end
+
+--INFO: Install platformio
+-- stylua: ignore
+------------------------------------------------------
 function M.install()
   -- 1. Detect environment details
   local python = is_win and 'python' or 'python3'
@@ -31,6 +35,9 @@ function M.install()
   vim.pio.run_sequence({ cmnds = { full_cmd }, cb = vim.pio.handlePioInstall })
 end
 
+--INFO: get PIO binary folder
+-- stylua: ignore
+------------------------------------------------------
 function M.get_pio_bin_dir()
   -- 3. Use 'Scripts' for Windows and 'bin' for Unix-like systems
   local bin_subfolder = is_win and 'penv/Scripts' or 'penv/bin'
@@ -40,14 +47,14 @@ function M.get_pio_bin_dir()
   return full_path
 end
 
+--INFO: Verify PIO version
+-- stylua: ignore
+------------------------------------------------------
 function M.verify_version()
   vim.system({ 'pio', '--version' }, { text = true }, function(obj)
     vim.schedule(function()
-      if obj.code == 0 then
-        print('PlatformIO Version: ' .. vim.trim(obj.stdout))
-      else
-        print('❌ PlatformIO execution error: ' .. (obj.stderr or 'Unknown error'))
-      end
+      if obj.code == 0 then print('PlatformIO Version: ' .. vim.trim(obj.stdout))
+      else print('❌ PlatformIO execution error: ' .. (obj.stderr or 'Unknown error')) end
     end)
   end)
 end

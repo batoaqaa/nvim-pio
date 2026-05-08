@@ -93,6 +93,7 @@ M.config = {
       shortcut = 'm',
       items = {
         { node = 'item', desc = '[U]pgrade PlatformIO Core', shortcut = 'u', command = 'Piocmdf upgrade' },
+        { node = 'item', desc = 'PlatformIO Core [I]nstall', shortcut = 'u', command = ':PioInstall' },
       },
     },
   },
@@ -253,12 +254,12 @@ function M.setup(opts)
         if vim.fn.executable('pio') == 1 then
           print('✅ PlatformIO detected in PATH')
         else
-          print("⚠️ PlatformIO path updated, but 'pio' executable not found.")
+          print("⚠️ 'pio' executable not found. run :PioInstall to fix")
         end
       end
     end
   end
-  require('nvimpio.commands')
+  require('nvimpio.pio.commands')
   require('nvimpio.pio.control').init(M.config.clangd)
   -- vim.misc.notify('nvimpio started', "info")
 end

@@ -9,13 +9,14 @@
 -- stylua: ignore
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
-vim.api.nvim_create_user_command('Pioinstall', function()
+vim.api.nvim_create_user_command('PioInstall', function()
     require('nvimpio.pio.installer').install()
 end, { desc = "Install PlatformIO Core" })
 
--- Example Keymap (Optional: Plugin authors usually let users define this)
-vim.keymap.set('n', '<leader>pi', ':PioInstall<CR>', { desc = 'PlatformIO Install' })
-
+-- stylua: ignore
+-- INFO: manage gitignore
+------------------------------------------------------
+vim.api.nvim_create_user_command('GitIgnore', vim.misc.manage_gitignore, {})
 
 -- stylua: ignore
 -- INFO: List ToggleTerminals
@@ -32,7 +33,7 @@ vim.api.nvim_create_user_command('PioTermList',
 
 --INFO: fix paths in compile_commands.json
 ------------------------------------------------------
-vim.api.nvim_create_user_command('Piofixpaths', function()
+vim.api.nvim_create_user_command('PioDbFixPaths', function()
   require('nvimpio.pio.upkeep').compile_commandsFix()
 end, {})
 

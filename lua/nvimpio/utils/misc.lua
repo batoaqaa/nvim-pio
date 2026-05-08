@@ -546,28 +546,6 @@ end
 
 --INFO:
 ------------------------------------------------------
-function M.gitignore_lsp_configs(config_file)
-  local gitignore_path = vim.fs.joinpath(vim.g.platformioRootDir, '.gitignore')
-  local file = io.open(gitignore_path, 'r')
-  local pattern = '^%s*' .. vim.pesc(config_file) .. '%s*$'
-
-  if file then
-    for line in file:lines() do
-      if line:match(pattern) then
-        file:close()
-        return
-      end
-    end
-    file:close()
-  end
-
-  file = io.open(gitignore_path, 'a')
-  if file then
-    file:write(config_file .. '\n')
-    file:close()
-  end
-end
-
 -- stylua: ignore
 function M.manage_gitignore()
   local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
@@ -631,6 +609,7 @@ function M.manage_gitignore()
       -- If Esc or Enter on empty, close and stop
       if not input or input == '' or input:lower() == 'q' then
         if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
+        vim.cmd("redraw")
         return
       end
 
@@ -671,8 +650,4 @@ function M.manage_gitignore()
   end, 20)
 end
 
-vim.keymap.set('n', '<leader>gi', function()
-  require('nvimpio.utils.misc').manage_gitignore()
-end, { desc = 'Manage [G]it[I]gnore' })
-vim.api.nvim_create_user_command('GitIgnore', M.manage_gitignore, {})
 return M
