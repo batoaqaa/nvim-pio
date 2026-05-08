@@ -203,7 +203,7 @@ end
 
 local user_config = {}
 -- INFO:
----stylua: ignore
+--stylua: ignore
 -------------------------------------------------------------------------------
 function M.setup(opts)
   if opts then
@@ -223,15 +223,29 @@ function M.setup(opts)
   vim.validate('menu_bindings', user_config.menu_bindings, 'table', true)
 
   if user_config.menu_bindings then
-    if not validateMenu(user_config.menu_bindings) then
-      user_config.menu_bindings = nil -- if validation error, cancel merging menu_bindings with M.config
-      -- else
-      --   print('good validation')
-    end
+    -- if validation error, cancel merging menu_bindings with M.config
+    if not validateMenu(user_config.menu_bindings) then user_config.menu_bindings = nil end
   end
   -- M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
   --
   -- M.piomenu(M.config)
+
+  local function is_pio_functional()
+    -- 1. Quick check: Is it in the PATH?
+    if vim.fn.executable('pio') == 0 then return false end
+
+    -- 2. Deep check: Does it actually run?
+    -- We use 'pio --version' because it's fast and doesn't change settings.
+  local version_output = vim.fn.system('pio --version')
+
+  -- Check if the output contains the keyword "PlatformIO"
+  -- and that the exit code (v:shell_error) was 0
+  if vim.v.shell_error == 0 and version_output:find("PlatformIO") then return true
+  else return false end
+
+
+
+  end
 
   local function get_pio_bin_dir()
     local is_win = vim.fn.has('win32') == 1
@@ -247,12 +261,9 @@ function M.setup(opts)
     return pio_bin
   end
 
-  --- stylua: ignore
   local function pioCheck(on_complete)
-    if vim.fn.executable('pio') == 1 then
-      if on_complete then
-        on_complete(true)
-      end
+    if is_pio_functional() then
+      if on_complete then on_complete(true) end
       vim.notify('✅ PlatformIO detected in PATH', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
       return
     end
@@ -260,28 +271,10 @@ function M.setup(opts)
     -- 1. If missing, ask the user
     local choice = vim.fn.confirm('PlatformIO not found. Install it now?', '&Yes\n&No', 2)
     if choice ~= 1 then
-      if on_complete then
-        on_complete(false)
-      end
+      if on_complete then on_complete(false) end
       vim.notify('Plugin load cancelled: PlatformIO Core required.', vim.log.levels.WARN)
       return
     end
-
-    -- -- 2. Create the Floating Terminal
-    -- local buf = vim.api.nvim_create_buf(false, true)
-    -- local width = math.ceil(vim.o.columns * 0.7)
-    -- local height = math.ceil(vim.o.lines * 0.7)
-    --
-    -- local win = vim.api.nvim_open_win(buf, true, {
-    --   relative = 'editor',
-    --   width = width,
-    --   height = height,
-    --   row = math.ceil((vim.o.lines - height) / 2),
-    --   col = math.ceil((vim.o.columns - width) / 2),
-    --   border = 'rounded',
-    --   title = ' PlatformIO Installer (Review Logs Before Closing) ',
-    --   title_pos = 'center',
-    -- })
 
     local buf = vim.api.nvim_create_buf(false, true)
 
