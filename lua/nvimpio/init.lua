@@ -269,16 +269,24 @@ function M.setup(opts)
 
     -- 2. Create the Floating Terminal
     local buf = vim.api.nvim_create_buf(false, true)
+    local width = math.ceil(vim.o.columns * 0.7)
+    local height = math.ceil(vim.o.lines * 0.7)
+
     local win = vim.api.nvim_open_win(buf, true, {
       relative = 'editor',
-      width = 80,
-      height = 20,
-      row = 10,
-      col = 10,
+      width = width,
+      height = height,
+      row = math.ceil((vim.o.lines - height) / 2),
+      col = math.ceil((vim.o.columns - width) / 2),
       border = 'rounded',
-      title = ' Installer ',
+      title = ' PlatformIO Installer (Review Logs Before Closing) ',
+      title_pos = 'center',
     })
 
+    local cmd =
+      "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py', 'get-platformio.py')\" && python get-platformio.py"
+    -- "python -c \"import urllib.request; urllib.request.urlretrieve('https://githubusercontent.com', 'get-platformio.py')\" && python get-platformio.py"
+    vim.cmd.term(cmd)
     -- 3. The Decision Point (Async)
     vim.api.nvim_create_autocmd('TermClose', {
       buffer = buf,
@@ -287,20 +295,15 @@ function M.setup(opts)
         local success = (vim.v.event.status == 0)
         if success then
           vim.api.nvim_win_close(win, true)
-          vim.notify('Installation success! Loading plugin...', vim.log.levels.INFO)
+          vim.notify('✅ Installation success! Loading plugin...', vim.log.levels.INFO)
 
           -- CONTINUE LOADING
           startPluginInternals()
         else
-          vim.notify('Installation failed. Plugin will not load.', vim.log.levels.ERROR)
+          vim.notify('🚫 Installation failed. Plugin will not load.', vim.log.levels.ERROR)
         end
       end,
     })
-
-    local cmd =
-      "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py', 'get-platformio.py')\" && python get-platformio.py"
-    -- "python -c \"import urllib.request; urllib.request.urlretrieve('https://githubusercontent.com', 'get-platformio.py')\" && python get-platformio.py"
-    vim.cmd.term(cmd)
   end
 
   -- vim.notify('PlatformIO core not found. Run :PioInstall to set it up.', vim.log.levels.WARN, { title = 'nvim-pio Plugin' })
