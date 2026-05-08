@@ -229,9 +229,9 @@ function M.setup(opts)
       --   print('good validation')
     end
   end
-  M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
-
-  M.piomenu(M.config)
+  -- M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
+  --
+  -- M.piomenu(M.config)
 
   local function get_pio_bin_dir()
     local is_win = vim.fn.has('win32') == 1
@@ -330,6 +330,8 @@ function M.setup(opts)
         local pio_bin = get_pio_bin_dir()
         if vim.fn.isdirectory(pio_bin) == 1 then vim.env.PATH = pio_bin .. sep .. vim.env.PATH end
       end
+      M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
+      M.piomenu(M.config)
       require('nvimpio.pio.control').init(M.config.clangd)
     end
   end
