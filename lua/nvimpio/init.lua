@@ -247,25 +247,40 @@ function M.setup(opts)
     return pio_bin
   end
 
-
-  -- stylua: ignore
+  --- stylua: ignore
   local function pioCheck(on_complete)
-    if vim.fn.executable('pio') == 1 then
-      if on_complete then on_complete(true) end
-      vim.notify('✅ PlatformIO detected in PATH', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
-      return
-    end
+    -- if vim.fn.executable('pio') == 1 then
+    --   if on_complete then on_complete(true) end
+    --   vim.notify('✅ PlatformIO detected in PATH', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
+    --   return
+    -- end
+    --
+    -- -- 1. If missing, ask the user
+    -- local choice = vim.fn.confirm('PlatformIO not found. Install it now?', '&Yes\n&No', 2)
+    -- if choice ~= 1 then
+    --   if on_complete then on_complete(false) end
+    --   vim.notify('Plugin load cancelled: PlatformIO Core required.', vim.log.levels.WARN)
+    --   return
+    -- end
+    --
+    -- -- 2. Create the Floating Terminal
+    -- local buf = vim.api.nvim_create_buf(false, true)
+    -- local width = math.ceil(vim.o.columns * 0.7)
+    -- local height = math.ceil(vim.o.lines * 0.7)
+    --
+    -- local win = vim.api.nvim_open_win(buf, true, {
+    --   relative = 'editor',
+    --   width = width,
+    --   height = height,
+    --   row = math.ceil((vim.o.lines - height) / 2),
+    --   col = math.ceil((vim.o.columns - width) / 2),
+    --   border = 'rounded',
+    --   title = ' PlatformIO Installer (Review Logs Before Closing) ',
+    --   title_pos = 'center',
+    -- })
 
-    -- 1. If missing, ask the user
-    local choice = vim.fn.confirm('PlatformIO not found. Install it now?', '&Yes\n&No', 2)
-    if choice ~= 1 then
-      if on_complete then on_complete(false) end
-      vim.notify('Plugin load cancelled: PlatformIO Core required.', vim.log.levels.WARN)
-      return
-    end
-
-    -- 2. Create the Floating Terminal
     local buf = vim.api.nvim_create_buf(false, true)
+
     local width = math.ceil(vim.o.columns * 0.7)
     local height = math.ceil(vim.o.lines * 0.7)
 
@@ -276,10 +291,20 @@ function M.setup(opts)
       row = math.ceil((vim.o.lines - height) / 2),
       col = math.ceil((vim.o.columns - width) / 2),
       border = 'rounded',
-      title = ' PlatformIO Installer (Review Logs Before Closing) ',
+      -- Title Configuration
+      title = { { ' PlatformIO Installer ', 'FloatTitle' } },
       title_pos = 'center',
+      -- Scrollbar/Styling
+      style = 'minimal',
     })
 
+    -- Set window local options for better visibility
+    vim.api.nvim_set_option_value('winhl', 'Normal:NormalFloat,FloatBorder:FloatBorder', { win = win })
+
+    -- Force the scrollbar to be visible if the plugin "nvim-scrollview" or similar isn't installed
+    -- Neovim doesn't have a 'native' permanent scrollbar, but we can enable line numbers
+    -- or use a sign column to give visual depth.
+    vim.api.nvim_set_option_value('number', true, { win = win })
     local cmd =
       "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py', 'get-platformio.py')\" && python get-platformio.py"
     -- "python -c \"import urllib.request; urllib.request.urlretrieve('https://githubusercontent.com', 'get-platformio.py')\" && python get-platformio.py"
