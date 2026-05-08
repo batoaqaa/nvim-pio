@@ -810,22 +810,9 @@ end
 --   end)
 -- end
 
+
 local sep = vim.fn.has("win32") == 1 and "\\" or "/"
 
--- Helper: Write current table to .gitignore and notify
-function M.write_gitignore(lines)
-  local path = vim.fn.getcwd() .. sep .. '.gitignore'
-  local f = io.open(path, 'w')
-  if f then
-    f:write(table.concat(lines, '\n') .. '\n')
-    f:close()
-  end
-  vim.schedule(function()
-    vim.notify('Gitignore updated', vim.log.levels.INFO, { title = 'PlatformIO' })
-  end)
-end
-
--- Main function
 function M.manage_gitignore()
   local path = vim.fn.getcwd() .. sep .. '.gitignore'
   local ignored = {}
@@ -842,102 +829,90 @@ function M.manage_gitignore()
     f:close()
   end
 
-  -- 2. Normalize ignores for strict filtering (Prevents .clangd showing in both lists)
+  -- 2. Normalize and Filter (Prevents .clangd duplicates)
   local ignored_lookup = {}
   for _, p in ipairs(ignored) do
-    local norm = p:gsub('^%s*/?', ''):gsub('/?%s*$', '')
-    ignored_lookup[norm] = true
+    ignored_lookup[p:gsub('^%s*/?', ''):gsub('/?%s*$', '')] = true
   end
 
-  -- 3. Filter current directory files using readdir (Main thread context)
-  local ok, files = pcall(vim.fn.readdir, vim.fn.getcwd())
-  if not ok then
-    return
-  end
-
+  local files = vim.fn.readdir(vim.fn.getcwd())
   local not_ignored = {}
   for _, file in ipairs(files) do
-    local norm_file = file:gsub('^/?', ''):gsub('/?$', '')
-    if not ignored_lookup[norm_file] then
+    if not ignored_lookup[file:gsub('^/?', ''):gsub('/?$', '')] then
       table.insert(not_ignored, file)
     end
   end
 
-  -- 4. Build Persistent UI Items
-  local items = {
-    ' [1] ➡️  SUBMIT BATCH (+add, -remove, manual)',
-    ' [2] ❌ EXIT MANAGER',
-  }
+  -- 3. Create a scratch buffer to show the list
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_option(buf, 'buftype', 'nofile')
+  vim.api.nvim_buf_set_name(buf, 'GitIgnore_List')
 
-  -- Indexing for files NOT ignored
+  local lines = { '  GITIGNORE MANAGER', '  Type: +add / -remove / q to quit', '' }
   for i, file in ipairs(not_ignored) do
     local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
-    table.insert(items, string.format(' [%d] %s%s', i + 2, icon, file))
+    table.insert(lines, string.format(' [%d] %s%s', i, icon, file))
   end
-
-  table.insert(items, '--- Current Ignores ---')
-
-  -- Indexing for current ignores
+  table.insert(lines, '')
+  table.insert(lines, '  --- Current Ignores ---')
   for i, pattern in ipairs(ignored) do
-    table.insert(items, string.format(' [%d] 🚫 %s', i + 2 + #not_ignored, pattern))
+    table.insert(lines, string.format(' [%d] 🚫 %s', i + #not_ignored, pattern))
   end
 
-  -- 5. Show Picker
-  vim.ui.select(items, { prompt = 'GitIgnore Manager (1 for Batch, 2 to Exit):' }, function(choice)
-    -- Exit logic
-    if not choice or choice:match('EXIT') then
-      return
-    end
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 
-    -- Use defer to prevent UI collision
-    vim.defer_fn(function()
-      vim.ui.input({ prompt = 'Batch (e.g. +3,4-12) or manual pattern: ' }, function(input)
-        if not input or input == '' or input:lower() == 'q' then
-          -- Re-open menu if they just hit enter/escape on input
-          return M.manage_gitignore()
-        end
+  -- Open in a vertical split so you can see it while you type
+  vim.cmd('vsplit')
+  vim.api.nvim_set_current_buf(buf)
+  vim.api.nvim_win_set_width(0, 40)
 
-        local found_batch = false
-        -- Advanced Parser: matches blocks like "+1,2" or "-5,6"
-        for action, group in input:gmatch('([%+%-])([%d%s,]+)') do
-          found_batch = true
-          for num in group:gmatch('%d+') do
-            local n = tonumber(num)
-            local idx = n - 2 -- Adjust for the two instruction lines at top
+  -- 4. Prompt for input while list is visible
+  vim.defer_fn(function()
+    vim.ui.input({ prompt = 'Action (e.g. +1,2-5): ' }, function(input)
+      -- Close the list buffer
+      vim.api.nvim_buf_delete(buf, { force = true })
 
-            if action == '+' and not_ignored[idx] then
-              local p = not_ignored[idx] .. (vim.fn.isdirectory(not_ignored[idx]) == 1 and '/' or '')
-              table.insert(ignored, p)
-            elseif action == '-' then
-              local ignore_idx = idx - #not_ignored
-              if ignored[ignore_idx] then
-                ignored[ignore_idx] = '__DELETE__'
-              end
+      if not input or input == '' or input:lower() == 'q' then
+        return
+      end
+
+      local found_batch = false
+      for action, group in input:gmatch('([%+%-])([%d%s,]+)') do
+        found_batch = true
+        for num in group:gmatch('%d+') do
+          local n = tonumber(num)
+          if action == '+' and not_ignored[n] then
+            local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
+            table.insert(ignored, p)
+          elseif action == '-' then
+            local idx = n - #not_ignored
+            if ignored[idx] then
+              ignored[idx] = '__DELETE__'
             end
           end
         end
+      end
 
-        -- Manual Entry Fallback (if no + or - found)
-        if not found_batch then
-          table.insert(ignored, input)
+      if not found_batch then
+        table.insert(ignored, input)
+      end
+
+      local final_list = {}
+      for _, val in ipairs(ignored) do
+        if val ~= '__DELETE__' then
+          table.insert(final_list, val)
         end
+      end
 
-        -- Cleanup placeholders and finalize
-        local final_list = {}
-        for _, val in ipairs(ignored) do
-          if val ~= '__DELETE__' then
-            table.insert(final_list, val)
-          end
-        end
-
-        -- Write and RE-OPEN
-        M.write_gitignore(final_list)
-        vim.defer_fn(function()
-          M.manage_gitignore()
-        end, 100)
-      end)
-    end, 50)
-  end)
+      -- Write the file
+      local out = io.open(path, 'w')
+      if out then
+        out:write(table.concat(final_list, '\n') .. '\n')
+        out:close()
+      end
+      vim.notify('Gitignore updated')
+    end)
+  end, 10)
 end
 
 vim.keymap.set('n', '<leader>gi', function()
