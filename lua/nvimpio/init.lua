@@ -279,10 +279,6 @@ function M.setup(opts)
       title = ' Installer ',
     })
 
-    local cmd =
-      "python -c \"import urllib.request; urllib.request.urlretrieve('https://githubusercontent.com', 'get-platformio.py')\" && python get-platformio.py"
-    vim.cmd.term(cmd)
-
     -- 3. The Decision Point (Async)
     vim.api.nvim_create_autocmd('TermClose', {
       buffer = buf,
@@ -300,6 +296,10 @@ function M.setup(opts)
         end
       end,
     })
+
+    local cmd =
+      "python -c \"import urllib.request; urllib.request.urlretrieve('https://githubusercontent.com', 'get-platformio.py')\" && python get-platformio.py"
+    vim.cmd.term(cmd)
   end
 
   -- vim.notify('PlatformIO core not found. Run :PioInstall to set it up.', vim.log.levels.WARN, { title = 'nvim-pio Plugin' })
