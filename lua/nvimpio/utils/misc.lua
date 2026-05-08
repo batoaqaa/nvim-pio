@@ -711,7 +711,7 @@ local function manage_gitignore()
             if choice == '➕ [Manual Entry]' then
               vim.ui.input({ prompt = 'Pattern: ' }, function(input)
                 if input and input ~= '' then
-                  add_to_gitignore({ input })
+                  M.add_to_gitignore({ input })
                 end
               end)
             else
@@ -721,7 +721,7 @@ local function manage_gitignore()
               if vim.fn.isdirectory(pattern) == 1 then
                 pattern = pattern .. '/'
               end
-              add_to_gitignore({ pattern })
+              M.add_to_gitignore({ pattern })
             end
           end)
         end)
