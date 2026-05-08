@@ -813,6 +813,7 @@ end
 
 local sep = vim.fn.has("win32") == 1 and "\\" or "/"
 
+-- Helper: Write current table to .gitignore
 function M.write_gitignore(lines)
   local path = vim.fn.getcwd() .. sep .. '.gitignore'
   local f = io.open(path, 'w')
@@ -821,42 +822,46 @@ function M.write_gitignore(lines)
     f:close()
   end
   vim.schedule(function()
-    vim.notify('Gitignore updated')
+    vim.notify('Gitignore updated', vim.log.levels.INFO)
   end)
 end
 
 function M.manage_gitignore()
   local path = vim.fn.getcwd() .. sep .. '.gitignore'
   local ignored = {}
+
+  -- 1. Read existing ignores
   local f = io.open(path, 'r')
   if f then
     for line in f:lines() do
-      if line ~= '' then
-        table.insert(ignored, line)
+      local clean = vim.trim(line)
+      if clean ~= '' then
+        table.insert(ignored, clean)
       end
     end
     f:close()
   end
 
+  -- 2. Normalize ignores for strict filtering
+  local ignored_lookup = {}
+  for _, p in ipairs(ignored) do
+    -- Normalize: remove leading/trailing slashes and spaces
+    local norm = p:gsub('^%s*/?', ''):gsub('/?%s*$', '')
+    ignored_lookup[norm] = true
+  end
+
+  -- 3. Filter current directory files
   local files = vim.fn.readdir(vim.fn.getcwd())
   local not_ignored = {}
-
-  -- Filter: Only show files NOT in gitignore
   for _, file in ipairs(files) do
-    local is_ignored = false
-    for _, pattern in ipairs(ignored) do
-      if pattern == file or pattern == (file .. '/') then
-        is_ignored = true
-        break
-      end
-    end
-    if not is_ignored then
+    local norm_file = file:gsub('^/?', ''):gsub('/?$', '')
+    if not ignored_lookup[norm_file] then
       table.insert(not_ignored, file)
     end
   end
 
-  -- Build UI list
-  local items = { 'SPACE to change | ENTER/Q to quit' }
+  -- 4. Build UI Items
+  local items = { 'SPACE/ENTER to Change | Q to Quit' }
   for i, file in ipairs(not_ignored) do
     local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
     table.insert(items, string.format('%d: %s%s', i, icon, file))
@@ -866,33 +871,39 @@ function M.manage_gitignore()
     table.insert(items, string.format('%d: 🚫 %s', i + #not_ignored, pattern))
   end
 
+  -- 5. Show Picker
   vim.ui.select(items, { prompt = 'GitIgnore Manager:' }, function(choice)
-    -- Space to continue, Enter/Q/Nil to exit
-    if not choice or choice == '' or choice == 'SPACE to change | ENTER/Q to quit' then
+    if not choice or choice:lower() == 'q' or choice == items[1] then
       return
     end
 
-    vim.ui.input({ prompt = 'Batch (e.g. +1,2,3-5,6): ' }, function(input)
-      if not input or input == '' or input == 'q' then
+    vim.ui.input({ prompt = 'Batch Action (+add, -remove, e.g. +1,2-5,6): ' }, function(input)
+      if not input or input == '' or input:lower() == 'q' then
         return
       end
 
-      -- Step 1: Split the input into segments by looking for + or -
-      -- We find every block like "+1,2,3" or "-5,6"
+      -- Advanced Parser: handles mixed strings like +1,2-5,6
       for action, group in input:gmatch('([%+%-])([%d%s,]+)') do
         for num in group:gmatch('%d+') do
           local n = tonumber(num)
           if action == '+' and not_ignored[n] then
             local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
             table.insert(ignored, p)
-          elseif action == '-' and ignored[n - #not_ignored] then
-            -- Set to nil first to avoid index shifting mid-loop
-            ignored[n - #not_ignored] = '__DELETE__'
+          elseif action == '-' then
+            local idx = n - #not_ignored
+            if ignored[idx] then
+              ignored[idx] = '__DELETE__'
+            end
           end
         end
       end
 
-      -- Step 2: Finalize list (remove the items marked for deletion)
+      -- Manual Entry Fallback (if no + or - found)
+      if not input:find('[%+%-]') then
+        table.insert(ignored, input)
+      end
+
+      -- Clean up deleted items and write
       local final_list = {}
       for _, val in ipairs(ignored) do
         if val ~= '__DELETE__' then
@@ -904,7 +915,6 @@ function M.manage_gitignore()
     end)
   end)
 end
-
 vim.keymap.set('n', '<leader>gi', function()
   require('nvimpio.utils.misc').manage_gitignore()
 end, { desc = 'Manage [G]it[I]gnore' })
