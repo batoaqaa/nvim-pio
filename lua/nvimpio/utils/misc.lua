@@ -568,117 +568,89 @@ function M.gitignore_lsp_configs(config_file)
   end
 end
 
+-- HELPER: Detect Path Separator
+
+-- FUNCTION: Add pattern to .gitignore (No Duplicates)
 -- stylua: ignore
 function M.add_to_gitignore(patterns)
-  -- 1. Input Validation
-  if not patterns then return end
-  if type(patterns) == 'string' then patterns = { patterns } end
-  if type(patterns) ~= 'table' then return end
+  if not patterns then
+    return
+  end
+  local patterns_list = type(patterns) == 'string' and { patterns } or patterns
+  local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
 
-  local cwd = vim.fn.getcwd()
-
-  if not cwd or cwd == '' then return end
-  local path = vim.fs.joinpath(cwd, '.gitignore')
-
-  -- 2. Async Open in a+ mode (Append/Read, create if missing)
-  -- Mode 438 is octal 0666 (rw-rw-rw-)
   uv.fs_open(path, 'a+', 438, function(err, fd)
-    if err then
-      vim.schedule(function()
-        vim.misc.notify('Gitignore error (open): ' .. tostring(err), 'info')
-      end)
-      return
-    end
-
-    -- 3. Get file stats to handle size/read offsets
-    uv.fs_fstat(fd, function(err_stat, stat)
-      if err_stat or not stat then
-        uv.fs_close(fd)
-        vim.schedule(function() vim.misc.notify('Gitignore error (stat): ' .. tostring(err_stat), 'info') end)
-        return
-      end
-
-      -- 4. Read existing content (handle empty file case)
-      local read_size = stat.size > 0 and stat.size or 0
-      local on_read = function(err_read, data)
-        if err_read then
-          uv.fs_close(fd)
-          vim.schedule(function() vim.misc.notify('Gitignore error (read): ' .. tostring(err_read), 'info') end)
-          return
-        end
-
-        local content = data or ''
-        local clean_content = content:gsub('\r\n', '\n')
-        local to_append = ''
-
-        for _, pattern in ipairs(patterns) do
-          if type(pattern) == 'string' and pattern ~= '' then
-            -- Escape special Lua pattern chars for a literal match
-            local escaped = pattern:gsub('[%^%$%(%)%%%.%[%]%*%+%-%?]', '%%%1')
-
-            -- Check for duplicate (Start of file, middle of file, or end of file)
-            local exists = clean_content:find('^' .. escaped .. '$')
-              or clean_content:find('\n' .. escaped .. '\n')
-              or clean_content:find('\n' .. escaped .. '$')
-              or clean_content == pattern
-
-            if not exists then
-              -- Ensure newline separation if file isn't empty
-              if to_append == '' and #content > 0 and content:sub(-1) ~= '\n' then
-                to_append = '\n'
-              end
-              to_append = to_append .. pattern .. '\n'
-            end
+    if err or not fd then return end
+    uv.fs_fstat(fd, function(ferr, stat)
+      if ferr or not stat then return end
+      local size = stat.size or 0
+      uv.fs_read(fd, size, 0, function(_, data)
+        local content = (data or ''):gsub('\r\n', '\n')
+        local to_add = ''
+        for _, p in ipairs(patterns_list) do
+          local esc = p:gsub('[%^%$%(%)%%%.%[%]%*%+%-%?]', '%%%1')
+          if not content:find('[\n^]' .. esc .. '[\n$]') then
+            to_add = to_add .. (#content + #to_add > 0 and content:sub(-1) ~= '\n' and '\n' or '') .. p .. '\n'
           end
         end
-
-        -- 5. Only write if there's new data
-        if to_append ~= '' then
-          uv.fs_write(fd, to_append, -1, function(err_write)
-            uv.fs_close(fd)
-            vim.schedule(function()
-              if err_write then vim.misc.notify('Gitignore error (write) ' .. tostring(err_write), 'info')
-              else vim.misc.notify('Gitignore updated', 'info') end
-            end)
-          end)
-        else uv.fs_close(fd) end
-      end
-
-      -- If file is empty, skip read and jump to check logic
-      if read_size == 0 then on_read(nil, '')
-      else uv.fs_read(fd, read_size, 0, on_read) end
+        if to_add ~= '' then uv.fs_write(fd, to_add, -1) end
+        uv.fs_close(fd)
+      end)
     end)
   end)
 end
 
---- stylua: ignore
+-- FUNCTION: Remove pattern from .gitignore
+-- stylua: ignore
+function M.remove_from_gitignore(pattern)
+  local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
 
+  uv.fs_open(path, 'r+', 438, function(err, fd)
+    if err or not fd then return end
+    uv.fs_fstat(fd, function(ferr, stat)
+      if ferr or not stat then return end
+      uv.fs_read(fd, stat.size or 0, 0, function(_, data)
+        local lines = vim.split((data or ''):gsub('\r\n', '\n'), '\n', { trimempty = true })
+        local new_lines = {}
+        for _, line in ipairs(lines) do
+          if line ~= pattern then table.insert(new_lines, line) end
+        end
+        local new_content = table.concat(new_lines, '\n') .. (#new_lines > 0 and '\n' or '')
+        uv.fs_ftruncate(fd, 0, function()
+          uv.fs_write(fd, new_content, 0, function()
+            uv.fs_close(fd)
+            vim.schedule(function()
+              print('➖ Removed: ' .. pattern)
+            end)
+          end)
+        end)
+      end)
+    end)
+  end)
+end
+
+-- MAIN: Manage GitIgnore with Bulk Selection
+-- stylua: ignore
 function M.manage_gitignore()
   local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
 
   uv.fs_open(path, 'a+', 438, function(err, fd)
-    if err or not fd then
-      return
-    end
+    if err or not fd then return end
     uv.fs_fstat(fd, function(ferr, stat)
-      if ferr or not stat then
-        return
-      end
-      local size = stat.size or 0
+      if ferr or not stat then return end
+      uv.fs_read(fd, stat.size or 0, 0, function(_, data)
+        local current_raw = data or ''
+        uv.fs_close(fd) -- Close early, we have the data
 
-      local function process_and_show(current_content)
         vim.schedule(function()
-          local ignored = vim.split(current_content:gsub('\r\n', '\n'), '\n', { trimempty = true })
+          local ignored = vim.split(current_raw:gsub('\r\n', '\n'), '\n', { trimempty = true })
           local ok, scan = pcall(vim.fn.readdir, vim.fn.getcwd())
-          if not ok then
-            uv.fs_close(fd)
-            return
-          end
+          if not ok then return end
 
-          local items = { '➕ [0] Manual Entry', '🔢 [Selection Index]' }
+          local items = { '➕ [Manual Entry]', '🔢 [Bulk Select: e.g. +1,2 or -4,5]' }
           local selectable_files = {}
 
-          -- Build list of non-ignored files
+          -- Build list of items NOT currently ignored
           for _, name in ipairs(scan) do
             local exists = false
             for _, pattern in ipairs(ignored) do
@@ -687,81 +659,160 @@ function M.manage_gitignore()
                 break
               end
             end
-            if not exists then
-              table.insert(selectable_files, name)
-            end
+            if not exists then table.insert(selectable_files, name) end
           end
 
-          -- Format items for the menu with indices
+          -- Add files with indices to the menu
           for i, name in ipairs(selectable_files) do
             local icon = vim.fn.isdirectory(name) == 1 and '📁 ' or '📄 '
             table.insert(items, string.format('[%d] %s%s', i, icon, name))
           end
 
+          -- Add ignored items with indices
           if #ignored > 0 then
-            table.insert(items, '--- Already Ignored ---')
+            table.insert(items, '--- Currently Ignored (Selection to Remove) ---')
             for i, pattern in ipairs(ignored) do
               table.insert(items, string.format('[%d] 🚫 %s', i + #selectable_files, pattern))
             end
           end
 
-          vim.ui.select(items, { prompt = 'Manage GitIgnore (+Add / -Remove):' }, function(choice)
-            if not choice or choice:match('^---') then
-              return
-            end
+          vim.ui.select(items, { prompt = 'GitIgnore (Bulk Select: +add / -remove):' }, function(choice)
+            if not choice or choice:match('^---') then return end
 
-            -- Helper to process bulk input like "+1, 2" or "-6, 7"
-            local function handle_bulk(input)
+            local function bulk_process(input)
               local action = input:sub(1, 1) -- "+" or "-"
-              local numbers = {}
-              for num in input:gmatch('%d+') do
-                table.insert(numbers, tonumber(num))
-              end
+              local nums = {}
+              for n in input:gmatch('%d+') do table.insert(nums, tonumber(n)) end
 
-              for _, idx in ipairs(numbers) do
-                if action == '+' and selectable_files[idx] then
-                  local pattern = selectable_files[idx]
-                  if vim.fn.isdirectory(pattern) == 1 then
-                    pattern = pattern .. '/'
-                  end
-                  M.add_to_gitignore(pattern)
+              for _, n in ipairs(nums) do
+                if action == '+' and selectable_files[n] then
+                  local p = selectable_files[n]
+                  if vim.fn.isdirectory(p) == 1 then p = p .. '/' end
+                  M.add_to_gitignore(p)
                 elseif action == '-' then
-                  local ignore_idx = idx - #selectable_files
-                  if ignored[ignore_idx] then
-                    M.remove_from_gitignore(ignored[ignore_idx])
-                  end
+                  local idx = n - #selectable_files
+                  if ignored[idx] then M.remove_from_gitignore(ignored[idx]) end
                 end
               end
             end
 
-            if choice == '🔢 [Selection Index]' then
-              vim.ui.input({ prompt = 'Batch (e.g. +1,2 or -6,7,8): ' }, function(input)
-                if input then
-                  handle_bulk(input)
-                end
+            if choice:match('^🔢') then
+              vim.ui.input({ prompt = 'Batch Action (+/- followed by numbers): ' }, function(input)
+                if input then bulk_process(input) end
               end)
-            elseif choice == '➕ [0] Manual Entry' then
-              vim.ui.input({ prompt = 'Pattern: ' }, function(input)
-                if input then
-                  M.add_to_gitignore(input)
-                end
+            elseif choice:match('^➕') then
+              vim.ui.input({ prompt = 'Manual Pattern: ' }, function(input)
+                if input then M.add_to_gitignore(input) end
               end)
+            else
+              -- Single selection fallback
+              local num = choice:match('%[(%d+)%]')
+              if num then
+                local n = tonumber(num)
+                if n <= #selectable_files then
+                  local p = selectable_files[n]
+                  if vim.fn.isdirectory(p) == 1 then p = p .. '/' end
+                  M.add_to_gitignore(p)
+                else
+                  M.remove_from_gitignore(ignored[n - #selectable_files])
+                end
+              end
             end
           end)
         end)
-        uv.fs_close(fd)
-      end
-
-      if size > 0 then
-        uv.fs_read(fd, size, 0, function(_, data)
-          process_and_show(data or '')
-        end)
-      else
-        process_and_show('')
-      end
+      end)
     end)
   end)
 end
+
+
+
+
+-- stylua: ignore
+-- function M.add_to_gitignore(patterns)
+--   -- 1. Input Validation
+--   if not patterns then return end
+--   if type(patterns) == 'string' then patterns = { patterns } end
+--   if type(patterns) ~= 'table' then return end
+--
+--   local cwd = vim.fn.getcwd()
+--
+--   if not cwd or cwd == '' then return end
+--   local path = vim.fs.joinpath(cwd, '.gitignore')
+--
+--   -- 2. Async Open in a+ mode (Append/Read, create if missing)
+--   -- Mode 438 is octal 0666 (rw-rw-rw-)
+--   uv.fs_open(path, 'a+', 438, function(err, fd)
+--     if err then
+--       vim.schedule(function()
+--         vim.misc.notify('Gitignore error (open): ' .. tostring(err), 'info')
+--       end)
+--       return
+--     end
+--
+--     -- 3. Get file stats to handle size/read offsets
+--     uv.fs_fstat(fd, function(err_stat, stat)
+--       if err_stat or not stat then
+--         uv.fs_close(fd)
+--         vim.schedule(function() vim.misc.notify('Gitignore error (stat): ' .. tostring(err_stat), 'info') end)
+--         return
+--       end
+--
+--       -- 4. Read existing content (handle empty file case)
+--       local read_size = stat.size > 0 and stat.size or 0
+--       local on_read = function(err_read, data)
+--         if err_read then
+--           uv.fs_close(fd)
+--           vim.schedule(function() vim.misc.notify('Gitignore error (read): ' .. tostring(err_read), 'info') end)
+--           return
+--         end
+--
+--         local content = data or ''
+--         local clean_content = content:gsub('\r\n', '\n')
+--         local to_append = ''
+--
+--         for _, pattern in ipairs(patterns) do
+--           if type(pattern) == 'string' and pattern ~= '' then
+--             -- Escape special Lua pattern chars for a literal match
+--             local escaped = pattern:gsub('[%^%$%(%)%%%.%[%]%*%+%-%?]', '%%%1')
+--
+--             -- Check for duplicate (Start of file, middle of file, or end of file)
+--             local exists = clean_content:find('^' .. escaped .. '$')
+--               or clean_content:find('\n' .. escaped .. '\n')
+--               or clean_content:find('\n' .. escaped .. '$')
+--               or clean_content == pattern
+--
+--             if not exists then
+--               -- Ensure newline separation if file isn't empty
+--               if to_append == '' and #content > 0 and content:sub(-1) ~= '\n' then
+--                 to_append = '\n'
+--               end
+--               to_append = to_append .. pattern .. '\n'
+--             end
+--           end
+--         end
+--
+--         -- 5. Only write if there's new data
+--         if to_append ~= '' then
+--           uv.fs_write(fd, to_append, -1, function(err_write)
+--             uv.fs_close(fd)
+--             vim.schedule(function()
+--               if err_write then vim.misc.notify('Gitignore error (write) ' .. tostring(err_write), 'info')
+--               else vim.misc.notify('Gitignore updated', 'info') end
+--             end)
+--           end)
+--         else uv.fs_close(fd) end
+--       end
+--
+--       -- If file is empty, skip read and jump to check logic
+--       if read_size == 0 then on_read(nil, '')
+--       else uv.fs_read(fd, read_size, 0, on_read) end
+--     end)
+--   end)
+-- end
+
+--- stylua: ignore
+
 -- local function manage_gitignore()
 --   local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
 --
