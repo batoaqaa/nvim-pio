@@ -757,10 +757,14 @@ function M.handlePioInstall(result)
         if vim.fn.isdirectory(path) == 1 then vim.fn.delete(path, "rf") end
       end
     end
+    _G.pio_status = '✅ PIO Ready'
+    vim.cmd('redrawstatus')
 
     commandPassed = commandPassed + 1
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
+    _G.pio_status = '❌ PIO Failed'
+    vim.cmd('redrawstatus')
     M.cleanup_pio_session()
   end
 end
