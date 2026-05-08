@@ -810,7 +810,6 @@ end
 --   end)
 -- end
 
-
 local sep = vim.fn.has("win32") == 1 and "\\" or "/"
 
 -- Helper: Write current table to .gitignore
@@ -822,7 +821,7 @@ function M.write_gitignore(lines)
     f:close()
   end
   vim.schedule(function()
-    vim.notify('Gitignore updated', vim.log.levels.INFO)
+    vim.notify('Gitignore updated', vim.log.levels.INFO, { title = 'PlatformIO' })
   end)
 end
 
@@ -842,16 +841,19 @@ function M.manage_gitignore()
     f:close()
   end
 
-  -- 2. Normalize ignores for strict filtering
+  -- 2. Normalize ignores for strict filtering (Prevents .clangd showing in both lists)
   local ignored_lookup = {}
   for _, p in ipairs(ignored) do
-    -- Normalize: remove leading/trailing slashes and spaces
     local norm = p:gsub('^%s*/?', ''):gsub('/?%s*$', '')
     ignored_lookup[norm] = true
   end
 
   -- 3. Filter current directory files
-  local files = vim.fn.readdir(vim.fn.getcwd())
+  local ok, files = pcall(vim.fn.readdir, vim.fn.getcwd())
+  if not ok then
+    return
+  end
+
   local not_ignored = {}
   for _, file in ipairs(files) do
     local norm_file = file:gsub('^/?', ''):gsub('/?$', '')
@@ -860,61 +862,70 @@ function M.manage_gitignore()
     end
   end
 
-  -- 4. Build UI Items
-  local items = { 'SPACE/ENTER to Change | Q to Quit' }
+  -- 4. Build UI Items (1-indexed for the user)
+  local items = { ' [1] ➡️ START BATCH ACTION (+add, -remove, manual)' }
   for i, file in ipairs(not_ignored) do
     local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
-    table.insert(items, string.format('%d: %s%s', i, icon, file))
+    table.insert(items, string.format(' [%d] %s%s', i + 1, icon, file))
   end
   table.insert(items, '--- Current Ignores ---')
   for i, pattern in ipairs(ignored) do
-    table.insert(items, string.format('%d: 🚫 %s', i + #not_ignored, pattern))
+    table.insert(items, string.format(' [%d] 🚫 %s', i + 1 + #not_ignored, pattern))
   end
 
   -- 5. Show Picker
-  vim.ui.select(items, { prompt = 'GitIgnore Manager:' }, function(choice)
-    if not choice or choice:lower() == 'q' or choice == items[1] then
+  vim.ui.select(items, { prompt = 'GitIgnore Manager (Type number & Enter):' }, function(choice)
+    if not choice or choice == '' then
       return
     end
 
-    vim.ui.input({ prompt = 'Batch Action (+add, -remove, e.g. +1,2-5,6): ' }, function(input)
-      if not input or input == '' or input:lower() == 'q' then
-        return
-      end
+    -- DEFER: Prevents the input box from disappearing immediately on Windows/Native UI
+    vim.defer_fn(function()
+      vim.ui.input({ prompt = 'Batch (e.g. +2,3-10) or manual pattern: ' }, function(input)
+        if not input or input == '' or input:lower() == 'q' then
+          return
+        end
 
-      -- Advanced Parser: handles mixed strings like +1,2-5,6
-      for action, group in input:gmatch('([%+%-])([%d%s,]+)') do
-        for num in group:gmatch('%d+') do
-          local n = tonumber(num)
-          if action == '+' and not_ignored[n] then
-            local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
-            table.insert(ignored, p)
-          elseif action == '-' then
-            local idx = n - #not_ignored
-            if ignored[idx] then
-              ignored[idx] = '__DELETE__'
+        local found_batch = false
+        -- Advanced Parser: matches blocks like "+1,2" or "-5,6"
+        for action, group in input:gmatch('([%+%-])([%d%s,]+)') do
+          found_batch = true
+          for num in group:gmatch('%d+') do
+            local n = tonumber(num)
+            -- Subtract 1 because item [1] is the instruction line
+            local idx = n - 1
+
+            if action == '+' and not_ignored[idx] then
+              local p = not_ignored[idx] .. (vim.fn.isdirectory(not_ignored[idx]) == 1 and '/' or '')
+              table.insert(ignored, p)
+            elseif action == '-' then
+              local ignore_idx = idx - #not_ignored
+              if ignored[ignore_idx] then
+                ignored[ignore_idx] = '__DELETE__'
+              end
             end
           end
         end
-      end
 
-      -- Manual Entry Fallback (if no + or - found)
-      if not input:find('[%+%-]') then
-        table.insert(ignored, input)
-      end
-
-      -- Clean up deleted items and write
-      local final_list = {}
-      for _, val in ipairs(ignored) do
-        if val ~= '__DELETE__' then
-          table.insert(final_list, val)
+        -- Manual Entry Fallback
+        if not found_batch then
+          table.insert(ignored, input)
         end
-      end
 
-      M.write_gitignore(final_list)
-    end)
+        -- Clean up deleted items and write
+        local final_list = {}
+        for _, val in ipairs(ignored) do
+          if val ~= '__DELETE__' then
+            table.insert(final_list, val)
+          end
+        end
+
+        M.write_gitignore(final_list)
+      end)
+    end, 50)
   end)
 end
+
 vim.keymap.set('n', '<leader>gi', function()
   require('nvimpio.utils.misc').manage_gitignore()
 end, { desc = 'Manage [G]it[I]gnore' })
