@@ -247,22 +247,19 @@ function M.setup(opts)
     return pio_bin
   end
 
-  local function startPluginInternals()
-    vim.notify('PlatformIO installed', vim.log.levels.INFO)
-    if M.config.pio.auto_update_path then
-      local pio_bin = get_pio_bin_dir()
-      if vim.fn.isdirectory(pio_bin) == 1 then
-        local sep = vim.fn.has('win32') == 1 and ';' or ':'
-        vim.env.PATH = pio_bin .. sep .. vim.env.PATH
-      end
-    end
-    require('nvimpio.pio.control').init(M.config.clangd)
-  end
 
-  local function pioInstall()
+  -- stylua: ignore
+  local function pioCheck(on_complete)
+    if vim.fn.executable('pio') == 1 then
+      if on_complete then on_complete(true) end
+      vim.notify('✅ PlatformIO detected in PATH', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
+      return
+    end
+
     -- 1. If missing, ask the user
     local choice = vim.fn.confirm('PlatformIO not found. Install it now?', '&Yes\n&No', 2)
     if choice ~= 1 then
+      if on_complete then on_complete(false) end
       vim.notify('Plugin load cancelled: PlatformIO Core required.', vim.log.levels.WARN)
       return
     end
@@ -287,33 +284,56 @@ function M.setup(opts)
       "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py', 'get-platformio.py')\" && python get-platformio.py"
     -- "python -c \"import urllib.request; urllib.request.urlretrieve('https://githubusercontent.com', 'get-platformio.py')\" && python get-platformio.py"
     vim.cmd.term(cmd)
-    -- 3. The Decision Point (Async)
     vim.api.nvim_create_autocmd('TermClose', {
       buffer = buf,
       once = true,
       callback = function()
         local success = (vim.v.event.status == 0)
-        if success then
-          vim.api.nvim_win_close(win, true)
-          vim.notify('✅ Installation success! Loading plugin...', vim.log.levels.INFO)
 
-          -- CONTINUE LOADING
-          startPluginInternals()
+        if success then
+          -- CLOSE ONLY ON SUCCESS
+          if vim.api.nvim_win_is_valid(win) then
+            vim.api.nvim_win_close(win, true)
+          end
+          vim.notify('✅ Installation success! Loading plugin...', vim.log.levels.INFO)
         else
-          vim.notify('🚫 Installation failed. Plugin will not load.', vim.log.levels.ERROR)
+          -- STAY OPEN ON FAILURE
+          vim.notify('🚫 Installation failed! Review the logs above, then press :q to close.', vim.log.levels.ERROR)
+        end
+
+        if on_complete then
+          on_complete(success)
         end
       end,
     })
   end
 
-  -- vim.notify('PlatformIO core not found. Run :PioInstall to set it up.', vim.log.levels.WARN, { title = 'nvim-pio Plugin' })
-  --
-  if vim.fn.executable('pio') == 1 then
-    vim.notify('✅ PlatformIO detected in PATH', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
-    startPluginInternals()
-  else
-    pioInstall()
+
+  -- stylua: ignore
+  -- INFO: Pioini
+  vim.api.nvim_create_user_command('Pioinit', function()
+    pioCheck(function(success)
+      if success then
+        require('nvimpio.pio.ui.pioInit').pioInit()
+      end
+    end)
+  end, {
+    force = true,
+    desc = 'Start the PlatformIO guided setup wizard',
+  })
+
+  -- stylua: ignore
+  local function startPluginInternals(success)
+    local sep = vim.fn.has('win32') == 1 and ';' or ':'
+    if success then
+      if M.config.pio.auto_update_path then
+        local pio_bin = get_pio_bin_dir()
+        if vim.fn.isdirectory(pio_bin) == 1 then vim.env.PATH = pio_bin .. sep .. vim.env.PATH end
+      end
+      require('nvimpio.pio.control').init(M.config.clangd)
+    end
   end
+  pioCheck(startPluginInternals)
 end
 
 return M
