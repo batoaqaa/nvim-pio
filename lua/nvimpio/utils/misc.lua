@@ -652,10 +652,10 @@ function M.add_to_gitignore(patterns)
 end
 
 --- stylua: ignore
+
 local function manage_gitignore()
   local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
 
-  -- 1. Read .gitignore in the background
   uv.fs_open(path, 'a+', 438, function(err, fd)
     if err or not fd then
       return
@@ -667,11 +667,8 @@ local function manage_gitignore()
       local size = stat.size or 0
 
       local function process_and_show(current_content)
-        -- Schedule back to main thread to use vim.fn.readdir and vim.ui
         vim.schedule(function()
           local ignored = vim.split(current_content:gsub('\r\n', '\n'), '\n', { trimempty = true })
-
-          -- Fix E5560: readdir is now called on the main thread
           local ok, scan = pcall(vim.fn.readdir, vim.fn.getcwd())
           if not ok then
             uv.fs_close(fd)
@@ -680,7 +677,6 @@ local function manage_gitignore()
 
           local items = { '➕ [Manual Entry]' }
 
-          -- Build list of files not yet ignored
           for _, name in ipairs(scan) do
             local exists = false
             for _, pattern in ipairs(ignored) do
@@ -689,12 +685,15 @@ local function manage_gitignore()
                 break
               end
             end
+
             if not exists then
-              table.insert(items, '📁 ' .. name)
+              -- Check if it's a directory or a file to assign the right icon
+              local is_dir = vim.fn.isdirectory(name) == 1
+              local icon = is_dir and '📁 ' or '📄 '
+              table.insert(items, icon .. name)
             end
           end
 
-          -- Show currently ignored items
           if #ignored > 0 then
             table.insert(items, '--- Already Ignored ---')
             for _, pattern in ipairs(ignored) do
@@ -716,7 +715,9 @@ local function manage_gitignore()
                 end
               end)
             else
+              -- Extract the name after the icon (the first 4 bytes for multibyte icons)
               local pattern = choice:sub(5)
+              -- Append slash if it's a directory
               if vim.fn.isdirectory(pattern) == 1 then
                 pattern = pattern .. '/'
               end
@@ -724,8 +725,6 @@ local function manage_gitignore()
             end
           end)
         end)
-
-        -- Always close the file descriptor
         uv.fs_close(fd)
       end
 
@@ -739,5 +738,6 @@ local function manage_gitignore()
     end)
   end)
 end
+
 vim.api.nvim_create_user_command('GitIgnore', manage_gitignore, {})
 return M
