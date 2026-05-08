@@ -653,7 +653,7 @@ end
 
 --- stylua: ignore
 
-local function manage_gitignore()
+function M.manage_gitignore()
   local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
 
   uv.fs_open(path, 'a+', 438, function(err, fd)
@@ -675,8 +675,10 @@ local function manage_gitignore()
             return
           end
 
-          local items = { '➕ [Manual Entry]' }
+          local items = { '➕ [0] Manual Entry', '🔢 [Selection Index]' }
+          local selectable_files = {}
 
+          -- Build list of non-ignored files
           for _, name in ipairs(scan) do
             local exists = false
             for _, pattern in ipairs(ignored) do
@@ -685,43 +687,65 @@ local function manage_gitignore()
                 break
               end
             end
-
             if not exists then
-              -- Check if it's a directory or a file to assign the right icon
-              local is_dir = vim.fn.isdirectory(name) == 1
-              local icon = is_dir and '📁 ' or '📄 '
-              table.insert(items, icon .. name)
+              table.insert(selectable_files, name)
             end
+          end
+
+          -- Format items for the menu with indices
+          for i, name in ipairs(selectable_files) do
+            local icon = vim.fn.isdirectory(name) == 1 and '📁 ' or '📄 '
+            table.insert(items, string.format('[%d] %s%s', i, icon, name))
           end
 
           if #ignored > 0 then
             table.insert(items, '--- Already Ignored ---')
-            for _, pattern in ipairs(ignored) do
-              table.insert(items, '🚫 ' .. pattern)
+            for i, pattern in ipairs(ignored) do
+              table.insert(items, string.format('[%d] 🚫 %s', i + #selectable_files, pattern))
             end
           end
 
-          vim.ui.select(items, {
-            prompt = 'Select to ignore / View status:',
-          }, function(choice)
-            if not choice or choice:match('^---') or choice:match('^🚫') then
+          vim.ui.select(items, { prompt = 'Manage GitIgnore (+Add / -Remove):' }, function(choice)
+            if not choice or choice:match('^---') then
               return
             end
 
-            if choice == '➕ [Manual Entry]' then
-              vim.ui.input({ prompt = 'Pattern: ' }, function(input)
-                if input and input ~= '' then
-                  M.add_to_gitignore({ input })
+            -- Helper to process bulk input like "+1, 2" or "-6, 7"
+            local function handle_bulk(input)
+              local action = input:sub(1, 1) -- "+" or "-"
+              local numbers = {}
+              for num in input:gmatch('%d+') do
+                table.insert(numbers, tonumber(num))
+              end
+
+              for _, idx in ipairs(numbers) do
+                if action == '+' and selectable_files[idx] then
+                  local pattern = selectable_files[idx]
+                  if vim.fn.isdirectory(pattern) == 1 then
+                    pattern = pattern .. '/'
+                  end
+                  M.add_to_gitignore(pattern)
+                elseif action == '-' then
+                  local ignore_idx = idx - #selectable_files
+                  if ignored[ignore_idx] then
+                    M.remove_from_gitignore(ignored[ignore_idx])
+                  end
+                end
+              end
+            end
+
+            if choice == '🔢 [Selection Index]' then
+              vim.ui.input({ prompt = 'Batch (e.g. +1,2 or -6,7,8): ' }, function(input)
+                if input then
+                  handle_bulk(input)
                 end
               end)
-            else
-              -- Extract the name after the icon (the first 4 bytes for multibyte icons)
-              local pattern = choice:sub(5)
-              -- Append slash if it's a directory
-              if vim.fn.isdirectory(pattern) == 1 then
-                pattern = pattern .. '/'
-              end
-              M.add_to_gitignore({ pattern })
+            elseif choice == '➕ [0] Manual Entry' then
+              vim.ui.input({ prompt = 'Pattern: ' }, function(input)
+                if input then
+                  M.add_to_gitignore(input)
+                end
+              end)
             end
           end)
         end)
@@ -738,6 +762,91 @@ local function manage_gitignore()
     end)
   end)
 end
+-- local function manage_gitignore()
+--   local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
+--
+--   uv.fs_open(path, 'a+', 438, function(err, fd)
+--     if err or not fd then
+--       return
+--     end
+--     uv.fs_fstat(fd, function(ferr, stat)
+--       if ferr or not stat then
+--         return
+--       end
+--       local size = stat.size or 0
+--
+--       local function process_and_show(current_content)
+--         vim.schedule(function()
+--           local ignored = vim.split(current_content:gsub('\r\n', '\n'), '\n', { trimempty = true })
+--           local ok, scan = pcall(vim.fn.readdir, vim.fn.getcwd())
+--           if not ok then
+--             uv.fs_close(fd)
+--             return
+--           end
+--
+--           local items = { '➕ [Manual Entry]' }
+--
+--           for _, name in ipairs(scan) do
+--             local exists = false
+--             for _, pattern in ipairs(ignored) do
+--               if pattern == name or pattern == (name .. '/') then
+--                 exists = true
+--                 break
+--               end
+--             end
+--
+--             if not exists then
+--               -- Check if it's a directory or a file to assign the right icon
+--               local is_dir = vim.fn.isdirectory(name) == 1
+--               local icon = is_dir and '📁 ' or '📄 '
+--               table.insert(items, icon .. name)
+--             end
+--           end
+--
+--           if #ignored > 0 then
+--             table.insert(items, '--- Already Ignored ---')
+--             for _, pattern in ipairs(ignored) do
+--               table.insert(items, '🚫 ' .. pattern)
+--             end
+--           end
+--
+--           vim.ui.select(items, {
+--             prompt = 'Select to ignore / View status:',
+--           }, function(choice)
+--             if not choice or choice:match('^---') or choice:match('^🚫') then
+--               return
+--             end
+--
+--             if choice == '➕ [Manual Entry]' then
+--               vim.ui.input({ prompt = 'Pattern: ' }, function(input)
+--                 if input and input ~= '' then
+--                   M.add_to_gitignore({ input })
+--                 end
+--               end)
+--             else
+--               -- Extract the name after the icon (the first 4 bytes for multibyte icons)
+--               local pattern = choice:sub(5)
+--               -- Append slash if it's a directory
+--               if vim.fn.isdirectory(pattern) == 1 then
+--                 pattern = pattern .. '/'
+--               end
+--               M.add_to_gitignore({ pattern })
+--             end
+--           end)
+--         end)
+--         uv.fs_close(fd)
+--       end
+--
+--       if size > 0 then
+--         uv.fs_read(fd, size, 0, function(_, data)
+--           process_and_show(data or '')
+--         end)
+--       else
+--         process_and_show('')
+--       end
+--     end)
+--   end)
+-- end
 
 vim.api.nvim_create_user_command('GitIgnore', manage_gitignore, {})
 return M
