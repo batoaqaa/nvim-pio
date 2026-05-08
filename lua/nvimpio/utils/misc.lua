@@ -811,6 +811,7 @@ end
 -- end
 
 
+
 local sep = vim.fn.has("win32") == 1 and "\\" or "/"
 
 function M.manage_gitignore()
@@ -829,7 +830,7 @@ function M.manage_gitignore()
     f:close()
   end
 
-  -- 2. Normalize and Filter (Prevents .clangd duplicates)
+  -- 2. Normalize and Filter
   local ignored_lookup = {}
   for _, p in ipairs(ignored) do
     ignored_lookup[p:gsub('^%s*/?', ''):gsub('/?%s*$', '')] = true
@@ -843,34 +844,44 @@ function M.manage_gitignore()
     end
   end
 
-  -- 3. Create a scratch buffer to show the list
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_option(buf, 'buftype', 'nofile')
-  vim.api.nvim_buf_set_name(buf, 'GitIgnore_List')
-
-  local lines = { '  GITIGNORE MANAGER', '  Type: +add / -remove / q to quit', '' }
+  -- 3. Prepare Display Lines
+  local lines = { '   GITIGNORE MANAGER', ' Type: +add / -remove / q to quit', string.rep('─', 40) }
   for i, file in ipairs(not_ignored) do
     local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
     table.insert(lines, string.format(' [%d] %s%s', i, icon, file))
   end
   table.insert(lines, '')
-  table.insert(lines, '  --- Current Ignores ---')
+  table.insert(lines, ' --- Current Ignores ---')
   for i, pattern in ipairs(ignored) do
     table.insert(lines, string.format(' [%d] 🚫 %s', i + #not_ignored, pattern))
   end
 
+  -- 4. Create Floating Window
+  local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 
-  -- Open in a vertical split so you can see it while you type
-  vim.cmd('vsplit')
-  vim.api.nvim_set_current_buf(buf)
-  vim.api.nvim_win_set_width(0, 40)
+  local width = 50
+  local height = math.min(#lines + 2, 20)
+  local opts = {
+    relative = 'editor',
+    width = width,
+    height = height,
+    col = (vim.o.columns - width) / 2,
+    row = (vim.o.lines - height) / 2,
+    style = 'minimal',
+    border = 'rounded',
+    title = ' GitIgnore ',
+    title_pos = 'center',
+  }
+  local win = vim.api.nvim_open_win(buf, true, opts)
 
-  -- 4. Prompt for input while list is visible
+  -- 5. Prompt for input while floating window is visible
   vim.defer_fn(function()
     vim.ui.input({ prompt = 'Action (e.g. +1,2-5): ' }, function(input)
-      -- Close the list buffer
-      vim.api.nvim_buf_delete(buf, { force = true })
+      -- Close floating window and buffer
+      if vim.api.nvim_win_is_valid(win) then
+        vim.api.nvim_win_close(win, true)
+      end
 
       if not input or input == '' or input:lower() == 'q' then
         return
@@ -904,7 +915,7 @@ function M.manage_gitignore()
         end
       end
 
-      -- Write the file
+      -- Write file
       local out = io.open(path, 'w')
       if out then
         out:write(table.concat(final_list, '\n') .. '\n')
@@ -914,7 +925,6 @@ function M.manage_gitignore()
     end)
   end, 10)
 end
-
 vim.keymap.set('n', '<leader>gi', function()
   require('nvimpio.utils.misc').manage_gitignore()
 end, { desc = 'Manage [G]it[I]gnore' })
