@@ -745,6 +745,19 @@ function M.handlePioInstall(result)
   elseif result == 'DONE' then -- result of the only and the last command
     vim.misc.notify('PIO install:  pass ' .. commandPassed, "info")
     vim.misc.notify('PIO install: Done', "info")
+
+    -- 1. Always remove the script
+    os.remove('get-platformio.py')
+    -- 2. Find and remove random temp folders like .piocore-installer-xxxx
+    -- vim.fn.glob returns a list of files/folders matching the pattern
+    local temp_patterns = { ".piocore-installer-*", "platformio-core-installer-*" }
+    for _, pattern in ipairs(temp_patterns) do
+      local matches = vim.fn.glob(pattern, true, true)
+      for _, path in ipairs(matches) do
+        if vim.fn.isdirectory(path) == 1 then vim.fn.delete(path, "rf") end
+      end
+    end
+
     commandPassed = commandPassed + 1
     M.cleanup_pio_session()
   elseif result == 'FAIL' then

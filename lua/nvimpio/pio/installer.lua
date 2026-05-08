@@ -12,11 +12,6 @@ if not core_dir then
   core_dir = home .. '/.platformio'
 end
 
-local python_urls = {
-  win = 'https://dl.platformio.org/python/portable/python-portable-windows_amd64-1.31100.0.zip',
-  mac = '',
-}
-
 function M.install()
   -- 1. Detect environment details
   local python = is_win and 'python' or 'python3'
