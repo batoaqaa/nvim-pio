@@ -315,15 +315,15 @@ local plugins = {
     -- cmd = { 'Pioinit' },
     lazy = true,
     init = function(self)
-      if require('lazy.core.config').plugins[self.name]._.loaded then
-        return
-      end
+      -- if require('lazy.core.config').plugins[self.name]._.loaded then
+      --   return
+      -- end
       if vim.fn.filereadable('platformio.ini') == 1 then
         require('lazy').load({ plugins = { self.name } })
       else
         vim.api.nvim_create_user_command('Pioinit', function()
           require('lazy').load({ plugins = { self.name } })
-          require('nvimpio.pioInit').pioInit()
+          -- require('nvimpio.pioInit').pioInit()
         end, { nargs = '*' })
       end
     end,
