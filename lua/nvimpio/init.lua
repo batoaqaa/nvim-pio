@@ -24,11 +24,12 @@ M.config = {
       shortcut = 'g',
       items = {
         { node = 'item', desc = '[B]uild', shortcut = 'b', command = 'Piocmdf run' },
-        { node = 'item', desc = '[U]pload', shortcut = 'u', command = 'Piocmdf run -t upload' },
-        { node = 'item', desc = '[M]onitor', shortcut = 'm', command = 'Piocmdh run -t monitor' },
         { node = 'item', desc = '[C]lean', shortcut = 'c', command = 'Piocmdf run -t clean' },
-        { node = 'item', desc = '[F]ull clean', shortcut = 'f', command = 'Piocmdf run -t fullclean' },
         { node = 'item', desc = '[D]evice list', shortcut = 'd', command = 'Piocmdf device list' },
+        { node = 'item', desc = '[F]ull clean', shortcut = 'f', command = 'Piocmdf run -t fullclean' },
+        { node = 'item', desc = 'git [I]gnore', shortcut = 'i', command = 'GitIgnore' },
+        { node = 'item', desc = '[M]onitor', shortcut = 'm', command = 'Piocmdh run -t monitor' },
+        { node = 'item', desc = '[U]pload', shortcut = 'u', command = 'Piocmdf run -t upload' },
       },
     },
     {
