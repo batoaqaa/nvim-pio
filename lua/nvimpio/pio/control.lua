@@ -312,11 +312,6 @@ end
 --stylua: ignore
 -------------------------------------------------------------------------------
 function M.init(clangd)
-  vim.g.platformioRootDir = vim.fn.getcwd()
-
-  vim.pio = require('nvimpio.pio.upkeep')
-  vim.misc = require('nvimpio.utils.misc')
-  vim.clangd = require('nvimpio.clangd.control')
 
   require('nvimpio.pio.commands')
   vim.misc.notify('PIO Control: initialize', "info")

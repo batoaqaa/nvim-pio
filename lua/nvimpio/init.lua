@@ -337,6 +337,11 @@ function M.setup(opts)
   vim.api.nvim_create_user_command('Pioinit', function()
     pioCheck(function(success)
       if success then
+  vim.g.platformioRootDir = vim.fn.getcwd()
+
+  vim.pio = require('nvimpio.pio.upkeep')
+  vim.misc = require('nvimpio.utils.misc')
+  vim.clangd = require('nvimpio.clangd.control')
         require('nvimpio.pio.ui.pioInit').pioInit()
       end
     end)
@@ -349,6 +354,11 @@ function M.setup(opts)
   local function startPluginInternals(success)
     local sep = vim.fn.has('win32') == 1 and ';' or ':'
     if success then
+  vim.g.platformioRootDir = vim.fn.getcwd()
+
+  vim.pio = require('nvimpio.pio.upkeep')
+  vim.misc = require('nvimpio.utils.misc')
+  vim.clangd = require('nvimpio.clangd.control')
       if M.config.pio.auto_update_path then
         local pio_bin = get_pio_bin_dir()
         if vim.fn.isdirectory(pio_bin) == 1 then vim.env.PATH = pio_bin .. sep .. vim.env.PATH end
