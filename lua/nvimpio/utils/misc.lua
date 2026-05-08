@@ -848,5 +848,5 @@ end
 --   end)
 -- end
 
-vim.api.nvim_create_user_command('GitIgnore', manage_gitignore, {})
+vim.api.nvim_create_user_command('GitIgnore', M.manage_gitignore, {})
 return M
