@@ -568,4 +568,133 @@ function M.gitignore_lsp_configs(config_file)
   end
 end
 
+-- stylua: ignore
+function M.add_to_gitignore(patterns)
+  -- 1. Input Validation
+  if not patterns then return end
+  if type(patterns) == 'string' then patterns = { patterns } end
+  if type(patterns) ~= 'table' then return end
+
+  local cwd = vim.fn.getcwd()
+
+  if not cwd or cwd == '' then return end
+  local path = vim.fs.joinpath(cwd, '.gitignore')
+
+  -- 2. Async Open in a+ mode (Append/Read, create if missing)
+  -- Mode 438 is octal 0666 (rw-rw-rw-)
+  uv.fs_open(path, 'a+', 438, function(err, fd)
+    if err then
+      vim.schedule(function()
+        vim.misc.notify('Gitignore error (open): ' .. tostring(err), 'info')
+      end)
+      return
+    end
+
+    -- 3. Get file stats to handle size/read offsets
+    uv.fs_fstat(fd, function(err_stat, stat)
+      if err_stat or not stat then
+        uv.fs_close(fd)
+        vim.schedule(function() vim.misc.notify('Gitignore error (stat): ' .. tostring(err_stat), 'info') end)
+        return
+      end
+
+      -- 4. Read existing content (handle empty file case)
+      local read_size = stat.size > 0 and stat.size or 0
+      local on_read = function(err_read, data)
+        if err_read then
+          uv.fs_close(fd)
+          vim.schedule(function() vim.misc.notify('Gitignore error (read): ' .. tostring(err_read), 'info') end)
+          return
+        end
+
+        local content = data or ''
+        local clean_content = content:gsub('\r\n', '\n')
+        local to_append = ''
+
+        for _, pattern in ipairs(patterns) do
+          if type(pattern) == 'string' and pattern ~= '' then
+            -- Escape special Lua pattern chars for a literal match
+            local escaped = pattern:gsub('[%^%$%(%)%%%.%[%]%*%+%-%?]', '%%%1')
+
+            -- Check for duplicate (Start of file, middle of file, or end of file)
+            local exists = clean_content:find('^' .. escaped .. '$')
+              or clean_content:find('\n' .. escaped .. '\n')
+              or clean_content:find('\n' .. escaped .. '$')
+              or clean_content == pattern
+
+            if not exists then
+              -- Ensure newline separation if file isn't empty
+              if to_append == '' and #content > 0 and content:sub(-1) ~= '\n' then
+                to_append = '\n'
+              end
+              to_append = to_append .. pattern .. '\n'
+            end
+          end
+        end
+
+        -- 5. Only write if there's new data
+        if to_append ~= '' then
+          uv.fs_write(fd, to_append, -1, function(err_write)
+            uv.fs_close(fd)
+            vim.schedule(function()
+              if err_write then vim.misc.notify('Gitignore error (write) ' .. tostring(err_write), 'info')
+              else vim.misc.notify('Gitignore updated', 'info') end
+            end)
+          end)
+        else uv.fs_close(fd) end
+      end
+
+      -- If file is empty, skip read and jump to check logic
+      if read_size == 0 then on_read(nil, '')
+      else uv.fs_read(fd, read_size, 0, on_read) end
+    end)
+  end)
+end
+
+-- stylua: ignore
+function M.manage_gitignore()
+  local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
+
+  -- 1. Asynchronously read the file to populate the menu
+  uv.fs_open(path, 'a+', 438, function(err, fd)
+    if err or not fd then return end
+    uv.fs_fstat(fd, function(ferr, stat)
+      if ferr or not stat then return end
+      local size = stat.size or 0
+
+      -- Helper to handle the read result
+      local function show_menu(content)
+        -- Split content into a list of lines, removing empty ones
+        local lines = vim.split(content:gsub('\r\n', '\n'), '\n', { trimempty = true })
+        table.insert(lines, 1, '➕ [Add New Pattern]') -- Add entry for new items
+
+        vim.schedule(function()
+          vim.ui.select(lines, {
+            prompt = 'GitIgnore Manager (Search/View):',
+            format_item = function(item)
+              return item
+            end,
+          }, function(choice)
+            if not choice then return end
+
+            if choice == '➕ [Add New Pattern]' then
+              -- Call input to add a new pattern
+              -- Use your "long" add function here
+              vim.ui.input({ prompt = 'New ignore pattern: ' }, function(input) if input and input ~= '' then M.add_to_gitignore({ input }) end end)
+            -- Optional: Do something when an existing pattern is selected
+            else print('Selected: ' .. choice) end
+          end)
+        end)
+        uv.fs_close(fd)
+      end
+
+      if size > 0 then uv.fs_read(fd, size, 0, function(_, data) show_menu(data or '') end)
+      else show_menu('') end
+    end)
+  end)
+end
+
+-- Create a user command for easy access
+vim.api.nvim_create_user_command('GitIgnore', M.manage_gitignore, {})
+
 return M

@@ -163,17 +163,12 @@ local function setup_xdg_paths()
   local home = vim.env.HOME or vim.env.USERPROFILE or ''
   local app_name = 'nvim-pio' -- pick a temp root
 
-  -- Helper to ensure we never gsub a nil and always use forward slashes
-  local function normalize(path)
-    return path:gsub('\\', '/')
-  end
-
   -- 1. XDG_CONFIG_HOME (Settings/Configs)
   if not vim.env.XDG_CONFIG_HOME then
     local path = isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
               or isMac and (home .. '/Library/Preferences')
               or (home .. '/.config')
-    vim.env.XDG_CONFIG_HOME = normalize(vim.fs.joinpath(path, app_name))
+    vim.env.XDG_CONFIG_HOME = vim.fs.joinpath(path, app_name)
   end
 
   -- 2. XDG_DATA_HOME (Large data/Databases)
@@ -181,7 +176,7 @@ local function setup_xdg_paths()
     local path = isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
               or isMac and (home .. '/Library/Application Support')
               or (home .. '/.local/share')
-    vim.env.XDG_DATA_HOME = normalize(vim.fs.joinpath(path, app_name))
+    vim.env.XDG_DATA_HOME = vim.fs.joinpath(path, app_name)
   end
 
   -- 3. XDG_STATE_HOME (Logs/History/Persistent State)
@@ -189,7 +184,7 @@ local function setup_xdg_paths()
     local path = isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
               or isMac and (home .. '/Library/Application Support')
               or (home .. '/.local/state')
-    vim.env.XDG_STATE_HOME = normalize(vim.fs.joinpath(path, app_name))
+    vim.env.XDG_STATE_HOME = vim.fs.joinpath(path, app_name)
   end
 
   -- 4. XDG_CACHE_HOME (Temporary/Disposable data)
@@ -197,7 +192,7 @@ local function setup_xdg_paths()
     local path = isWindows and (vim.env.TEMP or (home .. '/AppData/Local/Temp'))
               or isMac and (home .. '/Library/Caches')
               or (home .. '/.cache')
-    vim.env.XDG_CACHE_HOME = normalize(vim.fs.joinpath(path, app_name))
+    vim.env.XDG_CACHE_HOME = vim.fs.joinpath(path, app_name)
   end
 end
 
@@ -398,28 +393,27 @@ vim.api.nvim_create_autocmd('User', {
 -- SELECTIVE CLEANUP ON EXIT (Keeps plugins, deletes temp files)
 -- stylua: ignore
 -- SELECTIVE CLEANUP FOR WINDOWS
-vim.api.nvim_create_autocmd("VimLeave", {
+vim.api.nvim_create_autocmd("VimLeavePre", { -- Use VimLeavePre to act before the write attempt
   callback = function()
-    -- On Windows, we specifically want to wipe the shada and temp files
+    -- 1. Tell Neovim NOT to write the history file on exit to avoid E138
+    vim.opt.shadafile = "NONE"
+
+    -- 2. Define target paths
     local state_path = vim.fn.stdpath("state")
     local cache_path = vim.fn.stdpath("cache")
 
     local targets = {
-      state_path .. "/shada", -- Delete history/marks
-      cache_path,             -- Delete temp bytecode
+      state_path .. "/shada",
+      cache_path,
     }
 
+    -- 3. Delete the directories cross-platform
     for _, path in ipairs(targets) do
-      if vim.fn.isdirectory(path) == 1 then
-        local cmd = isWindows
-          and string.format('rmdir /s /q "%s"', path:gsub("/", "\\"))
-          or string.format('rm -rf "%s"', path)
-        vim.fn.jobstart(cmd, { detach = true })
-      end
+      -- Native Neovim function (0.9+) that handles Windows/macOS/Linux paths automatically
+      if vim.fn.isdirectory(path) == 1 then vim.fs.rm(path, { recursive = true, force = true }) end
     end
   end,
 })
-
 ----------------------------------------------------------------------------------------
 -- INFO: configure nvim-pio and load
 -----------------------------------------------------------------------------------------
