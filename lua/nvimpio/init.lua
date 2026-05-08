@@ -259,7 +259,6 @@ function M.setup(opts)
       end
     end
   end
-  require('nvimpio.pio.commands')
   require('nvimpio.pio.control').init(M.config.clangd)
   -- vim.misc.notify('nvimpio started', "info")
 end

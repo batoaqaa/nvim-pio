@@ -318,6 +318,7 @@ function M.init(clangd)
   vim.misc = require('nvimpio.utils.misc')
   vim.clangd = require('nvimpio.clangd.control')
 
+  require('nvimpio.pio.commands')
   vim.misc.notify('PIO Control: initialize', "info")
 
   require('nvimpio.pio.metadata') --.load_project_config()
