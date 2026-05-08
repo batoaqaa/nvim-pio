@@ -810,6 +810,7 @@ end
 --   end)
 -- end
 
+
 local sep = vim.fn.has("win32") == 1 and "\\" or "/"
 
 function M.manage_gitignore()
@@ -828,7 +829,7 @@ function M.manage_gitignore()
     f:close()
   end
 
-  -- 2. Normalize and Filter (Excludes .gitignore itself)
+  -- 2. Normalize and Filter (Exclude .gitignore itself)
   local ignored_lookup = {}
   for _, p in ipairs(ignored) do
     ignored_lookup[p:gsub('^%s*/?', ''):gsub('/?%s*$', '')] = true
@@ -841,17 +842,16 @@ function M.manage_gitignore()
 
   local not_ignored = {}
   for _, file in ipairs(files) do
-    -- NEW: Explicitly skip the .gitignore file
     if file ~= '.gitignore' then
-      local norm_file = file:gsub('^/?', ''):gsub('/?$', '')
-      if not ignored_lookup[norm_file] then
+      local norm = file:gsub('^/?', ''):gsub('/?$', '')
+      if not ignored_lookup[norm] then
         table.insert(not_ignored, file)
       end
     end
   end
 
   -- 3. Prepare Display Lines
-  local lines = { '   GITIGNORE MANAGER', ' Type: +add / -remove / q to quit', string.rep('─', 45) }
+  local lines = { '   GITIGNORE MANAGER', ' ESC or ENTER (empty) to exit', string.rep('─', 45) }
   for i, file in ipairs(not_ignored) do
     local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
     table.insert(lines, string.format(' [%d] %s%s', i, icon, file))
@@ -866,9 +866,8 @@ function M.manage_gitignore()
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 
-  local width = 55
-  local height = math.min(#lines + 2, 25)
-  local opts = {
+  local width, height = 55, math.min(#lines + 2, 25)
+  local win = vim.api.nvim_open_win(buf, false, {
     relative = 'editor',
     width = width,
     height = height,
@@ -878,16 +877,16 @@ function M.manage_gitignore()
     border = 'rounded',
     title = ' GitIgnore ',
     title_pos = 'center',
-  }
-  local win = vim.api.nvim_open_win(buf, true, opts)
+  })
 
-  -- 5. Prompt for input
+  -- 5. Prompt for Input
   vim.defer_fn(function()
     vim.ui.input({ prompt = 'Action (e.g. +1,2-5): ' }, function(input)
-      if vim.api.nvim_win_is_valid(win) then
-        vim.api.nvim_win_close(win, true)
-      end
+      -- If Esc or Enter on empty, close and stop
       if not input or input == '' or input:lower() == 'q' then
+        if vim.api.nvim_win_is_valid(win) then
+          vim.api.nvim_win_close(win, true)
+        end
         return
       end
 
@@ -908,6 +907,7 @@ function M.manage_gitignore()
         end
       end
 
+      -- If no +/-, treat as manual entry
       if not found_batch then
         table.insert(ignored, input)
       end
@@ -919,12 +919,18 @@ function M.manage_gitignore()
         end
       end
 
+      -- Write File
       local out = io.open(path, 'w')
       if out then
         out:write(table.concat(final_list, '\n') .. '\n')
         out:close()
       end
-      vim.notify('Gitignore updated')
+
+      -- Close window and RECURSE to refresh the list
+      if vim.api.nvim_win_is_valid(win) then
+        vim.api.nvim_win_close(win, true)
+      end
+      M.manage_gitignore()
     end)
   end, 20)
 end
