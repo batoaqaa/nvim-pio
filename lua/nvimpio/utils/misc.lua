@@ -568,73 +568,74 @@ function M.gitignore_lsp_configs(config_file)
   end
 end
 
-local sep = vim.fn.has('win32') == 1 and '\\' or '/'
-
-function M.write_gitignore(lines)
-  local path = vim.fn.getcwd() .. sep .. '.gitignore'
-  local f = io.open(path, 'w')
-  if f then
-    f:write(table.concat(lines, '\n') .. '\n')
-    f:close()
-  end
-  vim.schedule(function()
-    vim.notify('Gitignore updated')
-  end)
-end
-
-function M.manage_gitignore()
-  local path = vim.fn.getcwd() .. sep .. '.gitignore'
-  local ignored = {}
-  local f = io.open(path, 'r')
-  if f then
-    for line in f:lines() do
-      if line ~= '' then
-        table.insert(ignored, line)
-      end
-    end
-    f:close()
-  end
-
-  local files = vim.fn.readdir(vim.fn.getcwd())
-  local items = { '[+] Add / [-] Remove (e.g. +1,2 -5)' }
-
-  -- Build the visual list
-  for i, f in ipairs(files) do
-    local icon = vim.fn.isdirectory(f) == 1 and '📁 ' or '📄 '
-    table.insert(items, string.format('%d: %s%s', i, icon, f))
-  end
-  table.insert(items, '--- Current Ignores ---')
-  for i, f in ipairs(ignored) do
-    table.insert(items, string.format('%d: 🚫 %s', i + #files, f))
-  end
-
-  vim.ui.select(items, { prompt = 'GitIgnore Manager:' }, function(choice)
-    if not choice then
-      return
-    end
-    vim.ui.input({ prompt = 'Action (+add, -remove, or manual): ' }, function(input)
-      if not input or input == '' then
-        return
-      end
-
-      local action = input:sub(1, 1)
-      if action ~= '+' and action ~= '-' then
-        table.insert(ignored, input) -- Manual entry
-      else
-        for num in input:gmatch('%d+') do
-          local n = tonumber(num)
-          if action == '+' and files[n] then
-            local p = files[n] .. (vim.fn.isdirectory(files[n]) == 1 and '/' or '')
-            table.insert(ignored, p)
-          elseif action == '-' and ignored[n - #files] then
-            table.remove(ignored, n - #files)
-          end
-        end
-      end
-      M.write_gitignore(ignored)
-    end)
-  end)
-end
+-- local sep = vim.fn.has('win32') == 1 and '\\' or '/'
+--
+-- function M.write_gitignore(lines)
+--   local path = vim.fn.getcwd() .. sep .. '.gitignore'
+--   local f = io.open(path, 'w')
+--   if f then
+--     f:write(table.concat(lines, '\n') .. '\n')
+--     f:close()
+--   end
+--   vim.schedule(function()
+--     vim.notify('Gitignore updated')
+--   end)
+-- end
+--
+-- function M.manage_gitignore()
+--   local path = vim.fn.getcwd() .. sep .. '.gitignore'
+--   local ignored = {}
+--   local f = io.open(path, 'r')
+--   if f then
+--     for line in f:lines() do
+--       if line ~= '' then
+--         table.insert(ignored, line)
+--       end
+--     end
+--     f:close()
+--   end
+--
+--   local files = vim.fn.readdir(vim.fn.getcwd())
+--   local items = { '[+] Add / [-] Remove (e.g. +1,2 -5)' }
+--
+--   -- Build the visual list
+--   for i, f in ipairs(files) do
+--     local icon = vim.fn.isdirectory(f) == 1 and '📁 ' or '📄 '
+--     table.insert(items, string.format('%d: %s%s', i, icon, f))
+--   end
+--   table.insert(items, '--- Current Ignores ---')
+--   for i, f in ipairs(ignored) do
+--     table.insert(items, string.format('%d: 🚫 %s', i + #files, f))
+--   end
+--
+--   vim.ui.select(items, { prompt = 'GitIgnore Manager:' }, function(choice)
+--     if not choice then
+--       return
+--     end
+--     vim.ui.input({ prompt = 'Action (+add, -remove, or manual): ' }, function(input)
+--       if not input or input == '' then
+--         return
+--       end
+--
+--       local action = input:sub(1, 1)
+--       if action ~= '+' and action ~= '-' then
+--         table.insert(ignored, input) -- Manual entry
+--       else
+--         for num in input:gmatch('%d+') do
+--           local n = tonumber(num)
+--           if action == '+' and files[n] then
+--             local p = files[n] .. (vim.fn.isdirectory(files[n]) == 1 and '/' or '')
+--             table.insert(ignored, p)
+--           elseif action == '-' and ignored[n - #files] then
+--             table.remove(ignored, n - #files)
+--           end
+--         end
+--       end
+--       M.write_gitignore(ignored)
+--     end)
+--   end)
+-- end
+-- -------------------------------------------------------------------------------------------------
 
 
 
@@ -809,5 +810,103 @@ end
 --   end)
 -- end
 
+
+local sep = vim.fn.has("win32") == 1 and "\\" or "/"
+
+function M.write_gitignore(lines)
+  local path = vim.fn.getcwd() .. sep .. '.gitignore'
+  local f = io.open(path, 'w')
+  if f then
+    f:write(table.concat(lines, '\n') .. '\n')
+    f:close()
+  end
+  vim.schedule(function()
+    vim.notify('Gitignore updated')
+  end)
+end
+
+function M.manage_gitignore()
+  local path = vim.fn.getcwd() .. sep .. '.gitignore'
+  local ignored = {}
+  local f = io.open(path, 'r')
+  if f then
+    for line in f:lines() do
+      if line ~= '' then
+        table.insert(ignored, line)
+      end
+    end
+    f:close()
+  end
+
+  local files = vim.fn.readdir(vim.fn.getcwd())
+  local not_ignored = {}
+
+  -- Filter: Only show files NOT in gitignore
+  for _, file in ipairs(files) do
+    local is_ignored = false
+    for _, pattern in ipairs(ignored) do
+      if pattern == file or pattern == (file .. '/') then
+        is_ignored = true
+        break
+      end
+    end
+    if not is_ignored then
+      table.insert(not_ignored, file)
+    end
+  end
+
+  -- Build UI list
+  local items = { 'SPACE to change | ENTER/Q to quit' }
+  for i, file in ipairs(not_ignored) do
+    local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
+    table.insert(items, string.format('%d: %s%s', i, icon, file))
+  end
+  table.insert(items, '--- Current Ignores ---')
+  for i, pattern in ipairs(ignored) do
+    table.insert(items, string.format('%d: 🚫 %s', i + #not_ignored, pattern))
+  end
+
+  vim.ui.select(items, { prompt = 'GitIgnore Manager:' }, function(choice)
+    -- Space to continue, Enter/Q/Nil to exit
+    if not choice or choice == '' or choice == 'SPACE to change | ENTER/Q to quit' then
+      return
+    end
+
+    vim.ui.input({ prompt = 'Batch (e.g. +1,2,3-5,6): ' }, function(input)
+      if not input or input == '' or input == 'q' then
+        return
+      end
+
+      -- Step 1: Split the input into segments by looking for + or -
+      -- We find every block like "+1,2,3" or "-5,6"
+      for action, group in input:gmatch('([%+%-])([%d%s,]+)') do
+        for num in group:gmatch('%d+') do
+          local n = tonumber(num)
+          if action == '+' and not_ignored[n] then
+            local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
+            table.insert(ignored, p)
+          elseif action == '-' and ignored[n - #not_ignored] then
+            -- Set to nil first to avoid index shifting mid-loop
+            ignored[n - #not_ignored] = '__DELETE__'
+          end
+        end
+      end
+
+      -- Step 2: Finalize list (remove the items marked for deletion)
+      local final_list = {}
+      for _, val in ipairs(ignored) do
+        if val ~= '__DELETE__' then
+          table.insert(final_list, val)
+        end
+      end
+
+      M.write_gitignore(final_list)
+    end)
+  end)
+end
+
+vim.keymap.set('n', '<leader>gi', function()
+  require('nvimpio.utils.misc').manage_gitignore()
+end, { desc = 'Manage [G]it[I]gnore' })
 vim.api.nvim_create_user_command('GitIgnore', M.manage_gitignore, {})
 return M
