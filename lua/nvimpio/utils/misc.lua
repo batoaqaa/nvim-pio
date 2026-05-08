@@ -653,9 +653,7 @@ end
 
 -- stylua: ignore
 local function manage_gitignore()
-  local uv = vim.uv or vim.loop
-  local sep = vim.fn.has('win32') == 1 and '\\' or '/'
-  local path = vim.fn.getcwd() .. sep .. '.gitignore'
+  local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
 
   -- 1. Read .gitignore to see what's already there
   uv.fs_open(path, 'a+', 438, function(err, fd)
