@@ -732,6 +732,27 @@ function M.handlePiolib(result)
 end
 
 ------------------------------------------------------
+-- Handle after piolib execution
+-- =============================================================================
+-- stylua: ignore
+function M.handlePioInstall(result)
+  if result == 'INIT' then
+    win_id = vim.misc.showMessage('************ Project Initializing ************')
+    if #M.queue > 0 then
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      _G.metadata.isBusy = true
+    end
+  elseif result == 'DONE' then -- result of the only and the last command
+    vim.misc.notify('PIO install:  pass ' .. commandPassed, "info")
+    vim.misc.notify('PIO install: Done', "info")
+    commandPassed = commandPassed + 1
+    M.cleanup_pio_session()
+  elseif result == 'FAIL' then
+    M.cleanup_pio_session()
+  end
+end
+
+------------------------------------------------------
 -- =============================================================================
 -- stylua: ignore
 function M.handlePiodb(target, result)

@@ -37,6 +37,10 @@ function M.install()
   _G.pio_status = '⏳ Installing PIO...'
   vim.cmd('redrawstatus')
 
+  vim.pio.run_sequence({
+    cmnds = { full_cmd },
+    cb = vim.pio.handlePioInstallL,
+  })
   local term = require('nvimpio.utils.term')
   term.ToggleTerminal(full_cmd, 'float')
   vim.misc.closeMessage(win_id)
