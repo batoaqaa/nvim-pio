@@ -5,250 +5,69 @@ _G.pio_status = ''
 
 local is_win = vim.fn.has('win32') == 1
 local home = os.getenv('HOME') or os.getenv('USERPROFILE')
-local pio_dir = home .. '/.platformio'
-local python_dir = pio_dir .. '/python3'
-local python_exe = is_win and (python_dir .. '/python.exe') or (python_dir .. '/bin/python3')
--- Verified Stable PlatformIO Portable Python URLs
--- local python_url = is_win and 'https://platformio.org' or 'https://platformio.org'
+
+-- 1. Check for custom environment variable first
+local core_dir = os.getenv('PLATFORMIO_CORE_DIR')
+-- 2. Fallback to default if not set
+if not core_dir then
+  core_dir = home .. '/.platformio'
+end
 
 local python_urls = {
   win = 'https://dl.platformio.org/python/portable/python-portable-windows_amd64-1.31100.0.zip',
   mac = '',
 }
 
--- Detect OS to use the correct archive
-local python_url = vim.fn.has('win32') == 1 and python_urls.win or python_urls.mac
-
-local pio_script_url = 'https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py'
-
-function M.get_bin_dir()
-  return is_win and (pio_dir .. '/penv/Scripts') or (pio_dir .. '/penv/bin')
-end
-
 function M.install()
-  -- Step 0: Pre-cleanup (Ensures no half-downloaded files cause the 'Unrecognized archive' error)
-  if vim.fn.isdirectory(python_dir) == 1 then
-    vim.fn.delete(python_dir, 'rf')
-  end
-  vim.fn.mkdir(python_dir, 'p')
+  win_id = vim.misc.showMessage('************ PlatfromIO python env setup ************')
+  -- 1. Detect environment details
+  local python = is_win and 'python' or 'python3'
+  local shell = is_win and { 'cmd', '/c' } or { 'sh', '-c' }
 
-  local archive = is_win and 'python_tmp.zip' or 'python_tmp.tar.gz'
-  local rm_cmd = is_win and 'del' or 'rm'
+  -- 2. CORRECTED URL: Added 'raw.' prefix
+  local url = 'https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py'
 
-  -- Step-by-step commands to ensure reliability
-  local commands = {
-    -- 1. Download to disk (prevents pipe corruption)
-    -- -f fails if URL is bad; -A prevents bot-blocking
-    string.format('curl -f -L -A "Mozilla/5.0" %s -o %s', python_url, archive),
-    -- 2. Extract from disk (native Windows tar handles .zip better)
-    string.format('tar -xf %s -C %s --strip-components=1', archive, python_dir),
-    -- 3. Cleanup archive
-    string.format('%s %s', rm_cmd, archive),
-    -- 4. Run PIO installer script
-    string.format("%s -c \"import urllib.request; urllib.request.urlretrieve('%s', 'get-platformio.py')\"", python_exe, pio_script_url),
-    string.format('%s get-platformio.py', python_exe),
-    string.format('%s get-platformio.py', rm_cmd),
-  }
+  -- 3. Construction of the cross-platform command string
+  -- We use double quotes for Python's internal string to ensure compatibility with Windows cmd
+  local download_py = string.format("%s -c \"import urllib.request; urllib.request.urlretrieve('%s', 'get-platformio.py')\"", python, url)
+  local install_py = python .. ' get-platformio.py'
+  local full_cmd = download_py .. ' && ' .. install_py
 
-  local full_command = table.concat(commands, ' && ')
-  local shell_cmd = is_win and { 'cmd', '/c', full_command } or { 'sh', '-c', full_command }
+  -- Update UI status
+  _G.pio_status = '⏳ Installing PIO...'
+  vim.cmd('redrawstatus')
 
-  vim.cmd('split')
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_set_current_buf(buf)
-  vim.api.nvim_buf_set_name(buf, 'PlatformIO Setup')
-
-  vim.fn.jobstart(shell_cmd, {
-    term = true,
-    on_exit = function(_, code)
-      if code == 0 then
-        vim.notify('✅ PlatformIO installed successfully!', vim.log.levels.INFO)
-      else
-        vim.notify('❌ Installation failed. Check internet or manual download at ' .. python_url, vim.log.levels.ERROR)
-      end
-    end,
-  })
-
-  vim.cmd('startinsert')
+  local term = require('nvimpio.utils.term')
+  term.ToggleTerminal(full_cmd, 'float')
+  vim.misc.closeMessage(win_id)
+  -- 4. Execute asynchronously
+  -- vim.system(shell, { args = { full_cmd }, text = true }, function(obj)
+  --   vim.schedule(function()
+  --     if obj.code == 0 then
+  --       _G.pio_status = '✅ PIO Ready'
+  --       -- Cleanup installer script
+  --       os.remove('get-platformio.py')
+  --       print('PlatformIO installation complete!')
+  --     else
+  --       _G.pio_status = '❌ PIO Failed'
+  --       local err_msg = obj.stderr or 'Unknown error'
+  --       print('Installation failed. Error code: ' .. obj.code)
+  --       -- Log specifically if it's a DNS/Socket error
+  --       if err_msg:find('gaierror') or err_msg:find('11001') then
+  --         print('Tip: Check your internet connection and DNS settings.')
+  --       end
+  --     end
+  --     vim.cmd('redrawstatus')
+  --   end)
+  -- end)
 end
-
-
-
-
-
--- -- Determine paths based on OS
--- local is_win = vim.fn.has('win32') == 1
--- local home = os.getenv('HOME') or os.getenv('USERPROFILE')
--- local pio_dir = home .. '/.platformio'
--- local python_dir = pio_dir .. '/python3'
--- local python_exe = is_win and (python_dir .. '/python.exe') or (python_dir .. '/bin/python3')
--- local penv_bin = is_win and (pio_dir .. '/penv/Scripts') or (pio_dir .. '/penv/bin')
---
--- -- URLs for Portable Python (Official PIO binaries)
--- local python_urls = {
---   win = 'https://platformio.org',
---   mac = 'https://platformio.org',
--- }
---
--- function M.get_bin_dir()
---   return penv_bin
--- end
---
--- function M.install()
---   _G.pio_status = '⏳ Step 1/2: Python...'
---   vim.cmd('redrawstatus')
---
---   -- Create directory
---   vim.fn.mkdir(python_dir, 'p')
---
---   -- Step 1: Download & Extract Portable Python
---   local url = is_win and python_urls.win or python_urls.mac
---   if not url then
---     print('Portable Python not supported on this OS. Install python3-venv manually.')
---     return
---   end
---
---   -- Using tar -xz (standard on Win10+, macOS, Linux)
---   local download_cmd = string.format('curl -L %s | tar -xz -C %s --strip-components=1', url, python_dir)
---   local shell = is_win and { 'cmd', '/c' } or { 'sh', '-c' }
---
---   vim.system(shell, { args = { download_cmd } }, function(obj)
---     if obj.code ~= 0 then
---       _G.pio_status = '❌ Python Error'
---       return
---     end
---
---     -- Step 2: Download & Run PIO Installer using the new Portable Python
---     vim.schedule(function()
---       _G.pio_status = '⏳ Step 2/2: PlatformIO...'
---       vim.cmd('redrawstatus')
---
---       local install_script_url = 'https://githubusercontent.com'
---       local install_cmd = string.format(
---         "%s -c \"import urllib.request; urllib.request.urlretrieve('%s', 'get-platformio.py')\" && %s get-platformio.py",
---         python_exe,
---         install_script_url,
---         python_exe
---       )
---
---       vim.system(shell, { args = { install_cmd } }, function(obj2)
---         vim.schedule(function()
---           os.remove('get-platformio.py')
---           if obj2.code == 0 then
---             _G.pio_status = '✅ PIO Ready'
---             print('PlatformIO and Portable Python installed successfully!')
---           else
---             _G.pio_status = '❌ PIO Error'
---           end
---           vim.cmd('redrawstatus')
---         end)
---       end)
---     end)
---   end)
--- end
-
-
-
--- function M.install()
---   -- 1. Detect environment details
---   local is_windows = vim.fn.has('win32') == 1
---   local python = is_windows and 'python' or 'python3'
---   local shell = is_windows and { 'cmd', '/c' } or { 'sh', '-c' }
---
---   -- 2. CORRECTED URL: Added 'raw.' prefix
---   local url = 'https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py'
---
---   -- 3. Construction of the cross-platform command string
---   -- We use double quotes for Python's internal string to ensure compatibility with Windows cmd
---   local download_py = string.format("%s -c \"import urllib.request; urllib.request.urlretrieve('%s', 'get-platformio.py')\"", python, url)
---   local install_py = python .. ' get-platformio.py'
---   local full_cmd = download_py .. ' && ' .. install_py
---
---   -- Update UI status
---   _G.pio_status = '⏳ Installing PIO...'
---   vim.cmd('redrawstatus')
---
---   local term = require('nvimpio.utils.term')
---   term.ToggleTerminal(full_cmd, 'float')
---   -- 4. Execute asynchronously
---   -- vim.system(shell, { args = { full_cmd }, text = true }, function(obj)
---   --   vim.schedule(function()
---   --     if obj.code == 0 then
---   --       _G.pio_status = '✅ PIO Ready'
---   --       -- Cleanup installer script
---   --       os.remove('get-platformio.py')
---   --       print('PlatformIO installation complete!')
---   --     else
---   --       _G.pio_status = '❌ PIO Failed'
---   --       local err_msg = obj.stderr or 'Unknown error'
---   --       print('Installation failed. Error code: ' .. obj.code)
---   --       -- Log specifically if it's a DNS/Socket error
---   --       if err_msg:find('gaierror') or err_msg:find('11001') then
---   --         print('Tip: Check your internet connection and DNS settings.')
---   --       end
---   --     end
---   --     vim.cmd('redrawstatus')
---   --   end)
---   -- end)
--- end
-
-
-
-
--- stylua: ignore
--- function M.install()
---   win_id = vim.misc.showMessage('************ PlatfromIO python env setup ************')
---   local is_windows = vim.fn.has('win32') == 1
---   local python = is_windows and 'python' or 'python3'
---   local shell = is_windows and { 'cmd', '/c' } or { 'sh', '-c' }
---
---   -- Cross-platform download/install command
---   local cmd = string.format(
---     "%s -c \"import urllib.request; urllib.request.urlretrieve('https://githubusercontent.com', 'get-platformio.py')\" && %s get-platformio.py",
---     python,
---     python
---   )
---
---   _G.pio_status = '⏳ Installing PIO...'
---   vim.cmd('redrawstatus')
---
--- local term = require('nvimpio.utils.term')
---        term.ToggleTerminal(cmd, 'float')
---   -- vim.system(shell, { args = { cmd }, text = true }, function(obj)
---   --   vim.schedule(function()
---   --     if obj.code == 0 then
---   --       _G.pio_status = '✅ PIO Ready'
---   --       os.remove('get-platformio.py')
---   --       if win_id then
---   --         vim.misc.closeMessage(win_id)
---   --       end
---   --     else
---   --       _G.pio_status = '❌ PIO Failed'
---   --       if win_id then
---   --         vim.misc.closeMessage(win_id)
---   --       end
---   --     end
---   --     vim.cmd('redrawstatus')
---   --   end)
---   -- end)
--- end
 
 function M.get_pio_bin_dir()
-  -- 1. Check for custom environment variable first
-  local pio_core = os.getenv('PLATFORMIO_CORE_DIR')
-
-  -- 2. Fallback to default if not set
-  if not pio_core then
-    local home = os.getenv('HOME') or os.getenv('USERPROFILE')
-    pio_core = home .. '/.platformio'
-  end
-
-  local is_windows = vim.fn.has('win32') == 1
   -- 3. Use 'Scripts' for Windows and 'bin' for Unix-like systems
-  local bin_subfolder = is_windows and 'penv/Scripts' or 'penv/bin'
+  local bin_subfolder = is_win and 'penv/Scripts' or 'penv/bin'
 
   -- Normalize the path to handle mix of '/' and '\' on Windows
-  local full_path = vim.fs.normalize(pio_core .. '/' .. bin_subfolder)
+  local full_path = vim.fs.normalize(core_dir .. '/' .. bin_subfolder)
   return full_path
 end
 
