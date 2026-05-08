@@ -39,11 +39,11 @@ function M.install()
 
   vim.pio.run_sequence({
     cmnds = { full_cmd },
-    cb = vim.pio.handlePioInstallL,
+    cb = vim.pio.handlePioInstall,
   })
-  local term = require('nvimpio.utils.term')
-  term.ToggleTerminal(full_cmd, 'float')
-  vim.misc.closeMessage(win_id)
+  -- local term = require('nvimpio.utils.term')
+  -- term.ToggleTerminal(full_cmd, 'float')
+  -- vim.misc.closeMessage(win_id)
   -- 4. Execute asynchronously
   -- vim.system(shell, { args = { full_cmd }, text = true }, function(obj)
   --   vim.schedule(function()
