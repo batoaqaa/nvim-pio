@@ -178,7 +178,27 @@ local function start_floating_installer(on_done)
     buffer = buf,
     once = true,
     callback = function()
+      -- 1. Determine success status
       local success = (vim.v.event.status == 0)
+
+      -- 2. IMMEDIATE CLEANUP
+      -- Delete the script the moment the process finishes, regardless of success
+      local installer_script = 'get-platformio.py'
+      if vim.fn.filereadable(installer_script) == 1 then
+        os.remove(installer_script)
+
+        local temp_patterns = { '.piocore-installer-*', 'platformio-core-installer-*' }
+        for _, pattern in ipairs(temp_patterns) do
+          local matches = vim.fn.glob(pattern, true, true)
+          for _, path in ipairs(matches) do
+            if vim.fn.isdirectory(path) == 1 then
+              vim.fn.delete(path, 'rf')
+            end
+          end
+        end
+      end
+
+      -- 3. UI Handling
       if success then
         -- Refresh PATH immediately so Neovim sees the new install
         local sep = vim.fn.has('win32') == 1 and ';' or ':'
@@ -199,18 +219,18 @@ end
 
 -- 4. The Primary Entry Point
 function M.pioCheck(on_complete)
+  -- If an install is already in progress, just join the queue
+  if state.status == 'INSTALLING' then
+    table.insert(state.queue, on_complete)
+    return
+  end
+
   -- If already working, run now
   if state.status == 'READY' or is_pio_functional() then
     state.status = 'READY'
     if on_complete then
       on_complete(true)
     end
-    return
-  end
-
-  -- If an install is already in progress, just join the queue
-  if state.status == 'INSTALLING' then
-    table.insert(state.queue, on_complete)
     return
   end
 
