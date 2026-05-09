@@ -52,11 +52,11 @@ local function finalize_setup()
   local commands = { init_cmd, db_cmd }
   -- local final_cb = pio.handlePioinitDb
   local final_cb = function(status)
-    if wizard_data.on_done then
-      vim.pio.handlePioinitDb(status, wizard_data.board_id, wizard_data.on_done)
-    else
-      vim.pio.handlePioinitDb(status, wizard_data.board_id)
-    end
+    -- if wizard_data.on_done then
+    vim.pio.handlePioinitDb(status, wizard_data.board_id, wizard_data.on_done)
+    -- else
+    --   vim.pio.handlePioinitDb(status, wizard_data.board_id)
+    -- end
   end
 
   -- local commands = { init_cmd }
