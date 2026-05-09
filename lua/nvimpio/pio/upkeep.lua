@@ -660,7 +660,7 @@ function M.cleanup_pio_session()
 end
 
 -- stylua: ignore
-function M.handlePioinitDb(result, board)
+function M.handlePioinitDb(result, board, on_done)
   if result == 'INIT' then
     boilerplate.core_dir = _G.metadata.core_dir
     boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
@@ -694,6 +694,13 @@ function M.handlePioinitDb(result, board)
       vim.misc.notify('PIO init+db: Done', "info")
       -- local pio_refresh = require('nvimpio.pio.control').pio_refresh
       M.pio_refresh(function()
+
+
+        if on_done and type(on_done) == "function" then
+          on_done()
+        end
+
+
         boilerplate.core_dir = _G.metadata.core_dir
         vim.clangd.getUnknownArgs()
       end, 'PIO init+db: ')

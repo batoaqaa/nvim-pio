@@ -52,7 +52,11 @@ local function finalize_setup()
   local commands = { init_cmd, db_cmd }
   -- local final_cb = pio.handlePioinitDb
   local final_cb = function(status)
-    vim.pio.handlePioinitDb(status, wizard_data.board_id)
+    if wizard_data.on_done then
+      vim.pio.handlePioinitDb(status, wizard_data.board_id, wizard_data.on_done)
+    else
+      vim.pio.handlePioinitDb(status, wizard_data.board_id)
+    end
   end
 
   -- local commands = { init_cmd }
@@ -124,8 +128,6 @@ local function pick_board(json_data)
         actions.select_default:replace(function()
           local selection = action_state.get_selected_entry()
           actions.close(prompt_bufnr)
-          -- wizard_data.board_id = selection.value.id
-          -- pick_framework(selection.value) -- Next step
           if selection then
             wizard_data.board_id = selection.value.id
             pick_framework(selection.value)
@@ -138,8 +140,12 @@ local function pick_board(json_data)
 end
 
 -- Entry point
-local function launch_project_init()
+local function launch_project_init(on_done)
   wizard_data = {} -- Reset state
+
+  if on_done and type(on_done) == 'function' then
+    wizard_data.on_done = on_done
+  end
   notify('Fetching board database...')
 
   local handle = io.popen('pio boards --json-output')

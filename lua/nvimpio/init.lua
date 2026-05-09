@@ -10,7 +10,7 @@ local user_config = {}
 -------------------------------------------------------------------------------
 function M.setup(opts)
 
-  -- 3. Activation: Turn on the plugin features
+  -- Activation: Turn on the plugin features
   local function activate()
     local state = require('nvimpio.pioCheck').state
     if state.is_activated then return end
@@ -36,10 +36,12 @@ function M.setup(opts)
   vim.api.nvim_create_user_command('Pioinit', function()
     pioCheck.pioStatus(function(success)
       if success then
-  vim.pio = require('nvimpio.pio.upkeep')
-  vim.misc = require('nvimpio.utils.misc')
-        require('nvimpio.pio.ui.pioInit').pioInit()
-        activate()
+        vim.pio = require('nvimpio.pio.upkeep')
+        vim.misc = require('nvimpio.utils.misc')
+
+        require('nvimpio.pio.ui.pioInit').pioInit(activate)
+
+        -- activate()
       end
     end, false)
   end, {
