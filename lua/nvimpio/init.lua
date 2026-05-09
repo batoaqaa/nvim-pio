@@ -201,7 +201,9 @@ function M.setup(opts)
     -- Set terminal options
     vim.api.nvim_set_option_value('number', true, { win = win })
 
-    local cmd = 'python -c "import urllib.request; urllib.request.urlretrieve(\'https://githubusercontent.com\', \'get-platformio.py\')" && python get-platformio.py'
+    -- local cmd = 'python -c "import urllib.request; urllib.request.urlretrieve(\'https://githubusercontent.com\', \'get-platformio.py\')" && python get-platformio.py'
+    local cmd =
+      "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py', 'get-platformio.py')\" && python get-platformio.py"
     vim.cmd.term(cmd)
 
     vim.api.nvim_create_autocmd("TermClose", {
@@ -251,7 +253,7 @@ function M.setup(opts)
       flush_queue(false)
       return
     end
-
+  
     start_floating_installer(function(success)
       flush_queue(success)
     end)
