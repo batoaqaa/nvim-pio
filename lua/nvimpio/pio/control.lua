@@ -45,7 +45,7 @@ local debounce_timer = uv.new_timer()
 --
 --         if obj.code == 0 then
 --           vim.schedule(function ()
---             local pio_refresh = require('nvimpio.pio.control').pio_refresh
+--             local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
 --             pio_refresh(function()
 --               vim.misc.notify('PIO platformio.ini change: compiledb update Success', "info")
 --               clangdRestart()
@@ -230,7 +230,7 @@ function M.start_watchers()
           vim.schedule(function()
             if obj.code == 0 then
               -- vim.schedule(function ()
-              local pio_refresh = require('nvimpio.pio.control').pio_refresh
+              local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function()
                 vim.clangd.getUnknownArgs()
                 vim.misc.notify('PIO platformio.ini change: compiledb update Success', 'info')
@@ -270,7 +270,7 @@ function M.start_watchers()
           end
           -- vim.defer_fn(function ()
           vim.schedule(function()
-            local pio_refresh = require('nvimpio.pio.control').pio_refresh
+            local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
             pio_refresh(function()
               self.isBusy = false
               if _G.metadata then _G.metadata.isBusy = false end
@@ -312,7 +312,7 @@ function M.init(clangd)
   -- If the file already exists, do an initial sync
   if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
     _G.metadata.isBusy = true
-    local pio_refresh = require('nvimpio.pio.control').pio_refresh
+    local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
     pio_refresh(function()
       boilerplate.core_dir = _G.metadata.core_dir
       _G.metadata.isBusy = false
