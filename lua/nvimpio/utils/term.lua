@@ -200,7 +200,7 @@ function M.ToggleTerminal(command, direction)
         return math.ceil(vim.o.columns * 0.85)
       end,
       height = function()
-        return math.ceil(vim.o.lines * 0.85)
+        return math.ceil(vim.o.lines * 0.75)
       end,
       -- shell = vim.o.shell,
       shell = vim.o.shell,
