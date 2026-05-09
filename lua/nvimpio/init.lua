@@ -50,6 +50,14 @@ function M.setup(opts)
   })
 
 
+  -- The background auto-activation
+  if vim.fn.filereadable('platformio.ini') == 1 then
+    vim.schedule(function()
+      pioCheck.pioStatus(function(success)
+        if success then activate() end
+      end, true)
+    end)
+  end
   -- pioCheck.pioStatus(function(success)
   --   if success then
   --     activate()
