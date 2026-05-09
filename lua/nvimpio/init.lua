@@ -9,21 +9,49 @@ local user_config = {}
 --stylua: ignore
 -------------------------------------------------------------------------------
 function M.setup(opts)
-  if opts then user_config = opts end
-  userConfig.validate(user_config)
+
+  -- 3. Activation: Turn on the plugin features
+  local function activate()
+    local state = require('nvimpio.pioCheck').state
+    if state.is_activated then return end
+
+    local sep = vim.fn.has('win32') == 1 and ';' or ':'
+    if M.config.pio.auto_update_path then
+      local pio_bin = M.get_bin_dir()
+      if vim.fn.isdirectory(pio_bin) == 1 then
+        vim.env.PATH = pio_bin .. sep .. vim.env.PATH
+      end
+    end
+
+    if opts then user_config = opts end
+    userConfig.validate(user_config)
+    M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
+    userConfig.buildUsserMenu(M.config)
+
+    require('nvimpio.pio.control').init(M.config.clangd)
 
 
+  -- M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
+  --
+  -- menu.buildMenu(M.config)
+
+
+
+
+    -- Load your sub-modules here
+    -- require('nvimpio.commands').setup()
+    -- require('nvimpio.statusline').init()
+
+    state.is_activated = true
+    vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
+  end
 
   -- INFO: Pioini
   vim.api.nvim_create_user_command('Pioinit', function()
     pioCheck.pioStatus(function(success)
-      vim.notify('PlatformIO Exist!', vim.log.levels.INFO)
       if success then
-        vim.g.platformioRootDir = vim.uv.cwd()
-        vim.pio = require('nvimpio.pio.upkeep')
-        vim.misc = require('nvimpio.utils.misc')
-        vim.clangd = require('nvimpio.clangd.control')
         require('nvimpio.pio.ui.pioInit').pioInit()
+        activate()
       end
     end, false)
   end, {
@@ -31,30 +59,13 @@ function M.setup(opts)
     desc = 'Start the PlatformIO guided setup wizard',
   })
 
-  -- M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
-  --
-  -- menu.buildMenu(M.config)
 
-  -- stylua: ignore
-  -- stylua: ignore
-  local function startPluginInternals(success)
-    local sep = vim.fn.has('win32') == 1 and ';' or ':'
+  pioCheck.pioStatus(function(success)
     if success then
-      vim.g.platformioRootDir = vim.fn.getcwd()
-
-      vim.pio = require('nvimpio.pio.upkeep')
-      vim.misc = require('nvimpio.utils.misc')
-      vim.clangd = require('nvimpio.clangd.control')
-      if M.config.pio.auto_update_path then
-        local pio_bin = pioCheck.get_bin_dir()
-        if vim.fn.isdirectory(pio_bin) == 1 then vim.env.PATH = pio_bin .. sep .. vim.env.PATH end
-      end
-      M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
-      userConfig.buildUsserMenu(M.config)
-      require('nvimpio.pio.control').init(M.config.clangd)
+      activate()
     end
-  end
-  pioCheck.pioStatus(startPluginInternals, true)
+  end, true)
+
 end
 
 return M

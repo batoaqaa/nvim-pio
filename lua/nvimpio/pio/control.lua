@@ -17,26 +17,6 @@ local function get_hash(path)
   return (ok and type(data) == 'string' and data ~= '') and vim.fn.sha256(data) or ''
 end
 
-
---INFO:
---stylua: ignore
--------------------------------------------------------------------------------
-function M.pio_refresh(callback, from)
-  local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
-  vim.misc.notify(msg ..'Config sync ...', "info")
-
-  local function on_done(active_env)
-    if active_env then vim.misc.notify(msg .. 'active_env= ' .. active_env, "info") end
-    if active_env then vim.pio.fetch_metadata(callback, active_env, from, 1) end
-  end
-  vim.pio.fetch_config(on_done, from)
-  -- local active_env = vim.pio.get_active__env(from)
-  -- if active_env then
-  --   vim.misc.notify(msg .. 'active_env= ' .. active_env, "info")
-  --   vim.pio.fetch_metadata(callback, active_env, from, 1)
-  -- end
-end
-
 --INFO:
 --=============================================================================
 --  watchers setup
@@ -65,7 +45,8 @@ local debounce_timer = uv.new_timer()
 --
 --         if obj.code == 0 then
 --           vim.schedule(function ()
---             M.pio_refresh(function()
+--             local pio_refresh = require('nvimpio.pio.control').pio_refresh
+--             pio_refresh(function()
 --               vim.misc.notify('PIO platformio.ini change: compiledb update Success', "info")
 --               clangdRestart()
 --             end, 'PIO platformio.ini  change: ')
@@ -249,7 +230,8 @@ function M.start_watchers()
           vim.schedule(function()
             if obj.code == 0 then
               -- vim.schedule(function ()
-              M.pio_refresh(function()
+              local pio_refresh = require('nvimpio.pio.control').pio_refresh
+              pio_refresh(function()
                 vim.clangd.getUnknownArgs()
                 vim.misc.notify('PIO platformio.ini change: compiledb update Success', 'info')
                 self.isBusy = false
@@ -288,7 +270,8 @@ function M.start_watchers()
           end
           -- vim.defer_fn(function ()
           vim.schedule(function()
-            M.pio_refresh(function()
+            local pio_refresh = require('nvimpio.pio.control').pio_refresh
+            pio_refresh(function()
               self.isBusy = false
               if _G.metadata then _G.metadata.isBusy = false end
               vim.misc.notify('PIO checksum: Metadata synced', 'info')
@@ -312,6 +295,10 @@ end
 --stylua: ignore
 -------------------------------------------------------------------------------
 function M.init(clangd)
+  vim.g.platformioRootDir = vim.uv.cwd()
+  vim.pio = require('nvimpio.pio.upkeep')
+  vim.misc = require('nvimpio.utils.misc')
+  vim.clangd = require('nvimpio.clangd.control')
 
   require('nvimpio.pio.commands')
   vim.misc.notify('PIO Control: initialize', "info")
@@ -326,7 +313,8 @@ function M.init(clangd)
   -- If the file already exists, do an initial sync
   if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
     _G.metadata.isBusy = true
-    M.pio_refresh(function()
+    local pio_refresh = require('nvimpio.pio.control').pio_refresh
+    pio_refresh(function()
       boilerplate.core_dir = _G.metadata.core_dir
       _G.metadata.isBusy = false
     end, 'PIO start: ')

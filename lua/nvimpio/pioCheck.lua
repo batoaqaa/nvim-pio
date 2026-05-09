@@ -12,12 +12,13 @@ function M.get_bin_dir()
 end
 
 -- INFO: Plugin State Machine
-local state = {
+M.state = {
   status = 'IDLE', -- IDLE, INSTALLING, READY, FAILED
   queue = {}, -- Queued callbacks waiting for installation
+  is_activated = false, -- Tracks if commands/features are loaded
 }
 
--- INFO: Bulletproof Functional Check
+-- INFO: 1. Functional Check
 -- stylua: ignore
 local function is_pio_functional()
   -- 1. Quick check: Is it in the PATH?
@@ -33,19 +34,19 @@ local function is_pio_functional()
 end
 
 
--- INFO: Internal helper to notify all waiting processes
+-- INFO: 2. Internal helper to notify all waiting processes
 -- stylua: ignore
 local function flush_queue(success)
   -- If successful, we are READY. If not, we mark as FAILED.
-  state.status = success and "READY" or "FAILED"
+  M.state.status = success and "READY" or "FAILED"
 
-  for _, callback in ipairs(state.queue) do
+  for _, callback in ipairs(M.state.queue) do
     if callback then callback(success) end
   end
-  state.queue = {}
+  M.state.queue = {}
 end
 
--- INFO: The Floating Installer with Immediate Cleanup
+-- INFO: 3. The Floating Installer with Immediate Cleanup
 local function start_floating_installer(on_done)
   local buf = vim.api.nvim_create_buf(false, true)
   local width = math.ceil(vim.o.columns * 0.7)
@@ -98,11 +99,6 @@ local function start_floating_installer(on_done)
 
       -- 3. UI Handling
       if success then
-        -- Refresh PATH immediately so Neovim sees the new install
-        local sep = vim.fn.has('win32') == 1 and ';' or ':'
-        local pio_path = vim.fn.expand('~/.platformio/penv/' .. (vim.fn.has('win32') == 1 and 'Scripts' or 'bin'))
-        vim.env.PATH = pio_path .. sep .. vim.env.PATH
-
         if vim.api.nvim_win_is_valid(win) then
           vim.api.nvim_win_close(win, true)
         end
@@ -119,14 +115,14 @@ end
 -- stylua: ignore
 function M.pioStatus(on_complete, is_autocmd)
   -- 1. If currently installing, just wait, just join the queue.
-  if state.status == 'INSTALLING' then
-    table.insert(state.queue, on_complete)
+  if M.state.status == 'INSTALLING' then
+    table.insert(M.state.queue, on_complete)
     return
   end
 
   -- 2. If already successful, proceed.
-  if state.status == 'READY' or is_pio_functional() then
-    state.status = 'READY'
+  if M.state.status == 'READY' or is_pio_functional() then
+    M.state.status = 'READY'
     if on_complete then on_complete(true) end -- FIRE HERE
     return
   end
@@ -134,14 +130,14 @@ function M.pioStatus(on_complete, is_autocmd)
   -- 3. USE OF 'FAILED' STATE:
   -- If an autocmd triggered this but we previously failed, DON'T bother the user.
   -- Only proceed if the user manually ran a command (is_autocmd will be false).
-  if state.status == "FAILED" and is_autocmd then
+  if M.state.status == "FAILED" and is_autocmd then
     if on_complete then on_complete(false) end -- FIRE HERE
     return
   end
 
   -- 4. Proceed with installation
-  state.status = 'INSTALLING'
-  table.insert(state.queue, on_complete)
+  M.state.status = 'INSTALLING'
+  table.insert(M.state.queue, on_complete)
 
   local choice = vim.fn.confirm('PlatformIO Core not found. Install now?', '&Yes\n&No', 2)
   if choice ~= 1 then
