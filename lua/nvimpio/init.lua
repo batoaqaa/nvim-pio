@@ -227,35 +227,35 @@ function M.setup(opts)
     })
   end
 
--- 4. The Primary Entry Point
-function M.pioCheck(on_complete)
-  -- If already working, run now
-  if state.status == "READY" or is_pio_functional() then
-    state.status = "READY"
-    if on_complete then on_complete(true) end
-    return
-  end
+  -- 4. The Primary Entry Point
+  function M.pioCheck(on_complete)
+    -- If already working, run now
+    if state.status == "READY" or is_pio_functional() then
+      state.status = "READY"
+      if on_complete then on_complete(true) end
+      return
+    end
 
-  -- If an install is already in progress, just join the queue
-  if state.status == "INSTALLING" then
+    -- If an install is already in progress, just join the queue
+    if state.status == "INSTALLING" then
+      table.insert(state.queue, on_complete)
+      return
+    end
+
+    -- Start new installation process
+    state.status = "INSTALLING"
     table.insert(state.queue, on_complete)
-    return
+
+    local choice = vim.fn.confirm("PlatformIO Core not found. Install now?", "&Yes\n&No", 2)
+    if choice ~= 1 then
+      flush_queue(false)
+      return
+    end
+
+    start_floating_installer(function(success)
+      flush_queue(success)
+    end)
   end
-
-  -- Start new installation process
-  state.status = "INSTALLING"
-  table.insert(state.queue, on_complete)
-
-  local choice = vim.fn.confirm("PlatformIO Core not found. Install now?", "&Yes\n&No", 2)
-  if choice ~= 1 then
-    flush_queue(false)
-    return
-  end
-
-  start_floating_installer(function(success)
-    flush_queue(success)
-  end)
-end
   -- local function pioCheck(on_complete)
   --   if is_pio_functional() then
   --     if on_complete then
