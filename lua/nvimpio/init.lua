@@ -2,107 +2,20 @@ local M = {}
 
 M.config = require('nvimpio.defConfig').defConfig
 
-local valid_menu_keys = {
-  node = true,
-  desc = true,
-  shortcut = true,
-  items = true,
-}
-local valid_item_keys = {
-  node = true,
-  desc = true,
-  shortcut = true,
-  command = true,
-}
-local valid_keys_value = {
-  node = 'string',
-  desc = 'string',
-  shortcut = 'string',
-  command = 'string',
-  items = 'table',
-}
+local validate = require('nvimpio.checkUserConfig').validate
 
-local function dumpTable(tbl)
-  local result = ''
-  for key, value in pairs(tbl) do
-    local isValuString = type(value) == 'string' and "'" or ''
-    result = result .. (string.format('%s = %s%s%s,\n', tostring(key), isValuString, tostring(value), isValuString))
+local function get_pio_bin_dir()
+  local is_win = vim.fn.has('win32') == 1
+  local bin_subfolder = is_win and 'penv/Scripts' or 'penv/bin'
+
+  local core_dir = os.getenv('PLATFORMIO_CORE_DIR')
+  local home = (os.getenv('HOME') or os.getenv('USERPROFILE') or '')
+  if not core_dir then
+    core_dir = vim.fs.joinpath(home, '.platformio')
   end
-  return result
-end
-
-local function validateMenu(menu)
-  for _, child_node in ipairs(menu) do
-    if child_node.node ~= nil then
-      if child_node.node == 'menu' then
-        for key, value in pairs(child_node) do
-          if not valid_menu_keys[key] or type(value) ~= valid_keys_value[key] then
-            local error_message = string.format('Invalid PlatformIO menu key-value: %s\n%s', tostring(key), dumpTable(child_node))
-            vim.api.nvim_echo({ { error_message, 'ErrorMsg' } }, true, {})
-            return false
-          end
-        end
-        if not validateMenu(child_node) then
-          return false
-        end
-      elseif child_node.node == 'item' then
-        for key, value in pairs(child_node) do
-          if not valid_item_keys[key] or type(value) ~= valid_keys_value[key] then
-            local error_message = string.format('Invalid PlatformIO item key-value: %s\n%s', tostring(key), dumpTable(child_node))
-            vim.api.nvim_echo({ { error_message, 'ErrorMsg' } }, true, {})
-            return false
-          end
-        end
-      end
-    else
-      local error_message = string.format('Invalid PlatformIO menu node value: %s', dumpTable(child_node))
-      vim.api.nvim_echo({ { error_message, 'ErrorMsg' } }, true, {})
-      return false
-    end
-  end
-  return true
-end
-
-function M.piomenu(config)
-  local icon = { icon = '  ', color = 'orange' } -- Assign platformio orange icon
-  local wk_table = { mode = { 'n', 'v' } }
-
-  local function traverseMenu(menu, wkey)
-    for _, child_node in ipairs(menu) do
-      if child_node.node == 'menu' then
-        traverseMenu(child_node.items, wkey .. child_node.shortcut)
-        table.insert(wk_table, { wkey .. child_node.shortcut, group = child_node.desc, icon = icon })
-      elseif child_node.node == 'item' then
-        table.insert(wk_table, {
-          wkey .. child_node.shortcut,
-          '<cmd> ' .. child_node.command .. '<CR>',
-          desc = child_node.desc,
-          icon = icon,
-        })
-      end
-    end
-  end
-  if config.menu_key == nil then
-    return
-  end
-
-  local ok, wk = pcall(require, 'which-key')
-  if not ok then
-    vim.api.nvim_echo({ { 'which-key plugin not found!', 'ErrorMsg' } }, true, {})
-    return
-  end
-
-  wk.setup({
-    preset = 'helix', --'modern', --'classic'
-  })
-  local wkConfig = require('which-key.config')
-  wkConfig.sort = { 'order', 'group', 'manual', 'mod' }
-
-  table.insert(wk_table, { config.menu_key, group = config.menu_name, icon = icon })
-
-  traverseMenu(config.menu_bindings, config.menu_key)
-
-  wk.add(wk_table)
+  -- Normalize the path to handle mix of '/' and '\' on Windows
+  local pio_bin = vim.fs.joinpath(core_dir, bin_subfolder)
+  return pio_bin
 end
 
 local function is_pio_functional()
@@ -124,6 +37,7 @@ local state = {
   status = 'IDLE', -- IDLE, INSTALLING, READY
   queue = {}, -- Queued callbacks waiting for installation
 }
+
 -- Internal helper to notify all waiting processes
 local function flush_queue(success)
   state.status = success and 'READY' or 'IDLE'
@@ -133,20 +47,6 @@ local function flush_queue(success)
     end
   end
   state.queue = {}
-end
-
-local function get_pio_bin_dir()
-  local is_win = vim.fn.has('win32') == 1
-  local bin_subfolder = is_win and 'penv/Scripts' or 'penv/bin'
-
-  local core_dir = os.getenv('PLATFORMIO_CORE_DIR')
-  local home = (os.getenv('HOME') or os.getenv('USERPROFILE') or '')
-  if not core_dir then
-    core_dir = vim.fs.joinpath(home, '.platformio')
-  end
-  -- Normalize the path to handle mix of '/' and '\' on Windows
-  local pio_bin = vim.fs.joinpath(core_dir, bin_subfolder)
-  return pio_bin
 end
 
 -- The Floating Installer
@@ -249,71 +149,50 @@ function M.pioCheck(on_complete)
   end)
 end
 
+-- INFO: Pioini
+vim.api.nvim_create_user_command('Pioinit', function()
+  M.pioCheck(function(success)
+    if success then
+      vim.g.platformioRootDir = vim.uv.cwd()
+      vim.pio = require('nvimpio.pio.upkeep')
+      vim.misc = require('nvimpio.utils.misc')
+      vim.clangd = require('nvimpio.clangd.control')
+      require('nvimpio.pio.ui.pioInit').pioInit()
+    end
+  end)
+end, {
+  force = true,
+  desc = 'Start the PlatformIO guided setup wizard',
+})
+
 local user_config = {}
 -- INFO:
 --stylua: ignore
 -------------------------------------------------------------------------------
 function M.setup(opts)
-  if opts then
-    user_config = opts
-  end
-  -- 1. Merge user settings with defaults
-  if user_config.clangd then
-    vim.validate('clangd', user_config.clangd, 'table', true)
-    vim.validate('clangdsupport', user_config.clangd.support, 'boolean', true)
-    vim.validate('clangdinstall', user_config.clangd.install, 'boolean', true)
-  end
-  vim.validate('auto_update_path', user_config.pio.auto_update_path, 'boolean', true)
-  vim.validate('notify_on_missing', user_config.pio.notify_on_missing, 'boolean', true)
-  vim.validate('menu_key', user_config.menu_key, 'string', true)
-  vim.validate('menu_name', user_config.menu_name, 'string', true)
-  vim.validate('debug', user_config.debug, 'boolean', true)
-  vim.validate('menu_bindings', user_config.menu_bindings, 'table', true)
-
-  if user_config.menu_bindings then
-    -- if validation error, cancel merging menu_bindings with M.config
-    if not validateMenu(user_config.menu_bindings) then
-      user_config.menu_bindings = nil
-    end
-  end
+  if opts then user_config = opts end
+  validate(user_config)
   -- M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
   --
-  -- M.piomenu(M.config)
-
-  -- Plugin State
+  -- menu.buildMenu(M.config)
 
   -- stylua: ignore
-  -- INFO: Pioini
-  vim.api.nvim_create_user_command('Pioinit', function()
-    M.pioCheck(function(success)
-      if success then
-        vim.g.platformioRootDir = vim.uv.cwd()
-        vim.pio = require('nvimpio.pio.upkeep')
-        vim.misc = require('nvimpio.utils.misc')
-        vim.clangd = require('nvimpio.clangd.control')
-        require('nvimpio.pio.ui.pioInit').pioInit()
-      end
-    end)
-  end, {
-    force = true,
-    desc = 'Start the PlatformIO guided setup wizard',
-  })
-
   -- stylua: ignore
   local function startPluginInternals(success)
     local sep = vim.fn.has('win32') == 1 and ';' or ':'
     if success then
-  vim.g.platformioRootDir = vim.fn.getcwd()
+      vim.g.platformioRootDir = vim.fn.getcwd()
 
-  vim.pio = require('nvimpio.pio.upkeep')
-  vim.misc = require('nvimpio.utils.misc')
-  vim.clangd = require('nvimpio.clangd.control')
+      vim.pio = require('nvimpio.pio.upkeep')
+      vim.misc = require('nvimpio.utils.misc')
+      vim.clangd = require('nvimpio.clangd.control')
       if M.config.pio.auto_update_path then
         local pio_bin = get_pio_bin_dir()
         if vim.fn.isdirectory(pio_bin) == 1 then vim.env.PATH = pio_bin .. sep .. vim.env.PATH end
       end
       M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
-      M.piomenu(M.config)
+      local buildUsserMenu = require('nvimpio.checkUserConfig').buildUsserMenu
+      buildUsserMenu(M.config)
       require('nvimpio.pio.control').init(M.config.clangd)
     end
   end
