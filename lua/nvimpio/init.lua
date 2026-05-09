@@ -10,6 +10,7 @@ local user_config = {}
 -------------------------------------------------------------------------------
 function M.setup(opts)
 
+  vim.g.platformioRootDir = vim.uv.cwd()
   -- Activation: Turn on the plugin features
   local function activate()
     local state = require('nvimpio.pioCheck').state

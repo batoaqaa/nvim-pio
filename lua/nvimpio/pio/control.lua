@@ -295,7 +295,6 @@ end
 --stylua: ignore
 -------------------------------------------------------------------------------
 function M.init(clangd)
-  vim.g.platformioRootDir = vim.uv.cwd()
   vim.pio = require('nvimpio.pio.upkeep')
   vim.misc = require('nvimpio.utils.misc')
   vim.clangd = require('nvimpio.clangd.control')
