@@ -196,7 +196,7 @@ function M.get_active__env(from)
 
   -- Validation: Find the first default_env that actually exists as a block
   if default_envs_raw ~= '' then
-    vim.misc.notify(default_envs_raw, "info")
+    -- vim.misc.notify(default_envs_raw, "info")
     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
       if valid_envs[env_name] then return env_name end
     end
