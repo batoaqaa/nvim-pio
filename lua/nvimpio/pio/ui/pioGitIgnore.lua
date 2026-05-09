@@ -16,7 +16,7 @@ local function pioGitIgnore()
     f:close()
   end
 
-  -- 2. Normalize and Filter (Exclude .gitignore itself)
+  -- 2. Normalize and Filter
   local ignored_lookup = {}
   for _, p in ipairs(ignored) do 
     ignored_lookup[p:gsub('^%s*/?', ''):gsub('/?%s*$', '')] = true 
@@ -52,46 +52,43 @@ local function pioGitIgnore()
   local width, height = 55, math.min(#lines + 2, 25)
   local win = vim.api.nvim_open_win(buf, false, {
     relative = 'editor',
-    width = width,
-    height = height,
+    width = width, height = height,
     col = (vim.o.columns - width) / 2,
     row = (vim.o.lines - height) / 2,
-    style = 'minimal',
-    border = 'rounded',
-    title = ' GitIgnore ',
-    title_pos = 'center',
+    style = 'minimal', border = 'rounded',
+    title = ' GitIgnore ', title_pos = 'center',
   })
 
   -- 5. Prompt for Input
   vim.defer_fn(function()
-    vim.ui.input({ prompt = 'Action (e.g. +1,2-5 or -6): ' }, function(input)
+    vim.ui.input({ prompt = 'Action (e.g. +1-4,-5-7): ' }, function(input)
       if not input or input == '' or input:lower() == 'q' then
         if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
         vim.cmd("redraw")
         return
       end
 
+      -- ROBUST PARSER: Handles +1-4,-5-7 or +1,2 -5,6
       local found_batch = false
-      -- New Parser: Captures + or - followed by numbers and dashes
-      for action, group in input:gmatch('([%+%-])([%d%s,%-]+)') do
+      -- We find every segment that starts with + or - and includes numbers, commas, and dashes
+      for action, segment in input:gmatch('([%+%-])([%d%s,%-]+)') do
         found_batch = true
         
-        -- Expand ranges: transforms "1-3" into "1,2,3"
-        local expanded_group = group:gsub('(%d+)%-(%d+)', function(s, e)
-          local res = {}
-          for i = tonumber(s), tonumber(e) do table.insert(res, i) end
-          return table.concat(res, ',')
+        -- Expand ranges within this specific segment (e.g., 1-4)
+        local expanded = segment:gsub('(%d+)%-(%d+)', function(s, e)
+          local t = {}
+          for i = tonumber(s), tonumber(e) do table.insert(t, i) end
+          return table.concat(t, ',')
         end)
 
-        for num in expanded_group:gmatch('%d+') do
+        -- Apply the action to every number found in the expanded segment
+        for num in expanded:gmatch('%d+') do
           local n = tonumber(num)
           if action == '+' and not_ignored[n] then
             local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
             table.insert(ignored, p)
           elseif action == '-' then
             local idx = n - #not_ignored
-            -- Lua tables are 1-indexed, but the first entry in 'ignored' is shown as index #not_ignored
-            -- This logic ensures the number typed matches the number shown in the menu
             if ignored[idx] then ignored[idx] = '__DELETE__' end
           end
         end
@@ -105,10 +102,7 @@ local function pioGitIgnore()
       end
 
       local out = io.open(path, 'w')
-      if out then
-        out:write(table.concat(final_list, '\n') .. '\n')
-        out:close()
-      end
+      if out then out:write(table.concat(final_list, '\n') .. '\n') out:close() end
 
       if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
       pioGitIgnore()
@@ -116,9 +110,7 @@ local function pioGitIgnore()
   end, 20)
 end
 
-return {
-  pioGitIgnore = pioGitIgnore,
-}
+return { pioGitIgnore = pioGitIgnore }
 
 -- local uv = vim.uv or vim.loop
 -- --INFO: pioGitIgnore
