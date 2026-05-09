@@ -673,7 +673,6 @@ function M.handlePioinitDb(result, board)
         boilerplate.core_dir = _G.metadata.core_dir
         vim.misc.notify('PIO init+db:  pass ' .. commandPassed, "info")
         vim.misc.notify('PIO init+db: Done', "info")
-        vim.misc.gitignore_lsp_configs('compile_commands.json')
         vim.clangd.getUnknownArgs()
       end, 'PIO init+db: ')
     end)
@@ -708,7 +707,6 @@ function M.handlePioinit(result)
     vim.schedule(function()
       vim.misc.notify('PIO init:  pass ' .. commandPassed, "info")
       vim.misc.notify('PIO init: Done', "info")
-      vim.misc.gitignore_lsp_configs('compile_commands.json')
 
       -- \27[s   : Save current cursor position (the prompt)
       -- \r      : Go to start of line
