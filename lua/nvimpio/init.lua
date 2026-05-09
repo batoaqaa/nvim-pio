@@ -50,11 +50,11 @@ function M.setup(opts)
   })
 
 
-  pioCheck.pioStatus(function(success)
-    if success then
-      activate()
-    end
-  end, true)
+  -- pioCheck.pioStatus(function(success)
+  --   if success then
+  --     activate()
+  --   end
+  -- end, true)
 
 end
 
