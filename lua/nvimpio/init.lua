@@ -50,7 +50,7 @@ function M.setup(opts)
       require('nvimpio.pio.control').init(M.config.clangd)
     end
   end
-  M.pioCheck(startPluginInternals)
+  pioCheck.isInstalled(startPluginInternals)
 end
 
 return M
