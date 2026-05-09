@@ -647,7 +647,7 @@ function M.handlePioinitDb(result, board)
     boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
     -- boilerplate_gen([[.clangd]], vim.fs.joinpath(vim.env.XDG_CONFIG_HOME, 'clangd'), 'config.yaml')
 
-    win_id = vim.misc.showMessage('************ Project Initializing ************')
+    -- win_id = vim.misc.showMessage('************ Project Initializing ************')
     if #M.queue > 0 then
       _G.metadata.isBusy = true
       -- trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
@@ -700,7 +700,7 @@ function M.handlePioinit(result)
     -- boilerplate_gen([[.clangd]], _G.metadata.core_dir)
     -- boilerplate_gen([[.clangd]], vim.fs.joinpath(vim.env.XDG_CONFIG_HOME, 'clangd'), 'config.yaml')
 
-    win_id = vim.misc.showMessage('************ Project Initializing ************')
+    -- win_id = vim.misc.showMessage('************ Project Initializing ************')
     if #M.queue > 0 then
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       _G.metadata.isBusy = true
@@ -767,7 +767,7 @@ end
 -- stylua: ignore
 function M.handlePioInstall(result)
   if result == 'INIT' then
-    win_id = vim.misc.showMessage('************ Project Initializing ************')
+    -- win_id = vim.misc.showMessage('************ Project Initializing ************')
     if #M.queue > 0 then
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       _G.metadata.isBusy = true
