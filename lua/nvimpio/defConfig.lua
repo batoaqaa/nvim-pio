@@ -1,6 +1,4 @@
-local M = {}
-
-M.defConfig = {
+local defConfig = {
   pio = {
     auto_update_path = true,
   },
@@ -98,4 +96,4 @@ M.defConfig = {
   },
 }
 
-return M
+return defConfig

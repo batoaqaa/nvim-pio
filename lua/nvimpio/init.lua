@@ -1,28 +1,23 @@
 local M = {}
 
-M.config = require('nvimpio.defConfig').defConfig
+M.config = require('nvimpio.defConfig')
+local userConfig = require('nvimpio.userConfig')
 
-local validate = require('nvimpio.checkUserConfig').validate
-
+-- stylua: ignore
 local function get_pio_bin_dir()
   local is_win = vim.fn.has('win32') == 1
   local bin_subfolder = is_win and 'penv/Scripts' or 'penv/bin'
-
   local core_dir = os.getenv('PLATFORMIO_CORE_DIR')
   local home = (os.getenv('HOME') or os.getenv('USERPROFILE') or '')
-  if not core_dir then
-    core_dir = vim.fs.joinpath(home, '.platformio')
-  end
-  -- Normalize the path to handle mix of '/' and '\' on Windows
+  if not core_dir then core_dir = vim.fs.joinpath(home, '.platformio') end
   local pio_bin = vim.fs.joinpath(core_dir, bin_subfolder)
   return pio_bin
 end
 
+-- stylua: ignore
 local function is_pio_functional()
   -- 1. Quick check: Is it in the PATH?
-  if vim.fn.executable('pio') == 0 then
-    return false
-  end
+  if vim.fn.executable('pio') == 0 then return false end
 
   -- 2. Deep check: Does it actually run?
   -- We use 'pio --version' because it's fast and doesn't change settings.
@@ -39,12 +34,11 @@ local state = {
 }
 
 -- Internal helper to notify all waiting processes
+-- stylua: ignore
 local function flush_queue(success)
   state.status = success and 'READY' or 'IDLE'
   for _, callback in ipairs(state.queue) do
-    if callback then
-      callback(success)
-    end
+    if callback then callback(success) end
   end
   state.queue = {}
 end
@@ -171,7 +165,7 @@ local user_config = {}
 -------------------------------------------------------------------------------
 function M.setup(opts)
   if opts then user_config = opts end
-  validate(user_config)
+  userConfig.validate(user_config)
   -- M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
   --
   -- menu.buildMenu(M.config)
@@ -191,8 +185,7 @@ function M.setup(opts)
         if vim.fn.isdirectory(pio_bin) == 1 then vim.env.PATH = pio_bin .. sep .. vim.env.PATH end
       end
       M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
-      local buildUsserMenu = require('nvimpio.checkUserConfig').buildUsserMenu
-      buildUsserMenu(M.config)
+      userConfig.buildUsserMenu(M.config)
       require('nvimpio.pio.control').init(M.config.clangd)
     end
   end
