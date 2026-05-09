@@ -690,11 +690,11 @@ function M.handlePioinitDb(result, board)
     end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
+      vim.misc.notify('PIO init+db:  pass ' .. commandPassed, "info")
+      vim.misc.notify('PIO init+db: Done', "info")
       -- local pio_refresh = require('nvimpio.pio.control').pio_refresh
       M.pio_refresh(function()
         boilerplate.core_dir = _G.metadata.core_dir
-        vim.misc.notify('PIO init+db:  pass ' .. commandPassed, "info")
-        vim.misc.notify('PIO init+db: Done', "info")
         vim.clangd.getUnknownArgs()
       end, 'PIO init+db: ')
     end)
