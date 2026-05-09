@@ -11,6 +11,26 @@ local user_config = {}
 function M.setup(opts)
   if opts then user_config = opts end
   userConfig.validate(user_config)
+
+
+
+  -- INFO: Pioini
+  vim.api.nvim_create_user_command('Pioinit', function()
+    local pioCheck = require('nvimpio.pioCheck')
+    pioCheck.isInstalled(function(success)
+      if success then
+        vim.g.platformioRootDir = vim.uv.cwd()
+        vim.pio = require('nvimpio.pio.upkeep')
+        vim.misc = require('nvimpio.utils.misc')
+        vim.clangd = require('nvimpio.clangd.control')
+        require('nvimpio.pio.ui.pioInit').pioInit()
+      end
+    end, false)
+  end, {
+    force = true,
+    desc = 'Start the PlatformIO guided setup wizard',
+  })
+
   -- M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
   --
   -- menu.buildMenu(M.config)
@@ -34,7 +54,7 @@ function M.setup(opts)
       require('nvimpio.pio.control').init(M.config.clangd)
     end
   end
-  pioCheck.isInstalled(startPluginInternals)
+  pioCheck.isInstalled(startPluginInternals, true)
 end
 
 return M

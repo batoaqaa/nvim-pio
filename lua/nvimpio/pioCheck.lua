@@ -11,6 +11,13 @@ function M.get_bin_dir()
   return pio_bin
 end
 
+-- INFO: Plugin State Machine
+local state = {
+  status = 'IDLE', -- IDLE, INSTALLING, READY, FAILED
+  queue = {}, -- Queued callbacks waiting for installation
+}
+
+-- INFO: Bulletproof Functional Check
 -- stylua: ignore
 local function is_pio_functional()
   -- 1. Quick check: Is it in the PATH?
@@ -25,22 +32,20 @@ local function is_pio_functional()
   return vim.v.shell_error == 0 and output:find('PlatformIO') ~= nil
 end
 
-local state = {
-  status = 'IDLE', -- IDLE, INSTALLING, READY
-  queue = {}, -- Queued callbacks waiting for installation
-}
 
--- Internal helper to notify all waiting processes
+-- INFO: Internal helper to notify all waiting processes
 -- stylua: ignore
 local function flush_queue(success)
-  state.status = success and 'READY' or 'IDLE'
+  -- If successful, we are READY. If not, we mark as FAILED.
+  state.status = success and "READY" or "FAILED"
+
   for _, callback in ipairs(state.queue) do
     if callback then callback(success) end
   end
   state.queue = {}
 end
 
--- The Floating Installer
+-- INFO: The Floating Installer with Immediate Cleanup
 local function start_floating_installer(on_done)
   local buf = vim.api.nvim_create_buf(false, true)
   local width = math.ceil(vim.o.columns * 0.7)
@@ -57,12 +62,15 @@ local function start_floating_installer(on_done)
     title_pos = 'center',
   })
 
-  -- Set terminal options
-  vim.api.nvim_set_option_value('number', true, { win = win })
-
-  -- local cmd = 'python -c "import urllib.request; urllib.request.urlretrieve(\'https://githubusercontent.com\', \'get-platformio.py\')" && python get-platformio.py'
-  local cmd =
-    "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py', 'get-platformio.py')\" && python get-platformio.py"
+  -- Use a specific filename for the installer
+  local installer_script = 'get-platformio.py'
+  local cmd = string.format(
+    "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/%s', '%s')\" && python %s",
+    installer_script,
+    installer_script,
+    installer_script
+  )
+  -- local cmd = "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py', 'get-platformio.py')\" && python get-platformio.py"
   vim.cmd.term(cmd)
 
   vim.api.nvim_create_autocmd('TermClose', {
@@ -74,7 +82,6 @@ local function start_floating_installer(on_done)
 
       -- 2. IMMEDIATE CLEANUP
       -- Delete the script the moment the process finishes, regardless of success
-      local installer_script = 'get-platformio.py'
       if vim.fn.filereadable(installer_script) == 1 then
         os.remove(installer_script)
 
@@ -109,23 +116,29 @@ local function start_floating_installer(on_done)
 end
 
 -- 4. The Primary Entry Point
-function M.isInstalled(on_complete)
-  -- If an install is already in progress, just join the queue
+-- stylua: ignore
+function M.isInstalled(on_complete, is_autocmd)
+  -- 1. If currently installing, just wait, just join the queue.
   if state.status == 'INSTALLING' then
     table.insert(state.queue, on_complete)
     return
   end
 
-  -- If already working, run now
+  -- 2. If already successful, proceed.
   if state.status == 'READY' or is_pio_functional() then
     state.status = 'READY'
-    if on_complete then
-      on_complete(true)
-    end
+    if on_complete then on_complete(true) end
     return
   end
 
-  -- Start new installation process
+  -- 3. USE OF 'FAILED' STATE:
+  -- If an autocmd triggered this but we previously failed, DON'T bother the user.
+  -- Only proceed if the user manually ran a command (is_autocmd will be false).
+  if state.status == "FAILED" and is_autocmd then
+    return
+  end
+
+  -- 4. Proceed with installation
   state.status = 'INSTALLING'
   table.insert(state.queue, on_complete)
 
@@ -139,4 +152,5 @@ function M.isInstalled(on_complete)
     flush_queue(success)
   end)
 end
+
 return M

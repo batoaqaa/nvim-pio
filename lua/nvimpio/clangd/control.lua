@@ -146,7 +146,7 @@ end
 --stylua: ignore
 --=============================================================================
 function M.init(clangd)
-  vim.misc.notify('Clangd LSP: initialize', "info")
+  vim.misc.notify('Clangd: initialize', "info")
 
   require('nvimpio.clangd.commands')
 
