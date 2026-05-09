@@ -16,7 +16,7 @@ end, { desc = "Install PlatformIO Core" })
 -- stylua: ignore
 -- INFO: manage gitignore
 ------------------------------------------------------
-vim.api.nvim_create_user_command('Pioinit',
+vim.api.nvim_create_user_command('PioGitIgnore',
   function()
     require('nvimpio.pio.ui.pioGitIgnore').pioGitIgnore()
   end,
