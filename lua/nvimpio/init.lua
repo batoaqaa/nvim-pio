@@ -15,12 +15,13 @@ function M.setup(opts)
     local state = require('nvimpio.pioCheck').state
     if state.is_activated then return end
 
+    state.is_activated = true
+    vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
+
     local sep = vim.fn.has('win32') == 1 and ';' or ':'
     if M.config.pio.auto_update_path then
       local pio_bin = pioCheck.get_bin_dir()
-      if vim.fn.isdirectory(pio_bin) == 1 then
-        vim.env.PATH = pio_bin .. sep .. vim.env.PATH
-      end
+      if vim.fn.isdirectory(pio_bin) == 1 then vim.env.PATH = pio_bin .. sep .. vim.env.PATH end
     end
 
     if opts then user_config = opts end
@@ -29,21 +30,6 @@ function M.setup(opts)
     userConfig.buildUsserMenu(M.config)
 
     require('nvimpio.pio.control').init(M.config.clangd)
-
-
-  -- M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
-  --
-  -- menu.buildMenu(M.config)
-
-
-
-
-    -- Load your sub-modules here
-    -- require('nvimpio.commands').setup()
-    -- require('nvimpio.statusline').init()
-
-    state.is_activated = true
-    vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
   end
 
   -- INFO: Pioini
