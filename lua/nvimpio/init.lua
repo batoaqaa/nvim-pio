@@ -50,6 +50,8 @@ function M.setup(opts)
   vim.api.nvim_create_user_command('Pioinit', function()
     pioCheck.pioStatus(function(success)
       if success then
+  vim.pio = require('nvimpio.pio.upkeep')
+  vim.misc = require('nvimpio.utils.misc')
         require('nvimpio.pio.ui.pioInit').pioInit()
         activate()
       end
