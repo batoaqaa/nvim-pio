@@ -1,102 +1,6 @@
 local M = {}
 
-M.config = {
-  pio = {
-    auto_update_path = true,
-  },
-  clangd = {
-    support = false,
-    install = false,
-  },
-  menu_key = '<leader>\\', -- replace this menu key  to your convenience
-  menu_name = 'PlatformIO', -- replace this menu name to your convenience
-  debug = false,
-
-  menu_bindings = {
-    { node = 'item', desc = '[I]nitiate project', shortcut = 'i', command = 'Pioinit' },
-    { node = 'item', desc = '[L]ist terminals', shortcut = 'l', command = 'PioTermList' },
-    { node = 'item', desc = 're[S]art clangd', shortcut = 's', command = 'Pioclangdrestart' },
-    { node = 'item', desc = '[T]erminal Core CLI', shortcut = 't', command = 'Piocmdf' },
-    {
-      node = 'menu',
-      desc = '[G]eneral',
-      shortcut = 'g',
-      items = {
-        { node = 'item', desc = '[B]uild', shortcut = 'b', command = 'Piocmdf run' },
-        { node = 'item', desc = '[C]lean', shortcut = 'c', command = 'Piocmdf run -t clean' },
-        { node = 'item', desc = '[D]evice list', shortcut = 'd', command = 'Piocmdf device list' },
-        { node = 'item', desc = '[F]ull clean', shortcut = 'f', command = 'Piocmdf run -t fullclean' },
-        { node = 'item', desc = 'git [I]gnore', shortcut = 'i', command = 'GitIgnore' },
-        { node = 'item', desc = '[M]onitor', shortcut = 'm', command = 'Piocmdh run -t monitor' },
-        { node = 'item', desc = '[U]pload', shortcut = 'u', command = 'Piocmdf run -t upload' },
-      },
-    },
-    {
-      node = 'menu',
-      desc = '[P]latform',
-      shortcut = 'p',
-      items = {
-        { node = 'item', desc = '[B]uild file system', shortcut = 'b', command = 'Piocmdf run -t buildfs' },
-        { node = 'item', desc = 'Program [S]ize', shortcut = 's', command = 'Piocmdf run -t size' },
-        { node = 'item', desc = '[U]pload file system', shortcut = 'u', command = 'Piocmdf run -t uploadfs' },
-        { node = 'item', desc = '[E]rase Flash', shortcut = 'e', command = 'Piocmdf run -t erase' },
-      },
-    },
-    {
-      node = 'menu',
-      desc = '[D]ependencies',
-      shortcut = 'd',
-      items = {
-        { node = 'item', desc = '[L]ist packages', shortcut = 'l', command = 'Piocmdf pkg list' },
-        { node = 'item', desc = '[O]utdated packages', shortcut = 'o', command = 'Piocmdf pkg outdated' },
-        { node = 'item', desc = '[U]pdate packages', shortcut = 'u', command = 'Piocmdf pkg update' },
-      },
-    },
-    {
-      node = 'menu',
-      desc = '[A]dvanced',
-      shortcut = 'a',
-      items = {
-        { node = 'item', desc = '[T]est', shortcut = 't', command = 'Piocmdf test' },
-        { node = 'item', desc = '[C]heck', shortcut = 'c', command = 'Piocmdf check' },
-        { node = 'item', desc = '[D]ebug', shortcut = 'd', command = 'Piocmdf debug' },
-        { node = 'item', desc = 'Compilation Data[b]ase', shortcut = 'b', command = 'Piocmdf run -t compiledb' },
-        {
-          node = 'menu',
-          desc = '[V]erbose',
-          shortcut = 'v',
-          items = {
-            { node = 'item', desc = 'Verbose [B]uild', shortcut = 'b', command = 'Piocmdf run -v' },
-            { node = 'item', desc = 'Verbose [U]pload', shortcut = 'u', command = 'Piocmdf run -v -t upload' },
-            { node = 'item', desc = 'Verbose [T]est', shortcut = 't', command = 'Piocmdf test -v' },
-            { node = 'item', desc = 'Verbose [C]heck', shortcut = 'c', command = 'Piocmdf check -v' },
-            { node = 'item', desc = 'Verbose [D]ebug', shortcut = 'd', command = 'Piocmdf debug -v' },
-          },
-        },
-      },
-    },
-    {
-      node = 'menu',
-      desc = '[R]emote',
-      shortcut = 'r',
-      items = {
-        { node = 'item', desc = 'Remote [U]pload', shortcut = 'u', command = 'Piocmdf remote run -t upload' },
-        { node = 'item', desc = 'Remote [T]est', shortcut = 't', command = 'Piocmdf remote test' },
-        { node = 'item', desc = 'Remote [M]onitor', shortcut = 'm', command = 'Piocmdh remote run -t monitor' },
-        { node = 'item', desc = 'Remote [D]evices', shortcut = 'd', command = 'Piocmdf remote device list' },
-      },
-    },
-    {
-      node = 'menu',
-      desc = '[M]iscellaneous',
-      shortcut = 'm',
-      items = {
-        { node = 'item', desc = '[U]pgrade PlatformIO Core', shortcut = 'u', command = 'Piocmdf upgrade' },
-        { node = 'item', desc = 'PlatformIO Core [I]nstall', shortcut = 'u', command = ':PioInstall' },
-      },
-    },
-  },
-}
+M.config = require('nvimpio.defConfig').defConfig
 
 local valid_menu_keys = {
   node = true,
@@ -224,11 +128,19 @@ function M.setup(opts)
 
   if user_config.menu_bindings then
     -- if validation error, cancel merging menu_bindings with M.config
-    if not validateMenu(user_config.menu_bindings) then user_config.menu_bindings = nil end
+    if not validateMenu(user_config.menu_bindings) then
+      user_config.menu_bindings = nil
+    end
   end
   -- M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
   --
   -- M.piomenu(M.config)
+
+  -- Plugin State
+  local state = {
+    status = "IDLE", -- IDLE, INSTALLING, READY
+    queue = {},      -- Queued callbacks waiting for installation
+  }
 
   local function is_pio_functional()
     -- 1. Quick check: Is it in the PATH?
@@ -236,16 +148,24 @@ function M.setup(opts)
 
     -- 2. Deep check: Does it actually run?
     -- We use 'pio --version' because it's fast and doesn't change settings.
-  local version_output = vim.fn.system('pio --version')
+    local output = vim.fn.system('pio --version')
 
-  -- Check if the output contains the keyword "PlatformIO"
-  -- and that the exit code (v:shell_error) was 0
-  if vim.v.shell_error == 0 and version_output:find("PlatformIO") then return true
-  else return false end
-
-
-
+    -- Check if the output contains the keyword "PlatformIO"
+    -- and that the exit code (v:shell_error) was 0
+    return vim.v.shell_error == 0 and output:find('PlatformIO') ~= nil
   end
+
+
+  -- Internal helper to notify all waiting processes
+  local function flush_queue(success)
+    state.status = success and "READY" or "IDLE"
+    for _, callback in ipairs(state.queue) do
+      if callback then callback(success) end
+    end
+    state.queue = {}
+  end
+
+
 
   local function get_pio_bin_dir()
     local is_win = vim.fn.has('win32') == 1
@@ -261,23 +181,9 @@ function M.setup(opts)
     return pio_bin
   end
 
-  local function pioCheck(on_complete)
-    if is_pio_functional() then
-      if on_complete then on_complete(true) end
-      vim.notify('✅ PlatformIO detected in PATH', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
-      return
-    end
-
-    -- 1. If missing, ask the user
-    local choice = vim.fn.confirm('PlatformIO not found. Install it now?', '&Yes\n&No', 2)
-    if choice ~= 1 then
-      if on_complete then on_complete(false) end
-      vim.notify('Plugin load cancelled: PlatformIO Core required.', vim.log.levels.WARN)
-      return
-    end
-
+  -- The Floating Installer
+  local function start_floating_installer(on_done)
     local buf = vim.api.nvim_create_buf(false, true)
-
     local width = math.ceil(vim.o.columns * 0.7)
     local height = math.ceil(vim.o.lines * 0.7)
 
@@ -288,70 +194,162 @@ function M.setup(opts)
       row = math.ceil((vim.o.lines - height) / 2),
       col = math.ceil((vim.o.columns - width) / 2),
       border = 'rounded',
-      -- Title Configuration
-      title = { { ' PlatformIO Installer ', 'FloatTitle' } },
+      title = { { " PlatformIO Core Installer ", "FloatTitle" } },
       title_pos = 'center',
-      -- Scrollbar/Styling
-      style = 'minimal',
     })
 
-    -- Set window local options for better visibility
-    vim.api.nvim_set_option_value('winhl', 'Normal:NormalFloat,FloatBorder:FloatBorder', { win = win })
-
-    -- Force the scrollbar to be visible if the plugin "nvim-scrollview" or similar isn't installed
-    -- Neovim doesn't have a 'native' permanent scrollbar, but we can enable line numbers
-    -- or use a sign column to give visual depth.
+    -- Set terminal options
     vim.api.nvim_set_option_value('number', true, { win = win })
 
-    local cmd =
-      "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py', 'get-platformio.py')\" && python get-platformio.py"
-    -- "python -c \"import urllib.request; urllib.request.urlretrieve('https://githubusercontent.com', 'get-platformio.py')\" && python get-platformio.py"
+    local cmd = 'python -c "import urllib.request; urllib.request.urlretrieve(\'https://githubusercontent.com\', \'get-platformio.py\')" && python get-platformio.py'
     vim.cmd.term(cmd)
-    vim.api.nvim_create_autocmd('TermClose', {
+
+    vim.api.nvim_create_autocmd("TermClose", {
       buffer = buf,
       once = true,
       callback = function()
         local success = (vim.v.event.status == 0)
-
-        if on_complete then
-          on_complete(success)
-        end
         if success then
-          -- CLOSE ONLY ON SUCCESS
+          -- Refresh PATH immediately so Neovim sees the new install
+          local sep = vim.fn.has("win32") == 1 and ";" or ":"
+          local pio_path = vim.fn.expand("~/.platformio/penv/" .. (vim.fn.has("win32") == 1 and "Scripts" or "bin"))
+          vim.env.PATH = pio_path .. sep .. vim.env.PATH
+
           if vim.api.nvim_win_is_valid(win) then
             vim.api.nvim_win_close(win, true)
           end
-          vim.notify('✅ Installation success! Loading plugin...', vim.log.levels.INFO)
+          vim.notify("PlatformIO installed successfully!", vim.log.levels.INFO)
         else
-          -- STAY OPEN ON FAILURE
-          vim.notify('🚫 Installation failed! Review the logs above, then press :q to close.', vim.log.levels.ERROR)
+          vim.notify("Installation failed! Check logs and press :q to close.", vim.log.levels.ERROR)
         end
-
-    -- os.remove('get-platformio.py')
-    -- -- 2. Find and remove random temp folders like .piocore-installer-xxxx
-    -- -- vim.fn.glob returns a list of files/folders matching the pattern
-    -- local temp_patterns = { ".piocore-installer-*", "platformio-core-installer-*" }
-    -- for _, pattern in ipairs(temp_patterns) do
-    --   local matches = vim.fn.glob(pattern, true, true)
-    --   for _, path in ipairs(matches) do
-    --     if vim.fn.isdirectory(path) == 1 then vim.fn.delete(path, "rf") end
-    --   end
-    -- end
-      end,
+        on_done(success)
+      end
     })
   end
+
+-- 4. The Primary Entry Point
+function M.pioCheck(on_complete)
+  -- If already working, run now
+  if state.status == "READY" or is_pio_functional() then
+    state.status = "READY"
+    if on_complete then on_complete(true) end
+    return
+  end
+
+  -- If an install is already in progress, just join the queue
+  if state.status == "INSTALLING" then
+    table.insert(state.queue, on_complete)
+    return
+  end
+
+  -- Start new installation process
+  state.status = "INSTALLING"
+  table.insert(state.queue, on_complete)
+
+  local choice = vim.fn.confirm("PlatformIO Core not found. Install now?", "&Yes\n&No", 2)
+  if choice ~= 1 then
+    flush_queue(false)
+    return
+  end
+
+  start_floating_installer(function(success)
+    flush_queue(success)
+  end)
+end
+  -- local function pioCheck(on_complete)
+  --   if is_pio_functional() then
+  --     if on_complete then
+  --       on_complete(true)
+  --     end
+  --     vim.notify('✅ PlatformIO detected in PATH', vim.log.levels.INFO, { title = 'nvim-pio Plugin' })
+  --     return
+  --   end
+  --
+  --   -- 1. If missing, ask the user
+  --   local choice = vim.fn.confirm('PlatformIO not found. Install it now?', '&Yes\n&No', 2)
+  --   if choice ~= 1 then
+  --     if on_complete then
+  --       on_complete(false)
+  --     end
+  --     vim.notify('Plugin load cancelled: PlatformIO Core required.', vim.log.levels.WARN)
+  --     return
+  --   end
+  --
+  --   local buf = vim.api.nvim_create_buf(false, true)
+  --
+  --   local width = math.ceil(vim.o.columns * 0.7)
+  --   local height = math.ceil(vim.o.lines * 0.7)
+  --
+  --   local win = vim.api.nvim_open_win(buf, true, {
+  --     relative = 'editor',
+  --     width = width,
+  --     height = height,
+  --     row = math.ceil((vim.o.lines - height) / 2),
+  --     col = math.ceil((vim.o.columns - width) / 2),
+  --     border = 'rounded',
+  --     -- Title Configuration
+  --     title = { { ' PlatformIO Installer ', 'FloatTitle' } },
+  --     title_pos = 'center',
+  --     -- Scrollbar/Styling
+  --     style = 'minimal',
+  --   })
+  --
+  --   -- Set window local options for better visibility
+  --   vim.api.nvim_set_option_value('winhl', 'Normal:NormalFloat,FloatBorder:FloatBorder', { win = win })
+  --
+  --   -- Force the scrollbar to be visible if the plugin "nvim-scrollview" or similar isn't installed
+  --   -- Neovim doesn't have a 'native' permanent scrollbar, but we can enable line numbers
+  --   -- or use a sign column to give visual depth.
+  --   vim.api.nvim_set_option_value('number', true, { win = win })
+  --
+  --   local cmd =
+  --     "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py', 'get-platformio.py')\" && python get-platformio.py"
+  --   -- "python -c \"import urllib.request; urllib.request.urlretrieve('https://githubusercontent.com', 'get-platformio.py')\" && python get-platformio.py"
+  --   vim.cmd.term(cmd)
+  --   vim.api.nvim_create_autocmd('TermClose', {
+  --     buffer = buf,
+  --     once = true,
+  --     callback = function()
+  --       local success = (vim.v.event.status == 0)
+  --
+  --       if on_complete then
+  --         on_complete(success)
+  --       end
+  --       if success then
+  --         -- CLOSE ONLY ON SUCCESS
+  --         if vim.api.nvim_win_is_valid(win) then
+  --           vim.api.nvim_win_close(win, true)
+  --         end
+  --         vim.notify('✅ Installation success! Loading plugin...', vim.log.levels.INFO)
+  --       else
+  --         -- STAY OPEN ON FAILURE
+  --         vim.notify('🚫 Installation failed! Review the logs above, then press :q to close.', vim.log.levels.ERROR)
+  --       end
+  --
+  --       -- os.remove('get-platformio.py')
+  --       -- -- 2. Find and remove random temp folders like .piocore-installer-xxxx
+  --       -- -- vim.fn.glob returns a list of files/folders matching the pattern
+  --       -- local temp_patterns = { ".piocore-installer-*", "platformio-core-installer-*" }
+  --       -- for _, pattern in ipairs(temp_patterns) do
+  --       --   local matches = vim.fn.glob(pattern, true, true)
+  --       --   for _, path in ipairs(matches) do
+  --       --     if vim.fn.isdirectory(path) == 1 then vim.fn.delete(path, "rf") end
+  --       --   end
+  --       -- end
+  --     end,
+  --   })
+  -- end
 
 
   -- stylua: ignore
   -- INFO: Pioini
   vim.api.nvim_create_user_command('Pioinit', function()
-    pioCheck(function(success)
+    M.pioCheck(function(success)
       if success then
-  vim.g.platformioRootDir = vim.uv.cwd()
-
-  vim.pio = require('nvimpio.pio.upkeep')
-  vim.misc = require('nvimpio.utils.misc')
-  vim.clangd = require('nvimpio.clangd.control')
+        vim.g.platformioRootDir = vim.uv.cwd()
+        vim.pio = require('nvimpio.pio.upkeep')
+        vim.misc = require('nvimpio.utils.misc')
+        vim.clangd = require('nvimpio.clangd.control')
         require('nvimpio.pio.ui.pioInit').pioInit()
       end
     end)
@@ -378,7 +376,7 @@ function M.setup(opts)
       require('nvimpio.pio.control').init(M.config.clangd)
     end
   end
-  pioCheck(startPluginInternals)
+  M.pioCheck(startPluginInternals)
 end
 
 return M
