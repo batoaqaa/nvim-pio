@@ -51,10 +51,8 @@ local function pioGitIgnore()
 
   local width, height = 55, math.min(#lines + 2, 25)
   local win = vim.api.nvim_open_win(buf, false, {
-    relative = 'editor',
-    width = width, height = height,
-    col = (vim.o.columns - width) / 2,
-    row = (vim.o.lines - height) / 2,
+    relative = 'editor', width = width, height = height,
+    col = (vim.o.columns - width) / 2, row = (vim.o.lines - height) / 2,
     style = 'minimal', border = 'rounded',
     title = ' GitIgnore ', title_pos = 'center',
   })
@@ -68,39 +66,47 @@ local function pioGitIgnore()
         return
       end
 
-      -- ROBUST PARSER: Handles +1-4,-5-7 or +1,2 -5,6
       local found_batch = false
-      -- We find every segment that starts with + or - and includes numbers, commas, and dashes
+      -- 1. Identify segments starting with + or -
+      -- This matches groups like "+1-4," or "-5-7"
       for action, segment in input:gmatch('([%+%-])([%d%s,%-]+)') do
         found_batch = true
         
-        -- Expand ranges within this specific segment (e.g., 1-4)
-        local expanded = segment:gsub('(%d+)%-(%d+)', function(s, e)
+        -- 2. Expand ranges BEFORE processing numbers (e.g., "1-4" -> "1,2,3,4")
+        local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(s, e)
           local t = {}
           for i = tonumber(s), tonumber(e) do table.insert(t, i) end
           return table.concat(t, ',')
         end)
 
-        -- Apply the action to every number found in the expanded segment
-        for num in expanded:gmatch('%d+') do
-          local n = tonumber(num)
-          if action == '+' and not_ignored[n] then
-            local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
-            table.insert(ignored, p)
+        -- 3. Process every number in the segment
+        for num_str in expanded:gmatch('%d+') do
+          local n = tonumber(num_str)
+          if action == '+' then
+            if not_ignored[n] then
+              local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
+              table.insert(ignored, p)
+            end
           elseif action == '-' then
+            -- Subtract offset to map menu number to the 'ignored' table index
             local idx = n - #not_ignored
-            if ignored[idx] then ignored[idx] = '__DELETE__' end
+            if ignored[idx] then
+              ignored[idx] = '__DELETE__'
+            end
           end
         end
       end
 
+      -- Manual Entry Fallback
       if not found_batch then table.insert(ignored, input) end
 
+      -- Cleanup marked items
       local final_list = {}
       for _, val in ipairs(ignored) do
         if val ~= '__DELETE__' then table.insert(final_list, val) end
       end
 
+      -- Save and Refresh
       local out = io.open(path, 'w')
       if out then out:write(table.concat(final_list, '\n') .. '\n') out:close() end
 
@@ -111,7 +117,6 @@ local function pioGitIgnore()
 end
 
 return { pioGitIgnore = pioGitIgnore }
-
 -- local uv = vim.uv or vim.loop
 -- --INFO: pioGitIgnore
 -- ------------------------------------------------------
