@@ -117,7 +117,7 @@ end
 
 -- 4. The Primary Entry Point
 -- stylua: ignore
-function M.isInstalled(on_complete, is_autocmd)
+function M.pioStatus(on_complete, is_autocmd)
   -- 1. If currently installing, just wait, just join the queue.
   if state.status == 'INSTALLING' then
     table.insert(state.queue, on_complete)
@@ -127,7 +127,7 @@ function M.isInstalled(on_complete, is_autocmd)
   -- 2. If already successful, proceed.
   if state.status == 'READY' or is_pio_functional() then
     state.status = 'READY'
-    if on_complete then on_complete(true) end
+    if on_complete then on_complete(true) end -- FIRE HERE
     return
   end
 
@@ -135,6 +135,7 @@ function M.isInstalled(on_complete, is_autocmd)
   -- If an autocmd triggered this but we previously failed, DON'T bother the user.
   -- Only proceed if the user manually ran a command (is_autocmd will be false).
   if state.status == "FAILED" and is_autocmd then
+    if on_complete then on_complete(false) end -- FIRE HERE
     return
   end
 
@@ -144,12 +145,12 @@ function M.isInstalled(on_complete, is_autocmd)
 
   local choice = vim.fn.confirm('PlatformIO Core not found. Install now?', '&Yes\n&No', 2)
   if choice ~= 1 then
-    flush_queue(false)
+    flush_queue(false) -- FIRE HERE (via flush_queue)
     return
   end
 
   start_floating_installer(function(success)
-    flush_queue(success)
+    flush_queue(success) -- FIRE HERE (via flush_queue)
   end)
 end
 

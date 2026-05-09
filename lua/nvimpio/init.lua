@@ -16,7 +16,7 @@ function M.setup(opts)
 
   -- INFO: Pioini
   vim.api.nvim_create_user_command('Pioinit', function()
-    pioCheck.isInstalled(function(success)
+    pioCheck.pioStatus(function(success)
       vim.notify('PlatformIO Exist!', vim.log.levels.INFO)
       if success then
         vim.g.platformioRootDir = vim.uv.cwd()
@@ -54,7 +54,7 @@ function M.setup(opts)
       require('nvimpio.pio.control').init(M.config.clangd)
     end
   end
-  pioCheck.isInstalled(startPluginInternals, true)
+  pioCheck.pioStatus(startPluginInternals, true)
 end
 
 return M
