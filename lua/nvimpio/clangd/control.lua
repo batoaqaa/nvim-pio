@@ -198,38 +198,36 @@ end
 
 local function get_clangd_cmd(callback)
   local registry = require('mason-registry')
+  local bin_name = vim.fn.has('win32') == 1 and 'clangd.cmd' or 'clangd'
+  local mason_exe = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin', bin_name)
 
-  registry.refresh(function()
-    local package_name = 'clangd'
-    local pkg = registry.get_package(package_name)
-    local bin_name = vim.fn.has('win32') == 1 and 'clangd.cmd' or 'clangd'
-    local mason_exe = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin', bin_name)
+  local check_count = 0
+  local max_checks = 40 -- 40 * 500ms = 20 seconds timeout
 
-    -- 1. If already installed and executable, return it immediately
-    if pkg:is_installed() and vim.fn.executable(mason_exe) == 1 then
-      callback(mason_exe)
-      return
-    end
+  local function poll()
+    registry.refresh(function()
+      local pkg = registry.get_package('clangd')
 
-    -- 2. If it's currently installing, WAIT for it to finish
-    if pkg:is_installing() then
-      -- Get the handle of the existing installation
-      local handle = pkg:get_installer()
-      if handle then
-        handle:once('closed', function()
-          -- Re-run the resolver once the process finishes
-          vim.schedule(function()
-            get_clangd_cmd(callback)
-          end)
-        end)
+      -- 1. Success: It is installed and the file exists
+      if pkg:is_installed() and vim.fn.executable(mason_exe) == 1 then
+        callback(mason_exe)
         return
       end
-    end
 
-    -- 3. If not installed AND not installing, fallback to system clangd
-    -- (Or you could trigger pkg:install() here if you wanted it to be fully automatic)
-    callback('clangd')
-  end)
+      -- 2. Wait: It's still installing, or registry hasn't updated yet
+      if (pkg:is_installing() or not pkg:is_installed()) and check_count < max_checks then
+        check_count = check_count + 1
+        vim.defer_fn(poll, 500) -- Check again in 500ms
+        return
+      end
+
+      -- 3. Fallback: Timeout reached or no Mason version found
+      callback('clangd')
+    end)
+  end
+
+  poll()
+
   -- local registry = require('mason-registry')
   --
   -- -- Use refresh to ensure we are looking at the actual disk state
