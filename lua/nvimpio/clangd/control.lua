@@ -54,7 +54,7 @@ function M.clangdIntall(callback, package_name)
 
       -- 2. Already Installing: Hook into existing handle
       if pkg:is_installing() or not pkg:is_installed() and check_count < max_checks then
-        vim.notify('Mason: Waiting for existing ' .. package_name .. ' install...', vim.log.levels.ERROR)
+        vim.notify('Mason: Waiting for existing ' .. package_name .. ' install...', vim.log.levels.INFO)
         check_count = check_count + 1
         vim.defer_fn(poll, 500) -- Check again in 500ms
         return

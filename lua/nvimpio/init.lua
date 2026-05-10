@@ -63,24 +63,20 @@ function M.setup(opts)
     pioCheck.pioStatus(function(success)
       if success then
         if state.isActivated then
-print('isActivated 00')
           require('nvimpio.pio.ui.pioInit').pioInit()
         else
-print('isActivated 01')
           vim.pio = require('nvimpio.pio.upkeep')
           vim.misc = require('nvimpio.utils.misc')
           vim.clangd = require('nvimpio.clangd.control')
 
           require('nvimpio.pio.ui.pioInit').pioInit(function (done)
             if(done)then
-print('isActivated 02')
-              activate()
+              vim.clangd.getUnknownArgs()
               if M.config.clangd.install then
-print('isActivated 03')
                 require('nvimpio.clangd.config')
               end
               -- require('nvimpio.clangd.control').clangdIntall()
-              vim.clangd.getUnknownArgs()
+              activate()
             end
           end)
         end
