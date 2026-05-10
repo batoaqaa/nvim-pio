@@ -7,7 +7,7 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
 --stylua: ignore
-function M.rstart()
+function M.restart()
   local package_name = 'clangd'
   local ok, registry = pcall(require, "mason-registry")
   if not ok then return end
