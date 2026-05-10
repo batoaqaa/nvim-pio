@@ -40,36 +40,38 @@ function M.restart(package_name, retry_count)
       return
     end
 
-    -- 3. Install with Retry Logic
-    local notification = vim.notify(
-      string.format('Mason: Installing %s (Attempt %d/%d)...', package_name, retry_count + 1, max_retries + 1),
-      vim.log.levels.INFO,
-      { timeout = false }
-    )
+    -- -- 3. Install with Retry Logic
+    -- local notification = vim.notify(
+    --   string.format('Mason: Installing %s (Attempt %d/%d)...', package_name, retry_count + 1, max_retries + 1),
+    --   vim.log.levels.INFO,
+    --   { timeout = false }
+    -- )
+    -- 3. INSTALL: Start fresh attempt
+    vim.cmd('redraw')
+    vim.notify(string.format('Mason: Installing %s (Attempt %d/%d)...', package_name, retry_count + 1, max_retries + 1), vim.log.levels.INFO)
 
     local handle = pkg:install()
 
     handle:once('closed', function()
       vim.schedule(function()
         if pkg:is_installed() then
-          vim.notify(package_name .. ' installed successfully!', vim.log.levels.INFO, { replace = notification, timeout = 3000 })
+          vim.cmd('redraw')
+          vim.notify(package_name .. ' installed successfully!', vim.log.levels.INFO)
           M.restarti()
           -- vim.lsp.enable(package_name)
         else
           -- Failure/Incomplete Logic
           if retry_count < max_retries then
-            vim.notify(
-              string.format('Install failed. Retrying in 2s... (%d/%d)', retry_count + 1, max_retries + 1),
-              vim.log.levels.WARN,
-              { replace = notification }
-            )
+            vim.cmd('redraw')
+            vim.notify(string.format('Install failed. Retrying in 2s... (%d/%d)', retry_count + 1, max_retries + 1), vim.log.levels.WARN)
 
             -- Wait 2 seconds before retrying to avoid spamming a broken connection
             vim.defer_fn(function()
               M.restart(package_name, retry_count + 1)
             end, 2000)
           else
-            vim.notify('Mason: All install attempts failed for ' .. package_name, vim.log.levels.ERROR, { replace = notification })
+            vim.cmd('redraw')
+            vim.notify('Mason: All install attempts failed for ' .. package_name, vim.log.levels.ERROR)
           end
         end
       end)
