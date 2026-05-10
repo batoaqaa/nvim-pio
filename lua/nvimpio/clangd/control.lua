@@ -45,7 +45,7 @@ function M.clangdIntall(package_name, retry_count)
     if pkg:is_installed() then
       vim.schedule(function()
         -- vim.lsp.enable(package_name)
-        vim.clangd.getUnknownArgs()
+        -- vim.clangd.getUnknownArgs()
         -- M.restart()
       end)
       return
@@ -72,7 +72,7 @@ function M.clangdIntall(package_name, retry_count)
         if pkg:is_installed() then
           vim.cmd('redraw')
           vim.notify('Mason: ' .. package_name .. ' installed successfully!', vim.log.levels.INFO)
-          vim.clangd.getUnknownArgs()
+          -- vim.clangd.getUnknownArgs()
           -- M.restart()
           -- vim.lsp.enable(package_name)
         else
