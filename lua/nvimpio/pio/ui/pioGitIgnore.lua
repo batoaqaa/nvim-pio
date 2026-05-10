@@ -42,15 +42,18 @@ local function pioGitIgnore()
   local hls = {}
 
   local function add_line_with_icon(idx, name, is_ignored)
-    local is_dir = vim.fn.isdirectory(name:gsub('/$', '')) == 1 or name:match('/$')
+    -- FIX: Ensure isdirectory receives exactly one string argument
+    local check_path = tostring(name):gsub('/$', '')
+    local is_dir = vim.fn.isdirectory(check_path) == 1 or name:match('/$')
+
     local icon = is_dir and '📁 ' or '📄 '
     local prefix = is_ignored and '🚫 ' or ''
-    local line_idx = #lines -- index for next line
+    local line_idx = #lines
 
     local line_text = string.format(' [%d] %s%s%s', idx, prefix, icon, name)
     table.insert(lines, line_text)
 
-    -- Find icon position for the highlight
+    -- Find icon position (handle multibyte correctly)
     local start_col = line_text:find(icon) - 1
     table.insert(hls, { line = line_idx, start_col = start_col, is_dir = is_dir })
   end
@@ -68,13 +71,11 @@ local function pioGitIgnore()
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 
-  -- MODERN HIGHLIGHTING: Using Extmarks
   local ns = vim.api.nvim_create_namespace('pio_git_icons')
   for _, hl in ipairs(hls) do
     vim.api.nvim_buf_set_extmark(buf, ns, hl.line, hl.start_col, {
-      end_col = hl.start_col + 4, -- Emoji length + space
+      end_col = hl.start_col + 4,
       hl_group = hl.is_dir and 'Directory' or 'Identifier',
-      hl_mode = 'combine',
     })
   end
 
@@ -102,7 +103,6 @@ local function pioGitIgnore()
         return
       end
 
-      -- Parser logic (Remains the same robust version)
       local normalized = input:gsub(',%s*%-', ',_'):gsub('^%-', '_')
       for action, segment in normalized:gmatch('([%+%%_])([^%+%%_%s\r\n]+)') do
         local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(s, e)
