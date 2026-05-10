@@ -34,7 +34,7 @@ local function pioGitIgnore()
   end
 
   -- 3. Prepare Display Lines
-  local lines = { '   GITIGNORE MANAGER', ' ESC or ENTER (empty) to exit', string.rep('─', 45) }
+  local lines = { '   GITIGNORE MANAGER', ' ESC/Enter (empty) to exit | +add / -remove', string.rep('─', 45) }
   for i, file in ipairs(not_ignored) do
     local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
     table.insert(lines, string.format(' [%d] %s%s', i, icon, file))
@@ -59,64 +59,60 @@ local function pioGitIgnore()
 
   -- 5. Prompt for Input
   vim.defer_fn(function()
-    vim.ui.input({ prompt = 'Action (e.g. +1-4,-5-7): ' }, function(input)
+    vim.ui.input({ prompt = 'Action (e.g. +1-2,-5-8): ' }, function(input)
+      if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
       if not input or input == '' or input:lower() == 'q' then
-        if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
         vim.cmd("redraw")
         return
       end
 
-      local found_batch = false
-      -- 1. Identify segments starting with + or -
-      -- This matches groups like "+1-4," or "-5-7"
-      for action, segment in input:gmatch('([%+%-])([%d%s,%-]+)') do
-        found_batch = true
-        
-        -- 2. Expand ranges BEFORE processing numbers (e.g., "1-4" -> "1,2,3,4")
-        local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(s, e)
-          local t = {}
-          for i = tonumber(s), tonumber(e) do table.insert(t, i) end
-          return table.concat(t, ',')
-        end)
+      -- PARSER FIX: Break the string into instructions based on + or -
+      local current_action = nil
+      -- We split by segments like "+1-2" or "-5,6"
+      for segment in input:gmatch("([%+%-%d%s,]+)") do
+        -- Check if this segment starts with an action
+        local action_found = segment:match("^([%+%-])")
+        if action_found then current_action = action_found end
 
-        -- 3. Process every number in the segment
-        for num_str in expanded:gmatch('%d+') do
-          local n = tonumber(num_str)
-          if action == '+' then
-            if not_ignored[n] then
-              local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
+        if current_action then
+          -- Expand ranges (e.g., 1-4)
+          local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(s, e)
+            local t = {}
+            for i = tonumber(s), tonumber(e) do table.insert(t, i) end
+            return table.concat(t, ',')
+          end)
+
+          -- Process numbers in this expanded segment
+          for num_str in expanded:gmatch('%d+') do
+            local n = tonumber(num_str)
+            if current_action == '+' and not_ignored[n] then
+              local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and "/" or "")
               table.insert(ignored, p)
-            end
-          elseif action == '-' then
-            -- Subtract offset to map menu number to the 'ignored' table index
-            local idx = n - #not_ignored
-            if ignored[idx] then
-              ignored[idx] = '__DELETE__'
+            elseif current_action == '-' then
+              local idx = n - #not_ignored
+              if ignored[idx] then ignored[idx] = '__DELETE__' end
             end
           end
         end
       end
 
-      -- Manual Entry Fallback
-      if not found_batch then table.insert(ignored, input) end
-
-      -- Cleanup marked items
+      -- Finalize and Save
       local final_list = {}
       for _, val in ipairs(ignored) do
         if val ~= '__DELETE__' then table.insert(final_list, val) end
       end
 
-      -- Save and Refresh
       local out = io.open(path, 'w')
       if out then out:write(table.concat(final_list, '\n') .. '\n') out:close() end
-
-      if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
+      
+      -- Refresh UI
       pioGitIgnore()
     end)
   end, 20)
 end
 
 return { pioGitIgnore = pioGitIgnore }
+
 -- local uv = vim.uv or vim.loop
 -- --INFO: pioGitIgnore
 -- ------------------------------------------------------
