@@ -29,6 +29,10 @@ if ok then
   })
 end
 
+-- Add mason bin to path
+local mason_bin = vim.fn.stdpath('data') .. '/mason/bin'
+vim.env.PATH = mason_bin .. ':' .. vim.env.PATH
+
 -- List of packages you want Mason to ensure are installed
 local ensure_installed = {
   -- 'clang-format', embeded in clangd
