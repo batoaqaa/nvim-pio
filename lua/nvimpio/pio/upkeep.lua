@@ -656,7 +656,8 @@ function M.cleanup_pio_session()
   if win_id then vim.misc.closeMessage(win_id) end
   win_id = nil
   term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
-  if trm then trm:close() end
+  -- if trm then trm:close() end
+  if trm then trm:toggle() end
 end
 
 -- stylua: ignore
