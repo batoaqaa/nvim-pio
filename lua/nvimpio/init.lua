@@ -33,31 +33,6 @@ function M.setup(opts)
     require('nvimpio.pio.control').init(M.config.clangd)
   end
 
-  -- -- INFO: Pioini
-  -- vim.api.nvim_create_user_command('Pioinit', function()
-  --   pioCheck.pioStatus(function(success)
-  --     if success then
-  --       vim.pio = require('nvimpio.pio.upkeep')
-  --       vim.misc = require('nvimpio.utils.misc')
-  --       vim.clangd = require('nvimpio.clangd.control')
-  --
-  --       require('nvimpio.pio.ui.pioInit').pioInit(function ()
-  -- if M.config.clangd.install then
-  --   require('nvimpio.clangd.config')
-  -- end
-  --         require('nvimpio.clangd.control').clangdIntall()
-  --         -- vim.clangd.getUnknownArgs()
-  --         activate()
-  --       end)
-  --
-  --       -- activate()
-  --     end
-  --   end, false)
-  -- end, {
-  --   force = true,
-  --   desc = 'Start the PlatformIO guided setup wizard',
-  -- })
-
   -- INFO: Pioini
   vim.api.nvim_create_user_command('Pioinit', function()
     pioCheck.pioStatus(function(success)
@@ -76,7 +51,7 @@ function M.setup(opts)
               --   require('nvimpio.clangd.config')
               -- end
               -- require('nvimpio.clangd.control').clangdIntall()
-              activate()
+              -- activate()
             end
           end)
         end
