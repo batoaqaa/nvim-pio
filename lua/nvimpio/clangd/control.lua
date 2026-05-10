@@ -123,16 +123,16 @@ function M.getUnknownArgs()
   local cmd = { 'clangd', '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
 
   vim.system(cmd, { text = true }, function(obj)
-    local output = (obj.stdout or '') .. (obj.stderr or '')
-    local args_table = {}
-
-    -- Extract anything clangd reports as an 'unknown argument'
-    for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
-      table.insert(args_table, string.format('"%s"', arg:gsub('[;%.]$', '')))
-    end
-
-    -- 4. UPDATE: Rebuild with the new discovered flags
     vim.schedule(function()
+      local output = (obj.stdout or '') .. (obj.stderr or '')
+      local args_table = {}
+
+      -- Extract anything clangd reports as an 'unknown argument'
+      for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
+        table.insert(args_table, string.format('"%s"', arg:gsub('[;%.]$', '')))
+      end
+
+      -- 4. UPDATE: Rebuild with the new discovered flags
       boilerplate.args = args_table
       boilerplate_gen('.clangd', vim.g.platformioRootDir)
 

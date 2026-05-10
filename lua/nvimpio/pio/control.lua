@@ -229,11 +229,11 @@ function M.start_watchers()
         vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
           vim.schedule(function()
             if obj.code == 0 then
+              vim.misc.notify('PIO platformio.ini change: compiledb update Success', 'info')
               -- vim.schedule(function ()
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function()
                 vim.clangd.getUnknownArgs()
-                vim.misc.notify('PIO platformio.ini change: compiledb update Success', 'info')
                 self.isBusy = false
                 if _G.metadata then _G.metadata.isBusy = false end
                 -- clangdRestart()
