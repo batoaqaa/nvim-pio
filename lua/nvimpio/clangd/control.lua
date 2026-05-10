@@ -33,9 +33,13 @@ function M.restart()
           end)
         else
           vim.schedule(function()
-            vim.misc.notify('LSP: clangd; ' .. ' already installed', 'warn')
+            vim.misc.notify('LSP: clangd; ' .. ' installing', 'warn')
           end)
         end
+      else
+        vim.schedule(function()
+          vim.misc.notify('LSP: clangd; ' .. ' already installed', 'warn')
+        end)
       end
     else
       vim.schedule(function()
