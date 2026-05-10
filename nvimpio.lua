@@ -233,6 +233,20 @@ vim.opt.rtp:prepend(lazypath)
 ----------------------------------------------------------------------------------------
 -- INFO: define plugins table
 local plugins = {
+
+  {
+    'rebelot/kanagawa.nvim',
+    -- opts = config,
+    config = function()
+      -- vim.cmd.colorscheme('kanagawa')
+      -- vim.cmd('colorscheme kanagawa-wave')
+      -- vim.cmd('colorscheme kanagawa-dragon')
+      -- require('kanagawa').load('wave')
+      -- require('kanagawa').load('dragon')
+      require('kanagawa').load('lotus')
+    end,
+  },
+
   { 'windwp/nvim-autopairs', event = 'InsertEnter', config = true },
 
   {
