@@ -79,7 +79,7 @@ print('isActivated 02')
 print('isActivated 03')
                 require('nvimpio.clangd.config')
               end
-              require('nvimpio.clangd.control').clangdIntall()
+              -- require('nvimpio.clangd.control').clangdIntall()
               vim.clangd.getUnknownArgs()
             end
           end)
