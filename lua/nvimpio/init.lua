@@ -63,8 +63,10 @@ function M.setup(opts)
     pioCheck.pioStatus(function(success)
       if success then
         if state.isActivated then
+          print('isActivated1')
           require('nvimpio.pio.ui.pioInit').pioInit()
         else
+          print('isActivated0')
           vim.pio = require('nvimpio.pio.upkeep')
           vim.misc = require('nvimpio.utils.misc')
           vim.clangd = require('nvimpio.clangd.control')
