@@ -687,6 +687,7 @@ function M.handlePioinitDb(result, board, on_done)
         -- if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
         -- if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'horizontal') end
       else
+        if on_done and type(on_done) == "function" then on_done(false)end
         M.cleanup_pio_session()
       end
     -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
@@ -699,11 +700,8 @@ function M.handlePioinitDb(result, board, on_done)
       M.pio_refresh(function()
 
 
-        if on_done and type(on_done) == "function" then
-          on_done()
-        else
-          vim.clangd.getUnknownArgs()
-        end
+        if on_done and type(on_done) == "function" then on_done(true)
+        else vim.clangd.getUnknownArgs() end
 
 
         boilerplate.core_dir = _G.metadata.core_dir
@@ -711,6 +709,7 @@ function M.handlePioinitDb(result, board, on_done)
     end)
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
+    if on_done and type(on_done) == "function" then on_done(false)end
     M.cleanup_pio_session()
   end
 end

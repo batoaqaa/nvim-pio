@@ -71,15 +71,17 @@ function M.setup(opts)
           vim.misc = require('nvimpio.utils.misc')
           vim.clangd = require('nvimpio.clangd.control')
 
-          require('nvimpio.pio.ui.pioInit').pioInit(function ()
-          print('isActivated01')
-            require('nvimpio.clangd.control').clangdIntall()
-            if M.config.clangd.install then
-              print('isActivated012')
-              require('nvimpio.clangd.config')
+          require('nvimpio.pio.ui.pioInit').pioInit(function (done)
+            if(done)then
+              print('isActivated01')
+              activate()
+              require('nvimpio.clangd.control').clangdIntall()
+              if M.config.clangd.install then
+                print('isActivated012')
+                require('nvimpio.clangd.config')
+              end
+              vim.clangd.getUnknownArgs()
             end
-            vim.clangd.getUnknownArgs()
-            activate()
           end)
         end
 
