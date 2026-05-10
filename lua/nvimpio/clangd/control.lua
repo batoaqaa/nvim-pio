@@ -9,67 +9,68 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 ---stylua: ignore
 function M.restart()
   local package_name = 'clangd'
-  local ok, mr = pcall(require, 'mason-registry')
+  local ok, registry = pcall(require, 'mason-registry')
   if not ok then
     return
   end
 
-  mr.refresh(function()
-    -- for _, tool in ipairs(ensure_installed) do
-    local pok, result = pcall(mr.get_package, package_name)
-    if pok and result then
-      if not result:is_installed() then
-        if not result:is_installing() then
-          result:install({}, function(success, _)
-            if not success then
-              vim.schedule(function()
-                vim.misc.notify('LSP: clangd; ' .. ' failed to install', 'error')
-              end)
-            end
-          end)
-        else
-          vim.schedule(function()
-            vim.misc.notify('LSP: clangd; ' .. ' already installed', 'warn')
-          end)
-        end
-      end
-    else
-      vim.schedule(function()
-        vim.misc.notify('LSP: clangd; Failed to get package: ', 'warn')
-      end)
-    end
-    -- end
-  end)
   -- registry.refresh(function()
-  --   if not registry.is_installed(package_name) then
-  --     if not registry.is_installing(package_name) then
-  --       local pkg = registry.get_package(package_name)
-  --
-  --       -- Send initial notification
-  --       local notification = vim.notify('Mason: Installing ' .. package_name .. '...', vim.log.levels.INFO, {
-  --         title = 'Mason Installation',
-  --         timeout = false, -- Keep open until finished
-  --       })
-  --
-  --       -- Start installation
-  --       local handle = pkg:install()
-  --
-  --       -- Hook into the 'closed' event (installation finished)
-  --       handle:once('closed', function()
-  --         vim.schedule(function()
-  --           vim.notify(package_name .. ' installed successfully!', vim.log.levels.INFO, {
-  --             title = 'Mason Installation',
-  --             replace = notification, -- Replace the old notification
-  --             timeout = 3000,
-  --           })
-  --           -- Enable the LSP natively in 0.11+
-  --           vim.lsp.enable(package_name)
-  --           M.restarti()
+  --   -- for _, tool in ipairs(ensure_installed) do
+  --   local pok, result = pcall(registry.get_package, package_name)
+  --   if pok and result then
+  --     if not result:is_installed() then
+  --       if not result:is_installing() then
+  --         result:install({}, function(success, _)
+  --           if not success then
+  --             vim.schedule(function()
+  --               vim.misc.notify('LSP: clangd; ' .. ' failed to install', 'error')
+  --             end)
+  --           end
   --         end)
-  --       end)
+  --       else
+  --         vim.schedule(function()
+  --           vim.misc.notify('LSP: clangd; ' .. ' already installed', 'warn')
+  --         end)
+  --       end
   --     end
+  --   else
+  --     vim.schedule(function()
+  --       vim.misc.notify('LSP: clangd; Failed to get package: ', 'warn')
+  --     end)
   --   end
+  --   -- end
   -- end)
+
+  registry.refresh(function()
+    if not registry.is_installed(package_name) then
+      if not registry.is_installing(package_name) then
+        local pkg = registry.get_package(package_name)
+
+        -- Send initial notification
+        local notification = vim.notify('Mason: Installing ' .. package_name .. '...', vim.log.levels.INFO, {
+          title = 'Mason Installation',
+          timeout = false, -- Keep open until finished
+        })
+
+        -- Start installation
+        local handle = pkg:install()
+
+        -- Hook into the 'closed' event (installation finished)
+        handle:once('closed', function()
+          vim.schedule(function()
+            vim.notify(package_name .. ' installed successfully!', vim.log.levels.INFO, {
+              title = 'Mason Installation',
+              replace = notification, -- Replace the old notification
+              timeout = 3000,
+            })
+            -- Enable the LSP natively in 0.11+
+            vim.lsp.enable(package_name)
+            M.restarti()
+          end)
+        end)
+      end
+    end
+  end)
 end
 
 ----------------------------------------------------------------------------------------
