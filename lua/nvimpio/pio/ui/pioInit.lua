@@ -144,7 +144,6 @@ local function launch_project_init(on_done)
   wizard_data = {} -- Reset state
 
   if on_done and type(on_done) == 'function' then
-    notify('function', 'error')
     wizard_data.on_done = on_done
   end
   notify('Fetching board database...')
