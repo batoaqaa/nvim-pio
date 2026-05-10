@@ -16,27 +16,27 @@ function M.restart()
 
   mr.refresh(function()
     -- for _, tool in ipairs(ensure_installed) do
-    ok, result = pcall(mr.get_package, package_name)
-    if ok and result then
+    local pok, result = pcall(mr.get_package, package_name)
+    if pok and result then
       if not result:is_installed() then
         if not result:is_installing() then
           result:install({}, function(success, _)
             if not success then
-              vim.defer_fn(function()
+              vim.schedule(function()
                 vim.misc.notify('LSP: clangd; ' .. ' failed to install', 'error')
-              end, 0)
+              end)
             end
           end)
         else
-          vim.defer_fn(function()
+          vim.schedule(function()
             vim.misc.notify('LSP: clangd; ' .. ' already installed', 'warn')
-          end, 0)
+          end)
         end
       end
     else
-      vim.defer_fn(function()
+      vim.schedule(function()
         vim.misc.notify('LSP: clangd; Failed to get package: ', 'warn')
-      end, 0)
+      end)
     end
     -- end
   end)
