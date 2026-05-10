@@ -43,7 +43,7 @@ function M.setup(opts)
 
         require('nvimpio.pio.ui.pioInit').pioInit(function ()
           require('nvimpio.clangd.control').clangdIntall()
-          vim.clangd.getUnknownArgs()
+          -- vim.clangd.getUnknownArgs()
           activate()
         end)
 
