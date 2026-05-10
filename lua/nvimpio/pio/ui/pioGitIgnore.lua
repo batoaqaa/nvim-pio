@@ -34,6 +34,7 @@ local function pioGitIgnore()
   local lines = { '   GITIGNORE MANAGER', ' ESC/Enter (empty) to exit | +add / -remove', string.rep('─', 45) }
   for i, file in ipairs(not_ignored) do
     local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
+    -- IMPORTANT: Indexing starts at 1 for ipairs
     table.insert(lines, string.format(' [%d] %s%s', i, icon, file))
   end
   table.insert(lines, '')
@@ -60,20 +61,22 @@ local function pioGitIgnore()
       end
 
       local processed = false
-      -- 1. Identify segments like +1-3 or -7-9
-      for action, segment in input:gmatch('([%+%-])([^%+%-\r\n]+)') do
+      -- 1. Identify segments. 
+      -- We look for + or - followed by any digits, commas, OR internal dashes.
+      -- The [^%+%-\r\n] in the old code was stopping at the "1-3" dash!
+      for action, segment in input:gmatch('([%+%-])([^%+%s\r\n]+)') do
         processed = true
         
-        -- FIX: Inclusive range expansion
+        -- 2. Expand ranges: "1-3" -> "1,2,3"
         local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(start_num, end_num)
           local t = {}
           local s, e = tonumber(start_num), tonumber(end_num)
-          -- Ensure s is smaller than e for the loop
           if s > e then s, e = e, s end 
           for i = s, e do table.insert(t, i) end
           return table.concat(t, ',')
         end)
 
+        -- 3. Process indices
         for num_str in expanded:gmatch('%d+') do
           local n = tonumber(num_str)
           if action == '+' then
@@ -82,7 +85,6 @@ local function pioGitIgnore()
               table.insert(ignored, p)
             end
           elseif action == '-' then
-            -- Offset math: index in 'ignored' is choice minus count of top list
             local idx = n - #not_ignored
             if ignored[idx] then 
               ignored[idx] = '__DELETE__' 
@@ -91,6 +93,7 @@ local function pioGitIgnore()
         end
       end
 
+      -- Manual pattern fallback
       if not processed and not input:match('^%d+$') then
         table.insert(ignored, input)
       end
@@ -101,7 +104,10 @@ local function pioGitIgnore()
       end
 
       local out = io.open(path, 'w')
-      if out then out:write(table.concat(final_list, '\n') .. '\n') out:close() end
+      if out then 
+        out:write(table.concat(final_list, '\n') .. '\n') 
+        out:close() 
+      end
       pioGitIgnore()
     end)
   end, 20)
