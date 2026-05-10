@@ -199,31 +199,64 @@ end
 local function get_clangd_cmd(callback)
   local registry = require('mason-registry')
 
-  -- Use refresh to ensure we are looking at the actual disk state
   registry.refresh(function()
     local package_name = 'clangd'
+    local pkg = registry.get_package(package_name)
+    local bin_name = vim.fn.has('win32') == 1 and 'clangd.cmd' or 'clangd'
+    local mason_exe = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin', bin_name)
 
-    if registry.is_installed(package_name) then
-      local pkg = registry.get_package(package_name)
-      -- Get the actual install path from Mason's metadata
-      local install_path = pkg:get_install_path()
-      print(install_path)
+    -- 1. If already installed and executable, return it immediately
+    if pkg:is_installed() and vim.fn.executable(mason_exe) == 1 then
+      callback(mason_exe)
+      return
+    end
 
-      local bin_name = vim.fn.has('win32') == 1 and 'clangd.cmd' or 'clangd'
-
-      -- Mason binaries are usually in the package root or a bin subfolder
-      local mason_exe = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin', bin_name)
-
-      if vim.fn.executable(mason_exe) == 1 then
-        print(mason_exe)
-        callback(mason_exe)
+    -- 2. If it's currently installing, WAIT for it to finish
+    if pkg:is_installing() then
+      -- Get the handle of the existing installation
+      local handle = pkg:get_installer()
+      if handle then
+        handle:once('closed', function()
+          -- Re-run the resolver once the process finishes
+          vim.schedule(function()
+            get_clangd_cmd(callback)
+          end)
+        end)
         return
       end
     end
 
-    -- Fallback if Mason isn't ready or package isn't there
+    -- 3. If not installed AND not installing, fallback to system clangd
+    -- (Or you could trigger pkg:install() here if you wanted it to be fully automatic)
     callback('clangd')
   end)
+  -- local registry = require('mason-registry')
+  --
+  -- -- Use refresh to ensure we are looking at the actual disk state
+  -- registry.refresh(function()
+  --   local package_name = 'clangd'
+  --
+  --   if registry.is_installed(package_name) then
+  --     local pkg = registry.get_package(package_name)
+  --     -- Get the actual install path from Mason's metadata
+  --     local install_path = pkg:get_install_path()
+  --     print(install_path)
+  --
+  --     local bin_name = vim.fn.has('win32') == 1 and 'clangd.cmd' or 'clangd'
+  --
+  --     -- Mason binaries are usually in the package root or a bin subfolder
+  --     local mason_exe = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin', bin_name)
+  --
+  --     if vim.fn.executable(mason_exe) == 1 then
+  --       print(mason_exe)
+  --       callback(mason_exe)
+  --       return
+  --     end
+  --   end
+  --
+  --   -- Fallback if Mason isn't ready or package isn't there
+  --   callback('clangd')
+  -- end)
 end
 
 -- Usage
