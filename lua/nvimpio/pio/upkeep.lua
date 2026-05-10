@@ -672,7 +672,7 @@ function M.handlePioinitDb(result, board, on_done)
     if #M.queue > 0 then
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-      if trm then trm:toggle() end
+      -- if trm then trm:toggle() end
       -- trm = term.ToggleTerminal(table.remove(M.queue, 1), 'horizontal')
     end
   elseif result == 'PASS' then
