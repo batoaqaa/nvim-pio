@@ -16,7 +16,7 @@ local function pioGitIgnore()
     f:close()
   end
 
-  -- 2. Normalize and Filter
+  -- 2. Normalize and Filter (Strict)
   local ignored_lookup = {}
   for _, p in ipairs(ignored) do 
     ignored_lookup[p:gsub('^%s*/?', ''):gsub('/?%s*$', '')] = true 
@@ -33,7 +33,7 @@ local function pioGitIgnore()
     end
   end
 
-  -- 3. Prepare Display Lines
+  -- 3. Prepare Display Lines (i starts at 1 in ipairs)
   local lines = { '   GITIGNORE MANAGER', ' ESC/Enter (empty) to exit | +add / -remove', string.rep('─', 45) }
   for i, file in ipairs(not_ignored) do
     local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
@@ -53,8 +53,7 @@ local function pioGitIgnore()
   local win = vim.api.nvim_open_win(buf, false, {
     relative = 'editor', width = width, height = height,
     col = (vim.o.columns - width) / 2, row = (vim.o.lines - height) / 2,
-    style = 'minimal', border = 'rounded',
-    title = ' GitIgnore ', title_pos = 'center',
+    style = 'minimal', border = 'rounded', title = ' GitIgnore ', title_pos = 'center',
   })
 
   -- 5. Prompt for Input
@@ -66,51 +65,41 @@ local function pioGitIgnore()
         return
       end
 
-      -- STAGE 1: Extract chunks starting with + or -
-      -- CRITICAL: We use %- to escape the hyphen in the character set
-      local chunks = {}
-      for chunk in input:gmatch("[%+%-][%d%s,%%%-]+") do
-        table.insert(chunks, vim.trim(chunk))
-      end
-
-      -- If no chunks (+/-) found, treat whole input as manual string
-      if #chunks == 0 and not input:match("^[%+%-]") then
+      -- STEP 1: Handle Manual Entries (No +/- prefix)
+      if not input:find('^[%%+%%-]') then
         table.insert(ignored, input)
-      end
+      else
+        -- STEP 2: Process Batch (+1-4 or -10,12)
+        -- Split input into segments by looking for + or -
+        for action, segment in input:gmatch('([%+%-])([^%+%-\r\n]+)') do
+          -- Expand ranges like "1-4" into "1,2,3,4"
+          local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(s, e)
+            local t = {}
+            for i = tonumber(s), tonumber(e) do table.insert(t, i) end
+            return table.concat(t, ',')
+          end)
 
-      -- STAGE 2: Process each chunk
-      for _, chunk in ipairs(chunks) do
-        local action = chunk:sub(1, 1) -- '+' or '-'
-        local data = chunk:sub(2)
-
-        -- Expand ranges like "1-4" -> "1,2,3,4"
-        local expanded = data:gsub('(%d+)%s*-%s*(%d+)', function(s, e)
-          local t = {}
-          for i = tonumber(s), tonumber(e) do table.insert(t, i) end
-          return table.concat(t, ',')
-        end)
-
-        -- Apply action to indices found in data
-        for num_str in expanded:gmatch('%d+') do
-          local n = tonumber(num_str)
-          if action == '+' then
-            -- Note: +n corresponds to the 'not_ignored' list (0-indexed based on your loop)
-            local target = not_ignored[n + 1] -- adjust if your displayed [i] is 0 or 1 based
-            if target then
-              local p = target .. (vim.fn.isdirectory(target) == 1 and '/' or '')
-              table.insert(ignored, p)
-            end
-          elseif action == '-' then
-            -- Subtract offset to find the item in the 'ignored' table
-            local idx = n - #not_ignored + 1
-            if ignored[idx] then
-              ignored[idx] = '__DELETE__'
+          -- Process every number in the expanded segment
+          for num_str in expanded:gmatch('%d+') do
+            local n = tonumber(num_str)
+            if action == '+' then
+              -- n matches [i] in the not_ignored list
+              if not_ignored[n] then
+                local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
+                table.insert(ignored, p)
+              end
+            elseif action == '-' then
+              -- n matches the [i + #not_ignored] in the ignored list
+              local idx = n - #not_ignored
+              if ignored[idx] then
+                ignored[idx] = '__DELETE__'
+              end
             end
           end
         end
       end
 
-      -- 6. Finalize and Save
+      -- 6. Cleanup and Save
       local final_list = {}
       for _, val in ipairs(ignored) do
         if val ~= '__DELETE__' then table.insert(final_list, val) end
@@ -121,9 +110,8 @@ local function pioGitIgnore()
         out:write(table.concat(final_list, '\n') .. '\n')
         out:close()
       end
-
-      -- Refresh UI
-      pioGitIgnore()
+      
+      pioGitIgnore() -- Refresh UI
     end)
   end, 20)
 end
