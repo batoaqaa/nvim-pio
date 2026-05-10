@@ -7,6 +7,45 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
 --stylua: ignore
+function M.rstart()
+  local package_name = 'clangd'
+  local ok, registry = pcall(require, "mason-registry")
+  if not ok then return end
+
+  registry.refresh(function()
+    if not registry.is_installed(package_name) then
+      local pkg = registry.get_package(package_name)
+
+      -- Send initial notification
+      local notification = vim.notify("Mason: Installing " .. package_name .. "...", vim.log.levels.INFO, {
+        title = "Mason Installation",
+        timeout = false, -- Keep open until finished
+      })
+
+      -- Start installation
+      local handle = pkg:install()
+
+      -- Hook into the 'closed' event (installation finished)
+      handle:once("closed", function()
+        vim.schedule(function()
+          vim.notify(package_name .. " installed successfully!", vim.log.levels.INFO, {
+            title = "Mason Installation",
+            replace = notification, -- Replace the old notification
+            timeout = 3000,
+          })
+          -- Enable the LSP natively in 0.11+
+          vim.lsp.enable(package_name)
+          M.restarti()
+        end)
+      end)
+    end
+  end)
+end
+
+----------------------------------------------------------------------------------------
+-- INFO: configure clangd lsp server
+-----------------------------------------------------------------------------------------
+--stylua: ignore
 function M.getClangdConfig()
   local new_root_dir = vim.uv.cwd() or '.'
   if not new_root_dir then return end
@@ -52,7 +91,7 @@ end
 -- INFO: clangdRestart()
 --------------------------------------------------------------------------------
 --- stylua: ignore
-function M.restart()
+function M.restarti()
   local name = 'clangd'
   -- vim.schedule_wrap(function()
   vim.misc.notify('LSP: Clangd restart.', 'warn')
