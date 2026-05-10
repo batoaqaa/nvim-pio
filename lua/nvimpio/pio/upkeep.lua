@@ -671,6 +671,7 @@ function M.handlePioinitDb(result, board, on_done)
     if #M.queue > 0 then
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      if trm then trm:toggle() end
       -- trm = term.ToggleTerminal(table.remove(M.queue, 1), 'horizontal')
     end
   elseif result == 'PASS' then
@@ -681,7 +682,8 @@ function M.handlePioinitDb(result, board, on_done)
         boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
         boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
         commandPassed = commandPassed + 1
-        if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
+        if #M.queue > 0 then trm:send(table.remove(M.queue, 1), 'float') end
+        -- if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
         -- if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'horizontal') end
       else
         M.cleanup_pio_session()
