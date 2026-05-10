@@ -16,7 +16,7 @@ local function pioGitIgnore()
     f:close()
   end
 
-  -- 2. Normalize and Filter (Strict)
+  -- 2. Normalize and Filter
   local ignored_lookup = {}
   for _, p in ipairs(ignored) do 
     ignored_lookup[p:gsub('^%s*/?', ''):gsub('/?%s*$', '')] = true 
@@ -66,37 +66,46 @@ local function pioGitIgnore()
         return
       end
 
-      -- STAGE 1: Split into chunks starting with + or -
-      -- This separates "+1-4" from "-5-7" accurately
+      -- STAGE 1: Extract chunks starting with + or -
+      -- CRITICAL: We use %- to escape the hyphen in the character set
       local chunks = {}
-      for chunk in input:gmatch("[%+%-][%d%s,%-]+") do
+      for chunk in input:gmatch("[%+%-][%d%s,%%%-]+") do
         table.insert(chunks, vim.trim(chunk))
       end
 
-      -- Manual fallback if no chunks found
-      if #chunks == 0 then table.insert(ignored, input) end
+      -- If no chunks (+/-) found, treat whole input as manual string
+      if #chunks == 0 and not input:match("^[%+%-]") then
+        table.insert(ignored, input)
+      end
 
-      -- STAGE 2: Process Chunks
+      -- STAGE 2: Process each chunk
       for _, chunk in ipairs(chunks) do
-        local mode = chunk:sub(1,1) -- '+' or '-'
+        local action = chunk:sub(1, 1) -- '+' or '-'
         local data = chunk:sub(2)
 
-        -- Expand ranges within the data (e.g., "1-4" -> "1,2,3,4")
+        -- Expand ranges like "1-4" -> "1,2,3,4"
         local expanded = data:gsub('(%d+)%s*-%s*(%d+)', function(s, e)
           local t = {}
           for i = tonumber(s), tonumber(e) do table.insert(t, i) end
           return table.concat(t, ',')
         end)
 
-        -- Apply action to indices
-        for num in expanded:gmatch('%d+') do
-          local n = tonumber(num)
-          if mode == '+' and not_ignored[n] then
-            local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
-            table.insert(ignored, p)
-          elseif mode == '-' then
-            local idx = n - #not_ignored
-            if ignored[idx] then ignored[idx] = '__DELETE__' end
+        -- Apply action to indices found in data
+        for num_str in expanded:gmatch('%d+') do
+          local n = tonumber(num_str)
+          if action == '+' then
+            -- Note: +n corresponds to the 'not_ignored' list (0-indexed based on your loop)
+            local target = not_ignored[n + 1] -- adjust if your displayed [i] is 0 or 1 based
+            if target then
+              local p = target .. (vim.fn.isdirectory(target) == 1 and '/' or '')
+              table.insert(ignored, p)
+            end
+          elseif action == '-' then
+            -- Subtract offset to find the item in the 'ignored' table
+            local idx = n - #not_ignored + 1
+            if ignored[idx] then
+              ignored[idx] = '__DELETE__'
+            end
           end
         end
       end
@@ -108,8 +117,12 @@ local function pioGitIgnore()
       end
 
       local out = io.open(path, 'w')
-      if out then out:write(table.concat(final_list, '\n') .. '\n') out:close() end
-      
+      if out then
+        out:write(table.concat(final_list, '\n') .. '\n')
+        out:close()
+      end
+
+      -- Refresh UI
       pioGitIgnore()
     end)
   end, 20)
