@@ -38,6 +38,8 @@ function M.restart()
         end
       else
         vim.schedule(function()
+          vim.lsp.enable(package_name)
+          M.restarti()
           vim.misc.notify('LSP: clangd; ' .. ' already installed', 'warn')
         end)
       end
