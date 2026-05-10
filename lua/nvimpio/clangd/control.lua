@@ -8,6 +8,7 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 ---stylua: ignore
 -----------------------------------------------------------------------------------------
 function M.clangdIntall(package_name, retry_count)
+  print('isActivated011')
   package_name = package_name or 'clangd'
   retry_count = retry_count or 0
   local max_retries = 2
@@ -216,6 +217,7 @@ end
 -- stylua: ignore
 --------------------------------------------------------------------------------
 function M.getUnknownArgs()
+  print('isActivated13')
   -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
   boilerplate.args = {}
   boilerplate_gen('.clangd', vim.g.platformioRootDir)
