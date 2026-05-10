@@ -5,12 +5,13 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
------------------------------------------------------------------------------------------
 ---stylua: ignore
+-----------------------------------------------------------------------------------------
 function M.clangdIntall(package_name, retry_count)
-  ----------------------------------------------------------------------------------------
-  -- INFO: setup and install mason packages
-  -----------------------------------------------------------------------------------------
+  package_name = package_name or 'clangd'
+  retry_count = retry_count or 0
+  local max_retries = 2
+
   local mok, mason = pcall(require, 'mason')
   if mok then
     mason.setup({
@@ -25,13 +26,10 @@ function M.clangdIntall(package_name, retry_count)
       },
     })
   end
-
   -- Modern Neovim 0.11+ way to ensure Mason binaries are found
   local mason_bin = vim.fn.stdpath('data') .. '/mason/bin'
   vim.env.PATH = mason_bin .. (vim.fn.has('win32') == 1 and ';' or ':') .. vim.env.PATH
-  package_name = package_name or 'clangd'
-  retry_count = retry_count or 0
-  local max_retries = 2
+
   local registry = require('mason-registry')
 
   registry.refresh(function()
@@ -196,7 +194,10 @@ function M.setFormatStyle()
   end)
 end
 
+--------------------------------------------------------------------------------
+-- INFO: get_clangd_unknown_cmd
 -- stylua: ignore
+--------------------------------------------------------------------------------
 local function get_clangd_cmd()
   -- 1. Try Mason Path first
   local mason_bin = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin')
@@ -209,9 +210,11 @@ local function get_clangd_cmd()
   -- This will work if clangd is in your system's LLVM/bin folder
   return 'clangd'
 end
--- INFO: get_clangd_unknown_args()
+
 --------------------------------------------------------------------------------
+-- INFO: get_clangd_unknown_args
 -- stylua: ignore
+--------------------------------------------------------------------------------
 function M.getUnknownArgs()
   -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
   boilerplate.args = {}

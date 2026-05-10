@@ -9,14 +9,14 @@ local user_config = {}
 --stylua: ignore
 -------------------------------------------------------------------------------
 function M.setup(opts)
-
   vim.g.platformioRootDir = vim.uv.cwd()
+  local state = require('nvimpio.pioCheck').state
+
   -- Activation: Turn on the plugin features
   local function activate()
-    local state = require('nvimpio.pioCheck').state
-    if state.is_activated then return end
+    if state.isActivated then return end
 
-    state.is_activated = true
+    state.isActivated = true
     vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
 
     local sep = vim.fn.has('win32') == 1 and ';' or ':'
@@ -33,22 +33,51 @@ function M.setup(opts)
     require('nvimpio.pio.control').init(M.config.clangd)
   end
 
+  -- -- INFO: Pioini
+  -- vim.api.nvim_create_user_command('Pioinit', function()
+  --   pioCheck.pioStatus(function(success)
+  --     if success then
+  --       vim.pio = require('nvimpio.pio.upkeep')
+  --       vim.misc = require('nvimpio.utils.misc')
+  --       vim.clangd = require('nvimpio.clangd.control')
+  --
+  --       require('nvimpio.pio.ui.pioInit').pioInit(function ()
+  -- if M.config.clangd.install then
+  --   require('nvimpio.clangd.config')
+  -- end
+  --         require('nvimpio.clangd.control').clangdIntall()
+  --         -- vim.clangd.getUnknownArgs()
+  --         activate()
+  --       end)
+  --
+  --       -- activate()
+  --     end
+  --   end, false)
+  -- end, {
+  --   force = true,
+  --   desc = 'Start the PlatformIO guided setup wizard',
+  -- })
+
   -- INFO: Pioini
   vim.api.nvim_create_user_command('Pioinit', function()
     pioCheck.pioStatus(function(success)
       if success then
-        vim.pio = require('nvimpio.pio.upkeep')
-        vim.misc = require('nvimpio.utils.misc')
-        vim.clangd = require('nvimpio.clangd.control')
+        if state.isActivated then
+          require('nvimpio.pio.ui.pioInit').pioInit()
+        else
+          vim.pio = require('nvimpio.pio.upkeep')
+          vim.misc = require('nvimpio.utils.misc')
+          vim.clangd = require('nvimpio.clangd.control')
 
-        require('nvimpio.pio.ui.pioInit').pioInit(function ()
-  if M.config.clangd.install then
-    require('nvimpio.clangd.config')
-  end
-          require('nvimpio.clangd.control').clangdIntall()
-          -- vim.clangd.getUnknownArgs()
-          activate()
-        end)
+          require('nvimpio.pio.ui.pioInit').pioInit(function ()
+            require('nvimpio.clangd.control').clangdIntall()
+            if M.config.clangd.install then
+              require('nvimpio.clangd.config')
+            end
+            vim.clangd.getUnknownArgs()
+            activate()
+          end)
+        end
 
         -- activate()
       end
@@ -63,16 +92,18 @@ function M.setup(opts)
   if vim.fn.filereadable('platformio.ini') == 1 then
     vim.schedule(function()
       pioCheck.pioStatus(function(success)
-        if success then activate() end
+        if success then
+          if not state.isActivated then
+            vim.pio = require('nvimpio.pio.upkeep')
+            vim.misc = require('nvimpio.utils.misc')
+            vim.clangd = require('nvimpio.clangd.control')
+
+          end
+          activate()
+        end
       end, true)
     end)
   end
-  -- pioCheck.pioStatus(function(success)
-  --   if success then
-  --     activate()
-  --   end
-  -- end, true)
-
 end
 
 return M

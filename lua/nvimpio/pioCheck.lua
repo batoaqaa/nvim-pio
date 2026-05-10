@@ -15,7 +15,8 @@ end
 M.state = {
   status = 'IDLE', -- IDLE, INSTALLING, READY, FAILED
   queue = {}, -- Queued callbacks waiting for installation
-  is_activated = false, -- Tracks if commands/features are loaded
+  isActivated = false, -- Tracks if commands/features are loaded
+  isInstalled = false,
 }
 
 -- INFO: 1. Functional Check
@@ -146,6 +147,7 @@ function M.pioStatus(on_complete, is_autocmd)
   end
 
   start_floating_installer(function(success)
+    M.state.isInstalled = success
     flush_queue(success) -- FIRE HERE (via flush_queue)
   end)
 end
