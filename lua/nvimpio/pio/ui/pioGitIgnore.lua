@@ -16,7 +16,7 @@ local function pioGitIgnore()
     f:close()
   end
 
-  -- 2. Normalize and Filter
+  -- 2. Normalize and Filter (Strict)
   local ignored_lookup = {}
   for _, p in ipairs(ignored) do 
     ignored_lookup[p:gsub('^%s*/?', ''):gsub('/?%s*$', '')] = true 
@@ -59,44 +59,49 @@ local function pioGitIgnore()
 
   -- 5. Prompt for Input
   vim.defer_fn(function()
-    vim.ui.input({ prompt = 'Action (e.g. +1-2,-5-8): ' }, function(input)
+    vim.ui.input({ prompt = 'Action (e.g. +1-4,-5-7): ' }, function(input)
       if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
       if not input or input == '' or input:lower() == 'q' then
         vim.cmd("redraw")
         return
       end
 
-      -- PARSER FIX: Break the string into instructions based on + or -
-      local current_action = nil
-      -- We split by segments like "+1-2" or "-5,6"
-      for segment in input:gmatch("([%+%-%d%s,]+)") do
-        -- Check if this segment starts with an action
-        local action_found = segment:match("^([%+%-])")
-        if action_found then current_action = action_found end
+      -- STAGE 1: Split into chunks starting with + or -
+      -- This separates "+1-4" from "-5-7" accurately
+      local chunks = {}
+      for chunk in input:gmatch("[%+%-][%d%s,%-]+") do
+        table.insert(chunks, vim.trim(chunk))
+      end
 
-        if current_action then
-          -- Expand ranges (e.g., 1-4)
-          local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(s, e)
-            local t = {}
-            for i = tonumber(s), tonumber(e) do table.insert(t, i) end
-            return table.concat(t, ',')
-          end)
+      -- Manual fallback if no chunks found
+      if #chunks == 0 then table.insert(ignored, input) end
 
-          -- Process numbers in this expanded segment
-          for num_str in expanded:gmatch('%d+') do
-            local n = tonumber(num_str)
-            if current_action == '+' and not_ignored[n] then
-              local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and "/" or "")
-              table.insert(ignored, p)
-            elseif current_action == '-' then
-              local idx = n - #not_ignored
-              if ignored[idx] then ignored[idx] = '__DELETE__' end
-            end
+      -- STAGE 2: Process Chunks
+      for _, chunk in ipairs(chunks) do
+        local mode = chunk:sub(1,1) -- '+' or '-'
+        local data = chunk:sub(2)
+
+        -- Expand ranges within the data (e.g., "1-4" -> "1,2,3,4")
+        local expanded = data:gsub('(%d+)%s*-%s*(%d+)', function(s, e)
+          local t = {}
+          for i = tonumber(s), tonumber(e) do table.insert(t, i) end
+          return table.concat(t, ',')
+        end)
+
+        -- Apply action to indices
+        for num in expanded:gmatch('%d+') do
+          local n = tonumber(num)
+          if mode == '+' and not_ignored[n] then
+            local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
+            table.insert(ignored, p)
+          elseif mode == '-' then
+            local idx = n - #not_ignored
+            if ignored[idx] then ignored[idx] = '__DELETE__' end
           end
         end
       end
 
-      -- Finalize and Save
+      -- 6. Finalize and Save
       local final_list = {}
       for _, val in ipairs(ignored) do
         if val ~= '__DELETE__' then table.insert(final_list, val) end
@@ -105,7 +110,6 @@ local function pioGitIgnore()
       local out = io.open(path, 'w')
       if out then out:write(table.concat(final_list, '\n') .. '\n') out:close() end
       
-      -- Refresh UI
       pioGitIgnore()
     end)
   end, 20)
