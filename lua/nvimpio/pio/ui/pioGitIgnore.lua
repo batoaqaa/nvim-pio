@@ -34,7 +34,6 @@ local function pioGitIgnore()
   local lines = { '   GITIGNORE MANAGER', ' ESC/Enter (empty) to exit | +add / -remove', string.rep('─', 45) }
   for i, file in ipairs(not_ignored) do
     local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
-    -- IMPORTANT: Indexing starts at 1 for ipairs
     table.insert(lines, string.format(' [%d] %s%s', i, icon, file))
   end
   table.insert(lines, '')
@@ -53,7 +52,7 @@ local function pioGitIgnore()
   })
 
   vim.defer_fn(function()
-    vim.ui.input({ prompt = 'Action (e.g. +1-3,-7-9): ' }, function(input)
+    vim.ui.input({ prompt = 'Action (e.g. +2-4): ' }, function(input)
       if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
       if not input or input == '' or input:lower() == 'q' then
         vim.cmd("redraw")
@@ -61,22 +60,24 @@ local function pioGitIgnore()
       end
 
       local processed = false
-      -- 1. Identify segments. 
-      -- We look for + or - followed by any digits, commas, OR internal dashes.
-      -- The [^%+%-\r\n] in the old code was stopping at the "1-3" dash!
+      -- 1. Improved Segment Capture: Don't stop at hyphens
       for action, segment in input:gmatch('([%+%-])([^%+%s\r\n]+)') do
         processed = true
         
-        -- 2. Expand ranges: "1-3" -> "1,2,3"
-        local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(start_num, end_num)
+        -- 2. Range Expansion: Explicitly inclusive (2-4 -> 2,3,4)
+        local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(s, e)
+          local start_n, end_n = tonumber(s), tonumber(e)
+          if start_n > end_n then start_n, end_n = end_n, start_n end
+          
           local t = {}
-          local s, e = tonumber(start_num), tonumber(end_num)
-          if s > e then s, e = e, s end 
-          for i = s, e do table.insert(t, i) end
+          -- The loop is inclusive in Lua
+          for i = start_n, end_n do 
+            table.insert(t, i) 
+          end
           return table.concat(t, ',')
         end)
 
-        -- 3. Process indices
+        -- 3. Apply Actions
         for num_str in expanded:gmatch('%d+') do
           local n = tonumber(num_str)
           if action == '+' then
@@ -93,7 +94,6 @@ local function pioGitIgnore()
         end
       end
 
-      -- Manual pattern fallback
       if not processed and not input:match('^%d+$') then
         table.insert(ignored, input)
       end
@@ -151,6 +151,7 @@ return { pioGitIgnore = pioGitIgnore }
 --   local lines = { '   GITIGNORE MANAGER', ' ESC/Enter (empty) to exit | +add / -remove', string.rep('─', 45) }
 --   for i, file in ipairs(not_ignored) do
 --     local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
+--     -- IMPORTANT: Indexing starts at 1 for ipairs
 --     table.insert(lines, string.format(' [%d] %s%s', i, icon, file))
 --   end
 --   table.insert(lines, '')
@@ -169,7 +170,7 @@ return { pioGitIgnore = pioGitIgnore }
 --   })
 --
 --   vim.defer_fn(function()
---     vim.ui.input({ prompt = 'Action (e.g. +1-4,-5-7): ' }, function(input)
+--     vim.ui.input({ prompt = 'Action (e.g. +1-3,-7-9): ' }, function(input)
 --       if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
 --       if not input or input == '' or input:lower() == 'q' then
 --         vim.cmd("redraw")
@@ -177,32 +178,39 @@ return { pioGitIgnore = pioGitIgnore }
 --       end
 --
 --       local processed = false
---       -- 1. Parse for commands like +1,2 or -4,5-7
---       for action, segment in input:gmatch('([%+%-])([^%+%-\r\n]+)') do
+--       -- 1. Identify segments.
+--       -- We look for + or - followed by any digits, commas, OR internal dashes.
+--       -- The [^%+%-\r\n] in the old code was stopping at the "1-3" dash!
+--       for action, segment in input:gmatch('([%+%-])([^%+%s\r\n]+)') do
 --         processed = true
---         local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(s, e)
+--
+--         -- 2. Expand ranges: "1-3" -> "1,2,3"
+--         local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(start_num, end_num)
 --           local t = {}
---           for i = tonumber(s), tonumber(e) do table.insert(t, i) end
+--           local s, e = tonumber(start_num), tonumber(end_num)
+--           if s > e then s, e = e, s end
+--           for i = s, e do table.insert(t, i) end
 --           return table.concat(t, ',')
 --         end)
 --
+--         -- 3. Process indices
 --         for num_str in expanded:gmatch('%d+') do
 --           local n = tonumber(num_str)
 --           if action == '+' then
---             -- VALIDATION: Only add if the file index exists
 --             if not_ignored[n] then
 --               local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
 --               table.insert(ignored, p)
 --             end
 --           elseif action == '-' then
---             -- VALIDATION: Only remove if the ignore index exists
 --             local idx = n - #not_ignored
---             if ignored[idx] then ignored[idx] = '__DELETE__' end
+--             if ignored[idx] then
+--               ignored[idx] = '__DELETE__'
+--             end
 --           end
 --         end
 --       end
 --
---       -- 2. Manual entry: Only if no +/- was used AND it's not just a stray number
+--       -- Manual pattern fallback
 --       if not processed and not input:match('^%d+$') then
 --         table.insert(ignored, input)
 --       end
@@ -213,7 +221,10 @@ return { pioGitIgnore = pioGitIgnore }
 --       end
 --
 --       local out = io.open(path, 'w')
---       if out then out:write(table.concat(final_list, '\n') .. '\n') out:close() end
+--       if out then
+--         out:write(table.concat(final_list, '\n') .. '\n')
+--         out:close()
+--       end
 --       pioGitIgnore()
 --     end)
 --   end, 20)
