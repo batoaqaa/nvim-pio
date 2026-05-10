@@ -16,9 +16,6 @@ function M.clangdIntall(callback, package_name)
   local mason_exe = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin', bin_name)
   vim.env.PATH = mason_bin .. (vim.fn.has('win32') == 1 and ';' or ':') .. vim.env.PATH
 
-  local check_count = 0
-  local max_checks = 40 -- 40 * 500ms = 20 seconds timeout
-
   local mok, mason = pcall(require, 'mason')
   if mok then
     mason.setup({
@@ -36,146 +33,98 @@ function M.clangdIntall(callback, package_name)
 
   local registry = require('mason-registry')
 
+  local check_count = 0
+  local max_checks = 60 -- 60 * 1000ms = 60 seconds timeout (installs take time)
+
   local function poll()
     registry.refresh(function()
-      if not registry.has_package(package_name) then
-        vim.notify('Mason: Package ' .. package_name .. ' not found in registry.', vim.log.levels.ERROR)
-        return
-      end
+      local pkg = registry.get_package('clangd')
 
-      local pkg = registry.get_package(package_name)
-
-      -- 1. Success: Enable and exit
+      -- 1. SUCCESS: Installed and file is ready
       if pkg:is_installed() and vim.fn.executable(mason_exe) == 1 then
         callback(mason_exe)
         return
       end
 
-      -- 2. Already Installing: Hook into existing handle
-      if pkg:is_installing() or not pkg:is_installed() and check_count < max_checks then
-        if check_count % 5 == 0 then
-          vim.notify('Mason: Waiting for existing ' .. package_name .. ' install...', vim.log.levels.INFO)
-        end
+      -- 2. TRIGGER: Not installed and NOT installing? Start the install.
+      if not pkg:is_installed() and not pkg:is_installing() then
+        vim.notify('Mason: Auto-installing clangd...', vim.log.levels.INFO)
+        pkg:install()
+        -- After triggering install, we continue to poll to wait for completion
+      end
+
+      -- 3. WAIT: If we haven't timed out, check again in 1 second
+      if check_count < max_checks then
         check_count = check_count + 1
-        vim.defer_fn(poll, 500) -- Check again in 500ms
+        -- Visual feedback for long installs
+        if check_count % 5 == 0 then
+          vim.schedule(function()
+            vim.cmd('echo "Mason: Waiting for clangd installation... ' .. check_count .. 's"')
+          end)
+        end
+        vim.defer_fn(poll, 1000)
         return
       end
 
-      local handle = pkg:install()
-
-      handle:once('closed', function()
-        if pkg:is_installed() and vim.fn.executable(mason_exe) == 1 then
-          vim.cmd('redraw')
-          vim.notify('Mason: ' .. package_name .. ' installed successfully!', vim.log.levels.INFO)
-          callback(mason_exe)
-        elseif pkg:is_installing() or not pkg:is_installed() and check_count < max_checks then
-          if check_count % 5 == 0 then
-            vim.notify('Mason: Waiting for  ' .. package_name .. ' install...', vim.log.levels.INFO)
-          end
-          -- Failure/Incomplete Logic
-          check_count = check_count + 1
-          vim.defer_fn(poll, 500) -- Check again in 500ms
-          -- vim.cmd('redraw')
-          -- vim.notify('Mason: Install Retrying in 2s... ', vim.log.levels.WARN)
-        else
-          vim.cmd('redraw')
-          vim.notify('Mason: All install attempts failed for ' .. package_name, vim.log.levels.ERROR)
-          callback('clangd')
-        end
-      end)
+      -- 4. FAIL/TIMEOUT: Return system fallback
+      vim.notify('Mason: Clangd setup timed out. Using system fallback.', vim.log.levels.WARN)
+      callback('clangd')
     end)
   end
-  poll()
-
-  -- -- print('isActivated0 021')
-  -- package_name = package_name or 'clangd'
-  -- retry_count = retry_count or 0
-  -- local max_retries = 2
+  -- local check_count = 0
+  -- local max_checks = 40 -- 40 * 500ms = 20 seconds timeout
+  -- local function poll()
+  --   registry.refresh(function()
+  --     if not registry.has_package(package_name) then
+  --       vim.notify('Mason: Package ' .. package_name .. ' not found in registry.', vim.log.levels.ERROR)
+  --       return
+  --     end
   --
-  -- local mok, mason = pcall(require, 'mason')
-  -- if mok then
-  --   mason.setup({
-  --     PATH = 'append',
-  --     ui = {
-  --       border = 'single',
-  --       icons = {
-  --         package_installed = '✓',
-  --         package_pending = '➜',
-  --         package_uninstalled = '✗',
-  --       },
-  --     },
-  --   })
-  -- end
-  -- -- Modern Neovim 0.11+ way to ensure Mason binaries are found
-  -- local mason_bin = vim.fn.stdpath('data') .. '/mason/bin'
-  -- vim.env.PATH = mason_bin .. (vim.fn.has('win32') == 1 and ';' or ':') .. vim.env.PATH
+  --     local pkg = registry.get_package(package_name)
   --
-  -- local registry = require('mason-registry')
+  --     -- 1. Success: Enable and exit
+  --     if pkg:is_installed() and vim.fn.executable(mason_exe) == 1 then
+  --       callback(mason_exe)
+  --       return
+  --     end
   --
-  -- registry.refresh(function()
-  --   if not registry.has_package(package_name) then
-  --     vim.notify('Mason: Package ' .. package_name .. ' not found in registry.', vim.log.levels.ERROR)
-  --     return
-  --   end
+  --     -- 2. Already Installing: Hook into existing handle
+  --     if pkg:is_installing() or not pkg:is_installed() and check_count < max_checks then
+  --       if check_count % 5 == 0 then
+  --         vim.notify('Mason: Waiting for existing ' .. package_name .. ' install...', vim.log.levels.INFO)
+  --       end
+  --       check_count = check_count + 1
+  --       vim.defer_fn(poll, 500) -- Check again in 500ms
+  --       return
+  --     end
   --
-  --   local pkg = registry.get_package(package_name)
+  --     local handle = pkg:install()
   --
-  --   -- 1. Success: Enable and exit
-  --   if pkg:is_installed() then
-  --     vim.schedule(function()
-  --       -- vim.lsp.enable(package_name)
-  --       -- vim.clangd.getUnknownArgs()
-  --       -- M.restart()
-  --     end)
-  --     return
-  --   end
-  --
-  --   -- 2. Already Installing: Hook into existing handle
-  --   if pkg:is_installing() then
-  --     vim.notify('Mason: Waiting for existing ' .. package_name .. ' install...', vim.log.levels.ERROR)
-  --
-  --     vim.defer_fn(function()
-  --       M.clangdIntall(package_name, retry_count)
-  --     end, 5000)
-  --     return
-  --   end
-  --
-  --   -- 3. INSTALL: Start fresh attempt
-  --   vim.cmd('redraw')
-  --   vim.notify(string.format('Mason: Installing %s (Attempt %d/%d)...', package_name, retry_count + 1, max_retries + 1), vim.log.levels.INFO)
-  --
-  --   local handle = pkg:install()
-  --
-  --   handle:once('closed', function()
-  --     vim.schedule(function()
-  --       if pkg:is_installed() then
+  --     handle:once('closed', function()
+  --       if pkg:is_installed() and vim.fn.executable(mason_exe) == 1 then
   --         vim.cmd('redraw')
   --         vim.notify('Mason: ' .. package_name .. ' installed successfully!', vim.log.levels.INFO)
-  --         -- vim.clangd.getUnknownArgs()
-  --         -- M.restart()
-  --         -- vim.lsp.enable(package_name)
-  --       else
-  --         -- Failure/Incomplete Logic
-  --         if retry_count < max_retries then
-  --           vim.cmd('redraw')
-  --           vim.notify(string.format('Mason: Install failed. Retrying in 2s... (%d/%d)', retry_count + 1, max_retries + 1), vim.log.levels.WARN)
-  --
-  --           -- Wait 2 seconds before retrying to avoid spamming a broken connection
-  --           vim.defer_fn(function()
-  --             M.clangdIntall(package_name, retry_count + 1)
-  --           end, 2000)
-  --         else
-  --           vim.cmd('redraw')
-  --           vim.notify('Mason: All install attempts failed for ' .. package_name, vim.log.levels.ERROR)
+  --         callback(mason_exe)
+  --       elseif pkg:is_installing() or not pkg:is_installed() and check_count < max_checks then
+  --         if check_count % 5 == 0 then
+  --           vim.notify('Mason: Waiting for  ' .. package_name .. ' install...', vim.log.levels.INFO)
   --         end
+  --         -- Failure/Incomplete Logic
+  --         check_count = check_count + 1
+  --         vim.defer_fn(poll, 500) -- Check again in 500ms
+  --         -- vim.cmd('redraw')
+  --         -- vim.notify('Mason: Install Retrying in 2s... ', vim.log.levels.WARN)
+  --       else
+  --         vim.cmd('redraw')
+  --         vim.notify('Mason: All install attempts failed for ' .. package_name, vim.log.levels.ERROR)
+  --         callback('clangd')
   --       end
   --     end)
   --   end)
-  -- end)
+  -- end
+  poll()
 end
 
--- Start the process
--- M.restart('clangd')
 
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
