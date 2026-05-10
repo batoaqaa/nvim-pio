@@ -181,7 +181,7 @@ local function get_clangd_cmd()
 
   if vim.fn.has('win32') == 1 then clangd_mason = clangd_mason .. '.cmd' end
 
-  if vim.fn.stat(clangd_mason) then return clangd_mason end
+  if vim.uv.fs_stat(clangd_mason) then return clangd_mason end
 
   -- This will work if clangd is in your system's LLVM/bin folder
   return 'clangd'
