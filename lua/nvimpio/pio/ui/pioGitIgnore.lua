@@ -6,7 +6,6 @@ local function pioGitIgnore()
   local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
   local ignored = {}
 
-  -- 1. Read existing ignores
   local f = io.open(path, 'r')
   if f then
     for line in f:lines() do
@@ -16,7 +15,6 @@ local function pioGitIgnore()
     f:close()
   end
 
-  -- 2. Normalize and Filter
   local ignored_lookup = {}
   for _, p in ipairs(ignored) do 
     ignored_lookup[p:gsub('^%s*/?', ''):gsub('/?%s*$', '')] = true 
@@ -33,7 +31,6 @@ local function pioGitIgnore()
     end
   end
 
-  -- 3. Prepare Display Lines
   local lines = { '   GITIGNORE MANAGER', ' ESC/Enter (empty) to exit | +add / -remove', string.rep('─', 45) }
   for i, file in ipairs(not_ignored) do
     local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
@@ -45,7 +42,6 @@ local function pioGitIgnore()
     table.insert(lines, string.format(' [%d] 🚫 %s', i + #not_ignored, pattern)) 
   end
 
-  -- 4. Create Floating Window
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   local width, height = 55, math.min(#lines + 2, 25)
@@ -55,67 +51,65 @@ local function pioGitIgnore()
     style = 'minimal', border = 'rounded', title = ' GitIgnore ', title_pos = 'center',
   })
 
-  -- 5. Prompt for Input
   vim.defer_fn(function()
-    vim.ui.input({ prompt = 'Action (e.g. +1,3,5,-10): ' }, function(input)
+    vim.ui.input({ prompt = 'Action (e.g. +1,3,5-10): ' }, function(input)
       if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
       if not input or input == '' or input:lower() == 'q' then
         vim.cmd("redraw")
         return
       end
 
-      local found_cmd = false
-      local current_mode = nil -- '+' or '-'
-
-      -- STATE-MACHINE PARSER
-      -- We split the string into tokens (actions, numbers, or ranges)
-      -- This matches '+', '-', '1-5', or '10'
-      for token in input:gmatch("([%+%-%d]+)") do
-        if token == '+' or token == '-' then
-          current_mode = token
-          found_cmd = true
-        elseif current_mode then
-          found_cmd = true
-          -- Check if token is a range (e.g. "1-5")
-          local s, e = token:match("(%d+)%-(%d+)")
-          local nums = {}
-          if s and e then
-            local start_n, end_n = tonumber(s), tonumber(e)
-            if start_n > end_n then start_n, end_n = end_n, start_n end
-            for i = start_n, end_n do table.insert(nums, i) end
+      -- If the input doesn't contain a number, it's a manual entry (e.g., "*.log")
+      if not input:find('%d') then
+        table.insert(ignored, input)
+      else
+        -- STATE MACHINE PARSER
+        local current_mode = nil -- '+' or '-'
+        
+        -- Split by any character that isn't a digit, +, -, or range dash
+        -- Then iterate through tokens
+        for token in input:gmatch("([%+%-%d]+)") do
+          if token == '+' or token == '-' then
+            current_mode = token
           else
-            local n = tonumber(token)
-            if n then table.insert(nums, n) end
-          end
+            -- If it's a range like "1-5"
+            local s_str, e_str = token:match("(%d+)%-(%d+)")
+            local targets = {}
+            
+            if s_str and e_str then
+              local s, e = tonumber(s_str), tonumber(e_str)
+              if s > e then s, e = e, s end
+              for i = s, e do table.insert(targets, i) end
+            else
+              -- It's a single number
+              local n = tonumber(token)
+              if n then table.insert(targets, n) end
+            end
 
-          -- Apply current mode to all numbers found in token
-          for _, n in ipairs(nums) do
-            if current_mode == '+' and not_ignored[n] then
-              local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
-              table.insert(ignored, p)
-            elseif current_mode == '-' then
-              local idx = n - #not_ignored
-              if ignored[idx] then ignored[idx] = '__DELETE__' end
+            -- Apply the current mode to discovered numbers
+            for _, n in ipairs(targets) do
+              if current_mode == '+' and not_ignored[n] then
+                local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
+                table.insert(ignored, p)
+              elseif current_mode == '-' then
+                local idx = n - #not_ignored
+                if ignored[idx] then ignored[idx] = '__DELETE__' end
+              end
             end
           end
         end
       end
 
-      -- Manual Entry Fallback
-      if not found_cmd then table.insert(ignored, input) end
-
-      -- 6. Cleanup and Save
+      -- Cleanup marked removals
       local final_list = {}
       for _, val in ipairs(ignored) do
         if val ~= '__DELETE__' then table.insert(final_list, val) end
       end
 
       local out = io.open(path, 'w')
-      if out then 
-        out:write(table.concat(final_list, '\n') .. '\n') 
-        out:close() 
-      end
-      pioGitIgnore()
+      if out then out:write(table.concat(final_list, '\n') .. '\n') out:close() end
+      
+      pioGitIgnore() -- Refresh
     end)
   end, 20)
 end
