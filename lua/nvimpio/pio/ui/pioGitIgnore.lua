@@ -59,34 +59,35 @@ local function pioGitIgnore()
         return
       end
 
-      -- If the input doesn't contain a number, it's a manual entry (e.g., "*.log")
-      if not input:find('%d') then
+      local current_mode = nil
+      local is_batch = input:find('[%+%-%d]') ~= nil
+
+      if not is_batch then
         table.insert(ignored, input)
       else
-        -- STATE MACHINE PARSER
-        local current_mode = nil -- '+' or '-'
+        -- TOKEN PARSER: Matches (+), (-), or (numbers/ranges)
+        for token in input:gmatch("([%+%-])") or input:gmatch("([%d%-]+)") do end -- Reset
         
-        -- Split by any character that isn't a digit, +, -, or range dash
-        -- Then iterate through tokens
-        for token in input:gmatch("([%+%-%d]+)") do
+        -- Logic: Iterate through tokens using a while loop for control
+        local tokens = {}
+        for t in input:gmatch("([%+%-%d]+)") do table.insert(tokens, t) end
+
+        for _, token in ipairs(tokens) do
           if token == '+' or token == '-' then
             current_mode = token
-          else
-            -- If it's a range like "1-5"
-            local s_str, e_str = token:match("(%d+)%-(%d+)")
+          elseif current_mode then
+            -- Handle ranges (e.g., 1-5) or single numbers
+            local s, e = token:match("(%d+)%-(%d+)")
             local targets = {}
-            
-            if s_str and e_str then
-              local s, e = tonumber(s_str), tonumber(e_str)
-              if s > e then s, e = e, s end
-              for i = s, e do table.insert(targets, i) end
+            if s and e then
+              local start_n, end_n = tonumber(s), tonumber(e)
+              if start_n > end_n then start_n, end_n = end_n, start_n end
+              for i = start_n, end_n do table.insert(targets, i) end
             else
-              -- It's a single number
               local n = tonumber(token)
               if n then table.insert(targets, n) end
             end
 
-            -- Apply the current mode to discovered numbers
             for _, n in ipairs(targets) do
               if current_mode == '+' and not_ignored[n] then
                 local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
@@ -100,7 +101,6 @@ local function pioGitIgnore()
         end
       end
 
-      -- Cleanup marked removals
       local final_list = {}
       for _, val in ipairs(ignored) do
         if val ~= '__DELETE__' then table.insert(final_list, val) end
@@ -108,8 +108,7 @@ local function pioGitIgnore()
 
       local out = io.open(path, 'w')
       if out then out:write(table.concat(final_list, '\n') .. '\n') out:close() end
-      
-      pioGitIgnore() -- Refresh
+      pioGitIgnore()
     end)
   end, 20)
 end
