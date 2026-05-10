@@ -7,7 +7,7 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
 ---stylua: ignore
-function M.restart(package_name, retry_count)
+function M.clangdIntall(package_name, retry_count)
   package_name = package_name or 'clangd'
   retry_count = retry_count or 0
   local max_retries = 2
@@ -35,7 +35,7 @@ function M.restart(package_name, retry_count)
       vim.notify('Mason: Waiting for existing ' .. package_name .. ' install...', vim.log.levels.ERROR)
 
       vim.defer_fn(function()
-        M.restart(package_name, retry_count)
+        M.clangdIntall(package_name, retry_count)
       end, 5000)
       return
     end
@@ -61,7 +61,7 @@ function M.restart(package_name, retry_count)
 
             -- Wait 2 seconds before retrying to avoid spamming a broken connection
             vim.defer_fn(function()
-              M.restart(package_name, retry_count + 1)
+              M.clangdIntall(package_name, retry_count + 1)
             end, 2000)
           else
             vim.cmd('redraw')
@@ -125,7 +125,7 @@ end
 -- INFO: clangdRestart()
 --------------------------------------------------------------------------------
 --- stylua: ignore
-function M.restarti()
+function M.restart()
   local name = 'clangd'
   -- vim.schedule_wrap(function()
   vim.misc.notify('LSP: Clangd restart.', 'warn')
