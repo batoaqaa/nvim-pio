@@ -41,8 +41,11 @@ function M.restart(package_name, retry_count)
     end
 
     -- 3. Install with Retry Logic
-    local notification =
-      vim.notify(string.format('Mason: Installing %s (Attempt %d/%d)...', package_name, retry_count + 1, max_retries), vim.log.levels.INFO, { timeout = false })
+    local notification = vim.notify(
+      string.format('Mason: Installing %s (Attempt %d/%d)...', package_name, retry_count + 1, max_retries + 1),
+      vim.log.levels.INFO,
+      { timeout = false }
+    )
 
     local handle = pkg:install()
 
@@ -56,7 +59,7 @@ function M.restart(package_name, retry_count)
           -- Failure/Incomplete Logic
           if retry_count < max_retries then
             vim.notify(
-              string.format('Install failed. Retrying in 2s... (%d/%d)', retry_count + 1, max_retries),
+              string.format('Install failed. Retrying in 2s... (%d/%d)', retry_count + 1, max_retries + 1),
               vim.log.levels.WARN,
               { replace = notification }
             )
