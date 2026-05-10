@@ -202,11 +202,11 @@ end
 local function get_clangd_cmd()
   -- 1. Try Mason Path first
   local mason_bin = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin')
-  print(mason_bin)
+print('mason_bin:' .. mason_bin)
   local clangd_mason = vim.fs.joinpath(mason_bin, 'clangd')
 
   if vim.fn.has('win32') == 1 then clangd_mason = clangd_mason .. '.cmd' end
-  print(clangd_mason)
+print('clangd_mason:' .. clangd_mason)
 
   if vim.uv.fs_stat(clangd_mason) then return clangd_mason end
 
@@ -237,7 +237,7 @@ print('isActivated 031')
   -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
   -- local cmd = { 'clangd', '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
   local clangdCmd = get_clangd_cmd()
-  print(clangdCmd)
+print('getUnknownArgs:' .. clangdCmd)
   local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
 
   vim.system(cmd, { text = true }, function(obj)
