@@ -75,7 +75,7 @@ function M.restart(package_name, retry_count)
 end
 
 -- Start the process
-M.restart('clangd')
+-- M.restart('clangd')
 
 
 
