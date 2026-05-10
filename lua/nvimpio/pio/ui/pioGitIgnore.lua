@@ -16,7 +16,7 @@ local function pioGitIgnore()
     f:close()
   end
 
-  -- 2. Normalize and Filter (Strict)
+  -- 2. Normalize and Filter
   local ignored_lookup = {}
   for _, p in ipairs(ignored) do 
     ignored_lookup[p:gsub('^%s*/?', ''):gsub('/?%s*$', '')] = true 
@@ -57,54 +57,54 @@ local function pioGitIgnore()
 
   -- 5. Prompt for Input
   vim.defer_fn(function()
-    vim.ui.input({ prompt = 'Action (e.g. +1-4,-5-10): ' }, function(input)
+    vim.ui.input({ prompt = 'Action (e.g. +1,3,5,-10): ' }, function(input)
       if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
       if not input or input == '' or input:lower() == 'q' then
         vim.cmd("redraw")
         return
       end
 
-      local processed = false
-      
-      -- STEP 1: Normalize the input string to handle the "-5-10" collision.
-      -- We replace the ACTION minus with a "_" so the RANGE minus remains untouched.
-      local normalized = input:gsub(",%s*%-", ",_"):gsub("^%-", "_")
+      local found_cmd = false
+      local current_mode = nil -- '+' or '-'
 
-      -- STEP 2: Iterate through segments (+1-4 or _5-10)
-      for action, segment in normalized:gmatch('([%+%%_])([^%+%%_%s\r\n,]+)') do
-        processed = true
-        
-        -- STEP 3: Expand ranges (1-4 -> 1,2,3,4)
-        local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(s, e)
-          local start_n, end_n = tonumber(s), tonumber(e)
-          if start_n > end_n then start_n, end_n = end_n, start_n end
-          local t = {}
-          for i = start_n, end_n do table.insert(t, i) end
-          return table.concat(t, ',')
-        end)
+      -- STATE-MACHINE PARSER
+      -- We split the string into tokens (actions, numbers, or ranges)
+      -- This matches '+', '-', '1-5', or '10'
+      for token in input:gmatch("([%+%-%d]+)") do
+        if token == '+' or token == '-' then
+          current_mode = token
+          found_cmd = true
+        elseif current_mode then
+          found_cmd = true
+          -- Check if token is a range (e.g. "1-5")
+          local s, e = token:match("(%d+)%-(%d+)")
+          local nums = {}
+          if s and e then
+            local start_n, end_n = tonumber(s), tonumber(e)
+            if start_n > end_n then start_n, end_n = end_n, start_n end
+            for i = start_n, end_n do table.insert(nums, i) end
+          else
+            local n = tonumber(token)
+            if n then table.insert(nums, n) end
+          end
 
-        -- STEP 4: Apply logic
-        for num_str in expanded:gmatch('%d+') do
-          local n = tonumber(num_str)
-          if action == '+' then
-            if not_ignored[n] then
+          -- Apply current mode to all numbers found in token
+          for _, n in ipairs(nums) do
+            if current_mode == '+' and not_ignored[n] then
               local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
               table.insert(ignored, p)
-            end
-          elseif action == '_' then -- This was our escaped '-' action
-            local idx = n - #not_ignored
-            if ignored[idx] then 
-              ignored[idx] = '__DELETE__' 
+            elseif current_mode == '-' then
+              local idx = n - #not_ignored
+              if ignored[idx] then ignored[idx] = '__DELETE__' end
             end
           end
         end
       end
 
-      if not processed and not input:match('^%d+$') then
-        table.insert(ignored, input)
-      end
+      -- Manual Entry Fallback
+      if not found_cmd then table.insert(ignored, input) end
 
-      -- 6. Finalize List
+      -- 6. Cleanup and Save
       local final_list = {}
       for _, val in ipairs(ignored) do
         if val ~= '__DELETE__' then table.insert(final_list, val) end
