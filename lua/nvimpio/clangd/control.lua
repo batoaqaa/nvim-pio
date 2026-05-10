@@ -8,6 +8,27 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 -----------------------------------------------------------------------------------------
 ---stylua: ignore
 function M.clangdIntall(package_name, retry_count)
+  ----------------------------------------------------------------------------------------
+  -- INFO: setup and install mason packages
+  -----------------------------------------------------------------------------------------
+  local mok, mason = pcall(require, 'mason')
+  if mok then
+    mason.setup({
+      PATH = 'append',
+      ui = {
+        border = 'single',
+        icons = {
+          package_installed = '✓',
+          package_pending = '➜',
+          package_uninstalled = '✗',
+        },
+      },
+    })
+  end
+
+  -- Modern Neovim 0.11+ way to ensure Mason binaries are found
+  local mason_bin = vim.fn.stdpath('data') .. '/mason/bin'
+  vim.env.PATH = mason_bin .. (vim.fn.has('win32') == 1 and ';' or ':') .. vim.env.PATH
   package_name = package_name or 'clangd'
   retry_count = retry_count or 0
   local max_retries = 2
