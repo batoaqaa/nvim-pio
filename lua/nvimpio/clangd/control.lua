@@ -42,9 +42,14 @@ function M.restart()
   -- end)
 
   registry.refresh(function()
-    if not registry.is_installed(package_name) then
-      if not registry.is_installing(package_name) then
-        local pkg = registry.get_package(package_name)
+    local pok, pkg = pcall(registry.get_package, package_name)
+    if not pok or not pkg then
+      return
+    end
+
+    if not pkg.is_installed(package_name) then
+      if not pkg.is_installing(package_name) then
+        -- local pkg = registry.get_package(package_name)
 
         -- Send initial notification
         local notification = vim.notify('Mason: Installing ' .. package_name .. '...', vim.log.levels.INFO, {
