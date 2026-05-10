@@ -7,86 +7,183 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
 ---stylua: ignore
-function M.restart()
-  local package_name = 'clangd'
-  local ok, registry = pcall(require, 'mason-registry')
-  if not ok then
-    return
-  end
+function M.restart(package_name, retry_count)
+  package_name = package_name or 'clangd'
+  retry_count = retry_count or 0
+  local max_retries = 2
+  local registry = require('mason-registry')
 
   registry.refresh(function()
-    -- for _, tool in ipairs(ensure_installed) do
-    local pok, result = pcall(registry.get_package, package_name)
-    if pok and result then
-      if not result:is_installed() then
-        if not result:is_installing() then
-          result:install('closed', function(success, _)
-            -- result:install({}, function(success, _)
-            if not success then
-              vim.schedule(function()
-                vim.misc.notify('LSP: clangd; ' .. ' failed to install', 'error')
-              end)
-            else
-              vim.lsp.enable(package_name)
-              M.restarti()
-            end
-          end)
-        else
-          vim.schedule(function()
-            vim.misc.notify('LSP: clangd; ' .. ' installing', 'warn')
-          end)
-        end
-      else
-        vim.schedule(function()
-          vim.lsp.enable(package_name)
-          M.restarti()
-          vim.misc.notify('LSP: clangd; ' .. ' already installed', 'warn')
-        end)
-      end
-    else
-      vim.schedule(function()
-        vim.misc.notify('LSP: clangd; Failed to get package: ', 'warn')
-      end)
+    if not registry.has_package(package_name) then
+      vim.notify('Mason: Package ' .. package_name .. ' not found in registry.', vim.log.levels.ERROR)
+      return
     end
-    -- end
-  end)
 
-  -- registry.refresh(function()
-  --   local pok, pkg = pcall(registry.get_package, package_name)
-  --   if not pok or not pkg then
-  --     return
-  --   end
-  --
-  --   if not pkg.is_installed(package_name) then
-  --     if not pkg.is_installing(package_name) then
-  --       -- local pkg = registry.get_package(package_name)
-  --
-  --       -- Send initial notification
-  --       local notification = vim.notify('Mason: Installing ' .. package_name .. '...', vim.log.levels.INFO, {
-  --         title = 'Mason Installation',
-  --         timeout = false, -- Keep open until finished
-  --       })
-  --
-  --       -- Start installation
-  --       local handle = pkg:install()
-  --
-  --       -- Hook into the 'closed' event (installation finished)
-  --       handle:once('closed', function()
-  --         vim.schedule(function()
-  --           vim.notify(package_name .. ' installed successfully!', vim.log.levels.INFO, {
-  --             title = 'Mason Installation',
-  --             replace = notification, -- Replace the old notification
-  --             timeout = 3000,
-  --           })
-  --           -- Enable the LSP natively in 0.11+
-  --           vim.lsp.enable(package_name)
-  --           M.restarti()
-  --         end)
-  --       end)
-  --     end
-  --   end
-  -- end)
+    local pkg = registry.get_package(package_name)
+
+    -- 1. Success: Enable and exit
+    if pkg:is_installed() then
+      vim.schedule(function()
+        -- vim.lsp.enable(package_name)
+        M.restarti()
+      end)
+      return
+    end
+
+    -- 2. Already Installing: Hook into existing handle
+    if pkg:is_installing() then
+      local handle = registry.get_installer(package_name)
+      handle:once('closed', function()
+        -- Re-run the setup check once the existing process finishes
+        M.restart(package_name, retry_count)
+      end)
+      return
+    end
+
+    -- 3. Install with Retry Logic
+    local notification =
+      vim.notify(string.format('Mason: Installing %s (Attempt %d/%d)...', package_name, retry_count + 1, max_retries), vim.log.levels.INFO, { timeout = false })
+
+    local handle = pkg:install()
+
+    handle:once('closed', function()
+      vim.schedule(function()
+        if pkg:is_installed() then
+          vim.notify(package_name .. ' installed successfully!', vim.log.levels.INFO, { replace = notification, timeout = 3000 })
+          M.restarti()
+          -- vim.lsp.enable(package_name)
+        else
+          -- Failure/Incomplete Logic
+          if retry_count < max_retries then
+            vim.notify(
+              string.format('Install failed. Retrying in 2s... (%d/%d)', retry_count + 1, max_retries),
+              vim.log.levels.WARN,
+              { replace = notification }
+            )
+
+            -- Wait 2 seconds before retrying to avoid spamming a broken connection
+            vim.defer_fn(function()
+              M.restart(package_name, retry_count + 1)
+            end, 2000)
+          else
+            vim.notify('Mason: All install attempts failed for ' .. package_name, vim.log.levels.ERROR, { replace = notification })
+          end
+        end
+      end)
+    end)
+  end)
 end
+
+-- Start the process
+M.restart('clangd')
+
+
+
+
+-- function M.restart()
+--   local package_name = 'clangd'
+--   local ok, registry = pcall(require, 'mason-registry')
+--   if not ok then
+--     return
+--   end
+--
+--   registry.refresh(function()
+--     if not registry.has_package(package_name) then
+--       vim.notify('Mason: Package ' .. package_name .. ' not found in registry.', vim.log.levels.ERROR)
+--       return
+--     end
+--
+--     local pkg = registry.get_package(package_name)
+--
+--     -- 1. Already Installed: Enable natively and exit
+--     if pkg:is_installed() then
+--       vim.schedule(function()
+--         -- vim.lsp.enable(package_name)
+--         M.restarti()
+--       end)
+--       return
+--     end
+--
+--     -- 2. Already Installing: Don't trigger a new one, just notify
+--     if pkg:is_installing() then
+--       vim.notify('Mason: ' .. package_name .. ' installation already in progress...', vim.log.levels.INFO)
+--       return
+--     end
+--
+--     -- 3. Not Installed: Start installation with notifications
+--     local notification = vim.notify('Mason: Installing ' .. package_name .. '...', vim.log.levels.INFO, {
+--       title = 'LSP Setup',
+--       timeout = false,
+--     })
+--
+--     local handle = pkg:install()
+--
+--     -- Listen for failure
+--     handle:once('failed', function()
+--       vim.schedule(function()
+--         vim.notify('Mason: Failed to install ' .. package_name, vim.log.levels.ERROR, {
+--           title = 'LSP Error',
+--           replace = notification,
+--         })
+--       end)
+--     end)
+--
+--     -- Listen for completion
+--     handle:once('closed', function()
+--       vim.schedule(function()
+--         if pkg:is_installed() then
+--           vim.notify(package_name .. ' installed and enabled.', vim.log.levels.INFO, {
+--             title = 'LSP Success',
+--             replace = notification,
+--             timeout = 3000,
+--           })
+--           -- Enable natively in 0.11+
+--           vim.lsp.enable(package_name)
+--         else
+--           vim.notify('Mason: ' .. package_name .. ' installation incomplete.', vim.log.levels.WARN, {
+--             replace = notification,
+--           })
+--         end
+--       end)
+--     end)
+--   end)
+--
+--   -- registry.refresh(function()
+--   --   local pok, pkg = pcall(registry.get_package, package_name)
+--   --   if not pok or not pkg then
+--   --     return
+--   --   end
+--   --
+--   --   if not pkg.is_installed(package_name) then
+--   --     if not pkg.is_installing(package_name) then
+--   --       -- local pkg = registry.get_package(package_name)
+--   --
+--   --       -- Send initial notification
+--   --       local notification = vim.notify('Mason: Installing ' .. package_name .. '...', vim.log.levels.INFO, {
+--   --         title = 'Mason Installation',
+--   --         timeout = false, -- Keep open until finished
+--   --       })
+--   --
+--   --       -- Start installation
+--   --       local handle = pkg:install()
+--   --
+--   --       -- Hook into the 'closed' event (installation finished)
+--   --       handle:once('closed', function()
+--   --         vim.schedule(function()
+--   --           vim.notify(package_name .. ' installed successfully!', vim.log.levels.INFO, {
+--   --             title = 'Mason Installation',
+--   --             replace = notification, -- Replace the old notification
+--   --             timeout = 3000,
+--   --           })
+--   --           -- Enable the LSP natively in 0.11+
+--   --           vim.lsp.enable(package_name)
+--   --           M.restarti()
+--   --         end)
+--   --       end)
+--   --     end
+--   --   end
+--   -- end)
+-- end
 
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
