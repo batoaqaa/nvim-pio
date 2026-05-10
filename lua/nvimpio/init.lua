@@ -39,6 +39,7 @@ function M.setup(opts)
       if success then
         vim.pio = require('nvimpio.pio.upkeep')
         vim.misc = require('nvimpio.utils.misc')
+        vim.clangd = require('nvimpio.clangd.control')
 
         require('nvimpio.pio.ui.pioInit').pioInit(function ()
           require('nvimpio.clangd.control').clangdIntall()
