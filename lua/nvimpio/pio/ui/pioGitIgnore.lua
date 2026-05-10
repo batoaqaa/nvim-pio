@@ -52,47 +52,48 @@ local function pioGitIgnore()
   })
 
   vim.defer_fn(function()
-    vim.ui.input({ prompt = 'Action (e.g. +1,3,5-10): ' }, function(input)
+    vim.ui.input({ prompt = 'Action (e.g. +1,2-4,-10): ' }, function(input)
       if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
       if not input or input == '' or input:lower() == 'q' then
         vim.cmd("redraw")
         return
       end
 
-      local current_mode = nil
-      local is_batch = input:find('[%+%-%d]') ~= nil
-
-      if not is_batch then
+      -- 1. If it's a manual entry (no numbers at all), just add it
+      if not input:find('%d') then
         table.insert(ignored, input)
       else
-        -- TOKEN PARSER: Matches (+), (-), or (numbers/ranges)
-        for token in input:gmatch("([%+%-])") or input:gmatch("([%d%-]+)") do end -- Reset
-        
-        -- Logic: Iterate through tokens using a while loop for control
-        local tokens = {}
-        for t in input:gmatch("([%+%-%d]+)") do table.insert(tokens, t) end
+        -- 2. ROBUST PARSER
+        local mode = nil -- '+' or '-'
+        -- Split by any character that is NOT a number or a range hyphen
+        -- but preserve the + and - signs as separate segments
+        for part in input:gmatch("([^,%s]+)") do
+          -- If the part starts with a sign, update the mode
+          local first_char = part:sub(1,1)
+          if first_char == '+' or first_char == '-' then
+            mode = first_char
+            part = part:sub(2) -- Remove the sign from the number part
+          end
 
-        for _, token in ipairs(tokens) do
-          if token == '+' or token == '-' then
-            current_mode = token
-          elseif current_mode then
-            -- Handle ranges (e.g., 1-5) or single numbers
-            local s, e = token:match("(%d+)%-(%d+)")
+          if mode and part ~= "" then
+            -- Expand range if exists (e.g. 1-4)
+            local s_str, e_str = part:match("(%d+)%-(%d+)")
             local targets = {}
-            if s and e then
-              local start_n, end_n = tonumber(s), tonumber(e)
-              if start_n > end_n then start_n, end_n = end_n, start_n end
-              for i = start_n, end_n do table.insert(targets, i) end
+            if s_str and e_str then
+              local s, e = tonumber(s_str), tonumber(e_str)
+              if s > e then s, e = e, s end
+              for i = s, e do table.insert(targets, i) end
             else
-              local n = tonumber(token)
-              if n then table.insert(targets, n) end
+              -- Check for single numbers in this segment
+              for n in part:gmatch("%d+") do table.insert(targets, tonumber(n)) end
             end
 
+            -- Apply mode to found indices
             for _, n in ipairs(targets) do
-              if current_mode == '+' and not_ignored[n] then
+              if mode == '+' and not_ignored[n] then
                 local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
                 table.insert(ignored, p)
-              elseif current_mode == '-' then
+              elseif mode == '-' then
                 local idx = n - #not_ignored
                 if ignored[idx] then ignored[idx] = '__DELETE__' end
               end
@@ -101,9 +102,10 @@ local function pioGitIgnore()
         end
       end
 
+      -- 3. Cleanup and Save
       local final_list = {}
       for _, val in ipairs(ignored) do
-        if val ~= '__DELETE__' then table.insert(final_list, val) end
+        if val ~= "__DELETE__" then table.insert(final_list, val) end
       end
 
       local out = io.open(path, 'w')
