@@ -8,7 +8,7 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 ---stylua: ignore
 -----------------------------------------------------------------------------------------
 function M.clangdIntall(package_name, retry_count)
-  print('isActivated0 021')
+  -- print('isActivated0 021')
   package_name = package_name or 'clangd'
   retry_count = retry_count or 0
   local max_retries = 2
@@ -167,6 +167,7 @@ end
 --------------------------------------------------------------------------------
 -- stylua: ignore
 function M.setFormatStyle()
+
   local styles = { 'LLVM', 'Google', 'Chromium', 'Mozilla', 'WebKit', 'Microsoft', 'Linux' }
 
   vim.ui.select(styles, {
@@ -195,24 +196,60 @@ function M.setFormatStyle()
   end)
 end
 
+local function get_clangd_cmd(callback)
+  local registry = require('mason-registry')
+
+  -- Use refresh to ensure we are looking at the actual disk state
+  registry.refresh(function()
+    local package_name = 'clangd'
+
+    if registry.is_installed(package_name) then
+      local pkg = registry.get_package(package_name)
+      -- Get the actual install path from Mason's metadata
+      local install_path = pkg:get_install_path()
+      print(install_path)
+
+      local bin_name = vim.fn.has('win32') == 1 and 'clangd.cmd' or 'clangd'
+
+      -- Mason binaries are usually in the package root or a bin subfolder
+      local mason_exe = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin', bin_name)
+
+      if vim.fn.executable(mason_exe) == 1 then
+        print(mason_exe)
+        callback(mason_exe)
+        return
+      end
+    end
+
+    -- Fallback if Mason isn't ready or package isn't there
+    callback('clangd')
+  end)
+end
+
+-- Usage
+-- get_clangd_cmd(function(exe)
+--   print('Using clangd from: ' .. exe)
+--   -- Run your logic here (e.g., vim.system or vim.lsp.enable)
+-- end)
+
 --------------------------------------------------------------------------------
 -- INFO: get_clangd_unknown_cmd
 -- stylua: ignore
 --------------------------------------------------------------------------------
-local function get_clangd_cmd()
-  -- 1. Try Mason Path first
-  local mason_bin = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin')
-print('mason_bin:' .. mason_bin)
-  local clangd_mason = vim.fs.joinpath(mason_bin, 'clangd')
-
-  if vim.fn.has('win32') == 1 then clangd_mason = clangd_mason .. '.cmd' end
-print('clangd_mason:' .. clangd_mason)
-
-  if vim.uv.fs_stat(clangd_mason) then return clangd_mason end
-
-  -- This will work if clangd is in your system's LLVM/bin folder
-  return 'clangd'
-end
+-- local function get_clangd_cmd()
+--   -- 1. Try Mason Path first
+--   local mason_bin = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin')
+-- print('mason_bin:' .. mason_bin)
+--   local clangd_mason = vim.fs.joinpath(mason_bin, 'clangd')
+--
+--   if vim.fn.has('win32') == 1 then clangd_mason = clangd_mason .. '.cmd' end
+-- print('clangd_mason:' .. clangd_mason)
+--
+--   if vim.uv.fs_stat(clangd_mason) then return clangd_mason end
+--
+--   -- This will work if clangd is in your system's LLVM/bin folder
+--   return 'clangd'
+-- end
 
 --------------------------------------------------------------------------------
 -- INFO: get_clangd_unknown_args
@@ -236,26 +273,28 @@ print('isActivated 031')
 
   -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
   -- local cmd = { 'clangd', '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
-  local clangdCmd = get_clangd_cmd()
-print('getUnknownArgs:' .. clangdCmd)
-  local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
+  -- local clangdCmd = get_clangd_cmd()
+-- print('getUnknownArgs:' .. clangdCmd)
+  get_clangd_cmd(function(clangdCmd)
+    local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
 
-  vim.system(cmd, { text = true }, function(obj)
-    vim.schedule(function()
-      local output = (obj.stdout or '') .. (obj.stderr or '')
-      local args_table = {}
+    vim.system(cmd, { text = true }, function(obj)
+      vim.schedule(function()
+        local output = (obj.stdout or '') .. (obj.stderr or '')
+        local args_table = {}
 
-      -- Extract anything clangd reports as an 'unknown argument'
-      for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
-        table.insert(args_table, string.format('"%s"', arg:gsub('[;%.]$', '')))
-      end
+        -- Extract anything clangd reports as an 'unknown argument'
+        for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
+          table.insert(args_table, string.format('"%s"', arg:gsub('[;%.]$', '')))
+        end
 
-      -- 4. UPDATE: Rebuild with the new discovered flags
-      boilerplate.args = args_table
-      boilerplate_gen('.clangd', vim.g.platformioRootDir)
+        -- 4. UPDATE: Rebuild with the new discovered flags
+        boilerplate.args = args_table
+        boilerplate_gen('.clangd', vim.g.platformioRootDir)
 
-      vim.misc.notify('Clangd: ✅Extracted ' .. #args_table .. ' flags.')
-      M.restart()
+        vim.misc.notify('Clangd: ✅Extracted ' .. #args_table .. ' flags.')
+        M.restart()
+      end)
     end)
   end)
 end
