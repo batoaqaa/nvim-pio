@@ -72,16 +72,14 @@ function M.setup(opts)
           require('nvimpio.pio.ui.pioInit').pioInit(function (done)
             if(done)then
               vim.clangd.getUnknownArgs()
-              if M.config.clangd.install then
-                require('nvimpio.clangd.config')
-              end
+              -- if M.config.clangd.install then
+              --   require('nvimpio.clangd.config')
+              -- end
               -- require('nvimpio.clangd.control').clangdIntall()
               activate()
             end
           end)
         end
-
-        -- activate()
       end
     end, false)
   end, {

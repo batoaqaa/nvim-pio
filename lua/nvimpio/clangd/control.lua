@@ -8,7 +8,6 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 ---stylua: ignore
 -----------------------------------------------------------------------------------------
 function M.clangdIntall(callback, package_name)
-  -- print('isActivated0 021')
   package_name = package_name or 'clangd'
 
   -- Modern Neovim 0.11+ way to ensure Mason binaries are found
@@ -364,7 +363,6 @@ end
 -- stylua: ignore
 --------------------------------------------------------------------------------
 function M.getUnknownArgs()
-print('isActivated 031')
   -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
   boilerplate.args = {}
   boilerplate_gen('.clangd', vim.g.platformioRootDir)
