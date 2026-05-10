@@ -69,6 +69,9 @@ function M.clangdIntall(callback, package_name)
           vim.notify('Mason: ' .. package_name .. ' installed successfully!', vim.log.levels.INFO)
           callback(mason_exe)
         elseif pkg:is_installing() or not pkg:is_installed() and check_count < max_checks then
+          if check_count % 5 == 0 then
+            vim.notify('Mason: Waiting for  ' .. package_name .. ' install...', vim.log.levels.INFO)
+          end
           -- Failure/Incomplete Logic
           check_count = check_count + 1
           vim.defer_fn(poll, 500) -- Check again in 500ms
