@@ -701,11 +701,12 @@ function M.handlePioinitDb(result, board, on_done)
 
         if on_done and type(on_done) == "function" then
           on_done()
+        else
+          vim.clangd.getUnknownArgs()
         end
 
 
         boilerplate.core_dir = _G.metadata.core_dir
-        vim.clangd.getUnknownArgs()
       end, 'PIO init+db: ')
     end)
     M.cleanup_pio_session()
