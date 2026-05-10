@@ -1,22 +1,21 @@
-local boilerplate_gen = require('nvimpio.boilerplate').boilerplate_gen
-local ok, result
-ok, result = pcall(require, 'fidget')
-if ok then
-  result.setup({})
+-- local boilerplate_gen = require('nvimpio.boilerplate').boilerplate_gen
+local fok, fidget = pcall(require, 'fidget')
+if fok then
+  fidget.setup({})
 end
 
 -----------------------------------------------------------------------------------------
-ok, result = pcall(require, 'trouble')
-if ok then
-  result.setup({})
+local tok, trouble = pcall(require, 'trouble')
+if tok then
+  trouble.setup({})
 end
 
 ----------------------------------------------------------------------------------------
 -- INFO: setup and install mason packages
 -----------------------------------------------------------------------------------------
-ok, result = pcall(require, 'mason')
-if ok then
-  result.setup({
+local mok, mason = pcall(require, 'mason')
+if mok then
+  mason.setup({
     PATH = 'append',
     ui = {
       border = 'single',
@@ -42,7 +41,7 @@ local ensure_installed = {
 local mr = require('mason-registry')
 mr.refresh(function()
   for _, tool in ipairs(ensure_installed) do
-    ok, result = pcall(mr.get_package, tool)
+    local ok, result = pcall(mr.get_package, tool)
     if ok and result then
       if not result:is_installed() then
         if not result:is_installing() then
@@ -70,8 +69,8 @@ end)
 ----------------------------------------------------------------------------------------
 -- INFO: install clangd using mason-lspconfig
 -----------------------------------------------------------------------------------------
-local mok, mason_lspconfig = pcall(require, 'mason-lspconfig')
-if mok then
+local mmok, mason_lspconfig = pcall(require, 'mason-lspconfig')
+if mmok then
   mason_lspconfig.setup({
     ensure_installed = { 'clangd', 'lua_ls', 'pyrefly', 'yamlls', 'jsonls' },
     automatic_enable = true, -- this will automatically enable LSP servers after lsp.config
