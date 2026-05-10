@@ -71,8 +71,8 @@ function M.clangdIntall(callback, package_name)
           -- Failure/Incomplete Logic
           check_count = check_count + 1
           vim.defer_fn(poll, 500) -- Check again in 500ms
-          vim.cmd('redraw')
-          vim.notify('Mason: Install Retrying in 2s... ', vim.log.levels.WARN)
+          -- vim.cmd('redraw')
+          -- vim.notify('Mason: Install Retrying in 2s... ', vim.log.levels.WARN)
         else
           vim.cmd('redraw')
           vim.notify('Mason: All install attempts failed for ' .. package_name, vim.log.levels.ERROR)
