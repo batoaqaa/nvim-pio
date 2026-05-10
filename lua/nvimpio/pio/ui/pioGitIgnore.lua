@@ -6,6 +6,7 @@ local function pioGitIgnore()
   local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
   local ignored = {}
 
+  -- 1. Read existing ignores
   local f = io.open(path, 'r')
   if f then
     for line in f:lines() do
@@ -15,6 +16,7 @@ local function pioGitIgnore()
     f:close()
   end
 
+  -- 2. Normalize and Filter (Strict)
   local ignored_lookup = {}
   for _, p in ipairs(ignored) do 
     ignored_lookup[p:gsub('^%s*/?', ''):gsub('/?%s*$', '')] = true 
@@ -31,6 +33,7 @@ local function pioGitIgnore()
     end
   end
 
+  -- 3. Prepare Display Lines
   local lines = { '   GITIGNORE MANAGER', ' ESC/Enter (empty) to exit | +add / -remove', string.rep('─', 45) }
   for i, file in ipairs(not_ignored) do
     local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
@@ -42,6 +45,7 @@ local function pioGitIgnore()
     table.insert(lines, string.format(' [%d] 🚫 %s', i + #not_ignored, pattern)) 
   end
 
+  -- 4. Create Floating Window
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   local width, height = 55, math.min(#lines + 2, 25)
@@ -51,8 +55,9 @@ local function pioGitIgnore()
     style = 'minimal', border = 'rounded', title = ' GitIgnore ', title_pos = 'center',
   })
 
+  -- 5. Prompt for Input
   vim.defer_fn(function()
-    vim.ui.input({ prompt = 'Action (e.g. +2-4): ' }, function(input)
+    vim.ui.input({ prompt = 'Action (e.g. +1-4,-5-10): ' }, function(input)
       if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
       if not input or input == '' or input:lower() == 'q' then
         vim.cmd("redraw")
@@ -60,24 +65,25 @@ local function pioGitIgnore()
       end
 
       local processed = false
-      -- 1. Improved Segment Capture: Don't stop at hyphens
-      for action, segment in input:gmatch('([%+%-])([^%+%s\r\n]+)') do
+      
+      -- STEP 1: Normalize the input string to handle the "-5-10" collision.
+      -- We replace the ACTION minus with a "_" so the RANGE minus remains untouched.
+      local normalized = input:gsub(",%s*%-", ",_"):gsub("^%-", "_")
+
+      -- STEP 2: Iterate through segments (+1-4 or _5-10)
+      for action, segment in normalized:gmatch('([%+%%_])([^%+%%_%s\r\n,]+)') do
         processed = true
         
-        -- 2. Range Expansion: Explicitly inclusive (2-4 -> 2,3,4)
+        -- STEP 3: Expand ranges (1-4 -> 1,2,3,4)
         local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(s, e)
           local start_n, end_n = tonumber(s), tonumber(e)
           if start_n > end_n then start_n, end_n = end_n, start_n end
-          
           local t = {}
-          -- The loop is inclusive in Lua
-          for i = start_n, end_n do 
-            table.insert(t, i) 
-          end
+          for i = start_n, end_n do table.insert(t, i) end
           return table.concat(t, ',')
         end)
 
-        -- 3. Apply Actions
+        -- STEP 4: Apply logic
         for num_str in expanded:gmatch('%d+') do
           local n = tonumber(num_str)
           if action == '+' then
@@ -85,7 +91,7 @@ local function pioGitIgnore()
               local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
               table.insert(ignored, p)
             end
-          elseif action == '-' then
+          elseif action == '_' then -- This was our escaped '-' action
             local idx = n - #not_ignored
             if ignored[idx] then 
               ignored[idx] = '__DELETE__' 
@@ -98,6 +104,7 @@ local function pioGitIgnore()
         table.insert(ignored, input)
       end
 
+      -- 6. Finalize List
       local final_list = {}
       for _, val in ipairs(ignored) do
         if val ~= '__DELETE__' then table.insert(final_list, val) end
