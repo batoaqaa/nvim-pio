@@ -42,6 +42,9 @@ function M.setup(opts)
         vim.clangd = require('nvimpio.clangd.control')
 
         require('nvimpio.pio.ui.pioInit').pioInit(function ()
+  if M.clangd.install then
+    require('nvimpio.clangd.config')
+  end
           require('nvimpio.clangd.control').clangdIntall()
           -- vim.clangd.getUnknownArgs()
           activate()
