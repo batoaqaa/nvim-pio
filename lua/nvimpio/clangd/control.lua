@@ -32,11 +32,17 @@ function M.restart(package_name, retry_count)
 
     -- 2. Already Installing: Hook into existing handle
     if pkg:is_installing() then
-      local handle = registry.get_installer(package_name)
-      handle:once('closed', function()
-        -- Re-run the setup check once the existing process finishes
-        M.restart(package_name, retry_count)
-      end)
+      vim.notify('Mason: Waiting for existing ' .. package_name .. ' install...', vim.log.levels.ERROR)
+
+      -- pkg:get_installer() returns the active handle for this specific package
+      local handle = pkg.get_installer()
+
+      if handle then
+        handle:once('closed', function()
+          -- Re-run the setup check once the existing process finishes
+          M.restart(package_name, retry_count)
+        end)
+      end
       return
     end
 
