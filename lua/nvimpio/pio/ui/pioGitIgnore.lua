@@ -52,64 +52,58 @@ local function pioGitIgnore()
   })
 
   vim.defer_fn(function()
-    vim.ui.input({ prompt = 'Action (e.g. +1,2-4,-10): ' }, function(input)
+    vim.ui.input({ prompt = 'Action (e.g. +1-4,-5-7): ' }, function(input)
       if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
       if not input or input == '' or input:lower() == 'q' then
         vim.cmd("redraw")
         return
       end
 
-      -- 1. If it's a manual entry (no numbers at all), just add it
-      if not input:find('%d') then
-        table.insert(ignored, input)
-      else
-        -- 2. ROBUST PARSER
-        local mode = nil -- '+' or '-'
-        -- Split by any character that is NOT a number or a range hyphen
-        -- but preserve the + and - signs as separate segments
-        for part in input:gmatch("([^,%s]+)") do
-          -- If the part starts with a sign, update the mode
-          local first_char = part:sub(1,1)
-          if first_char == '+' or first_char == '-' then
-            mode = first_char
-            part = part:sub(2) -- Remove the sign from the number part
-          end
+      local current_mode = nil
+      -- Split into segments by looking for + or -
+      -- This handles "+1,2-4" and "-5,7" properly
+      for action, segment in input:gmatch('([%+%-])([^%+%-\r\n]+)') do
+        current_mode = action
+        
+        -- Expand ranges: "1-4" -> "1,2,3,4"
+        local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(s, e)
+          local t = {}
+          local start_n, end_n = tonumber(s), tonumber(e)
+          if start_n > end_n then start_n, end_n = end_n, start_n end
+          for i = start_n, end_n do table.insert(t, i) end
+          return table.concat(t, ',')
+        end)
 
-          if mode and part ~= "" then
-            -- Expand range if exists (e.g. 1-4)
-            local s_str, e_str = part:match("(%d+)%-(%d+)")
-            local targets = {}
-            if s_str and e_str then
-              local s, e = tonumber(s_str), tonumber(e_str)
-              if s > e then s, e = e, s end
-              for i = s, e do table.insert(targets, i) end
-            else
-              -- Check for single numbers in this segment
-              for n in part:gmatch("%d+") do table.insert(targets, tonumber(n)) end
+        -- Apply action to every valid number in segment
+        for num_str in expanded:gmatch('%d+') do
+          local n = tonumber(num_str)
+          if current_mode == '+' then
+            -- Only add if it exists in the top list
+            if not_ignored[n] then
+              local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
+              table.insert(ignored, p)
             end
-
-            -- Apply mode to found indices
-            for _, n in ipairs(targets) do
-              if mode == '+' and not_ignored[n] then
-                local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
-                table.insert(ignored, p)
-              elseif mode == '-' then
-                local idx = n - #not_ignored
-                if ignored[idx] then ignored[idx] = '__DELETE__' end
-              end
-            end
+          elseif current_mode == '-' then
+            -- Only remove if it exists in the bottom list
+            local idx = n - #not_ignored
+            if ignored[idx] then ignored[idx] = '__DELETE__' end
           end
         end
       end
 
-      -- 3. Cleanup and Save
+      -- 6. Cleanup and Save
       local final_list = {}
       for _, val in ipairs(ignored) do
-        if val ~= "__DELETE__" then table.insert(final_list, val) end
+        if val ~= '__DELETE__' then table.insert(final_list, val) end
       end
 
+      -- Write file only if changes were made
       local out = io.open(path, 'w')
-      if out then out:write(table.concat(final_list, '\n') .. '\n') out:close() end
+      if out then 
+        out:write(table.concat(final_list, '\n') .. '\n') 
+        out:close() 
+      end
+      
       pioGitIgnore()
     end)
   end, 20)
@@ -153,7 +147,6 @@ return { pioGitIgnore = pioGitIgnore }
 --   local lines = { '   GITIGNORE MANAGER', ' ESC/Enter (empty) to exit | +add / -remove', string.rep('─', 45) }
 --   for i, file in ipairs(not_ignored) do
 --     local icon = vim.fn.isdirectory(file) == 1 and '📁 ' or '📄 '
---     -- IMPORTANT: Indexing starts at 1 for ipairs
 --     table.insert(lines, string.format(' [%d] %s%s', i, icon, file))
 --   end
 --   table.insert(lines, '')
@@ -172,61 +165,64 @@ return { pioGitIgnore = pioGitIgnore }
 --   })
 --
 --   vim.defer_fn(function()
---     vim.ui.input({ prompt = 'Action (e.g. +1-3,-7-9): ' }, function(input)
+--     vim.ui.input({ prompt = 'Action (e.g. +1,2-4,-10): ' }, function(input)
 --       if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
 --       if not input or input == '' or input:lower() == 'q' then
 --         vim.cmd("redraw")
 --         return
 --       end
 --
---       local processed = false
---       -- 1. Identify segments.
---       -- We look for + or - followed by any digits, commas, OR internal dashes.
---       -- The [^%+%-\r\n] in the old code was stopping at the "1-3" dash!
---       for action, segment in input:gmatch('([%+%-])([^%+%s\r\n]+)') do
---         processed = true
+--       -- 1. If it's a manual entry (no numbers at all), just add it
+--       if not input:find('%d') then
+--         table.insert(ignored, input)
+--       else
+--         -- 2. ROBUST PARSER
+--         local mode = nil -- '+' or '-'
+--         -- Split by any character that is NOT a number or a range hyphen
+--         -- but preserve the + and - signs as separate segments
+--         for part in input:gmatch("([^,%s]+)") do
+--           -- If the part starts with a sign, update the mode
+--           local first_char = part:sub(1,1)
+--           if first_char == '+' or first_char == '-' then
+--             mode = first_char
+--             part = part:sub(2) -- Remove the sign from the number part
+--           end
 --
---         -- 2. Expand ranges: "1-3" -> "1,2,3"
---         local expanded = segment:gsub('(%d+)%s*-%s*(%d+)', function(start_num, end_num)
---           local t = {}
---           local s, e = tonumber(start_num), tonumber(end_num)
---           if s > e then s, e = e, s end
---           for i = s, e do table.insert(t, i) end
---           return table.concat(t, ',')
---         end)
---
---         -- 3. Process indices
---         for num_str in expanded:gmatch('%d+') do
---           local n = tonumber(num_str)
---           if action == '+' then
---             if not_ignored[n] then
---               local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
---               table.insert(ignored, p)
+--           if mode and part ~= "" then
+--             -- Expand range if exists (e.g. 1-4)
+--             local s_str, e_str = part:match("(%d+)%-(%d+)")
+--             local targets = {}
+--             if s_str and e_str then
+--               local s, e = tonumber(s_str), tonumber(e_str)
+--               if s > e then s, e = e, s end
+--               for i = s, e do table.insert(targets, i) end
+--             else
+--               -- Check for single numbers in this segment
+--               for n in part:gmatch("%d+") do table.insert(targets, tonumber(n)) end
 --             end
---           elseif action == '-' then
---             local idx = n - #not_ignored
---             if ignored[idx] then
---               ignored[idx] = '__DELETE__'
+--
+--             -- Apply mode to found indices
+--             for _, n in ipairs(targets) do
+--               if mode == '+' and not_ignored[n] then
+--                 local p = not_ignored[n] .. (vim.fn.isdirectory(not_ignored[n]) == 1 and '/' or '')
+--                 table.insert(ignored, p)
+--               elseif mode == '-' then
+--                 local idx = n - #not_ignored
+--                 if ignored[idx] then ignored[idx] = '__DELETE__' end
+--               end
 --             end
 --           end
 --         end
 --       end
 --
---       -- Manual pattern fallback
---       if not processed and not input:match('^%d+$') then
---         table.insert(ignored, input)
---       end
---
+--       -- 3. Cleanup and Save
 --       local final_list = {}
 --       for _, val in ipairs(ignored) do
---         if val ~= '__DELETE__' then table.insert(final_list, val) end
+--         if val ~= "__DELETE__" then table.insert(final_list, val) end
 --       end
 --
 --       local out = io.open(path, 'w')
---       if out then
---         out:write(table.concat(final_list, '\n') .. '\n')
---         out:close()
---       end
+--       if out then out:write(table.concat(final_list, '\n') .. '\n') out:close() end
 --       pioGitIgnore()
 --     end)
 --   end, 20)
