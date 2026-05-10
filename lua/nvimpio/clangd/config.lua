@@ -98,7 +98,7 @@ vim.lsp.config('*', {
 })
 
 -- Apply and Enable
-local getClangdConfig = require('nvimpio.clangd.control').getClangdConfig()
+local getClangdConfig = require('nvimpio.clangd.control').getClangdConfig
 if getClangdConfig then
   vim.lsp.config('clangd', getClangdConfig())
   vim.lsp.enable('clangd')
