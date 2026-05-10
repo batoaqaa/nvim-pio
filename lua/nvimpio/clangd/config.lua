@@ -29,9 +29,9 @@ if ok then
   })
 end
 
--- Add mason bin to path
+-- Modern Neovim 0.11+ way to ensure Mason binaries are found
 local mason_bin = vim.fn.stdpath('data') .. '/mason/bin'
-vim.env.PATH = mason_bin .. ':' .. vim.env.PATH
+vim.env.PATH = mason_bin .. (vim.fn.has('win32') == 1 and ';' or ':') .. vim.env.PATH
 
 -- List of packages you want Mason to ensure are installed
 local ensure_installed = {
