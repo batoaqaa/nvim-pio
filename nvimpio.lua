@@ -320,10 +320,10 @@ local plugins = {
 
           follow_current_file = { enabled = true },
           use_libuv_file_watcher = true,
-          -- hide_by_name = {
-          --   '.pio',
-          --   '.cache',
-          -- },
+          hide_by_name = {
+            --   '.pio',
+            --   '.cache',
+          },
           never_show = { -- Add any massive folders here
             -- '.cache',
             'node_modules',
