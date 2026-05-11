@@ -85,7 +85,7 @@ local function getPreviousWindow(orig_window)
             prev.orig_window = tonumber(name_splt[2]) -- set orig_window to the previous terminal onrig_window
             prev.term = terms[i]
           end
-          if terms[i].direction == 'float' then
+          if terms[i].direction == 'horizontal' then
             prev.float = true
           end
         end
