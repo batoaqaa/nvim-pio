@@ -153,7 +153,7 @@ function M.ToggleTerminal(command, direction)
       else
         prev.mon:open()
       end
-      return
+      return prev.mon
     end
     title = 'Pio Monitor: [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
     pioOpts.display_name = 'piomon:' .. orig_window
@@ -174,7 +174,7 @@ function M.ToggleTerminal(command, direction)
           send(prev.cli, command)
         end
       end, 50) -- 50ms delay, adjust as needed
-      return
+      return prev.cli
     end
     title = 'Pio CLI> [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
     pioOpts.display_name = 'piocli:' .. orig_window
