@@ -304,11 +304,21 @@ local plugins = {
           ['<space>'] = false, -- This disables the default toggle_node mapping
         },
       },
+      default_component_configs = {
+        git_status = {
+          symbols = {
+            ignored = '◌', -- Optional: add an icon for ignored files
+          },
+        },
+      },
       filesystem = {
         -- use_libuv_file_watcher = true,
         filtered_items = {
           hide_dotfiles = false,
-          hide_gitignored = true,
+          hide_gitignored = false,
+
+          follow_current_file = { enabled = true },
+          use_libuv_file_watcher = true,
           -- hide_by_name = {
           --   '.pio',
           --   '.cache',
