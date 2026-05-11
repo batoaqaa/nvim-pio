@@ -249,6 +249,6 @@ local pyrefly = {
   },
 }
 vim.lsp.config('pyrefly', pyrefly)
-
+vim.notify = require('fidget').notify
 require('nvimpio.clangd.attach')
 ----------------------------------------------------------------------------------
