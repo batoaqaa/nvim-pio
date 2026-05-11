@@ -871,6 +871,7 @@ function M.clangFormat(result)
     M.queue = {}
     term.stdout_callback = nil
     _G.metadata.isBusy = false
+    if trm then trm:toggle() end
   elseif result == 'FAIL' then
     M.queue = {}
     term.stdout_callback = nil
