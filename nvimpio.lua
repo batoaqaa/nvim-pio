@@ -354,22 +354,22 @@ local plugins = {
         dependencies = {
           { 'mason-org/mason.nvim' },
           { 'folke/trouble.nvim' },
-          -- { 'j-hui/fidget.nvim' }, -- status bottom right
+          { 'j-hui/fidget.nvim' }, -- status bottom right
         },
       },
       -- lazy.nvim
-      {
-        'folke/snacks.nvim',
-        priority = 1000,
-        lazy = false,
-        opts = {
-          notifier = {
-            enabled = true,
-            timeout = 3000, -- 3 seconds
-            style = 'compact', -- Options: "default", "compact", "minimal"
-          },
-        },
-      },
+      -- {
+      --   'folke/snacks.nvim',
+      --   priority = 1000,
+      --   lazy = false,
+      --   opts = {
+      --     notifier = {
+      --       enabled = true,
+      --       timeout = 3000, -- 3 seconds
+      --       style = 'compact', -- Options: "default", "compact", "minimal"
+      --     },
+      --   },
+      -- },
     },
   },
 }
