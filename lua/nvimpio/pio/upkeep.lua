@@ -1,7 +1,8 @@
 ---@class platformio.utils.pio
 local M = {}
 
-local misc = vim.misc
+-- local misc = vim.misc
+local misc = require('nvimpio.utils.misc')
 
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
