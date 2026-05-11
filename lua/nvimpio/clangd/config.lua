@@ -47,7 +47,7 @@ vim.env.PATH = mason_bin .. (vim.fn.has('win32') == 1 and ';' or ':') .. vim.env
 
 -- List of packages you want Mason to ensure are installed
 local ensure_installed = {
-  -- 'clang-format', embeded in clangd
+  -- 'clang-format', embedded in clangd
   -- 'stylua',
 }
 -- call mason-registry function to install or ensure formatters/linters are installed
