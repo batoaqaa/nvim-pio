@@ -146,7 +146,7 @@ function M.setFormatStyle()
   M.clangdIntall(function(clangdCmd)
     -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
     -- local cmd = { clangdCmd, '/c', string.format('clang-format -style=%s -dump-config > .clang-format', choice:lower()) }
-    local cmd = { clangdCmd, string.format('-style=%s -dump-config > .clang-format', choice:lower()) }
+    local cmd = { clangdCmd, string.format('--style=%s --dump-config > .clang-format', choice:lower()) }
     -- Execute asynchronously
     vim.system(cmd, { text = true }, function(obj)
       -- This callback runs when the process finishes
