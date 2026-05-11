@@ -1,3 +1,5 @@
+-- stylua: ignore start
+-- Fidget is an unintrusive window in the corner of your editor
 local fok, fidget = pcall(require, 'fidget')
 if fok then
   fidget.setup({
@@ -29,55 +31,48 @@ vim.notify = require('fidget').notify
 
 -----------------------------------------------------------------------------------------
 local tok, trouble = pcall(require, 'trouble')
-if tok then
-  trouble.setup({})
-end
+if tok then trouble.setup({}) end
 
 ----------------------------------------------------------------------------------------
 -- INFO: setup and install mason packages
 -----------------------------------------------------------------------------------------
+-- by default Mason binaries are prepended to the path
 local mok, mason = pcall(require, 'mason')
-if mok then
-  mason.setup({})
-end
-
--- Modern Neovim 0.11+ way to ensure Mason binaries are found
-local mason_bin = vim.fn.stdpath('data') .. '/mason/bin'
-vim.env.PATH = mason_bin .. (vim.fn.has('win32') == 1 and ';' or ':') .. vim.env.PATH
+if mok then mason.setup({}) end
 
 -- List of packages you want Mason to ensure are installed
-local ensure_installed = {
-  -- 'clang-format', embedded in clangd
-  -- 'stylua',
-}
--- call mason-registry function to install or ensure formatters/linters are installed
-local mr = require('mason-registry')
-mr.refresh(function()
-  for _, tool in ipairs(ensure_installed) do
-    local ok, result = pcall(mr.get_package, tool)
-    if ok and result then
-      if not result:is_installed() then
-        if not result:is_installing() then
-          result:install({}, function(success, _)
-            if not success then
-              vim.defer_fn(function()
-                vim.misc.notify('LSP: ' .. tool .. ' failed to install', 'error')
-              end, 0)
-            end
-          end)
-        else
-          vim.defer_fn(function()
-            vim.misc.notify('LSP: ' .. tool .. ' already installed', 'warn')
-          end, 0)
-        end
-      end
-    else
-      vim.defer_fn(function()
-        vim.misc.notify('LSP: Failed to get package: ' .. tool, 'warn')
-      end, 0)
-    end
-  end
-end)
+-- local ensure_installed = {
+--   -- 'clang-format', embedded in clangd
+--   -- 'stylua',
+-- }
+-- -- call mason-registry function to install or ensure formatters/linters are installed
+-- local mr = require('mason-registry')
+-- mr.refresh(function()
+--   for _, tool in ipairs(ensure_installed) do
+--     local ok, result = pcall(mr.get_package, tool)
+--     if ok and result then
+--       if not result:is_installed() then
+--         if not result:is_installing() then
+--           result:install({}, function(success, _)
+--             if not success then
+--               vim.defer_fn(function()
+--                 vim.misc.notify('LSP: ' .. tool .. ' failed to install', 'error')
+--               end, 0)
+--             end
+--           end)
+--         else
+--           vim.defer_fn(function()
+--             vim.misc.notify('LSP: ' .. tool .. ' already installed', 'warn')
+--           end, 0)
+--         end
+--       end
+--     else
+--       vim.defer_fn(function()
+--         vim.misc.notify('LSP: Failed to get package: ' .. tool, 'warn')
+--       end, 0)
+--     end
+--   end
+-- end)
 
 ----------------------------------------------------------------------------------------
 -- INFO: install clangd using mason-lspconfig
@@ -102,9 +97,7 @@ capabilities.textDocument.foldingRange = {
   },
 }
 local bok, blink = pcall(require, 'blink.cmp')
-if bok then
-  capabilities = blink.get_lsp_capabilities(capabilities)
-end
+if bok then capabilities = blink.get_lsp_capabilities(capabilities) end
 
 -- INFO: 1
 vim.lsp.config('*', {

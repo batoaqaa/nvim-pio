@@ -6,7 +6,7 @@ local pioCheck = require('nvimpio.pioCheck')
 
 local user_config = {}
 -- INFO:
---stylua: ignore
+--stylua: ignore start
 -------------------------------------------------------------------------------
 function M.setup(opts)
   vim.g.platformioRootDir = vim.uv.cwd()
@@ -47,11 +47,8 @@ function M.setup(opts)
           require('nvimpio.pio.ui.pioInit').pioInit(function (done)
             if(done)then
               vim.clangd.getUnknownArgs()
-              -- if M.config.clangd.install then
-              --   require('nvimpio.clangd.config')
-              -- end
-              -- require('nvimpio.clangd.control').clangdIntall()
-              -- activate()
+              if M.config.clangd.install then require('nvimpio.clangd.config') end
+              activate()
             end
           end)
         end
@@ -61,7 +58,6 @@ function M.setup(opts)
     force = true,
     desc = 'Start the PlatformIO guided setup wizard',
   })
-
 
   -- The background auto-activation
   if vim.fn.filereadable('platformio.ini') == 1 then

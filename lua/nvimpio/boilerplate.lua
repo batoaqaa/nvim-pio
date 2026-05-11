@@ -7,6 +7,7 @@ local boilerplate = {}
 
 -- INFO: main.cpp
 --- stylua: ignore
+----------------------------------------------------------------------------------------
 boilerplate['main.cpp'] = {
   rewrite = false,
   read = false,
@@ -21,6 +22,7 @@ void loop() { }
 
 -- INFO: main.hpp
 --- stylua: ignore
+----------------------------------------------------------------------------------------
 boilerplate['main.hpp'] = {
   rewrite = false,
   read = false,
@@ -35,6 +37,7 @@ boilerplate['main.hpp'] = {
 }
 
 -- INFO: platformio.ini
+----------------------------------------------------------------------------------------
 boilerplate['platformio.ini'] = {
   rewrite = false,
   read = false,
@@ -58,8 +61,8 @@ monitor_rts = 1   ; 1 combination to reset esp32c6 (Table 32.3-2. CDC-ACM Settin
 monitor_dtr = 0   ; 0 // pio dev mon --rts=0 --dtr=0 then pio dev mon --rts=1 dtr=0
 
 extra_scripts =
-;post:generate_compileDB.py
-;    pre:enable_toolchain.py ; enabled global env 'PLATFORMIO_SETTING_COMPILATIONDB_INCLUDE_TOOLCHAIN'
+  ;post:generate_compileDB.py
+  ;pre:enable_toolchain.py ; enabled global env 'PLATFORMIO_SETTING_COMPILATIONDB_INCLUDE_TOOLCHAIN'
 
 lib_ldf_mode = chain   ;Library dependencies Finder ldf
 
@@ -73,11 +76,9 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
   end,
 }
 
--- =============================================================================
--- DYNAMIC CLANGD CONFIGURATION TEMPLATE
--- =============================================================================
 -- Note: %q is used for paths to handle escaping and spaces automatically.
 -- INFO: .clangd_config
+----------------------------------------------------------------------------------------
 boilerplate['.clangd_config.json'] = {
   rewrite = false,
   read = true,
@@ -138,6 +139,7 @@ boilerplate['.clangd_config.json'] = {
 
 --  INFO: ['.clangd']
 -- stylua: ignore
+----------------------------------------------------------------------------------------
 boilerplate['.clangd'] = {
   -- content = [[
   static = [[
@@ -212,6 +214,7 @@ CompileFlags:
 }
 
 -- INFO: .clang-format
+----------------------------------------------------------------------------------------
 boilerplate['.clang-format'] = {
   rewrite = false,
   read = false,
@@ -236,7 +239,10 @@ PackConstructorInitializers: Never
 ---
 ]],
 }
+
+-- INFO: boilerplate_gen
 -- stylua: ignore
+----------------------------------------------------------------------------------------
 function M.boilerplate_gen(framework, src_path, filename)
   filename = filename or framework
   local entry = boilerplate[framework]
