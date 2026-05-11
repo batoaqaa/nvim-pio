@@ -354,7 +354,18 @@ local plugins = {
         dependencies = {
           { 'mason-org/mason.nvim' },
           { 'folke/trouble.nvim' },
-          { 'j-hui/fidget.nvim' }, -- status bottom right
+          -- { 'j-hui/fidget.nvim' }, -- status bottom right
+        },
+      },
+      -- lazy.nvim
+      {
+        'folke/snacks.nvim',
+        opts = {
+          notifier = {
+            -- your notifier configuration comes here
+            -- or leave it empty to use the default settings
+            -- refer to the configuration section below
+          },
         },
       },
     },
