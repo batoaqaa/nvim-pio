@@ -12,7 +12,6 @@ M.devNul = M.isWindows and ' 2>./nul' or ' 2>/dev/null'
 -- M.extra = 'printf \'\\\\n\\\\033[0;33mPlease Press ENTER to continue \\\\033[0m\'; read'
 -- M.extra = ' && echo . && echo . && echo Please Press ENTER to continue'
 
-
 --[[
 DiagnosticError: Red
 DiagnosticWarn: Yellow
@@ -23,53 +22,55 @@ String: Green (usually)
 Comment: Grey
 ]]
 --INFO:
--- stylua: ignore
+--- stylua: ignore
 ------------------------------------------------------
 ---@param msg string The message to display
 ---@param level string|integer|nil
 function M.notify(msg, level)
-local string_to_level = {
-  info  = vim.log.levels.INFO,
-  warn  = vim.log.levels.WARN,
-  error = vim.log.levels.ERROR,
-  debug = vim.log.levels.DEBUG,
-}
+  local string_to_level = {
+    info = vim.log.levels.INFO,
+    warn = vim.log.levels.WARN,
+    error = vim.log.levels.ERROR,
+    debug = vim.log.levels.DEBUG,
+  }
 
--- Example for a Neovim statusline or breadcrumb
--- local clangd_icon = "" -- Using the Seti C icon
-local icons = {
-  [vim.log.levels.INFO]  = " ",
-  [vim.log.levels.WARN]  = " ",
-  [vim.log.levels.ERROR] = " ",
-  [vim.log.levels.DEBUG] = " ",
-}
+  -- Example for a Neovim statusline or breadcrumb
+  -- local clangd_icon = "" -- Using the Seti C icon
+  local icons = {
+    [vim.log.levels.INFO] = ' ',
+    [vim.log.levels.WARN] = ' ',
+    [vim.log.levels.ERROR] = ' ',
+    [vim.log.levels.DEBUG] = ' ',
+  }
 
--- Map levels to colors (Highlight Groups)
-local level_colors = {
-  [vim.log.levels.INFO]  = "DiagnosticInfo",  -- Blue-ish
-  [vim.log.levels.WARN]  = "DiagnosticWarn",  -- Yellow
-  [vim.log.levels.ERROR] = "DiagnosticError", -- Red
-  [vim.log.levels.DEBUG] = "Debug",           -- Grey/Purple
-}
+  -- Map levels to colors (Highlight Groups)
+  local level_colors = {
+    [vim.log.levels.INFO] = 'DiagnosticInfo', -- Blue-ish
+    [vim.log.levels.WARN] = 'DiagnosticWarn', -- Yellow
+    [vim.log.levels.ERROR] = 'DiagnosticError', -- Red
+    [vim.log.levels.DEBUG] = 'Debug', -- Grey/Purple
+  }
 
-  if type(level) == "string" then
+  if type(level) == 'string' then
     level = string_to_level[level:lower()]
   end
 
   level = level or vim.log.levels.INFO
-  local icon = icons[level] or " "
-  local color = level_colors[level] or "Normal"
+  local icon = icons[level] or ' '
+  local color = level_colors[level] or 'Normal'
 
-  -- 1. Clear the command line to prevent "Press ENTER"
-  vim.cmd("redraw")
+  vim.notify(msg, level, { icon = ' ' })
 
-  -- 2. Use nvim_echo for a single-line update
-  vim.api.nvim_echo({
-    { "  ", "Identifier" },      -- Plugin Name
-    { "[" .. icon .. " ", color },           -- Icon with Level Color
-    { msg, color },                         -- The message text
-    {"]", color}
-  }, true, {}) -- Set to 'false' so it doesn't stack in history
+  -- -- 1. Clear the command line to prevent "Press ENTER"
+  -- vim.cmd('redraw')
+  --
+  -- -- 2. Use nvim_echo for a single-line update
+  -- vim.api.nvim_echo({
+  --   { '  ', 'Identifier' }, -- Plugin Name
+  --   { '[' .. icon .. ' ', color }, -- Icon with Level Color
+  --   { msg, color }, -- The message text
+  --   { ']', color },
+  -- }, true, {}) -- Set to 'false' so it doesn't stack in history
 end
 
 --INFO:
