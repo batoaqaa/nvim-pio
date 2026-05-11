@@ -86,7 +86,7 @@ local function getPreviousWindow(orig_window)
             prev.term = terms[i]
           end
           if terms[i].direction == 'horizontal' then
-            prev.float = true
+            prev.float = false
           end
         end
       end
