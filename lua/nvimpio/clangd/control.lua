@@ -147,22 +147,28 @@ function M.setFormatStyle()
     -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
     -- local cmd = { clangdCmd, '/c', string.format('clang-format -style=%s -dump-config > .clang-format', choice:lower()) }
     local cmd = { clangdCmd, string.format('--style=%s --dump-config > .clang-format', choice:lower()) }
-    -- Execute asynchronously
-    vim.system(cmd, { text = true }, function(obj)
-      -- This callback runs when the process finishes
-      -- Use vim.schedule to perform UI tasks/API calls on the main thread
-      vim.schedule(function()
-        if obj.code == 0 then
-          vim.misc.notify('Created .clang-format (' .. choice .. ')', "info")
 
-          -- Restart clangd to apply the new rules
-          M.restart()
-          print('LSP Reloaded: Using ' .. choice .. ' style.')
-        else
-          vim.misc.notify('Failed to generate .clang-format. Error: ' .. (obj.stderr or "Unknown"), "error")
-        end
-      end)
-    end)
+    vim.pio.run_sequence({
+        cmnds = {cmd},
+        cb = vim.pio.clangFormat
+    })
+--
+    -- Execute asynchronously
+    -- vim.system(cmd, { text = true }, function(obj)
+    --   -- This callback runs when the process finishes
+    --   -- Use vim.schedule to perform UI tasks/API calls on the main thread
+    --   vim.schedule(function()
+    --     if obj.code == 0 then
+    --       vim.misc.notify('Created .clang-format (' .. choice .. ')', "info")
+    --
+    --       -- Restart clangd to apply the new rules
+    --       M.restart()
+    --       print('LSP Reloaded: Using ' .. choice .. ' style.')
+    --     else
+    --       vim.misc.notify('Failed to generate .clang-format. Error: ' .. (obj.stderr or "Unknown"), "error")
+    --     end
+    --   end)
+    -- end)
   end, 'clang-format')
   end)
 end
