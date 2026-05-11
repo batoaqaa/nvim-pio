@@ -67,7 +67,6 @@ vim.api.nvim_create_user_command('Piomon', function(opts)
   require('nvimpio.pio.cli').piomon(args)
 end, {
   nargs = '*',
-
   complete = function(_, cmd_line)
     local parts = vim.split(cmd_line, '%s+')
     local BAUD = { '4800', '9600', '57600', '115200' }

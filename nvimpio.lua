@@ -299,10 +299,15 @@ local plugins = {
       'MunifTanjim/nui.nvim',
     },
     opts = {
+      window = {
+        mappings = {
+          ['<space>'] = false, -- This disables the default toggle_node mapping
+        },
+      },
       filesystem = {
         -- use_libuv_file_watcher = true,
         filtered_items = {
-          hide_dotfiles = true,
+          hide_dotfiles = false,
           hide_gitignored = true,
           -- hide_by_name = {
           --   '.pio',
