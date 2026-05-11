@@ -25,6 +25,7 @@ if fok then
     },
   })
 end
+vim.notify = require('fidget').notify
 
 -----------------------------------------------------------------------------------------
 local tok, trouble = pcall(require, 'trouble')
@@ -248,6 +249,5 @@ local pyrefly = {
   },
 }
 vim.lsp.config('pyrefly', pyrefly)
-vim.notify = require('fidget').notify
 require('nvimpio.clangd.attach')
 ----------------------------------------------------------------------------------
