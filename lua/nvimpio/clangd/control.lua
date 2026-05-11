@@ -1,5 +1,7 @@
 local M = {}
 
+local pio = require('nvimpio.pio.upkeep')
+local misc = require('nvimpio.utils.misc')
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 
@@ -100,7 +102,7 @@ function M.getClangdConfig()
   local _, count = json_config:gsub('%%s', '')
   -- Only use string.format if there is one or less %s
   if count <= 1 then merged_json = string.format(json_config or '', q_driver) end
-  -- local formatted_str = string.format(table_config or '', q_driver, f_flags, vim.misc.normalizePath(new_root_dir))
+  -- local formatted_str = string.format(table_config or '', q_driver, f_flags, misc.normalizePath(new_root_dir))
 
   -- 'decode' converts JSON string -> Lua table
   local tok, clangd_config = pcall(vim.json.decode, merged_json)
@@ -116,7 +118,7 @@ end
 function M.restart()
   vim.schedule_wrap(function()
     local name = 'clangd'
-    vim.misc.notify('LSP: Clangd restart.', 'warn')
+    misc.notify('LSP: Clangd restart.', 'warn')
 
     local clangConfig = M.getClangdConfig()
 
@@ -146,9 +148,9 @@ function M.setFormatStyle()
   M.clangdIntall(function(clangdCmd)
     -- using toggleterm for setting clang-format style
     local cmd = string.format('%s --style=%s --dump-config > .clang-format',clangdCmd, choice:lower())
-    vim.pio.run_sequence({
+    pio.run_sequence({
         cmnds = {cmd},
-        cb = vim.pio.clangFormat
+        cb = pio.clangFormat
     })
 
     -- using hidden system command for setting clang-format style
@@ -159,13 +161,13 @@ function M.setFormatStyle()
     --   -- Use vim.schedule to perform UI tasks/API calls on the main thread
     --   vim.schedule(function()
     --     if obj.code == 0 then
-    --       vim.misc.notify('Created .clang-format (' .. choice .. ')', "info")
+    --       misc.notify('Created .clang-format (' .. choice .. ')', "info")
     --
     --       -- Restart clangd to apply the new rules
     --       M.restart()
     --       print('LSP Reloaded: Using ' .. choice .. ' style.')
     --     else
-    --       vim.misc.notify('Failed to generate .clang-format. Error: ' .. (obj.stderr or "Unknown"), "error")
+    --       misc.notify('Failed to generate .clang-format. Error: ' .. (obj.stderr or "Unknown"), "error")
     --     end
     --   end)
     -- end)
@@ -212,7 +214,7 @@ function M.getUnknownArgs()
         boilerplate.args = args_table
         boilerplate_gen('.clangd', vim.g.platformioRootDir)
 
-        vim.misc.notify('Clangd: ✅Extracted ' .. #args_table .. ' flags.')
+        misc.notify('Clangd: ✅Extracted ' .. #args_table .. ' flags.')
         M.restart()
       end)
     end)
@@ -223,7 +225,7 @@ end
 --stylua: ignore
 --=============================================================================
 function M.init(clangd)
-  vim.misc.notify('Clangd: initialize', "info")
+  misc.notify('Clangd: initialize', "info")
 
   require('nvimpio.clangd.commands')
 

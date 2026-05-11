@@ -421,7 +421,6 @@ vim.api.nvim_create_autocmd('User', {
       show = false, -- Prevents the Lazy UI from automatically opening
     })
     -- You can add a notification here if you like
-    -- vim.misc.notify("Lazy plugins sync started in background", "info")
   end,
 })
 

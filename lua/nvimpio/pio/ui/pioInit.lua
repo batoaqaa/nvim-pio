@@ -42,7 +42,7 @@ end
 
 -- FINAL STEP: Construction & Sequence Execution
 local function finalize_setup()
-  -- local pio = require('nvimpio.pio.upkeep')
+  local pio = require('nvimpio.pio.upkeep')
 
   local sample_flag = '' --wizard_data.sample == 'Yes' and ' --sample-code' or ''
   local init_cmd = string.format('pio project init --board %s -O "framework=%s"%s', wizard_data.board_id, wizard_data.framework, sample_flag)
@@ -53,7 +53,7 @@ local function finalize_setup()
   -- local final_cb = pio.handlePioinitDb
   local final_cb = function(status)
     -- if wizard_data.on_done then
-    vim.pio.handlePioinitDb(status, wizard_data.board_id, wizard_data.on_done)
+    pio.handlePioinitDb(status, wizard_data.board_id, wizard_data.on_done)
     -- else
     --   vim.pio.handlePioinitDb(status, wizard_data.board_id)
     -- end
@@ -63,7 +63,7 @@ local function finalize_setup()
   -- local final_cb = pio.handlePioinit
 
   notify('Starting project setup for ' .. wizard_data.board_id .. '...')
-  vim.pio.run_sequence({ cmnds = commands, cb = final_cb })
+  pio.run_sequence({ cmnds = commands, cb = final_cb })
 end
 
 --- SEQUENTIAL STEPS ---

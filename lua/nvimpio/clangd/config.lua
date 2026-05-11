@@ -1,3 +1,4 @@
+local misc = require('nvimpio.utils.misc')
 -- stylua: ignore start
 -- Fidget is an unintrusive window in the corner of your editor
 local fok, fidget = pcall(require, 'fidget')
@@ -56,19 +57,19 @@ if mok then mason.setup({}) end
 --           result:install({}, function(success, _)
 --             if not success then
 --               vim.defer_fn(function()
---                 vim.misc.notify('LSP: ' .. tool .. ' failed to install', 'error')
+--                 misc.notify('LSP: ' .. tool .. ' failed to install', 'error')
 --               end, 0)
 --             end
 --           end)
 --         else
 --           vim.defer_fn(function()
---             vim.misc.notify('LSP: ' .. tool .. ' already installed', 'warn')
+--             misc.notify('LSP: ' .. tool .. ' already installed', 'warn')
 --           end, 0)
 --         end
 --       end
 --     else
 --       vim.defer_fn(function()
---         vim.misc.notify('LSP: Failed to get package: ' .. tool, 'warn')
+--         misc.notify('LSP: Failed to get package: ' .. tool, 'warn')
 --       end, 0)
 --     end
 --   end

@@ -1,5 +1,6 @@
 local M = {}
 
+local misc = require('nvimpio.utils.misc')
 M.core_dir = ''
 M.args = {}
 
@@ -188,12 +189,12 @@ CompileFlags:
     ]
 ]],
   content = function(self)
-    local cwdClangd = vim.misc.joinPath(vim.uv.cwd(), '.clangd')
-    local coreClangd = vim.misc.joinPath(M.core_dir, '.clangd')
+    local cwdClangd = misc.joinPath(vim.uv.cwd(), '.clangd')
+    local coreClangd = misc.joinPath(M.core_dir, '.clangd')
     local staticBlock, dynamicBlock = '', ''
 
     if vim.uv.fs_stat(cwdClangd) then
-      local ok, content = vim.misc.readFile(cwdClangd)
+      local ok, content = misc.readFile(cwdClangd)
 
       if not ok or not content then return nil end
 
@@ -206,8 +207,8 @@ CompileFlags:
 
     local final_content = staticBlock .. '\n' .. dynamicBlock
 
-    vim.misc.writeFile(cwdClangd, final_content, {})
-    vim.misc.writeFile(coreClangd, final_content, {})
+    misc.writeFile(cwdClangd, final_content, {})
+    misc.writeFile(coreClangd, final_content, {})
     return final_content
   end,
 
@@ -255,7 +256,7 @@ function M.boilerplate_gen(framework, src_path, filename)
   if vim.uv.fs_stat(file_path) then
     if not entry.rewrite then
       if entry.read then
-        local ok, content = vim.misc.readFile(file_path)
+        local ok, content = misc.readFile(file_path)
         -- if ok then print(content) end
         if ok then return content end
         -- local fr = io.open(file_path, 'r')
@@ -266,7 +267,7 @@ function M.boilerplate_gen(framework, src_path, filename)
   end
   --
   local template = type(entry.content) == 'function' and entry:content() or entry.content
-  vim.misc.writeFile(file_path, template, {})
+  misc.writeFile(file_path, template, {})
 
   if entry.read then
     return template
