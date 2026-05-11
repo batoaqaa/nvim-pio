@@ -11,7 +11,7 @@ function M.clangdIntall(callback, package_name)
   package_name = package_name or 'clangd'
 
   -- Modern Neovim 0.11+ way to ensure Mason binaries are found
-  local bin_name = vim.fn.has('win32') == 1 and 'clangd.cmd' or 'clangd'
+  local bin_name = vim.fn.has('win32') == 1 and package_name .. '.cmd' or package_name
   local mason_bin = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin')
   local mason_exe = vim.fs.joinpath(mason_bin, bin_name)
 
@@ -28,7 +28,7 @@ function M.clangdIntall(callback, package_name)
 
   local function poll()
     registry.refresh(function()
-      local pkg = registry.get_package('clangd')
+      local pkg = registry.get_package(package_name)
 
       -- 1. SUCCESS: Installed and file is ready
       if pkg:is_installed() and vim.fn.executable(mason_exe) == 1 then
@@ -38,7 +38,7 @@ function M.clangdIntall(callback, package_name)
 
       -- 2. TRIGGER: Not installed and NOT installing? Start the install.
       if not pkg:is_installed() and not pkg:is_installing() then
-        vim.notify('Mason: Auto-installing clangd...', vim.log.levels.INFO)
+        vim.notify('Mason: Auto-installing ' .. package_name .. ' ...', vim.log.levels.INFO)
         pkg:install()
         -- After triggering install, we continue to poll to wait for completion
       end
@@ -49,7 +49,7 @@ function M.clangdIntall(callback, package_name)
         -- Visual feedback for long installs
         if check_count % 5 == 0 then
           vim.schedule(function()
-            vim.cmd('echo "Mason: Waiting for clangd installation... ' .. check_count .. 's"')
+            vim.cmd('echo "Mason: Waiting for ' .. package_name ' installation... ' .. check_count .. 's"')
           end)
         end
         vim.defer_fn(poll, 1000)
@@ -57,8 +57,8 @@ function M.clangdIntall(callback, package_name)
       end
 
       -- 4. FAIL/TIMEOUT: Return system fallback
-      vim.notify('Mason: Clangd setup timed out. Using system fallback.', vim.log.levels.WARN)
-      callback('clangd')
+      vim.notify('Mason: ' .. package_name .. ' setup timed out. Using system fallback.', vim.log.levels.WARN)
+      callback(package_name)
     end)
   end
   poll()
