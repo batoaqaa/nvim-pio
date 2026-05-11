@@ -160,7 +160,7 @@ keymap('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
 local function setup_xdg_paths()
   -- local isWindows = vim.fn.has('win32') == 1
   -- local isMac = vim.fn.has('mac') == 1
-  local home = vim.env.HOME or vim.env.USERPROFILE or ''
+  local home = vim.uv.os_homedir()
   local app_name = 'nvim-pio' -- pick a temp root
 
   -- 1. XDG_CONFIG_HOME (Settings/Configs)

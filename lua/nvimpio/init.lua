@@ -1,3 +1,5 @@
+require('nvimpio.osInfo')
+
 local M = {}
 
 M.config = require('nvimpio.defConfig')

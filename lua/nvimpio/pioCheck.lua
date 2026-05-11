@@ -2,11 +2,13 @@ local M = {}
 
 -- stylua: ignore
 function M.get_bin_dir()
-  local is_win = vim.fn.has('win32') == 1
-  local bin_subfolder = is_win and 'penv/Scripts' or 'penv/bin'
+  -- local is_win = vim.fn.has('win32') == 1
+  local bin_subfolder = OS.is_win and 'penv/Scripts' or 'penv/bin'
   local core_dir = os.getenv('PLATFORMIO_CORE_DIR')
-  local home = (os.getenv('HOME') or os.getenv('USERPROFILE') or '')
-  if not core_dir then core_dir = vim.fs.joinpath(home, '.platformio') end
+  -- local home = (os.getenv('HOME') or os.getenv('USERPROFILE') or '')
+  -- local home = vim.fn.expand("~")
+  -- local home = vim.uv.os_homedir()
+  if not core_dir then core_dir = vim.fs.joinpath(OS.home, '.platformio') end
   local pio_bin = vim.fs.joinpath(core_dir, bin_subfolder)
   return pio_bin
 end

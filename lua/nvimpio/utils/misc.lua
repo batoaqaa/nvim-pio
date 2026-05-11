@@ -2,15 +2,7 @@
 
 local M = {}
 
-M.isMac = vim.fn.has('mac') == 1
-M.isWindows = jit.os == 'Windows'
-M.pluginName = 'nvim-pio'
-
 local uv = vim.uv or vim.loop
-
-M.devNul = M.isWindows and ' 2>./nul' or ' 2>/dev/null'
--- M.extra = 'printf \'\\\\n\\\\033[0;33mPlease Press ENTER to continue \\\\033[0m\'; read'
--- M.extra = ' && echo . && echo . && echo Please Press ENTER to continue'
 
 --[[
 DiagnosticError: Red
@@ -36,20 +28,20 @@ function M.notify(msg, level)
 
   -- Example for a Neovim statusline or breadcrumb
   -- local clangd_icon = "" -- Using the Seti C icon
-  local icons = {
-    [vim.log.levels.INFO] = ' ',
-    [vim.log.levels.WARN] = ' ',
-    [vim.log.levels.ERROR] = ' ',
-    [vim.log.levels.DEBUG] = ' ',
-  }
-
-  -- Map levels to colors (Highlight Groups)
-  local level_colors = {
-    [vim.log.levels.INFO] = 'DiagnosticInfo', -- Blue-ish
-    [vim.log.levels.WARN] = 'DiagnosticWarn', -- Yellow
-    [vim.log.levels.ERROR] = 'DiagnosticError', -- Red
-    [vim.log.levels.DEBUG] = 'Debug', -- Grey/Purple
-  }
+  -- local icons = {
+  --   [vim.log.levels.INFO] = ' ',
+  --   [vim.log.levels.WARN] = ' ',
+  --   [vim.log.levels.ERROR] = ' ',
+  --   [vim.log.levels.DEBUG] = ' ',
+  -- }
+  --
+  -- -- Map levels to colors (Highlight Groups)
+  -- local level_colors = {
+  --   [vim.log.levels.INFO] = 'DiagnosticInfo', -- Blue-ish
+  --   [vim.log.levels.WARN] = 'DiagnosticWarn', -- Yellow
+  --   [vim.log.levels.ERROR] = 'DiagnosticError', -- Red
+  --   [vim.log.levels.DEBUG] = 'Debug', -- Grey/Purple
+  -- }
 
   if type(level) == 'string' then
     level = string_to_level[level:lower()]

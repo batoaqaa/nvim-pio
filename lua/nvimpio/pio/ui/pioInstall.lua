@@ -1,13 +1,13 @@
 _G.pio_status = ''
 
-local is_win = vim.fn.has('win32') == 1
+-- local is_win = vim.fn.has('win32') == 1
 
 --INFO: Install platformio
 -- stylua: ignore
 ------------------------------------------------------
 local function pioInstall()
   -- 1. Detect environment details
-  local python = is_win and 'python' or 'python3'
+  local python = OS.is_win and 'python' or 'python3'
 
   -- 2. CORRECTED URL: Added 'raw.' prefix
   local url = 'https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py'

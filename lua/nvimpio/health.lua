@@ -3,7 +3,10 @@ local M = {}
 function M.check()
   vim.health.start('nvimpio Check')
 
+  -- INFO: main.hpp
+  --- stylua: ignore
   -- 1. Check Python installation
+  ----------------------------------------------------------------------------------------
   local python = vim.fn.has('win32') == 1 and 'python' or 'python3'
   if vim.fn.executable(python) == 1 then
     vim.health.ok('Python is available: ' .. python)
@@ -11,7 +14,8 @@ function M.check()
     vim.health.error('Python is not found. PlatformIO requires Python.')
   end
 
-  -- 2. Check Binary Path
+  -- 2. Check PIO Binary Path
+  ----------------------------------------------------------------------------------------
   local pio_bin = vim.pio.get_pio_bin_dir()
   if vim.fn.isdirectory(pio_bin) == 1 then
     vim.health.ok('PlatformIO core directory exists: ' .. pio_bin)
@@ -20,6 +24,7 @@ function M.check()
   end
 
   -- 3. Check Executable and Version
+  ----------------------------------------------------------------------------------------
   if vim.fn.executable('pio') == 1 then
     -- Run pio --version synchronously for the health report
     local obj = vim.system({ 'pio', '--version' }, { text = true }):wait()
@@ -36,6 +41,7 @@ function M.check()
   end
 
   -- 4. Check clangd installation
+  ----------------------------------------------------------------------------------------
   if vim.fn.executable('clangd') == 1 then
     -- Run clangd --version synchronously for the health report
     local full_path = vim.fn.exepath('clangd')

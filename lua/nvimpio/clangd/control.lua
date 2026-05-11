@@ -12,7 +12,7 @@ function M.clangdIntall(callback, package_name)
 
   -- Modern Neovim 0.11+ way to ensure Mason binaries are found
   local bin_name = vim.fn.has('win32') == 1 and package_name .. '.cmd' or package_name
-  local mason_bin = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin')
+  local mason_bin = vim.fs.joinpath(OS.data_dir, 'mason', 'bin')
   local mason_exe = vim.fs.joinpath(mason_bin, bin_name)
 
   -- no need by default mason do prepend

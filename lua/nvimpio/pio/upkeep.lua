@@ -1,4 +1,4 @@
----@class platformio.utils.pio
+--_@class platformio.utils.pio
 local M = {}
 
 local misc = vim.misc
@@ -8,19 +8,16 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 
 local term = require('nvimpio.utils.term')
 
-local is_win = vim.fn.has('win32') == 1
-local home = (os.getenv('HOME') or os.getenv('USERPROFILE') or ''):gsub('[\\/]+$', '')
-
 local core_dir = os.getenv('PLATFORMIO_CORE_DIR')
 -- stylua: ignore
-if not core_dir then core_dir = vim.fs.joinpath(home, '.platformio') end
+if not core_dir then core_dir = vim.fs.joinpath(OS.home, '.platformio') end
 
 --INFO: get PIO binary folder
 -- stylua: ignore
 ------------------------------------------------------
 function M.get_pio_bin_dir()
   -- 3. Use 'Scripts' for Windows and 'bin' for Unix-like systems
-  local bin_subfolder = is_win and 'penv/Scripts' or 'penv/bin'
+  local bin_subfolder = OS.is_win and 'penv/Scripts' or 'penv/bin'
 
   -- Normalize the path to handle mix of '/' and '\' on Windows
   local full_path = vim.fs.joinpath(core_dir, bin_subfolder)
@@ -309,7 +306,7 @@ function M.fetch_config(on_done, from)
         local val = meta[item.key]
         -- Fallback chain
         if not val or val == '' then
-          val = os.getenv(item.env) or (home .. item.sub)
+          val = os.getenv(item.env) or (OS.home .. item.sub)
         end
         -- Expand variables and Normalize
         if type(val) == 'string' then

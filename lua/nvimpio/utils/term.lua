@@ -1,10 +1,5 @@
 local M = {}
 
-local is_windows = jit.os == 'Windows'
-M.devNul = is_windows and ' 2>./nul' or ' 2>/dev/null'
--- M.extra = 'printf \'\\\\n\\\\033[0;33mPlease Press ENTER to continue \\\\033[0m\'; read'
--- M.extra = ' && echo . && echo . && echo Please Press ENTER to continue'
-
 local config = require('nvimpio').config
 
 -- to fix require loop, toggleterm is using stdout_callback function in 'platformio.utils.pio'
@@ -27,18 +22,6 @@ function M.check_prefix(str, prefix)
 end
 
 ------------------------------------------------------
-
--- INFO: get current OS enter
-function M.enter()
-  local shell = vim.o.shell
-  if is_windows then
-    return vim.fn.executable('pwsh') and '\r' or '\r\n'
-  elseif shell:find('nu') then
-    return '\r'
-  else
-    return '\n'
-  end
-end
 
 -- 1. Tell the LSP what a "Terminal" object looks like (simplified)
 ---@class Terminal
@@ -98,7 +81,7 @@ end
 ------------------------------------------------------
 -- INFO: Send command
 local function send(term, cmd)
-  vim.fn.chansend(term.job_id, cmd .. M.enter())
+  vim.fn.chansend(term.job_id, cmd .. OS.eol)
   if vim.api.nvim_buf_is_loaded(term.bufnr) and vim.api.nvim_buf_is_valid(term.bufnr) then
     if term.window and vim.api.nvim_win_is_valid(term.window) then --vim.ui.term_has_open_win(term) then
       vim.api.nvim_set_current_win(term.window) -- terminal focus
@@ -203,7 +186,7 @@ function M.ToggleTerminal(command, direction)
         return math.ceil(vim.o.lines * 0.75)
       end,
       -- shell = vim.o.shell,
-      shell = vim.o.shell,
+      shell = OS.shell,
       highlights = {
         border = 'FloatBorder',
         background = 'NormalFloat',
