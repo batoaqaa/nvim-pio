@@ -133,7 +133,6 @@ end
 --------------------------------------------------------------------------------
 -- stylua: ignore
 function M.setFormatStyle()
-
   local styles = { 'LLVM', 'Google', 'Chromium', 'Mozilla', 'WebKit', 'Microsoft', 'Linux' }
 
   vim.ui.select(styles, {
@@ -141,31 +140,64 @@ function M.setFormatStyle()
   }, function(choice)
     if not choice then return end
 
-    -- 1. Generate the command (Windows compatible)
-    local cmd = string.format('cmd /c "clang-format -style=%s -dump-config > .clang-format"', choice:lower())
+    -- Define the command as a table for cleaner execution
+    -- We use cmd /c only because of the '>' redirect
+    local cmd = { 'cmd', '/c', string.format('clang-format -style=%s -dump-config > .clang-format', choice:lower()) }
 
-    vim.pio.run_sequence({
-        cmnds = {cmd},
-        cb = vim.pio.clangFormat
-      --function () vim.misc.notify('Piolib: Done', "info") end
-    })
-    -- -- 2. Execute and check result
-    -- local success = os.execute(cmd)
-    --
-    -- if success then
-    --   vim.misc.notify('Created .clang-format (' .. choice .. ')', "info")
-    --
-    --   -- 3. Restart clangd to apply the new formatting rules
-    --   -- Slight delay to ensure file is written before LSP restarts
-    --   vim.defer_fn(function()
-    --     M.restart()
-    --     print('LSP Reloaded: Using ' .. choice .. ' style.')
-    --   end, 100)
-    -- else
-    --   vim.misc.notify('Failed to generate .clang-format. Is clang-format in your PATH?', "error")
-    -- end
+  M.clangdIntall(function(clangdCmd)
+    -- Execute asynchronously
+    vim.system(clangdCmd, { text = true }, function(obj)
+      -- This callback runs when the process finishes
+      -- Use vim.schedule to perform UI tasks/API calls on the main thread
+      vim.schedule(function()
+        if obj.code == 0 then
+          vim.misc.notify('Created .clang-format (' .. choice .. ')', "info")
+
+          -- Restart clangd to apply the new rules
+          M.restart()
+          print('LSP Reloaded: Using ' .. choice .. ' style.')
+        else
+          vim.misc.notify('Failed to generate .clang-format. Error: ' .. (obj.stderr or "Unknown"), "error")
+        end
+      end)
+    end)
+  end, 'clang-format')
   end)
 end
+-- function M.setFormatStyle()
+--
+--   local styles = { 'LLVM', 'Google', 'Chromium', 'Mozilla', 'WebKit', 'Microsoft', 'Linux' }
+--
+--   vim.ui.select(styles, {
+--     prompt = 'Select Clang-Format base style:',
+--   }, function(choice)
+--     if not choice then return end
+--
+--     -- 1. Generate the command (Windows compatible)
+--     local cmd = string.format('cmd /c "clang-format -style=%s -dump-config > .clang-format"', choice:lower())
+--
+--     -- vim.pio.run_sequence({
+--     --     cmnds = {cmd},
+--     --     cb = vim.pio.clangFormat
+--     -- })
+--
+--     -- 2. Execute and check result
+--     local success = os.execute(cmd)
+--
+--     if success then
+--       vim.misc.notify('Created .clang-format (' .. choice .. ')', "info")
+--
+--       -- 3. Restart clangd to apply the new formatting rules
+--       -- Slight delay to ensure file is written before LSP restarts
+--       vim.defer_fn(function()
+--         M.restart()
+--         print('LSP Reloaded: Using ' .. choice .. ' style.')
+--       end, 100)
+--     else
+--       vim.misc.notify('Failed to generate .clang-format. Is clang-format in your PATH?', "error")
+--     end
+--   end)
+-- end
 
 
 --------------------------------------------------------------------------------
@@ -211,7 +243,7 @@ function M.getUnknownArgs()
         M.restart()
       end)
     end)
-  end)
+  end, 'clangd')
 end
 --------------------------------------------------------------------------------
 
