@@ -854,4 +854,39 @@ function M.handlePiodb(target, result)
   end
 end
 
+------------------------------------------------------
+-- Handle create clang-format
+-- =============================================================================
+-- stylua: ignore
+function M.clangFormat(result)
+  if result == 'INIT' then
+    if #M.queue > 0 then
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      _G.metadata.isBusy = true
+    end
+  elseif result == 'DONE' then -- result of the only and the last command
+    vim.misc.notify('Clang formatter:  pass ' .. commandPassed, "info")
+    vim.misc.notify('Clang formatter: Done', "info")
+    commandPassed = commandPassed + 1
+    M.queue = {}
+    term.stdout_callback = nil
+    _G.metadata.isBusy = false
+  elseif result == 'FAIL' then
+    M.queue = {}
+    term.stdout_callback = nil
+    _G.metadata.isBusy = false
+  end
+end
 return M
+
+--   vim.misc.notify('Created .clang-format (' .. choice .. ')', "info")
+--
+--   -- 3. Restart clangd to apply the new formatting rules
+--   -- Slight delay to ensure file is written before LSP restarts
+--   vim.defer_fn(function()
+--     M.restart()
+--     print('LSP Reloaded: Using ' .. choice .. ' style.')
+--   end, 100)
+-- else
+--   vim.misc.notify('Failed to generate .clang-format. Is clang-format in your PATH?', "error")
+-- end

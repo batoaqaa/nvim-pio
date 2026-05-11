@@ -140,14 +140,6 @@ boilerplate['.clangd_config.json'] = {
 -- stylua: ignore
 boilerplate['.clangd'] = {
   -- content = [[
-  dynamic = [[
----
-# Dynamic configuration block
-CompileFlags:
-  Remove: [
-    %s
-    ]
-]],
   static = [[
 ---
 CompileFlags:
@@ -184,6 +176,15 @@ Diagnostics:
   ClangTidy:
     Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
 ]],
+
+  dynamic = [[
+---
+# Dynamic configuration block
+CompileFlags:
+  Remove: [
+    %s
+    ]
+]],
   content = function(self)
     local cwdClangd = vim.misc.joinPath(vim.uv.cwd(), '.clangd')
     local coreClangd = vim.misc.joinPath(M.core_dir, '.clangd')
@@ -194,7 +195,7 @@ Diagnostics:
 
       if not ok or not content then return nil end
 
-       -- Strip out any previous dynamic blocks to prevent endless growing
+      -- Strip out any previous dynamic blocks to prevent endless growing
       if ok then staticBlock = content:gsub('\n%-%-%-\n# Dynamic configuration block.*', '') end
     else staticBlock = self.static end
 

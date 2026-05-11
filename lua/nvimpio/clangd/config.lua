@@ -38,17 +38,7 @@ end
 -----------------------------------------------------------------------------------------
 local mok, mason = pcall(require, 'mason')
 if mok then
-  mason.setup({
-    PATH = 'append',
-    ui = {
-      border = 'single',
-      icons = {
-        package_installed = '✓',
-        package_pending = '➜',
-        package_uninstalled = '✗',
-      },
-    },
-  })
+  mason.setup({})
 end
 
 -- Modern Neovim 0.11+ way to ensure Mason binaries are found

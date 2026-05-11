@@ -5,7 +5,7 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
----stylua: ignore
+--stylua: ignore
 -----------------------------------------------------------------------------------------
 function M.clangdIntall(callback, package_name)
   package_name = package_name or 'clangd'
@@ -13,23 +13,13 @@ function M.clangdIntall(callback, package_name)
   -- Modern Neovim 0.11+ way to ensure Mason binaries are found
   local bin_name = vim.fn.has('win32') == 1 and 'clangd.cmd' or 'clangd'
   local mason_bin = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin')
-  local mason_exe = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin', bin_name)
-  vim.env.PATH = mason_bin .. (vim.fn.has('win32') == 1 and ';' or ':') .. vim.env.PATH
+  local mason_exe = vim.fs.joinpath(mason_bin, bin_name)
+
+  -- no need by default mason do prepend
+  -- vim.env.PATH = mason_bin .. (vim.fn.has('win32') == 1 and ';' or ':') .. vim.env.PATH
 
   local mok, mason = pcall(require, 'mason')
-  if mok then
-    mason.setup({
-      PATH = 'append',
-      ui = {
-        border = 'single',
-        icons = {
-          package_installed = '✓',
-          package_pending = '➜',
-          package_uninstalled = '✗',
-        },
-      },
-    })
-  end
+  if mok then mason.setup({}) end
 
   local registry = require('mason-registry')
 
@@ -73,7 +63,6 @@ function M.clangdIntall(callback, package_name)
   end
   poll()
 end
-
 
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
@@ -125,18 +114,18 @@ end
 --------------------------------------------------------------------------------
 --- stylua: ignore
 function M.restart()
-  local name = 'clangd'
-  -- vim.schedule_wrap(function()
-  vim.misc.notify('LSP: Clangd restart.', 'warn')
+  vim.schedule_wrap(function()
+    local name = 'clangd'
+    vim.misc.notify('LSP: Clangd restart.', 'warn')
 
-  local clangConfig = M.getClangdConfig()
-  -- print(vim.inspect(clangConfig))
-  vim.lsp.config(name, clangConfig)
-  vim.lsp.enable(name, false)
-  vim.lsp.enable(name, true)
-  vim.cmd('checktime')
-  _G.metadata.isBusy = false
-  -- end)
+    local clangConfig = M.getClangdConfig()
+
+    vim.lsp.config(name, clangConfig)
+    vim.lsp.enable(name, false)
+    vim.lsp.enable(name, true)
+    vim.cmd('checktime')
+    _G.metadata.isBusy = false
+  end)
 end
 
 
@@ -155,109 +144,29 @@ function M.setFormatStyle()
     -- 1. Generate the command (Windows compatible)
     local cmd = string.format('cmd /c "clang-format -style=%s -dump-config > .clang-format"', choice:lower())
 
-    -- 2. Execute and check result
-    local success = os.execute(cmd)
-
-    if success then
-      vim.misc.notify('Created .clang-format (' .. choice .. ')', "info")
-
-      -- 3. Restart clangd to apply the new formatting rules
-      -- Slight delay to ensure file is written before LSP restarts
-      vim.defer_fn(function()
-        M.restart()
-        print('LSP Reloaded: Using ' .. choice .. ' style.')
-      end, 100)
-    else
-      vim.misc.notify('Failed to generate .clang-format. Is clang-format in your PATH?', "error")
-    end
+    vim.pio.run_sequence({
+        cmnds = {cmd},
+        cb = vim.pio.clangFormat
+      --function () vim.misc.notify('Piolib: Done', "info") end
+    })
+    -- -- 2. Execute and check result
+    -- local success = os.execute(cmd)
+    --
+    -- if success then
+    --   vim.misc.notify('Created .clang-format (' .. choice .. ')', "info")
+    --
+    --   -- 3. Restart clangd to apply the new formatting rules
+    --   -- Slight delay to ensure file is written before LSP restarts
+    --   vim.defer_fn(function()
+    --     M.restart()
+    --     print('LSP Reloaded: Using ' .. choice .. ' style.')
+    --   end, 100)
+    -- else
+    --   vim.misc.notify('Failed to generate .clang-format. Is clang-format in your PATH?', "error")
+    -- end
   end)
 end
 
-local function get_clangd_cmd(callback)
-  local registry = require('mason-registry')
-  local bin_name = vim.fn.has('win32') == 1 and 'clangd.cmd' or 'clangd'
-  local mason_exe = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin', bin_name)
-
-  local check_count = 0
-  local max_checks = 40 -- 40 * 500ms = 20 seconds timeout
-
-  local function poll()
-    registry.refresh(function()
-      local pkg = registry.get_package('clangd')
-
-      -- 1. Success: It is installed and the file exists
-      if pkg:is_installed() and vim.fn.executable(mason_exe) == 1 then
-        callback(mason_exe)
-        return
-      end
-
-      -- 2. Wait: It's still installing, or registry hasn't updated yet
-      if (pkg:is_installing() or not pkg:is_installed()) and check_count < max_checks then
-        check_count = check_count + 1
-        vim.defer_fn(poll, 500) -- Check again in 500ms
-        return
-      end
-
-      -- 3. Fallback: Timeout reached or no Mason version found
-      callback('clangd')
-    end)
-  end
-
-  poll()
-
-  -- local registry = require('mason-registry')
-  --
-  -- -- Use refresh to ensure we are looking at the actual disk state
-  -- registry.refresh(function()
-  --   local package_name = 'clangd'
-  --
-  --   if registry.is_installed(package_name) then
-  --     local pkg = registry.get_package(package_name)
-  --     -- Get the actual install path from Mason's metadata
-  --     local install_path = pkg:get_install_path()
-  --     print(install_path)
-  --
-  --     local bin_name = vim.fn.has('win32') == 1 and 'clangd.cmd' or 'clangd'
-  --
-  --     -- Mason binaries are usually in the package root or a bin subfolder
-  --     local mason_exe = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin', bin_name)
-  --
-  --     if vim.fn.executable(mason_exe) == 1 then
-  --       print(mason_exe)
-  --       callback(mason_exe)
-  --       return
-  --     end
-  --   end
-  --
-  --   -- Fallback if Mason isn't ready or package isn't there
-  --   callback('clangd')
-  -- end)
-end
-
--- Usage
--- get_clangd_cmd(function(exe)
---   print('Using clangd from: ' .. exe)
---   -- Run your logic here (e.g., vim.system or vim.lsp.enable)
--- end)
-
---------------------------------------------------------------------------------
--- INFO: get_clangd_unknown_cmd
--- stylua: ignore
---------------------------------------------------------------------------------
--- local function get_clangd_cmd()
---   -- 1. Try Mason Path first
---   local mason_bin = vim.fs.joinpath(vim.fn.stdpath('data'), 'mason', 'bin')
--- print('mason_bin:' .. mason_bin)
---   local clangd_mason = vim.fs.joinpath(mason_bin, 'clangd')
---
---   if vim.fn.has('win32') == 1 then clangd_mason = clangd_mason .. '.cmd' end
--- print('clangd_mason:' .. clangd_mason)
---
---   if vim.uv.fs_stat(clangd_mason) then return clangd_mason end
---
---   -- This will work if clangd is in your system's LLVM/bin folder
---   return 'clangd'
--- end
 
 --------------------------------------------------------------------------------
 -- INFO: get_clangd_unknown_args
@@ -266,7 +175,9 @@ end
 function M.getUnknownArgs()
   -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
   boilerplate.args = {}
-  boilerplate_gen('.clangd', vim.g.platformioRootDir)
+
+  -- Strip out any previous dynamic blocks to prevent endless growing
+  boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
 
   -- 2. FIND: Grab the first .cpp or .c file in /src
   local check_file = vim.fs.find(function(name)
@@ -279,13 +190,9 @@ function M.getUnknownArgs()
   end
 
   -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
-  -- local cmd = { 'clangd', '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
-  -- local clangdCmd = get_clangd_cmd()
--- print('getUnknownArgs:' .. clangdCmd)
-  -- get_clangd_cmd(function(clangdCmd)
   M.clangdIntall(function(clangdCmd)
     local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
-
+    -- run 'clangd --check=' command on user '.clangd'
     vim.system(cmd, { text = true }, function(obj)
       vim.schedule(function()
         local output = (obj.stdout or '') .. (obj.stderr or '')
