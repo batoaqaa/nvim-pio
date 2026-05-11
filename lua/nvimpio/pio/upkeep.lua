@@ -1,4 +1,4 @@
---_@class platformio.utils.pio
+---@class platformio.utils.pio
 local M = {}
 
 local misc = vim.misc
