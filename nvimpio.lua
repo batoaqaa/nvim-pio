@@ -360,11 +360,13 @@ local plugins = {
       -- lazy.nvim
       {
         'folke/snacks.nvim',
+        priority = 1000,
+        lazy = false,
         opts = {
           notifier = {
-            -- your notifier configuration comes here
-            -- or leave it empty to use the default settings
-            -- refer to the configuration section below
+            enabled = true,
+            timeout = 3000, -- 3 seconds
+            style = 'compact', -- Options: "default", "compact", "minimal"
           },
         },
       },
