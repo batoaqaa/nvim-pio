@@ -236,7 +236,7 @@ ReflowComments: true
 SpaceBeforeParens: ControlStatements
 ConstructorInitializerIndentWidth: 4
 PackConstructorInitializers: Never
----
+...
 ]],
 }
 
