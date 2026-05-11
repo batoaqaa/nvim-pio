@@ -142,11 +142,11 @@ function M.setFormatStyle()
 
     -- Define the command as a table for cleaner execution
     -- We use cmd /c only because of the '>' redirect
-    local cmd = { 'cmd', '/c', string.format('clang-format -style=%s -dump-config > .clang-format', choice:lower()) }
 
   M.clangdIntall(function(clangdCmd)
+    local cmd = { 'clangdCmd', '/c', string.format('clang-format -style=%s -dump-config > .clang-format', choice:lower()) }
     -- Execute asynchronously
-    vim.system(clangdCmd, { text = true }, function(obj)
+    vim.system(cmd, { text = true }, function(obj)
       -- This callback runs when the process finishes
       -- Use vim.schedule to perform UI tasks/API calls on the main thread
       vim.schedule(function()
