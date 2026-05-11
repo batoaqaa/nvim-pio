@@ -1,6 +1,5 @@
 local M = {}
 
-local pio = require('nvimpio.pio.upkeep')
 local misc = require('nvimpio.utils.misc')
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
@@ -148,6 +147,7 @@ function M.setFormatStyle()
   M.clangdIntall(function(clangdCmd)
     -- using toggleterm for setting clang-format style
     local cmd = string.format('%s --style=%s --dump-config > .clang-format',clangdCmd, choice:lower())
+    local pio = require('nvimpio.pio.upkeep')
     pio.run_sequence({
         cmnds = {cmd},
         cb = pio.clangFormat
