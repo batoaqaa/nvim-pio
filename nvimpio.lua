@@ -311,6 +311,7 @@ local plugins = {
           },
         },
       },
+      sources = { 'filesystem', 'buffers', 'git_status' },
       filesystem = {
         -- use_libuv_file_watcher = true,
         filtered_items = {
@@ -325,10 +326,7 @@ local plugins = {
           -- },
           never_show = { -- Add any massive folders here
             -- '.cache',
-            -- '.git',
             'node_modules',
-            -- 'build',
-            -- 'target',
           },
         },
       },
