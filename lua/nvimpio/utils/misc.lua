@@ -49,7 +49,8 @@ function M.notify(msg, level)
 
   level = level or vim.log.levels.INFO
 
-  vim.notify(msg, level, { title = 'nvimpio', icon = ' ' })
+  ---@cast level integer
+  vim.notify(msg, level, { title = 'nvim-pio', icon = ' ' })
 
   -- local icon = icons[level] or ' '
   -- local color = level_colors[level] or 'Normal'

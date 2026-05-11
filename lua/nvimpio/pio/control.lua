@@ -295,9 +295,9 @@ end
 --stylua: ignore
 -------------------------------------------------------------------------------
 function M.init(clangd)
-  vim.pio = require('nvimpio.pio.upkeep')
-  vim.misc = require('nvimpio.utils.misc')
-  vim.clangd = require('nvimpio.clangd.control')
+  -- vim.pio = require('nvimpio.pio.upkeep')
+  -- vim.misc = require('nvimpio.utils.misc')
+  -- vim.clangd = require('nvimpio.clangd.control')
 
   require('nvimpio.pio.commands')
   vim.misc.notify('PIO Control: initialize', "info")
