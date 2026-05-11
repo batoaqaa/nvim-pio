@@ -59,7 +59,7 @@ function M.notify(msg, level)
   local icon = icons[level] or ' '
   local color = level_colors[level] or 'Normal'
 
-  vim.notify(msg, level, { icon = ' ' })
+  vim.notify(msg, level, { icon = '' })
 
   -- -- 1. Clear the command line to prevent "Press ENTER"
   -- vim.cmd('redraw')
