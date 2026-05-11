@@ -164,9 +164,9 @@ function M.deleteFile(path)
   if vim.fn.filereadable(path) == 1 then
     local success = vim.fn.delete(path)
 
-    if success == 0 then vim.misc.notify('PlatformIO: ' .. file .. ' file removed', 'info')
-    else vim.misc.notify('PlatformIO: Failed to delete ' .. file, 'error') end
-  else vim.misc.notify('PlatformIO: ' .. file .. ' file not found', 'warn') end
+    if success == 0 then M.notify('PlatformIO: ' .. file .. ' file removed', 'info')
+    else M.notify('PlatformIO: Failed to delete ' .. file, 'error') end
+  else M.notify('PlatformIO: ' .. file .. ' file not found', 'warn') end
 end
 
 --INFO:
@@ -475,7 +475,7 @@ function M.set_platformioRootDir()
       return
     end
   end
-  vim.misc.notify('Could not find platformio.ini, run :Pioinit to create a new project', 'error')
+  M.notify('Could not find platformio.ini, run :Pioinit to create a new project', 'error')
 end
 
 --INFO:
@@ -493,7 +493,7 @@ function M.pio_install_check()
   handle:close()
 
   if #pio_path == 0 then
-    vim.misc.notify('Platformio not found in the path', 'error')
+    M.notify('Platformio not found in the path', 'error')
     return false
   end
   return true

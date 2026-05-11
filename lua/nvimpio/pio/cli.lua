@@ -2,7 +2,7 @@ local M = {}
 
 -- local misc = require('nvimpio.utils.misc')
 local ToggleTerminal = require('nvimpio.utils.term').ToggleTerminal
-local misc = vim.misc
+local misc = require('nvimpio.utils.misc')
 
 
 -- stylua: ignore
@@ -99,7 +99,7 @@ function M.piorun(arg_table)
   elseif arg_table[1] == 'clean' then
     M.pioclean()
   else
-    vim.misc.notify('Invalid argument: build, upload, uploadfs or clean', "warn")
+    vim.misc.notify('Invalid argument: build, upload, uploadfs or clean', 'warn')
   end
 end
 

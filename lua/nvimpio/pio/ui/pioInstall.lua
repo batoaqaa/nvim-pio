@@ -22,7 +22,8 @@ local function pioInstall()
   _G.pio_status = '⏳ Installing PIO...'
   vim.cmd('redrawstatus')
 
-  vim.pio.run_sequence({ cmnds = { full_cmd }, cb = vim.pio.handlePioInstall })
+  local pio = require('nvimpio.pio.upkeep')
+  pio.run_sequence({ cmnds = { full_cmd }, cb = vim.pio.handlePioInstall })
 end
 
 return {

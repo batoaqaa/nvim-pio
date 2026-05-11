@@ -1,5 +1,6 @@
 local M = {}
 
+local misc = require('nvimpio.utils.misc')
 -------------------------------------------------------------------------------------------------------
 local last_saved_hash = ''
 
@@ -74,16 +75,16 @@ _G.metadata = setmetatable({}, {
         removeFromPath(oldPath)
         local end_time = vim.loop.hrtime()
         local duration = (end_time - start_time) / 1e6
-        vim.misc.notify(string.format('PIO env: ' .. oldPath .. ' removed from path in %.2fms', duration), 'info')
+        misc.notify(string.format('PIO env: ' .. oldPath .. ' removed from path in %.2fms', duration), 'info')
 
         vim.env.PATH = binPath .. sep .. vim.env.PATH
         -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
 
-        vim.misc.notify('PIO env: ' .. binPath .. ' added to path', 'info')
+        misc.notify('PIO env: ' .. binPath .. ' added to path', 'info')
       elseif key == 'last_projectChecksum' then
         -- elseif key == 'active_env' then
         --   _pio_metadata['isBusy'] = true
-        --   vim.misc.updateDefaultEnv()
+        --   misc.updateDefaultEnv()
         --   _pio_metadata['isBusy'] = false
       end
     end)
@@ -93,13 +94,13 @@ _G.metadata = setmetatable({}, {
 local config_path = vim.fs.joinpath(vim.uv.cwd(), '.project_config.json')
 -- -- Add this temporary line in a file where you are coding:
 -- ---@type platformio.utils.misc
--- local misc = vim.misc
+-- local misc = misc
 --INFO:
 -- 2. Save Logic (Uses sha256 for stability)
 -------------------------------------------------------------------------------
 function M.save_project_config(from)
   -- 1. Generate the formatted string directly, jsonFormat already returns a string!
-  local ok, pretty_json = pcall(vim.misc.jsonFormat, _pio_metadata)
+  local ok, pretty_json = pcall(misc.jsonFormat, _pio_metadata)
 
   if not ok or not pretty_json then
     print('Error formatting metadata')
@@ -110,13 +111,13 @@ function M.save_project_config(from)
 
   -- 2. Only write if the content actually changed
   if current_hash ~= last_saved_hash then
-    local status, err = vim.misc.writeFile(config_path, pretty_json, {})
+    local status, err = misc.writeFile(config_path, pretty_json, {})
 
     if status then
       last_saved_hash = current_hash
-      vim.misc.notify(from .. 'config save success', 'info')
+      misc.notify(from .. 'config save success', 'info')
     else
-      vim.misc.notify(from .. 'config save failed==> ' .. (err or 'unknown error'), 'error')
+      misc.notify(from .. 'config save failed==> ' .. (err or 'unknown error'), 'error')
     end
   end
 end
@@ -126,7 +127,7 @@ end
 -------------------------------------------------------------------------------
 function M.load_project_config()
   if vim.fn.filereadable(config_path) == 1 then
-    local _, json_data = vim.misc.readFile(config_path)
+    local _, json_data = misc.readFile(config_path)
     if json_data then
       local ok, table_data = pcall(vim.json.decode, json_data)
       if ok and type(table_data) == 'table' then
@@ -141,7 +142,7 @@ function M.load_project_config()
     end
   end
   -- If no file, initialize hash with defaults
-  last_saved_hash = vim.fn.sha256(vim.misc.jsonFormat(_pio_metadata))
+  last_saved_hash = vim.fn.sha256(misc.jsonFormat(_pio_metadata))
 end
 
 --INFO:

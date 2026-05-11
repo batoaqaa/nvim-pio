@@ -3,7 +3,7 @@ local M = {}
 local clangd = require('nvimpio.clangd.control')
 local pio = require('nvimpio.pio.upkeep')
 local misc = require('nvimpio.utils.misc')
-local clangdRestart = require('nvimpio.clangd.control').clangdRestart
+local clangdRestart = clangd.clangdRestart
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 
@@ -299,8 +299,8 @@ end
 -------------------------------------------------------------------------------
 function M.init(clangd_config)
   -- pio = require('nvimpio.pio.upkeep')
-  -- vim.misc = require('nvimpio.utils.misc')
-  -- vim.clangd = require('nvimpio.clangd.control')
+  -- misc = require('nvimpio.utils.misc')
+  -- clangd = require('nvimpio.clangd.control')
 
   require('nvimpio.pio.commands')
   misc.notify('PIO Control: initialize', "info")

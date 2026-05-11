@@ -1,7 +1,8 @@
 ---@class platformio.utils.pio
 local M = {}
 
--- local misc = vim.misc
+local clangd = require('nvimpio.clangd.control')
+local pio = require('nvimpio.pio.upkeep')
 local misc = require('nvimpio.utils.misc')
 
 local boilerplate = require('nvimpio.boilerplate')
@@ -224,13 +225,13 @@ function M.pio_refresh(callback, from)
 
   local function on_done(active_env)
     if active_env then vim.misc.notify(msg .. 'active_env= ' .. active_env, "info") end
-    if active_env then vim.pio.fetch_metadata(callback, active_env, from, 1) end
+    if active_env then pio.fetch_metadata(callback, active_env, from, 1) end
   end
-  vim.pio.fetch_config(on_done, from)
-  -- local active_env = vim.pio.get_active__env(from)
+  pio.fetch_config(on_done, from)
+  -- local active_env = pio.get_active__env(from)
   -- if active_env then
   --   vim.misc.notify(msg .. 'active_env= ' .. active_env, "info")
-  --   vim.pio.fetch_metadata(callback, active_env, from, 1)
+  --   pio.fetch_metadata(callback, active_env, from, 1)
   -- end
 end
 
@@ -559,7 +560,7 @@ function M.compile_commandsFix() --M.dbPathsFix()
     local end_time = vim.loop.hrtime()
     local duration = (end_time - start_time) / 1e6
     vim.misc.notify(string.format('compiledb: paths fixed in %.2fms', duration), "info")
-    vim.clangd.restart()
+    clangd.restart()
   end
   _G.metadata.isBusy = false
 end
@@ -698,7 +699,7 @@ function M.handlePioinitDb(result, board, on_done)
 
 
         if on_done and type(on_done) == "function" then on_done(true)
-        else vim.clangd.getUnknownArgs() end
+        else clangd.getUnknownArgs() end
 
 
         boilerplate.core_dir = _G.metadata.core_dir
@@ -754,7 +755,7 @@ function M.handlePioinit(result)
       M.pio_refresh(function()
         boilerplate_gen([[.clangd]], _G.metadata.core_dir)
         vim.misc.closeMessage(win_id)
-        vim.clangd.restart()
+        clangd.restart()
         -- term.ToggleTerminal('echo "************ project Initialization success ************"', 'float')
       end, 'PIO init: ')
     end)

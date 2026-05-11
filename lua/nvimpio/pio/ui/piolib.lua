@@ -10,6 +10,7 @@ local actions = require('telescope.actions')
 local action_state = require('telescope.actions.state')
 -- local misc = require('nvimpio.utils.misc')
 local previewers = require('telescope.previewers')
+local misc = require('nvimpio.utils.misc')
 
 local libentry_maker = function(opts)
   local displayer = entry_display.create({
@@ -64,10 +65,11 @@ local function pick_library(json_data)
         -- local command = 'pio pkg install --library "' .. pkg_name .. '"'
         -- command = command .. ' && pio run -t compiledb'
 
-        vim.pio.run_sequence({
+        local pio = require('nvimpio.pio.upkeep')
+        pio.run_sequence({
             cmnds = {'pio pkg install --library "' .. pkg_name .. '"'},
-            cb = vim.pio.handlePiolib
-          --function () vim.misc.notify('Piolib: Done', "info") end
+            cb = pio.handlePiolib
+          --function () misc.notify('Piolib: Done', "info") end
         })
       end)
       return true
@@ -76,7 +78,7 @@ local function pick_library(json_data)
     previewer = previewers.new_buffer_previewer({
       title = 'Package Info',
       define_preview = function(self, entry, _)
-        local json = vim.misc.strsplit(vim.inspect(entry['value']['data']), '\n')
+        local json = misc.strsplit(vim.inspect(entry['value']['data']), '\n')
         local bufnr = self.state.bufnr
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, json)
         vim.api.nvim_set_option_value('filetype', 'lua', { buf = bufnr }) --fix deprecated function
@@ -167,7 +169,7 @@ end
 -- end
 
 function M.piolib(lib_arg_list)
-  if not vim.misc.pio_install_check() then
+  if not misc.pio_install_check() then
     return
   end
 
@@ -196,10 +198,7 @@ function M.piolib(lib_arg_list)
 
     pick_library(json_data)
   else
-    vim.misc.notify(
-      'API Request to platformio return HTTP code: ' .. res['status'] .. '\nplease run `curl -LI ' .. url .. '` for complete information',
-      "error"
-    )
+    misc.notify('API Request to platformio return HTTP code: ' .. res['status'] .. '\nplease run `curl -LI ' .. url .. '` for complete information', 'error')
   end
 end
 
