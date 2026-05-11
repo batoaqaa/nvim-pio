@@ -665,7 +665,6 @@ function M.handlePioinitDb(result, board, on_done)
   if result == 'INIT' then
     boilerplate.core_dir = _G.metadata.core_dir
     boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
-    boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
     -- boilerplate_gen([[.clangd]], vim.fs.joinpath(vim.env.XDG_CONFIG_HOME, 'clangd'), 'config.yaml')
 
     -- win_id = vim.misc.showMessage('************ Project Initializing ************')

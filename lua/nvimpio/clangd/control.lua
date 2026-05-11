@@ -144,15 +144,14 @@ function M.setFormatStyle()
     -- We use cmd /c only because of the '>' redirect
 
   M.clangdIntall(function(clangdCmd)
-    -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
-    -- local cmd = { clangdCmd, '/c', string.format('clang-format -style=%s -dump-config > .clang-format', choice:lower()) }
-
+    -- using toggleterm for setting clang-format style
     local cmd = string.format('%s --style=%s --dump-config > .clang-format',clangdCmd, choice:lower())
     vim.pio.run_sequence({
         cmnds = {cmd},
         cb = vim.pio.clangFormat
     })
 
+    -- using hidden system command for setting clang-format style
     -- local cmd = { clangdCmd, string.format('--style=%s --dump-config > .clang-format', choice:lower()) }
     -- Execute asynchronously
     -- vim.system(cmd, { text = true }, function(obj)
@@ -173,41 +172,6 @@ function M.setFormatStyle()
   end, 'clang-format')
   end)
 end
--- function M.setFormatStyle()
---
---   local styles = { 'LLVM', 'Google', 'Chromium', 'Mozilla', 'WebKit', 'Microsoft', 'Linux' }
---
---   vim.ui.select(styles, {
---     prompt = 'Select Clang-Format base style:',
---   }, function(choice)
---     if not choice then return end
---
---     -- 1. Generate the command (Windows compatible)
---     local cmd = string.format('cmd /c "clang-format -style=%s -dump-config > .clang-format"', choice:lower())
---
---     -- vim.pio.run_sequence({
---     --     cmnds = {cmd},
---     --     cb = vim.pio.clangFormat
---     -- })
---
---     -- 2. Execute and check result
---     local success = os.execute(cmd)
---
---     if success then
---       vim.misc.notify('Created .clang-format (' .. choice .. ')', "info")
---
---       -- 3. Restart clangd to apply the new formatting rules
---       -- Slight delay to ensure file is written before LSP restarts
---       vim.defer_fn(function()
---         M.restart()
---         print('LSP Reloaded: Using ' .. choice .. ' style.')
---       end, 100)
---     else
---       vim.misc.notify('Failed to generate .clang-format. Is clang-format in your PATH?', "error")
---     end
---   end)
--- end
-
 
 --------------------------------------------------------------------------------
 -- INFO: get_clangd_unknown_args

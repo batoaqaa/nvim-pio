@@ -315,6 +315,8 @@ function M.init(clangd)
     local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
     pio_refresh(function()
       boilerplate.core_dir = _G.metadata.core_dir
+      vim.clangd.getUnknownArgs()
+      boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
       _G.metadata.isBusy = false
     end, 'PIO start: ')
   end
