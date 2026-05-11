@@ -1,7 +1,11 @@
 -- local boilerplate_gen = require('nvimpio.boilerplate').boilerplate_gen
 local fok, fidget = pcall(require, 'fidget')
 if fok then
-  fidget.setup({})
+  fidget.setup({
+    notification = {
+      override_vim_notify = true, -- This redirect vim.notify to fidget
+    },
+  })
 end
 
 -----------------------------------------------------------------------------------------
