@@ -655,30 +655,24 @@ function M.handlePioinitDb(result, board, on_done)
   if result == 'INIT' then
     boilerplate.core_dir = _G.metadata.core_dir
     boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
-    -- boilerplate_gen([[.clangd]], vim.fs.joinpath(vim.env.XDG_CONFIG_HOME, 'clangd'), 'config.yaml')
 
-    -- win_id = misc.showMessage('************ Project Initializing ************')
     if #M.queue > 0 then
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
-      -- if trm then trm:toggle() end
-      -- trm = term.ToggleTerminal(table.remove(M.queue, 1), 'horizontal')
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then
       OS.notify('PIO init+db:  pass ' .. commandPassed, "info")
-      -- OS.notify('PIO init+db:  pass ' .. commandPassed, "info")
+
       local active_env = M.get_active__env('PIO init+db: ')
       if not active_env or (active_env == board) then
         boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
         boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
         commandPassed = commandPassed + 1
-        if #M.queue > 0 then trm:send(table.remove(M.queue, 1), 'float') end
-        -- if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
-        -- if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'horizontal') end
+        if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
       else
         if on_done and type(on_done) == "function" then on_done(false) end
         M.cleanup_pio_session()
@@ -689,7 +683,6 @@ function M.handlePioinitDb(result, board, on_done)
     vim.schedule(function()
       OS.notify('PIO init+db:  pass ' .. commandPassed, "info")
       OS.notify('PIO init+db: Done', "info")
-      -- local pio_refresh = require('nvimpio.pio.control').pio_refresh
       M.pio_refresh(function()
         if on_done and type(on_done) == "function" then on_done(true)
         else clangd.getUnknownArgs() end
@@ -711,7 +704,6 @@ end
 -- stylua: ignore
 function M.handlePioInstall(result, on_done)
   if result == 'INIT' then
-    -- win_id = misc.showMessage('************ Project Initializing ************')
     if #M.queue > 0 then
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       if trm and on_done and type(on_done) == "function" then
@@ -723,7 +715,6 @@ function M.handlePioInstall(result, on_done)
     if commandPassed == 1 then
       OS.notify('PIO install:  pass ' .. commandPassed, "info")
       commandPassed = commandPassed + 1
-      -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), 'float') end
       if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
     -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
     end
@@ -742,6 +733,7 @@ function M.handlePioInstall(result, on_done)
       end
     end
     OS.notify('PlatformIO installed successfully!', 'info')
+
     commandPassed = commandPassed + 1
     if trm then trm:close() end
     if on_done and type(on_done) == "function" then on_done(true)end
@@ -808,26 +800,25 @@ end
 ------------------------------------------------------
 -- =============================================================================
 -- stylua: ignore
-function M.handlePiodb(target, result)
+function M.handlePioDB(result)
   if result == 'INIT' then
     if #M.queue > 0 then
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       _G.metadata.isBusy = true
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
     end
   elseif result == 'DONE' then -- result of the only and the last command
-    OS.notify('PIO db:  pass ' .. commandPassed, "info")
-    OS.notify('PIO db: Done', "info")
-    commandPassed = commandPassed + 1
-    target.isBusy = false
-    M.queue = {}
-    term.stdout_callback = nil
-    _G.metadata.isBusy = false
+    vim.schedule(function()
+      OS.notify('PIO compiledb:  pass ' .. commandPassed, "info")
+      OS.notify('PIO compiledb: Done', "info")
+      M.pio_refresh(function()
+        clangd.getUnknownArgs()
+        boilerplate.core_dir = _G.metadata.core_dir
+      end, 'PIO compiledb: ')
+    end)
     if trm then trm:close() end
+    M.cleanup_pio_session()
   elseif result == 'FAIL' then
-    target.isBusy = false
-    M.queue = {}
-    term.stdout_callback = nil
-    _G.metadata.isBusy = false
+    M.cleanup_pio_session()
   end
 end
 

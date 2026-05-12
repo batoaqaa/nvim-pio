@@ -7,6 +7,13 @@
 -- -1: Zero or one argument (like ?, explicitly).
 
 -- stylua: ignore
+-- INFO: update/generate compileDB
+----------------------------------------------------------------
+vim.api.nvim_create_user_command('PioCompileDB', function()
+    require('nvimpio.pio.ui.pioCompileDB').pioCompileDB()
+end, { desc = "Install PlatformIO Core" })
+
+-- stylua: ignore
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
 vim.api.nvim_create_user_command('PioInstall', function()

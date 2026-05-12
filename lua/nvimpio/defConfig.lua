@@ -23,7 +23,7 @@ local defConfig = {
         { node = 'item', desc = '[T]est', shortcut = 't', command = 'Piocmdf test' },
         { node = 'item', desc = '[C]heck', shortcut = 'c', command = 'Piocmdf check' },
         { node = 'item', desc = '[D]ebug', shortcut = 'd', command = 'Piocmdf debug' },
-        { node = 'item', desc = 'Compilation Data[b]ase', shortcut = 'b', command = 'Piocmdf run -t compiledb' },
+        { node = 'item', desc = 'Compilation Data[b]ase', shortcut = 'b', command = 'PioCompileDB' },
         {
           node = 'menu',
           desc = '[V]erbose',
