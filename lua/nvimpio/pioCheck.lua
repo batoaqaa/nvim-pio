@@ -138,7 +138,7 @@ function M.pioStatus(on_complete, is_autocmd)
   -- -- open toggleterm and install platformio
   -- pio.run_sequence({ cmnds = { downloald_cmd, install_cmd() }, cb = cb })
 
-  local pioInstall = require('nvimpio.pio.ui.pioInstal')
+  local pioInstall = require('nvimpio.pio.ui.pioInstal').pioInstall
   pioInstall(function(success)
     M.state.isInstalled = success
     flush_queue(success) -- FIRE HERE (via flush_queue)
