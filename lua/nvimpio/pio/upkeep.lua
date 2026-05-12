@@ -732,7 +732,7 @@ function M.handlePioInstall(result, on_done)
         if vim.fn.isdirectory(path) == 1 then vim.fn.delete(path, "rf") end
       end
     end
-    OS.notify('PlatformIO installed successfully!', 'info')
+    OS.notify('PIO install: success', 'info')
 
     commandPassed = commandPassed + 1
     if trm then trm:close() end
@@ -761,43 +761,13 @@ function M.clangFormat(result)
     OS.notify('Clang formatter:  pass ' .. commandPassed, "info")
     OS.notify('Clang formatter: Done', "info")
     commandPassed = commandPassed + 1
-    M.queue = {}
-    term.stdout_callback = nil
-    _G.metadata.isBusy = false
     if trm then trm:close() end
+    M.cleanup_pio_session()
   elseif result == 'FAIL' then
-    M.queue = {}
-    term.stdout_callback = nil
-    _G.metadata.isBusy = false
+    M.cleanup_pio_session()
   end
 end
 
-------------------------------------------------------
--- Handle after piolib execution
--- =============================================================================
--- stylua: ignore
-function M.handlePiolib(result)
-  if result == 'INIT' then
-    if #M.queue > 0 then
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-      _G.metadata.isBusy = true
-    end
-  elseif result == 'DONE' then -- result of the only and the last command
-    OS.notify('PIO lib:  pass ' .. commandPassed, "info")
-    OS.notify('PIO lib: Done', "info")
-    commandPassed = commandPassed + 1
-    M.queue = {}
-    term.stdout_callback = nil
-    _G.metadata.isBusy = false
-    if trm then trm:close() end
-  elseif result == 'FAIL' then
-    M.queue = {}
-    term.stdout_callback = nil
-    _G.metadata.isBusy = false
-  end
-end
-
-------------------------------------------------------
 -- =============================================================================
 -- stylua: ignore
 function M.handlePioDB(result)
@@ -874,4 +844,36 @@ function M.handlePioinit(result)
   end
 end
 
+
+------------------------------------------------------
+-- Handle after piolib execution
+-- =============================================================================
+-- stylua: ignore
+function M.handlePiolib(result)
+  if result == 'INIT' then
+    if #M.queue > 0 then
+      _G.metadata.isBusy = true
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+    end
+  elseif result == 'PASS' then
+    if commandPassed == 1 then
+      OS.notify('PIO lib+db:  pass ' .. commandPassed, "info")
+      commandPassed = commandPassed + 1
+      if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
+    -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
+    end
+  elseif result == 'DONE' then -- result of the last command
+    vim.schedule(function()
+      OS.notify('PIO lib+db:  pass ' .. commandPassed, "info")
+      OS.notify('PIO lib+db: Done', "info")
+      M.pio_refresh(function()
+        clangd.getUnknownArgs()
+      end, 'PIO lib+db: ')
+    end)
+    if trm then trm:close() end
+    M.cleanup_pio_session()
+  elseif result == 'FAIL' then
+    M.cleanup_pio_session()
+  end
+end
 return M
