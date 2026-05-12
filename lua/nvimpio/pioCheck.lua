@@ -1,6 +1,6 @@
 local M = {}
 
--- stylua: ignore
+-- stylua: ignore start
 function M.get_bin_dir()
   -- local is_win = vim.fn.has('win32') == 1
   local bin_subfolder = OS.is_win and 'penv/Scripts' or 'penv/bin'
@@ -22,7 +22,6 @@ M.state = {
 }
 
 -- INFO: 1. Functional Check
--- stylua: ignore
 local function is_pio_functional()
   -- 1. Quick check: Is it in the PATH?
   if vim.fn.executable('pio') == 0 then return false end
@@ -61,7 +60,6 @@ end
 -- end)
 
 -- INFO: 2. Internal helper to notify all waiting processes
--- stylua: ignore
 local function flush_queue(success)
   -- If successful, we are READY. If not, we mark as FAILED.
   M.state.status = success and "READY" or "FAILED"
@@ -73,7 +71,6 @@ local function flush_queue(success)
 end
 
 -- 3. The Primary Entry Point
--- stylua: ignore
 function M.pioStatus(on_complete, is_autocmd)
   -- 1. If currently installing, just wait, just join the queue.
   if M.state.status == 'INSTALLING' then
@@ -106,29 +103,46 @@ function M.pioStatus(on_complete, is_autocmd)
     return
   end
 
-  local installer_script = 'get-platformio.py'
-  local cmd = string.format(
-    "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/%s', '%s')\" && python %s",
-    installer_script,
-    installer_script,
-    installer_script
-  )
+  -- local installer_script = 'get-platformio.py'
+  -- local cmd = string.format(
+  --   "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/%s', '%s')\" && python %s",
+  --   installer_script,
+  --   installer_script,
+  --   installer_script
+  -- )
 
-  -- local function on_done(success)
-  --   M.state.isInstalled = success
-  --   flush_queue(success) -- FIRE HERE (via flush_queue)
+  -- local python = OS.is_win and 'python' or 'python3'
+  -- local script = 'get-platformio.py'
+  -- local script_url = 'https://raw.githubusercontent.com/platformio/platformio-core-installer/master/'
+  -- local downloald_cmd = string.format(
+  --                          "%s -c \"import urllib.request; urllib.request.urlretrieve('%s%s', '%s')\"",
+  --                          python,
+  --                          script_url,
+  --                          script,
+  --                          script)
+  -- local install_cmd = python .. ' get-platformio.py'
+  -- -- local function on_done(success)
+  -- --   M.state.isInstalled = success
+  -- --   flush_queue(success) -- FIRE HERE (via flush_queue)
+  -- -- end
+  --
+  -- local pio = require('nvimpio.pio.upkeep')
+  -- local cb = function(status)
+  --   -- pio.handlePioInstall(status, on_done)
+  --   pio.handlePioInstall(status, function(success)
+  --     M.state.isInstalled = success
+  --     flush_queue(success) -- FIRE HERE (via flush_queue)
+  --   end)
   -- end
-  local pio = require('nvimpio.pio.upkeep')
-  local cb = function(status)
-    -- pio.handlePioInstall(status, on_done)
-    pio.handlePioInstall(status, function(success)
-      M.state.isInstalled = success
-      flush_queue(success) -- FIRE HERE (via flush_queue)
-    end)
-  end
+  --
+  -- -- open toggleterm and install platformio
+  -- pio.run_sequence({ cmnds = { downloald_cmd, install_cmd() }, cb = cb })
 
-  -- open toggleterm and install platformio
-  pio.run_sequence({ cmnds = { cmd }, cb = cb })
+  local pioInstall = require('nvimpio.pio.ui').handlePioInstall
+  pioInstall(function(success)
+    M.state.isInstalled = success
+    flush_queue(success) -- FIRE HERE (via flush_queue)
+  end)
 end
 
 return M
