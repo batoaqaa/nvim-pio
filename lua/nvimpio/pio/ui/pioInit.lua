@@ -46,22 +46,13 @@ local function finalize_setup()
   local pio = require('nvimpio.pio.upkeep')
 
   local sample_flag = '' --wizard_data.sample == 'Yes' and ' --sample-code' or ''
-  local init_cmd = string.format('pio project init --board %s -O "framework=%s"%s', wizard_data.board_id, wizard_data.framework, sample_flag)
-
-  -- local db_cmd = string.format('pio run -t compiledb -e %s', wizard_data.board_id)
+  local init_cmd = string.format('pio project init --board %s -O "framework=%s" %ss', wizard_data.board_id, wizard_data.framework, sample_flag)
   local db_cmd = string.format('pio run -t compiledb -e %s', wizard_data.board_id)
   local commands = { init_cmd, db_cmd }
-  -- local final_cb = pio.handlePioinitDb
-  local final_cb = function(status)
-    -- if wizard_data.on_done then
-    pio.handlePioinitDb(status, wizard_data.board_id, wizard_data.on_done)
-    -- else
-    --   vim.pio.handlePioinitDb(status, wizard_data.board_id)
-    -- end
-  end
 
-  -- local commands = { init_cmd }
-  -- local final_cb = pio.handlePioinit
+  local final_cb = function(status)
+    pio.handlePioinitDb(status, wizard_data.board_id, wizard_data.on_done)
+  end
 
   notify('Starting project setup for ' .. wizard_data.board_id .. '...')
   pio.run_sequence({ cmnds = commands, cb = final_cb })
