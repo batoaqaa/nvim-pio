@@ -6,19 +6,17 @@ M.config = require('nvimpio.defConfig')
 local userConfig = require('nvimpio.userConfig')
 local pioCheck = require('nvimpio.pioCheck')
 
-local user_config = {}
 -- INFO:
 --stylua: ignore start
 -------------------------------------------------------------------------------
 function M.setup(opts)
   vim.g.platformioRootDir = vim.uv.cwd()
-  local state = require('nvimpio.pioCheck').state
 
   -- Activation: Turn on the plugin features
   local function activate()
-    if state.isActivated then return end
+    if pioCheck.state.isActivated then return end
 
-    state.isActivated = true
+    pioCheck.state.isActivated = true
     vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
 
     local sep = vim.fn.has('win32') == 1 and ';' or ':'
@@ -27,7 +25,7 @@ function M.setup(opts)
       if vim.fn.isdirectory(pio_bin) == 1 then vim.env.PATH = pio_bin .. sep .. vim.env.PATH end
     end
 
-    if opts then user_config = opts end
+    local user_config = opts or {}
     userConfig.validate(user_config)
     M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
     userConfig.buildUsserMenu(M.config)
@@ -39,13 +37,9 @@ function M.setup(opts)
   vim.api.nvim_create_user_command('Pioinit', function()
     pioCheck.pioStatus(function(success)
       if success then
-        if state.isActivated then
+        if pioCheck.state.isActivated then
           require('nvimpio.pio.ui.pioInit').pioInit()
         else
-          -- vim.pio = require('nvimpio.pio.upkeep')
-          -- vim.misc = require('nvimpio.utils.misc')
-          -- vim.clangd = require('nvimpio.clangd.control')
-
           require('nvimpio.pio.ui.pioInit').pioInit(function(done)
             if (done) then
               -- vim.clangd.getUnknownArgs()
@@ -66,11 +60,6 @@ function M.setup(opts)
     vim.schedule(function()
       pioCheck.pioStatus(function(success)
         if success then
-          -- if not state.isActivated then
-          --   vim.pio = require('nvimpio.pio.upkeep')
-          --   vim.misc = require('nvimpio.utils.misc')
-          --   vim.clangd = require('nvimpio.clangd.control')
-          -- end
           activate()
         end
       end, true)
