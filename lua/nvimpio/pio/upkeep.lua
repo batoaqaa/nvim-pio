@@ -662,6 +662,7 @@ function M.handlePioinitDb(result, board, on_done)
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
+      if trm then trm:open() end
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then
@@ -710,6 +711,7 @@ function M.handlePioInstall(result, on_done)
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
       _G.metadata.isBusy = true
+      if trm then trm:open() end
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then
@@ -756,6 +758,7 @@ function M.clangFormat(result)
     if #M.queue > 0 then
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       _G.metadata.isBusy = true
+      if trm then trm:open() end
     end
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify('Clang formatter:  pass ' .. commandPassed, "info")
@@ -775,6 +778,7 @@ function M.handlePioDB(result)
     if #M.queue > 0 then
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      if trm then trm:open() end
     end
   elseif result == 'DONE' then -- result of the only and the last command
     vim.schedule(function()
@@ -798,19 +802,14 @@ end
 function M.handlePioinit(result)
   if result == 'INIT' then
 
-    boilerplate.core_dir = _G.metadata.core_dir
-    boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
-
-    boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
-
-    boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
-    -- boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-    -- boilerplate_gen([[.clangd]], vim.fs.joinpath(vim.env.XDG_CONFIG_HOME, 'clangd'), 'config.yaml')
-
-    -- win_id = misc.showMessage('************ Project Initializing ************')
     if #M.queue > 0 then
+      boilerplate.core_dir = _G.metadata.core_dir
+      boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
+      boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
+      boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       _G.metadata.isBusy = true
+      if trm then trm:open() end
     end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
@@ -854,6 +853,7 @@ function M.handlePiolib(result)
     if #M.queue > 0 then
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      if trm then trm:open() end
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then
