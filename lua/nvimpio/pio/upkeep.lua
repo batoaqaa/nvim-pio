@@ -723,7 +723,7 @@ function M.handlePioInstall(result, on_done)
     if commandPassed == 1 then
       OS.notify('PIO install:  pass ' .. commandPassed, "info")
       commandPassed = commandPassed + 1
-      if #M.queue > 0 then trm:send(table.remove(M.queue, 1), 'float') end
+      -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), 'float') end
     -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
     end
   elseif result == 'DONE' then -- result of the only and the last command
@@ -866,7 +866,7 @@ function M.handlePioinit(result)
       -- IMPORTANT: No \n at the end, so it doesn't execute
       -- local msg = '************ Please wait for project Initialization to finish ************'
       -- local clean_msg = string.format('\27[G\27[2K\27[33m%s\27[0m', msg)
-      -- vim.api.nvim_chan_send(trm.job_id, clean_msg)
+      -- vim.api.nvim_chan_send(trm:job_id, clean_msg)
 
       -- local pio_refresh = require('nvimpio.pio.control').pio_refresh
       M.pio_refresh(function()
