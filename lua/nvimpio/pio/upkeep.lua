@@ -90,60 +90,60 @@ end
 --INFO:
 -- stylua: ignore
 -------------------------------------------------------------------------------
-function M.updateDefaultEnv()
-  local path = vim.fn.getcwd() .. "/platformio.ini"
-  local active_env = _G.metadata.active_env
-  if not active_env or active_env == "" then return end
-
-  _G.metadata.isBusy = true
-  local ok, content = misc.readFile(path)
-  if not ok or not content then
-    _G.metadata.isBusy = false
-    return
-  end
-
-  local new_lines = {}
-  local updated = false
-  local in_platformio = false
-
-  -- Process text and newline separately to maintain file integrity
-  for text, newline in content:gmatch("([^\r\n]*)([\r\n]+)") do
-    local is_header = text:match("^%s*%[([^%]]+)%]")
-
-    if is_header == "platformio" then
-      in_platformio = true
-    elseif is_header then
-      -- If leaving [platformio] without updating, insert it now
-      if in_platformio and not updated then
-        table.insert(new_lines, "default_envs = " .. active_env .. newline)
-        updated = true
-      end
-      in_platformio = false
-    end
-
-    if in_platformio and text:match("^%s*default_envs%s*=") then
-      table.insert(new_lines, "default_envs = " .. active_env .. newline)
-      updated = true
-    else
-      -- Keep original text and original newline (preserves spacing)
-      table.insert(new_lines, text .. newline)
-    end
-  end
-
-  -- Fallback for missing sections
-  if not updated then
-    if in_platformio then
-      table.insert(new_lines, "default_envs = " .. active_env .. "\n")
-    else
-      table.insert(new_lines, 1, "[platformio]\ndefault_envs = " .. active_env .. "\n\n")
-    end
-  end
-
-  misc.writeFile(path, table.concat(new_lines), {})
-  misc.notify("PIO reset default_envs: " .. active_env)
-  _G.metadata.isBusy = false
--------------------------------------------------------------------------------
-end
+-- function M.updateDefaultEnv()
+--   local path = vim.fn.getcwd() .. "/platformio.ini"
+--   local active_env = _G.metadata.active_env
+--   if not active_env or active_env == "" then return end
+--
+--   _G.metadata.isBusy = true
+--   local ok, content = misc.readFile(path)
+--   if not ok or not content then
+--     _G.metadata.isBusy = false
+--     return
+--   end
+--
+--   local new_lines = {}
+--   local updated = false
+--   local in_platformio = false
+--
+--   -- Process text and newline separately to maintain file integrity
+--   for text, newline in content:gmatch("([^\r\n]*)([\r\n]+)") do
+--     local is_header = text:match("^%s*%[([^%]]+)%]")
+--
+--     if is_header == "platformio" then
+--       in_platformio = true
+--     elseif is_header then
+--       -- If leaving [platformio] without updating, insert it now
+--       if in_platformio and not updated then
+--         table.insert(new_lines, "default_envs = " .. active_env .. newline)
+--         updated = true
+--       end
+--       in_platformio = false
+--     end
+--
+--     if in_platformio and text:match("^%s*default_envs%s*=") then
+--       table.insert(new_lines, "default_envs = " .. active_env .. newline)
+--       updated = true
+--     else
+--       -- Keep original text and original newline (preserves spacing)
+--       table.insert(new_lines, text .. newline)
+--     end
+--   end
+--
+--   -- Fallback for missing sections
+--   if not updated then
+--     if in_platformio then
+--       table.insert(new_lines, "default_envs = " .. active_env .. "\n")
+--     else
+--       table.insert(new_lines, 1, "[platformio]\ndefault_envs = " .. active_env .. "\n\n")
+--     end
+--   end
+--
+--   misc.writeFile(path, table.concat(new_lines), {})
+--   misc.notify("PIO reset default_envs: " .. active_env)
+--   _G.metadata.isBusy = false
+-- -------------------------------------------------------------------------------
+-- end
 
 --INFO:
 -- Fast environment detection from platformio.ini file(no external calls)
@@ -227,11 +227,6 @@ function M.pio_refresh(callback, from)
     if active_env then M.fetch_metadata(callback, active_env, from, 1) end
   end
   M.fetch_config(on_done, from)
-  -- local active_env = M.get_active__env(from)
-  -- if active_env then
-  --   misc.notify(msg .. 'active_env= ' .. active_env, "info")
-  --   pio.fetch_metadata(callback, active_env, from, 1)
-  -- end
 end
 
 -- INFO:
@@ -316,9 +311,6 @@ function M.fetch_config(on_done, from)
         end
       end
 
-      -- if active_env then
-      --   misc.notify(msg .. 'active_env= ' .. active_env, "info")
-      -- end
       -- 6. Trigger next step
       if meta.active_env ~= '' then
         misc.notify(msg .. 'Config sync successful', "info")
@@ -655,7 +647,6 @@ function M.cleanup_pio_session()
   win_id = nil
   term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
   -- if trm then trm:close() end
-  if trm then trm:toggle() end
 end
 
 -- stylua: ignore
@@ -705,6 +696,7 @@ function M.handlePioinitDb(result, board, on_done)
         boilerplate.core_dir = _G.metadata.core_dir
       end, 'PIO init+db: ')
     end)
+    if trm then trm:close() end
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
     if on_done and type(on_done) == "function" then on_done(false)end
@@ -782,6 +774,7 @@ function M.handlePiolib(result)
     M.queue = {}
     term.stdout_callback = nil
     _G.metadata.isBusy = false
+    if trm then trm:close() end
   elseif result == 'FAIL' then
     M.queue = {}
     term.stdout_callback = nil
@@ -820,6 +813,7 @@ function M.handlePioInstall(result)
 
     commandPassed = commandPassed + 1
     M.cleanup_pio_session()
+    if trm then trm:close() end
   elseif result == 'FAIL' then
     _G.pio_status = '❌ PIO Failed'
     vim.cmd('redrawstatus')
@@ -844,6 +838,7 @@ function M.handlePiodb(target, result)
     M.queue = {}
     term.stdout_callback = nil
     _G.metadata.isBusy = false
+    if trm then trm:close() end
   elseif result == 'FAIL' then
     target.isBusy = false
     M.queue = {}
@@ -869,23 +864,12 @@ function M.clangFormat(result)
     M.queue = {}
     term.stdout_callback = nil
     _G.metadata.isBusy = false
-    if trm then trm:toggle() end
+    if trm then trm:close() end
   elseif result == 'FAIL' then
     M.queue = {}
     term.stdout_callback = nil
     _G.metadata.isBusy = false
   end
 end
-return M
 
---   misc.notify('Created .clang-format (' .. choice .. ')', "info")
---
---   -- 3. Restart clangd to apply the new formatting rules
---   -- Slight delay to ensure file is written before LSP restarts
---   vim.defer_fn(function()
---     M.restart()
---     print('LSP Reloaded: Using ' .. choice .. ' style.')
---   end, 100)
--- else
---   misc.notify('Failed to generate .clang-format. Is clang-format in your PATH?', "error")
--- end
+return M

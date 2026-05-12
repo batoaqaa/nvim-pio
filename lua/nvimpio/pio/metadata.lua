@@ -5,7 +5,7 @@ local misc = require('nvimpio.utils.misc')
 local last_saved_hash = ''
 
 --INFO:
--- stylua: ignore
+-- stylua: ignore start
 -------------------------------------------------------------------------------
 local function removeFromPath(path_to_remove)
   local sep = vim.fn.has('win32') == 1 and ';' or ':'
@@ -83,24 +83,19 @@ _G.metadata = setmetatable({}, {
         misc.notify('PIO env: ' .. binPath .. ' added to path', 'info')
       elseif key == 'last_projectChecksum' then
         -- elseif key == 'active_env' then
-        --   _pio_metadata['isBusy'] = true
-        --   misc.updateDefaultEnv()
-        --   _pio_metadata['isBusy'] = false
       end
     end)
   end,
 })
 
 local config_path = vim.fs.joinpath(vim.uv.cwd(), '.project_config.json')
--- -- Add this temporary line in a file where you are coding:
--- ---@type platformio.utils.misc
--- local misc = misc
+
 --INFO:
 -- 2. Save Logic (Uses sha256 for stability)
 -------------------------------------------------------------------------------
 function M.save_project_config(from)
   -- 1. Generate the formatted string directly, jsonFormat already returns a string!
-  local ok, pretty_json = pcall(misc.jsonFormat, _pio_metadata)
+  local ok, pretty_json = pcall(misc.jsonFormat, _G.metadata)
 
   if not ok or not pretty_json then
     print('Error formatting metadata')
@@ -116,9 +111,7 @@ function M.save_project_config(from)
     if status then
       last_saved_hash = current_hash
       misc.notify(from .. 'config save success', 'info')
-    else
-      misc.notify(from .. 'config save failed==> ' .. (err or 'unknown error'), 'error')
-    end
+    else misc.notify(from .. 'config save failed==> ' .. (err or 'unknown error'), 'error') end
   end
 end
 
@@ -131,11 +124,7 @@ function M.load_project_config()
     if json_data then
       local ok, table_data = pcall(vim.json.decode, json_data)
       if ok and type(table_data) == 'table' then
-        -- We update _pio_metadata directly to avoid triggering
-        -- 50+ notifications/restarts during the initial load loop
-        for k, v in pairs(table_data) do
-          _G.metadata[k] = v
-        end
+        for k, v in pairs(table_data) do _G.metadata[k] = v end
         last_saved_hash = vim.fn.sha256(json_data)
         return
       end

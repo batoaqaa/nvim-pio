@@ -1,6 +1,5 @@
 local M = {}
 
--- local misc = require('nvimpio.utils.misc')
 local ToggleTerminal = require('nvimpio.utils.term').ToggleTerminal
 local misc = require('nvimpio.utils.misc')
 

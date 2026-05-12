@@ -7,7 +7,7 @@ function M.check()
   --- stylua: ignore
   -- 1. Check Python installation
   ----------------------------------------------------------------------------------------
-  local python = vim.fn.has('win32') == 1 and 'python' or 'python3'
+  local python = OS.is_win and 'python' or 'python3'
   if vim.fn.executable(python) == 1 then
     vim.health.ok('Python is available: ' .. python)
   else

@@ -28,14 +28,29 @@ local function is_pio_functional()
   if vim.fn.executable('pio') == 0 then return false end
 
   -- 2. Deep check: Does it actually run?
-  -- We use 'pio --version' because it's fast and doesn't change settings.
-  local output = vim.fn.system('pio --version')
+  local obj = vim.system({ 'pio', '--version' }):wait()
 
   -- Check if the output contains the keyword "PlatformIO"
-  -- and that the exit code (v:shell_error) was 0
-  return vim.v.shell_error == 0 and output:find('PlatformIO') ~= nil
+  return obj.code == 0 and obj.stdout:find('PlatformIO') ~= nil
 end
 
+function M.check_pio_async(callback)
+  if vim.fn.executable('pio') == 0 then
+    callback(false)
+    return
+  end
+
+  vim.system({ 'pio', '--version' }, { text = true }, function(obj)
+    -- This code runs in the background
+    local is_functional = obj.code == 0 and obj.stdout:find('PlatformIO') ~= nil
+
+    -- We use vim.schedule to ensure the callback runs on the main Neovim thread
+    -- (This prevents crashes if the callback interacts with the UI)
+    vim.schedule(function()
+      callback(is_functional)
+    end)
+  end)
+end
 
 -- INFO: 2. Internal helper to notify all waiting processes
 -- stylua: ignore
