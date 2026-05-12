@@ -75,7 +75,7 @@ local defConfig = {
     {
       node = 'menu',
       desc = '[P]latformIO',
-      shortcut = 'm',
+      shortcut = 'p',
       items = {
         { node = 'item', desc = '[U]pgrade PlatformIO Core', shortcut = 'u', command = 'Piocmdf upgrade' },
         { node = 'item', desc = '[I]nstall PlatformIO Core', shortcut = 'i', command = 'PioInstall' },
