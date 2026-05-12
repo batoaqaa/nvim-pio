@@ -21,7 +21,13 @@ local function pioInstall(on_done)
   local install_cmd = python .. ' ' .. script
 
   local pio = require('nvimpio.pio.upkeep')
-  local cb = function(status) pio.handlePioInstall(status, on_done) end
+
+  local cb
+  if on_done and type(on_done) == "function" then
+    cb = function(status) pio.handlePioInstall(status, on_done) end
+  else
+    cb = function(status) pio.handlePioInstall(status) end
+  end
 
   -- 4. open toggleterm and install platformio
   pio.run_sequence({ cmnds = { downloald_cmd, install_cmd }, cb = cb })

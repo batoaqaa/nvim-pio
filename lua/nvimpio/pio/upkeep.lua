@@ -691,12 +691,8 @@ function M.handlePioinitDb(result, board, on_done)
       OS.notify('PIO init+db: Done', "info")
       -- local pio_refresh = require('nvimpio.pio.control').pio_refresh
       M.pio_refresh(function()
-
-
         if on_done and type(on_done) == "function" then on_done(true)
         else clangd.getUnknownArgs() end
-
-
         boilerplate.core_dir = _G.metadata.core_dir
       end, 'PIO init+db: ')
     end)
@@ -737,7 +733,6 @@ function M.handlePioInstall(result, on_done)
     -- 1. Always remove the script
     os.remove('get-platformio.py')
     -- 2. Find and remove random temp folders like .piocore-installer-xxxx
-    -- vim.fn.glob returns a list of files/folders matching the pattern
     local temp_patterns = { ".piocore-installer-*", "platformio-core-installer-*" }
     for _, pattern in ipairs(temp_patterns) do
       local matches = vim.fn.glob(pattern, true, true)
