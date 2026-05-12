@@ -1,3 +1,5 @@
+-- stylua: ignore start
+
 -- 1. Gather all the data first
 local sysname = vim.uv.os_uname().sysname
 local is_win = (sysname:find('Windows') or vim.fn.has('win32') == 1)
@@ -7,9 +9,7 @@ local is_linux = sysname == 'Linux'
 local is_wsl = false
 if is_linux then
   local version = vim.fn.readfile('/proc/version')[1] or ''
-  if version:lower():find('microsoft') then
-    is_wsl = true
-  end
+  if version:lower():find('microsoft') then is_wsl = true end
 end
 
 ---@class OS
@@ -27,11 +27,15 @@ end
 ---@field shell string
 ---@field config_dir string
 ---@field data_dir string
----@field notify fun(msg: string, level?: string|integer)ld cache_dir string
+---@field cache_dir string
+---@field notify fun(msg: string, level?: string|integer)
+---@field pioReady fun(): boolean
 
 ---@type OS
 _G.OS = _G.OS or {}
 local OS = _G.OS ---@cast OS +OS
+
+local _pioRady = false
 
 -- 2. Build the data table
 local os_info = {
@@ -60,14 +64,28 @@ local os_info = {
       error = vim.log.levels.ERROR,
       debug = vim.log.levels.DEBUG,
     }
-    if type(level) == 'string' then
-      level = string_to_level[level:lower()]
-    end
+    if type(level) == 'string' then level = string_to_level[level:lower()] end
 
     ---@cast level integer
     level = level or vim.log.levels.INFO
 
     vim.notify(msg, level, { title = 'nvim-pio', icon = ' ' })
+  end,
+
+  ---Checks if PlatformIO is installed and working (Cached after first success)
+  ---@return boolean
+  pioReady = function()
+    if _pioRady then return true end
+
+    if vim.fn.executable('pio') ~= 1 then return false end
+
+    local ok, obj = pcall(function() return vim.system({ 'pio', '--version' }):wait() end)
+
+    if ok and obj and obj.code == 0 then
+      _pioRady = true
+      return true
+    end
+    return false
   end,
 } ---@as OS
 
