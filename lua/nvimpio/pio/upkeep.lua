@@ -553,6 +553,7 @@ function M.compile_commandsFix() --M.dbPathsFix()
     misc.notify(string.format('compiledb: paths fixed in %.2fms', duration), "info")
     clangd.restart()
   end
+  OS.notify("fixPaths")
   _G.metadata.isBusy = false
 end
 

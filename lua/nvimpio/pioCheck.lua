@@ -34,6 +34,7 @@ local function is_pio_functional()
   return obj.code == 0 and obj.stdout:find('PlatformIO') ~= nil
 end
 
+--------------------------------------------------------------------------
 function M.check_pio_async(callback)
   if vim.fn.executable('pio') == 0 then
     callback(false)
@@ -51,6 +52,13 @@ function M.check_pio_async(callback)
     end)
   end)
 end
+-- check_pio_async(function(functional)
+--   if functional then
+--     OS.notify("PlatformIO is ready!", "info")
+--   else
+--     OS.notify("PlatformIO check failed", "error")
+--   end
+-- end)
 
 -- INFO: 2. Internal helper to notify all waiting processes
 -- stylua: ignore

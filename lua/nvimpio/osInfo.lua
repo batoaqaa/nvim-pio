@@ -27,7 +27,7 @@ end
 ---@field shell string
 ---@field config_dir string
 ---@field data_dir string
----@field cache_dir string
+---@field notify fun(msg: string, level?: string|integer)ld cache_dir string
 
 ---@type OS
 _G.OS = _G.OS or {}
@@ -50,6 +50,25 @@ local os_info = {
   config_dir = vim.fn.stdpath('config'),
   data_dir = vim.fn.stdpath('data'),
   cache_dir = vim.fn.stdpath('cache'),
+
+  ---@param msg string The message to display
+  ---@param level string|integer|nil
+  notify = function(msg, level)
+    local string_to_level = {
+      info = vim.log.levels.INFO,
+      warn = vim.log.levels.WARN,
+      error = vim.log.levels.ERROR,
+      debug = vim.log.levels.DEBUG,
+    }
+    if type(level) == 'string' then
+      level = string_to_level[level:lower()]
+    end
+
+    ---@cast level integer
+    level = level or vim.log.levels.INFO
+
+    vim.notify(msg, level, { title = 'nvim-pio', icon = ' ' })
+  end,
 } ---@as OS
 
 -- 3. Lock it down
