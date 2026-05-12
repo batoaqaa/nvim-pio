@@ -718,6 +718,9 @@ function M.handlePioInstall(result, on_done)
     -- win_id = misc.showMessage('************ Project Initializing ************')
     if #M.queue > 0 then
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      if trm and on_done and type(on_done) == "function" then
+        vim.keymap.set('n', '<leader>\\t', trm:open(), { desc = 'open Term' })
+      end
       _G.metadata.isBusy = true
     end
   elseif result == 'PASS' then
