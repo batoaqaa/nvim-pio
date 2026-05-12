@@ -2,7 +2,6 @@
 local M = {}
 
 local clangd = require('nvimpio.clangd.control')
-local pio = require('nvimpio.pio.upkeep')
 local misc = require('nvimpio.utils.misc')
 
 local boilerplate = require('nvimpio.boilerplate')
@@ -225,10 +224,10 @@ function M.pio_refresh(callback, from)
 
   local function on_done(active_env)
     if active_env then vim.misc.notify(msg .. 'active_env= ' .. active_env, "info") end
-    if active_env then pio.fetch_metadata(callback, active_env, from, 1) end
+    if active_env then M.fetch_metadata(callback, active_env, from, 1) end
   end
-  pio.fetch_config(on_done, from)
-  -- local active_env = pio.get_active__env(from)
+  M.fetch_config(on_done, from)
+  -- local active_env = M.get_active__env(from)
   -- if active_env then
   --   vim.misc.notify(msg .. 'active_env= ' .. active_env, "info")
   --   pio.fetch_metadata(callback, active_env, from, 1)
