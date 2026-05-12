@@ -74,20 +74,20 @@ end
 
 -- INFO: 3. The Floating Installer with Immediate Cleanup
 local function start_floating_installer(on_done)
-  local buf = vim.api.nvim_create_buf(false, true)
-  local width = math.ceil(vim.o.columns * 0.7)
-  local height = math.ceil(vim.o.lines * 0.7)
-
-  local win = vim.api.nvim_open_win(buf, true, {
-    relative = 'editor',
-    width = width,
-    height = height,
-    row = math.ceil((vim.o.lines - height) / 2),
-    col = math.ceil((vim.o.columns - width) / 2),
-    border = 'rounded',
-    title = { { ' PlatformIO Core Installer ', 'FloatTitle' } },
-    title_pos = 'center',
-  })
+  -- local buf = vim.api.nvim_create_buf(false, true)
+  -- local width = math.ceil(vim.o.columns * 0.7)
+  -- local height = math.ceil(vim.o.lines * 0.7)
+  --
+  -- local win = vim.api.nvim_open_win(buf, true, {
+  --   relative = 'editor',
+  --   width = width,
+  --   height = height,
+  --   row = math.ceil((vim.o.lines - height) / 2),
+  --   col = math.ceil((vim.o.columns - width) / 2),
+  --   border = 'rounded',
+  --   title = { { ' PlatformIO Core Installer ', 'FloatTitle' } },
+  --   title_pos = 'center',
+  -- })
 
   -- Use a specific filename for the installer
   local installer_script = 'get-platformio.py'
@@ -178,10 +178,25 @@ function M.pioStatus(on_complete, is_autocmd)
     return
   end
 
-  start_floating_installer(function(success)
+  -- start_floating_installer(function(success)
+  --   M.state.isInstalled = success
+  --   flush_queue(success) -- FIRE HERE (via flush_queue)
+  -- end)
+  local function on_done(success)
     M.state.isInstalled = success
     flush_queue(success) -- FIRE HERE (via flush_queue)
-  end)
+  end
+
+  local installer_script = 'get-platformio.py'
+  local cmd = string.format(
+    "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/%s', '%s')\" && python %s",
+    installer_script,
+    installer_script,
+    installer_script
+  )
+  local pio = require('nvimpio.pio.upkeep')
+  local cb = function(status) pio.handlePioInstall(status, on_done) end
+  pio.run_sequence({ cmnds = { cmd }, cb = cb })
 end
 
 return M
