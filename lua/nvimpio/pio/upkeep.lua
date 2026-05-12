@@ -723,7 +723,7 @@ function M.handlePioInstall(result, on_done)
     if commandPassed == 1 then
       OS.notify('PIO install:  pass ' .. commandPassed, "info")
       commandPassed = commandPassed + 1
-      -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), 'float') end
+      if #M.queue > 0 then trm:send(table.remove(M.queue, 1), 'float') end
     -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
     end
   elseif result == 'DONE' then -- result of the only and the last command
@@ -731,20 +731,20 @@ function M.handlePioInstall(result, on_done)
     OS.notify('PIO install: Done', "info")
 
     -- 1. Always remove the script
-    os.remove('get-platformio.py')
-    -- 2. Find and remove random temp folders like .piocore-installer-xxxx
-    local temp_patterns = { ".piocore-installer-*", "platformio-core-installer-*" }
-    for _, pattern in ipairs(temp_patterns) do
-      local matches = vim.fn.glob(pattern, true, true)
-      for _, path in ipairs(matches) do
-        if vim.fn.isdirectory(path) == 1 then vim.fn.delete(path, "rf") end
-      end
-    end
-    OS.notify('PlatformIO installed successfully!', 'info')
-    commandPassed = commandPassed + 1
-    if trm then trm:close() end
-    if on_done and type(on_done) == "function" then on_done(true)end
-    M.cleanup_pio_session()
+    -- os.remove('get-platformio.py')
+    -- -- 2. Find and remove random temp folders like .piocore-installer-xxxx
+    -- local temp_patterns = { ".piocore-installer-*", "platformio-core-installer-*" }
+    -- for _, pattern in ipairs(temp_patterns) do
+    --   local matches = vim.fn.glob(pattern, true, true)
+    --   for _, path in ipairs(matches) do
+    --     if vim.fn.isdirectory(path) == 1 then vim.fn.delete(path, "rf") end
+    --   end
+    -- end
+    -- OS.notify('PlatformIO installed successfully!', 'info')
+    -- commandPassed = commandPassed + 1
+    -- if trm then trm:close() end
+    -- if on_done and type(on_done) == "function" then on_done(true)end
+    -- M.cleanup_pio_session()
   elseif result == 'FAIL' then
      OS.notify('Installation failed! Check logs and press :q to close.', 'error')
     if on_done and type(on_done) == "function" then on_done(false) end
