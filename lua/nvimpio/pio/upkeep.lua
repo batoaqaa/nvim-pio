@@ -57,7 +57,7 @@ function M.get_sysroot_triplet(cc_compiler)
   for _, name in ipairs(files) do
     -- Pattern: ^(.*) matches triplet, %- matches dash, g[c%+][c%+] matches gcc/g++
     local match = name:match('^(.*)%-g[c%+][c%+]')
-    if match then triplet = vim.misc.normalizePath(match) break
+    if match then triplet = misc.normalizePath(match) break
     end
   end
 
@@ -65,12 +65,12 @@ function M.get_sysroot_triplet(cc_compiler)
   if not triplet then return nil end
 
   -- toolchain_root is the parent of the 'bin' folder
-  local toolchain_root = vim.misc.normalizePath(vim.fn.fnamemodify(bin_path, ':h'))
+  local toolchain_root = misc.normalizePath(vim.fn.fnamemodify(bin_path, ':h'))
   -- sysroot folder is expected to have the same name as the triplet
-  local sysroot = vim.misc.normalizePath(toolchain_root .. '/' .. triplet)
-  local query_driver = vim.misc.normalizePath(bin_path .. '/' .. triplet .. '-*')
+  local sysroot = misc.normalizePath(toolchain_root .. '/' .. triplet)
+  local query_driver = misc.normalizePath(bin_path .. '/' .. triplet .. '-*')
 
-  -- vim.misc.notify('triplet= ' .. triplet, "info")
+  -- misc.notify('triplet= ' .. triplet, "info")
   -- Only return data if the sysroot folder actually exists on disk
   if vim.fn.isdirectory(sysroot) == 1 then
     _G.metadata.triplet = triplet
@@ -96,7 +96,7 @@ function M.updateDefaultEnv()
   if not active_env or active_env == "" then return end
 
   _G.metadata.isBusy = true
-  local ok, content = vim.misc.readFile(path)
+  local ok, content = misc.readFile(path)
   if not ok or not content then
     _G.metadata.isBusy = false
     return
@@ -139,8 +139,8 @@ function M.updateDefaultEnv()
     end
   end
 
-  vim.misc.writeFile(path, table.concat(new_lines), {})
-  vim.misc.notify("PIO reset default_envs: " .. active_env)
+  misc.writeFile(path, table.concat(new_lines), {})
+  misc.notify("PIO reset default_envs: " .. active_env)
   _G.metadata.isBusy = false
 -------------------------------------------------------------------------------
 end
@@ -161,11 +161,11 @@ function M.get_active__env(from)
       break
     end
   end
-  if not path or path == '' then return vim.misc.notify(msg .. 'platformio.ini not found or no [env] defined.', "error") end
+  if not path or path == '' then return misc.notify(msg .. 'platformio.ini not found or no [env] defined.', "error") end
 
   -- Read file content (returns string or nil)
-  local ok, content = vim.misc.readFile(path)
-  if not ok or not content then return vim.misc.notify(msg .. 'platformio.ini not found in ' .. path, "warn") end
+  local ok, content = misc.readFile(path)
+  if not ok or not content then return misc.notify(msg .. 'platformio.ini not found in ' .. path, "warn") end
 
   local default_envs_raw = ''
   local first_env = nil
@@ -194,7 +194,7 @@ function M.get_active__env(from)
 
   -- Validation: Find the first default_env that actually exists as a block
   if default_envs_raw ~= '' then
-    -- vim.misc.notify(default_envs_raw, "info")
+    -- misc.notify(default_envs_raw, "info")
     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
       if valid_envs[env_name] then return env_name end
     end
@@ -220,16 +220,16 @@ end
 -------------------------------------------------------------------------------
 function M.pio_refresh(callback, from)
   local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
-  vim.misc.notify(msg ..'Config sync ...', "info")
+  misc.notify(msg ..'Config sync ...', "info")
 
   local function on_done(active_env)
-    if active_env then vim.misc.notify(msg .. 'active_env= ' .. active_env, "info") end
+    if active_env then misc.notify(msg .. 'active_env= ' .. active_env, "info") end
     if active_env then M.fetch_metadata(callback, active_env, from, 1) end
   end
   M.fetch_config(on_done, from)
   -- local active_env = M.get_active__env(from)
   -- if active_env then
-  --   vim.misc.notify(msg .. 'active_env= ' .. active_env, "info")
+  --   misc.notify(msg .. 'active_env= ' .. active_env, "info")
   --   pio.fetch_metadata(callback, active_env, from, 1)
   -- end
 end
@@ -249,18 +249,18 @@ function M.fetch_config(on_done, from)
       -- 1. Check Execution
       if obj.code ~= 0 then
         local errmsg = obj.code == 127 and "'pio' not found" or (obj.stderr or 'Unknown Error')
-        return vim.misc.notify(msg .. 'Config Error: ' .. errmsg, "error")
+        return misc.notify(msg .. 'Config Error: ' .. errmsg, "error")
       end
 
       -- 2. Decode JSON safely
       local ok, decoded = pcall(vim.json.decode, obj.stdout or '')
       if not ok or type(decoded) ~= 'table' then
-        return vim.misc.notify(msg .. 'Failed to decode config JSON', "error")
+        return misc.notify(msg .. 'Failed to decode config JSON', "error")
       end
 
-      -- local formated = vim.misc.jsonFormat(decoded)
-      -- local file = vim.misc.joinPath(vim.uv.cwd(), 'config.json')
-      -- vim.misc.writeFile(file, formated, {})
+      -- local formated = misc.jsonFormat(decoded)
+      -- local file = misc.joinPath(vim.uv.cwd(), 'config.json')
+      -- misc.writeFile(file, formated, {})
 
       -- Reset core structure
       meta.envs = {}
@@ -312,18 +312,18 @@ function M.fetch_config(on_done, from)
         -- Expand variables and Normalize
         if type(val) == 'string' then
           val = val:gsub('%%${platformio.core_dir}', meta.core_dir or '')
-          meta[item.key] = vim.misc.normalizePath(val)
+          meta[item.key] = misc.normalizePath(val)
         end
       end
 
       -- if active_env then
-      --   vim.misc.notify(msg .. 'active_env= ' .. active_env, "info")
+      --   misc.notify(msg .. 'active_env= ' .. active_env, "info")
       -- end
       -- 6. Trigger next step
       if meta.active_env ~= '' then
-        vim.misc.notify(msg .. 'Config sync successful', "info")
+        misc.notify(msg .. 'Config sync successful', "info")
       else
-        vim.misc.notify(msg .. 'No [env:] found. Please add a board.', "error")
+        misc.notify(msg .. 'No [env:] found. Please add a board.', "error")
       end
 
       if on_done then
@@ -346,10 +346,10 @@ function M.fetch_metadata(callback, env, from, attempts)
   end
 
   -- Set up file paths
-  local build_dir = vim.misc.joinPath(vim.uv.cwd(), '.pio', 'build')
-  local build_env_dir = vim.misc.joinPath(build_dir, active_env)
-  local checksum_file = vim.misc.joinPath(build_dir, 'project.checksum')
-  local idedata_file = vim.misc.joinPath(build_env_dir, 'idedata.json')
+  local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
+  local build_env_dir = misc.joinPath(build_dir, active_env)
+  local checksum_file = misc.joinPath(build_dir, 'project.checksum')
+  local idedata_file = misc.joinPath(build_env_dir, 'idedata.json')
 
   --INFO:
   --INTERNAL PROCESSOR: Applies parsed data to _G.metadata
@@ -357,7 +357,7 @@ function M.fetch_metadata(callback, env, from, attempts)
   local function apply_metadata(data, checksum)
     if not data then return false end
 
-    local norm = function(p) return vim.misc.normalizePath(p) or '' end
+    local norm = function(p) return misc.normalizePath(p) or '' end
 
     -- Helper for flags/defines to keep order and formatting
     local quote_map = function(list, prefix)
@@ -395,14 +395,14 @@ function M.fetch_metadata(callback, env, from, attempts)
   --Generate idedata.json
   ---------------------------------------------------------
   local function buildIdedata()
-    vim.misc.notify(msg .. 'Initializing project metadata...', "info")
+    misc.notify(msg .. 'Initializing project metadata...', "info")
     vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
       vim.schedule(function()
         if obj.code == 0 then
-          vim.misc.notify(msg .. 'Initializing project metadata success.', "info")
+          misc.notify(msg .. 'Initializing project metadata success.', "info")
           M.fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
         else
-          vim.misc.notify(msg .. 'Initialization failed. Build project manually.: ' .. obj.stderr, "error")
+          misc.notify(msg .. 'Initialization failed. Build project manually.: ' .. obj.stderr, "error")
         end
       end)
     end)
@@ -412,10 +412,10 @@ function M.fetch_metadata(callback, env, from, attempts)
   -------------------------------------------------------------------
   -- STEP 1: Fast Checksum Check (project.checksum and idedata.json)
   -------------------------------------------------------------------
-  local ok, current_checksum = vim.misc.readFile(checksum_file)
+  local ok, current_checksum = misc.readFile(checksum_file)
   if ok and (type(current_checksum) == 'string' and current_checksum ~= '') then
     if current_checksum == meta.last_projectChecksum then
-      vim.misc.notify(msg .. 'Metadata synced with cache', "info")
+      misc.notify(msg .. 'Metadata synced with cache', "info")
       -- if callback then callback() end
       if callback then vim.schedule(callback) end
       return true
@@ -424,18 +424,18 @@ function M.fetch_metadata(callback, env, from, attempts)
     ----------------------------------------------------------------
     -- STEP 2: Cache Path (idedata.json exists and checksum changed)
     ----------------------------------------------------------------
-    local idok, content = vim.misc.readFile(idedata_file)
+    local idok, content = misc.readFile(idedata_file)
     if idok and (type(content) == 'string' and content ~= '') then
       local cok, decoded = pcall(vim.json.decode, content)
 
-      -- local formated = vim.misc.jsonFormat(decoded)
-      -- local file = vim.misc.joinPath(vim.uv.cwd(), 'idedata.json')
-      -- vim.misc.writeFile(file, formated, {})
+      -- local formated = misc.jsonFormat(decoded)
+      -- local file = misc.joinPath(vim.uv.cwd(), 'idedata.json')
+      -- misc.writeFile(file, formated, {})
 
       if cok and apply_metadata(decoded, current_checksum) then
         local metadata = require('nvimpio.pio.metadata')
         metadata.save_project_config(msg)
-        vim.misc.notify(msg .. 'Metadata synced from cache', "info")
+        misc.notify(msg .. 'Metadata synced from cache', "info")
         -- if callback then vim.schedule(callback) end
 
         if type(callback) == "function" then
@@ -459,7 +459,7 @@ function M.fetch_metadata(callback, env, from, attempts)
   ---------------------------------------------------------
   -- STEP 4: Standard CLI Fallback (The Slow Path)
   ---------------------------------------------------------
-  -- vim.misc.notify(msg .. 'Metadata sync ...', "info")
+  -- misc.notify(msg .. 'Metadata sync ...', "info")
   -- vim.system({ 'pio', 'project', 'metadata', '-e', active_env, '--json-output' }, { text = true }, function(obj)
   --   vim.schedule(function()
   --     if obj.code ~= 0 then
@@ -467,17 +467,17 @@ function M.fetch_metadata(callback, env, from, attempts)
   --         vim.defer_fn(function() M.fetch_metadata(attempts - 1, env) end, 500)
   --         return
   --       end
-  --       return vim.misc.notify(msg .. 'Metadata Error: ' .. (obj.stderr or 'Unknown'), "warn")
+  --       return misc.notify(msg .. 'Metadata Error: ' .. (obj.stderr or 'Unknown'), "warn")
   --     end
   --
   --     local ook, raw_data = pcall(vim.json.decode, obj.stdout or '')
   --     local _, data = next(raw_data or {})
   --
   --     if ook and apply_metadata(data, current_checksum) then
-  --       vim.misc.notify(msg .. 'Metadata synced from CLI', "info")
+  --       misc.notify(msg .. 'Metadata synced from CLI', "info")
   --       if callback then vim.schedule(callback) end
   --     else
-  --       vim.misc.notify(msg .. 'Failed to parse metadata output', "warn")
+  --       misc.notify(msg .. 'Failed to parse metadata output', "warn")
   --     end
   --   end)
   -- end)
@@ -546,19 +546,19 @@ function M.compile_commandsFix() --M.dbPathsFix()
   end
   -- -- 3. Save with Formatting
   if modified then
-    local jok, formatted = pcall(vim.misc.jsonFormat, data)
+    local jok, formatted = pcall(misc.jsonFormat, data)
     -- local jok, formatted = pcall(M.pretty_print, data)
     if not jok then
       print('Formatting failed: ' .. formatted)
       return
     end
 
-    local wk, err = vim.misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
+    local wk, err = misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
     if not wk then print(err) end
 
     local end_time = vim.loop.hrtime()
     local duration = (end_time - start_time) / 1e6
-    vim.misc.notify(string.format('compiledb: paths fixed in %.2fms', duration), "info")
+    misc.notify(string.format('compiledb: paths fixed in %.2fms', duration), "info")
     clangd.restart()
   end
   _G.metadata.isBusy = false
@@ -648,10 +648,10 @@ local win_id
 -- =============================================================================
 -- stylua: ignore
 function M.cleanup_pio_session()
-  -- vim.misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
+  -- misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
   _G.metadata.isBusy = false
   M.queue = {}
-  if win_id then vim.misc.closeMessage(win_id) end
+  if win_id then misc.closeMessage(win_id) end
   win_id = nil
   term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
   -- if trm then trm:close() end
@@ -665,7 +665,7 @@ function M.handlePioinitDb(result, board, on_done)
     boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
     -- boilerplate_gen([[.clangd]], vim.fs.joinpath(vim.env.XDG_CONFIG_HOME, 'clangd'), 'config.yaml')
 
-    -- win_id = vim.misc.showMessage('************ Project Initializing ************')
+    -- win_id = misc.showMessage('************ Project Initializing ************')
     if #M.queue > 0 then
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
@@ -674,7 +674,7 @@ function M.handlePioinitDb(result, board, on_done)
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then
-      vim.misc.notify('PIO init+db:  pass ' .. commandPassed, "info")
+      misc.notify('PIO init+db:  pass ' .. commandPassed, "info")
       local active_env = M.get_active__env('PIO init+db: ')
       if not active_env or (active_env == board) then
         boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
@@ -691,8 +691,8 @@ function M.handlePioinitDb(result, board, on_done)
     end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
-      vim.misc.notify('PIO init+db:  pass ' .. commandPassed, "info")
-      vim.misc.notify('PIO init+db: Done', "info")
+      misc.notify('PIO init+db:  pass ' .. commandPassed, "info")
+      misc.notify('PIO init+db: Done', "info")
       -- local pio_refresh = require('nvimpio.pio.control').pio_refresh
       M.pio_refresh(function()
 
@@ -727,15 +727,15 @@ function M.handlePioinit(result)
     -- boilerplate_gen([[.clangd]], _G.metadata.core_dir)
     -- boilerplate_gen([[.clangd]], vim.fs.joinpath(vim.env.XDG_CONFIG_HOME, 'clangd'), 'config.yaml')
 
-    -- win_id = vim.misc.showMessage('************ Project Initializing ************')
+    -- win_id = misc.showMessage('************ Project Initializing ************')
     if #M.queue > 0 then
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       _G.metadata.isBusy = true
     end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
-      vim.misc.notify('PIO init:  pass ' .. commandPassed, "info")
-      vim.misc.notify('PIO init: Done', "info")
+      misc.notify('PIO init:  pass ' .. commandPassed, "info")
+      misc.notify('PIO init: Done', "info")
 
       -- \27[s   : Save current cursor position (the prompt)
       -- \r      : Go to start of line
@@ -753,7 +753,7 @@ function M.handlePioinit(result)
       -- local pio_refresh = require('nvimpio.pio.control').pio_refresh
       M.pio_refresh(function()
         boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-        vim.misc.closeMessage(win_id)
+        misc.closeMessage(win_id)
         clangd.restart()
         -- term.ToggleTerminal('echo "************ project Initialization success ************"', 'float')
       end, 'PIO init: ')
@@ -775,8 +775,8 @@ function M.handlePiolib(result)
       _G.metadata.isBusy = true
     end
   elseif result == 'DONE' then -- result of the only and the last command
-    vim.misc.notify('PIO lib:  pass ' .. commandPassed, "info")
-    vim.misc.notify('PIO lib: Done', "info")
+    misc.notify('PIO lib:  pass ' .. commandPassed, "info")
+    misc.notify('PIO lib: Done', "info")
     commandPassed = commandPassed + 1
     M.queue = {}
     term.stdout_callback = nil
@@ -794,14 +794,14 @@ end
 -- stylua: ignore
 function M.handlePioInstall(result)
   if result == 'INIT' then
-    -- win_id = vim.misc.showMessage('************ Project Initializing ************')
+    -- win_id = misc.showMessage('************ Project Initializing ************')
     if #M.queue > 0 then
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       _G.metadata.isBusy = true
     end
   elseif result == 'DONE' then -- result of the only and the last command
-    vim.misc.notify('PIO install:  pass ' .. commandPassed, "info")
-    vim.misc.notify('PIO install: Done', "info")
+    misc.notify('PIO install:  pass ' .. commandPassed, "info")
+    misc.notify('PIO install: Done', "info")
 
     -- 1. Always remove the script
     os.remove('get-platformio.py')
@@ -836,8 +836,8 @@ function M.handlePiodb(target, result)
       _G.metadata.isBusy = true
     end
   elseif result == 'DONE' then -- result of the only and the last command
-    vim.misc.notify('PIO db:  pass ' .. commandPassed, "info")
-    vim.misc.notify('PIO db: Done', "info")
+    misc.notify('PIO db:  pass ' .. commandPassed, "info")
+    misc.notify('PIO db: Done', "info")
     commandPassed = commandPassed + 1
     target.isBusy = false
     M.queue = {}
@@ -862,8 +862,8 @@ function M.clangFormat(result)
       _G.metadata.isBusy = true
     end
   elseif result == 'DONE' then -- result of the only and the last command
-    vim.misc.notify('Clang formatter:  pass ' .. commandPassed, "info")
-    vim.misc.notify('Clang formatter: Done', "info")
+    misc.notify('Clang formatter:  pass ' .. commandPassed, "info")
+    misc.notify('Clang formatter: Done', "info")
     commandPassed = commandPassed + 1
     M.queue = {}
     term.stdout_callback = nil
@@ -877,7 +877,7 @@ function M.clangFormat(result)
 end
 return M
 
---   vim.misc.notify('Created .clang-format (' .. choice .. ')', "info")
+--   misc.notify('Created .clang-format (' .. choice .. ')', "info")
 --
 --   -- 3. Restart clangd to apply the new formatting rules
 --   -- Slight delay to ensure file is written before LSP restarts
@@ -886,5 +886,5 @@ return M
 --     print('LSP Reloaded: Using ' .. choice .. ' style.')
 --   end, 100)
 -- else
---   vim.misc.notify('Failed to generate .clang-format. Is clang-format in your PATH?', "error")
+--   misc.notify('Failed to generate .clang-format. Is clang-format in your PATH?', "error")
 -- end
