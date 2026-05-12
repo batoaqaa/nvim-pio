@@ -51,7 +51,7 @@ local defConfig = {
     {
       node = 'menu',
       desc = '[F]lash',
-      shortcut = 'p',
+      shortcut = 'f',
       items = {
         { node = 'item', desc = '[B]uild file system', shortcut = 'b', command = 'Piocmdf run -t buildfs' },
         { node = 'item', desc = 'Program [S]ize', shortcut = 's', command = 'Piocmdf run -t size' },
