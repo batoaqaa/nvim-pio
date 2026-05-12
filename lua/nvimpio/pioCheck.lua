@@ -72,79 +72,7 @@ local function flush_queue(success)
   M.state.queue = {}
 end
 
--- INFO: 3. The Floating Installer with Immediate Cleanup
-local function start_floating_installer(on_done)
-  -- local buf = vim.api.nvim_create_buf(false, true)
-  -- local width = math.ceil(vim.o.columns * 0.7)
-  -- local height = math.ceil(vim.o.lines * 0.7)
-  --
-  -- local win = vim.api.nvim_open_win(buf, true, {
-  --   relative = 'editor',
-  --   width = width,
-  --   height = height,
-  --   row = math.ceil((vim.o.lines - height) / 2),
-  --   col = math.ceil((vim.o.columns - width) / 2),
-  --   border = 'rounded',
-  --   title = { { ' PlatformIO Core Installer ', 'FloatTitle' } },
-  --   title_pos = 'center',
-  -- })
-
-  -- Use a specific filename for the installer
-  local installer_script = 'get-platformio.py'
-  local cmd = string.format(
-    "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/%s', '%s')\" && python %s",
-    installer_script,
-    installer_script,
-    installer_script
-  )
-  -- local cmd = "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py', 'get-platformio.py')\" && python get-platformio.py"
-
-  local pio = require('nvimpio.pio.upkeep')
-  local cb = function(status)
-    pio.handlePioInstall(status, on_done)
-  end
-  pio.run_sequence({ cmnds = { cmd }, cb = cb })
-
-  -- vim.cmd.term(cmd)
-  --
-  -- vim.api.nvim_create_autocmd('TermClose', {
-  --   buffer = buf,
-  --   once = true,
-  --   callback = function()
-  --     -- 1. Determine success status
-  --     local success = (vim.v.event.status == 0)
-  --
-  --     -- 2. IMMEDIATE CLEANUP
-  --     -- Delete the script the moment the process finishes, regardless of success
-  --     if vim.fn.filereadable(installer_script) == 1 then
-  --       os.remove(installer_script)
-  --
-  --       local temp_patterns = { '.piocore-installer-*', 'platformio-core-installer-*' }
-  --       for _, pattern in ipairs(temp_patterns) do
-  --         local matches = vim.fn.glob(pattern, true, true)
-  --         for _, path in ipairs(matches) do
-  --           if vim.fn.isdirectory(path) == 1 then
-  --             vim.fn.delete(path, 'rf')
-  --           end
-  --         end
-  --       end
-  --     end
-  --
-  --     -- 3. UI Handling
-  --     if success then
-  --       if vim.api.nvim_win_is_valid(win) then
-  --         vim.api.nvim_win_close(win, true)
-  --       end
-  --       vim.notify('PlatformIO installed successfully!', vim.log.levels.INFO)
-  --     else
-  --       vim.notify('Installation failed! Check logs and press :q to close.', vim.log.levels.ERROR)
-  --     end
-  --     on_done(success)
-  --   end,
-  -- })
-end
-
--- 4. The Primary Entry Point
+-- 3. The Primary Entry Point
 -- stylua: ignore
 function M.pioStatus(on_complete, is_autocmd)
   -- 1. If currently installing, just wait, just join the queue.
@@ -178,15 +106,6 @@ function M.pioStatus(on_complete, is_autocmd)
     return
   end
 
-  -- start_floating_installer(function(success)
-  --   M.state.isInstalled = success
-  --   flush_queue(success) -- FIRE HERE (via flush_queue)
-  -- end)
-  local function on_done(success)
-    M.state.isInstalled = success
-    flush_queue(success) -- FIRE HERE (via flush_queue)
-  end
-
   local installer_script = 'get-platformio.py'
   local cmd = string.format(
     "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/%s', '%s')\" && python %s",
@@ -194,8 +113,21 @@ function M.pioStatus(on_complete, is_autocmd)
     installer_script,
     installer_script
   )
+
+  -- local function on_done(success)
+  --   M.state.isInstalled = success
+  --   flush_queue(success) -- FIRE HERE (via flush_queue)
+  -- end
   local pio = require('nvimpio.pio.upkeep')
-  local cb = function(status) pio.handlePioInstall(status, on_done) end
+  local cb = function(status)
+    -- pio.handlePioInstall(status, on_done)
+    pio.handlePioInstall(status, function(success)
+      M.state.isInstalled = success
+      flush_queue(success) -- FIRE HERE (via flush_queue)
+    end)
+  end
+
+  -- open toggleterm and install platformio
   pio.run_sequence({ cmnds = { cmd }, cb = cb })
 end
 
