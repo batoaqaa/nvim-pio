@@ -662,7 +662,6 @@ function M.handlePioinitDb(result, board, on_done)
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
-      if trm then trm:open() end
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then
@@ -673,7 +672,12 @@ function M.handlePioinitDb(result, board, on_done)
         boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
         boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
         commandPassed = commandPassed + 1
-        if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
+        if #M.queue > 0 then
+          if trm then
+            trm:open()
+            trm:send(table.remove(M.queue, 1), false)
+          end
+        end
       else
         if on_done and type(on_done) == "function" then on_done(false) end
         M.cleanup_pio_session()
@@ -681,15 +685,15 @@ function M.handlePioinitDb(result, board, on_done)
     -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
     end
   elseif result == 'DONE' then -- result of the last command
-    vim.schedule(function()
-      OS.notify('PIO init+db:  pass ' .. commandPassed, "info")
-      OS.notify('PIO init+db: Done', "info")
-      M.pio_refresh(function()
-        if on_done and type(on_done) == "function" then on_done(true)
-        else clangd.getUnknownArgs() end
-        boilerplate.core_dir = _G.metadata.core_dir
-      end, 'PIO init+db: ')
-    end)
+    -- vim.schedule(function()
+    OS.notify('PIO init+db:  pass ' .. commandPassed, "info")
+    OS.notify('PIO init+db: Done', "info")
+    M.pio_refresh(function()
+      if on_done and type(on_done) == "function" then on_done(true)
+      else clangd.getUnknownArgs() end
+      boilerplate.core_dir = _G.metadata.core_dir
+    end, 'PIO init+db: ')
+    -- end)
     if trm then trm:close() end
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
@@ -717,7 +721,13 @@ function M.handlePioInstall(result, on_done)
     if commandPassed == 1 then
       OS.notify('PIO install:  pass ' .. commandPassed, "info")
       commandPassed = commandPassed + 1
-      if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
+      -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
+      if #M.queue > 0 then
+        if trm then
+          trm:open()
+          trm:send(table.remove(M.queue, 1), false)
+        end
+      end
     -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
     end
   elseif result == 'DONE' then -- result of the only and the last command
@@ -859,7 +869,13 @@ function M.handlePiolib(result)
     if commandPassed == 1 then
       OS.notify('PIO lib+db:  pass ' .. commandPassed, "info")
       commandPassed = commandPassed + 1
-      if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
+      -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
+      if #M.queue > 0 then
+        if trm then
+          trm:open()
+          trm:send(table.remove(M.queue, 1), false)
+        end
+      end
     -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
     end
   elseif result == 'DONE' then -- result of the last command
