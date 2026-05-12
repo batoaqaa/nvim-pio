@@ -90,7 +90,6 @@ local os_info = {
 } ---@as OS
 
 -- 3. Lock it down
--- _G.OS = {} ---@as OS
 setmetatable(OS, {
   __index = os_info,
   __newindex = function(_, key)

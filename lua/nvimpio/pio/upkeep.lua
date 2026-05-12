@@ -661,6 +661,9 @@ function M.handlePioinitDb(result, board, on_done)
     if #M.queue > 0 then
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      if trm and on_done and type(on_done) == "function" then
+        vim.keymap.set('n', '<leader>\\t', trm:open(), { desc = 'open Term' })
+      end
       -- if trm then trm:toggle() end
       -- trm = term.ToggleTerminal(table.remove(M.queue, 1), 'horizontal')
     end
@@ -677,7 +680,7 @@ function M.handlePioinitDb(result, board, on_done)
         -- if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
         -- if #M.queue > 0 then term.ToggleTerminal(table.remove(M.queue, 1), 'horizontal') end
       else
-        if on_done and type(on_done) == "function" then on_done(false)end
+        if on_done and type(on_done) == "function" then on_done(false) end
         M.cleanup_pio_session()
       end
     -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
@@ -700,7 +703,7 @@ function M.handlePioinitDb(result, board, on_done)
     if trm then trm:close() end
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
-    if on_done and type(on_done) == "function" then on_done(false)end
+    if on_done and type(on_done) == "function" then on_done(false) end
     M.cleanup_pio_session()
   end
 end
@@ -746,7 +749,7 @@ function M.handlePioInstall(result, on_done)
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
      OS.notify('Installation failed! Check logs and press :q to close.', 'error')
-    if on_done and type(on_done) == "function" then on_done(false)end
+    if on_done and type(on_done) == "function" then on_done(false) end
     _G.pio_status = '❌ PIO Failed'
     vim.cmd('redrawstatus')
     M.cleanup_pio_session()
