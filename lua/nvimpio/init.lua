@@ -2,6 +2,8 @@ require('nvimpio.osInfo')
 
 local M = {}
 
+M.isActivated = false -- Tracks if commands/features are loaded
+
 M.config = require('nvimpio.defConfig')
 local userConfig = require('nvimpio.userConfig')
 local pioCheck = require('nvimpio.pioCheck')
@@ -14,9 +16,9 @@ function M.setup(opts)
 
   -- Activation: Turn on the plugin features
   local function activate()
-    if pioCheck.state.isActivated then return end
+    if M.isActivated then return end
 
-    pioCheck.state.isActivated = true
+    M.isActivated = true
     vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
 
     local sep = vim.fn.has('win32') == 1 and ';' or ':'
@@ -37,7 +39,7 @@ function M.setup(opts)
   vim.api.nvim_create_user_command('Pioinit', function()
     pioCheck.pioStatus(function(success)
       if success then
-        if pioCheck.state.isActivated then
+        if M.isActivated then
           require('nvimpio.pio.ui.pioInit').pioInit()
         else
           require('nvimpio.pio.ui.pioInit').pioInit(function(done)
