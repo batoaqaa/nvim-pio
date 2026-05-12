@@ -706,6 +706,122 @@ function M.handlePioinitDb(result, board, on_done)
 end
 
 
+------------------------------------------------------
+-- Handle after piolib execution
+-- =============================================================================
+-- stylua: ignore
+function M.handlePioInstall(result, on_done)
+  if result == 'INIT' then
+    -- win_id = misc.showMessage('************ Project Initializing ************')
+    if #M.queue > 0 then
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      _G.metadata.isBusy = true
+    end
+  elseif result == 'DONE' then -- result of the only and the last command
+    misc.notify('PIO install:  pass ' .. commandPassed, "info")
+    misc.notify('PIO install: Done', "info")
+
+    -- 1. Always remove the script
+    os.remove('get-platformio.py')
+    -- 2. Find and remove random temp folders like .piocore-installer-xxxx
+    -- vim.fn.glob returns a list of files/folders matching the pattern
+    local temp_patterns = { ".piocore-installer-*", "platformio-core-installer-*" }
+    for _, pattern in ipairs(temp_patterns) do
+      local matches = vim.fn.glob(pattern, true, true)
+      for _, path in ipairs(matches) do
+        if vim.fn.isdirectory(path) == 1 then vim.fn.delete(path, "rf") end
+      end
+    end
+    OS.notify('PlatformIO installed successfully!', 'info')
+    commandPassed = commandPassed + 1
+    if trm then trm:close() end
+    on_done(true)
+    M.cleanup_pio_session()
+  elseif result == 'FAIL' then
+     OS.notify('Installation failed! Check logs and press :q to close.', 'error')
+    on_done(true)
+    _G.pio_status = '❌ PIO Failed'
+    vim.cmd('redrawstatus')
+    M.cleanup_pio_session()
+  end
+end
+
+------------------------------------------------------
+-- Handle create clang-format
+-- =============================================================================
+-- stylua: ignore
+function M.clangFormat(result)
+  if result == 'INIT' then
+    if #M.queue > 0 then
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      _G.metadata.isBusy = true
+    end
+  elseif result == 'DONE' then -- result of the only and the last command
+    misc.notify('Clang formatter:  pass ' .. commandPassed, "info")
+    misc.notify('Clang formatter: Done', "info")
+    commandPassed = commandPassed + 1
+    M.queue = {}
+    term.stdout_callback = nil
+    _G.metadata.isBusy = false
+    if trm then trm:close() end
+  elseif result == 'FAIL' then
+    M.queue = {}
+    term.stdout_callback = nil
+    _G.metadata.isBusy = false
+  end
+end
+
+------------------------------------------------------
+-- Handle after piolib execution
+-- =============================================================================
+-- stylua: ignore
+function M.handlePiolib(result)
+  if result == 'INIT' then
+    if #M.queue > 0 then
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      _G.metadata.isBusy = true
+    end
+  elseif result == 'DONE' then -- result of the only and the last command
+    misc.notify('PIO lib:  pass ' .. commandPassed, "info")
+    misc.notify('PIO lib: Done', "info")
+    commandPassed = commandPassed + 1
+    M.queue = {}
+    term.stdout_callback = nil
+    _G.metadata.isBusy = false
+    if trm then trm:close() end
+  elseif result == 'FAIL' then
+    M.queue = {}
+    term.stdout_callback = nil
+    _G.metadata.isBusy = false
+  end
+end
+
+------------------------------------------------------
+-- =============================================================================
+-- stylua: ignore
+function M.handlePiodb(target, result)
+  if result == 'INIT' then
+    if #M.queue > 0 then
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      _G.metadata.isBusy = true
+    end
+  elseif result == 'DONE' then -- result of the only and the last command
+    misc.notify('PIO db:  pass ' .. commandPassed, "info")
+    misc.notify('PIO db: Done', "info")
+    commandPassed = commandPassed + 1
+    target.isBusy = false
+    M.queue = {}
+    term.stdout_callback = nil
+    _G.metadata.isBusy = false
+    if trm then trm:close() end
+  elseif result == 'FAIL' then
+    target.isBusy = false
+    M.queue = {}
+    term.stdout_callback = nil
+    _G.metadata.isBusy = false
+  end
+end
+
 ----------------------------------------------------
 -- Handle after pioinit execution
 -- stylua: ignore
@@ -755,121 +871,6 @@ function M.handlePioinit(result)
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
     M.cleanup_pio_session()
-  end
-end
-
-------------------------------------------------------
--- Handle after piolib execution
--- =============================================================================
--- stylua: ignore
-function M.handlePiolib(result)
-  if result == 'INIT' then
-    if #M.queue > 0 then
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-      _G.metadata.isBusy = true
-    end
-  elseif result == 'DONE' then -- result of the only and the last command
-    misc.notify('PIO lib:  pass ' .. commandPassed, "info")
-    misc.notify('PIO lib: Done', "info")
-    commandPassed = commandPassed + 1
-    M.queue = {}
-    term.stdout_callback = nil
-    _G.metadata.isBusy = false
-    if trm then trm:close() end
-  elseif result == 'FAIL' then
-    M.queue = {}
-    term.stdout_callback = nil
-    _G.metadata.isBusy = false
-  end
-end
-
-------------------------------------------------------
--- Handle after piolib execution
--- =============================================================================
--- stylua: ignore
-function M.handlePioInstall(result)
-  if result == 'INIT' then
-    -- win_id = misc.showMessage('************ Project Initializing ************')
-    if #M.queue > 0 then
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-      _G.metadata.isBusy = true
-    end
-  elseif result == 'DONE' then -- result of the only and the last command
-    misc.notify('PIO install:  pass ' .. commandPassed, "info")
-    misc.notify('PIO install: Done', "info")
-
-    -- 1. Always remove the script
-    os.remove('get-platformio.py')
-    -- 2. Find and remove random temp folders like .piocore-installer-xxxx
-    -- vim.fn.glob returns a list of files/folders matching the pattern
-    local temp_patterns = { ".piocore-installer-*", "platformio-core-installer-*" }
-    for _, pattern in ipairs(temp_patterns) do
-      local matches = vim.fn.glob(pattern, true, true)
-      for _, path in ipairs(matches) do
-        if vim.fn.isdirectory(path) == 1 then vim.fn.delete(path, "rf") end
-      end
-    end
-    _G.pio_status = '✅ PIO Ready'
-    vim.cmd('redrawstatus')
-
-    commandPassed = commandPassed + 1
-    M.cleanup_pio_session()
-    if trm then trm:close() end
-  elseif result == 'FAIL' then
-    _G.pio_status = '❌ PIO Failed'
-    vim.cmd('redrawstatus')
-    M.cleanup_pio_session()
-  end
-end
-
-------------------------------------------------------
--- =============================================================================
--- stylua: ignore
-function M.handlePiodb(target, result)
-  if result == 'INIT' then
-    if #M.queue > 0 then
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-      _G.metadata.isBusy = true
-    end
-  elseif result == 'DONE' then -- result of the only and the last command
-    misc.notify('PIO db:  pass ' .. commandPassed, "info")
-    misc.notify('PIO db: Done', "info")
-    commandPassed = commandPassed + 1
-    target.isBusy = false
-    M.queue = {}
-    term.stdout_callback = nil
-    _G.metadata.isBusy = false
-    if trm then trm:close() end
-  elseif result == 'FAIL' then
-    target.isBusy = false
-    M.queue = {}
-    term.stdout_callback = nil
-    _G.metadata.isBusy = false
-  end
-end
-
-------------------------------------------------------
--- Handle create clang-format
--- =============================================================================
--- stylua: ignore
-function M.clangFormat(result)
-  if result == 'INIT' then
-    if #M.queue > 0 then
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-      _G.metadata.isBusy = true
-    end
-  elseif result == 'DONE' then -- result of the only and the last command
-    misc.notify('Clang formatter:  pass ' .. commandPassed, "info")
-    misc.notify('Clang formatter: Done', "info")
-    commandPassed = commandPassed + 1
-    M.queue = {}
-    term.stdout_callback = nil
-    _G.metadata.isBusy = false
-    if trm then trm:close() end
-  elseif result == 'FAIL' then
-    M.queue = {}
-    term.stdout_callback = nil
-    _G.metadata.isBusy = false
   end
 end
 

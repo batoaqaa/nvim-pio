@@ -98,43 +98,50 @@ local function start_floating_installer(on_done)
     installer_script
   )
   -- local cmd = "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py', 'get-platformio.py')\" && python get-platformio.py"
-  vim.cmd.term(cmd)
 
-  vim.api.nvim_create_autocmd('TermClose', {
-    buffer = buf,
-    once = true,
-    callback = function()
-      -- 1. Determine success status
-      local success = (vim.v.event.status == 0)
+  local pio = require('nvimpio.pio.upkeep')
+  local cb = function(status)
+    pio.handlePioInstall(status, on_done)
+  end
+  pio.run_sequence({ cmnds = { cmd }, cb = cb })
 
-      -- 2. IMMEDIATE CLEANUP
-      -- Delete the script the moment the process finishes, regardless of success
-      if vim.fn.filereadable(installer_script) == 1 then
-        os.remove(installer_script)
-
-        local temp_patterns = { '.piocore-installer-*', 'platformio-core-installer-*' }
-        for _, pattern in ipairs(temp_patterns) do
-          local matches = vim.fn.glob(pattern, true, true)
-          for _, path in ipairs(matches) do
-            if vim.fn.isdirectory(path) == 1 then
-              vim.fn.delete(path, 'rf')
-            end
-          end
-        end
-      end
-
-      -- 3. UI Handling
-      if success then
-        if vim.api.nvim_win_is_valid(win) then
-          vim.api.nvim_win_close(win, true)
-        end
-        vim.notify('PlatformIO installed successfully!', vim.log.levels.INFO)
-      else
-        vim.notify('Installation failed! Check logs and press :q to close.', vim.log.levels.ERROR)
-      end
-      on_done(success)
-    end,
-  })
+  -- vim.cmd.term(cmd)
+  --
+  -- vim.api.nvim_create_autocmd('TermClose', {
+  --   buffer = buf,
+  --   once = true,
+  --   callback = function()
+  --     -- 1. Determine success status
+  --     local success = (vim.v.event.status == 0)
+  --
+  --     -- 2. IMMEDIATE CLEANUP
+  --     -- Delete the script the moment the process finishes, regardless of success
+  --     if vim.fn.filereadable(installer_script) == 1 then
+  --       os.remove(installer_script)
+  --
+  --       local temp_patterns = { '.piocore-installer-*', 'platformio-core-installer-*' }
+  --       for _, pattern in ipairs(temp_patterns) do
+  --         local matches = vim.fn.glob(pattern, true, true)
+  --         for _, path in ipairs(matches) do
+  --           if vim.fn.isdirectory(path) == 1 then
+  --             vim.fn.delete(path, 'rf')
+  --           end
+  --         end
+  --       end
+  --     end
+  --
+  --     -- 3. UI Handling
+  --     if success then
+  --       if vim.api.nvim_win_is_valid(win) then
+  --         vim.api.nvim_win_close(win, true)
+  --       end
+  --       vim.notify('PlatformIO installed successfully!', vim.log.levels.INFO)
+  --     else
+  --       vim.notify('Installation failed! Check logs and press :q to close.', vim.log.levels.ERROR)
+  --     end
+  --     on_done(success)
+  --   end,
+  -- })
 end
 
 -- 4. The Primary Entry Point
