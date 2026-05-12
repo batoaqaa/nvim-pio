@@ -723,8 +723,8 @@ function M.handlePioInstall(result, on_done)
     if commandPassed == 1 then
       OS.notify('PIO install:  pass ' .. commandPassed, "info")
       commandPassed = commandPassed + 1
-      trm:open()
-      if #M.queue > 0 then trm:send(table.remove(M.queue, 1), 'float') end
+      -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), 'float') end
+      if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
     -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
     end
   elseif result == 'DONE' then -- result of the only and the last command
