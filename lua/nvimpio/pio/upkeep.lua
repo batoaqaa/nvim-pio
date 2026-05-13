@@ -657,6 +657,7 @@ function M.handlePioinitDb(result, board, on_done)
     boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
 
     if #M.queue > 0 then
+  term.stdout_callback = M.stdoutcallback
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       if trm and on_done and type(on_done) == "function" then
