@@ -734,14 +734,13 @@ local nvimpio = require('nvimpio')
 -- before is workinng
 
 
-local function contains_prompt(str)
+
+local function ends_with_prompt(str)
   if not str then return false end
-  
-  -- Check for Windows PowerShell sub-prompts (>>) or raw standard tokens (>, $, #)
-  local has_win_subprompt = str:find('>>%s*$') or str:find('>>%s*\r?\n') ~= nil
-  local has_standard_prompt = str:find('[>$#]%s*$') or str:find('[>$#]%s*\r?\n') ~= nil
-  
-  return has_win_subprompt or has_standard_prompt
+  -- Clean hidden carriage returns first to avoid breaking boundary matches
+  local clean = str:gsub('\r', '')
+  -- Robust check for standard symbols or PowerShell multi-line loops (>>) at the tail
+  return clean:find('[>$#]%s*$') or clean:find('>>%s*$') ~= nil
 end
 
 function M.stdoutcallback(t, job, data)
@@ -749,45 +748,25 @@ function M.stdoutcallback(t, job, data)
     return
   end
 
-  if #data > 1 then
-    local content = pio_buffer .. table.concat(data, '', 1, #data - 1)
-    pio_buffer = data[#data] -- Save the trailing prompt chunk
+  -- 1. UNIFIED STREAMING: Always combine all incoming pieces instantly
+  pio_buffer = pio_buffer .. table.concat(data, '')
 
-    -- 1. Match your command status
-    local status = content:match('_CMMNDS_:(%a+)')
+  -- 2. PATTERN EXTRACTION: Scan the entire accumulated buffer for your token
+  local status = pio_buffer:match('_CMMNDS_:(%a+)')
 
-    if status and callBack then
-      -- 2. Check if the trailing chunk contains a valid prompt symbol
-      if contains_prompt(pio_buffer) then
-        local active_cb = callBack
-        callBack = nil -- Self-wipe to prevent double execution
-        pio_buffer = ''
+  -- 3. PROMPT CONDITIONAL GATE: Only execute if the string exists AND shell is ready
+  if status and callBack and ends_with_prompt(pio_buffer) then
+    local active_cb = callBack
 
-        vim.schedule(function()
-          pcall(active_cb, status)
-        end)
-      else
-        -- If prompt isn't visible yet, put the status back into the buffer
-        pio_buffer = '_CMMNDS_:' .. status .. '\n' .. pio_buffer
-      end
-    end
-  else
-    -- FIXED CRASH LINE: Convert the table array to a clean string format safely
-    pio_buffer = pio_buffer .. table.concat(data, '')
+    -- Self-wipe states immediately to prevent race-condition loops
+    callBack = nil
+    pio_buffer = ''
 
-    -- 3. Handle edge case where prompt arrives alone in a single-element packet
-    local status = pio_buffer:match('_CMMNDS_:(%a+)')
-    if status and callBack and contains_prompt(pio_buffer) then
-      local active_cb = callBack
-      callBack = nil
-      pio_buffer = ''
-      vim.schedule(function()
-        pcall(active_cb, status)
-      end)
-    end
+    vim.schedule(function()
+      pcall(active_cb, status)
+    end)
   end
 end
-
 
 
 
