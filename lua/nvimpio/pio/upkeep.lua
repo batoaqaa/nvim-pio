@@ -675,10 +675,10 @@ function M.handlePioinitDb(result, board, on_done)
         boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
         commandPassed = commandPassed + 1
         if #M.queue > 0 then
-          if trm then
-            trm:open()
+          -- if trm then
+          --   trm:open()
             trm:send(table.remove(M.queue, 1), false)
-          end
+          -- end
         end
       else
         if on_done and type(on_done) == "function" then on_done(false) end
