@@ -692,6 +692,11 @@ end
 -- Initialize
 -- =============================================================================
 local current_token = tostring(math.random(10000, 99999))
+local current_id = -1 -- Holds 0 for DONE, or 1-9 for PASS
+
+local current_pass_current_token = ''
+local current_fail_current_token = ''
+
 local session_counter = 0 -- Our high-performance integer counter
 local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
 local callBack = nil -- Your execution hook function pointer
@@ -720,11 +725,40 @@ function M.stdoutcallback(_, _, data)
     -- 2. Search for the status in the complete chunk
     --change the pattern to: content:match('_CMMNDS_:([^%s]+)')
     --this will grab everything until the next space or newline.
-    -- local pattern = string.format('_CMMNDS_%s:(%a+)', current_token)
-    local pattern = '_CMMNDS_' .. current_token .. ':(%a+)'
-    local status = content:match(pattern) -- pattern %a+ only matches letters (A-Z)
+    -- local pattern = string.format('_CMMNDS_%s:(%a+)', current_current_token)
+    -- local pattern = '_CMMNDS_' .. current_token .. ':(%a+)'
+    -- local status = content:match(pattern) -- pattern %a+ only matches letters (A-Z)
 
-    if status and callBack then vim.schedule(function() callBack(status) end) end
+    -- if status and callBack then vim.schedule(function() callBack(status) end) end
+
+    -- 2. Build cross-platform escape patterns using [^%w]* to neutralize the ":" string
+    -- local pass_pattern = current_pass_current_token:gsub('([%p])', '%%%1'):gsub('([^%%w])', '[^%%w]*')
+    -- local fail_pattern = current_fail_current_token:gsub('([%p])', '%%%1'):gsub('([^%%w])', '[^%%w]*')
+    --
+    -- -- 3. Check for specific current_token matches in the stream window
+    -- local matched_pass = content:match('(' .. pass_pattern .. ')')
+    -- local matched_fail = content:match('(' .. fail_pattern .. ')')
+
+    if #pio_buffer > 2000 then pio_buffer = pio_buffer:sub(-2000) end
+
+    -- 2. Construct dynamic expectations based on the current step metrics
+    local target_word = current_id == 0 and "DONE" or ("PASS" .. current_id)
+
+    -- Use [^%%w]* to abstract any potential platform or quotes styling: ":" vs ":"
+    local pass_pattern = '_CMMNDS_' .. current_token .. '[^%%w]*(' .. target_word .. ')'
+    local fail_pattern = '_CMMNDS_' .. current_token .. '[^%%w]*(FAIL)'
+
+    -- 3. Match Evaluation
+    local matched_pass = content:match(pass_pattern)
+    local matched_fail = content:match(fail_pattern)
+
+    if matched_pass or matched_fail then
+      local final_status = matched_pass and target_word or "FAIL"
+      if final_status and callBack then
+        vim.schedule(function() callBack(final_status) end)
+      end
+    end
+
   else
     -- Only one element (no newline yet;) means the line isn't finished yet
     pio_buffer = pio_buffer .. data[1]
@@ -735,6 +769,25 @@ function M.stdoutcallback(_, _, data)
 end
 
 -- =============================================================================
+local function pop(queue)
+  local current_step = table.remove(queue, 1)
+  local base_cmd = current_step[1]
+  current_id = current_step[2]
+  current_token = current_step[3]
+
+  -- Formulate the target words dynamically
+  local target_word = current_id == 0 and 'DONE' or ('PASS' .. current_id)
+
+  -- Create your target echo layouts
+  local pass_echo = string.format('_CMMNDS_%s":"%s', current_token, target_word)
+  local fail_echo = string.format('_CMMNDS_%s":"FAIL', current_token)
+
+  -- Format native platform operators properly to escape quotes securely
+  local win_str = string.format('  && echo %s || echo %s', pass_echo, fail_echo)
+  local nix_str = string.format('  && echo "%s" || echo "%s"', pass_echo, fail_echo)
+  local full_shell_cmd = base_cmd .. (OS.is_win and win_str or nix_str)
+  return full_shell_cmd
+end
 
 -- INFO: commands sequencer
 -- stylua: ignore
@@ -745,18 +798,26 @@ M.run_sequence = function(tasks)
 
   session_counter = session_counter + 1
   if session_counter > 9999 then session_counter = 1 end
-  current_token = string.format("%04d", session_counter)
+  local token = string.format("%04d", session_counter)
 
-  local done = string.format(' && echo _CMMNDS_%s":"DONE', current_token)
-  local pass = string.format(' && echo _CMMNDS_%s":"PASS', current_token)
-  local fail = string.format(' || echo _CMMNDS_%s":"FAIL', current_token)
-  --
+  local total = #commands
+
   for i, cmd in ipairs(commands) do
-    local full_cmd = ''
-    if i == #commands then full_cmd = cmd .. done .. fail
-    else full_cmd = string.format("%s%s%01d%s",cmd, pass, session_counter, fail) end
-    table.insert(M.queue, full_cmd)
+    local step_id = (i == total) and 0 or i
+    table.insert(M.queue, { cmd, step_id, token })
   end
+
+
+  -- local done = string.format(' && echo _CMMNDS_%s":"DONE', current_current_token)
+  -- local pass = string.format(' && echo _CMMNDS_%s":"PASS', current_current_token)
+  -- local fail = string.format(' || echo _CMMNDS_%s":"FAIL', current_current_token)
+  -- --
+  -- for i, cmd in ipairs(commands) do
+  --   local full_cmd = ''
+  --   if i == #commands then full_cmd = cmd .. done .. fail
+  --   else full_cmd = string.format("%s%s%01d%s",cmd, pass, i, fail) end
+  --   table.insert(M.queue, full_cmd)
+  -- end
 
   callBack = tasks.cb -- 1. Save the callback in a local variable
 
@@ -795,12 +856,13 @@ function M.handlePioinitDb(result, board, on_done)
       boilerplate.core_dir = _G.metadata.core_dir
       boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
 
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      -- trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      trm = term.ToggleTerminal(pop(M.queue), 'float')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
     end
-  elseif result == 'PASS' then
+  elseif result == 'PASS' .. current_id then
     if commandPassed == 1 then
       local active_env = M.get_active__env('PIO init+db: ')
       OS.notify('PIO init+db:  pass ' .. commandPassed, "info")
@@ -810,7 +872,8 @@ function M.handlePioinitDb(result, board, on_done)
         boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
         if #M.queue > 0 then
           -- trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-          trm:send(table.remove(M.queue, 1), false)
+          -- trm:send(table.remove(M.queue, 1), false)
+          trm:send(pop(M.queue), false)
         end
       else
         if on_done and type(on_done) == "function" then on_done(false) end
@@ -845,19 +908,21 @@ function M.handlePioInstall(result, on_done)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      trm = term.ToggleTerminal(pop(M.queue), 'float')
+      -- trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
       -- if trm then trm:open() end
     end
-  elseif result == 'PASS' then
+  elseif result == 'PASS' .. current_id then
     if commandPassed == 1 then
       OS.notify('PIO install:  pass ' .. commandPassed, "info")
       commandPassed = commandPassed + 1
       -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
       if #M.queue > 0 then
-        trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+        -- trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+        trm:send(pop(M.queue), false)
         -- if trm then
         --   trm:open()
         --   trm:send(table.remove(M.queue, 1), false)
