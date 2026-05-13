@@ -765,40 +765,38 @@ local nvimpio = require('nvimpio')
 
 
 function M.stdoutcallback(_, _, data)
-  if not data or #data == 0 then return end
+  if not data or #data == 0 or not callBack then return end
 
   -- 1. Stream Collection: Keep your preferred array-chopping layout
   local target_text = ""
   if #data > 1 then
+    -- Join everything except the last line frame fragment
     target_text = pio_buffer .. table.concat(data, "", 1, #data - 1)
-    pio_buffer = data[#data]
+    pio_buffer = data[#data] -- Save the trailing partial segment
   else
+    -- Append single element to buffer and test the whole combined block
     pio_buffer = pio_buffer .. table.concat(data, "")
     target_text = pio_buffer
   end
 
-  -- 2. Build THE EXACT Plain Text Strings we want to find in the terminal
-  --    Powershell strips quotes, so it prints a clean raw colon like "_CMMNDS_0001:PASS1"
+  -- 2. Build explicit, strict target lookups (Powershell strips quotes: uses ":")
   local expected_pass = '_CMMNDS_' .. current_token .. ':PASS' .. current_id
   local expected_done = '_CMMNDS_' .. current_token .. ':DONE'
   local expected_fail = '_CMMNDS_' .. current_token .. ':FAIL'
 
-  -- 3. High-Performance Plain Text Search
-  --    Passing `1, true` turns OFF regex entirely. It looks for the EXACT literal text.
-  --    This is immune to trailing spaces, hidden ANSI color codes, or prompt symbols.
+  -- 3. High-Performance Plain Text Search: Safe from split-packet boundary errors
   local has_pass = target_text:find(expected_pass, 1, true) ~= nil
   local has_done = target_text:find(expected_done, 1, true) ~= nil
   local has_fail = target_text:find(expected_fail, 1, true) ~= nil
 
-  -- 4. Strict Priority Execution Block
+  -- 4. Strict Priority Execution Gate
   if has_pass or has_done or has_fail then
     local active_cb = callBack
     
-    -- Clear state boundaries instantly to lock out overlapping execution triggers
+    -- Clear state boundaries instantly to prevent overlapping triggers
     callBack = nil
     if #data > 1 then pio_buffer = data[#data] else pio_buffer = "" end
 
-    -- Default fallback state
     local final_status = "FAIL"
 
     -- Evaluate states in order of absolute priority
@@ -808,7 +806,6 @@ function M.stdoutcallback(_, _, data)
     elseif has_done then
       final_status = "DONE"
     elseif has_pass then
-      -- Manually pass back the clean string name since we aren't using regex captures
       final_status = "PASS" .. current_id
     end
 
