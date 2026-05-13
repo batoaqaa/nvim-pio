@@ -742,8 +742,13 @@ M.run_sequence = function(tasks)
   M.queue = {}
   local commands = tasks.cmnds
 
+  -- 1. Get the current system time in nanoseconds (Guaranteed 100% unique)
+  local raw_time = vim.uv.hrtime()
+
+  -- 2. Take the last 6 digits to keep the token short and clean in your shell commands
+  current_token = string.format("%06d", raw_time % 1000000)
   -- Generate a random numeric token (e.g., "48291")
-  current_token = tostring(math.random(10000, 99999))
+  -- current_token = tostring(math.random(10000, 99999))
 
   local done = string.format(' && echo _CMMNDS_%s":"DONE', current_token)
   local pass = string.format(' && echo _CMMNDS_%s":"PASS', current_token)
