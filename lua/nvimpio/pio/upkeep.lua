@@ -736,8 +736,12 @@ local nvimpio = require('nvimpio')
 
 local function contains_prompt(str)
   if not str then return false end
-  -- Match prompt symbols followed by optional spaces or a clean trailing line end
-  return str:find('[>$#]%s*$') or str:find('[>$#]%s*\r?\n') ~= nil
+  
+  -- 1. Check for Windows PowerShell sub-prompts (>>) or raw standard tokens
+  local has_win_subprompt = str:find('>>%s*$') or str:find('>>%s*\r?\n') ~= nil
+  local has_standard_prompt = str:find('[>$#]%s*$') or str:find('[>$#]%s*\r?\n') ~= nil
+  
+  return has_win_subprompt or has_standard_prompt
 end
 
 function M.stdoutcallback(t, job, data)
@@ -753,8 +757,7 @@ function M.stdoutcallback(t, job, data)
     local status = content:match('_CMMNDS_:(%a+)')
 
     if status and callBack then
-      -- 2. CROSS-PLATFORM FIX FOR SEQUENCING:
-      -- Check if the trailing chunk contains a valid prompt symbol (>, $, or #)
+      -- 2. Check if the trailing chunk contains a valid prompt symbol (now supports >>)
       if contains_prompt(pio_buffer) then
         local active_cb = callBack
         callBack = nil -- Self-wipe to prevent double execution
@@ -764,13 +767,12 @@ function M.stdoutcallback(t, job, data)
           pcall(active_cb, status)
         end)
       else
-        -- If prompt isn't visible yet, put the status back into the buffer
-        -- so the next data packet (the final prompt flush) will trigger it.
+        -- If prompt isn't visible yet, loop the status keyword back into the cache
         pio_buffer = '_CMMNDS_:' .. status .. '\n' .. pio_buffer
       end
     end
   else
-    pio_buffer = pio_buffer .. data[1]
+    pio_buffer = pio_buffer .. data
 
     -- 3. Handle edge case where prompt arrives alone in a single-element packet
     local status = pio_buffer:match('_CMMNDS_:(%a+)')
@@ -784,6 +786,12 @@ function M.stdoutcallback(t, job, data)
     end
   end
 end
+
+
+
+
+
+
 
 
 
