@@ -662,11 +662,13 @@ function M.handlePioinitDb(result, board, on_done)
       -- if trm and on_done and type(on_done) == "function" then
       --   vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       -- end
+      print(vim.inspect(M.queue))
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then
       OS.notify('PIO init+db:  pass ' .. commandPassed, "info")
 
+      print(vim.inspect(M.queue))
       local active_env = M.get_active__env('PIO init+db: ')
       OS.notify('active_env=' .. active_env, 'info')
       OS.notify('board=' .. board, 'info')
@@ -692,6 +694,7 @@ function M.handlePioinitDb(result, board, on_done)
     end
   elseif result == 'DONE' then -- result of the last command
     -- vim.schedule(function()
+      print(vim.inspect(M.queue))
     OS.notify('PIO init+db:  pass ' .. commandPassed, "info")
     OS.notify('PIO init+db: Done', "info")
     M.pio_refresh(function()
