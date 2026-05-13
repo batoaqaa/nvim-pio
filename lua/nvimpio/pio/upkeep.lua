@@ -703,33 +703,70 @@ local nvimpio = require('nvimpio')
 -- -- INFO: ToggleTerminal commands stdout filter
 -- -- stylua: ignore
 -- -- =============================================================================
+-- function M.stdoutcallback(_, _, data)
+--   if not data or #data == 0 then return end
+--
+--   -- 1. Correctly handle Neovim's data chunks
+--   -- data[1] is the continuation of the previous chunk
+--   -- data[#data] is a partial line (no newline yet)
+--
+--   if #data > 1 then
+--     -- Join the buffer with the first element and all middle elements
+--     --(everything except the last partial line)
+--     local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
+--     pio_buffer = data[#data] -- Save the new partial line
+--
+--     -- 2. Search for the status in the complete chunk
+--     --change the pattern to: content:match('_CMMNDS_:([^%s]+)')
+--     --this will grab everything until the next space or newline.
+--     local status = content:match('_CMMNDS_:(%a+)') -- pattern %a+ only matches letters (A-Z)
+--
+--     if status and callBack then vim.schedule(function() callBack(status) end) end
+--   else
+--     -- Only one element (no newline yet;) means the line isn't finished yet
+--     pio_buffer = pio_buffer .. data[1]
+--   end
+--
+--   -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
+--   if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
+-- end
+
+-- before is workinng
+
+
 function M.stdoutcallback(_, _, data)
   if not data or #data == 0 then return end
 
-  -- 1. Correctly handle Neovim's data chunks
-  -- data[1] is the continuation of the previous chunk
-  -- data[#data] is a partial line (no newline yet)
+  -- 1. Stream Integration: Glue incoming fragments together
+  pio_buffer = pio_buffer .. table.concat(data, "")
 
-  if #data > 1 then
-    -- Join the buffer with the first element and all middle elements
-    --(everything except the last partial line)
-    local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
-    pio_buffer = data[#data] -- Save the new partial line
+  -- 2. Processing Loop: Isolate complete lines sequentially
+  while pio_buffer:find("\n") do
+    local line, rest = pio_buffer:match("^([^\n]*)\n(.*)$")
+    pio_buffer = rest or ""
 
-    -- 2. Search for the status in the complete chunk
-    --change the pattern to: content:match('_CMMNDS_:([^%s]+)')
-    --this will grab everything until the next space or newline.
-    local status = content:match('_CMMNDS_:(%a+)') -- pattern %a+ only matches letters (A-Z)
+    -- 3. Cross-Platform Normalization: Wipe out hidden Windows carriage returns
+    line = line:gsub('\r', '')
 
-    if status and callBack then vim.schedule(function() callBack(status) end) end
-  else
-    -- Only one element (no newline yet;) means the line isn't finished yet
-    pio_buffer = pio_buffer .. data[1]
+    -- 4. Safe Pattern Extraction: Look for the exact syntax pattern
+    local status = line:match('_CMMNDS_:(%a+)')
+
+    -- 5. Main Thread Dispatched Execution: Keep Neovim's UI thread happy and safe
+    if status and callBack then
+      vim.schedule(function()
+        pcall(callBack, status)
+      end)
+    end
   end
-
-  -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
-  if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
 end
+
+
+
+
+
+
+
+
 
 --- Highly reliable streaming line parsing utility for Toggleterm
 -- function M.stdoutcallback(_, _, data)
