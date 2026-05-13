@@ -720,7 +720,8 @@ function M.stdoutcallback(_, _, data)
     -- 2. Search for the status in the complete chunk
     --change the pattern to: content:match('_CMMNDS_:([^%s]+)')
     --this will grab everything until the next space or newline.
-    local pattern = string.format('_CMMNDS_%s:(%a+)', current_token)
+    -- local pattern = string.format('_CMMNDS_%s:(%a+)', current_token)
+    local pattern = '_CMMNDS_' .. current_token .. ':(%a+)'
     local status = content:match(pattern) -- pattern %a+ only matches letters (A-Z)
     -- local status = content:match('_CMMNDS_:(%a+)') -- pattern %a+ only matches letters (A-Z)
 
