@@ -686,6 +686,7 @@ function M.compile_commandsFix() --M.dbPathsFix()
   _G.metadata.isBusy = false
 end
 
+local current_token = tostring(math.random(10000, 99999))
 local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
 local callBack = nil -- Your execution hook function pointer
 local commandPassed = 0
@@ -703,69 +704,71 @@ local nvimpio = require('nvimpio')
 -- -- INFO: ToggleTerminal commands stdout filter
 -- -- stylua: ignore
 -- -- =============================================================================
--- function M.stdoutcallback(_, _, data)
---   if not data or #data == 0 then return end
---
---   -- 1. Correctly handle Neovim's data chunks
---   -- data[1] is the continuation of the previous chunk
---   -- data[#data] is a partial line (no newline yet)
---
---   if #data > 1 then
---     -- Join the buffer with the first element and all middle elements
---     --(everything except the last partial line)
---     local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
---     pio_buffer = data[#data] -- Save the new partial line
---
---     -- 2. Search for the status in the complete chunk
---     --change the pattern to: content:match('_CMMNDS_:([^%s]+)')
---     --this will grab everything until the next space or newline.
---     local status = content:match('_CMMNDS_:(%a+)') -- pattern %a+ only matches letters (A-Z)
---
---     if status and callBack then vim.schedule(function() callBack(status) end) end
---   else
---     -- Only one element (no newline yet;) means the line isn't finished yet
---     pio_buffer = pio_buffer .. data[1]
---   end
---
---   -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
---   if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
--- end
+function M.stdoutcallback(_, _, data)
+  if not data or #data == 0 then return end
+
+  -- 1. Correctly handle Neovim's data chunks
+  -- data[1] is the continuation of the previous chunk
+  -- data[#data] is a partial line (no newline yet)
+
+  if #data > 1 then
+    -- Join the buffer with the first element and all middle elements
+    --(everything except the last partial line)
+    local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
+    pio_buffer = data[#data] -- Save the new partial line
+
+    -- 2. Search for the status in the complete chunk
+    --change the pattern to: content:match('_CMMNDS_:([^%s]+)')
+    --this will grab everything until the next space or newline.
+    local pattern = string.format('_CMMNDS_%s:(%a+)', current_token)
+    local status = content:match(pattern) -- pattern %a+ only matches letters (A-Z)
+    -- local status = content:match('_CMMNDS_:(%a+)') -- pattern %a+ only matches letters (A-Z)
+
+    if status and callBack then vim.schedule(function() callBack(status) end) end
+  else
+    -- Only one element (no newline yet;) means the line isn't finished yet
+    pio_buffer = pio_buffer .. data[1]
+  end
+
+  -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
+  if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
+end
 
 -- before is workinng
 
 
-function M.stdoutcallback(t, job, data)
-  if not data or #data == 0 then return end
-
-  -- 1. UNIFIED ACCUMULATION: Safely convert incoming table to a string and append
-  pio_buffer = pio_buffer .. table.concat(data, "")
-
-  -- 2. OPTIMIZATION FOR LONG OUTPUTS: 
-  -- If the buffer gets too long, keep only the last 1000 characters.
-  -- This prevents memory leaks while ensuring we never miss trailing tokens.
-  if #pio_buffer > 1000 then
-    pio_buffer = pio_buffer:sub(-1000)
-  end
-
-  -- 3. SCAN STREAM: Search the rolling window for your exact target status string
-  local status = pio_buffer:match('_CMMNDS_:(%a+)')
-
-  if status and callBack then
-    -- Circuit Breaker: Clear state immediately so it can never double-fire
-    local active_cb = callBack
-    if status == 'DONE' or status == 'FAIL' then
-      callBack = nil
-      pio_buffer = ""
-    end
-
-    -- Defer slightly to let PowerShell finish updating the terminal buffer
-    vim.defer_fn(function()
-      vim.schedule(function()
-        pcall(active_cb, status)
-      end)
-    end, 50)
-  end
-end
+-- function M.stdoutcallback(t, job, data)
+--   if not data or #data == 0 then return end
+--
+--   -- 1. UNIFIED ACCUMULATION: Safely convert incoming table to a string and append
+--   pio_buffer = pio_buffer .. table.concat(data, "")
+--
+--   -- 2. OPTIMIZATION FOR LONG OUTPUTS: 
+--   -- If the buffer gets too long, keep only the last 1000 characters.
+--   -- This prevents memory leaks while ensuring we never miss trailing tokens.
+--   if #pio_buffer > 1000 then
+--     pio_buffer = pio_buffer:sub(-1000)
+--   end
+--
+--   -- 3. SCAN STREAM: Search the rolling window for your exact target status string
+--   local status = pio_buffer:match('_CMMNDS_:(%a+)')
+--
+--   if status and callBack then
+--     -- Circuit Breaker: Clear state immediately so it can never double-fire
+--     local active_cb = callBack
+--     if status == 'DONE' or status == 'FAIL' then
+--       callBack = nil
+--       pio_buffer = ""
+--     end
+--
+--     -- Defer slightly to let PowerShell finish updating the terminal buffer
+--     vim.defer_fn(function()
+--       vim.schedule(function()
+--         pcall(active_cb, status)
+--       end)
+--     end, 50)
+--   end
+-- end
 
 
 
@@ -881,9 +884,12 @@ M.run_sequence = function(tasks)
   M.queue = {}
   local commands = tasks.cmnds
 
-  local done = ' && echo _CMMNDS_":"DONE'
-  local pass = ' && echo _CMMNDS_":"PASS'
-  local fail = ' || echo _CMMNDS_":"FAIL'
+  -- Generate a random numeric token (e.g., "48291")
+  current_token = tostring(math.random(10000, 99999))
+
+  local done = string.format(' && echo _CMMNDS_%s":"DONE', current_token)
+  local pass = string.format(' && echo _CMMNDS_%s":"PASS', current_token)
+  local fail = string.format(' || echo _CMMNDS_%ss":"FAIL', current_token)
   --
   for i, cmd in ipairs(commands) do
     local full_cmd = ''
