@@ -686,24 +686,23 @@ function M.compile_commandsFix() --M.dbPathsFix()
   _G.metadata.isBusy = false
 end
 
+-- INFO:
+--configuration for running sequential commands on ToggleTerminal
+-- stylua: ignore
+-- Initialize
+-- =============================================================================
 local current_token = tostring(math.random(10000, 99999))
 local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
 local callBack = nil -- Your execution hook function pointer
 local commandPassed = 0
 M.queue = {}
 term.stdout_callback = M.stdoutcallback
+local trm
 local nvimpio = require('nvimpio')
 
--- INFO:
---configuration for running sequential commands on ToggleTerminal
+-- INFO: ToggleTerminal commands stdout filter
 -- stylua: ignore
 -- =============================================================================
--- local callBack = nil
--- local pio_buffer = '' -- Persistent stream buffer
---
--- -- INFO: ToggleTerminal commands stdout filter
--- -- stylua: ignore
--- -- =============================================================================
 function M.stdoutcallback(_, _, data)
   if not data or #data == 0 then return end
 
@@ -723,7 +722,6 @@ function M.stdoutcallback(_, _, data)
     -- local pattern = string.format('_CMMNDS_%s:(%a+)', current_token)
     local pattern = '_CMMNDS_' .. current_token .. ':(%a+)'
     local status = content:match(pattern) -- pattern %a+ only matches letters (A-Z)
-    -- local status = content:match('_CMMNDS_:(%a+)') -- pattern %a+ only matches letters (A-Z)
 
     if status and callBack then vim.schedule(function() callBack(status) end) end
   else
@@ -734,147 +732,6 @@ function M.stdoutcallback(_, _, data)
   -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
   if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
 end
-
--- before is workinng
-
-
--- function M.stdoutcallback(t, job, data)
---   if not data or #data == 0 then return end
---
---   -- 1. UNIFIED ACCUMULATION: Safely convert incoming table to a string and append
---   pio_buffer = pio_buffer .. table.concat(data, "")
---
---   -- 2. OPTIMIZATION FOR LONG OUTPUTS: 
---   -- If the buffer gets too long, keep only the last 1000 characters.
---   -- This prevents memory leaks while ensuring we never miss trailing tokens.
---   if #pio_buffer > 1000 then
---     pio_buffer = pio_buffer:sub(-1000)
---   end
---
---   -- 3. SCAN STREAM: Search the rolling window for your exact target status string
---   local status = pio_buffer:match('_CMMNDS_:(%a+)')
---
---   if status and callBack then
---     -- Circuit Breaker: Clear state immediately so it can never double-fire
---     local active_cb = callBack
---     if status == 'DONE' or status == 'FAIL' then
---       callBack = nil
---       pio_buffer = ""
---     end
---
---     -- Defer slightly to let PowerShell finish updating the terminal buffer
---     vim.defer_fn(function()
---       vim.schedule(function()
---         pcall(active_cb, status)
---       end)
---     end, 50)
---   end
--- end
-
-
-
-
-
-
-
-
-
-
-
--- function M.stdoutcallback(t, job, data)
---   if not data or #data == 0 then return end
---
---   -- Use your original working structure to bypass prompt concatenation bugs
---   if #data > 1 then
---     local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
---     pio_buffer = data[#data]
---
---     -- Search for your exact target status string
---     local status = content:match('_CMMNDS_:(%a+)')
---
---     if status and callBack then
---       -- Save the callback locally and clear the handler immediately 
---       -- This acts as a circuit breaker so nothing can double-fire
---       local active_cb = callBack
---       callBack = nil
---       pio_buffer = ""
---
---       -- CRUCIAL AUTOMATION FIX: Wait 50ms for PowerShell to completely settle
---       -- This allows the terminal emulator to finish drawing the text onto the screen 
---       -- and safely release the keyboard focus layer before the next command drops.
---       vim.defer_fn(function()
---         vim.schedule(function()
---           pcall(active_cb, status)
---         end)
---       end, 50)
---     end
---   else
---     pio_buffer = pio_buffer .. table.concat(data, "")
---
---     -- Handle edge case where a single packet delivers everything simultaneously
---     local status = pio_buffer:match('_CMMNDS_:(%a+)')
---     if status and callBack then
---       local active_cb = callBack
---       callBack = nil
---       pio_buffer = ""
---
---       vim.defer_fn(function()
---         vim.schedule(function()
---           pcall(active_cb, status)
---         end)
---       end, 50)
---     end
---   end
--- end
-
-
-
-
-
-
-
-
-
-
-
-
--- function M.stdoutcallback(_, _, data)
---   if not data or #data == 0 then return end
---
---   if #data > 1 then
---     -- Glue everything except the last element (which contains the raw shell prompt)
---     local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
---     pio_buffer = data[#data] -- Save the trailing prompt chunk for next time
---
---     -- Match your exact string format
---     local status = content:match('_CMMNDS_:(%a+)')
---
---     if status and callBack then
---       -- Capture the callback reference before clearing it
---       local active_cb = callBack
---
---       -- CRUCIAL STEP: Wiping both states completely ensures this function blocks 
---       -- any additional incoming shell text or duplicate prompts from re-triggering.
---       if status == 'DONE' or status == 'FAIL' then
---         callBack = nil
---         pio_buffer = ""
---       end
---
---       vim.schedule(function()
---         pcall(active_cb, status)
---       end)
---     end
---     -- if status and callBack then
---     --   vim.schedule(function() pcall(callBack, status) end)
---     -- end
---   else
---     -- Fallback for single data packets
---     pio_buffer = pio_buffer .. data[1]
---   end
--- end
-
-
-
 
 -- =============================================================================
 
@@ -901,24 +758,25 @@ M.run_sequence = function(tasks)
 
   callBack = tasks.cb -- 1. Save the callback in a local variable
 
-  commandPassed = 1
-  pio_buffer = ''
+  -- if not nvimpio.is_active then
+  --   require('nvimpio.pio.metadata')
+  -- end
 
-  if not nvimpio.is_active then
-    require('nvimpio.pio.metadata')
+  if callBack then
+    vim.schedule(function()
+      commandPassed = 1
+      pio_buffer = ''
+      term.stdout_callback = M.stdoutcallback
+      callBack('INIT')
+    end)
   end
-  _G.metadata.isBusy = false
-  term.stdout_callback = M.stdoutcallback
-  vim.schedule(function() if callBack then callBack('INIT') end end)
 end
 
-local trm
 ------------------------------------------------------
 -- Handle after pioinit execution
 -- =============================================================================
 -- stylua: ignore
-function M.cleanup_pio_session()
-  -- misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
+function M.cleanSequencer()
   _G.metadata.isBusy = false
   M.queue = {}
   callBack = nil
@@ -932,51 +790,35 @@ function M.handlePioinitDb(result, board, on_done)
   print(result)
   if result == 'INIT' then
     if #M.queue > 0 then
-      pio_buffer = ''
       _G.metadata.isBusy = true
       boilerplate.core_dir = _G.metadata.core_dir
       boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
+
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
-print(vim.inspect(M.queue))
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-      -- if trm and on_done and type(on_done) == "function" then
-      --   vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then
-
-print(vim.inspect(M.queue))
       local active_env = M.get_active__env('PIO init+db: ')
-print('active_env=' .. active_env)
-print('board=' .. board)
       OS.notify('PIO init+db:  pass ' .. commandPassed, "info")
+      commandPassed = commandPassed + 1
       if not active_env or (active_env == board) then
-print('term ok')
         boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
         boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
-        commandPassed = commandPassed + 1
         if #M.queue > 0 then
-          -- if trm then
-            -- trm:open()
-          -- local cmd = table.remove(M.queue, 1)
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-            -- trm:send(table.remove(M.queue, 1), false)
-          -- OS.notify(cmd, 'info')
-            -- trm:send(cmd, false)
-          -- end
+          -- trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+          trm:send(table.remove(M.queue, 1), false)
         end
       else
-print('term nok')
         if on_done and type(on_done) == "function" then on_done(false) end
-        M.cleanup_pio_session()
+        M.cleanSequencer()
       end
     -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
     end
   elseif result == 'DONE' then -- result of the last command
     -- vim.schedule(function()
-print(vim.inspect(M.queue))
     OS.notify('PIO init+db:  pass ' .. commandPassed, "info")
     OS.notify('PIO init+db: Done', "info")
     M.pio_refresh(function()
@@ -985,15 +827,11 @@ print(vim.inspect(M.queue))
       boilerplate.core_dir = _G.metadata.core_dir
     end, 'PIO init+db: ')
     -- end)
-    -- if trm then trm:close() end
-    callBack = nil
-    pio_buffer = ''
-    M.cleanup_pio_session()
+    if trm then trm:close() end
+    M.cleanSequencer()
   elseif result == 'FAIL' then
     if on_done and type(on_done) == "function" then on_done(false) end
-    pio_buffer = ''
-    callBack = nil
-    M.cleanup_pio_session()
+    M.cleanSequencer()
   end
 end
 
@@ -1006,7 +844,6 @@ function M.handlePioInstall(result, on_done)
   print(result)
   if result == 'INIT' then
     if #M.queue > 0 then
-      pio_buffer = ''
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       if trm and on_done and type(on_done) == "function" then
@@ -1048,17 +885,13 @@ function M.handlePioInstall(result, on_done)
     OS.notify('PIO install: success', 'info')
 
     -- if trm then trm:close() end
-    if on_done and type(on_done) == "function" then on_done(false) end
+    if on_done and type(on_done) == "function" then on_done(true) end
     -- end)
-    callBack = nil
-    pio_buffer = ''
-    M.cleanup_pio_session()
+    M.cleanSequencer()
   elseif result == 'FAIL' then
      OS.notify('Installation failed! Check logs and press :q to close.', 'error')
     if on_done and type(on_done) == "function" then on_done(false) end
-    callBack = nil
-    pio_buffer = ''
-    M.cleanup_pio_session()
+    M.cleanSequencer()
   end
 end
 
@@ -1078,9 +911,9 @@ function M.clangFormat(result)
     OS.notify('Clang formatter: Done', "info")
     commandPassed = commandPassed + 1
     -- if trm then trm:close() end
-    M.cleanup_pio_session()
+    M.cleanSequencer()
   elseif result == 'FAIL' then
-    M.cleanup_pio_session()
+    M.cleanSequencer()
   end
 end
 
@@ -1103,9 +936,9 @@ function M.handlePioDB(result)
       end, 'PIO compiledb: ')
     end)
     -- if trm then trm:close() end
-    M.cleanup_pio_session()
+    M.cleanSequencer()
   elseif result == 'FAIL' then
-    M.cleanup_pio_session()
+    M.cleanSequencer()
   end
 end
 
@@ -1149,9 +982,9 @@ function M.handlePioinit(result)
         -- term.ToggleTerminal('echo "************ project Initialization success ************"', 'float')
       end, 'PIO init: ')
     end)
-    M.cleanup_pio_session()
+    M.cleanSequencer()
   elseif result == 'FAIL' then
-    M.cleanup_pio_session()
+    M.cleanSequencer()
   end
 end
 
@@ -1190,9 +1023,9 @@ function M.handlePiolib(result)
       end, 'PIO lib+db: ')
     end)
     -- if trm then trm:close() end
-    M.cleanup_pio_session()
+    M.cleanSequencer()
   elseif result == 'FAIL' then
-    M.cleanup_pio_session()
+    M.cleanSequencer()
   end
 end
 return M

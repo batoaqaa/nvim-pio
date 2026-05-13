@@ -39,7 +39,6 @@ function M.setup(opts)
   vim.api.nvim_create_user_command('Pioinit', function()
     pioCheck.pioStatus(function(success)
       if success then
-        OS.notify('success', 'info')
         if M.isActivated then
           require('nvimpio.pio.ui.pioInit').pioInit()
         else
@@ -52,7 +51,6 @@ function M.setup(opts)
           end)
         end
       else
-        OS.notify('fail', 'info')
       end
     end, false)
   end, {
