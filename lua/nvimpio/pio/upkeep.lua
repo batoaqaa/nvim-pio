@@ -686,6 +686,12 @@ function M.compile_commandsFix() --M.dbPathsFix()
   _G.metadata.isBusy = false
 end
 
+local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
+local callBack = nil -- Your execution hook function pointer
+local commandPassed = 0
+M.queue = {}
+term.stdout_callback = M.stdoutcallback
+local nvimpio = require('nvimpio')
 
 -- INFO:
 --configuration for running sequential commands on ToggleTerminal
@@ -697,68 +703,61 @@ end
 -- -- INFO: ToggleTerminal commands stdout filter
 -- -- stylua: ignore
 -- -- =============================================================================
--- function M.stdoutcallback(_, _, data)
---   if not data or #data == 0 then return end
---
---   -- 1. Correctly handle Neovim's data chunks
---   -- data[1] is the continuation of the previous chunk
---   -- data[#data] is a partial line (no newline yet)
---
---   if #data > 1 then
---     -- Join the buffer with the first element and all middle elements
---     --(everything except the last partial line)
---     local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
---     pio_buffer = data[#data] -- Save the new partial line
---
---     -- 2. Search for the status in the complete chunk
---     --change the pattern to: content:match('_CMMNDS_:([^%s]+)')
---     --this will grab everything until the next space or newline.
---     local status = content:match('_CMMNDS_:(%a+)') -- pattern %a+ only matches letters (A-Z)
---
---     if status and callBack then vim.schedule(function() callBack(status) end) end
---   else
---     -- Only one element (no newline yet;) means the line isn't finished yet
---     pio_buffer = pio_buffer .. data[1]
---   end
---
---   -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
---   if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
--- end
+function M.stdoutcallback(_, _, data)
+  if not data or #data == 0 then return end
 
-local pio_buffer = "" -- Initialize to prevent nil concatenation crashes
-local callBack = nil -- Your execution hook function pointer
-local commandPassed = 0
-M.queue = {}
-term.stdout_callback = M.stdoutcallback
-local nvimpio = require('nvimpio')
+  -- 1. Correctly handle Neovim's data chunks
+  -- data[1] is the continuation of the previous chunk
+  -- data[#data] is a partial line (no newline yet)
+
+  if #data > 1 then
+    -- Join the buffer with the first element and all middle elements
+    --(everything except the last partial line)
+    local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
+    pio_buffer = data[#data] -- Save the new partial line
+
+    -- 2. Search for the status in the complete chunk
+    --change the pattern to: content:match('_CMMNDS_:([^%s]+)')
+    --this will grab everything until the next space or newline.
+    local status = content:match('_CMMNDS_:(%a+)') -- pattern %a+ only matches letters (A-Z)
+
+    if status and callBack then vim.schedule(function() callBack(status) end) end
+  else
+    -- Only one element (no newline yet;) means the line isn't finished yet
+    pio_buffer = pio_buffer .. data[1]
+  end
+
+  -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
+  if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
+end
 
 --- Highly reliable streaming line parsing utility for Toggleterm
-function M.stdoutcallback(_, _, data)
-  if not data or #data == 0 then
-    return
-  end
-
-  -- 1. Combine all incoming string pieces into your persistent buffer
-  pio_buffer = pio_buffer .. table.concat(data, '')
-
-  -- 2. Pull out and process complete lines out of the stream buffer
-  while pio_buffer:find('\n') do
-    local line, rest = pio_buffer:match('^([^\n]*)\n(.*)$')
-    pio_buffer = rest or ''
-
-    -- 3. Match against your exact format: _CMMNDS_:PASS
-    --    The colon is outside the parentheses, so it is required but NOT captured.
-    --    (%a+) captures only the uppercase/lowercase letters (like PASS or FAIL)
-    local status = line:match('_CMMNDS_:(%a+)')
-
-    -- 4. Execute your callback safely if a match is found
-    if status and callBack then
-      vim.schedule(function()
-        pcall(callBack, status)
-      end)
-    end
-  end
-end
+-- function M.stdoutcallback(_, _, data)
+--   if not data or #data == 0 then
+--     return
+--   end
+--
+--   -- 1. Combine all incoming string pieces into your persistent buffer
+--   pio_buffer = pio_buffer .. table.concat(data, '')
+--
+--   -- 2. Pull out and process complete lines out of the stream buffer
+--   while pio_buffer:find('\n') do
+--     local line, rest = pio_buffer:match('^([^\n]*)\n(.*)$')
+--     pio_buffer = rest or ''
+--
+--     -- 3. Match against your exact format: _CMMNDS_:PASS
+--     --    The colon is outside the parentheses, so it is required but NOT captured.
+--     --    (%a+) captures only the uppercase/lowercase letters (like PASS or FAIL)
+--     local status = line:match('_CMMNDS_:(%a+)')
+--
+--     -- 4. Execute your callback safely if a match is found
+--     if status and callBack then
+--       vim.schedule(function()
+--         pcall(callBack, status)
+--       end)
+--     end
+--   end
+-- end
 
 -- =============================================================================
 
