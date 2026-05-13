@@ -647,6 +647,7 @@ function M.cleanup_pio_session()
   M.queue = {}
   if win_id then misc.closeMessage(win_id) end
   win_id = nil
+  callBack = nil
   -- term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
   -- if trm then trm:close() end
 end
@@ -742,7 +743,7 @@ function M.handlePioInstall(result, on_done)
     commandPassed = commandPassed + 1
 
     -- 1. Always remove the script
-    vim.schedule(function()
+    -- vim.schedule(function()
     os.remove('get-platformio.py')
     -- 2. Find and remove random temp folders like .piocore-installer-xxxx
     local temp_patterns = { ".piocore-installer-*", "platformio-core-installer-*" }
@@ -758,14 +759,14 @@ function M.handlePioInstall(result, on_done)
     if on_done and type(on_done) == "function" then
       on_done(true)
     end
-    end)
-    -- M.cleanup_pio_session()
+    -- end)
+    M.cleanup_pio_session()
   elseif result == 'FAIL' then
      OS.notify('Installation failed! Check logs and press :q to close.', 'error')
     if on_done and type(on_done) == "function" then on_done(false) end
     _G.pio_status = '❌ PIO Failed'
     vim.cmd('redrawstatus')
-    -- M.cleanup_pio_session()
+    M.cleanup_pio_session()
   end
 end
 
