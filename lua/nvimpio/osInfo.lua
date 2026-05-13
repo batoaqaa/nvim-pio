@@ -6,9 +6,11 @@ local is_win = (sysname:find('Windows') or vim.fn.has('win32') == 1)
 local is_mac = sysname == 'Darwin'
 local is_linux = sysname == 'Linux'
 -- Check for WSL
+-- Safe Check for WSL
 local is_wsl = false
-if is_linux then
-  local version = vim.fn.readfile('/proc/version')[1] or ''
+if is_linux and vim.fn.filereadable('/proc/version') == 1 then
+  local lines = vim.fn.readfile('/proc/version')
+  local version = (lines and lines[1]) or ''
   if version:lower():find('microsoft') then is_wsl = true end
 end
 
@@ -35,7 +37,7 @@ end
 _G.OS = _G.OS or {}
 local OS = _G.OS ---@cast OS +OS
 
-local _pioRady = false
+local _pioReady = false
 
 -- 2. Build the data table
 local os_info = {
@@ -75,14 +77,14 @@ local os_info = {
   ---Checks if PlatformIO is installed and working (Cached after first success)
   ---@return boolean
   pioReady = function()
-    if _pioRady then return true end
+    if _pioReady then return true end
 
     if vim.fn.executable('pio') ~= 1 then return false end
 
     local ok, obj = pcall(function() return vim.system({ 'pio', '--version' }):wait() end)
 
     if ok and obj and obj.code == 0 then
-      _pioRady = true
+      _pioReady = true
       return true
     end
     return false

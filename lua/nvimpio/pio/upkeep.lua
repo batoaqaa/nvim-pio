@@ -747,7 +747,8 @@ function M.handlePioInstall(result, on_done)
 
     -- 1. Always remove the script
     -- vim.schedule(function()
-    os.remove('get-platformio.py')
+    local script_path = vim.fs.joinpath(OS.cache_dir, 'get-platformio.py')
+    os.remove(script_path)
     -- 2. Find and remove random temp folders like .piocore-installer-xxxx
     local temp_patterns = { ".piocore-installer-*", "platformio-core-installer-*" }
     for _, pattern in ipairs(temp_patterns) do
