@@ -617,7 +617,6 @@ M.run_sequence = function(tasks)
     local full_cmd = ''
     if i == #commands then full_cmd = cmd .. done .. fail
     else full_cmd = cmd .. pass .. fail end
-    OS.notify(full_cmd, 'info')
     table.insert(M.queue, full_cmd)
   end
 
@@ -660,9 +659,9 @@ function M.handlePioinitDb(result, board, on_done)
       boilerplate.core_dir = _G.metadata.core_dir
       boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-      if trm and on_done and type(on_done) == "function" then
-        vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
-      end
+      -- if trm and on_done and type(on_done) == "function" then
+      --   vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
+      -- end
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then

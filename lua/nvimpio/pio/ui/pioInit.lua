@@ -50,8 +50,6 @@ local function finalize_setup()
   local db_cmd = string.format('pio run -t compiledb -e "%s"', wizard_data.board_id)
   local commands = { init_cmd, db_cmd }
 
-  OS.notify('init_cmd: ' .. init_cmd)
-  OS.notify('db_cmd: ' .. db_cmd)
   local final_cb = function(status)
     pio.handlePioinitDb(status, wizard_data.board_id, wizard_data.on_done)
   end
