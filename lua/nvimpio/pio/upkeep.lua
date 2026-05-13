@@ -734,42 +734,43 @@ local nvimpio = require('nvimpio')
 -- before is workinng
 
 
-
-
 function M.stdoutcallback(_, _, data)
   if not data or #data == 0 then return end
 
   -- 1. Stream Integration: Glue incoming fragments together
   pio_buffer = pio_buffer .. table.concat(data, "")
 
-  -- 2. Processing Loop: Extract and process complete lines sequentially
+  -- 2. Pull out complete lines using \n (works for both \n and \r\n)
   while pio_buffer:find("\n") do
     local line, rest = pio_buffer:match("^([^\n]*)\n(.*)$")
     pio_buffer = rest or ""
 
-    -- Cross-Platform Normalization: Wipe out hidden Windows carriage returns (\r)
+    -- Clean Windows carriage returns (\r)
     line = line:gsub('\r', '')
 
-    -- Safe Pattern Extraction: Looks for exact format _CMMNDS_:PASS or _CMMNDS_:FAIL
+    -- CRUCIAL WINDOWS FIX: Strip out all invisible ANSI escape/color codes
+    line = line:gsub('\27%[[%d;]*%a', '')
+
+    -- Robust Pattern Extraction: Match letters even if trailing text or prompt follows
     local status = line:match('_CMMNDS_:(%a+)')
 
-    -- Main Thread Dispatched Execution: Keep Neovim's UI thread safe
     if status and callBack then
       vim.schedule(function() pcall(callBack, status) end)
     end
   end
 
-  -- 3. Trailing Line Flush: Process leftover text if it lacks a trailing '\n'
-  if pio_buffer ~= "" and pio_buffer:find('_CMMNDS_:') then
-    local final_line = pio_buffer:gsub('\r', '')
-    local status = final_line:match('_CMMNDS_:(%a+)')
+  -- 3. Trailing Data Check: Strip ANSI and check leftover text if prompt follows immediately
+  if pio_buffer ~= "" then
+    local clean_buffer = pio_buffer:gsub('\r', ''):gsub('\27%[[%d;]*%a', '')
+    local status = clean_buffer:match('_CMMNDS_:(%a+)')
 
     if status and callBack then
       vim.schedule(function() pcall(callBack, status) end)
+      pio_buffer = "" -- Clear only when fully processed
     end
-    pio_buffer = "" -- Empty the buffer since it is fully processed
   end
 end
+
 
 
 
