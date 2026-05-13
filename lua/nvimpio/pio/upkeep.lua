@@ -732,33 +732,34 @@ M.queue = {}
 term.stdout_callback = M.stdoutcallback
 local nvimpio = require('nvimpio')
 
+--- Highly reliable streaming line parsing utility for Toggleterm
 function M.stdoutcallback(_, _, data)
   if not data or #data == 0 then
     return
   end
 
   -- 1. Combine all incoming string pieces into your persistent buffer
-  --    Toggleterm splits chunks randomly; table.concat puts them back together.
   pio_buffer = pio_buffer .. table.concat(data, '')
 
-  -- 2. Process complete lines extracted from the stream sequence
+  -- 2. Pull out and process complete lines out of the stream buffer
   while pio_buffer:find('\n') do
     local line, rest = pio_buffer:match('^([^\n]*)\n(.*)$')
     pio_buffer = rest or ''
 
-    -- 3. Match against the isolated line block safely
-    --    [%s%p]* accounts for spaces/punctuation seamlessly: _CMMNDS_":"PASS"
-    -- local status = line:match('_CMMNDS_[%s%p]*(%a+)')
-    local status = line:match('_CMMNDS_:(%a+)') -- pattern %a+ only matches letters (A-Z)
+    -- 3. Match against your exact format: _CMMNDS_:PASS
+    --    The colon is outside the parentheses, so it is required but NOT captured.
+    --    (%a+) captures only the uppercase/lowercase letters (like PASS or FAIL)
+    local status = line:match('_CMMNDS_:(%a+)')
 
+    -- 4. Execute your callback safely if a match is found
     if status and callBack then
-      -- Driven safely back to Neovim's UI loop through our thread-safe layer
       vim.schedule(function()
         pcall(callBack, status)
       end)
     end
   end
 end
+
 -- =============================================================================
 
 -- INFO: commands sequencer
