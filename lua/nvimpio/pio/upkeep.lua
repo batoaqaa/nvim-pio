@@ -804,11 +804,14 @@ function M.stdoutcallback(_, _, data)
 
     -- Check fields in order of absolute priority
     if matched_fail then
+      print(matched_fail)
       final_status = "FAIL"
       M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
     elseif matched_done then
+      print(matched_done)
       final_status = "DONE"
     elseif matched_pass then
+      print(matched_pass)
       -- Captures and assigns your clean string token like "PASS1"
       final_status = matched_pass
     end
