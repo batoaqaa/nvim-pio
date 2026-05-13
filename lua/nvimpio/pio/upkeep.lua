@@ -745,9 +745,7 @@ function M.stdoutcallback(_, _, data)
       elseif matched_done then
         final_status = "DONE"
       elseif matched_pass then
-        if matched_pass == "PASS" .. current_id then
-          final_status = matched_pass
-        end
+        final_status = matched_pass
       end
 
       -- 5. Safe Dispatch back to Neovim main thread
