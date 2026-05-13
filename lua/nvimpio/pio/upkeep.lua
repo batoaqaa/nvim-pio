@@ -953,6 +953,7 @@ end
 -- =============================================================================
 -- stylua: ignore
 function M.handlePioInstall(result, on_done)
+  print(result)
   if result == 'INIT' then
     if #M.queue > 0 then
       pio_buffer = ''
