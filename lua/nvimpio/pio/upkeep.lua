@@ -737,37 +737,20 @@ local nvimpio = require('nvimpio')
 function M.stdoutcallback(_, _, data)
   if not data or #data == 0 then return end
 
-  -- 1. Stream Integration: Glue incoming fragments together
-  pio_buffer = pio_buffer .. table.concat(data, "")
+  if #data > 1 then
+    -- Glue everything except the last element (which contains the raw shell prompt)
+    local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
+    pio_buffer = data[#data] -- Save the trailing prompt chunk for next time
 
-  -- 2. Pull out complete lines using \n (works for both \n and \r\n)
-  while pio_buffer:find("\n") do
-    local line, rest = pio_buffer:match("^([^\n]*)\n(.*)$")
-    pio_buffer = rest or ""
-
-    -- Clean Windows carriage returns (\r)
-    line = line:gsub('\r', '')
-
-    -- CRUCIAL WINDOWS FIX: Strip out all invisible ANSI escape/color codes
-    line = line:gsub('\27%[[%d;]*%a', '')
-
-    -- Robust Pattern Extraction: Match letters even if trailing text or prompt follows
-    local status = line:match('_CMMNDS_:(%a+)')
+    -- Match your exact string format
+    local status = content:match('_CMMNDS_:(%a+)')
 
     if status and callBack then
       vim.schedule(function() pcall(callBack, status) end)
     end
-  end
-
-  -- 3. Trailing Data Check: Strip ANSI and check leftover text if prompt follows immediately
-  if pio_buffer ~= "" then
-    local clean_buffer = pio_buffer:gsub('\r', ''):gsub('\27%[[%d;]*%a', '')
-    local status = clean_buffer:match('_CMMNDS_:(%a+)')
-
-    if status and callBack then
-      vim.schedule(function() pcall(callBack, status) end)
-      pio_buffer = "" -- Clear only when fully processed
-    end
+  else
+    -- Fallback for single data packets
+    pio_buffer = pio_buffer .. data[1]
   end
 end
 
