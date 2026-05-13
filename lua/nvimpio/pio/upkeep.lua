@@ -753,8 +753,10 @@ function M.stdoutcallback(t, job, data)
   if status and callBack then
     -- Circuit Breaker: Clear state immediately so it can never double-fire
     local active_cb = callBack
-    callBack = nil
-    pio_buffer = ""
+    if status == 'DONE' or status == 'FAIL' then
+      callBack = nil
+      pio_buffer = ""
+    end
 
     -- Defer slightly to let PowerShell finish updating the terminal buffer
     vim.defer_fn(function()
