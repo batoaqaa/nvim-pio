@@ -723,9 +723,6 @@ function M.stdoutcallback(_, _, data)
     local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
     pio_buffer = data[#data] -- Save the new partial line
 
-
-    if #pio_buffer > 2000 then pio_buffer = pio_buffer:sub(-2000) end
-
     -- 2. Build explicit, independent validation patterns
     --    Using [^%%w]* safely abstracts colons, quotes, and spacing variations
     local pass_pattern = '_CMMNDS_' .. current_token .. '[^%%w]*(PASS' .. current_id .. ')'
@@ -748,7 +745,9 @@ function M.stdoutcallback(_, _, data)
       elseif matched_done then
         final_status = "DONE"
       elseif matched_pass then
-        final_status = "PASS" .. current_id
+        if matched_pass == "PASS" .. current_id then
+          final_status = matched_pass
+        end
       end
 
       -- 5. Safe Dispatch back to Neovim main thread
