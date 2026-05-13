@@ -754,7 +754,7 @@ M.run_sequence = function(tasks)
   for i, cmd in ipairs(commands) do
     local full_cmd = ''
     if i == #commands then full_cmd = cmd .. done .. fail
-    else full_cmd = string.format("%s%s%01d%s",cmd, pass, session_counter, fail)
+    else full_cmd = string.format("%s%s%01d%s",cmd, pass, session_counter, fail) end
     table.insert(M.queue, full_cmd)
   end
 
