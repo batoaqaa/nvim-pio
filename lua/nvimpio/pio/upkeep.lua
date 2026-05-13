@@ -719,41 +719,39 @@ function M.stdoutcallback(_, _, data)
   if #data > 1 then
     -- Join the buffer with the first element and all middle elements
     --(everything except the last partial line)
+    -- 1. Stream Collection
     local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
     pio_buffer = data[#data] -- Save the new partial line
 
-    -- 2. Search for the status in the complete chunk
-    --change the pattern to: content:match('_CMMNDS_:([^%s]+)')
-    --this will grab everything until the next space or newline.
-    -- local pattern = string.format('_CMMNDS_%s:(%a+)', current_current_token)
-    -- local pattern = '_CMMNDS_' .. current_token .. ':(%a+)'
-    -- local status = content:match(pattern) -- pattern %a+ only matches letters (A-Z)
-
-    -- if status and callBack then vim.schedule(function() callBack(status) end) end
-
-    -- 2. Build cross-platform escape patterns using [^%w]* to neutralize the ":" string
-    -- local pass_pattern = current_pass_current_token:gsub('([%p])', '%%%1'):gsub('([^%%w])', '[^%%w]*')
-    -- local fail_pattern = current_fail_current_token:gsub('([%p])', '%%%1'):gsub('([^%%w])', '[^%%w]*')
-    --
-    -- -- 3. Check for specific current_token matches in the stream window
-    -- local matched_pass = content:match('(' .. pass_pattern .. ')')
-    -- local matched_fail = content:match('(' .. fail_pattern .. ')')
 
     if #pio_buffer > 2000 then pio_buffer = pio_buffer:sub(-2000) end
 
-    -- 2. Construct dynamic expectations based on the current step metrics
-    local target_word = current_id == 0 and "DONE" or ("PASS" .. current_id)
-
-    -- Use [^%%w]* to abstract any potential platform or quotes styling: ":" vs ":"
-    local pass_pattern = '_CMMNDS_' .. current_token .. '[^%%w]*(' .. target_word .. ')'
+    -- 2. Build explicit, independent validation patterns
+    --    Using [^%%w]* safely abstracts colons, quotes, and spacing variations
+    local pass_pattern = '_CMMNDS_' .. current_token .. '[^%%w]*(PASS' .. current_id .. ')'
+    local done_pattern = '_CMMNDS_' .. current_token .. '[^%%w]*(DONE)'
     local fail_pattern = '_CMMNDS_' .. current_token .. '[^%%w]*(FAIL)'
 
     -- 3. Match Evaluation
     local matched_pass = content:match(pass_pattern)
+    local matched_done = content:match(done_pattern)
     local matched_fail = content:match(fail_pattern)
 
-    if matched_pass or matched_fail then
-      local final_status = matched_pass and target_word or "FAIL"
+    -- 4. Strict Priority Execution Block
+    if matched_pass or matched_done or matched_fail then
+      -- Default fallback state
+      local final_status = "FAIL"
+      -- Check fields in order of absolute priority
+      if matched_fail then
+        final_status = "FAIL"
+        M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
+      elseif matched_done then
+        final_status = "DONE"
+      elseif matched_pass then
+        final_status = "PASS" .. current_id
+      end
+
+      -- 5. Safe Dispatch back to Neovim main thread
       if final_status and callBack then
         vim.schedule(function() callBack(final_status) end)
       end
