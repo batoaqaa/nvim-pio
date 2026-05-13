@@ -930,7 +930,7 @@ function M.handlePioInstall(result, on_done)
     OS.notify('PIO install: success', 'info')
 
     -- if trm then trm:close() end
-    if on_done and type(on_done) == "function" then on_done(true) end
+    if on_done and type(on_done) == "function" then on_done(false) end
     -- end)
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
