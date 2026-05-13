@@ -697,7 +697,7 @@ function M.handlePioinitDb(result, board, on_done)
       boilerplate.core_dir = _G.metadata.core_dir
     end, 'PIO init+db: ')
     -- end)
-    if trm then trm:close() end
+    -- if trm then trm:close() end
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
     if on_done and type(on_done) == "function" then on_done(false) end
@@ -750,7 +750,7 @@ function M.handlePioInstall(result, on_done)
     OS.notify('PIO install: success', 'info')
 
     commandPassed = commandPassed + 1
-    if trm then trm:close() end
+    -- if trm then trm:close() end
     if on_done and type(on_done) == "function" then on_done(true)end
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
@@ -777,7 +777,7 @@ function M.clangFormat(result)
     OS.notify('Clang formatter:  pass ' .. commandPassed, "info")
     OS.notify('Clang formatter: Done', "info")
     commandPassed = commandPassed + 1
-    if trm then trm:close() end
+    -- if trm then trm:close() end
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
     M.cleanup_pio_session()
@@ -802,7 +802,7 @@ function M.handlePioDB(result)
         boilerplate.core_dir = _G.metadata.core_dir
       end, 'PIO compiledb: ')
     end)
-    if trm then trm:close() end
+    -- if trm then trm:close() end
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
     M.cleanup_pio_session()
@@ -889,7 +889,7 @@ function M.handlePiolib(result)
         clangd.getUnknownArgs()
       end, 'PIO lib+db: ')
     end)
-    if trm then trm:close() end
+    -- if trm then trm:close() end
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
     M.cleanup_pio_session()
