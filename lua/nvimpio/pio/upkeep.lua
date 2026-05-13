@@ -827,6 +827,7 @@ function M.handlePioinitDb(result, board, on_done)
       _G.metadata.isBusy = true
       boilerplate.core_dir = _G.metadata.core_dir
       boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
+print(vim.inspect(M.queue))
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       -- if trm and on_done and type(on_done) == "function" then
       --   vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
