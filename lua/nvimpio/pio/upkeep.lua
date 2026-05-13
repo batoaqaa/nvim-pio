@@ -677,7 +677,10 @@ function M.handlePioinitDb(result, board, on_done)
         if #M.queue > 0 then
           -- if trm then
           --   trm:open()
-            trm:send(table.remove(M.queue, 1), false)
+          local cmd = table.remove(M.queue, 1)
+            -- trm:send(table.remove(M.queue, 1), false)
+          OS.notify(cmd, 'info')
+            trm:send(cmd, false)
           -- end
         end
       else
