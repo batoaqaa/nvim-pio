@@ -37,6 +37,10 @@ function M.verify_version()
   end)
 end
 
+
+
+
+
 -- INFO:
 -- =============================================================================
 -- UNIVERSAL TOOLCHAIN DETECTION
@@ -149,10 +153,40 @@ end
 -- Fast environment detection from platformio.ini file(no external calls)
 -- stylua: ignore
 --=============================================================================
+-- Helper function to extract connected hardware ports using PlatformIO core
+local function get_connected_ports()
+  if vim.fn.executable('pio') ~= 1 then
+    return {}
+  end
+
+  -- Spawn an explicit JSON hardware scan via the core engine
+  local ok, obj = pcall(function()
+    return vim.system({ 'pio', 'device', 'list', '--json' }):wait()
+  end)
+
+  if not ok or not obj or obj.code ~= 0 or not obj.stdout then
+    return {}
+  end
+
+  -- Parse output safely into data tables
+  local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
+  if not parse_ok or type(devices) ~= 'table' then
+    return {}
+  end
+
+  local paths = {}
+  for _, dev in ipairs(devices) do
+    if dev.port then
+      paths[dev.port] = true
+    end
+  end
+  return paths
+end
+
 function M.get_active__env(from)
   local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
-  -- 1. Find the path using modern cross-platform Neovim API
+  -- 1. Locate the configuration using safe, cross-platform Neovim core logic
   local files = vim.fs.find('platformio.ini', {
     path = vim.api.nvim_buf_get_name(0):match('(.*[/\\])') or vim.uv.cwd(),
     upward = true,
@@ -165,7 +199,7 @@ function M.get_active__env(from)
     return nil
   end
 
-  -- 2. Read the configuration file safely
+  -- 2. Extract contents
   local ok, content = misc.readFile(path)
   if not ok or not content then
     OS.notify(msg .. 'Could not read platformio.ini at ' .. path, 'warn')
@@ -173,31 +207,35 @@ function M.get_active__env(from)
   end
 
   local default_envs_raw = ''
-  local first_env = nil
   local valid_envs = {}
+  local env_ports = {} -- Map of environment configurations to their specified port profiles
+  local current_section = nil
   local in_platformio_block = false
 
-  -- 3. Parse lines and isolate environment configurations
+  -- 3. Parse lines and isolate target parameters
   for line in vim.gsplit(content, '[\r\n]+') do
-    -- Trim whitespace
     line = line:gsub('^%s+', ''):gsub('%s+$', '')
 
-    -- Match section headers [section]
     local section = line:match('^%[(.+)%]$')
     if section then
+      current_section = section
       in_platformio_block = (section == 'platformio')
 
-      -- Only match specific env configurations (e.g., [env:myboard]), ignore plain [env]
       local env_name = section:match('^env:(.+)')
       if env_name then
-        if not first_env then
-          first_env = env_name
-        end
         valid_envs[env_name] = true
       end
     end
 
-    -- Extract default environments if inside the [platformio] block
+    -- Capture hardware target keys (e.g. upload_port = COM3 or /dev/ttyUSB0)
+    if current_section and current_section:match('^env:') then
+      local port_val = line:match('^upload_port%s*=%s*(.+)')
+      if port_val then
+        local env_name = current_section:match('^env:(.+)')
+        env_ports[env_name] = port_val
+      end
+    end
+
     if in_platformio_block then
       local def = line:match('^default_envs%s*=%s*(.*)')
       if def then
@@ -206,17 +244,36 @@ function M.get_active__env(from)
     end
   end
 
-  -- 4. Return the valid default environment if it explicitly exists
+  -- Fetch physical hardware ports active right now
+  local connected_ports = get_connected_ports()
+
+  -- Helper closure to verify if an environment matches a plugged-in USB board
+  local function is_physically_connected(env_name)
+    local target_port = env_ports[env_name]
+    if not target_port then
+      return true
+    end -- If no port is locked in INI, default to true (auto-detect)
+    return connected_ports[target_port] == true
+  end
+
+  -- 4. Evaluate explicitly specified configurations first
   if default_envs_raw ~= '' then
     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
-      if valid_envs[env_name] then
+      if valid_envs[env_name] and is_physically_connected(env_name) then
         return env_name
       end
     end
   end
 
-  -- 5. Final fallback to the first discovered target block
-  return first_env
+  -- 5. Fallback selection scanning matching active targets sequentially
+  for env_name, _ in pairs(valid_envs) do
+    if is_physically_connected(env_name) then
+      return env_name
+    end
+  end
+
+  -- 6. Ultimate baseline recovery (First key parsed chronologically)
+  return next(valid_envs)
 end
 
 
@@ -736,12 +793,12 @@ function M.handlePioinitDb(result, board, on_done)
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then
-      OS.notify('PIO init+db:  pass ' .. commandPassed, "info")
 
 print(vim.inspect(M.queue))
       local active_env = M.get_active__env('PIO init+db: ')
 print('active_env=' .. active_env)
 print('board=' .. board)
+      OS.notify('PIO init+db:  pass ' .. commandPassed, "info")
       if not active_env or (active_env == board) then
 print('term ok')
         boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
