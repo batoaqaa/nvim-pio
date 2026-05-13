@@ -882,6 +882,7 @@ function M.handlePioinitDb(result, board, on_done)
   print(result)
   if result == 'INIT' then
     if #M.queue > 0 then
+      pio_buffer = ''
       _G.metadata.isBusy = true
       boilerplate.core_dir = _G.metadata.core_dir
       boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
@@ -932,9 +933,13 @@ print(vim.inspect(M.queue))
     end, 'PIO init+db: ')
     -- end)
     -- if trm then trm:close() end
+    callBack = nil
+    pio_buffer = ''
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
     if on_done and type(on_done) == "function" then on_done(false) end
+    pio_buffer = ''
+    callBack = nil
     M.cleanup_pio_session()
   end
 end
@@ -947,6 +952,7 @@ end
 function M.handlePioInstall(result, on_done)
   if result == 'INIT' then
     if #M.queue > 0 then
+      pio_buffer = ''
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       if trm and on_done and type(on_done) == "function" then
@@ -990,11 +996,14 @@ function M.handlePioInstall(result, on_done)
     -- if trm then trm:close() end
     if on_done and type(on_done) == "function" then on_done(false) end
     -- end)
+    callBack = nil
+    pio_buffer = ''
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
      OS.notify('Installation failed! Check logs and press :q to close.', 'error')
     if on_done and type(on_done) == "function" then on_done(false) end
-    vim.cmd('redrawstatus')
+    callBack = nil
+    pio_buffer = ''
     M.cleanup_pio_session()
   end
 end
