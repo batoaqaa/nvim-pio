@@ -737,7 +737,7 @@ local nvimpio = require('nvimpio')
 local function contains_prompt(str)
   if not str then return false end
   
-  -- 1. Check for Windows PowerShell sub-prompts (>>) or raw standard tokens
+  -- Check for Windows PowerShell sub-prompts (>>) or raw standard tokens (>, $, #)
   local has_win_subprompt = str:find('>>%s*$') or str:find('>>%s*\r?\n') ~= nil
   local has_standard_prompt = str:find('[>$#]%s*$') or str:find('[>$#]%s*\r?\n') ~= nil
   
@@ -757,7 +757,7 @@ function M.stdoutcallback(t, job, data)
     local status = content:match('_CMMNDS_:(%a+)')
 
     if status and callBack then
-      -- 2. Check if the trailing chunk contains a valid prompt symbol (now supports >>)
+      -- 2. Check if the trailing chunk contains a valid prompt symbol
       if contains_prompt(pio_buffer) then
         local active_cb = callBack
         callBack = nil -- Self-wipe to prevent double execution
@@ -767,12 +767,13 @@ function M.stdoutcallback(t, job, data)
           pcall(active_cb, status)
         end)
       else
-        -- If prompt isn't visible yet, loop the status keyword back into the cache
+        -- If prompt isn't visible yet, put the status back into the buffer
         pio_buffer = '_CMMNDS_:' .. status .. '\n' .. pio_buffer
       end
     end
   else
-    pio_buffer = pio_buffer .. data
+    -- FIXED CRASH LINE: Convert the table array to a clean string format safely
+    pio_buffer = pio_buffer .. table.concat(data, '')
 
     -- 3. Handle edge case where prompt arrives alone in a single-element packet
     local status = pio_buffer:match('_CMMNDS_:(%a+)')
