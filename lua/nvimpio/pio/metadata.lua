@@ -98,7 +98,7 @@ function M.save_project_config(from)
   local ok, pretty_json = pcall(misc.jsonFormat, _G.metadata)
 
   if not ok or not pretty_json then
-    print('Error formatting metadata')
+    OS.notify('Error formatting metadata', "error")
     return
   end
 

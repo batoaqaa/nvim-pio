@@ -31,8 +31,8 @@ end
 function M.verify_version()
   vim.system({ 'pio', '--version' }, { text = true }, function(obj)
     vim.schedule(function()
-      if obj.code == 0 then print('PlatformIO Version: ' .. vim.trim(obj.stdout))
-      else print('❌ PlatformIO execution error: ' .. (obj.stderr or 'Unknown error')) end
+      if obj.code == 0 then OS.notify('PlatformIO Version: ' .. vim.trim(obj.stdout), 'info')
+      else OS.notify('❌ PlatformIO execution error: ' .. (obj.stderr or 'Unknown error'), 'error') end
     end)
   end)
 end
@@ -434,7 +434,7 @@ function M.fetch_metadata(callback, env, from, attempts)
           vim.schedule(callback)
         else
           -- If it's not a function, just do nothing or print a debug message
-          print(msg .." Debug; callback was " .. type(callback))
+          OS.notify(msg .." Debug; callback was " .. type(callback), 'debug')
         end
 
         return true
@@ -541,12 +541,12 @@ function M.compile_commandsFix() --M.dbPathsFix()
     local jok, formatted = pcall(misc.jsonFormat, data)
     -- local jok, formatted = pcall(M.pretty_print, data)
     if not jok then
-      print('Formatting failed: ' .. formatted)
+      OS.notify('Formatting failed: ' .. formatted, 'error')
       return
     end
 
     local wk, err = misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
-    if not wk then print(err) end
+    if not wk then OS.notify(err, 'error') end
 
     local end_time = vim.loop.hrtime()
     local duration = (end_time - start_time) / 1e6
@@ -661,8 +661,11 @@ function M.handlePioinitDb(result, board, on_done)
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       -- if trm and on_done and type(on_done) == "function" then
       --   vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
-      -- end
-      print(vim.inspect(M.queue))
+      if term.stdout_callback then
+        print('term ok')
+      else
+        print('term nok')
+      end
     end
   elseif result == 'PASS' then
     if commandPassed == 1 then
@@ -723,6 +726,11 @@ function M.handlePioInstall(result, on_done)
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
+      end
+      if term.stdout_callback then
+        print('term ok')
+      else
+        print('term nok')
       end
       -- if trm then trm:open() end
     end
