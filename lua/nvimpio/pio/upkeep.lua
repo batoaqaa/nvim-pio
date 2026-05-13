@@ -734,37 +734,49 @@ local nvimpio = require('nvimpio')
 -- before is workinng
 
 
-
-local function ends_with_prompt(str)
-  if not str then return false end
-  -- Clean hidden carriage returns first to avoid breaking boundary matches
-  local clean = str:gsub('\r', '')
-  -- Robust check for standard symbols or PowerShell multi-line loops (>>) at the tail
-  return clean:find('[>$#]%s*$') or clean:find('>>%s*$') ~= nil
-end
-
 function M.stdoutcallback(t, job, data)
-  if not data or #data == 0 then
-    return
-  end
+  if not data or #data == 0 then return end
 
-  -- 1. UNIFIED STREAMING: Always combine all incoming pieces instantly
-  pio_buffer = pio_buffer .. table.concat(data, '')
+  -- Use your original working structure to bypass prompt concatenation bugs
+  if #data > 1 then
+    local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
+    pio_buffer = data[#data]
 
-  -- 2. PATTERN EXTRACTION: Scan the entire accumulated buffer for your token
-  local status = pio_buffer:match('_CMMNDS_:(%a+)')
+    -- Search for your exact target status string
+    local status = content:match('_CMMNDS_:(%a+)')
 
-  -- 3. PROMPT CONDITIONAL GATE: Only execute if the string exists AND shell is ready
-  if status and callBack and ends_with_prompt(pio_buffer) then
-    local active_cb = callBack
+    if status and callBack then
+      -- Save the callback locally and clear the handler immediately 
+      -- This acts as a circuit breaker so nothing can double-fire
+      local active_cb = callBack
+      callBack = nil
+      pio_buffer = ""
 
-    -- Self-wipe states immediately to prevent race-condition loops
-    callBack = nil
-    pio_buffer = ''
+      -- CRUCIAL AUTOMATION FIX: Wait 50ms for PowerShell to completely settle
+      -- This allows the terminal emulator to finish drawing the text onto the screen 
+      -- and safely release the keyboard focus layer before the next command drops.
+      vim.defer_fn(function()
+        vim.schedule(function()
+          pcall(active_cb, status)
+        end)
+      end, 50)
+    end
+  else
+    pio_buffer = pio_buffer .. table.concat(data, "")
 
-    vim.schedule(function()
-      pcall(active_cb, status)
-    end)
+    -- Handle edge case where a single packet delivers everything simultaneously
+    local status = pio_buffer:match('_CMMNDS_:(%a+)')
+    if status and callBack then
+      local active_cb = callBack
+      callBack = nil
+      pio_buffer = ""
+
+      vim.defer_fn(function()
+        vim.schedule(function()
+          pcall(active_cb, status)
+        end)
+      end, 50)
+    end
   end
 end
 
