@@ -71,7 +71,9 @@ local os_info = {
     ---@cast level integer
     level = level or vim.log.levels.INFO
 
-    vim.notify(msg, level, { title = 'nvim-pio', icon = ' ' })
+    vim.schedule(function()
+      vim.notify(msg, level, { title = 'nvim-pio', icon = ' ' })
+    end)
   end,
 
   ---Checks if PlatformIO is installed and working (Cached after first success)
