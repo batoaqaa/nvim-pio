@@ -691,46 +691,74 @@ end
 --configuration for running sequential commands on ToggleTerminal
 -- stylua: ignore
 -- =============================================================================
-local callBack = nil
-local pio_buffer = '' -- Persistent stream buffer
+-- local callBack = nil
+-- local pio_buffer = '' -- Persistent stream buffer
+--
+-- -- INFO: ToggleTerminal commands stdout filter
+-- -- stylua: ignore
+-- -- =============================================================================
+-- function M.stdoutcallback(_, _, data)
+--   if not data or #data == 0 then return end
+--
+--   -- 1. Correctly handle Neovim's data chunks
+--   -- data[1] is the continuation of the previous chunk
+--   -- data[#data] is a partial line (no newline yet)
+--
+--   if #data > 1 then
+--     -- Join the buffer with the first element and all middle elements
+--     --(everything except the last partial line)
+--     local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
+--     pio_buffer = data[#data] -- Save the new partial line
+--
+--     -- 2. Search for the status in the complete chunk
+--     --change the pattern to: content:match('_CMMNDS_:([^%s]+)')
+--     --this will grab everything until the next space or newline.
+--     local status = content:match('_CMMNDS_:(%a+)') -- pattern %a+ only matches letters (A-Z)
+--
+--     if status and callBack then vim.schedule(function() callBack(status) end) end
+--   else
+--     -- Only one element (no newline yet;) means the line isn't finished yet
+--     pio_buffer = pio_buffer .. data[1]
+--   end
+--
+--   -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
+--   if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
+-- end
 
--- INFO: ToggleTerminal commands stdout filter
--- stylua: ignore
--- =============================================================================
-function M.stdoutcallback(_, _, data)
-  if not data or #data == 0 then return end
-
-  -- 1. Correctly handle Neovim's data chunks
-  -- data[1] is the continuation of the previous chunk
-  -- data[#data] is a partial line (no newline yet)
-
-  if #data > 1 then
-    -- Join the buffer with the first element and all middle elements
-    --(everything except the last partial line)
-    local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
-    pio_buffer = data[#data] -- Save the new partial line
-
-    -- 2. Search for the status in the complete chunk
-    --change the pattern to: content:match('_CMMNDS_:([^%s]+)')
-    --this will grab everything until the next space or newline.
-    local status = content:match('_CMMNDS_:(%a+)') -- pattern %a+ only matches letters (A-Z)
-
-    if status and callBack then vim.schedule(function() callBack(status) end) end
-  else
-    -- Only one element (no newline yet;) means the line isn't finished yet
-    pio_buffer = pio_buffer .. data[1]
-  end
-
-  -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
-  if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
-end
-
--- =============================================================================
+local pio_buffer = "" -- Initialize to prevent nil concatenation crashes
+local callBack = nil -- Your execution hook function pointer
 local commandPassed = 0
 M.queue = {}
 term.stdout_callback = M.stdoutcallback
-
 local nvimpio = require('nvimpio')
+
+function M.stdoutcallback(_, _, data)
+  if not data or #data == 0 then
+    return
+  end
+
+  -- 1. Combine all incoming string pieces into your persistent buffer
+  --    Toggleterm splits chunks randomly; table.concat puts them back together.
+  pio_buffer = pio_buffer .. table.concat(data, '')
+
+  -- 2. Process complete lines extracted from the stream sequence
+  while pio_buffer:find('\n') do
+    local line, rest = pio_buffer:match('^([^\n]*)\n(.*)$')
+    pio_buffer = rest or ''
+
+    -- 3. Match against the isolated line block safely
+    --    [%s%p]* accounts for spaces/punctuation seamlessly: _CMMNDS_":"PASS"
+    local status = line:match('_CMMNDS_[%s%p]*(%a+)')
+
+    if status and callBack then
+      -- Driven safely back to Neovim's UI loop through our thread-safe layer
+      vim.schedule(function()
+        pcall(callBack, status)
+      end)
+    end
+  end
+end
+-- =============================================================================
 
 -- INFO: commands sequencer
 -- stylua: ignore
@@ -750,7 +778,6 @@ M.run_sequence = function(tasks)
     table.insert(M.queue, full_cmd)
   end
 
-
   callBack = tasks.cb -- 1. Save the callback in a local variable
 
   commandPassed = 1
@@ -760,7 +787,7 @@ M.run_sequence = function(tasks)
     require('nvimpio.pio.metadata')
   end
   _G.metadata.isBusy = false
-  -- term.stdout_callback = M.stdoutcallback
+  term.stdout_callback = M.stdoutcallback
   vim.schedule(function() if callBack then callBack('INIT') end end)
 end
 
@@ -775,7 +802,7 @@ function M.cleanup_pio_session()
   M.queue = {}
   callBack = nil
   pio_buffer = ''
-  -- term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
+  term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
   -- if trm then trm:close() end
 end
 

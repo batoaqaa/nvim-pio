@@ -164,9 +164,9 @@ function M.ToggleTerminal(command, direction)
     pioOpts.id = 99
 
     -- INFO: on_stdout
-    pioOpts.on_stdout = function(t, job, exit_code)
+    pioOpts.on_stdout = function(t, job, data)
       if type(M.stdout_callback) == 'function' then
-        M.stdout_callback(t, job, exit_code)
+        M.stdout_callback(t, job, data)
       end
     end
   end
