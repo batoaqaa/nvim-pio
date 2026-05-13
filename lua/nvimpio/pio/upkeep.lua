@@ -748,7 +748,8 @@ function M.stdoutcallback(_, _, data)
 
     -- 3. Match against the isolated line block safely
     --    [%s%p]* accounts for spaces/punctuation seamlessly: _CMMNDS_":"PASS"
-    local status = line:match('_CMMNDS_[%s%p]*(%a+)')
+    -- local status = line:match('_CMMNDS_[%s%p]*(%a+)')
+    local status = line:match('_CMMNDS_:(%a+)') -- pattern %a+ only matches letters (A-Z)
 
     if status and callBack then
       -- Driven safely back to Neovim's UI loop through our thread-safe layer
