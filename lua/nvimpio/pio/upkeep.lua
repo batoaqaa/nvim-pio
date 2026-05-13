@@ -743,11 +743,8 @@ M.run_sequence = function(tasks)
   M.queue = {}
   local commands = tasks.cmnds
 
-  -- 1. Increment the local counter
   session_counter = session_counter + 1
-  -- 2. Prevent overflow: Roll over if it exceeds 4 digits
   if session_counter > 9999 then session_counter = 1 end
-  -- 3. Format into a padded 4-character string (e.g., 5 becomes "0005")
   current_token = string.format("%04d", session_counter)
 
   local done = string.format(' && echo _CMMNDS_%s":"DONE', current_token)
@@ -757,7 +754,7 @@ M.run_sequence = function(tasks)
   for i, cmd in ipairs(commands) do
     local full_cmd = ''
     if i == #commands then full_cmd = cmd .. done .. fail
-    else full_cmd = cmd .. pass .. fail end
+    else full_cmd = string.format("%s%s%01d%s",cmd, pass, session_counter, fail)
     table.insert(M.queue, full_cmd)
   end
 
