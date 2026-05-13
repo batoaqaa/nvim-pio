@@ -151,69 +151,141 @@ end
 --=============================================================================
 function M.get_active__env(from)
   local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
-  local path
 
-  for _, dir in ipairs({ vim.api.nvim_buf_get_name(0):match('(.*[/\\])'), (vim.uv.cwd() .. '/') }) do
-    local tmp = dir .. 'platformio.ini'
-    local filestat = vim.uv.fs_stat(tmp)
-    if filestat and filestat.type == 'file' then
-      path = vim.fs.normalize(tmp)
-      break
-    end
+  -- 1. Find the path using modern cross-platform Neovim API
+  local files = vim.fs.find('platformio.ini', {
+    path = vim.api.nvim_buf_get_name(0):match('(.*[/\\])') or vim.uv.cwd(),
+    upward = true,
+    stop = OS.home,
+  })
+
+  local path = files[1]
+  if not path then
+    OS.notify(msg .. 'platformio.ini not found.', 'error')
+    return nil
   end
-  if not path or path == '' then return OS.notify(msg .. 'platformio.ini not found or no [env] defined.', "error") end
 
-  -- Read file content (returns string or nil)
+  -- 2. Read the configuration file safely
   local ok, content = misc.readFile(path)
-  if not ok or not content then return OS.notify(msg .. 'platformio.ini not found in ' .. path, "warn") end
+  if not ok or not content then
+    OS.notify(msg .. 'Could not read platformio.ini at ' .. path, 'warn')
+    return nil
+  end
 
   local default_envs_raw = ''
   local first_env = nil
   local valid_envs = {}
   local in_platformio_block = false
 
-  -- Iterate lines from the content string
-  for line in vim.gsplit(content, '\n') do
-    -- Section Detection: [section_name]
-    local section = line:match('^%s*%[(.+)%]%s*$')
+  -- 3. Parse lines and isolate environment configurations
+  for line in vim.gsplit(content, '[\r\n]+') do
+    -- Trim whitespace
+    line = line:gsub('^%s+', ''):gsub('%s+$', '')
+
+    -- Match section headers [section]
+    local section = line:match('^%[(.+)%]$')
     if section then
       in_platformio_block = (section == 'platformio')
+
+      -- Only match specific env configurations (e.g., [env:myboard]), ignore plain [env]
       local env_name = section:match('^env:(.+)')
       if env_name then
-        if not first_env then first_env = env_name end
+        if not first_env then
+          first_env = env_name
+        end
         valid_envs[env_name] = true
       end
     end
 
-    -- Collect the default_envs string from [platformio] block
+    -- Extract default environments if inside the [platformio] block
     if in_platformio_block then
-      local def = line:match('^%s*default_envs%s*=%s*(.+)')
-      if def then default_envs_raw = def end
+      local def = line:match('^default_envs%s*=%s*(.*)')
+      if def then
+        default_envs_raw = def
+      end
     end
   end
 
-  -- Validation: Find the first default_env that actually exists as a block
+  -- 4. Return the valid default environment if it explicitly exists
   if default_envs_raw ~= '' then
-    -- OS.notify(default_envs_raw, "info")
     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
-      if valid_envs[env_name] then return env_name end
+      if valid_envs[env_name] then
+        return env_name
+      end
     end
   end
 
-
-  -- if _G.metadata.default_envs[1] ~= nil and _G.metadata.active_env == _G.metadata.default_envs[1] then
-  --   _G.metadata.active_env = default_envs
-    -- M.updateDefaultEnv()
-  -- end
-
-  -- if (_G.metadata.active_env ~= default_envs)then
-  --   _G.metadata.active_env = default_envs
-  --   -- M.updateDefaultEnv()
-  -- end
-  -- Fallback to the very first [env:...] block found in the file
+  -- 5. Final fallback to the first discovered target block
   return first_env
 end
 
+
+
+
+-- function M.get_active__env(from)
+--   local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
+--   local path
+--
+--   for _, dir in ipairs({ vim.api.nvim_buf_get_name(0):match('(.*[/\\])'), (vim.uv.cwd() .. '/') }) do
+--     local tmp = dir .. 'platformio.ini'
+--     local filestat = vim.uv.fs_stat(tmp)
+--     if filestat and filestat.type == 'file' then
+--       path = vim.fs.normalize(tmp)
+--       break
+--     end
+--   end
+--   if not path or path == '' then return OS.notify(msg .. 'platformio.ini not found or no [env] defined.', "error") end
+--
+--   -- Read file content (returns string or nil)
+--   local ok, content = misc.readFile(path)
+--   if not ok or not content then return OS.notify(msg .. 'platformio.ini not found in ' .. path, "warn") end
+--
+--   local default_envs_raw = ''
+--   local first_env = nil
+--   local valid_envs = {}
+--   local in_platformio_block = false
+--
+--   -- Iterate lines from the content string
+--   for line in vim.gsplit(content, '\n') do
+--     -- Section Detection: [section_name]
+--     local section = line:match('^%s*%[(.+)%]%s*$')
+--     if section then
+--       in_platformio_block = (section == 'platformio')
+--       local env_name = section:match('^env:(.+)')
+--       if env_name then
+--         if not first_env then first_env = env_name end
+--         valid_envs[env_name] = true
+--       end
+--     end
+--
+--     -- Collect the default_envs string from [platformio] block
+--     if in_platformio_block then
+--       local def = line:match('^%s*default_envs%s*=%s*(.+)')
+--       if def then default_envs_raw = def end
+--     end
+--   end
+--
+--   -- Validation: Find the first default_env that actually exists as a block
+--   if default_envs_raw ~= '' then
+--     -- OS.notify(default_envs_raw, "info")
+--     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
+--       if valid_envs[env_name] then return env_name end
+--     end
+--   end
+--
+--
+--   -- if _G.metadata.default_envs[1] ~= nil and _G.metadata.active_env == _G.metadata.default_envs[1] then
+--   --   _G.metadata.active_env = default_envs
+--     -- M.updateDefaultEnv()
+--   -- end
+--
+--   -- if (_G.metadata.active_env ~= default_envs)then
+--   --   _G.metadata.active_env = default_envs
+--   --   -- M.updateDefaultEnv()
+--   -- end
+--   -- Fallback to the very first [env:...] block found in the file
+--   return first_env
+-- end
 
 --INFO:
 --stylua: ignore
