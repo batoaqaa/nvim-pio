@@ -890,7 +890,7 @@ M.run_sequence = function(tasks)
 
   local done = string.format(' && echo _CMMNDS_%s":"DONE', current_token)
   local pass = string.format(' && echo _CMMNDS_%s":"PASS', current_token)
-  local fail = string.format(' || echo _CMMNDS_%ss":"FAIL', current_token)
+  local fail = string.format(' || echo _CMMNDS_%s":"FAIL', current_token)
   --
   for i, cmd in ipairs(commands) do
     local full_cmd = ''
