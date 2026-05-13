@@ -728,6 +728,7 @@ end
 -- =============================================================================
 local commandPassed = 0
 M.queue = {}
+term.stdout_callback = M.stdoutcallback
 
 local nvimpio = require('nvimpio')
 
@@ -759,7 +760,7 @@ M.run_sequence = function(tasks)
     require('nvimpio.pio.metadata')
   end
   _G.metadata.isBusy = false
-  term.stdout_callback = M.stdoutcallback
+  -- term.stdout_callback = M.stdoutcallback
   vim.schedule(function() if callBack then callBack('INIT') end end)
 end
 
@@ -776,7 +777,7 @@ function M.cleanup_pio_session()
   if win_id then misc.closeMessage(win_id) end
   win_id = nil
   callBack = nil
-  term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
+  -- term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
   -- if trm then trm:close() end
 end
 
