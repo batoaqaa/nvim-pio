@@ -746,8 +746,23 @@ function M.stdoutcallback(_, _, data)
     local status = content:match('_CMMNDS_:(%a+)')
 
     if status and callBack then
-      vim.schedule(function() pcall(callBack, status) end)
+      -- Capture the callback reference before clearing it
+      local active_cb = callBack
+
+      -- CRUCIAL STEP: Wiping both states completely ensures this function blocks 
+      -- any additional incoming shell text or duplicate prompts from re-triggering.
+      if status == 'DONE' or status == 'FAIL' then
+        callBack = nil
+        pio_buffer = ""
+      end
+
+      vim.schedule(function()
+        pcall(active_cb, status)
+      end)
     end
+    -- if status and callBack then
+    --   vim.schedule(function() pcall(callBack, status) end)
+    -- end
   else
     -- Fallback for single data packets
     pio_buffer = pio_buffer .. data[1]
