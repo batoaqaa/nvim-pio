@@ -737,48 +737,89 @@ local nvimpio = require('nvimpio')
 function M.stdoutcallback(t, job, data)
   if not data or #data == 0 then return end
 
-  -- Use your original working structure to bypass prompt concatenation bugs
-  if #data > 1 then
-    local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
-    pio_buffer = data[#data]
+  -- 1. UNIFIED ACCUMULATION: Safely convert incoming table to a string and append
+  pio_buffer = pio_buffer .. table.concat(data, "")
 
-    -- Search for your exact target status string
-    local status = content:match('_CMMNDS_:(%a+)')
+  -- 2. OPTIMIZATION FOR LONG OUTPUTS: 
+  -- If the buffer gets too long, keep only the last 1000 characters.
+  -- This prevents memory leaks while ensuring we never miss trailing tokens.
+  if #pio_buffer > 1000 then
+    pio_buffer = pio_buffer:sub(-1000)
+  end
 
-    if status and callBack then
-      -- Save the callback locally and clear the handler immediately 
-      -- This acts as a circuit breaker so nothing can double-fire
-      local active_cb = callBack
-      callBack = nil
-      pio_buffer = ""
+  -- 3. SCAN STREAM: Search the rolling window for your exact target status string
+  local status = pio_buffer:match('_CMMNDS_:(%a+)')
 
-      -- CRUCIAL AUTOMATION FIX: Wait 50ms for PowerShell to completely settle
-      -- This allows the terminal emulator to finish drawing the text onto the screen 
-      -- and safely release the keyboard focus layer before the next command drops.
-      vim.defer_fn(function()
-        vim.schedule(function()
-          pcall(active_cb, status)
-        end)
-      end, 50)
-    end
-  else
-    pio_buffer = pio_buffer .. table.concat(data, "")
+  if status and callBack then
+    -- Circuit Breaker: Clear state immediately so it can never double-fire
+    local active_cb = callBack
+    callBack = nil
+    pio_buffer = ""
 
-    -- Handle edge case where a single packet delivers everything simultaneously
-    local status = pio_buffer:match('_CMMNDS_:(%a+)')
-    if status and callBack then
-      local active_cb = callBack
-      callBack = nil
-      pio_buffer = ""
-
-      vim.defer_fn(function()
-        vim.schedule(function()
-          pcall(active_cb, status)
-        end)
-      end, 50)
-    end
+    -- Defer slightly to let PowerShell finish updating the terminal buffer
+    vim.defer_fn(function()
+      vim.schedule(function()
+        pcall(active_cb, status)
+      end)
+    end, 50)
   end
 end
+
+
+
+
+
+
+
+
+
+
+
+-- function M.stdoutcallback(t, job, data)
+--   if not data or #data == 0 then return end
+--
+--   -- Use your original working structure to bypass prompt concatenation bugs
+--   if #data > 1 then
+--     local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
+--     pio_buffer = data[#data]
+--
+--     -- Search for your exact target status string
+--     local status = content:match('_CMMNDS_:(%a+)')
+--
+--     if status and callBack then
+--       -- Save the callback locally and clear the handler immediately 
+--       -- This acts as a circuit breaker so nothing can double-fire
+--       local active_cb = callBack
+--       callBack = nil
+--       pio_buffer = ""
+--
+--       -- CRUCIAL AUTOMATION FIX: Wait 50ms for PowerShell to completely settle
+--       -- This allows the terminal emulator to finish drawing the text onto the screen 
+--       -- and safely release the keyboard focus layer before the next command drops.
+--       vim.defer_fn(function()
+--         vim.schedule(function()
+--           pcall(active_cb, status)
+--         end)
+--       end, 50)
+--     end
+--   else
+--     pio_buffer = pio_buffer .. table.concat(data, "")
+--
+--     -- Handle edge case where a single packet delivers everything simultaneously
+--     local status = pio_buffer:match('_CMMNDS_:(%a+)')
+--     if status and callBack then
+--       local active_cb = callBack
+--       callBack = nil
+--       pio_buffer = ""
+--
+--       vim.defer_fn(function()
+--         vim.schedule(function()
+--           pcall(active_cb, status)
+--         end)
+--       end, 50)
+--     end
+--   end
+-- end
 
 
 
