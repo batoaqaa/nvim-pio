@@ -739,8 +739,10 @@ function M.handlePioInstall(result, on_done)
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify('PIO install:  pass ' .. commandPassed, "info")
     OS.notify('PIO install: Done', "info")
+    commandPassed = commandPassed + 1
 
     -- 1. Always remove the script
+    vim.schedule(function()
     os.remove('get-platformio.py')
     -- 2. Find and remove random temp folders like .piocore-installer-xxxx
     local temp_patterns = { ".piocore-installer-*", "platformio-core-installer-*" }
@@ -752,16 +754,18 @@ function M.handlePioInstall(result, on_done)
     end
     OS.notify('PIO install: success', 'info')
 
-    commandPassed = commandPassed + 1
     -- if trm then trm:close() end
-    if on_done and type(on_done) == "function" then on_done(true)end
-    M.cleanup_pio_session()
+    if on_done and type(on_done) == "function" then
+      on_done(true)
+    end
+    end)
+    -- M.cleanup_pio_session()
   elseif result == 'FAIL' then
      OS.notify('Installation failed! Check logs and press :q to close.', 'error')
     if on_done and type(on_done) == "function" then on_done(false) end
     _G.pio_status = '❌ PIO Failed'
     vim.cmd('redrawstatus')
-    M.cleanup_pio_session()
+    -- M.cleanup_pio_session()
   end
 end
 
