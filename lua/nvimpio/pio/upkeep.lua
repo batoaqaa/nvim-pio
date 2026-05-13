@@ -767,66 +767,126 @@ local nvimpio = require('nvimpio')
 function M.stdoutcallback(_, _, data)
   if not data or #data == 0 then return end
 
-  -- 1. Correctly handle Neovim's data chunks
+  -- 1. Stream Collection: Keep your preferred array-chopping layout
   local target_text = ""
-
   if #data > 1 then
-    -- Join the buffer with everything except the last partial line
     target_text = pio_buffer .. table.concat(data, "", 1, #data - 1)
-    pio_buffer = data[#data] -- Save the new partial line
+    pio_buffer = data[#data]
   else
-    -- Append single element to buffer and test the whole combined buffer
     pio_buffer = pio_buffer .. table.concat(data, "")
     target_text = pio_buffer
   end
 
-  -- 2. FIXED PATTERNS: Using %W* cleanly matches any non-alphanumeric punctuation
-  --    (like colons, quotes, or spaces) separating the token and your words!
-  local pass_pattern = '_CMMNDS_' .. current_token .. '%W*(PASS' .. current_id .. ')'
-  local done_pattern = '_CMMNDS_' .. current_token .. '%W*(DONE)'
-  local fail_pattern = '_CMMNDS_' .. current_token .. '%W*(FAIL)'
+  -- 2. Build THE EXACT Plain Text Strings we want to find in the terminal
+  --    Powershell strips quotes, so it prints a clean raw colon like "_CMMNDS_0001:PASS1"
+  local expected_pass = '_CMMNDS_' .. current_token .. ':PASS' .. current_id
+  local expected_done = '_CMMNDS_' .. current_token .. ':DONE'
+  local expected_fail = '_CMMNDS_' .. current_token .. ':FAIL'
 
-  -- 3. Match Evaluation against the isolated text block
-  local matched_pass = target_text:match(pass_pattern)
-  local matched_done = target_text:match(done_pattern)
-  local matched_fail = target_text:match(fail_pattern)
+  -- 3. High-Performance Plain Text Search
+  --    Passing `1, true` turns OFF regex entirely. It looks for the EXACT literal text.
+  --    This is immune to trailing spaces, hidden ANSI color codes, or prompt symbols.
+  local has_pass = target_text:find(expected_pass, 1, true) ~= nil
+  local has_done = target_text:find(expected_done, 1, true) ~= nil
+  local has_fail = target_text:find(expected_fail, 1, true) ~= nil
 
   -- 4. Strict Priority Execution Block
-  if matched_pass or matched_done or matched_fail then
+  if has_pass or has_done or has_fail then
     local active_cb = callBack
-
-    -- Clear state boundaries instantly to prevent overlapping triggers
+    
+    -- Clear state boundaries instantly to lock out overlapping execution triggers
     callBack = nil
     if #data > 1 then pio_buffer = data[#data] else pio_buffer = "" end
 
     -- Default fallback state
     local final_status = "FAIL"
 
-    -- Check fields in order of absolute priority
-    if matched_fail then
-      print(matched_fail)
+    -- Evaluate states in order of absolute priority
+    if has_fail then
       final_status = "FAIL"
       M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
-    elseif matched_done then
-      print(matched_done)
+    elseif has_done then
       final_status = "DONE"
-    elseif matched_pass then
-      print(matched_pass)
-      -- Captures and assigns your clean string token like "PASS1"
-      final_status = matched_pass
+    elseif has_pass then
+      -- Manually pass back the clean string name since we aren't using regex captures
+      final_status = "PASS" .. current_id
     end
 
     -- 5. Safe Dispatch back to Neovim main thread
     if final_status and active_cb then
-      vim.schedule(function()
-        pcall(active_cb, final_status)
+      vim.schedule(function() 
+        pcall(active_cb, final_status) 
       end)
     end
   end
 
-  -- 6. Safety Trim (Prevents memory leaks if no newline ever comes)
+  -- 6. Safety Trim (Prevents memory leaks on heavy compile logs)
   if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
 end
+
+-- function M.stdoutcallback(_, _, data)
+--   if not data or #data == 0 then return end
+--
+--   -- 1. Correctly handle Neovim's data chunks
+--   local target_text = ""
+--
+--   if #data > 1 then
+--     -- Join the buffer with everything except the last partial line
+--     target_text = pio_buffer .. table.concat(data, "", 1, #data - 1)
+--     pio_buffer = data[#data] -- Save the new partial line
+--   else
+--     -- Append single element to buffer and test the whole combined buffer
+--     pio_buffer = pio_buffer .. table.concat(data, "")
+--     target_text = pio_buffer
+--   end
+--
+--   -- 2. FIXED PATTERNS: Using %W* cleanly matches any non-alphanumeric punctuation
+--   --    (like colons, quotes, or spaces) separating the token and your words!
+--   local pass_pattern = '_CMMNDS_' .. current_token .. '%W*(PASS' .. current_id .. ')'
+--   local done_pattern = '_CMMNDS_' .. current_token .. '%W*(DONE)'
+--   local fail_pattern = '_CMMNDS_' .. current_token .. '%W*(FAIL)'
+--
+--   -- 3. Match Evaluation against the isolated text block
+--   local matched_pass = target_text:match(pass_pattern)
+--   local matched_done = target_text:match(done_pattern)
+--   local matched_fail = target_text:match(fail_pattern)
+--
+--   -- 4. Strict Priority Execution Block
+--   if matched_pass or matched_done or matched_fail then
+--     local active_cb = callBack
+--
+--     -- Clear state boundaries instantly to prevent overlapping triggers
+--     callBack = nil
+--     if #data > 1 then pio_buffer = data[#data] else pio_buffer = "" end
+--
+--     -- Default fallback state
+--     local final_status = "FAIL"
+--
+--     -- Check fields in order of absolute priority
+--     if matched_fail then
+--       print(matched_fail)
+--       final_status = "FAIL"
+--       M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
+--     elseif matched_done then
+--       print(matched_done)
+--       final_status = "DONE"
+--     elseif matched_pass then
+--       print(matched_pass)
+--       -- Captures and assigns your clean string token like "PASS1"
+--       final_status = matched_pass
+--     end
+--
+--     -- 5. Safe Dispatch back to Neovim main thread
+--     if final_status and active_cb then
+--       vim.schedule(function()
+--         pcall(active_cb, final_status)
+--       end)
+--     end
+--   end
+--
+--   -- 6. Safety Trim (Prevents memory leaks if no newline ever comes)
+--   if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
+-- end
 
 -- =============================================================================
 local function pop(queue)
