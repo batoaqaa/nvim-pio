@@ -692,6 +692,7 @@ end
 -- Initialize
 -- =============================================================================
 local current_token = tostring(math.random(10000, 99999))
+local session_counter = 0 -- Our high-performance integer counter
 local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
 local callBack = nil -- Your execution hook function pointer
 local commandPassed = 0
@@ -742,13 +743,12 @@ M.run_sequence = function(tasks)
   M.queue = {}
   local commands = tasks.cmnds
 
-  -- 1. Get the current system time in nanoseconds (Guaranteed 100% unique)
-  local raw_time = vim.uv.hrtime()
-
-  -- 2. Take the last 6 digits to keep the token short and clean in your shell commands
-  current_token = string.format("%06d", raw_time % 1000000)
-  -- Generate a random numeric token (e.g., "48291")
-  -- current_token = tostring(math.random(10000, 99999))
+  -- 1. Increment the local counter
+  session_counter = session_counter + 1
+  -- 2. Prevent overflow: Roll over if it exceeds 4 digits
+  if session_counter > 9999 then session_counter = 1 end
+  -- 3. Format into a padded 4-character string (e.g., 5 becomes "0005")
+  current_token = string.format("%04d", session_counter)
 
   local done = string.format(' && echo _CMMNDS_%s":"DONE', current_token)
   local pass = string.format(' && echo _CMMNDS_%s":"PASS', current_token)
