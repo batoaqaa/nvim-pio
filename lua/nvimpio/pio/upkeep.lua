@@ -758,9 +758,9 @@ M.run_sequence = function(tasks)
 
   callBack = tasks.cb -- 1. Save the callback in a local variable
 
-  -- if not nvimpio.is_active then
-  --   require('nvimpio.pio.metadata')
-  -- end
+  if not nvimpio.is_active then
+    require('nvimpio.pio.metadata')
+  end
 
   if callBack then
     vim.schedule(function()
