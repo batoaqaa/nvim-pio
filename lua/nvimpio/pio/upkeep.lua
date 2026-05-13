@@ -734,40 +734,97 @@ local nvimpio = require('nvimpio')
 -- before is workinng
 
 
-function M.stdoutcallback(_, _, data)
-  if not data or #data == 0 then return end
+local function contains_prompt(str)
+  if not str then return false end
+  -- Match prompt symbols followed by optional spaces or a clean trailing line end
+  return str:find('[>$#]%s*$') or str:find('[>$#]%s*\r?\n') ~= nil
+end
+
+function M.stdoutcallback(t, job, data)
+  if not data or #data == 0 then
+    return
+  end
 
   if #data > 1 then
-    -- Glue everything except the last element (which contains the raw shell prompt)
-    local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
-    pio_buffer = data[#data] -- Save the trailing prompt chunk for next time
+    local content = pio_buffer .. table.concat(data, '', 1, #data - 1)
+    pio_buffer = data[#data] -- Save the trailing prompt chunk
 
-    -- Match your exact string format
+    -- 1. Match your command status
     local status = content:match('_CMMNDS_:(%a+)')
 
     if status and callBack then
-      -- Capture the callback reference before clearing it
-      local active_cb = callBack
+      -- 2. CROSS-PLATFORM FIX FOR SEQUENCING:
+      -- Check if the trailing chunk contains a valid prompt symbol (>, $, or #)
+      if contains_prompt(pio_buffer) then
+        local active_cb = callBack
+        callBack = nil -- Self-wipe to prevent double execution
+        pio_buffer = ''
 
-      -- CRUCIAL STEP: Wiping both states completely ensures this function blocks 
-      -- any additional incoming shell text or duplicate prompts from re-triggering.
-      if status == 'DONE' or status == 'FAIL' then
-        callBack = nil
-        pio_buffer = ""
+        vim.schedule(function()
+          pcall(active_cb, status)
+        end)
+      else
+        -- If prompt isn't visible yet, put the status back into the buffer
+        -- so the next data packet (the final prompt flush) will trigger it.
+        pio_buffer = '_CMMNDS_:' .. status .. '\n' .. pio_buffer
       end
+    end
+  else
+    pio_buffer = pio_buffer .. data[1]
 
+    -- 3. Handle edge case where prompt arrives alone in a single-element packet
+    local status = pio_buffer:match('_CMMNDS_:(%a+)')
+    if status and callBack and contains_prompt(pio_buffer) then
+      local active_cb = callBack
+      callBack = nil
+      pio_buffer = ''
       vim.schedule(function()
         pcall(active_cb, status)
       end)
     end
-    -- if status and callBack then
-    --   vim.schedule(function() pcall(callBack, status) end)
-    -- end
-  else
-    -- Fallback for single data packets
-    pio_buffer = pio_buffer .. data[1]
   end
 end
+
+
+
+
+
+
+
+-- function M.stdoutcallback(_, _, data)
+--   if not data or #data == 0 then return end
+--
+--   if #data > 1 then
+--     -- Glue everything except the last element (which contains the raw shell prompt)
+--     local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
+--     pio_buffer = data[#data] -- Save the trailing prompt chunk for next time
+--
+--     -- Match your exact string format
+--     local status = content:match('_CMMNDS_:(%a+)')
+--
+--     if status and callBack then
+--       -- Capture the callback reference before clearing it
+--       local active_cb = callBack
+--
+--       -- CRUCIAL STEP: Wiping both states completely ensures this function blocks 
+--       -- any additional incoming shell text or duplicate prompts from re-triggering.
+--       if status == 'DONE' or status == 'FAIL' then
+--         callBack = nil
+--         pio_buffer = ""
+--       end
+--
+--       vim.schedule(function()
+--         pcall(active_cb, status)
+--       end)
+--     end
+--     -- if status and callBack then
+--     --   vim.schedule(function() pcall(callBack, status) end)
+--     -- end
+--   else
+--     -- Fallback for single data packets
+--     pio_buffer = pio_buffer .. data[1]
+--   end
+-- end
 
 
 
