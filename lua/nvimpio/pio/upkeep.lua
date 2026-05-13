@@ -648,18 +648,17 @@ function M.cleanup_pio_session()
   if win_id then misc.closeMessage(win_id) end
   win_id = nil
   callBack = nil
-  -- term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
+  term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
   -- if trm then trm:close() end
 end
 
 -- stylua: ignore
 function M.handlePioinitDb(result, board, on_done)
   if result == 'INIT' then
-    boilerplate.core_dir = _G.metadata.core_dir
-    boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
-
     if #M.queue > 0 then
       _G.metadata.isBusy = true
+      boilerplate.core_dir = _G.metadata.core_dir
+      boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
@@ -677,13 +676,13 @@ function M.handlePioinitDb(result, board, on_done)
         boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
         commandPassed = commandPassed + 1
         if #M.queue > 0 then
-          -- if trm then
-          --   trm:open()
-          local cmd = table.remove(M.queue, 1)
-            -- trm:send(table.remove(M.queue, 1), false)
-          OS.notify(cmd, 'info')
-            trm:send(cmd, false)
-          -- end
+          if trm then
+            trm:open()
+          -- local cmd = table.remove(M.queue, 1)
+            trm:send(table.remove(M.queue, 1), false)
+          -- OS.notify(cmd, 'info')
+            -- trm:send(cmd, false)
+          end
         end
       else
         if on_done and type(on_done) == "function" then on_done(false) end
@@ -717,11 +716,11 @@ end
 function M.handlePioInstall(result, on_done)
   if result == 'INIT' then
     if #M.queue > 0 then
+      _G.metadata.isBusy = true
       trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
-      _G.metadata.isBusy = true
       if trm then trm:open() end
     end
   elseif result == 'PASS' then
@@ -777,8 +776,8 @@ end
 function M.clangFormat(result)
   if result == 'INIT' then
     if #M.queue > 0 then
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       _G.metadata.isBusy = true
+      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       if trm then trm:open() end
     end
   elseif result == 'DONE' then -- result of the only and the last command
