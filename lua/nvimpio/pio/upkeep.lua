@@ -763,14 +763,11 @@ local nvimpio = require('nvimpio')
 --   if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
 -- end
 
+
 function M.stdoutcallback(_, _, data)
   if not data or #data == 0 then return end
 
-  -- 1. Build independent validation patterns
-  local pass_pattern = '_CMMNDS_' .. current_token .. '[^%%w]*(PASS' .. current_id .. ')'
-  local done_pattern = '_CMMNDS_' .. current_token .. '[^%%w]*(DONE)'
-  local fail_pattern = '_CMMNDS_' .. current_token .. '[^%%w]*(FAIL)'
-
+  -- 1. Correctly handle Neovim's data chunks
   local target_text = ""
 
   if #data > 1 then
@@ -779,40 +776,52 @@ function M.stdoutcallback(_, _, data)
     pio_buffer = data[#data] -- Save the new partial line
   else
     -- Append single element to buffer and test the whole combined buffer
-    pio_buffer = pio_buffer .. data[1]
+    pio_buffer = pio_buffer .. table.concat(data, "")
     target_text = pio_buffer
   end
 
-  -- 2. Match Evaluation against the isolated text block
+  -- 2. FIXED PATTERNS: Using %W* cleanly matches any non-alphanumeric punctuation
+  --    (like colons, quotes, or spaces) separating the token and your words!
+  local pass_pattern = '_CMMNDS_' .. current_token .. '%W*(PASS' .. current_id .. ')'
+  local done_pattern = '_CMMNDS_' .. current_token .. '%W*(DONE)'
+  local fail_pattern = '_CMMNDS_' .. current_token .. '%W*(FAIL)'
+
+  -- 3. Match Evaluation against the isolated text block
   local matched_pass = target_text:match(pass_pattern)
   local matched_done = target_text:match(done_pattern)
   local matched_fail = target_text:match(fail_pattern)
 
-  -- 3. Strict Priority Execution Block
+  -- 4. Strict Priority Execution Block
   if matched_pass or matched_done or matched_fail then
     local active_cb = callBack
-    
+
     -- Clear state boundaries instantly to prevent overlapping triggers
     callBack = nil
     if #data > 1 then pio_buffer = data[#data] else pio_buffer = "" end
 
+    -- Default fallback state
     local final_status = "FAIL"
+
+    -- Check fields in order of absolute priority
     if matched_fail then
       final_status = "FAIL"
       M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
     elseif matched_done then
       final_status = "DONE"
     elseif matched_pass then
+      -- Captures and assigns your clean string token like "PASS1"
       final_status = matched_pass
     end
 
-    -- 4. Safe Dispatch back to Neovim main thread
+    -- 5. Safe Dispatch back to Neovim main thread
     if final_status and active_cb then
-      vim.schedule(function() active_cb(final_status) end)
+      vim.schedule(function()
+        pcall(active_cb, final_status)
+      end)
     end
   end
 
-  -- 5. Safety Trim
+  -- 6. Safety Trim (Prevents memory leaks if no newline ever comes)
   if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
 end
 
