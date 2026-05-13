@@ -765,7 +765,6 @@ M.run_sequence = function(tasks)
 end
 
 local trm
-local win_id
 ------------------------------------------------------
 -- Handle after pioinit execution
 -- =============================================================================
@@ -774,9 +773,8 @@ function M.cleanup_pio_session()
   -- misc.deleteFile(vim.fs.joinpath(vim.g.platformioRootDir, '.ccls'))
   _G.metadata.isBusy = false
   M.queue = {}
-  if win_id then misc.closeMessage(win_id) end
-  win_id = nil
   callBack = nil
+  pio_buffer = ''
   -- term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
   -- if trm then trm:close() end
 end
@@ -890,15 +888,12 @@ function M.handlePioInstall(result, on_done)
     OS.notify('PIO install: success', 'info')
 
     -- if trm then trm:close() end
-    if on_done and type(on_done) == "function" then
-      on_done(true)
-    end
+    if on_done and type(on_done) == "function" then on_done(true) end
     -- end)
     M.cleanup_pio_session()
   elseif result == 'FAIL' then
      OS.notify('Installation failed! Check logs and press :q to close.', 'error')
     if on_done and type(on_done) == "function" then on_done(false) end
-    _G.pio_status = '❌ PIO Failed'
     vim.cmd('redrawstatus')
     M.cleanup_pio_session()
   end
@@ -987,7 +982,6 @@ function M.handlePioinit(result)
       -- local pio_refresh = require('nvimpio.pio.control').pio_refresh
       M.pio_refresh(function()
         boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-        misc.closeMessage(win_id)
         clangd.restart()
         -- term.ToggleTerminal('echo "************ project Initialization success ************"', 'float')
       end, 'PIO init: ')
