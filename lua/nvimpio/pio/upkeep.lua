@@ -617,6 +617,7 @@ M.run_sequence = function(tasks)
     local full_cmd = ''
     if i == #commands then full_cmd = cmd .. done .. fail
     else full_cmd = cmd .. pass .. fail end
+    OS.notify(full_cmd, 'info')
     table.insert(M.queue, full_cmd)
   end
 
