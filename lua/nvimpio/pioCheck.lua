@@ -31,6 +31,7 @@ function M.pioPathUpdate()
   local has_pio = vim.fn.executable("pio") == 1
 
   if not has_pio then
+    vim.env.PLATFORMIO_CORE_DIR = "/root/.platformio"
     vim.env.PATH = binPath .. sep .. vim.env.PATH
     OS.notify('PIO env: ' .. binPath .. ' added to path', 'info')
   end
