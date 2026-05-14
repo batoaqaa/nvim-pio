@@ -715,8 +715,8 @@ function M.stdoutcallback(_, _, data)
   end
 
   if #data > 1 then
-    local content = pio_buffer .. table.concat(data, '', 1, #data - 1)
-    -- local content = pio_buffer .. table.concat(data, '', 1, #data)
+    -- local content = pio_buffer .. table.concat(data, '', 1, #data - 1)
+    local content = pio_buffer .. table.concat(data, '', 1, #data)
     pio_buffer = data[#data] -- Save the new partial line
 
     local pass_target = current_id == 0 and 'DONE' or ('PASS' .. current_id)
