@@ -37,10 +37,6 @@ function M.verify_version()
   end)
 end
 
-
-
-
-
 -- INFO:
 -- =============================================================================
 -- UNIVERSAL TOOLCHAIN DETECTION
@@ -228,13 +224,13 @@ function M.get_active__env(from)
     end
 
     -- Capture hardware target keys (e.g. upload_port = COM3 or /dev/ttyUSB0)
-    if current_section and current_section:match('^env:') then
-      local port_val = line:match('^upload_port%s*=%s*(.+)')
-      if port_val then
-        local env_name = current_section:match('^env:(.+)')
-        env_ports[env_name] = port_val
-      end
-    end
+    -- if current_section and current_section:match('^env:') then
+    --   local port_val = line:match('^upload_port%s*=%s*(.+)')
+    --   if port_val then
+    --     local env_name = current_section:match('^env:(.+)')
+    --     env_ports[env_name] = port_val
+    --   end
+    -- end
 
     if in_platformio_block then
       local def = line:match('^default_envs%s*=%s*(.*)')
@@ -244,33 +240,33 @@ function M.get_active__env(from)
     end
   end
 
-  -- Fetch physical hardware ports active right now
-  local connected_ports = get_connected_ports()
-
-  -- Helper closure to verify if an environment matches a plugged-in USB board
-  local function is_physically_connected(env_name)
-    local target_port = env_ports[env_name]
-    if not target_port then
-      return true
-    end -- If no port is locked in INI, default to true (auto-detect)
-    return connected_ports[target_port] == true
-  end
+  -- -- Fetch physical hardware ports active right now
+  -- local connected_ports = get_connected_ports()
+  -- -- Helper closure to verify if an environment matches a plugged-in USB board
+  -- local function is_physically_connected(env_name)
+  --   local target_port = env_ports[env_name]
+  --   if not target_port then
+  --     return true
+  --   end -- If no port is locked in INI, default to true (auto-detect)
+  --   return connected_ports[target_port] == true
+  -- end
 
   -- 4. Evaluate explicitly specified configurations first
   if default_envs_raw ~= '' then
     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
-      if valid_envs[env_name] and is_physically_connected(env_name) then
+      -- if valid_envs[env_name] and is_physically_connected(env_name) then
+      if valid_envs[env_name] then
         return env_name
       end
     end
   end
 
   -- 5. Fallback selection scanning matching active targets sequentially
-  for env_name, _ in pairs(valid_envs) do
-    if is_physically_connected(env_name) then
-      return env_name
-    end
-  end
+  -- for env_name, _ in pairs(valid_envs) do
+  --   if is_physically_connected(env_name) then
+  --     return env_name
+  --   end
+  -- end
 
   -- 6. Ultimate baseline recovery (First key parsed chronologically)
   return next(valid_envs)
@@ -694,13 +690,9 @@ end
 local current_token = tostring(math.random(10000, 99999))
 local current_id = -1 -- Holds 0 for DONE, or 1-9 for PASS
 
-local current_pass_current_token = ''
-local current_fail_current_token = ''
-
 local session_counter = 0 -- Our high-performance integer counter
 local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
 local callBack = nil -- Your execution hook function pointer
-local commandPassed = 0
 M.queue = {}
 term.stdout_callback = M.stdoutcallback
 local trm
@@ -719,11 +711,8 @@ function M.stdoutcallback(_, _, data)
     local content = pio_buffer .. table.concat(data, '', 1, #data)
     pio_buffer = data[#data] -- Save the new partial line
 
-    -- local pass_target = current_id == 0 and 'DONE' or ('PASS' .. current_id)
     local pass_target = 'PASS' .. current_id
 
-    -- local pass_pattern = '^%s*_CMMNDS_' .. current_token .. ':' .. pass_target
-    -- local fail_pattern = '^%s*_CMMNDS_' .. current_token .. ':FAIL'
     local pass_pattern = '_CMMNDS_' .. current_token .. ':' .. pass_target
     local fail_pattern = '_CMMNDS_' .. current_token .. ':FAIL'
     local done_pattern = '_CMMNDS_' .. current_token .. ':DONE'
@@ -739,26 +728,21 @@ function M.stdoutcallback(_, _, data)
       local final_status = 'FAIL'
       if has_fail then
         final_status = 'FAIL'
-      -- Clear state boundaries instantly to block execution overlaps
         callBack = nil
-        pio_buffer = '' -- Wipe buffer completely to lock out trailing shell prompts
+        M.queue = {}
+        pio_buffer = ''
         -- M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
       elseif has_done then
         final_status = 'DONE'
-      -- Clear state boundaries instantly to block execution overlaps
         callBack = nil
-        pio_buffer = '' -- Wipe buffer completely to lock out trailing shell prompts
-        -- M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
+        pio_buffer = ''
+        M.queue = {}
       elseif has_pass then
         final_status = pass_target
       end
 
-      -- 7. Safe Dispatch back to Neovim main UI thread after terminal settles
       if final_status and active_cb then
-        print('final_status=' .. final_status)
-        vim.schedule(function()
-          active_cb(final_status)
-        end)
+        vim.schedule(function() active_cb(final_status) end)
       end
 
       return -- Break out immediately upon executing the callback
@@ -774,234 +758,6 @@ function M.stdoutcallback(_, _, data)
     pio_buffer = pio_buffer:sub(-2500)
   end
 end
-
--- function M.stdoutcallback(_, _, data)
---   if not data or #data == 0 then return end
---
---   -- 1. Correctly handle Neovim's data chunks
---   -- data[1] is the continuation of the previous chunk
---   -- data[#data] is a partial line (no newline yet)
---
---   if #data > 1 then
---     -- Join the buffer with the first element and all middle elements
---     --(everything except the last partial line)
---     -- 1. Stream Collection
---     local content = pio_buffer .. table.concat(data, "", 1, #data - 1)
---     pio_buffer = data[#data] -- Save the new partial line
---
---     -- 2. Build explicit, independent validation patterns
---     --    Using [^%%w]* safely abstracts colons, quotes, and spacing variations
---     local pass_pattern = '_CMMNDS_' .. current_token .. '[^%%w]*(PASS' .. current_id .. ')'
---     local done_pattern = '_CMMNDS_' .. current_token .. '[^%%w]*(DONE)'
---     local fail_pattern = '_CMMNDS_' .. current_token .. '[^%%w]*(FAIL)'
---
---     -- 3. Match Evaluation
---     local matched_pass = content:match(pass_pattern)
---     local matched_done = content:match(done_pattern)
---     local matched_fail = content:match(fail_pattern)
---
---     -- 4. Strict Priority Execution Block
---     if matched_pass or matched_done or matched_fail then
---       -- Default fallback state
---       local final_status = "FAIL"
---       -- Check fields in order of absolute priority
---       if matched_fail then
---         final_status = "FAIL"
---         M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
---       elseif matched_done then
---         final_status = "DONE"
---       elseif matched_pass then
---         final_status = matched_pass
---       end
---
---       -- 5. Safe Dispatch back to Neovim main thread
---       if final_status and callBack then
---         vim.schedule(function() callBack(final_status) end)
---       end
---     end
---
---   else
---     -- Only one element (no newline yet;) means the line isn't finished yet
---     pio_buffer = pio_buffer .. data[1]
---   end
---
---   -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
---   if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
--- end
-
---- Universal, bulletproof stream analyzer for Toggleterm
--- function M.stdoutcallback(t, job, data)
---   if not data or #data == 0 or not callBack then return end
---
---   -- 1. Stream Collection: Always merge chunks into a unified rolling buffer string
---   pio_buffer = pio_buffer .. table.concat(data, "")
---   if #pio_buffer > 2000 then pio_buffer = pio_buffer:sub(-2000) end
---
---   -- 2. Build explicit, strict target text indicators (Powershell strips quotes, uses ":")
---   --    If current_id is 0, we look for DONE. Otherwise we look for PASS<num>
---   local pass_target = current_id == 0 and "DONE" or ("PASS" .. current_id)
---
---   local expected_pass = '_CMMNDS_' .. current_token .. ':' .. pass_target
---   local expected_fail = '_CMMNDS_' .. current_token .. ':FAIL'
---
---   -- 3. High-Performance Substring Searches
---   --    Using plain byte searches turns off regex blocks completely, crushing prompt bugs!
---   local has_pass = pio_buffer:find(expected_pass, 1, true) ~= nil
---   local has_fail = pio_buffer:find(expected_fail, 1, true) ~= nil
---
---   -- 4. Priority Execution Gate
---   if has_pass or has_fail then
---     local active_cb = callBack
---
---     -- Wipe session state variables instantly to protect against duplicate flushes
---     callBack = nil
---     pio_buffer = ""
--- print(pass_target)
---     local final_status = "FAIL"
---     if has_fail then
---       final_status = "FAIL"
---       M.queue = {} -- Evacuate remainder table rows immediately on error
---     elseif has_pass then
---       -- Pass back the exact token word ("PASS1", "PASS9", or "DONE")
---       final_status = pass_target
---     end
---
---     -- Return control back to Neovim's main UI thread safely
---     vim.defer_fn(function()
---       vim.schedule(function()
---         pcall(active_cb, final_status)
---       end)
---     end, 50)
---   end
--- end
---xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
--- function M.stdoutcallback(t, job, data)
---   if not data or #data == 0 or not callBack then return end
---
---   -- 1. Stream Collection: Accumulate all incoming pieces into our line-matching buffer
---   pio_buffer = pio_buffer .. table.concat(data, "")
---
---   -- 2. Line Isolation Loop: Process complete lines bounded by newlines (\n)
---   while pio_buffer:find("\n") do
---     -- Extract the first complete line and save the rest back to the buffer
---     local line, rest = pio_buffer:match("^([^\n]*)\n(.*)$")
---     pio_buffer = rest or ""
---
---     -- 3. Cross-Platform Normalization
---     line = line:gsub('\r', '') -- Strip hidden Windows carriage returns
---     line = line:gsub('\27%[[%d;]*%a', '') -- Strip invisible ANSI terminal escape/color codes
---
---     -- 4. Target Suffix Definition
---     local pass_target = current_id == 0 and "DONE" or ("PASS" .. current_id)
---
---     -- 5. THE CRUCIAL MATCH ENGINE:
---     --    We use Lua's '^' anchor to force matching at the ABSOLUTE START of the line.
---     --    We use a strict single colon ':' with NO quotes.
---     --    This matches ONLY your output line and completely ignores the typed input command!
---     local pass_pattern = '^%s*_CMMNDS_' .. current_token .. ':' .. pass_target
---     local fail_pattern = '^%s*_CMMNDS_' .. current_token .. ':FAIL'
---
---     -- Plain byte string find from the start of the line (immune to regex syntax bugs)
---     local has_pass = line:find(pass_pattern) ~= nil
---     local has_fail = line:find(fail_pattern) ~= nil
---
---     -- 6. Strict Priority Execution Gate
---     if has_pass or has_fail then
---       local active_cb = callBack
---
---       -- Clear state boundaries instantly to block execution overlaps
---       callBack = nil
---       pio_buffer = "" -- Wipe buffer completely to lock out trailing shell prompts
---
---       local final_status = "FAIL"
---       if has_fail then
---         final_status = "FAIL"
---         M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
---       elseif has_pass then
---         final_status = pass_target
---       end
---
---       -- 7. Safe Dispatch back to Neovim main UI thread after terminal settles
---       vim.defer_fn(function()
---         vim.schedule(function()
---           pcall(active_cb, final_status)
---         end)
---       end, 50)
---
---       return -- Break out immediately upon executing the callback
---     end
---   end
---
---   -- 8. Safety Trim (Prevents memory leaks on long compile logs if a line never finishes)
---   if #pio_buffer > 4000 then
---     pio_buffer = pio_buffer:sub(-1000)
---   end
--- end
-
--- function M.stdoutcallback(_, _, data)
---   if not data or #data == 0 then return end
---
---   -- 1. Correctly handle Neovim's data chunks
---   local target_text = ""
---
---   if #data > 1 then
---     -- Join the buffer with everything except the last partial line
---     target_text = pio_buffer .. table.concat(data, "", 1, #data - 1)
---     pio_buffer = data[#data] -- Save the new partial line
---   else
---     -- Append single element to buffer and test the whole combined buffer
---     pio_buffer = pio_buffer .. table.concat(data, "")
---     target_text = pio_buffer
---   end
---
---   -- 2. FIXED PATTERNS: Using %W* cleanly matches any non-alphanumeric punctuation
---   --    (like colons, quotes, or spaces) separating the token and your words!
---   local pass_pattern = '_CMMNDS_' .. current_token .. '%W*(PASS' .. current_id .. ')'
---   local done_pattern = '_CMMNDS_' .. current_token .. '%W*(DONE)'
---   local fail_pattern = '_CMMNDS_' .. current_token .. '%W*(FAIL)'
---
---   -- 3. Match Evaluation against the isolated text block
---   local matched_pass = target_text:match(pass_pattern)
---   local matched_done = target_text:match(done_pattern)
---   local matched_fail = target_text:match(fail_pattern)
---
---   -- 4. Strict Priority Execution Block
---   if matched_pass or matched_done or matched_fail then
---     local active_cb = callBack
---
---     -- Clear state boundaries instantly to prevent overlapping triggers
---     callBack = nil
---     if #data > 1 then pio_buffer = data[#data] else pio_buffer = "" end
---
---     -- Default fallback state
---     local final_status = "FAIL"
---
---     -- Check fields in order of absolute priority
---     if matched_fail then
---       print(matched_fail)
---       final_status = "FAIL"
---       M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
---     elseif matched_done then
---       print(matched_done)
---       final_status = "DONE"
---     elseif matched_pass then
---       print(matched_pass)
---       -- Captures and assigns your clean string token like "PASS1"
---       final_status = matched_pass
---     end
---
---     -- 5. Safe Dispatch back to Neovim main thread
---     if final_status and active_cb then
---       vim.schedule(function()
---         pcall(active_cb, final_status)
---       end)
---     end
---   end
---
---   -- 6. Safety Trim (Prevents memory leaks if no newline ever comes)
---   if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
--- end
 
 -- =============================================================================
 local function pop(queue)
@@ -1042,27 +798,12 @@ M.run_sequence = function(tasks)
     table.insert(M.queue, { cmd, step_id, token })
   end
 
-
-  -- local done = string.format(' && echo _CMMNDS_%s":"DONE', current_current_token)
-  -- local pass = string.format(' && echo _CMMNDS_%s":"PASS', current_current_token)
-  -- local fail = string.format(' || echo _CMMNDS_%s":"FAIL', current_current_token)
-  -- --
-  -- for i, cmd in ipairs(commands) do
-  --   local full_cmd = ''
-  --   if i == #commands then full_cmd = cmd .. done .. fail
-  --   else full_cmd = string.format("%s%s%01d%s",cmd, pass, i, fail) end
-  --   table.insert(M.queue, full_cmd)
-  -- end
-
   callBack = tasks.cb -- 1. Save the callback in a local variable
 
-  if not nvimpio.is_active then
-    require('nvimpio.pio.metadata')
-  end
+  if not nvimpio.is_active then require('nvimpio.pio.metadata') end
 
   if callBack then
     vim.schedule(function()
-      commandPassed = 1
       pio_buffer = ''
       term.stdout_callback = M.stdoutcallback
       callBack('INIT')
@@ -1076,9 +817,6 @@ end
 -- stylua: ignore
 function M.cleanSequencer()
   _G.metadata.isBusy = false
-  M.queue = {}
-  callBack = nil
-  pio_buffer = ''
   term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
   -- if trm then trm:close() end
 end
@@ -1092,41 +830,30 @@ function M.handlePioinitDb(result, board, on_done)
       boilerplate.core_dir = _G.metadata.core_dir
       boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
 
-      -- trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       trm = term.ToggleTerminal(pop(M.queue), 'float')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
     end
-  elseif result == 'PASS' .. current_id then
-    if commandPassed == 1 then
-      local active_env = M.get_active__env('PIO init+db: ')
-      OS.notify('PIO init+db:  pass ' .. commandPassed, "info")
-      commandPassed = commandPassed + 1
-      if not active_env or (active_env == board) then
-        boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
-        boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
-        if #M.queue > 0 then
-          -- trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-          -- trm:send(table.remove(M.queue, 1), false)
-          trm:send(pop(M.queue), false)
-        end
-      else
-        if on_done and type(on_done) == "function" then on_done(false) end
-        M.cleanSequencer()
-      end
-    -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
+  elseif result == 'PASS1' then -- current_id
+    OS.notify('PIO init+db:  pass ' .. current_id, "info")
+    local active_env = M.get_active__env('PIO init+db: ')
+    if not active_env or (active_env == board) then
+      boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
+      boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
+      if #M.queue > 0 then trm:send(pop(M.queue), false) end
+    else
+      if on_done and type(on_done) == "function" then on_done(false) end
+      M.cleanSequencer()
     end
+  -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the last command
-    -- vim.schedule(function()
-    OS.notify('PIO init+db:  pass ' .. commandPassed, "info")
     OS.notify('PIO init+db: Done', "info")
     M.pio_refresh(function()
       if on_done and type(on_done) == "function" then on_done(true)
       else clangd.getUnknownArgs() end
       boilerplate.core_dir = _G.metadata.core_dir
     end, 'PIO init+db: ')
-    -- end)
     if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
@@ -1146,34 +873,18 @@ print(result)
     if #M.queue > 0 then
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(pop(M.queue), 'float')
-      -- trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
-      -- if trm then trm:open() end
     end
   elseif result == 'PASS' .. current_id then
-    if commandPassed == 1 then
-      OS.notify('PIO install:  pass ' .. commandPassed, "info")
-      commandPassed = commandPassed + 1
-      -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
-      if #M.queue > 0 then
-        -- trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-        trm:send(pop(M.queue), false)
-        -- if trm then
-        --   trm:open()
-        --   trm:send(table.remove(M.queue, 1), false)
-        -- end
-      end
-    -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
-    end
+      OS.notify('PIO install:  pass ' .. current_id, "info")
+      if #M.queue > 0 then trm:send(pop(M.queue), false) end
+  -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the only and the last command
-    OS.notify('PIO install:  pass ' .. commandPassed, "info")
     OS.notify('PIO install: Done', "info")
-    commandPassed = commandPassed + 1
 
     -- 1. Always remove the script
-    -- vim.schedule(function()
     local script_path = vim.fs.joinpath(OS.cache_dir, 'get-platformio.py')
     os.remove(script_path)
     -- 2. Find and remove random temp folders like .piocore-installer-xxxx
@@ -1184,11 +895,9 @@ print(result)
         if vim.fn.isdirectory(path) == 1 then vim.fn.delete(path, "rf") end
       end
     end
-    OS.notify('PIO install: success', 'info')
 
-    -- if trm then trm:close() end
     if on_done and type(on_done) == "function" then on_done(true) end
-    -- end)
+    if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
      OS.notify('Installation failed! Check logs and press :q to close.', 'error')
@@ -1205,14 +914,11 @@ function M.clangFormat(result)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-      -- if trm then trm:open() end
+      trm = term.ToggleTerminal(pop(M.queue), 'float')
     end
   elseif result == 'DONE' then -- result of the only and the last command
-    OS.notify('Clang formatter:  pass ' .. commandPassed, "info")
     OS.notify('Clang formatter: Done', "info")
-    commandPassed = commandPassed + 1
-    -- if trm then trm:close() end
+    if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
     M.cleanSequencer()
@@ -1225,7 +931,7 @@ function M.handlePioDB(result)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      trm = term.ToggleTerminal(pop(M.queue), 'float')
       -- if trm then trm:open() end
     end
   elseif result == 'DONE' then -- result of the only and the last command
@@ -1237,59 +943,12 @@ function M.handlePioDB(result)
         boilerplate.core_dir = _G.metadata.core_dir
       end, 'PIO compiledb: ')
     end)
-    -- if trm then trm:close() end
+    if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
     M.cleanSequencer()
   end
 end
-
-----------------------------------------------------
--- Handle after pioinit execution
--- stylua: ignore
-function M.handlePioinit(result)
-  if result == 'INIT' then
-
-    if #M.queue > 0 then
-      boilerplate.core_dir = _G.metadata.core_dir
-      boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
-      boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
-      boilerplate_gen([[.clangd]], vim.g.platformioRootDir)
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-      _G.metadata.isBusy = true
-      -- if trm then trm:open() end
-    end
-  elseif result == 'DONE' then -- result of the last command
-    vim.schedule(function()
-      OS.notify('PIO init:  pass ' .. commandPassed, "info")
-      OS.notify('PIO init: Done', "info")
-
-      -- \27[s   : Save current cursor position (the prompt)
-      -- \r      : Go to start of line
-      -- \27[A   : Move cursor UP one line (to space above prompt)
-      -- \27[K   : Clear that line
-      -- \27[33m : Color Yellow (optional)
-      -- %s      : Your message
-      -- \27[0m  : Reset color
-      -- \27[u   : Restore cursor back to the prompt
-      -- IMPORTANT: No \n at the end, so it doesn't execute
-      -- local msg = '************ Please wait for project Initialization to finish ************'
-      -- local clean_msg = string.format('\27[G\27[2K\27[33m%s\27[0m', msg)
-      -- vim.api.nvim_chan_send(trm:job_id, clean_msg)
-
-      -- local pio_refresh = require('nvimpio.pio.control').pio_refresh
-      M.pio_refresh(function()
-        boilerplate_gen([[.clangd]], _G.metadata.core_dir)
-        clangd.restart()
-        -- term.ToggleTerminal('echo "************ project Initialization success ************"', 'float')
-      end, 'PIO init: ')
-    end)
-    M.cleanSequencer()
-  elseif result == 'FAIL' then
-    M.cleanSequencer()
-  end
-end
-
 
 ------------------------------------------------------
 -- Handle after piolib execution
@@ -1299,32 +958,21 @@ function M.handlePiolib(result)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
+      trm = term.ToggleTerminal(pop(M.queue), 'float')
       -- if trm then trm:open() end
     end
   elseif result == 'PASS' then
-    if commandPassed == 1 then
-      OS.notify('PIO lib+db:  pass ' .. commandPassed, "info")
-      commandPassed = commandPassed + 1
-      -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
-      if #M.queue > 0 then
-        -- if trm then
-          -- trm:open()
-          -- trm:send(table.remove(M.queue, 1), false)
-      trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float')
-        -- end
-      end
-    -- elseif commandPassed == 2 then -- if you sned more than 2 commands you need this
-    end
+    OS.notify('PIO lib+db:  pass ' .. current_id, "info")
+    -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
+    if #M.queue > 0 then trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
-      OS.notify('PIO lib+db:  pass ' .. commandPassed, "info")
       OS.notify('PIO lib+db: Done', "info")
       M.pio_refresh(function()
         clangd.getUnknownArgs()
       end, 'PIO lib+db: ')
     end)
-    -- if trm then trm:close() end
+    if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
     M.cleanSequencer()
