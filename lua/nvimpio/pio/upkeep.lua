@@ -786,11 +786,11 @@ function M.stdoutcallback(t, job, data)
   -- 4. Priority Execution Gate
   if has_pass or has_fail then
     local active_cb = callBack
-    
+
     -- Wipe session state variables instantly to protect against duplicate flushes
     callBack = nil
     pio_buffer = ""
-
+print(pass_target)
     local final_status = "FAIL"
     if has_fail then
       final_status = "FAIL"
@@ -802,8 +802,8 @@ function M.stdoutcallback(t, job, data)
 
     -- Return control back to Neovim's main UI thread safely
     vim.defer_fn(function()
-      vim.schedule(function() 
-        pcall(active_cb, final_status) 
+      vim.schedule(function()
+        pcall(active_cb, final_status)
       end)
     end, 50)
   end
