@@ -43,8 +43,8 @@ if mok then mason.setup({}) end
 
 -- List of packages you want Mason to ensure are installed
 -- local ensure_installed = {
---   -- 'clang-format', embedded in clangd
---   -- 'stylua',
+--   'clang-format', -- embedded in clangd
+--   'stylua',
 -- }
 -- -- call mason-registry function to install or ensure formatters/linters are installed
 -- local mr = require('mason-registry')
@@ -53,19 +53,19 @@ if mok then mason.setup({}) end
 --     local ok, result = pcall(mr.get_package, tool)
 --     if ok and result then
 --       if not result:is_installed() then
---         if not result:is_installing() then
---           result:install({}, function(success, _)
---             if not success then
---               vim.defer_fn(function()
---                 misc.notify('LSP: ' .. tool .. ' failed to install', 'error')
---               end, 0)
---             end
---           end)
---         else
---           vim.defer_fn(function()
---             misc.notify('LSP: ' .. tool .. ' already installed', 'warn')
---           end, 0)
---         end
+--         -- if not result:is_installing() then
+--         result:install({}, function(success, _)
+--           if not success then
+--             vim.defer_fn(function()
+--               misc.notify('LSP: ' .. tool .. ' failed to install', 'error')
+--             end, 0)
+--           end
+--         end)
+--         -- end
+--       else
+--         vim.defer_fn(function()
+--           misc.notify('LSP: ' .. tool .. ' already installed', 'warn')
+--         end, 0)
 --       end
 --     else
 --       vim.defer_fn(function()

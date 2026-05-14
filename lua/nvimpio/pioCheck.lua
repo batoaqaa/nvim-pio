@@ -8,6 +8,34 @@ function M.get_bin_dir()
   return pio_bin
 end
 
+--INFO:
+-- stylua: ignore start
+-------------------------------------------------------------------------------
+function M.removeFromPath(path_to_remove)
+  local sep = OS.env_sep
+  -- Split the path by the separator
+  local paths = vim.split(vim.env.PATH, sep, { trimempty = true })
+
+  -- Filter out the path we want to remove
+  local new_paths = vim.tbl_filter(function(p) return p ~= path_to_remove end, paths)
+
+  -- Rejoin and update the environment
+  vim.env.PATH = table.concat(new_paths, sep)
+end
+
+function M.pioPathUpdate()
+  local sep = OS.env_sep
+  local binPath = M.get_bin_dir()
+
+  -- Check if 'pio' binary is already visible to Neovim
+  local has_pio = vim.fn.executable("pio") == 1
+
+  if not has_pio then
+    vim.env.PATH = binPath .. sep .. vim.env.PATH
+    OS.notify('PIO env: ' .. binPath .. ' added to path', 'info')
+  end
+end
+
 local function finalize(success)
   M.is_running = false
   while #M.queue > 0 do

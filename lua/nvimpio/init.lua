@@ -21,11 +21,12 @@ function M.setup(opts)
     M.isActivated = true
     vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
 
-    local sep = vim.fn.has('win32') == 1 and ';' or ':'
-    if M.config.pio.auto_update_path then
-      local pio_bin = pioCheck.get_bin_dir()
-      if vim.fn.isdirectory(pio_bin) == 1 then vim.env.PATH = pio_bin .. sep .. vim.env.PATH end
-    end
+    pioCheck.pioPathUpdate()
+    -- local sep = vim.fn.has('win32') == 1 and ';' or ':'
+    -- if M.config.pio.auto_update_path then
+    --   local pio_bin = pioCheck.get_bin_dir()
+    --   if vim.fn.isdirectory(pio_bin) == 1 then vim.env.PATH = pio_bin .. sep .. vim.env.PATH end
+    -- end
 
     local user_config = opts or {}
     userConfig.validate(user_config)
@@ -42,6 +43,7 @@ function M.setup(opts)
         if M.isActivated then
           require('nvimpio.pio.ui.pioInit').pioInit()
         else
+          pioCheck.pioPathUpdate()
           require('nvimpio.pio.ui.pioInit').pioInit(function(done)
             if (done) then
               -- vim.clangd.getUnknownArgs()
