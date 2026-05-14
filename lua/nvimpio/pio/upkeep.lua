@@ -735,16 +735,19 @@ function M.stdoutcallback(_, _, data)
     if has_pass or has_fail or has_done then
       local active_cb = callBack
 
-      -- Clear state boundaries instantly to block execution overlaps
-      callBack = nil
-      pio_buffer = '' -- Wipe buffer completely to lock out trailing shell prompts
 
       local final_status = 'FAIL'
       if has_fail then
         final_status = 'FAIL'
+      -- Clear state boundaries instantly to block execution overlaps
+        callBack = nil
+        pio_buffer = '' -- Wipe buffer completely to lock out trailing shell prompts
         -- M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
       elseif has_done then
         final_status = 'DONE'
+      -- Clear state boundaries instantly to block execution overlaps
+        callBack = nil
+        pio_buffer = '' -- Wipe buffer completely to lock out trailing shell prompts
         -- M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
       elseif has_pass then
         final_status = pass_target
