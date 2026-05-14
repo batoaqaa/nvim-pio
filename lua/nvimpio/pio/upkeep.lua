@@ -765,7 +765,7 @@ local nvimpio = require('nvimpio')
 
 --- Universal, bulletproof stream analyzer for Toggleterm
 function M.stdoutcallback(t, job, data)
-  if not data or #data == 0 or not current_cb then return end
+  if not data or #data == 0 or not callBack then return end
 
   -- 1. Stream Collection: Always merge chunks into a unified rolling buffer string
   pio_buffer = pio_buffer .. table.concat(data, "")
@@ -785,10 +785,10 @@ function M.stdoutcallback(t, job, data)
 
   -- 4. Priority Execution Gate
   if has_pass or has_fail then
-    local active_cb = current_cb
+    local active_cb = callBack
     
     -- Wipe session state variables instantly to protect against duplicate flushes
-    current_cb = nil
+    callBack = nil
     pio_buffer = ""
 
     local final_status = "FAIL"
