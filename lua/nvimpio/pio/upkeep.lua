@@ -1129,7 +1129,7 @@ end
 -- =============================================================================
 -- stylua: ignore
 function M.handlePioInstall(result, on_done)
-  print(result)
+print(result)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
@@ -1141,6 +1141,7 @@ function M.handlePioInstall(result, on_done)
       -- if trm then trm:open() end
     end
   elseif result == 'PASS' .. current_id then
+print(result)
     if commandPassed == 1 then
       OS.notify('PIO install:  pass ' .. commandPassed, "info")
       commandPassed = commandPassed + 1
