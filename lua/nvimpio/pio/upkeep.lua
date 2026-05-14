@@ -729,11 +729,8 @@ function M.stdoutcallback(_, _, data)
     local done_pattern = '_CMMNDS_' .. current_token .. ':DONE'
 
     local has_pass = content:find(pass_pattern) ~= nil
-    print('has_pass=' .. has_pass)
     local has_done = content:find(done_pattern) ~= nil
-    print('has_done=' .. has_done)
     local has_fail = content:find(fail_pattern) ~= nil
-    print('has_fail=' .. has_fail)
 
     if has_pass or has_fail or has_done then
       local active_cb = callBack
@@ -745,14 +742,15 @@ function M.stdoutcallback(_, _, data)
       local final_status = 'FAIL'
       if has_fail then
         final_status = 'FAIL'
-        M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
+        -- M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
       elseif has_done then
         final_status = 'DONE'
-        M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
+        -- M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
       elseif has_pass then
         final_status = pass_target
       end
 
+    print('final_status=' .. final_status)
       -- 7. Safe Dispatch back to Neovim main UI thread after terminal settles
       if final_status and active_cb then
         vim.schedule(function()
