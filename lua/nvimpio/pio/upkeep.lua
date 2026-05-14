@@ -724,7 +724,7 @@ function M.stdoutcallback(_, _, data)
     local fail_pattern = '^%s*_CMMNDS_' .. current_token .. ':FAIL'
 
     local has_pass = content:find(pass_pattern) ~= nil
-    local has_fail = content():find(fail_pattern) ~= nil
+    local has_fail = content:find(fail_pattern) ~= nil
     if has_pass or has_fail then
       local active_cb = callBack
 
