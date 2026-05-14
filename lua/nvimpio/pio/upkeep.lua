@@ -814,7 +814,13 @@ local nvimpio = require('nvimpio')
 function M.stdoutcallback(t, job, data)
   if not data or #data == 0 or not current_cb then return end
 
-  -- 1. Stream Collection: Keep your preferred array-chopping layout cleanly
+  -- 1. SAFETY BUFFER TRIM: Run this FIRST before adding new text 
+  --    This ensures we never chop up or delete the fresh data chunks arriving next
+  if #pio_buffer > 4000 then 
+    pio_buffer = pio_buffer:sub(-1000) 
+  end
+
+  -- 2. Stream Collection: Keep your preferred array-chopping layout cleanly
   local target_text = ""
   if #data > 1 then
     -- Join everything except the absolute last line fragment row
@@ -826,25 +832,26 @@ function M.stdoutcallback(t, job, data)
     target_text = pio_buffer
   end
 
-  -- 2. Build explicit, strict target text indicators (Powershell strips quotes, uses ":")
+  -- 3. Build explicit target keywords
   local pass_target = current_id == 0 and "DONE" or ("PASS" .. current_id)
   
-  local expected_pass = '_CMMNDS_' .. current_token .. ':' .. pass_target
-  local expected_fail = '_CMMNDS_' .. current_token .. ':FAIL'
+  -- 4. CROSS-PLATFORM PATTERN SEARCH:
+  --    %W* matches any non-alphanumeric punctuation (like colons :, quotes "", or spaces)
+  --    This catches the tokens cleanly even if PowerShell line-wraps split the line!
+  local pass_pattern = '_CMMNDS_' .. current_token .. '%W*(' .. pass_target .. ')'
+  local fail_pattern = '_CMMNDS_' .. current_token .. '%W*(FAIL)'
 
-  -- 3. High-Performance Substring Search
-  local has_pass = target_text:find(expected_pass, 1, true) ~= nil
-  local has_fail = target_text:find(expected_fail, 1, true) ~= nil
+  local matched_pass = target_text:match(pass_pattern)
+  local matched_fail = target_text:match(fail_pattern)
 
-  -- 4. Strict Priority Execution Gate
-  if has_pass or has_fail then
+  -- 5. Strict Priority Execution Gate
+  if matched_pass or matched_fail then
     local active_cb = current_cb
     
     -- Clear execution boundaries instantly to block duplicate execution triggers
     current_cb = nil
     
-    -- FIXED BUFFER FLUSH:
-    -- Only wipe the buffer completely if we processed a single-element packet (#data == 1).
+    -- Only wipe the buffer completely if we processed a single-element packet (#data == 1)
     -- If we processed a multi-line packet (#data > 1), we MUST preserve data[#data]!
     if #data <= 1 then 
       pio_buffer = "" 
@@ -853,23 +860,20 @@ function M.stdoutcallback(t, job, data)
     local final_status = "FAIL"
 
     -- Evaluate states in order of absolute priority
-    if has_fail then
+    if matched_fail then
       final_status = "FAIL"
       M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
-    elseif has_pass then
+    elseif matched_pass then
       final_status = pass_target
     end
 
-    -- 5. Safe Dispatch back to Neovim main thread after shell outputs settle
+    -- 6. Safe Dispatch back to Neovim main thread after shell outputs settle
     vim.defer_fn(function()
       vim.schedule(function() 
         pcall(active_cb, final_status) 
       end)
     end, 50)
   end
-
-  -- 6. Safety Trim (Prevents memory leaks on heavy compile logs)
-  if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
 end
 
 -- function M.stdoutcallback(_, _, data)
