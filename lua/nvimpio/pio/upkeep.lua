@@ -811,8 +811,8 @@ local nvimpio = require('nvimpio')
 --xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 
-function M.stdoutcallback(_, _, data)
-  if not data or #data == 0 or not callBack then return end
+function M.stdoutcallback(t, job, data)
+  if not data or #data == 0 or not current_cb then return end
 
   -- 1. Stream Collection: Keep your preferred array-chopping layout cleanly
   local target_text = ""
@@ -838,13 +838,13 @@ function M.stdoutcallback(_, _, data)
   local has_fail = target_text:find(expected_fail, 1, true) ~= nil
 
   -- 4. Strict Priority Execution Gate
-  --    Only execute if we find an explicit token belonging specifically to the CURRENT step
   if has_pass or has_fail then
-    local active_cb = callBack
+    local active_cb = current_cb
     
-    -- Clear execution boundaries instantly to block duplicate execution triggers
-    callBack = nil
-    if #data > 1 then pio_buffer = data[#data] else pio_buffer = "" end
+    -- FIXED CRITICAL FLUSH GATE: 
+    -- Clear state boundaries instantly to completely block legacy double-trigger loops
+    current_cb = nil
+    pio_buffer = "" 
 
     local final_status = "FAIL"
 
@@ -853,7 +853,6 @@ function M.stdoutcallback(_, _, data)
       final_status = "FAIL"
       M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
     elseif has_pass then
-      -- FIXED TYPO: Maps cleanly to pass_target ("PASS1", "PASS2", or "DONE")
       final_status = pass_target
     end
 
