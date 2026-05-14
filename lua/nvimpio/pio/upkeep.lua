@@ -150,34 +150,34 @@ end
 -- stylua: ignore
 --=============================================================================
 -- Helper function to extract connected hardware ports using PlatformIO core
-local function get_connected_ports()
-  if vim.fn.executable('pio') ~= 1 then
-    return {}
-  end
-
-  -- Spawn an explicit JSON hardware scan via the core engine
-  local ok, obj = pcall(function()
-    return vim.system({ 'pio', 'device', 'list', '--json' }):wait()
-  end)
-
-  if not ok or not obj or obj.code ~= 0 or not obj.stdout then
-    return {}
-  end
-
-  -- Parse output safely into data tables
-  local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
-  if not parse_ok or type(devices) ~= 'table' then
-    return {}
-  end
-
-  local paths = {}
-  for _, dev in ipairs(devices) do
-    if dev.port then
-      paths[dev.port] = true
-    end
-  end
-  return paths
-end
+-- local function get_connected_ports()
+--   if vim.fn.executable('pio') ~= 1 then
+--     return {}
+--   end
+--
+--   -- Spawn an explicit JSON hardware scan via the core engine
+--   local ok, obj = pcall(function()
+--     return vim.system({ 'pio', 'device', 'list', '--json' }):wait()
+--   end)
+--
+--   if not ok or not obj or obj.code ~= 0 or not obj.stdout then
+--     return {}
+--   end
+--
+--   -- Parse output safely into data tables
+--   local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
+--   if not parse_ok or type(devices) ~= 'table' then
+--     return {}
+--   end
+--
+--   local paths = {}
+--   for _, dev in ipairs(devices) do
+--     if dev.port then
+--       paths[dev.port] = true
+--     end
+--   end
+--   return paths
+-- end
 
 function M.get_active__env(from)
   local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
@@ -204,8 +204,8 @@ function M.get_active__env(from)
 
   local default_envs_raw = ''
   local valid_envs = {}
-  local env_ports = {} -- Map of environment configurations to their specified port profiles
-  local current_section = nil
+  -- local env_ports = {} -- Map of environment configurations to their specified port profiles
+  -- local current_section = nil
   local in_platformio_block = false
 
   -- 3. Parse lines and isolate target parameters
@@ -214,7 +214,7 @@ function M.get_active__env(from)
 
     local section = line:match('^%[(.+)%]$')
     if section then
-      current_section = section
+      -- current_section = section
       in_platformio_block = (section == 'platformio')
 
       local env_name = section:match('^env:(.+)')
@@ -823,7 +823,6 @@ end
 
 -- stylua: ignore
 function M.handlePioinitDb(result, board, on_done)
-  print(result)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
@@ -868,7 +867,6 @@ end
 -- =============================================================================
 -- stylua: ignore
 function M.handlePioInstall(result, on_done)
-print(result)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
@@ -936,7 +934,6 @@ function M.handlePioDB(result)
     end
   elseif result == 'DONE' then -- result of the only and the last command
     vim.schedule(function()
-      OS.notify('PIO compiledb:  pass ' .. commandPassed, "info")
       OS.notify('PIO compiledb: Done', "info")
       M.pio_refresh(function()
         clangd.getUnknownArgs()
