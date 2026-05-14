@@ -719,9 +719,8 @@ function M.stdoutcallback(_, _, data)
     local content = pio_buffer .. table.concat(data, '', 1, #data)
     pio_buffer = data[#data] -- Save the new partial line
 
-    local pass_target = current_id == 0 and 'DONE' or ('PASS' .. current_id)
-    print(pass_target)
-    pass_target = 'PASS' .. current_id
+    -- local pass_target = current_id == 0 and 'DONE' or ('PASS' .. current_id)
+    local pass_target = 'PASS' .. current_id
 
     -- local pass_pattern = '^%s*_CMMNDS_' .. current_token .. ':' .. pass_target
     -- local fail_pattern = '^%s*_CMMNDS_' .. current_token .. ':FAIL'
@@ -730,8 +729,12 @@ function M.stdoutcallback(_, _, data)
     local done_pattern = '_CMMNDS_' .. current_token .. ':DONE'
 
     local has_pass = content:find(pass_pattern) ~= nil
+    print('has_pass=' .. has_pass)
     local has_done = content:find(done_pattern) ~= nil
+    print('has_done=' .. has_done)
     local has_fail = content:find(fail_pattern) ~= nil
+    print('has_fail=' .. has_fail)
+
     if has_pass or has_fail or has_done then
       local active_cb = callBack
 
