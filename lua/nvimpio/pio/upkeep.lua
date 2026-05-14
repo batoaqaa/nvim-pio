@@ -814,27 +814,26 @@ local nvimpio = require('nvimpio')
 function M.stdoutcallback(t, job, data)
   if not data or #data == 0 or not callBack then return end
 
-  -- 1. Stream Collection: Accumulate all incoming data pieces into our buffer
+  -- 1. Stream Collection: Accumulate incoming text into our persistent buffer
   pio_buffer = pio_buffer .. table.concat(data, "")
 
-  -- 2. Line Isolation Loop: Process complete lines bounded by newlines (\n)
+  -- 2. Line Isolation Loop: Extract complete lines bounded by newlines (\n)
   while pio_buffer:find("\n") do
-    -- Extract the first complete line and save the rest back to the buffer
     local line, rest = pio_buffer:match("^([^\n]*)\n(.*)$")
     pio_buffer = rest or ""
 
-    -- 3. Cross-Platform Normalization
-    line = line:gsub('\r', '') -- Strip hidden Windows carriage returns
-    line = line:gsub('\27%[[%d;]*%a', '') -- Strip invisible ANSI terminal escape/color codes
+    -- 3. Strip hidden Windows carriage returns and invisible terminal ANSI color/cursor codes
+    line = line:gsub('\r', '')
+    line = line:gsub('\27%[[%d;]*%a', '')
 
     -- 4. Target Suffix Definition
     local pass_target = current_id == 0 and "DONE" or ("PASS" .. current_id)
 
-    -- 5. Strict Line-Anchored Pattern Matching
-    --    ^ forced the match to happen at the ABSOLUTE BEGINNING of the line.
-    --    %W* handles raw colons (:) or quoted colons (":") seamlessly.
-    local pass_pattern = '^%s*_CMMNDS_' .. current_token .. '%W*(' .. pass_target .. ')%s*$'
-    local fail_pattern = '^%s*_CMMNDS_' .. current_token .. '%W*(FAIL)%s*$'
+    -- 5. CRUCIAL FIX: Line-Start Anchored Pattern Matching
+    --    ^%s* guarantees the line MUST start with your output block (skipping typed commands)
+    --    We removed the strict trailing '$' anchor so hidden terminal trailing spaces or prompt merges cannot block it!
+    local pass_pattern = '^%s*_CMMNDS_' .. current_token .. '%W*(' .. pass_target .. ')'
+    local fail_pattern = '^%s*_CMMNDS_' .. current_token .. '%W*(FAIL)'
 
     local matched_pass = line:match(pass_pattern)
     local matched_fail = line:match(fail_pattern)
@@ -843,9 +842,9 @@ function M.stdoutcallback(t, job, data)
     if matched_pass or matched_fail then
       local active_cb = callBack
       
-      -- Clear state boundaries instantly to block execution overlaps
+      -- Clear state boundaries instantly to prevent overlapping triggers
       callBack = nil
-      pio_buffer = "" -- Wipe buffer completely to lock out trailing shell prompts
+      pio_buffer = "" 
 
       local final_status = "FAIL"
       if matched_fail then
