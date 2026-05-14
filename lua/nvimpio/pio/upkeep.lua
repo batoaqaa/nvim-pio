@@ -811,72 +811,66 @@ local nvimpio = require('nvimpio')
 --xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 
---- Universal, bulletproof stream analyzer for Toggleterm
 function M.stdoutcallback(t, job, data)
-  -- 1. Guard check: Track our unified state variable 'callBack'
   if not data or #data == 0 or not callBack then return end
 
-  -- 2. Stream Collection: Accumulate into a rolling buffer string
+  -- 1. Stream Collection: Accumulate all incoming pieces into our line-matching buffer
   pio_buffer = pio_buffer .. table.concat(data, "")
 
-  -- 3. Optimization for Long Outputs: Keep the last 3000 characters
-  if #pio_buffer > 3000 then
-    pio_buffer = pio_buffer:sub(-2000)
-  end
+  -- 2. Line Isolation Loop: Process complete lines bounded by newlines (\n)
+  while pio_buffer:find("\n") do
+    -- Extract the first complete line and save the rest back to the buffer
+    local line, rest = pio_buffer:match("^([^\n]*)\n(.*)$")
+    pio_buffer = rest or ""
 
-  -- 4. Cross-Platform Normalization: Clean out hidden carriage returns and ANSI codes
-  local clean_buffer = pio_buffer:gsub('\r', ''):gsub('\27%[[%d;]*%a', '')
+    -- 3. Cross-Platform Normalization
+    line = line:gsub('\r', '') -- Strip hidden Windows carriage returns
+    line = line:gsub('\27%[[%d;]*%a', '') -- Strip invisible ANSI terminal escape/color codes
 
-  -- 5. Target Suffix Definition
-  local pass_target = current_id == 0 and "DONE" or ("PASS" .. current_id)
+    -- 4. Target Suffix Definition
+    local pass_target = current_id == 0 and "DONE" or ("PASS" .. current_id)
 
-  -- 6. Decoupled Token Word Match Strings
-  --    Using %W* handles colons (:) or quoted colons (":") seamlessly on Windows or Unix
-  local pass_token = '_CMMNDS_' .. current_token .. '%W*' .. pass_target
-  local fail_token = '_CMMNDS_' .. current_token .. '%W*FAIL'
+    -- 5. THE CRUCIAL MATCH ENGINE:
+    --    We use Lua's '^' anchor to force matching at the ABSOLUTE START of the line.
+    --    We use a strict single colon ':' with NO quotes.
+    --    This matches ONLY your output line and completely ignores the typed input command!
+    local pass_pattern = '^%s*_CMMNDS_' .. current_token .. ':' .. pass_target
+    local fail_pattern = '^%s*_CMMNDS_' .. current_token .. ':FAIL'
 
-  -- 7. STRICT INPUT DETECTION (Prefix Verification Window Lookup)
-  local pass_match_pos = clean_buffer:find(pass_token)
-  local fail_match_pos = clean_buffer:find(fail_token)
+    -- Plain byte string find from the start of the line (immune to regex syntax bugs)
+    local has_pass = line:find(pass_pattern) ~= nil
+    local has_fail = line:find(fail_pattern) ~= nil
 
-  local final_status = nil
+    -- 6. Strict Priority Execution Gate
+    if has_pass or has_fail then
+      local active_cb = callBack
+      
+      -- Clear state boundaries instantly to block execution overlaps
+      callBack = nil
+      pio_buffer = "" -- Wipe buffer completely to lock out trailing shell prompts
 
-  if pass_match_pos then
-    -- Extract a 15-character snapshot window directly before the token appeared
-    local start_pos = math.max(1, pass_match_pos - 15)
-    local prefix_window = clean_buffer:sub(start_pos, pass_match_pos - 1)
+      local final_status = "FAIL"
+      if has_fail then
+        final_status = "FAIL"
+        M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
+      elseif has_pass then
+        final_status = pass_target
+      end
 
-    -- If the prefix contains 'echo' or '&&', it is just the typed shell instruction.
-    -- If it does NOT contain 'echo', it is the actual clean generated console output!
-    if not prefix_window:find("echo") and not prefix_window:find("&&") then
-      final_status = pass_target
+      -- 7. Safe Dispatch back to Neovim main UI thread after terminal settles
+      vim.defer_fn(function()
+        vim.schedule(function() 
+          pcall(active_cb, final_status) 
+        end)
+      end, 50)
+
+      return -- Break out immediately upon executing the callback
     end
   end
 
-  if fail_match_pos and not final_status then
-    local start_pos = math.max(1, fail_match_pos - 15)
-    local prefix_window = clean_buffer:sub(start_pos, fail_match_pos - 1)
-
-    if not prefix_window:find("echo") and not prefix_window:find("&&") then
-      final_status = "FAIL"
-      M.queue = {} -- Evacuate remaining table rows immediately on error
-    end
-  end
-
-  -- 8. Strict Priority Execution Gate
-  if final_status then
-    local active_cb = callBack
-    
-    -- Clear state boundaries instantly to block duplicate execution triggers
-    callBack = nil
-    pio_buffer = "" 
-
-    -- Return control back to Neovim's main UI thread safely after terminal finishes rendering
-    vim.defer_fn(function()
-      vim.schedule(function() 
-        pcall(active_cb, final_status) 
-      end)
-    end, 50)
+  -- 8. Safety Trim (Prevents memory leaks on long compile logs if a line never finishes)
+  if #pio_buffer > 4000 then 
+    pio_buffer = pio_buffer:sub(-1000) 
   end
 end
 
