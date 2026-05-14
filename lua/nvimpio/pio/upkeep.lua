@@ -750,9 +750,9 @@ function M.stdoutcallback(_, _, data)
         final_status = pass_target
       end
 
-    print('final_status=' .. final_status)
       -- 7. Safe Dispatch back to Neovim main UI thread after terminal settles
       if final_status and active_cb then
+        print('final_status=' .. final_status)
         vim.schedule(function()
           active_cb(final_status)
         end)
