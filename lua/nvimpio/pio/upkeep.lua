@@ -724,10 +724,12 @@ function M.stdoutcallback(_, _, data)
     -- local fail_pattern = '^%s*_CMMNDS_' .. current_token .. ':FAIL'
     local pass_pattern = '_CMMNDS_' .. current_token .. ':' .. pass_target
     local fail_pattern = '_CMMNDS_' .. current_token .. ':FAIL'
+    local done_pattern = '_CMMNDS_' .. current_token .. ':DONE'
 
     local has_pass = content:find(pass_pattern) ~= nil
+    local has_done = content:find(done_pattern) ~= nil
     local has_fail = content:find(fail_pattern) ~= nil
-    if has_pass or has_fail then
+    if has_pass or has_fail or has_done then
       local active_cb = callBack
 
       -- Clear state boundaries instantly to block execution overlaps
@@ -737,6 +739,9 @@ function M.stdoutcallback(_, _, data)
       local final_status = 'FAIL'
       if has_fail then
         final_status = 'FAIL'
+        M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
+      elseif has_done then
+        final_status = 'DONE'
         M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
       elseif has_pass then
         final_status = pass_target
@@ -1141,7 +1146,6 @@ print(result)
       -- if trm then trm:open() end
     end
   elseif result == 'PASS' .. current_id then
-print(result)
     if commandPassed == 1 then
       OS.notify('PIO install:  pass ' .. commandPassed, "info")
       commandPassed = commandPassed + 1
