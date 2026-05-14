@@ -833,7 +833,6 @@ function M.stdoutcallback(t, job, data)
   local expected_fail = '_CMMNDS_' .. current_token .. ':FAIL'
 
   -- 3. High-Performance Substring Search
-  --    Passing `1, true` turns OFF regex completely, bypassing prompt and quote bugs!
   local has_pass = target_text:find(expected_pass, 1, true) ~= nil
   local has_fail = target_text:find(expected_fail, 1, true) ~= nil
 
@@ -841,10 +840,15 @@ function M.stdoutcallback(t, job, data)
   if has_pass or has_fail then
     local active_cb = current_cb
     
-    -- FIXED CRITICAL FLUSH GATE: 
-    -- Clear state boundaries instantly to completely block legacy double-trigger loops
+    -- Clear execution boundaries instantly to block duplicate execution triggers
     current_cb = nil
-    pio_buffer = "" 
+    
+    -- FIXED BUFFER FLUSH:
+    -- Only wipe the buffer completely if we processed a single-element packet (#data == 1).
+    -- If we processed a multi-line packet (#data > 1), we MUST preserve data[#data]!
+    if #data <= 1 then 
+      pio_buffer = "" 
+    end
 
     local final_status = "FAIL"
 
