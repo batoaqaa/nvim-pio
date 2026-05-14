@@ -177,6 +177,7 @@ function M.ToggleTerminal(command, direction)
   local termConfig = {
     hidden = true, -- Start hidden, we'll open it explicitly
     hide_numbers = true,
+    env = { PATH = vim.env.PATH },
     float_opts = {
       winblend = 0,
       width = function()
