@@ -812,67 +812,63 @@ local nvimpio = require('nvimpio')
 
 
 function M.stdoutcallback(t, job, data)
-  if not data or #data == 0 or not current_cb then return end
+  if not data or #data == 0 or not callBack then return end
 
-  -- 1. SAFETY BUFFER TRIM: Run this FIRST before adding new text 
-  --    This ensures we never chop up or delete the fresh data chunks arriving next
+  -- 1. Stream Collection: Accumulate all incoming data pieces into our buffer
+  pio_buffer = pio_buffer .. table.concat(data, "")
+
+  -- 2. Line Isolation Loop: Process complete lines bounded by newlines (\n)
+  while pio_buffer:find("\n") do
+    -- Extract the first complete line and save the rest back to the buffer
+    local line, rest = pio_buffer:match("^([^\n]*)\n(.*)$")
+    pio_buffer = rest or ""
+
+    -- 3. Cross-Platform Normalization
+    line = line:gsub('\r', '') -- Strip hidden Windows carriage returns
+    line = line:gsub('\27%[[%d;]*%a', '') -- Strip invisible ANSI terminal escape/color codes
+
+    -- 4. Target Suffix Definition
+    local pass_target = current_id == 0 and "DONE" or ("PASS" .. current_id)
+
+    -- 5. Strict Line-Anchored Pattern Matching
+    --    ^ forced the match to happen at the ABSOLUTE BEGINNING of the line.
+    --    %W* handles raw colons (:) or quoted colons (":") seamlessly.
+    local pass_pattern = '^%s*_CMMNDS_' .. current_token .. '%W*(' .. pass_target .. ')%s*$'
+    local fail_pattern = '^%s*_CMMNDS_' .. current_token .. '%W*(FAIL)%s*$'
+
+    local matched_pass = line:match(pass_pattern)
+    local matched_fail = line:match(fail_pattern)
+
+    -- 6. Strict Priority Execution Gate
+    if matched_pass or matched_fail then
+      local active_cb = callBack
+      
+      -- Clear state boundaries instantly to block execution overlaps
+      callBack = nil
+      pio_buffer = "" -- Wipe buffer completely to lock out trailing shell prompts
+
+      local final_status = "FAIL"
+      if matched_fail then
+        final_status = "FAIL"
+        M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
+      elseif matched_pass then
+        final_status = pass_target
+      end
+
+      -- 7. Safe Dispatch back to Neovim main UI thread after terminal settles
+      vim.defer_fn(function()
+        vim.schedule(function() 
+          pcall(active_cb, final_status) 
+        end)
+      end, 50)
+
+      return -- Break out immediately upon executing the callback
+    end
+  end
+
+  -- 8. Safety Trim (Prevents memory leaks on long compile logs if a line never finishes)
   if #pio_buffer > 4000 then 
     pio_buffer = pio_buffer:sub(-1000) 
-  end
-
-  -- 2. Stream Collection: Keep your preferred array-chopping layout cleanly
-  local target_text = ""
-  if #data > 1 then
-    -- Join everything except the absolute last line fragment row
-    target_text = pio_buffer .. table.concat(data, "", 1, #data - 1)
-    pio_buffer = data[#data] -- Save trailing prompt chunk safely
-  else
-    -- Append single trailing element to buffer and test the combined window
-    pio_buffer = pio_buffer .. table.concat(data, "")
-    target_text = pio_buffer
-  end
-
-  -- 3. Build explicit target keywords
-  local pass_target = current_id == 0 and "DONE" or ("PASS" .. current_id)
-  
-  -- 4. CROSS-PLATFORM PATTERN SEARCH:
-  --    %W* matches any non-alphanumeric punctuation (like colons :, quotes "", or spaces)
-  --    This catches the tokens cleanly even if PowerShell line-wraps split the line!
-  local pass_pattern = '_CMMNDS_' .. current_token .. '%W*(' .. pass_target .. ')'
-  local fail_pattern = '_CMMNDS_' .. current_token .. '%W*(FAIL)'
-
-  local matched_pass = target_text:match(pass_pattern)
-  local matched_fail = target_text:match(fail_pattern)
-
-  -- 5. Strict Priority Execution Gate
-  if matched_pass or matched_fail then
-    local active_cb = current_cb
-    
-    -- Clear execution boundaries instantly to block duplicate execution triggers
-    current_cb = nil
-    
-    -- Only wipe the buffer completely if we processed a single-element packet (#data == 1)
-    -- If we processed a multi-line packet (#data > 1), we MUST preserve data[#data]!
-    if #data <= 1 then 
-      pio_buffer = "" 
-    end
-
-    local final_status = "FAIL"
-
-    -- Evaluate states in order of absolute priority
-    if matched_fail then
-      final_status = "FAIL"
-      M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
-    elseif matched_pass then
-      final_status = pass_target
-    end
-
-    -- 6. Safe Dispatch back to Neovim main thread after shell outputs settle
-    vim.defer_fn(function()
-      vim.schedule(function() 
-        pcall(active_cb, final_status) 
-      end)
-    end, 50)
   end
 end
 
