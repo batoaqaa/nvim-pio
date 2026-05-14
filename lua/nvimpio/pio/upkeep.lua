@@ -808,49 +808,65 @@ local nvimpio = require('nvimpio')
 --     end, 50)
 --   end
 -- end
--- hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
---- Universal, bulletproof stream analyzer for Toggleterm
-function M.stdoutcallback(t, job, data)
+--xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+
+function M.stdoutcallback(_, _, data)
   if not data or #data == 0 or not callBack then return end
 
-  -- 1. Stream Collection: Accumulate into rolling buffer window string
-  pio_buffer = pio_buffer .. table.concat(data, "")
-  if #pio_buffer > 2000 then pio_buffer = pio_buffer:sub(-2000) end
+  -- 1. Stream Collection: Keep your preferred array-chopping layout cleanly
+  local target_text = ""
+  if #data > 1 then
+    -- Join everything except the absolute last line fragment row
+    target_text = pio_buffer .. table.concat(data, "", 1, #data - 1)
+    pio_buffer = data[#data] -- Save trailing prompt chunk safely
+  else
+    -- Append single trailing element to buffer and test the combined window
+    pio_buffer = pio_buffer .. table.concat(data, "")
+    target_text = pio_buffer
+  end
 
-  -- 2. Construct clean target keywords
+  -- 2. Build explicit, strict target text indicators (Powershell strips quotes, uses ":")
   local pass_target = current_id == 0 and "DONE" or ("PASS" .. current_id)
+  
+  local expected_pass = '_CMMNDS_' .. current_token .. ':' .. pass_target
+  local expected_fail = '_CMMNDS_' .. current_token .. ':FAIL'
 
-  -- 3. DECOUPLED INDEPENDENT MATCH VECTORS:
-  --    Instead of matching a rigid string like "_CMMNDS_0001:DONE" which breaks on line wraps,
-  --    we verify the process tracker code AND the step word exist independently in the window.
-  local has_base_token = pio_buffer:find('_CMMNDS_' .. current_token, 1, true) ~= nil
-  local has_pass       = has_base_token and pio_buffer:find(pass_target, 1, true) ~= nil
-  local has_fail       = has_base_token and pio_buffer:find('FAIL', 1, true) ~= nil
+  -- 3. High-Performance Substring Search
+  --    Passing `1, true` turns OFF regex completely, bypassing prompt and quote bugs!
+  local has_pass = target_text:find(expected_pass, 1, true) ~= nil
+  local has_fail = target_text:find(expected_fail, 1, true) ~= nil
 
   -- 4. Strict Priority Execution Gate
+  --    Only execute if we find an explicit token belonging specifically to the CURRENT step
   if has_pass or has_fail then
     local active_cb = callBack
-
-    -- Wipe session state variables instantly to protect against duplicate flushes
+    
+    -- Clear execution boundaries instantly to block duplicate execution triggers
     callBack = nil
-    pio_buffer = ""
+    if #data > 1 then pio_buffer = data[#data] else pio_buffer = "" end
 
     local final_status = "FAIL"
+
+    -- Evaluate states in order of absolute priority
     if has_fail then
       final_status = "FAIL"
-      M.queue = {} -- Evacuate remaining table rows immediately on error
+      M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
     elseif has_pass then
-      -- Pass back the exact token word ("PASS1", "PASS9", or "DONE")
+      -- FIXED TYPO: Maps cleanly to pass_target ("PASS1", "PASS2", or "DONE")
       final_status = pass_target
     end
 
-    -- Return control back to Neovim's main UI thread safely
+    -- 5. Safe Dispatch back to Neovim main thread after shell outputs settle
     vim.defer_fn(function()
-      vim.schedule(function()
-        pcall(active_cb, final_status)
+      vim.schedule(function() 
+        pcall(active_cb, final_status) 
       end)
     end, 50)
   end
+
+  -- 6. Safety Trim (Prevents memory leaks on heavy compile logs)
+  if #pio_buffer > 5000 then pio_buffer = pio_buffer:sub(-2500) end
 end
 
 -- function M.stdoutcallback(_, _, data)
