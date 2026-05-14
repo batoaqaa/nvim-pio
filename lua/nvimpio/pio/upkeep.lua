@@ -709,6 +709,58 @@ local nvimpio = require('nvimpio')
 -- INFO: ToggleTerminal commands stdout filter
 -- stylua: ignore
 -- =============================================================================
+function M.stdoutcallback(_, _, data)
+  if not data or #data == 0 then
+    return
+  end
+
+  if #data > 1 then
+    local content = pio_buffer .. table.concat(data, '', 1, #data - 1)
+    pio_buffer = data[#data] -- Save the new partial line
+
+    local pass_target = current_id == 0 and 'DONE' or ('PASS' .. current_id)
+
+    local pass_pattern = '^%s*_CMMNDS_' .. current_token .. ':' .. pass_target
+    local fail_pattern = '^%s*_CMMNDS_' .. current_token .. ':FAIL'
+
+    local has_pass = content:find(pass_pattern) ~= nil
+    local has_fail = content():find(fail_pattern) ~= nil
+    if has_pass or has_fail then
+      local active_cb = callBack
+
+      -- Clear state boundaries instantly to block execution overlaps
+      callBack = nil
+      pio_buffer = '' -- Wipe buffer completely to lock out trailing shell prompts
+
+      local final_status = 'FAIL'
+      if has_fail then
+        final_status = 'FAIL'
+        M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
+      elseif has_pass then
+        final_status = pass_target
+      end
+
+      -- 7. Safe Dispatch back to Neovim main UI thread after terminal settles
+      if final_status and active_cb then
+        vim.schedule(function()
+          active_cb(final_status)
+        end)
+      end
+
+      return -- Break out immediately upon executing the callback
+    end
+
+  else
+    -- Only one element (no newline yet;) means the line isn't finished yet
+    pio_buffer = pio_buffer .. data[1]
+  end
+
+  -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
+  if #pio_buffer > 5000 then
+    pio_buffer = pio_buffer:sub(-2500)
+  end
+end
+
 -- function M.stdoutcallback(_, _, data)
 --   if not data or #data == 0 then return end
 --
@@ -810,69 +862,68 @@ local nvimpio = require('nvimpio')
 -- end
 --xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-
-function M.stdoutcallback(t, job, data)
-  if not data or #data == 0 or not callBack then return end
-
-  -- 1. Stream Collection: Accumulate all incoming pieces into our line-matching buffer
-  pio_buffer = pio_buffer .. table.concat(data, "")
-
-  -- 2. Line Isolation Loop: Process complete lines bounded by newlines (\n)
-  while pio_buffer:find("\n") do
-    -- Extract the first complete line and save the rest back to the buffer
-    local line, rest = pio_buffer:match("^([^\n]*)\n(.*)$")
-    pio_buffer = rest or ""
-
-    -- 3. Cross-Platform Normalization
-    line = line:gsub('\r', '') -- Strip hidden Windows carriage returns
-    line = line:gsub('\27%[[%d;]*%a', '') -- Strip invisible ANSI terminal escape/color codes
-
-    -- 4. Target Suffix Definition
-    local pass_target = current_id == 0 and "DONE" or ("PASS" .. current_id)
-
-    -- 5. THE CRUCIAL MATCH ENGINE:
-    --    We use Lua's '^' anchor to force matching at the ABSOLUTE START of the line.
-    --    We use a strict single colon ':' with NO quotes.
-    --    This matches ONLY your output line and completely ignores the typed input command!
-    local pass_pattern = '^%s*_CMMNDS_' .. current_token .. ':' .. pass_target
-    local fail_pattern = '^%s*_CMMNDS_' .. current_token .. ':FAIL'
-
-    -- Plain byte string find from the start of the line (immune to regex syntax bugs)
-    local has_pass = line:find(pass_pattern) ~= nil
-    local has_fail = line:find(fail_pattern) ~= nil
-
-    -- 6. Strict Priority Execution Gate
-    if has_pass or has_fail then
-      local active_cb = callBack
-      
-      -- Clear state boundaries instantly to block execution overlaps
-      callBack = nil
-      pio_buffer = "" -- Wipe buffer completely to lock out trailing shell prompts
-
-      local final_status = "FAIL"
-      if has_fail then
-        final_status = "FAIL"
-        M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
-      elseif has_pass then
-        final_status = pass_target
-      end
-
-      -- 7. Safe Dispatch back to Neovim main UI thread after terminal settles
-      vim.defer_fn(function()
-        vim.schedule(function() 
-          pcall(active_cb, final_status) 
-        end)
-      end, 50)
-
-      return -- Break out immediately upon executing the callback
-    end
-  end
-
-  -- 8. Safety Trim (Prevents memory leaks on long compile logs if a line never finishes)
-  if #pio_buffer > 4000 then 
-    pio_buffer = pio_buffer:sub(-1000) 
-  end
-end
+-- function M.stdoutcallback(t, job, data)
+--   if not data or #data == 0 or not callBack then return end
+--
+--   -- 1. Stream Collection: Accumulate all incoming pieces into our line-matching buffer
+--   pio_buffer = pio_buffer .. table.concat(data, "")
+--
+--   -- 2. Line Isolation Loop: Process complete lines bounded by newlines (\n)
+--   while pio_buffer:find("\n") do
+--     -- Extract the first complete line and save the rest back to the buffer
+--     local line, rest = pio_buffer:match("^([^\n]*)\n(.*)$")
+--     pio_buffer = rest or ""
+--
+--     -- 3. Cross-Platform Normalization
+--     line = line:gsub('\r', '') -- Strip hidden Windows carriage returns
+--     line = line:gsub('\27%[[%d;]*%a', '') -- Strip invisible ANSI terminal escape/color codes
+--
+--     -- 4. Target Suffix Definition
+--     local pass_target = current_id == 0 and "DONE" or ("PASS" .. current_id)
+--
+--     -- 5. THE CRUCIAL MATCH ENGINE:
+--     --    We use Lua's '^' anchor to force matching at the ABSOLUTE START of the line.
+--     --    We use a strict single colon ':' with NO quotes.
+--     --    This matches ONLY your output line and completely ignores the typed input command!
+--     local pass_pattern = '^%s*_CMMNDS_' .. current_token .. ':' .. pass_target
+--     local fail_pattern = '^%s*_CMMNDS_' .. current_token .. ':FAIL'
+--
+--     -- Plain byte string find from the start of the line (immune to regex syntax bugs)
+--     local has_pass = line:find(pass_pattern) ~= nil
+--     local has_fail = line:find(fail_pattern) ~= nil
+--
+--     -- 6. Strict Priority Execution Gate
+--     if has_pass or has_fail then
+--       local active_cb = callBack
+--
+--       -- Clear state boundaries instantly to block execution overlaps
+--       callBack = nil
+--       pio_buffer = "" -- Wipe buffer completely to lock out trailing shell prompts
+--
+--       local final_status = "FAIL"
+--       if has_fail then
+--         final_status = "FAIL"
+--         M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
+--       elseif has_pass then
+--         final_status = pass_target
+--       end
+--
+--       -- 7. Safe Dispatch back to Neovim main UI thread after terminal settles
+--       vim.defer_fn(function()
+--         vim.schedule(function()
+--           pcall(active_cb, final_status)
+--         end)
+--       end, 50)
+--
+--       return -- Break out immediately upon executing the callback
+--     end
+--   end
+--
+--   -- 8. Safety Trim (Prevents memory leaks on long compile logs if a line never finishes)
+--   if #pio_buffer > 4000 then
+--     pio_buffer = pio_buffer:sub(-1000)
+--   end
+-- end
 
 -- function M.stdoutcallback(_, _, data)
 --   if not data or #data == 0 then return end

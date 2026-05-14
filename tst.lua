@@ -1,0 +1,66 @@
+-- local M = {}
+-- local current_token = tostring(math.random(10000, 99999))
+-- local current_id = -1 -- Holds 0 for DONE, or 1-9 for PASS
+--
+-- local current_pass_current_token = ''
+-- local current_fail_current_token = ''
+--
+-- local session_counter = 0 -- Our high-performance integer counter
+-- local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
+-- local callBack = nil -- Your execution hook function pointer
+-- local commandPassed = 0
+-- M.queue = {}
+-- -- term.stdout_callback = M.stdoutcallback
+-- local trm
+-- local nvimpio = require('nvimpio')
+-- function M.stdoutcallback(_, _, data)
+--   if not data or #data == 0 then
+--     return
+--   end
+--
+--   if #data > 1 then
+--     local content = pio_buffer .. table.concat(data, '', 1, #data - 1)
+--     pio_buffer = data[#data] -- Save the new partial line
+--
+--     local pass_target = current_id == 0 and 'DONE' or ('PASS' .. current_id)
+--
+--     local pass_pattern = '^%s*_CMMNDS_' .. current_token .. ':' .. pass_target
+--     local fail_pattern = '^%s*_CMMNDS_' .. current_token .. ':FAIL'
+--
+--     local has_pass = content:find(pass_pattern) ~= nil
+--     local has_fail = content():find(fail_pattern) ~= nil
+--     if has_pass or has_fail then
+--       local active_cb = callBack
+--
+--       -- Clear state boundaries instantly to block execution overlaps
+--       callBack = nil
+--       pio_buffer = '' -- Wipe buffer completely to lock out trailing shell prompts
+--
+--       local final_status = 'FAIL'
+--       if has_fail then
+--         final_status = 'FAIL'
+--         M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
+--       elseif has_pass then
+--         final_status = pass_target
+--       end
+--
+--       -- 7. Safe Dispatch back to Neovim main UI thread after terminal settles
+--       if final_status and active_cb then
+--         vim.schedule(function()
+--           active_cb(final_status)
+--         end)
+--       end
+--
+--       return -- Break out immediately upon executing the callback
+--     end
+--
+--   else
+--     -- Only one element (no newline yet;) means the line isn't finished yet
+--     pio_buffer = pio_buffer .. data[1]
+--   end
+--
+--   -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
+--   if #pio_buffer > 5000 then
+--     pio_buffer = pio_buffer:sub(-2500)
+--   end
+-- end
