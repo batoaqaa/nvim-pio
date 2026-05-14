@@ -719,8 +719,9 @@ function M.stdoutcallback(_, _, data)
     local content = pio_buffer .. table.concat(data, '', 1, #data)
     pio_buffer = data[#data] -- Save the new partial line
 
-    -- local pass_target = current_id == 0 and 'DONE' or ('PASS' .. current_id)
-    local pass_target = 'PASS' .. current_id
+    local pass_target = current_id == 0 and 'DONE' or ('PASS' .. current_id)
+    print(pass_target)
+    pass_target = 'PASS' .. current_id
 
     -- local pass_pattern = '^%s*_CMMNDS_' .. current_token .. ':' .. pass_target
     -- local fail_pattern = '^%s*_CMMNDS_' .. current_token .. ':FAIL'
