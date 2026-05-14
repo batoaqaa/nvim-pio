@@ -720,8 +720,10 @@ function M.stdoutcallback(_, _, data)
 
     local pass_target = current_id == 0 and 'DONE' or ('PASS' .. current_id)
 
-    local pass_pattern = '^%s*_CMMNDS_' .. current_token .. ':' .. pass_target
-    local fail_pattern = '^%s*_CMMNDS_' .. current_token .. ':FAIL'
+    -- local pass_pattern = '^%s*_CMMNDS_' .. current_token .. ':' .. pass_target
+    -- local fail_pattern = '^%s*_CMMNDS_' .. current_token .. ':FAIL'
+    local pass_pattern = '_CMMNDS_' .. current_token .. ':' .. pass_target
+    local fail_pattern = '_CMMNDS_' .. current_token .. ':FAIL'
 
     local has_pass = content:find(pass_pattern) ~= nil
     local has_fail = content:find(fail_pattern) ~= nil
