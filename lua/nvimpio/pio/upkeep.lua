@@ -764,37 +764,81 @@ local nvimpio = require('nvimpio')
 -- end
 
 --- Universal, bulletproof stream analyzer for Toggleterm
+-- function M.stdoutcallback(t, job, data)
+--   if not data or #data == 0 or not callBack then return end
+--
+--   -- 1. Stream Collection: Always merge chunks into a unified rolling buffer string
+--   pio_buffer = pio_buffer .. table.concat(data, "")
+--   if #pio_buffer > 2000 then pio_buffer = pio_buffer:sub(-2000) end
+--
+--   -- 2. Build explicit, strict target text indicators (Powershell strips quotes, uses ":")
+--   --    If current_id is 0, we look for DONE. Otherwise we look for PASS<num>
+--   local pass_target = current_id == 0 and "DONE" or ("PASS" .. current_id)
+--
+--   local expected_pass = '_CMMNDS_' .. current_token .. ':' .. pass_target
+--   local expected_fail = '_CMMNDS_' .. current_token .. ':FAIL'
+--
+--   -- 3. High-Performance Substring Searches
+--   --    Using plain byte searches turns off regex blocks completely, crushing prompt bugs!
+--   local has_pass = pio_buffer:find(expected_pass, 1, true) ~= nil
+--   local has_fail = pio_buffer:find(expected_fail, 1, true) ~= nil
+--
+--   -- 4. Priority Execution Gate
+--   if has_pass or has_fail then
+--     local active_cb = callBack
+--
+--     -- Wipe session state variables instantly to protect against duplicate flushes
+--     callBack = nil
+--     pio_buffer = ""
+-- print(pass_target)
+--     local final_status = "FAIL"
+--     if has_fail then
+--       final_status = "FAIL"
+--       M.queue = {} -- Evacuate remainder table rows immediately on error
+--     elseif has_pass then
+--       -- Pass back the exact token word ("PASS1", "PASS9", or "DONE")
+--       final_status = pass_target
+--     end
+--
+--     -- Return control back to Neovim's main UI thread safely
+--     vim.defer_fn(function()
+--       vim.schedule(function()
+--         pcall(active_cb, final_status)
+--       end)
+--     end, 50)
+--   end
+-- end
+-- hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+--- Universal, bulletproof stream analyzer for Toggleterm
 function M.stdoutcallback(t, job, data)
   if not data or #data == 0 or not callBack then return end
 
-  -- 1. Stream Collection: Always merge chunks into a unified rolling buffer string
+  -- 1. Stream Collection: Accumulate into rolling buffer window string
   pio_buffer = pio_buffer .. table.concat(data, "")
   if #pio_buffer > 2000 then pio_buffer = pio_buffer:sub(-2000) end
 
-  -- 2. Build explicit, strict target text indicators (Powershell strips quotes, uses ":")
-  --    If current_id is 0, we look for DONE. Otherwise we look for PASS<num>
+  -- 2. Construct clean target keywords
   local pass_target = current_id == 0 and "DONE" or ("PASS" .. current_id)
-  
-  local expected_pass = '_CMMNDS_' .. current_token .. ':' .. pass_target
-  local expected_fail = '_CMMNDS_' .. current_token .. ':FAIL'
 
-  -- 3. High-Performance Substring Searches
-  --    Using plain byte searches turns off regex blocks completely, crushing prompt bugs!
-  local has_pass = pio_buffer:find(expected_pass, 1, true) ~= nil
-  local has_fail = pio_buffer:find(expected_fail, 1, true) ~= nil
+  -- 3. DECOUPLED INDEPENDENT MATCH VECTORS:
+  --    Instead of matching a rigid string like "_CMMNDS_0001:DONE" which breaks on line wraps,
+  --    we verify the process tracker code AND the step word exist independently in the window.
+  local has_base_token = pio_buffer:find('_CMMNDS_' .. current_token, 1, true) ~= nil
+  local has_pass       = has_base_token and pio_buffer:find(pass_target, 1, true) ~= nil
+  local has_fail       = has_base_token and pio_buffer:find('FAIL', 1, true) ~= nil
 
-  -- 4. Priority Execution Gate
+  -- 4. Strict Priority Execution Gate
   if has_pass or has_fail then
     local active_cb = callBack
 
     -- Wipe session state variables instantly to protect against duplicate flushes
     callBack = nil
     pio_buffer = ""
-print(pass_target)
+
     local final_status = "FAIL"
     if has_fail then
       final_status = "FAIL"
-      M.queue = {} -- Evacuate remainder table rows immediately on error
+      M.queue = {} -- Evacuate remaining table rows immediately on error
     elseif has_pass then
       -- Pass back the exact token word ("PASS1", "PASS9", or "DONE")
       final_status = pass_target
