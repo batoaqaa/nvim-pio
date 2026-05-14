@@ -897,7 +897,7 @@ function M.handlePioInstall(result, on_done)
     end
 
     if on_done and type(on_done) == "function" then on_done(true) end
-    if trm then trm:close() end
+    -- if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
      OS.notify('Installation failed! Check logs and press :q to close.', 'error')
