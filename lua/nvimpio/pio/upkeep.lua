@@ -828,7 +828,8 @@ function M.handlePioinitDb(result, board, on_done)
     if #M.queue > 0 then
       _G.metadata.isBusy = true
       boilerplate.core_dir = _G.metadata.core_dir
-      boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
+      -- boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
+      boilerplate_gen([[platformio.ini]], vim.vu.cwd)
 
       trm = term.ToggleTerminal(pop(M.queue), 'float')
       if trm and on_done and type(on_done) == "function" then
