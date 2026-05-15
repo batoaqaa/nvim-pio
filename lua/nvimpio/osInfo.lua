@@ -22,7 +22,7 @@ end
 ---@field is_linux boolean
 ---@field is_wsl boolean
 ---@field home string
----@field env_sep string
+---@field folder_sep string
 ---@field path_sep string
 ---@field devNul string
 ---@field eol string

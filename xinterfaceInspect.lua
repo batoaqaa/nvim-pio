@@ -119,9 +119,10 @@ function M.validate(user_config)
 
   if user_config.menu_bindings then
     -- if validation error, cancel merging menu_bindings with M.config
-    if not M.validate(user_config.menu_bindings) then
+    if not M.validateMenu(user_config.menu_bindings) then
       user_config.menu_bindings = nil
     end
   end
 end
+
 return M

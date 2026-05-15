@@ -1,7 +1,7 @@
 local defConfig = {
   pio = {
-    auto_update_path = true,
-    PLATFORMIO_CORE_DIR = '/root/.platformio',
+    pio_runtime_dir = OS.platformio_dir,
+    pio_storage_dir = OS.platformio_dir,
   },
   clangd = {
     support = false,
