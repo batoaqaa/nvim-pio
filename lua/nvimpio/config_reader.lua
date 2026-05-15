@@ -1,7 +1,7 @@
 local M = {}
 -- stylua: ignore
 function M.check_ini_override()
-  local ini_file = vim.fn.getcwd() .. OS.folder_sep .. 'platformio.ini'
+  local ini_file = vim.uv.cwd() .. OS.folder_sep .. 'platformio.ini'
   if vim.fn.filereadable(ini_file) == 0 then return nil end
 
   local in_platformio_section = false

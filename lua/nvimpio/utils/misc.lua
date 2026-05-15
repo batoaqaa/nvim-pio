@@ -559,7 +559,7 @@ function M.manage_gitignore()
   local ignored_lookup = {}
   for _, p in ipairs(ignored) do ignored_lookup[p:gsub('^%s*/?', ''):gsub('/?%s*$', '')] = true end
 
-  local ok, files = pcall(vim.fn.readdir, vim.fn.getcwd())
+  local ok, files = pcall(vim.fn.readdir, vim.uv.cwd())
   if not ok then return end
 
   local not_ignored = {}

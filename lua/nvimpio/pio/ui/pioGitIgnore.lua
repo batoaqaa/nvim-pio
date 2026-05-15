@@ -22,7 +22,7 @@ local function pioGitIgnore()
     ignored_lookup[p:gsub('^%s*/?', ''):gsub('/?%s*$', '')] = true
   end
 
-  local ok, files = pcall(vim.fn.readdir, vim.fn.getcwd())
+  local ok, files = pcall(vim.fn.readdir, vim.uv.cwd())
   if not ok then
     return
   end

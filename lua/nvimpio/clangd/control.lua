@@ -189,7 +189,7 @@ function M.getUnknownArgs()
   -- 2. FIND: Grab the first .cpp or .c file in /src
   local check_file = vim.fs.find(function(name)
     return name:match('%.cpp$') or name:match('%.c$')
-  end, { limit = 1, path = vim.fn.getcwd() .. '/src' })[1]
+  end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
 
   if not check_file then
     print('No source file found to check.')
