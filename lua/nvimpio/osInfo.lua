@@ -58,7 +58,7 @@ local os_info = {
   config_dir = vim.fn.stdpath('config'),
   data_dir = vim.fn.stdpath('data'),
   cache_dir = vim.fn.stdpath('cache'),
-  bin_dir = is_win and "penv/Scripts" or "penv/bin",
+  bin_dir = is_win and "Scripts" or "bin",
   platformio_dir = vim.fs.joinpath( vim.uv.os_homedir(), ".platformio"),
 
   ---@param msg string The message to display
