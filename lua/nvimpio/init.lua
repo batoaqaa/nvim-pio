@@ -68,6 +68,7 @@ function M.apply_toolchain()
     vim.fn.mkdir(final_storage, 'p')
   end
 
+  print(final_storage)
   vim.env.PLATFORMIO_CORE_DIR = final_storage
   M.config.pio_storage_dir = final_storage
 
