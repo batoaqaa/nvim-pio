@@ -64,7 +64,7 @@ function M.pioStatus(on_complete, is_autocmd)
   if vim.fn.confirm('PlatformIO not found. Install?', '&Yes\n&No', 1) == 1 then
     local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
     if ok then
-      M.pioPathUpdate()
+      -- M.pioPathUpdate()
       installer.pioInstall(finalize)
     else
       OS.notify('Installer missing', 'error')

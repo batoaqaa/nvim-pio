@@ -11,7 +11,7 @@ M.isActivated = false -- Tracks if commands/features are loaded
 
 -- Persistent internal storage for runtime verified properties
 M.config = {
-  pio_bin_dir = nil, -- Absolute path to python/pio binaries directory
+  pio_runtime_dir = nil, -- Absolute path to python/pio binaries directory
   pio_storage_dir = nil, -- Absolute path to core tracking directory
 }
 
@@ -44,10 +44,10 @@ function M.apply_toolchain()
   local verified = false
 
   if vim.fn.isdirectory(target_bin) == 1 then
-    M.config.pio_bin_dir = target_bin
+    M.config.pio_runtime_dir = target_bin
     verified = true
   elseif vim.fn.executable('pio') == 1 then
-    M.config.pio_bin_dir = vim.fs.dirname(vim.fn.exepath('pio'))
+    M.config.pio_runtime_dir = vim.fs.dirname(vim.fn.exepath('pio'))
     verified = true
   end
 
@@ -58,9 +58,9 @@ function M.apply_toolchain()
     return false
   end
 
-  local escaped_bin = M.config.pio_bin_dir:gsub('([^%w])', '%%%1')
+  local escaped_bin = M.config.pio_runtime_dir:gsub('([^%w])', '%%%1')
   if not (vim.env.PATH or ''):find(escaped_bin, 1, true) then
-    vim.env.PATH = M.config.pio_bin_dir .. paths.path_sep .. (vim.env.PATH or '')
+    vim.env.PATH = M.config.pio_runtime_dir .. paths.path_sep .. (vim.env.PATH or '')
   end
 
   local final_storage = paths.clean(ini.check_ini_override() or M.options.pio.pio_storage_dir or base_runtime)
@@ -139,7 +139,8 @@ function M.setup(user_opts)
         if M.isActivated then
           require('nvimpio.pio.ui.pioInit').pioInit()
         else
-          pioCheck.pioPathUpdate()
+          vim.g.platformioRootDir = vim.uv.cwd()
+          -- pioCheck.pioPathUpdate()
           require('nvimpio.pio.ui.pioInit').pioInit(function(done)
             if done then
               -- vim.clangd.getUnknownArgs()
