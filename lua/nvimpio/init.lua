@@ -19,7 +19,6 @@ M.options = nil -- This will hold the complete configuration table safely in mem
 -- PLUGIN CONFIGURATION DEFAULTS
 M.defaults = require('nvimpio.defConfig')
 
-local interface = require('nvimpio.interfaceInspect')
 local pioCheck = require('nvimpio.pioCheck')
 
 -- stylua: ignore
