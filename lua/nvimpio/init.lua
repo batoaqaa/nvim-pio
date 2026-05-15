@@ -5,7 +5,7 @@ local M = {}
 M.isActivated = false -- Tracks if commands/features are loaded
 M.config = {}
 local defConfig = require('nvimpio.defConfig')
-local interface = require('nvimpio.interfaceConfig')
+local interface = require('nvimpio.interfaceInspect')
 local pioCheck = require('nvimpio.pioCheck')
 
 -- INFO:

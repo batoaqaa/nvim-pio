@@ -31,7 +31,7 @@ function M.pioPathUpdate()
   local has_pio = vim.fn.executable("pio") == 1
 
   if not has_pio then
-    vim.env.PLATFORMIO_CORE_DIR = "/root/.platformio"
+    -- vim.env.PLATFORMIO_CORE_DIR = "/root/.platformio"
     vim.env.PATH = binPath .. sep .. vim.env.PATH
     OS.notify('PIO env: ' .. binPath .. ' added to path', 'info')
   end
@@ -64,7 +64,7 @@ function M.pioStatus(on_complete, is_autocmd)
   if vim.fn.confirm('PlatformIO not found. Install?', '&Yes\n&No', 1) == 1 then
     local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
     if ok then
-      -- M.pioPathUpdate()
+      M.pioPathUpdate()
       installer.pioInstall(finalize)
     else
       OS.notify('Installer missing', 'error')
