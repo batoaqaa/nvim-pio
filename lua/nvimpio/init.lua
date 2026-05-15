@@ -116,6 +116,7 @@ function M.setup(user_opts)
 
     M.isActivated = true
     vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
+    vim.g.platformioRootDir = vim.uv.cwd()
 
     -- pioCheck.pioPathUpdate()
     -- local sep = vim.fn.has('win32') == 1 and ';' or ':'

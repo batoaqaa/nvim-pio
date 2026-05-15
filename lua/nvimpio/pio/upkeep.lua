@@ -828,8 +828,7 @@ function M.handlePioinitDb(result, board, on_done)
     if #M.queue > 0 then
       _G.metadata.isBusy = true
       boilerplate.core_dir = _G.metadata.core_dir
-      -- boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
-      boilerplate_gen([[platformio.ini]], vim.uv.cwd())
+      boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
 
       trm = term.ToggleTerminal(pop(M.queue), 'float')
       if trm and on_done and type(on_done) == "function" then
@@ -840,8 +839,10 @@ function M.handlePioinitDb(result, board, on_done)
     OS.notify('PIO init+db:  pass ' .. current_id, "info")
     local active_env = M.get_active__env('PIO init+db: ')
     if not active_env or (active_env == board) then
-      boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
-      boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
+      -- boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
+      -- boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
+      boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+      boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
       if #M.queue > 0 then trm:send(pop(M.queue), false) end
     else
       if on_done and type(on_done) == "function" then on_done(false) end
