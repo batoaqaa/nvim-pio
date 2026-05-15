@@ -40,7 +40,7 @@ end
 
 function M.apply_toolchain()
   local base_runtime = paths.clean(M.options.pio.pio_runtime_dir)
-  local target_bin = base_runtime .. paths.fs_sep .. 'penv' .. paths.fs_sep .. paths.bin_dir
+  local target_bin = base_runtime .. OS.folder_sep .. 'penv' .. OS.folder_sep .. paths.bin_dir
   local verified = false
 
   if vim.fn.isdirectory(target_bin) == 1 then
@@ -64,7 +64,7 @@ function M.apply_toolchain()
   end
 
   local final_storage = paths.clean(ini.check_ini_override() or M.options.pio.pio_storage_dir or base_runtime)
-  if vim.fn.isdirectory(final_storage) == 0 then
+  if final_storage and vim.fn.isdirectory(final_storage) == 0 then
     vim.fn.mkdir(final_storage, 'p')
   end
 
