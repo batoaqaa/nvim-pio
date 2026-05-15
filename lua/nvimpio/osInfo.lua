@@ -30,6 +30,8 @@ end
 ---@field config_dir string
 ---@field data_dir string
 ---@field cache_dir string
+---@field bin_dir string
+---@field platformio_dir string
 ---@field notify fun(msg: string, level?: string|integer)
 ---@field pioReady fun(): boolean
 
@@ -49,13 +51,15 @@ local os_info = {
   is_wsl = is_wsl,
   home = vim.uv.os_homedir(),
   env_sep = is_win and ';' or ':',
-  path_sep = is_win and '\\' or '/',
+  folder_sep = is_win and '\\' or '/',
   devNul = is_win and ' 2>./nul' or ' 2>/dev/null',
   eol = is_win and '\r\n' or '\n',
   shell = vim.env.SHELL or (is_win and 'powershell.exe' or 'sh'),
   config_dir = vim.fn.stdpath('config'),
   data_dir = vim.fn.stdpath('data'),
   cache_dir = vim.fn.stdpath('cache'),
+  bin_dir = is_win and "penv/Scripts" or "penv/bin",
+  platformio_dir = vim.fs.joinpath( vim.uv.os_homedir(), ".platformio"),
 
   ---@param msg string The message to display
   ---@param level string|integer|nil

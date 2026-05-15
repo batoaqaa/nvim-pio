@@ -3,15 +3,16 @@ require('nvimpio.osInfo')
 local M = {}
 
 M.isActivated = false -- Tracks if commands/features are loaded
-
-M.config = require('nvimpio.defConfig')
-local userConfig = require('nvimpio.userConfig')
+M.config = {}
+local defConfig = require('nvimpio.defConfig')
+local interface = require('nvimpio.interfaceConfig')
 local pioCheck = require('nvimpio.pioCheck')
 
 -- INFO:
 --stylua: ignore start
 -------------------------------------------------------------------------------
-function M.setup(opts)
+function M.setup(user_config)
+  user_config = user_config or {}
   vim.g.platformioRootDir = vim.uv.cwd()
 
   -- Activation: Turn on the plugin features
@@ -28,10 +29,9 @@ function M.setup(opts)
     --   if vim.fn.isdirectory(pio_bin) == 1 then vim.env.PATH = pio_bin .. sep .. vim.env.PATH end
     -- end
 
-    local user_config = opts or {}
-    userConfig.validate(user_config)
-    M.config = vim.tbl_deep_extend('force', M.config, user_config or {})
-    userConfig.buildUsserMenu(M.config)
+    interface.validate(user_config)
+    M.config = vim.tbl_deep_extend('force', defConfig, user_config or {})
+    interface.buildUsserMenu(M.config)
 
     require('nvimpio.pio.control').init(M.config.clangd)
   end

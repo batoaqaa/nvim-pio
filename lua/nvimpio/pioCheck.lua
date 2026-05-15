@@ -12,7 +12,7 @@ end
 -- stylua: ignore start
 -------------------------------------------------------------------------------
 function M.removeFromPath(path_to_remove)
-  local sep = OS.env_sep
+  local sep = OS.path_sep
   -- Split the path by the separator
   local paths = vim.split(vim.env.PATH, sep, { trimempty = true })
 
@@ -24,7 +24,7 @@ function M.removeFromPath(path_to_remove)
 end
 
 function M.pioPathUpdate()
-  local sep = OS.env_sep
+  local sep = OS.path_sep
   local binPath = M.get_bin_dir()
 
   -- Check if 'pio' binary is already visible to Neovim
@@ -64,7 +64,7 @@ function M.pioStatus(on_complete, is_autocmd)
   if vim.fn.confirm('PlatformIO not found. Install?', '&Yes\n&No', 1) == 1 then
     local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
     if ok then
-      M.pioPathUpdate()
+      -- M.pioPathUpdate()
       installer.pioInstall(finalize)
     else
       OS.notify('Installer missing', 'error')
