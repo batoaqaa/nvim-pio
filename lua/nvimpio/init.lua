@@ -59,8 +59,8 @@ function M.setup(user_opts)
     require('nvimpio.core').ensure_toolchain_active(
       -- pioCheck.pioStatus(
       function(success)
-        print('here')
         if success then
+          print('here')
           vim.g.platformioRootDir = vim.uv.cwd()
           -- pioCheck.pioPathUpdate()
           require('nvimpio.pio.ui.pioInit').pioInit(function(done)
