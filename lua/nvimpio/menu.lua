@@ -1,40 +1,96 @@
 local M = {}
-
 function M.merge_menu_tree(defaults, overrides, path)
+  -- 1. Fast fallback return if no valid overrides are provided
   if type(overrides) ~= 'table' then
-    return defaults
+    return vim.deepcopy(defaults)
   end
+
+  -- 2. Create a clean deep copy of defaults so we never mutate the factory settings
   local res = vim.deepcopy(defaults)
 
-  local shortcuts = {}
-  for _, item in ipairs(res) do
-    shortcuts[item.shortcut] = item
-  end
-
+  -- 3. Sequentially process every single node item the user passed in
   for _, u_node in ipairs(overrides) do
     if type(u_node) == 'table' and u_node.shortcut then
-      local d_node = shortcuts[u_node.shortcut]
-      if d_node then
+      -- DYNAMIC LOOKUP LAYER: Re-index shortcuts on every pass to track newly appended items!
+      local matched_node = nil
+      for _, existing_item in ipairs(res) do
+        if existing_item.shortcut == u_node.shortcut then
+          matched_node = existing_item
+          break
+        end
+      end
+
+      if matched_node then
+        -- SCENARIO A: The item exists in our defaults. Carefully patch allowed properties.
+        if u_node.node and u_node.node ~= matched_node.node then
+          error(string.format("Structure Error at %s: Cannot mutate structural node type from '%s' to '%s'", path, matched_node.node, u_node.node), 0)
+        end
+
         if u_node.desc then
-          d_node.desc = u_node.desc
+          matched_node.desc = u_node.desc
         end
         if u_node.command then
-          d_node.command = u_node.command
+          matched_node.command = u_node.command
         end
-        if d_node.node == 'menu' and u_node.items then
-          d_node.items = M.merge_menu_tree(d_node.items, u_node.items, path .. '.items')
+
+        -- Recursive call to process nested submenu list items safely
+        if matched_node.node == 'menu' and u_node.items then
+          matched_node.items = M.merge_menu_tree(matched_node.items or {}, u_node.items, path .. '.items')
         end
       else
-        u_node.node = u_node.node or 'item'
-        if u_node.node == 'menu' and u_node.items then
-          u_node.items = M.merge_menu_tree({}, u_node.items, path .. '.items')
+        -- SCENARIO B: Brand new item! Deep copy it to prevent reference tracking memory leakage bugs
+        local new_node = vim.deepcopy(u_node)
+        new_node.node = new_node.node or 'item'
+
+        -- If they appended a brand new menu shell block, recursively build its internal array items
+        if new_node.node == 'menu' then
+          new_node.items = M.merge_menu_tree({}, u_node.items or {}, path .. '.items')
         end
-        table.insert(res, u_node)
+
+        -- Safely append to the main list array. It will now collect EVERY appended item perfectly!
+        table.insert(res, new_node)
       end
     end
   end
+
   return res
 end
+-- function M.merge_menu_tree(defaults, overrides, path)
+
+-- if type(overrides) ~= 'table' then
+--   return defaults
+-- end
+-- local res = vim.deepcopy(defaults)
+--
+-- local shortcuts = {}
+-- for _, item in ipairs(res) do
+--   shortcuts[item.shortcut] = item
+-- end
+--
+-- for _, u_node in ipairs(overrides) do
+--   if type(u_node) == 'table' and u_node.shortcut then
+--     local d_node = shortcuts[u_node.shortcut]
+--     if d_node then
+--       if u_node.desc then
+--         d_node.desc = u_node.desc
+--       end
+--       if u_node.command then
+--         d_node.command = u_node.command
+--       end
+--       if d_node.node == 'menu' and u_node.items then
+--         d_node.items = M.merge_menu_tree(d_node.items, u_node.items, path .. '.items')
+--       end
+--     else
+--       u_node.node = u_node.node or 'item'
+--       if u_node.node == 'menu' and u_node.items then
+--         u_node.items = M.merge_menu_tree({}, u_node.items, path .. '.items')
+--       end
+--       table.insert(res, u_node)
+--     end
+--   end
+-- end
+-- return res
+-- end
 
 function M.buildUsserMenu(config)
   print(vim.inspect(config))
