@@ -68,7 +68,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     local current_path = vim.env.PATH or ''
     local escaped_bin = main.config.pio_runtime_dir:gsub('([^%w])', '%%%1')
     if not current_path:find(escaped_bin, 1, true) then
-      vim.env.PATH = main.config.pio_runtime_dir .. OS.folder_sep .. current_path
+      vim.env.PATH = main.config.pio_runtime_dir .. OS.path_sep .. current_path
     end
 
     local final_storage = pio.clean(pio.check_ini_override() or main.options.pio.pio_storage_dir or vim.env.PLATFORMIO_CORE_DIR or OS.platformio_dir)
