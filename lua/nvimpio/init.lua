@@ -1,7 +1,7 @@
 require('nvimpio.osInfo')
 
-local pio = require('nvimpio.pioCheck')
-local val = require('nvimpio.validator')
+-- local pio = require('nvimpio.pioCheck')
+-- local val = require('nvimpio.validator')
 local menu = require('nvimpio.menu')
 
 local M = {}

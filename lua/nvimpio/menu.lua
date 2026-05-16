@@ -37,6 +37,7 @@ function M.merge_menu_tree(defaults, overrides, path)
 end
 
 function M.buildUsserMenu(config)
+  print(vim.inspect(config))
   local icon = { icon = '  ', color = 'orange' } -- Assign platformio orange icon
   local wk_table = { mode = { 'n', 'v' } }
 
