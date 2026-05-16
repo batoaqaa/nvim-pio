@@ -16,8 +16,19 @@ M.config = {
 
 M.options = nil -- This will hold the complete configuration table safely in memory
 -- PLUGIN CONFIGURATION DEFAULTS
-M.defaults = require('nvimpio.defConfig')
+-- M.defaults = require('nvimpio.defConfig')
 
+-- Minimal primitive defaults to ensure the commands can register safely
+M.defaults = {
+  pio = {
+    pio_runtime_dir = (vim.fn.has('win32') == 1 and os.getenv('USERPROFILE') or vim.uv.os_homedir() or '/root')
+      .. (vim.fn.has('win32') == 1 and '\\.platformio' or '/.platformio'),
+    pio_storage_dir = (vim.fn.has('win32') == 1 and os.getenv('USERPROFILE') or vim.uv.os_homedir() or '/root')
+      .. (vim.fn.has('win32') == 1 and '\\.platformio' or '/.platformio'),
+  },
+  menu_key = '<leader>\\',
+  menu_name = 'PlatformIO',
+}
 -- local pioCheck = require('nvimpio.pioCheck')
 
 -- INFO:

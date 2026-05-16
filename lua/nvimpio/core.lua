@@ -12,15 +12,17 @@ local function initialize_full_options()
     return
   end
 
+  local defaults = require('nvimpio.defConfig')
   -- Complete hardware/menu default tracking list registry map
-  local full_defaults = vim.tbl_deep_extend('force', main.defaults, {
-    clangd = { support = false, install = false },
-    debug = false,
-    menu_bindings = {
-      { node = 'item', desc = '[I]nitiate project', shortcut = 'i', command = 'Pioinit' },
-      -- [Your remaining default items list array blocks go here...]
-    },
-  })
+  local full_defaults = vim.tbl_deep_extend('force', main.defaults, defaults)
+  -- {
+  --   clangd = { support = false, install = false },
+  --   debug = false,
+  --   menu_bindings = {
+  --     { node = 'item', desc = '[I]nitiate project', shortcut = 'i', command = 'Pioinit' },
+  --     -- [Your remaining default items list array blocks go here...]
+  --   },
+  -- })
 
   local user_bindings = main.options and main.options.menu_bindings
   if main.options then
