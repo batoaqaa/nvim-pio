@@ -41,6 +41,7 @@ end
 
 -- Verifies tracking paths and triggers the background installer loop if unpopulated
 local success = false
+-- stylua: ignore
 function M.ensure_toolchain_active(on_success_callback, retry_counter)
   retry_counter = retry_counter or 0
   initialize_full_options()
@@ -85,7 +86,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     main.config.pio_storage_dir = final_storage
 
     if type(on_success_callback) == 'function' then
-      on_success_callback(success)
+      on_success_callback(true)
     end
   else
     if retry_counter >= 1 then
@@ -105,16 +106,12 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
           end)
         else
           OS.notify('Installer missing', 'error')
-          if type(on_success_callback) == 'function' then
-            on_success_callback(false)
-          end
+          if type(on_success_callback) == 'function' then on_success_callback(false) end
           -- finalize(false)
         end
       else
         -- finalize(false)
-        if type(on_success_callback) == 'function' then
-          on_success_callback(false)
-        end
+        if type(on_success_callback) == 'function' then on_success_callback(false) end
       end
       -- vim.ui.select({ 'Yes, install now', 'No, cancel setup' }, {
       --   prompt = 'PlatformIO Core missing. Would you like to install it automatically?',
