@@ -182,6 +182,14 @@ end
 -- stylua: ignore
 ------------------------------------------------------
 function M.jsonFormat(root_data)
+  if type(root_data) == 'table' then
+    local mt = getmetatable(root_data)
+    -- If your proxy metatable exposes the true source or can be bypassed:
+    if mt and mt.__index and type(mt.__index) == 'table' then
+      root_data = mt.__index -- Automatically unpacks _pio_metadata from the proxy shell!
+    end
+  end
+
   local buffer = {}
   -- Stack stores: { val = item, lvl = depth, stage = "start"|"items", keys = {}, index = 0 }
   local stack = { { val = root_data, lvl = 0, stage = 'start' } }
