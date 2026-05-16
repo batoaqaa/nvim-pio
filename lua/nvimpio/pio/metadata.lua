@@ -75,12 +75,12 @@ _G.metadata = setmetatable({}, {
         removeFromPath(oldPath)
         local end_time = vim.loop.hrtime()
         local duration = (end_time - start_time) / 1e6
-        misc.notify(string.format('PIO env: ' .. oldPath .. ' removed from path in %.2fms', duration), 'info')
+        OS.notify(string.format('PIO env: ' .. oldPath .. ' removed from path in %.2fms', duration), 'info')
 
         vim.env.PATH = binPath .. sep .. vim.env.PATH
         -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
 
-        misc.notify('PIO env: ' .. binPath .. ' added to path', 'info')
+        OS.notify('PIO env: ' .. binPath .. ' added to path', 'info')
       elseif key == 'last_projectChecksum' then
         -- elseif key == 'active_env' then
       end
@@ -97,6 +97,7 @@ function M.save_project_config(from)
   -- 1. Generate the formatted string directly, jsonFormat already returns a string!
   local ok, pretty_json = pcall(misc.jsonFormat, _G.metadata)
 
+  print('save_project_config')
   if not ok or not pretty_json then
     OS.notify('Error formatting metadata', "error")
     return
@@ -110,8 +111,8 @@ function M.save_project_config(from)
 
     if status then
       last_saved_hash = current_hash
-      misc.notify(from .. 'config save success', 'info')
-    else misc.notify(from .. 'config save failed==> ' .. (err or 'unknown error'), 'error') end
+      OS.notify(from .. 'config save success', 'info')
+    else OS.notify(from .. 'config save failed==> ' .. (err or 'unknown error'), 'error') end
   end
 end
 
