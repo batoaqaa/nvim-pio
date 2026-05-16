@@ -34,9 +34,9 @@ local function pioInstall(runtime_dir, on_done)
   local piocheck = require('nvimpio.pioCheck')
   local custom_penv_dir = piocheck.clean(runtime_dir .. OS.folder_sep .. 'penv')
   if OS.is_win then
-    install_cmd = string.format('$env:PLATFORMIO_PENV_DIR=%q; %s %s install --no-modify-path', custom_penv_dir, python, script_path)
+    install_cmd = string.format('$env:PLATFORMIO_PENV_DIR=%q; %s %s', custom_penv_dir, python, script_path)
   else
-    install_cmd = string.format('PLATFORMIO_PENV_DIR=%q %s %s install --no-modify-path', custom_penv_dir, python, script_path)
+    install_cmd = string.format('PLATFORMIO_PENV_DIR=%q %s %s', custom_penv_dir, python, script_path)
   end
 
   -- 5. Establish downstream update pipeline connections
