@@ -50,10 +50,10 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   local verified = false
 
   if vim.fn.isdirectory(target_bin) == 1 then
-    main.config.pio_bin_dir = target_bin
+    main.config.pio_runtime_dir = target_bin
     verified = true
   elseif vim.fn.executable('pio') == 1 then
-    main.config.pio_bin_dir = vim.fs.dirname(vim.fn.exepath('pio'))
+    main.config.pio_runtime_dir = vim.fs.dirname(vim.fn.exepath('pio'))
     verified = true
   end
 
@@ -66,9 +66,9 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
 
   if verified then
     local current_path = vim.env.PATH or ''
-    local escaped_bin = main.config.pio_bin_dir:gsub('([^%w])', '%%%1')
+    local escaped_bin = main.config.pio_runtime_dir:gsub('([^%w])', '%%%1')
     if not current_path:find(escaped_bin, 1, true) then
-      vim.env.PATH = main.config.pio_bin_dir .. OS.folder_sep .. current_path
+      vim.env.PATH = main.config.pio_runtime_dir .. OS.folder_sep .. current_path
     end
 
     local final_storage = pio.clean(pio.check_ini_override() or main.options.pio.pio_storage_dir or vim.env.PLATFORMIO_CORE_DIR or OS.platformio_dir)
