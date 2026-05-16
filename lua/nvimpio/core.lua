@@ -40,13 +40,9 @@ local function initialize_full_options()
 end
 
 -- Verifies tracking paths and triggers the background installer loop if unpopulated
-function M.ensure_toolchain_active(on_success_callback)
-  local function finalize(success)
-    if type(on_success_callback) == 'function' then
-      pcall(on_success_callback, success)
-    end
-  end
-
+function M.ensure_toolchain_active(on_success_callback, retry_counter)
+  local success = false
+  retry_counter = retry_counter or 0
   initialize_full_options()
 
   local base_runtime = pio.clean(main.options.pio.pio_runtime_dir)
@@ -60,6 +56,13 @@ function M.ensure_toolchain_active(on_success_callback)
     main.config.pio_bin_dir = vim.fs.dirname(vim.fn.exepath('pio'))
     verified = true
   end
+
+  -- local function finalize()
+  --   M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
+  --   if type(on_success_callback) == 'function' then
+  --     pcall(on_success_callback, success)
+  --   end
+  -- end
 
   if verified then
     local current_path = vim.env.PATH or ''
@@ -76,21 +79,36 @@ function M.ensure_toolchain_active(on_success_callback)
     main.config.pio_storage_dir = final_storage
 
     if type(on_success_callback) == 'function' then
-      on_success_callback()
+      on_success_callback(success)
     end
   else
+    if retry_counter >= 1 then
+      return vim.schedule(function()
+        vim.notify("PlatformIO installation completed but the 'pio' executable remains missing. Check your system logs.", vim.log.levels.ERROR)
+      end)
+    end
     vim.schedule(function()
       if vim.fn.confirm('PlatformIO not found. Install?', '&Yes\n&No', 1) == 1 then
         local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
         if ok then
           -- M.pioPathUpdate()
-          installer.pioInstall(finalize)
+          installer.pioInstall(function(succ)
+            success = succ
+            M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
+            -- finalize()
+          end)
         else
           OS.notify('Installer missing', 'error')
-          finalize(false)
+          if type(on_success_callback) == 'function' then
+            on_success_callback(false)
+          end
+          -- finalize(false)
         end
       else
-        finalize(false)
+        -- finalize(false)
+        if type(on_success_callback) == 'function' then
+          on_success_callback(false)
+        end
       end
       -- vim.ui.select({ 'Yes, install now', 'No, cancel setup' }, {
       --   prompt = 'PlatformIO Core missing. Would you like to install it automatically?',
