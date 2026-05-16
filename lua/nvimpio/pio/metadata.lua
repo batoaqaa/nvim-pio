@@ -97,7 +97,6 @@ function M.save_project_config(from)
   -- 1. Generate the formatted string directly, jsonFormat already returns a string!
   local ok, pretty_json = pcall(misc.jsonFormat, _G.metadata)
 
-  print('save_project_config')
   if not ok or not pretty_json then
     OS.notify('Error formatting metadata', "error")
     return
@@ -108,7 +107,7 @@ function M.save_project_config(from)
   -- 2. Only write if the content actually changed
   if current_hash ~= last_saved_hash then
     local status, err = misc.writeFile(config_path, pretty_json, {})
-
+print('save_project_config')
     if status then
       last_saved_hash = current_hash
       OS.notify(from .. 'config save success', 'info')

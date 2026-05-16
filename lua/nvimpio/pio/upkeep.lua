@@ -477,7 +477,6 @@ function M.fetch_metadata(callback, env, from, attempts)
     meta.last_projectChecksum = checksum
     pcall(M.get_sysroot_triplet, meta.cc_compiler)
 
-    print('apply_metadata')
     return true
   end
 
