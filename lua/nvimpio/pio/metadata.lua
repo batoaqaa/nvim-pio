@@ -96,7 +96,7 @@ local config_path = vim.fs.joinpath(vim.uv.cwd(), '.project_config.json')
 function M.save_project_config(from)
   -- 1. Generate the formatted string directly, jsonFormat already returns a string!
   print(vim.inspect(_G.metadata))
-  local ok, pretty_json = pcall(misc.jsonFormat, _G.metadata)
+  local ok, pretty_json = pcall(misc.jsonFormat, _pio_metadata) --_G.metadata)
 
   if not ok or not pretty_json then
     OS.notify('Error formatting metadata', "error")
