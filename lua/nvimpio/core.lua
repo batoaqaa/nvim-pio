@@ -46,10 +46,10 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   initialize_full_options()
 
   local base_runtime = pio.clean(main.options.pio.pio_runtime_dir)
-  local target_bin = base_runtime .. OS.folder_sep .. 'penv' .. OS.folder_sep .. OS.bin_dir
+  local target_bin = pio.clean(base_runtime .. OS.folder_sep .. 'penv' .. OS.folder_sep .. OS.bin_dir)
   local verified = false
 
-  if vim.fn.isdirectory(target_bin) == 1 then
+  if target_bin and vim.fn.isdirectory(target_bin) == 1 then
     main.config.pio_runtime_dir = target_bin
     verified = true
   elseif vim.fn.executable('pio') == 1 then
