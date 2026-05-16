@@ -40,8 +40,8 @@ local function initialize_full_options()
 end
 
 -- Verifies tracking paths and triggers the background installer loop if unpopulated
+local success = false
 function M.ensure_toolchain_active(on_success_callback, retry_counter)
-  local success = false
   retry_counter = retry_counter or 0
   initialize_full_options()
 
