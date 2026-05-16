@@ -49,7 +49,7 @@ function M.ensure_toolchain_active(on_success_callback)
 
   initialize_full_options()
 
-  local base_runtime = pio.clean(M.options.pio.pio_runtime_dir)
+  local base_runtime = pio.clean(main.options.pio.pio_runtime_dir)
   local target_bin = base_runtime .. OS.folder_sep .. 'penv' .. OS.folder_sep .. OS.bin_dir
   local verified = false
 
