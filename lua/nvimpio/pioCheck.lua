@@ -1,6 +1,69 @@
 -- stylua: ignore start
 local M = { queue = {}, is_running = false, }
 
+
+function M.clean(raw_path)
+  if not raw_path or raw_path == '' then
+    return nil
+  end
+  local normalized = vim.fs.normalize(vim.fn.expand(raw_path))
+  return M.is_win and normalized:gsub('/', '\\') or normalized
+end
+
+local core_dir = os.getenv('PLATFORMIO_CORE_DIR')
+-- stylua: ignore
+if not core_dir then core_dir = vim.fs.joinpath(OS.home, '.platformio') end
+
+--INFO: get PIO binary folder
+-- stylua: ignore
+------------------------------------------------------
+function M.get_pio_bin_dir()
+  -- 3. Use 'Scripts' for Windows and 'bin' for Unix-like systems
+  local bin_subfolder = OS.is_win and 'penv/Scripts' or 'penv/bin'
+
+  -- Normalize the path to handle mix of '/' and '\' on Windows
+  local full_path = vim.fs.joinpath(core_dir, bin_subfolder)
+  return full_path
+end
+
+--INFO: Verify PIO version
+-- stylua: ignore
+------------------------------------------------------
+function M.verify_version()
+  vim.system({ 'pio', '--version' }, { text = true }, function(obj)
+    vim.schedule(function()
+      if obj.code == 0 then OS.notify('PlatformIO Version: ' .. vim.trim(obj.stdout), 'info')
+      else OS.notify('❌ PlatformIO execution error: ' .. (obj.stderr or 'Unknown error'), 'error') end
+    end)
+  end)
+end
+
+
+-- stylua: ignore
+function M.check_ini_override()
+  local ini_file = vim.uv.cwd() .. OS.folder_sep .. 'platformio.ini'
+  if vim.fn.filereadable(ini_file) == 0 then return nil end
+
+  local in_platformio_section = false
+
+  for _, line in ipairs(vim.fn.readfile(ini_file)) do
+    local clean = line:lower():gsub('%s+', '') -- Strip whitespace & normalize casing
+
+    if clean:match('^%[platformio%]$') then in_platformio_section = true
+    elseif clean:match('^%[.*%]$') then in_platformio_section = false
+    elseif in_platformio_section and clean:match('^core_dir=') then return line:match('=%s*(.-)%s*$') end
+  end
+  return nil
+end
+
+
+
+
+
+
+
+
+--------------------------------------------------------------------------------
 function M.get_bin_dir()
   local core_dir = os.getenv('PLATFORMIO_CORE_DIR') or vim.fs.joinpath(OS.home, '.platformio')
   local bin_subfolder = OS.is_win and 'penv/Scripts' or 'penv/bin'

@@ -1,7 +1,6 @@
 require('nvimpio.osInfo')
 
-local paths = require('nvimpio.paths')
-local ini = require('nvimpio.config_reader')
+local pio = require('nvimpio.pioCheck')
 local val = require('nvimpio.validator')
 local menu = require('nvimpio.menu')
 
@@ -39,7 +38,7 @@ function M.configure_paths()
 end
 
 function M.apply_toolchain()
-  local base_runtime = paths.clean(M.options.pio.pio_runtime_dir)
+  local base_runtime = pio.clean(M.options.pio.pio_runtime_dir)
   local target_bin = base_runtime .. OS.folder_sep .. 'penv' .. OS.folder_sep .. OS.bin_dir
   local verified = false
 
@@ -60,10 +59,10 @@ function M.apply_toolchain()
 
   local escaped_bin = M.config.pio_runtime_dir:gsub('([^%w])', '%%%1')
   if not (vim.env.PATH or ''):find(escaped_bin, 1, true) then
-    vim.env.PATH = M.config.pio_runtime_dir .. paths.path_sep .. (vim.env.PATH or '')
+    vim.env.PATH = M.config.pio_runtime_dir .. pio.path_sep .. (vim.env.PATH or '')
   end
 
-  local final_storage = paths.clean(ini.check_ini_override() or M.options.pio.pio_storage_dir or base_runtime)
+  local final_storage = pio.clean(pio.check_ini_override() or M.options.pio.pio_storage_dir or base_runtime)
   if final_storage and vim.fn.isdirectory(final_storage) == 0 then
     vim.fn.mkdir(final_storage, 'p')
   end
@@ -128,7 +127,7 @@ function M.setup(user_opts)
 
     -- interface.validate(user_config)
     -- M.config = vim.tbl_deep_extend('force', defConfig, user_config or {})
-    -- interface.buildUsserMenu(M.config)
+    menu.buildUsserMenu(M.config)
 
     require('nvimpio.pio.control').init(M.config.clangd)
   end
