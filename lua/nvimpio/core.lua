@@ -49,13 +49,19 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   local target_bin = pio.clean(base_runtime .. OS.folder_sep .. 'penv' .. OS.folder_sep .. OS.bin_dir)
   local verified = false
 
-  if target_bin and vim.fn.isdirectory(target_bin) == 1 then
-    main.config.pio_runtime_dir = target_bin
-    verified = true
-  elseif vim.fn.executable('pio') == 1 then
-    main.config.pio_runtime_dir = pio.clean(vim.fs.dirname(vim.fn.exepath('pio')))
+  local local_pio_executable = target_bin .. OS.folder_sep .. (OS.is_win and 'pio.exe' or 'pio')
+  if vim.fn.executable(local_pio_executable) == 1 then
+    -- The binary exists EXACTLY where the user specified, and it is executable!
+    M.config.pio_bin_dir = target_bin
     verified = true
   end
+  -- if target_bin and vim.fn.isdirectory(target_bin) == 1 then
+  --   main.config.pio_runtime_dir = target_bin
+  --   verified = true
+  -- elseif vim.fn.executable('pio') == 1 then
+  --   main.config.pio_runtime_dir = pio.clean(vim.fs.dirname(vim.fn.exepath('pio')))
+  --   verified = true
+  -- end
 
   -- local function finalize()
   --   M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
