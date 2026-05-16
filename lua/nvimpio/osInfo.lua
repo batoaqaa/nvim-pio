@@ -13,6 +13,9 @@ if is_linux and vim.fn.filereadable('/proc/version') == 1 then
   local version = (lines and lines[1]) or ''
   if version:lower():find('microsoft') then is_wsl = true end
 end
+local  winHome = os.getenv("USERPROFILE") or "C:\\"
+local  nixHome = vim.uv.os_homedir() or "/root"
+local  defaultHome = is_win and winHome or nixHome
 
 ---@class OS
 ---@field name "windows"|"macos"|"linux"
@@ -22,6 +25,9 @@ end
 ---@field is_linux boolean
 ---@field is_wsl boolean
 ---@field home string
+---@field winHome string
+---@field nixHome string
+---@field defaultHome string
 ---@field folder_sep string
 ---@field path_sep string
 ---@field devNul string
@@ -49,7 +55,9 @@ local os_info = {
   is_mac = is_mac,
   is_linux = is_linux,
   is_wsl = is_wsl,
-  home = vim.uv.os_homedir(),
+  winHome = winHome,
+  nixHome = nixHome,
+  defaultHome = defaultHome,
   path_sep = is_win and ';' or ':',
   folder_sep = is_win and '\\' or '/',
   devNul = is_win and ' 2>./nul' or ' 2>/dev/null',
@@ -85,6 +93,7 @@ local os_info = {
   pioReady = function()
     if _pioReady then return true end
 
+    -- local local_pio_executable = target_bin .. OS.folder_sep .. (OS.is_win and 'pio.exe' or 'pio')
     if vim.fn.executable('pio') ~= 1 then return false end
 
     local ok, obj = pcall(function() return vim.system({ 'pio', '--version' }):wait() end)

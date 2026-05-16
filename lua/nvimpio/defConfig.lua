@@ -1,15 +1,15 @@
 local defConfig = {
   pio = {
-    pio_runtime_dir = OS.platformio_dir,
-    pio_storage_dir = OS.platformio_dir,
+    pio_runtime_dir = vim.fs.joinpath(OS.defaultHome, '.platformio'),
+    pio_storage_dir = vim.fs.joinpath(OS.defaultHome, '.platformio'),
   },
   clangd = {
     support = false,
     install = false,
   },
+  debug = false,
   menu_key = '<leader>\\', -- replace this menu key  to your convenience
   menu_name = 'PlatformIO', -- replace this menu name to your convenience
-  debug = false,
 
   menu_bindings = {
     { node = 'item', desc = '[I]nitiate project', shortcut = 'i', command = 'Pioinit' },

@@ -1,3 +1,4 @@
+-- stylua: ignore start
 require('nvimpio.osInfo')
 
 -- local pio = require('nvimpio.pioCheck')
@@ -9,26 +10,11 @@ local M = {}
 M.isActivated = false -- Tracks if commands/features are loaded
 
 -- Persistent internal storage for runtime verified properties
-M.config = {
-  pio_runtime_dir = nil, -- Absolute path to python/pio binaries directory
-  pio_storage_dir = nil, -- Absolute path to core tracking directory
-}
-
+M.config = { pio_runtime_dir = nil, pio_storage_dir = nil, }
 M.options = nil -- This will hold the complete configuration table safely in memory
--- PLUGIN CONFIGURATION DEFAULTS
--- M.defaults = require('nvimpio.defConfig')
 
 -- Minimal primitive defaults to ensure the commands can register safely
-M.defaults = {
-  pio = {
-    pio_runtime_dir = (vim.fn.has('win32') == 1 and os.getenv('USERPROFILE') or vim.uv.os_homedir() or '/root')
-      .. (vim.fn.has('win32') == 1 and '\\.platformio' or '/.platformio'),
-    pio_storage_dir = (vim.fn.has('win32') == 1 and os.getenv('USERPROFILE') or vim.uv.os_homedir() or '/root')
-      .. (vim.fn.has('win32') == 1 and '\\.platformio' or '/.platformio'),
-  },
-  menu_key = '<leader>\\',
-  menu_name = 'PlatformIO',
-}
+M.defaults = require('nvimpio.defConfig')
 -- local pioCheck = require('nvimpio.pioCheck')
 
 -- INFO:
