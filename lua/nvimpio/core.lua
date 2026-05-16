@@ -71,7 +71,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
       vim.env.PATH = main.config.pio_bin_dir .. OS.folder_sep .. current_path
     end
 
-    local final_storage = pio.clean(pio.check_ini_override() or M.options.pio.pio_storage_dir or vim.env.PLATFORMIO_CORE_DIR or OS.platformio_dir)
+    local final_storage = pio.clean(pio.check_ini_override() or main.options.pio.pio_storage_dir or vim.env.PLATFORMIO_CORE_DIR or OS.platformio_dir)
     if final_storage and vim.fn.isdirectory(final_storage) == 0 then
       vim.fn.mkdir(final_storage, 'p')
     end
