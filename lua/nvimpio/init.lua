@@ -49,7 +49,7 @@ function M.setup(user_opts)
 
     -- interface.validate(user_config)
     -- M.config = vim.tbl_deep_extend('force', defConfig, user_config or {})
-    menu.buildUsserMenu(M.config)
+    menu.buildUsserMenu(M.options)
 
     require('nvimpio.pio.control').init(M.options.clangd)
   end
@@ -60,7 +60,6 @@ function M.setup(user_opts)
       -- pioCheck.pioStatus(
       function(success)
         if success then
-          print('here')
           vim.g.platformioRootDir = vim.uv.cwd()
           -- pioCheck.pioPathUpdate()
           require('nvimpio.pio.ui.pioInit').pioInit(function(done)
