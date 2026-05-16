@@ -95,7 +95,6 @@ local config_path = vim.fs.joinpath(vim.uv.cwd(), '.project_config.json')
 -------------------------------------------------------------------------------
 function M.save_project_config(from)
   -- 1. Generate the formatted string directly, jsonFormat already returns a string!
-  print(vim.inspect(_G.metadata))
   local ok, pretty_json = pcall(misc.jsonFormat, _G.metadata)
 
   if not ok or not pretty_json then
@@ -103,7 +102,6 @@ function M.save_project_config(from)
     return
   end
 
-print(pretty_json)
   local current_hash = vim.fn.sha256(pretty_json)
 
   -- 2. Only write if the content actually changed
