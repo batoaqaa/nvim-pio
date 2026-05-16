@@ -53,7 +53,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     main.config.pio_runtime_dir = target_bin
     verified = true
   elseif vim.fn.executable('pio') == 1 then
-    main.config.pio_runtime_dir = vim.fs.dirname(vim.fn.exepath('pio'))
+    main.config.pio_runtime_dir = pio.clean(vim.fs.dirname(vim.fn.exepath('pio')))
     verified = true
   end
 
@@ -137,16 +137,16 @@ end
 function M.configure_paths()
   initialize_full_options()
   vim.schedule(function()
-    vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir' }, function(r)
-      if not r or r == '' then
+    vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir' }, function(runtime)
+      if not runtime or runtime == '' then
         return
       end
-      vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(s)
-        if not s or s == '' then
+      vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(storage)
+        if not storage or storage == '' then
           return
         end
-        main.options.pio.pio_runtime_dir = r
-        main.options.pio.pio_storage_dir = s
+        main.options.pio.pio_runtime_dir = pio.clean(runtime)
+        main.options.pio.pio_storage_dir = pio.clean(storage)
         M.ensure_toolchain_active()
       end)
     end)
