@@ -56,7 +56,7 @@ function M.setup(user_opts)
 
   -- INFO: Pioini
   vim.api.nvim_create_user_command('Pioinit', function()
-    require('platformio.core').ensure_toolchain_active(
+    require('nvimpio.core').ensure_toolchain_active(
       -- pioCheck.pioStatus(
       function(success)
         if success then
@@ -75,9 +75,9 @@ function M.setup(user_opts)
           end
         else
         end
-      end,
-      false
+      end
     )
+    -- end, false)
   end, {
     force = true,
     desc = 'Start the PlatformIO guided setup wizard',
@@ -86,11 +86,13 @@ function M.setup(user_opts)
   -- The background auto-activation
   if vim.fn.filereadable('platformio.ini') == 1 then
     vim.schedule(function()
-      pioCheck.pioStatus(function(success)
+      -- pioCheck.pioStatus(
+      require('nvimpio.core').ensure_toolchain_active(function(success)
         if success then
           activate()
         end
-      end, true)
+      end)
+      -- end, true)
     end)
   end
 end
