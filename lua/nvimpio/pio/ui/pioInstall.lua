@@ -30,15 +30,14 @@ local function pioInstall(runtime_dir, on_done)
   -- 4. Construction of the cross-platform commands string
   local download_cmd = string.format("%s -c \"import urllib.request; urllib.request.urlretrieve('%s%s', '%s')\"", python, script_url, script_name, script_path)
   -- Run the installer script out of the safe cache target space
-  -- local install_cmd
+  local install_cmd
   local piocheck = require('nvimpio.pioCheck')
   local custom_penv_dir = piocheck.clean(runtime_dir .. OS.folder_sep .. 'penv')
-  -- if OS.is_win then
-  --   install_cmd = string.format('$env:PLATFORMIO_PENV_DIR="%s"; %s %s --no-modify-path', custom_penv_dir, python, script_path)
-  -- else
-  local install_cmd =
-    string.format('%sPLATFORMIO_PENV_DIR=%q %s %s install --no-modify-path', OS.is_win and '$env:' or '', custom_penv_dir, python, script_path)
-  -- end
+  if OS.is_win then
+    install_cmd = string.format('$env:PLATFORMIO_PENV_DIR=%q; %s %s install --no-modify-path', custom_penv_dir, python, script_path)
+  else
+    install_cmd = string.format('PLATFORMIO_PENV_DIR=%q %s %s install --no-modify-path', custom_penv_dir, python, script_path)
+  end
 
   -- 5. Establish downstream update pipeline connections
   local pio = require('nvimpio.pio.upkeep')
