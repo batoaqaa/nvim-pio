@@ -2,6 +2,15 @@ _G.pio_status = ''
 
 -- local is_win = vim.fn.has('win32') == 1
 
+local function get_download_command(url, target_file)
+  if vim.fn.executable('curl') == 1 then
+    return { 'curl', '-fsSL', '-o', target_file, url }
+  elseif vim.fn.executable('wget') == 1 then
+    return { 'wget', '-q', '-O', target_file, url }
+  end
+  return nil
+end
+
 --INFO: Install platformio
 -- stylua: ignore start
 ------------------------------------------------------
