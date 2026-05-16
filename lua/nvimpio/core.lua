@@ -52,7 +52,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   local local_pio_executable = target_bin .. OS.folder_sep .. (OS.is_win and 'pio.exe' or 'pio')
   if vim.fn.executable(local_pio_executable) == 1 then
     -- The binary exists EXACTLY where the user specified, and it is executable!
-    M.config.pio_runtime_dir = target_bin
+    main.config.pio_runtime_dir = target_bin
     verified = true
   end
   -- if target_bin and vim.fn.isdirectory(target_bin) == 1 then
