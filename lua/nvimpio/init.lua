@@ -56,6 +56,7 @@ function M.setup(user_opts)
 
   -- INFO: Pioini
   vim.api.nvim_create_user_command('Pioinit', function()
+    print('here')
     require('nvimpio.core').ensure_toolchain_active(
       -- pioCheck.pioStatus(
       function(success)
