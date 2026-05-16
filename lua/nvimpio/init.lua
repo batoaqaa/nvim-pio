@@ -51,7 +51,7 @@ function M.setup(user_opts)
     -- M.config = vim.tbl_deep_extend('force', defConfig, user_config or {})
     menu.buildUsserMenu(M.config)
 
-    require('nvimpio.pio.control').init(M.config.clangd)
+    require('nvimpio.pio.control').init(M.options.clangd)
   end
 
   -- INFO: Pioini
