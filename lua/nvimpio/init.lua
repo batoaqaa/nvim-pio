@@ -75,7 +75,8 @@ function M.setup(user_opts)
           end
         else
         end
-      end
+      end,
+      0
     )
     -- end, false)
   end, {
@@ -91,7 +92,7 @@ function M.setup(user_opts)
         if success then
           activate()
         end
-      end)
+      end, 0)
       -- end, true)
     end)
   end
