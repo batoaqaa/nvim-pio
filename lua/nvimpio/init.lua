@@ -60,19 +60,15 @@ function M.setup(user_opts)
       -- pioCheck.pioStatus(
       function(success)
         if success then
-          if M.isActivated then
-            require('nvimpio.pio.ui.pioInit').pioInit()
-          else
-            vim.g.platformioRootDir = vim.uv.cwd()
-            -- pioCheck.pioPathUpdate()
-            require('nvimpio.pio.ui.pioInit').pioInit(function(done)
-              if done then
-                -- vim.clangd.getUnknownArgs()
-                -- if M.config.clangd.install then require('nvimpio.clangd.config') end
-                activate()
-              end
-            end)
-          end
+          vim.g.platformioRootDir = vim.uv.cwd()
+          -- pioCheck.pioPathUpdate()
+          require('nvimpio.pio.ui.pioInit').pioInit(function(done)
+            if done then
+              -- vim.clangd.getUnknownArgs()
+              -- if M.config.clangd.install then require('nvimpio.clangd.config') end
+              activate()
+            end
+          end)
         else
         end
       end,
