@@ -795,7 +795,6 @@ end
 
 -- stylua: ignore
 function M.handlePioinitDb(result, board, on_done)
-  print(result)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
@@ -842,7 +841,6 @@ end
 -- =============================================================================
 -- stylua: ignore
 function M.handlePioInstall(result, on_done)
-  print(result)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
