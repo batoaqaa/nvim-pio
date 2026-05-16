@@ -92,7 +92,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
         local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
         if ok then
           -- M.pioPathUpdate()
-          installer.pioInstall(function(succ)
+          installer.pioInstall(base_runtime, function(succ)
             success = succ
             M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
             -- finalize()
