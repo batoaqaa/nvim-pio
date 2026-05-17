@@ -168,7 +168,7 @@ end, { desc = 'Switch [E]nvironment' })
 function M.switch_env()
   -- 1. Safety check for metadata
   if not _G.metadata.envs or next(_G.metadata.envs) == nil then
-    vim.notify('No environments found. Please refresh PlatformIO data.', vim.log.levels.WARN)
+    OS.notify('No environments found. Please refresh PlatformIO data.', 'warn')
     return
   end
 
@@ -180,7 +180,8 @@ function M.switch_env()
   vim.ui.select(options, {
     prompt = 'Select PlatformIO Environment:',
     format_item = function(item)
-      local icon = (item == _G.metadata.active_env) and '   ' or '○ '
+      local icon = (item == _G.metadata.active_env) and '● ' or '○ '
+      -- local icon = (item == _G.metadata.active_env) and '   ' or '○ '
       return icon .. item
     end,
   }, function(choice)
