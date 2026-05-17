@@ -32,7 +32,7 @@ function M.setup(user_opts)
     M.isActivated = true
     vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
 
-    require("nvimpio.core").initialize_full_options()
+    -- require("nvimpio.core").initialize_full_options()
     menu.buildUserMenu(M.options)
     require('nvimpio.pio.control').init(M.options.clangd)
   end

@@ -76,6 +76,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     main.config.pio_storage_dir = final_storage
 
     if type(on_success_callback) == 'function' then
+      initialize_full_options()
       on_success_callback(true)
     end
   else
