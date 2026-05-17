@@ -184,6 +184,7 @@ function M.get_active__env(from)
 
   -- 3. Loop through lines with explicit, two-stage comment detection
   for line in vim.gsplit(content, '[\r\n]+') do
+    print(line)
     -- Strip semicolons (;) and hash (#) comments along with their leading/trailing whitespace
     line = line:gsub('%s*[;#].*$', ''):gsub('^%s+', ''):gsub('%s+$', '')
 
