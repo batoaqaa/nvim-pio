@@ -233,7 +233,7 @@ function M.get_active__env(from)
       -- if valid_envs[env_name] and is_physically_connected(env_name) then
       if valid_envs[env_name] then
         _G.metadata.active_env = env_name
-        OS.notify(string.format('get active_env: %s', env_name), 'info')
+        -- OS.notify(string.format('get active_env: %s', env_name), 'info')
         return env_name
       end
     end
@@ -248,7 +248,7 @@ function M.get_active__env(from)
 
   -- 6. Ultimate baseline recovery (First key parsed chronologically)
   _G.metadata.active_env = next(valid_envs)
-  OS.notify(string.format('get active_env: %s', _G.metadata.active_env), 'info')
+  -- OS.notify(string.format('get active_env: %s', _G.metadata.active_env), 'info')
   return _G.metadata.active_env
 end
 
@@ -746,7 +746,7 @@ function M.handlePioinitDb(result, board, on_done)
   local active_env
   if result == 'INIT' then
     active_env = M.get_active__env('PIO init+db: ')
-    OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
+    -- OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
     if #M.queue > 0 then
       _G.metadata.isBusy = true
       -- boilerplate.core_dir = _G.metadata.core_dir
@@ -775,7 +775,7 @@ function M.handlePioinitDb(result, board, on_done)
     OS.notify('PIO init+db: Done', "info")
     if not active_env or (active_env ~= board) then
       _G.metadata.active_env = board
-      OS.notify(string.format('PIO init+db active_env: %s', board), 'info')
+      -- OS.notify(string.format('PIO init+db active_env: %s', board), 'info')
     end
     M.pio_refresh(function()
       if on_done and type(on_done) == "function" then on_done(true)
