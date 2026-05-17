@@ -811,7 +811,7 @@ function M.handlePioinitDb(result, board, on_done)
   elseif result == 'PASS1' then -- current_id
     OS.notify('PIO init+db:  pass ' .. current_id, "info")
     local active_env = M.get_active__env('PIO init+db: ')
-    OS.notify(string.format("active_env=%s board= %s", active_env, board), 'info')
+    OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
     if not active_env or (active_env == board) then
       -- boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
       -- boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')

@@ -121,7 +121,7 @@ local function pick_board(json_data)
           local selection = action_state.get_selected_entry()
           actions.close(prompt_bufnr)
           if selection then
-            wizard_data.board_id = selection.value.id
+            wizard_data.board_id = vim.trim(selection.value.id)
             pick_framework(selection.value)
           end
         end)
