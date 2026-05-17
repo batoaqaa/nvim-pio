@@ -67,9 +67,6 @@ extra_scripts =
 
 lib_ldf_mode = chain   ;Library dependencies Finder ldf
 
-;[env:seeed_xiao_esp32c3]
-;platform = espressif32
-;board = seeed_xiao_esp32c3
 
 ]],
   content = function(self)
