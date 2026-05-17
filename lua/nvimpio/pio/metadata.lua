@@ -92,8 +92,10 @@ _G.metadata = setmetatable({}, {
         -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
 
         OS.notify('PIO env: ' .. binPath .. ' added to path', 'info')
-      elseif key == 'last_projectChecksum' then
-        -- elseif key == 'active_env' then
+      -- elseif key == 'last_projectChecksum' then
+      elseif key == 'active_env' then
+        require('nvimpio.clangd.control').getUnknownArgs('active_env change: ')
+      -- if not active_env or (active_env == board) then
       end
     end)
   end,

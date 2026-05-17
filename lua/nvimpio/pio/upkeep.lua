@@ -3,11 +3,11 @@ local M = {}
 
 local clangd = require('nvimpio.clangd.control')
 local misc = require('nvimpio.utils.misc')
-
+local term = require('nvimpio.utils.term')
 local boilerplate = require('nvimpio.boilerplate')
+
 local boilerplate_gen = boilerplate.boilerplate_gen
 
-local term = require('nvimpio.utils.term')
 
 -- INFO:
 -- =============================================================================
@@ -797,7 +797,10 @@ end
 
 -- stylua: ignore
 function M.handlePioinitDb(result, board, on_done)
+  local active_env
   if result == 'INIT' then
+    active_env = M.get_active__env('PIO init+db: ')
+    OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
     if #M.queue > 0 then
       _G.metadata.isBusy = true
       boilerplate.core_dir = _G.metadata.core_dir
@@ -810,8 +813,6 @@ function M.handlePioinitDb(result, board, on_done)
     end
   elseif result == 'PASS1' then -- current_id
     OS.notify('PIO init+db:  pass ' .. current_id, "info")
-    local active_env = M.get_active__env('PIO init+db: ')
-    OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
     -- if not active_env or (active_env == board) then
       -- boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
       -- boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
@@ -827,7 +828,9 @@ function M.handlePioinitDb(result, board, on_done)
     OS.notify('PIO init+db: Done', "info")
     M.pio_refresh(function()
       if on_done and type(on_done) == "function" then on_done(true)
-      else clangd.getUnknownArgs('PIO init+db: ') end
+      -- else clangd.getUnknownArgs('PIO init+db: ')
+      end
+      if not active_env or (active_env ~= board) then _G.metadata.active_env = board end
       boilerplate.core_dir = _G.metadata.core_dir
     end, 'PIO init+db: ')
     if trm then trm:close() end
