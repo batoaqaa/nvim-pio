@@ -155,17 +155,22 @@ function M.get_active__env(from)
   local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
   -- 1. Locate the configuration using safe, cross-platform Neovim core logic
-  local files = vim.fs.find('platformio.ini', {
-    path = vim.api.nvim_buf_get_name(0):match('(.*[/\\])') or vim.uv.cwd(),
-    upward = true,
-    stop = OS.defaultHome,
-  })
-
-  local path = files[1]
-  if not path then
-    OS.notify(msg .. 'platformio.ini not found.', 'error')
-    return nil
-  end
+local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
+if vim.fn.filereadable(path) == 0 then
+  OS.notify(msg .. 'platformio.ini not found in current working directory.', 'error')
+  return nil
+end
+  -- local files = vim.fs.find('platformio.ini', {
+  --   path = vim.api.nvim_buf_get_name(0):match('(.*[/\\])') or vim.uv.cwd(),
+  --   upward = true,
+  --   stop = OS.defaultHome,
+  -- })
+  --
+  -- local path = files[1]
+  -- if not path then
+  --   OS.notify(msg .. 'platformio.ini not found.', 'error')
+  --   return nil
+  -- end
 
   -- 2. Extract contents
   local ok, content = misc.readFile(path)
@@ -770,7 +775,7 @@ function M.handlePioinitDb(result, board, on_done)
       _G.metadata.isBusy = true
       -- boilerplate.core_dir = _G.metadata.core_dir
       boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
-      -- boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
+      boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
 
       trm = term.ToggleTerminal(pop(M.queue), 'float')
       if trm and on_done and type(on_done) == "function" then
