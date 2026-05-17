@@ -258,7 +258,6 @@ function M.boilerplate_gen(framework, src_path, filename)
       if entry.read then
         local ok, content = misc.readFile(file_path)
         -- if ok then print(content) end
-        print(content)
         if ok then return content end
         -- local fr = io.open(file_path, 'r')
         -- if fr then return (fr:read('*a')) end

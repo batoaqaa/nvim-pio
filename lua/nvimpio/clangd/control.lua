@@ -98,7 +98,6 @@ function M.getClangdConfig()
   local json_config = boilerplate_gen([[.clangd_config.json]], vim.g.platformioRootDir)
   if not json_config then return nil end
 
-  print(json_config)
   local _, count = json_config:gsub('%%s', '')
   -- Only use string.format if there is one or less %s
   if count <= 1 then merged_json = string.format(json_config or '', q_driver) end
@@ -116,6 +115,7 @@ end
 --------------------------------------------------------------------------------
 --- stylua: ignore
 function M.restart()
+  print('restart')
   vim.schedule_wrap(function()
     local name = 'clangd'
     OS.notify('LSP: Clangd restart.', 'warn')
