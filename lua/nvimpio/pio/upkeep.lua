@@ -397,33 +397,33 @@ function M.fetch_metadata(callback, env, from, attempts)
     local norm = function(p) return misc.normalizePath(p) or '' end
 
     -- Helper for flags/defines to keep order and formatting
-    local quote_map = function(list, prefix)
-      local res = {}
-      for _, v in ipairs(list or {}) do
-        local val = prefix and (prefix .. norm(v)) or v
-        table.insert(res, string.format('%s', val))
-      end
-      return res
-    end
+    -- local quote_map = function(list, prefix)
+    --   local res = {}
+    --   for _, v in ipairs(list or {}) do
+    --     local val = prefix and (prefix .. norm(v)) or v
+    --     table.insert(res, string.format('%s', val))
+    --   end
+    --   return res
+    -- end
 
     -- 1. Base Paths & Compilers
     meta.cc_path = norm(data.cc_path)
-    meta.cc_compiler = meta.cc_path
+    -- meta.cc_compiler = meta.cc_path
     meta.cxx_path = norm(data.cxx_path)
     meta.gdb_path = norm(data.gdb_path)
 
     -- 2. Flags & Defines
-    meta.cc_flags = quote_map(data.cc_flags)
-    meta.cxx_flags = quote_map(data.cxx_flags)
-    meta.defines = quote_map(data.defines)
+    -- meta.cc_flags = quote_map(data.cc_flags)
+    -- meta.cxx_flags = quote_map(data.cxx_flags)
+    -- meta.defines = quote_map(data.defines)
 
     -- 3. Includes (Build, Toolchain, Compatlib)
-    local inc = data.includes or {}
-    meta.includes_build = quote_map(inc.build, '-I')
-    meta.includes_toolchain = quote_map(inc.toolchain, '-isystem')
-    meta.includes_compatlib = quote_map(inc.compatlib, '-isystem')
+    -- local inc = data.includes or {}
+    -- meta.includes_build = quote_map(inc.build, '-I')
+    -- meta.includes_toolchain = quote_map(inc.toolchain, '-isystem')
+    -- meta.includes_compatlib = quote_map(inc.compatlib, '-isystem')
     meta.last_projectChecksum = checksum
-    pcall(M.get_sysroot_triplet, meta.cc_compiler)
+    pcall(M.get_sysroot_triplet, meta.cc_path)
 
     return true
   end
