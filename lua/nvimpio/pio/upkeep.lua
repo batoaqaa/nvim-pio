@@ -184,6 +184,7 @@ function M.get_active__env(from)
 
   -- 3. Loop through lines with explicit, two-stage comment detection
   for line in vim.gsplit(content, '[\r\n]+') do
+      print(line)
     -- Trim leading and trailing spaces immediately using native Neovim C-binding
     line = vim.trim(line)
 
@@ -195,7 +196,6 @@ function M.get_active__env(from)
       line = line:gsub('%s*[;#].*$', '')
       line = vim.trim(line) -- Re-trim after stripping trailing data
 
-      print(line)
       if line ~= '' then
         local section = line:match('^%[(.+)%]$')
         if section then
