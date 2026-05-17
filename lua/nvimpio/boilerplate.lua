@@ -44,7 +44,7 @@ boilerplate['platformio.ini'] = {
   read = false,
   template = [[
 [platformio]
-;core_dir = %s
+core_dir = %s
 platforms_dir = ${platformio.core_dir}/platforms
 packages_dir = ${platformio.core_dir}/packages
 ;libdeps_dir = ./external_libs

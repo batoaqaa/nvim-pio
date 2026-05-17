@@ -223,6 +223,10 @@ function M.get_active__env(from)
   --   return connected_ports[target_port] == true
   -- end
 
+  if _G.metadata.active_env and valid_envs[_G.metadata.active_env] then
+    return _G.metadata.active_env
+  end
+
   -- 4. Evaluate explicitly specified configurations first
   if default_envs_raw ~= '' then
     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
@@ -243,77 +247,10 @@ function M.get_active__env(from)
   -- end
 
   -- 6. Ultimate baseline recovery (First key parsed chronologically)
-  local current_env = _G.metadata.active_env
-  if valid_envs[current_env] then return current_env end
+  _G.metadata.active_env = next(valid_envs)
+  OS.notify(string.format('get active_env: %s', _G.metadata.active_env), 'info')
+  return _G.metadata.active_env
 end
-
-
-
-
--- function M.get_active__env(from)
---   local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
---   local path
---
---   for _, dir in ipairs({ vim.api.nvim_buf_get_name(0):match('(.*[/\\])'), (vim.uv.cwd() .. '/') }) do
---     local tmp = dir .. 'platformio.ini'
---     local filestat = vim.uv.fs_stat(tmp)
---     if filestat and filestat.type == 'file' then
---       path = vim.fs.normalize(tmp)
---       break
---     end
---   end
---   if not path or path == '' then return OS.notify(msg .. 'platformio.ini not found or no [env] defined.', "error") end
---
---   -- Read file content (returns string or nil)
---   local ok, content = misc.readFile(path)
---   if not ok or not content then return OS.notify(msg .. 'platformio.ini not found in ' .. path, "warn") end
---
---   local default_envs_raw = ''
---   local first_env = nil
---   local valid_envs = {}
---   local in_platformio_block = false
---
---   -- Iterate lines from the content string
---   for line in vim.gsplit(content, '\n') do
---     -- Section Detection: [section_name]
---     local section = line:match('^%s*%[(.+)%]%s*$')
---     if section then
---       in_platformio_block = (section == 'platformio')
---       local env_name = section:match('^env:(.+)')
---       if env_name then
---         if not first_env then first_env = env_name end
---         valid_envs[env_name] = true
---       end
---     end
---
---     -- Collect the default_envs string from [platformio] block
---     if in_platformio_block then
---       local def = line:match('^%s*default_envs%s*=%s*(.+)')
---       if def then default_envs_raw = def end
---     end
---   end
---
---   -- Validation: Find the first default_env that actually exists as a block
---   if default_envs_raw ~= '' then
---     -- OS.notify(default_envs_raw, "info")
---     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
---       if valid_envs[env_name] then return env_name end
---     end
---   end
---
---
---   -- if _G.metadata.default_envs[1] ~= nil and _G.metadata.active_env == _G.metadata.default_envs[1] then
---   --   _G.metadata.active_env = default_envs
---     -- M.updateDefaultEnv()
---   -- end
---
---   -- if (_G.metadata.active_env ~= default_envs)then
---   --   _G.metadata.active_env = default_envs
---   --   -- M.updateDefaultEnv()
---   -- end
---   -- Fallback to the very first [env:...] block found in the file
---   return first_env
--- end
 
 --INFO:
 --stylua: ignore
@@ -388,8 +325,15 @@ function M.fetch_config(on_done, from)
           break
         end
       end
-      meta.active_env = active_env
-      OS.notify(string.format('fetch_config active_env: %s', active_env), 'info')
+
+      -- ....
+      if valid_envs[meta.active_env] then
+        active_env = meta.active_env
+      else
+        meta.active_env = active_env
+        OS.notify(string.format('fetch_config active_env: %s', active_env), 'info')
+      end
+
       -- M.updateDefaultEnv()
 
       -- 5. Resolve Paths (INI -> Env -> Default)
@@ -805,7 +749,8 @@ function M.handlePioinitDb(result, board, on_done)
     OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
     if #M.queue > 0 then
       _G.metadata.isBusy = true
-      boilerplate.core_dir = _G.metadata.core_dir
+      -- boilerplate.core_dir = _G.metadata.core_dir
+      boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
       boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
 
       trm = term.ToggleTerminal(pop(M.queue), 'float')
@@ -828,13 +773,13 @@ function M.handlePioinitDb(result, board, on_done)
   -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the last command
     OS.notify('PIO init+db: Done', "info")
+    if not active_env or (active_env ~= board) then
+      _G.metadata.active_env = board
+      OS.notify(string.format('PIO init+db active_env: %s', board), 'info')
+    end
     M.pio_refresh(function()
       if on_done and type(on_done) == "function" then on_done(true)
       -- else clangd.getUnknownArgs('PIO init+db: ')
-      end
-      if not active_env or (active_env ~= board) then
-        _G.metadata.active_env = board
-        OS.notify(string.format('PIO init+db active_env: %s', board), 'info')
       end
       boilerplate.core_dir = _G.metadata.core_dir
     end, 'PIO init+db: ')
