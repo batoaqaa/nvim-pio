@@ -75,15 +75,30 @@ end
 -- stylua: ignore start
 -------------------------------------------------------------------------------
 function M.removeFromPath(path_to_remove)
-  local sep = OS.path_sep
-  -- Split the path by the separator
-  local paths = vim.split(vim.env.PATH, sep, { trimempty = true })
+  if not path_to_remove or path_to_remove == '' then return end
 
-  -- Filter out the path we want to remove
-  local new_paths = vim.tbl_filter(function(p) return p ~= path_to_remove end, paths)
+  -- 1. Standardize the path we want to delete using Neovim's built-in normalizer
+  local target_clean = vim.fs.normalize(path_to_remove)
+  if OS.is_win then target_clean = target_clean:lower() end
 
-  -- Rejoin and update the environment
-  vim.env.PATH = table.concat(new_paths, sep)
+  -- 2. Split the active system PATH string into a clean list array
+  local active_paths = vim.split(vim.env.PATH or '', OS.path_sep, { trimempty = true })
+
+  -- 3. Filter the array using normalized cross-platform validations
+  local preserved_paths = vim.tbl_filter(function(path_segment)
+    -- Normalize the current segment we are checking from the system array
+    local segment_clean = vim.fs.normalize(path_segment)
+
+    -- Windows paths are completely case-insensitive; force lowercase to prevent
+    -- 'C:\' vs 'c:\' drive letter mismatch bugs from bypassing the filter!
+    if OS.is_win then segment_clean = segment_clean:lower() end
+
+    -- Return true ONLY if this system path does NOT match our target path
+    return segment_clean ~= target_clean
+  end, active_paths)
+
+  -- 4. Rejoin the array and update Neovim's active process environment context instantly
+  vim.env.PATH = table.concat(preserved_paths, OS.path_sep)
 end
 
 function M.pioPathUpdate()

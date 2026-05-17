@@ -35,7 +35,6 @@ function M.setup(user_opts)
 
     M.isActivated = true
     vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
-    vim.g.platformioRootDir = vim.uv.cwd()
 
     -- pioCheck.pioPathUpdate()
     -- local sep = vim.fn.has('win32') == 1 and ';' or ':'
@@ -53,6 +52,7 @@ function M.setup(user_opts)
 
   -- INFO: Pioini
   vim.api.nvim_create_user_command('Pioinit', function()
+    vim.g.platformioRootDir = vim.uv.cwd()
     require('nvimpio.core').ensure_toolchain_active(
       -- pioCheck.pioStatus(
       function(success)
@@ -79,6 +79,7 @@ function M.setup(user_opts)
 
   -- The background auto-activation
   if vim.fn.filereadable('platformio.ini') == 1 then
+    vim.g.platformioRootDir = vim.uv.cwd()
     vim.schedule(function()
       -- pioCheck.pioStatus(
       require('nvimpio.core').ensure_toolchain_active(function(success)
