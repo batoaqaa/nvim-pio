@@ -228,6 +228,7 @@ function M.get_active__env(from)
     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
       -- if valid_envs[env_name] and is_physically_connected(env_name) then
       if valid_envs[env_name] then
+        _G.metadata.active_env = env_name
         return env_name
       end
     end
@@ -241,7 +242,8 @@ function M.get_active__env(from)
   -- end
 
   -- 6. Ultimate baseline recovery (First key parsed chronologically)
-  return next(valid_envs)
+  local current_env = _G.metadata.active_env
+  if valid_envs[current_env] then return current_env end
 end
 
 
@@ -809,6 +811,7 @@ function M.handlePioinitDb(result, board, on_done)
   elseif result == 'PASS1' then -- current_id
     OS.notify('PIO init+db:  pass ' .. current_id, "info")
     local active_env = M.get_active__env('PIO init+db: ')
+    OS.notify(string.format("active_env=%s board= %s", active_env, board), 'info')
     if not active_env or (active_env == board) then
       -- boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
       -- boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
