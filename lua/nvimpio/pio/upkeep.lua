@@ -152,12 +152,12 @@ end
 -- end
 
 function M.get_active__env(from)
-  local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
+  from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
   -- 1. Locate the configuration using safe, cross-platform Neovim core logic
 local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
 if vim.fn.filereadable(path) == 0 then
-  OS.notify(msg .. 'platformio.ini not found in current working directory.', 'error')
+  OS.notify(from .. 'platformio.ini not found in current working directory.', 'error')
   return nil
 end
   -- local files = vim.fs.find('platformio.ini', {
@@ -175,7 +175,7 @@ end
   -- 2. Extract contents
   local ok, content = misc.readFile(path)
   if not ok or not content then
-    OS.notify(msg .. 'Could not read platformio.ini at ' .. path, 'warn')
+    OS.notify(from .. 'Could not read platformio.ini at ' .. path, 'warn')
     return nil
   end
 
@@ -236,7 +236,7 @@ end
 
   -- 4. CRITICAL RESOLUTION: Check if the cache contains any valid environments
   if next(valid_envs) == nil then
-    OS.notify(msg .. 'No active, uncommented environments found in platformio.ini', 'warn')
+    OS.notify(from .. 'No active, environments found in platformio.ini', 'warn')
     _G.metadata.active_env = ''
     return nil
   end
@@ -250,7 +250,7 @@ end
   if default_envs_raw ~= '' then
     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
       if valid_envs[env_name] then
-        OS.notify(string.format('get active_env1: %s', env_name), 'info')
+        -- OS.notify(string.format(from .. ' get active_env1: %s', env_name), 'info')
         _G.metadata.active_env = env_name
         return env_name
       end
@@ -268,7 +268,7 @@ end
   -- If Priorities 1 & 2 fail, this ensures a predictable return instead of leaking nil stack pointers
   local first_valid = next(valid_envs)
   if first_valid then
-    OS.notify(string.format('get active_env2: %s', first_valid), 'info')
+    -- OS.notify(string.format(from .. ' get active_env2: %s', first_valid), 'info')
     _G.metadata.active_env = first_valid
     return first_valid
   end
@@ -354,7 +354,7 @@ function M.fetch_config(on_done, from)
       if valid_envs[meta.active_env] then
         active_env = meta.active_env
       else
-        OS.notify(string.format('fetch_config active_env: %s', active_env), 'info')
+        -- OS.notify(msg .. string.format(' fetch_config active_env: %s', active_env), 'info')
         meta.active_env = active_env
       end
 
@@ -777,7 +777,7 @@ function M.handlePioinitDb(result, board, on_done)
       boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
 
       trm = term.ToggleTerminal(pop(M.queue), 'float')
-    active_env = M.get_active__env('PIO init+db: ')
+      active_env = M.get_active__env('PIO init+db: ')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
