@@ -195,6 +195,7 @@ function M.get_active__env(from)
       line = line:gsub('%s*[;#].*$', '')
       line = vim.trim(line) -- Re-trim after stripping trailing data
 
+      print(line)
       if line ~= '' then
         local section = line:match('^%[(.+)%]$')
         if section then
