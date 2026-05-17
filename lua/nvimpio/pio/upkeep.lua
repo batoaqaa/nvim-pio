@@ -158,7 +158,7 @@ function M.get_active__env(from)
   local files = vim.fs.find('platformio.ini', {
     path = vim.api.nvim_buf_get_name(0):match('(.*[/\\])') or vim.uv.cwd(),
     upward = true,
-    stop = OS.home,
+    stop = OS.defaultHome,
   })
 
   local path = files[1]
@@ -399,7 +399,7 @@ function M.fetch_config(on_done, from)
         local val = meta[item.key]
         -- Fallback chain
         if not val or val == '' then
-          val = os.getenv(item.env) or (OS.home .. item.sub)
+          val = os.getenv(item.env) or (OS.defaultHome .. item.sub)
         end
         -- Expand variables and Normalize
         if type(val) == 'string' then

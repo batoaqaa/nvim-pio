@@ -12,7 +12,7 @@ end
 
 local core_dir = os.getenv('PLATFORMIO_CORE_DIR')
 -- stylua: ignore
-if not core_dir then core_dir = vim.fs.joinpath(OS.home, '.platformio') end
+if not core_dir then core_dir = vim.fs.joinpath(OS.defaultHome, '.platformio') end
 
 --INFO: get PIO binary folder
 -- stylua: ignore
@@ -65,7 +65,7 @@ end
 
 --------------------------------------------------------------------------------
 function M.get_bin_dir()
-  local core_dir = os.getenv('PLATFORMIO_CORE_DIR') or vim.fs.joinpath(OS.home, '.platformio')
+  local core_dir = os.getenv('PLATFORMIO_CORE_DIR') or vim.fs.joinpath(OS.defaultHome, '.platformio')
   local bin_subfolder = OS.is_win and 'penv/Scripts' or 'penv/bin'
   local pio_bin = vim.fs.joinpath(core_dir, bin_subfolder)
   return pio_bin
