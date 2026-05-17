@@ -98,6 +98,7 @@ function M.getClangdConfig()
   local json_config = boilerplate_gen([[.clangd_config.json]], vim.g.platformioRootDir)
   if not json_config then return nil end
 
+  print(json_config)
   local _, count = json_config:gsub('%%s', '')
   -- Only use string.format if there is one or less %s
   if count <= 1 then merged_json = string.format(json_config or '', q_driver) end
@@ -117,7 +118,7 @@ end
 function M.restart()
   vim.schedule_wrap(function()
     local name = 'clangd'
-    misc.notify('LSP: Clangd restart.', 'warn')
+    OS.notify('LSP: Clangd restart.', 'warn')
 
     local clangConfig = M.getClangdConfig()
 
@@ -161,13 +162,13 @@ function M.setFormatStyle()
     --   -- Use vim.schedule to perform UI tasks/API calls on the main thread
     --   vim.schedule(function()
     --     if obj.code == 0 then
-    --       misc.notify('Created .clang-format (' .. choice .. ')', "info")
+    --       OS.notify('Created .clang-format (' .. choice .. ')', "info")
     --
     --       -- Restart clangd to apply the new rules
     --       M.restart()
     --       print('LSP Reloaded: Using ' .. choice .. ' style.')
     --     else
-    --       misc.notify('Failed to generate .clang-format. Error: ' .. (obj.stderr or "Unknown"), "error")
+    --       OS.notify('Failed to generate .clang-format. Error: ' .. (obj.stderr or "Unknown"), "error")
     --     end
     --   end)
     -- end)
@@ -214,7 +215,7 @@ function M.getUnknownArgs()
         boilerplate.args = args_table
         boilerplate_gen('.clangd', vim.g.platformioRootDir)
 
-        misc.notify('Clangd: ✅Extracted ' .. #args_table .. ' flags.')
+        OS.notify('Clangd: ✅Extracted ' .. #args_table .. ' flags.')
         M.restart()
       end)
     end)
@@ -225,7 +226,7 @@ end
 --stylua: ignore
 --=============================================================================
 function M.init(clangd)
-  misc.notify('Clangd: initialize', "info")
+  OS.notify('Clangd: initialize', "info")
 
   require('nvimpio.clangd.commands')
 
