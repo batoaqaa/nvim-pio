@@ -187,8 +187,8 @@ function M.switch_env()
   }, function(choice)
     if choice then
       -- Update active environment
-      _G.metadata.active_env = choice
       OS.notify(string.format('Switched active_env: %s', choice), 'info')
+      _G.metadata.active_env = choice
 
       -- 4. Persist change to disk (silently)
       M.save_project_config(true)
