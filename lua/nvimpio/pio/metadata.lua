@@ -158,4 +158,61 @@ end
 -------------------------------------------------------------------------------
 M.load_project_config()
 
+-- 5. Keybindings
+-- Switch Environment
+vim.keymap.set('n', '<leader>\\e', function()
+  M.switch_env()
+end, { desc = 'Switch [E]nvironment' })
+
+-- 6. Environment Switcher UI
+function M.switch_env()
+  -- 1. Safety check for metadata
+  if not _G.metadata.envs or next(_G.metadata.envs) == nil then
+    vim.notify('No environments found. Please refresh PlatformIO data.', vim.log.levels.WARN)
+    return
+  end
+
+  -- 2. Prepare the list of environments
+  local options = vim.tbl_keys(_G.metadata.envs)
+  table.sort(options)
+
+  -- 3. Open the selection UI
+  vim.ui.select(options, {
+    prompt = 'Select PlatformIO Environment:',
+    format_item = function(item)
+      local icon = (item == _G.metadata.active_env) and '   ' or '○ '
+      return icon .. item
+    end,
+  }, function(choice)
+    if choice then
+      -- Update active environment
+      _G.metadata.active_env = choice
+
+      -- 4. Persist change to disk (silently)
+      M.save_project_config(true)
+
+      -- 5. Notify the user with the new board info
+      local board = _G.metadata.envs[choice].board or 'unknown'
+      vim.notify(string.format('Switched to %s\nBoard: %s', choice, board), vim.log.levels.INFO, { title = 'PlatformIO' })
+
+      -- 6. RESTART LSP (Crucial for refreshing includes/defines)
+      -- We wrap in pcall in case clangd isn't actually running yet
+
+      local pio_manager = require('platformio.pio_setup').pio_manager
+      pio_manager.refresh(function()
+        M.compile_commands()
+        local lsp_restart = require('platformio.tools').lsp_restart
+        lsp_restart('clangd')
+      end)
+
+      pcall(function()
+        -- Force LSP to pick up new fallbackFlags/defines
+        local lsp_restart = require('platformio.lsp.tools').lsp_restart
+        lsp_restart()
+      end)
+    end
+  end)
+end
+
+
 return M
