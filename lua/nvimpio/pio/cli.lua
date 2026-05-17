@@ -10,8 +10,6 @@ local misc = require('nvimpio.utils.misc')
 function M.piocmd(cmd_table, direction)
   if not misc.pio_install_check() then return end
 
-  misc.cd_pioini()
-
   if cmd_table[1] == '' then ToggleTerminal('', direction)
   else
     local cmd = 'pio '
@@ -26,8 +24,6 @@ end
 function M.piodebug(args_table)
   if not misc.pio_install_check() then return end
 
-  misc.cd_pioini()
-
   local command = 'pio debug --interface=gdb -- -x .pioinit'
   -- local command = string.format('pio debug --interface=gdb -- -x .pioinit %s', utils.extra)
   ToggleTerminal(command, 'float')
@@ -38,8 +34,6 @@ end
 ------------------------------------------------------
 function M.piomon(args_table)
   if not misc.pio_install_check() then return end
-
-  misc.cd_pioini()
 
   local command = nil
   if #args_table == 0 then command = 'pio device monitor'
@@ -60,25 +54,21 @@ end
 --INFO: Piorun
 ------------------------------------------------------
 function M.piobuild()
-  misc.cd_pioini()
   local command = 'pio run' -- .. utils.extra
   ToggleTerminal(command, 'float')
 end
 
 function M.pioupload()
-  misc.cd_pioini()
   local command = 'pio run --target upload' -- .. utils.extra
   ToggleTerminal(command, 'float')
 end
 
 function M.piouploadfs()
-  misc.cd_pioini()
   local command = 'pio run --target uploadfs' -- .. utils.extra
   ToggleTerminal(command, 'float')
 end
 
 function M.pioclean()
-  misc.cd_pioini()
   local command = 'pio run --target clean' -- .. utils.extra
   ToggleTerminal(command, 'float')
 end

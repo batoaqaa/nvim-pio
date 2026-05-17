@@ -447,54 +447,6 @@ end
 
 --INFO:
 ------------------------------------------------------
-function M.check_prefix(str, prefix)
-  return str:sub(1, #prefix) == prefix
-end
-
---INFO:
-------------------------------------------------------
-local function pathmul(n)
-  return '..' .. string.rep('/..', n)
-end
-
-local paths = { '.', '..', pathmul(1), pathmul(2), pathmul(3), pathmul(4), pathmul(5) }
-
---INFO:
-------------------------------------------------------
-function M.file_exists(name)
-  local f = io.open(name, 'r')
-  if f ~= nil then
-    io.close(f)
-    return true
-  else
-    return false
-  end
-end
-
---INFO:
-------------------------------------------------------
-function M.set_platformioRootDir()
-  if vim.g.platformioRootDir ~= nil then
-    return
-  end
-  for _, path in pairs(paths) do
-    if M.file_exists(path .. '/platformio.ini') then
-      vim.g.platformioRootDir = path
-      return
-    end
-  end
-  M.notify('Could not find platformio.ini, run :Pioinit to create a new project', 'error')
-end
-
---INFO:
-------------------------------------------------------
-function M.cd_pioini()
-  -- M.set_platformioRootDir()
-  vim.cmd('cd ' .. vim.g.platformioRootDir)
-end
-
---INFO:
-------------------------------------------------------
 function M.pio_install_check()
   local handle = (jit.os == 'Windows') and assert(io.popen('where.exe pio 2>./nul')) or assert(io.popen('which pio 2>/dev/null'))
   local pio_path = assert(handle:read('*a'))
@@ -505,45 +457,6 @@ function M.pio_install_check()
     return false
   end
   return true
-end
-
---INFO:
-------------------------------------------------------
-function M.async_shell_cmd(cmd, callback)
-  local output = {}
-
-  vim.fn.jobstart(cmd, {
-    stdout_buffered = true,
-    stderr_buffered = false,
-
-    on_stdout = function(_, data)
-      if data then
-        for _, line in ipairs(data) do
-          if line ~= '' then
-            table.insert(output, line)
-          end
-        end
-      end
-    end,
-
-    on_exit = function(_, code)
-      callback(output, code)
-    end,
-  })
-end
-
---INFO:
-------------------------------------------------------
-function M.shell_cmd_blocking(command)
-  local handle = io.popen(command, 'r')
-  if not handle then
-    return nil, 'failed to run command'
-  end
-
-  local result = handle:read('*a')
-  handle:close()
-
-  return result
 end
 
 --INFO:
