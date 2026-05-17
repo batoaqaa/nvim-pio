@@ -812,16 +812,16 @@ function M.handlePioinitDb(result, board, on_done)
     OS.notify('PIO init+db:  pass ' .. current_id, "info")
     local active_env = M.get_active__env('PIO init+db: ')
     OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
-    if not active_env or (active_env == board) then
+    -- if not active_env or (active_env == board) then
       -- boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
       -- boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
       boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
       boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
       if #M.queue > 0 then trm:send(pop(M.queue), false) end
-    else
-      if on_done and type(on_done) == "function" then on_done(false) end
-      M.cleanSequencer()
-    end
+    -- else
+    --   if on_done and type(on_done) == "function" then on_done(false) end
+    --   M.cleanSequencer()
+    -- end
   -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the last command
     OS.notify('PIO init+db: Done', "info")
