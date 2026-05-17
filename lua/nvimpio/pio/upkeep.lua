@@ -181,39 +181,49 @@ function M.get_active__env(from)
   local in_platformio_block = false
 
 
-  -- 3. Loop through lines with rigorous comment cleaning filters
+
+  -- 3. Loop through lines with explicit, two-stage comment detection
   for line in vim.gsplit(content, '[\r\n]+') do
-    -- Strip semicolons (;) and hash (#) comments along with their leading/trailing whitespace
-    line = line:gsub('%s*[;#].*$', ''):gsub('^%s+', ''):gsub('%s+$', '')
+    -- Trim leading and trailing spaces immediately using native Neovim C-binding
+    line = vim.trim(line)
 
-    -- Only evaluate the text row if it contains true, non-comment parameters properties
-    if line ~= '' then
-      local section = line:match('^%[(.+)%]$')
-      if section then
-        in_platformio_block = (section == 'platformio')
+    -- STAGE 1 GUARD: If the line starts with a comment character or is blank, skip it immediately!
+    -- This guarantees lines like ';[env:seeed_xiao_esp32c3]' are wiped instantly
+    if line ~= '' and not line:match('^[;#]') then
 
-        local env_name = section:match('^env:(.+)')
-        if env_name then
-          valid_envs[env_name] = true
+      -- STAGE 2: Strip out any inline trailing comments (e.g., 'default_envs = uno ; comment')
+      line = line:gsub('%s*[;#].*$', '')
+      line = vim.trim(line) -- Re-trim after stripping trailing data
+
+      if line ~= '' then
+        local section = line:match('^%[(.+)%]$')
+        if section then
+          in_platformio_block = (section == 'platformio')
+
+          local env_name = section:match('^env:(.+)')
+          if env_name then
+            valid_envs[env_name] = true
+          end
+        end
+
+        -- Capture hardware target keys (e.g. upload_port = COM3 or /dev/ttyUSB0)
+        -- if current_section and current_section:match('^env:') then
+        --   local port_val = line:match('^upload_port%s*=%s*(.+)')
+        --   if port_val then
+        --     local env_name = current_section:match('^env:(.+)')
+        --     env_ports[env_name] = port_val
+        --   end
+        -- end
+
+
+        if in_platformio_block then
+          local def = line:match('^default_envs%s*=%s*(.*)')
+          if def then
+            default_envs_raw = def
+          end
         end
       end
 
-    -- Capture hardware target keys (e.g. upload_port = COM3 or /dev/ttyUSB0)
-    -- if current_section and current_section:match('^env:') then
-    --   local port_val = line:match('^upload_port%s*=%s*(.+)')
-    --   if port_val then
-    --     local env_name = current_section:match('^env:(.+)')
-    --     env_ports[env_name] = port_val
-    --   end
-    -- end
-
-
-      if in_platformio_block then
-        local def = line:match('^default_envs%s*=%s*(.*)')
-        if def then
-          default_envs_raw = def
-        end
-      end
     end
   end
   -- -- Fetch physical hardware ports active right now
@@ -258,10 +268,15 @@ function M.get_active__env(from)
   -- end
 
   -- Priority 3: Ultimate JIT fallback—grab the very first valid uncommented key
+  -- If Priorities 1 & 2 fail, this ensures a predictable return instead of leaking nil stack pointers
   local first_valid = next(valid_envs)
-  OS.notify(string.format('get active_env2: %s', first_valid), 'info')
-  _G.metadata.active_env = first_valid
-  return first_valid
+  if first_valid then
+    OS.notify(string.format('get active_env2: %s', first_valid), 'info')
+    _G.metadata.active_env = first_valid
+    return first_valid
+  end
+
+  return nil
 end
 
 --INFO:
