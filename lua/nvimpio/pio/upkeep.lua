@@ -180,20 +180,23 @@ function M.get_active__env(from)
   -- local current_section = nil
   local in_platformio_block = false
 
-  -- 3. Parse lines and isolate target parameters
+
+  -- 3. Loop through lines with rigorous comment cleaning filters
   for line in vim.gsplit(content, '[\r\n]+') do
-    line = line:gsub('^%s+', ''):gsub('%s+$', '')
+    -- Strip semicolons (;) and hash (#) comments along with their leading/trailing whitespace
+    line = line:gsub('%s*[;#].*$', ''):gsub('^%s+', ''):gsub('%s+$', '')
 
-    local section = line:match('^%[(.+)%]$')
-    if section then
-      -- current_section = section
-      in_platformio_block = (section == 'platformio')
+    -- Only evaluate the text row if it contains true, non-comment parameters properties
+    if line ~= '' then
+      local section = line:match('^%[(.+)%]$')
+      if section then
+        in_platformio_block = (section == 'platformio')
 
-      local env_name = section:match('^env:(.+)')
-      if env_name then
-        valid_envs[env_name] = true
+        local env_name = section:match('^env:(.+)')
+        if env_name then
+          valid_envs[env_name] = true
+        end
       end
-    end
 
     -- Capture hardware target keys (e.g. upload_port = COM3 or /dev/ttyUSB0)
     -- if current_section and current_section:match('^env:') then
@@ -204,14 +207,15 @@ function M.get_active__env(from)
     --   end
     -- end
 
-    if in_platformio_block then
-      local def = line:match('^default_envs%s*=%s*(.*)')
-      if def then
-        default_envs_raw = def
+
+      if in_platformio_block then
+        local def = line:match('^default_envs%s*=%s*(.*)')
+        if def then
+          default_envs_raw = def
+        end
       end
     end
   end
-
   -- -- Fetch physical hardware ports active right now
   -- local connected_ports = get_connected_ports()
   -- -- Helper closure to verify if an environment matches a plugged-in USB board
@@ -223,14 +227,21 @@ function M.get_active__env(from)
   --   return connected_ports[target_port] == true
   -- end
 
+  -- 4. CRITICAL RESOLUTION: Check if the cache contains any valid environments
+  if next(valid_envs) == nil then
+    OS.notify(msg .. 'No active, uncommented environments found in platformio.ini', 'warn')
+    _G.metadata.active_env = ''
+    return nil
+  end
+
+  -- Priority 1: Keep the current active selection if it's still valid
   if _G.metadata.active_env and valid_envs[_G.metadata.active_env] then
     return _G.metadata.active_env
   end
 
-  -- 4. Evaluate explicitly specified configurations first
+  -- Priority 2: Fall back to the uncommented default_envs array parameters
   if default_envs_raw ~= '' then
     for env_name in default_envs_raw:gmatch('([^%s,]+)') do
-      -- if valid_envs[env_name] and is_physically_connected(env_name) then
       if valid_envs[env_name] then
         OS.notify(string.format('get active_env1: %s', env_name), 'info')
         _G.metadata.active_env = env_name
@@ -246,10 +257,11 @@ function M.get_active__env(from)
   --   end
   -- end
 
-  -- 6. Ultimate baseline recovery (First key parsed chronologically)
-  OS.notify(string.format('get active_env2: %s', _G.metadata.active_env), 'info')
-  _G.metadata.active_env = next(valid_envs)
-  return _G.metadata.active_env
+  -- Priority 3: Ultimate JIT fallback—grab the very first valid uncommented key
+  local first_valid = next(valid_envs)
+  OS.notify(string.format('get active_env2: %s', first_valid), 'info')
+  _G.metadata.active_env = first_valid
+  return first_valid
 end
 
 --INFO:
