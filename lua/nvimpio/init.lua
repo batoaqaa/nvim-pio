@@ -24,35 +24,23 @@ function M.setup(user_opts)
   user_opts = user_opts or {}
   M.options = vim.deepcopy(user_opts)
 
-  -- The global proxy commands are registered instantly with zero startup lag
-
   ------------------------------------------------------------------------
   -- Activation: Turn on the plugin features
   local function activate()
-    if M.isActivated then
-      return
-    end
+    if M.isActivated then return end
 
     M.isActivated = true
     vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
 
-    -- pioCheck.pioPathUpdate()
-    -- local sep = vim.fn.has('win32') == 1 and ';' or ':'
-    -- if M.config.pio.auto_update_path then
-    --   local pio_bin = pioCheck.get_bin_dir()
-    --   if vim.fn.isdirectory(pio_bin) == 1 then vim.env.PATH = pio_bin .. sep .. vim.env.PATH end
-    -- end
-
-    -- interface.validate(user_config)
-    -- M.config = vim.tbl_deep_extend('force', defConfig, user_config or {})
-    menu.buildUsserMenu(M.options)
-
+    require("nvimpio.core").initialize_full_options()
+    menu.buildUserMenu(M.options)
     require('nvimpio.pio.control').init(M.options.clangd)
   end
 
   -- INFO: Pioini
   vim.api.nvim_create_user_command('Pioinit', function()
     vim.g.platformioRootDir = vim.uv.cwd()
+    -- require("nvimpio.core").execute_init(args)
     require('nvimpio.core').ensure_toolchain_active(
       -- pioCheck.pioStatus(
       function(success)

@@ -54,7 +54,7 @@ function M.merge_menu_tree(defaults, overrides, path)
   return res
 end
 
-function M.buildUsserMenu(config)
+function M.buildUserMenu(config)
   local icon = { icon = '  ', color = 'orange' } -- Assign platformio orange icon
   local wk_table = { mode = { 'n', 'v' } }
 

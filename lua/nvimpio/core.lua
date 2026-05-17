@@ -41,9 +41,16 @@ end
 -- stylua: ignore
 function M.ensure_toolchain_active(on_success_callback, retry_counter)
   retry_counter = retry_counter or 0
-  initialize_full_options()
 
-  local base_runtime = pio.clean(main.options.pio.pio_runtime_dir)
+  -- 1. THE LIGHTWEIGHT BOOTSTRAP GATEWAY
+  -- We extract only the critical target paths using a fast, non-breaking fallback sequence.
+  -- This makes the path verifier 100% safe to run even if main.setup() hasn't executed yet!
+  local current_pio_opts = (main.options and main.options.pio) or (main.defaults and main.defaults.pio) or {}
+  local raw_runtime_dir = current_pio_opts.pio_runtime_dir
+    or (OS.is_win and (os.getenv('USERPROFILE') .. '\\.platformio') or (vim.uv.os_homedir() .. '/.platformio'))
+  local raw_storage_dir = current_pio_opts.pio_storage_dir or raw_runtime_dir
+
+  local base_runtime = pio.clean(raw_runtime_dir)
   local target_bin = pio.clean(base_runtime .. OS.folder_sep .. 'penv' .. OS.folder_sep .. OS.bin_dir)
   local verified = false
 
@@ -57,16 +64,20 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     local current_path = vim.env.PATH or ''
     local escaped_bin = main.config.pio_runtime_dir:gsub('([^%w])', '%%%1')
     if not current_path:find(escaped_bin, 1, true) then
-      local stripped_path = current_path:gsub("^" .. OS.path_sep, ""):gsub(OS.path_sep .. "$", "")
+      local stripped_path = current_path:gsub('^' .. OS.path_sep, ''):gsub(OS.path_sep .. '$', '')
       vim.env.PATH = main.config.pio_runtime_dir .. OS.path_sep .. stripped_path
     end
 
-    local final_storage = pio.clean(pio.check_ini_override() or main.options.pio.pio_storage_dir or vim.env.PLATFORMIO_CORE_DIR or base_runtime)
-    if final_storage and vim.fn.isdirectory(final_storage) == 0 then vim.fn.mkdir(final_storage, 'p') end
+    local final_storage = pio.clean(pio.check_ini_override() or raw_storage_dir or vim.env.PLATFORMIO_CORE_DIR or base_runtime)
+    if final_storage and vim.fn.isdirectory(final_storage) == 0 then
+      vim.fn.mkdir(final_storage, 'p')
+    end
     vim.env.PLATFORMIO_CORE_DIR = final_storage
     main.config.pio_storage_dir = final_storage
 
-    if type(on_success_callback) == 'function' then on_success_callback(true) end
+    if type(on_success_callback) == 'function' then
+      on_success_callback(true)
+    end
   else
     if retry_counter >= 1 then
       return vim.schedule(function()
@@ -77,23 +88,80 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
       if vim.fn.confirm('PlatformIO not found. Install?', '&Yes\n&No', 1) == 1 then
         local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
         if ok then
-          -- M.pioPathUpdate()
           installer.pioInstall(base_runtime, function(_)
             M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
           end)
         else
           OS.notify('Installer missing', 'error')
-          if type(on_success_callback) == 'function' then on_success_callback(false) end
+          if type(on_success_callback) == 'function' then
+            on_success_callback(false)
+          end
         end
       else
         OS.notify('PlatformIO execution aborted: Missing required toolchains.', 'warn')
-        if type(on_success_callback) == 'function' then on_success_callback(false) end
+        if type(on_success_callback) == 'function' then
+          on_success_callback(false)
+        end
       end
     end)
   end
+
+  -- retry_counter = retry_counter or 0
+  -- initialize_full_options()
+  --
+  -- local base_runtime = pio.clean(main.options.pio.pio_runtime_dir)
+  -- local target_bin = pio.clean(base_runtime .. OS.folder_sep .. 'penv' .. OS.folder_sep .. OS.bin_dir)
+  -- local verified = false
+  --
+  -- local local_pio_executable = target_bin .. OS.folder_sep .. (OS.is_win and 'pio.exe' or 'pio')
+  -- if vim.fn.executable(local_pio_executable) == 1 then
+  --   main.config.pio_runtime_dir = target_bin
+  --   verified = true
+  -- end
+  --
+  -- if verified then
+  --   local current_path = vim.env.PATH or ''
+  --   local escaped_bin = main.config.pio_runtime_dir:gsub('([^%w])', '%%%1')
+  --   if not current_path:find(escaped_bin, 1, true) then
+  --     local stripped_path = current_path:gsub("^" .. OS.path_sep, ""):gsub(OS.path_sep .. "$", "")
+  --     vim.env.PATH = main.config.pio_runtime_dir .. OS.path_sep .. stripped_path
+  --   end
+  --
+  --   local final_storage = pio.clean(pio.check_ini_override() or main.options.pio.pio_storage_dir or vim.env.PLATFORMIO_CORE_DIR or base_runtime)
+  --   if final_storage and vim.fn.isdirectory(final_storage) == 0 then vim.fn.mkdir(final_storage, 'p') end
+  --   vim.env.PLATFORMIO_CORE_DIR = final_storage
+  --   main.config.pio_storage_dir = final_storage
+  --
+  --   if type(on_success_callback) == 'function' then on_success_callback(true) end
+  -- else
+  --   if retry_counter >= 1 then
+  --     return vim.schedule(function()
+  --       vim.notify("PlatformIO installation completed but the 'pio' executable remains missing. Check your system logs.", vim.log.levels.ERROR)
+  --     end)
+  --   end
+  --   vim.schedule(function()
+  --     if vim.fn.confirm('PlatformIO not found. Install?', '&Yes\n&No', 1) == 1 then
+  --       local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
+  --       if ok then
+  --         -- M.pioPathUpdate()
+  --         installer.pioInstall(base_runtime, function(_)
+  --           M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
+  --         end)
+  --       else
+  --         OS.notify('Installer missing', 'error')
+  --         if type(on_success_callback) == 'function' then on_success_callback(false) end
+  --       end
+  --     else
+  --       OS.notify('PlatformIO execution aborted: Missing required toolchains.', 'warn')
+  --       if type(on_success_callback) == 'function' then on_success_callback(false) end
+  --     end
+  --   end)
+  -- end
 end
 
 function M.execute_cmd_clean(target_command)
+  initialize_full_options()
+
   local status, ToggleTerm = pcall(require, 'toggleterm.terminal')
   if not status then
     return vim.notify('ToggleTerm is required but missing.', 4)
