@@ -115,8 +115,6 @@ end
 --------------------------------------------------------------------------------
 --- stylua: ignore
 function M.restart()
-  print('restart')
-  -- vim.schedule_wrap(function()
   local name = 'clangd'
   OS.notify('LSP: Clangd restart.', 'warn')
 
@@ -127,7 +125,6 @@ function M.restart()
   vim.lsp.enable(name, true)
   vim.cmd('checktime')
   _G.metadata.isBusy = false
-  -- end)
 end
 
 
