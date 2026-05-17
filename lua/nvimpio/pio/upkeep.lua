@@ -769,7 +769,6 @@ end
 function M.handlePioinitDb(result, board, on_done)
   local active_env
   if result == 'INIT' then
-    active_env = M.get_active__env('PIO init+db: ')
     -- OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
     if #M.queue > 0 then
       _G.metadata.isBusy = true
@@ -778,6 +777,7 @@ function M.handlePioinitDb(result, board, on_done)
       boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
 
       trm = term.ToggleTerminal(pop(M.queue), 'float')
+    active_env = M.get_active__env('PIO init+db: ')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
