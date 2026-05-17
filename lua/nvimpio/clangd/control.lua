@@ -177,7 +177,9 @@ end
 -- INFO: get_clangd_unknown_args
 -- stylua: ignore
 --------------------------------------------------------------------------------
-function M.getUnknownArgs()
+---@param from string
+function M.getUnknownArgs(from)
+  from = (type(from)=='string' and from ~= '') and from or 'PIO: '
   -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
   boilerplate.args = {}
 
@@ -190,7 +192,7 @@ function M.getUnknownArgs()
   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
 
   if not check_file then
-    print('No source file found to check.')
+    OS.notify(from .. ' No source file found to check.', 'info')
     return
   end
 
@@ -212,7 +214,7 @@ function M.getUnknownArgs()
         boilerplate.args = args_table
         boilerplate_gen('.clangd', vim.g.platformioRootDir)
 
-        OS.notify('Clangd: ✅Extracted ' .. #args_table .. ' flags.')
+        OS.notify(from .. ' Clangd: ✅Extracted ' .. #args_table .. ' flags.')
         M.restart()
       end)
     end)

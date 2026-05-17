@@ -154,7 +154,7 @@ function M.start_watchers()
               misc.notify('PIO platformio.ini change: compiledb update Success', 'info')
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function()
-                clangd.getUnknownArgs()
+                clangd.getUnknownArgs('PIO platformio.ini  change: ')
                 self.isBusy = false
                 if _G.metadata then _G.metadata.isBusy = false end
                 -- clangdRestart()
@@ -218,7 +218,7 @@ function M.init(clangd_config)
     local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
     pio_refresh(function()
       boilerplate.core_dir = _G.metadata.core_dir
-      clangd.getUnknownArgs()
+      clangd.getUnknownArgs('PIO start: ')
       boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
       _G.metadata.isBusy = false
     end, 'PIO start: ')

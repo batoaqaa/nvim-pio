@@ -827,7 +827,7 @@ function M.handlePioinitDb(result, board, on_done)
     OS.notify('PIO init+db: Done', "info")
     M.pio_refresh(function()
       if on_done and type(on_done) == "function" then on_done(true)
-      else clangd.getUnknownArgs() end
+      else clangd.getUnknownArgs('PIO init+db: ') end
       boilerplate.core_dir = _G.metadata.core_dir
     end, 'PIO init+db: ')
     if trm then trm:close() end
@@ -914,7 +914,7 @@ function M.handlePioDB(result)
     vim.schedule(function()
       OS.notify('PIO compiledb: Done', "info")
       M.pio_refresh(function()
-        clangd.getUnknownArgs()
+        clangd.getUnknownArgs('PIO compiledb: ')
         boilerplate.core_dir = _G.metadata.core_dir
       end, 'PIO compiledb: ')
     end)
@@ -944,7 +944,7 @@ function M.handlePiolib(result)
     vim.schedule(function()
       OS.notify('PIO lib+db: Done', "info")
       M.pio_refresh(function()
-        clangd.getUnknownArgs()
+        clangd.getUnknownArgs('PIO lib+db: ')
       end, 'PIO lib+db: ')
     end)
     if trm then trm:close() end
