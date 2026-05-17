@@ -229,6 +229,7 @@ function M.get_active__env(from)
       -- if valid_envs[env_name] and is_physically_connected(env_name) then
       if valid_envs[env_name] then
         _G.metadata.active_env = env_name
+        OS.notify(string.format('get active_env: %s', env_name), 'info')
         return env_name
       end
     end
@@ -388,6 +389,7 @@ function M.fetch_config(on_done, from)
         end
       end
       meta.active_env = active_env
+      OS.notify(string.format('fetch_config active_env: %s', active_env), 'info')
       -- M.updateDefaultEnv()
 
       -- 5. Resolve Paths (INI -> Env -> Default)
@@ -830,7 +832,10 @@ function M.handlePioinitDb(result, board, on_done)
       if on_done and type(on_done) == "function" then on_done(true)
       -- else clangd.getUnknownArgs('PIO init+db: ')
       end
-      if not active_env or (active_env ~= board) then _G.metadata.active_env = board end
+      if not active_env or (active_env ~= board) then
+        _G.metadata.active_env = board
+        OS.notify(string.format('PIO init+db active_env: %s', board), 'info')
+      end
       boilerplate.core_dir = _G.metadata.core_dir
     end, 'PIO init+db: ')
     if trm then trm:close() end

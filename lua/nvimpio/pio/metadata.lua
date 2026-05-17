@@ -188,13 +188,14 @@ function M.switch_env()
     if choice then
       -- Update active environment
       _G.metadata.active_env = choice
+      OS.notify(string.format('Switched active_env: %s', choice), 'info')
 
       -- 4. Persist change to disk (silently)
       M.save_project_config(true)
 
       -- 5. Notify the user with the new board info
       local board = _G.metadata.envs[choice].board or 'unknown'
-      vim.notify(string.format('Switched to %s\nBoard: %s', choice, board), vim.log.levels.INFO, { title = 'PlatformIO' })
+      OS.notify(string.format('Switched to %s\nBoard: %s', choice, board), 'info')
 
       -- 6. RESTART LSP (Crucial for refreshing includes/defines)
       -- We wrap in pcall in case clangd isn't actually running yet
