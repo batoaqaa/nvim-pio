@@ -18,72 +18,88 @@ function M.select_env_picker()
   local finders = require('telescope.finders')
   local actions = require('telescope.actions')
   local action_state = require('telescope.actions.state')
+  local conf = require('telescope.config').values
 
-  -- Define a tight, small dropdown configuration targeting the dead center
-  local theme = require('telescope.themes').get_dropdown({
-    borderchars = {
-      prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' }, -- Empty spacer boundary
-      results = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' }, -- Seamless rounded dialogue card
-      preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
-    },
-    layout_config = {
-      width = 35,
-      height = #envs + 1, -- Tight structural bounding box height matching the element list size
-    },
-    sorting_strategy = 'ascending',
-    selection_caret = '❯ ',
-    entry_prefix = '  ',
-  })
+  -- 1. FORCE THE WINDOW OPEN: Explicit dimensions prevent layout collapse bugs
+  local height_padding = #envs + 2
+  local win_height = math.max(height_padding, 4) -- Enforce a minimum safe sizing envelope
 
-  -- Build the picker
-  local picker = pickers.new(theme, {
-    prompt_title = false, -- 1. DISMISS THE SEARCH HEADER TEXT LINE ENTIRELY
-    initial_mode = 'normal', -- 2. FORCE NORMAL MODE INITIALLY (Disables terminal prompt typing)
+  pickers
+    .new({}, {
+      prompt_title = 'Select Environment', -- Keeping a structural title anchors the window constraints
+      initial_mode = 'normal', -- Blocks command bar typing inputs natively
+      sorting_strategy = 'ascending', -- Keeps rows ordered from top to bottom
 
-    finder = finders.new_table({
-      results = envs,
-      entry_maker = function(name)
-        -- 3. UNIFORM FONT RADIO ICONS: Perfect matching layout width alignment sizes
-        local radio_icon = (name == current_active) and '  ' or '  '
-        return {
-          value = name,
-          display = radio_icon .. name,
-          ordinal = name,
-        }
-      end,
-    }),
+      -- Centered layout specifications
+      layout_strategy = 'center',
+      layout_config = {
+        width = 42,
+        height = win_height,
+      },
 
-    attach_mappings = function(prompt_bufnr, map)
-      -- Action: Save choice and refresh layout variables instantly
-      local function make_selection()
-        local selection = action_state.get_selected_entry()
-        actions.close(prompt_bufnr)
-        if selection then
-          _G.metadata.active_env = selection.value
-          vim.cmd('redrawstatus') -- Syncs your custom statusline indicators immediately
-          OS.notify(string.format('PlatformIO active_env swapped -> %s', selection.value), 'info')
+      borderchars = {
+        prompt = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+        results = { '─', '│', '─', '│', '├', '┤', '╯', '╰' },
+        preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+      },
+
+      finder = finders.new_table({
+        results = envs,
+        entry_maker = function(name)
+          -- Find the numeric index sequence location of this item row
+          local row_num = 0
+          for i, val in ipairs(envs) do
+            if val == name then
+              row_num = i
+              break
+            end
+          end
+
+          -- 2. UNIVERSAL NERD FONT V3 ICONS: Perfectly matching structural sizing alignment
+          local radio_icon = (name == current_active) and ' ' or ' '
+
+          -- 3. DISPLAY ROW NUMBERS: Formats text row with index numbers natively on the left column
+          local display_text = string.format(' %d. %s %s', row_num, radio_icon, name)
+
+          return {
+            value = name,
+            display = display_text,
+            ordinal = name,
+          }
+        end,
+      }),
+
+      sorter = conf.generic_sorter({}),
+
+      attach_mappings = function(prompt_bufnr, map)
+        local function make_selection()
+          local selection = action_state.get_selected_entry()
+          actions.close(prompt_bufnr)
+          if selection then
+            _G.metadata.active_env = selection.value
+            vim.cmd('redrawstatus') -- Refreshes statusline visual indicators immediately
+            OS.notify(string.format('PlatformIO active_env swapped -> %s', selection.value), 'info')
+          end
         end
-      end
 
-      -- Confirm selection on standard text entry points
-      map('n', '<CR>', make_selection)
-      map('n', '<Space>', make_selection)
+        -- Map traditional confirmation keys
+        map('n', '<CR>', make_selection)
+        map('n', '<Space>', make_selection)
 
-      -- 4. NUMBER SHORTCUT BINDINGS: Typing '1', '2', or '3' selects that list row item JIT!
-      for idx = 1, math.min(#envs, 9) do
-        map('n', tostring(idx), function()
-          -- Set the internal window cursor row to match the typed hotkey index offset
-          pcall(vim.api.nvim_win_set_cursor, 0, { idx, 0 })
-          make_selection()
-        end)
-      end
+        -- 4. DYNAMIC NUMBER HOTKEY ROUTING MUX: Typing '1', '2' triggers immediate selection shifts
+        for idx = 1, math.min(#envs, 9) do
+          map('n', tostring(idx), function()
+            -- Use Telescope's internal state controllers to move the selection pointer safely
+            local picker_instance = action_state.get_current_picker(prompt_bufnr)
+            picker_instance:set_selection(idx - 1) -- Telescope selection array indexing is 0-based
+            make_selection()
+          end)
+        end
 
-      return true
-    end,
-  })
-
-  -- Launch the floating radio dialog box menu frame
-  picker:find()
+        return true
+      end,
+    })
+    :find()
 end
 
 return M
