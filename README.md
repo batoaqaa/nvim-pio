@@ -207,6 +207,12 @@ require('lualine').setup({
 })
 ```
 
+### native statusline
+
+```lua
+vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_string()}")
+```
+
 ### Lazy loading
 
 It's possible to lazy load the plugin using Lazy.nvim, this will load the plugins only when it is needed, to enable lazy loading, add this plugin spec to your config.
