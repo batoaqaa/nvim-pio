@@ -9,102 +9,48 @@ function M.select_env_picker()
     return
   end
 
-  -- 2. Extract and sort environment board strings cleanly
+  -- 2. Sort environment names cleanly
   local envs = {}
   for name, _ in pairs(_G.metadata.envs) do
     table.insert(envs, name)
   end
   table.sort(envs)
 
-  local pickers = require('telescope.pickers')
-  local finders = require('telescope.finders')
-  local actions = require('telescope.actions')
-  local action_state = require('telescope.actions.state')
-  local conf = require('telescope.config').values
+  -- 3. Format the display array with clear number rows and un-breaking text brackets
+  local items = {}
+  for idx, name in ipairs(envs) do
+    local checkbox = (name == current_active) and '[x]' or '[ ]'
+    table.insert(items, { word = string.format(' %d. %s %s ', idx, checkbox, name) })
+  end
 
-  -- Calculate precise bounded scaling geometry based on list length parameters
-  local calculated_height = #envs + 2
-  local win_height = math.max(calculated_height, 4)
+  -- 4. Calculate dead-center coordinates based on terminal window dimensions
+  local ui = vim.api.nvim_list_uis()[1]
+  if not ui then
+    return
+  end
+  local width = 36
+  local row = math.floor((ui.height - #envs) / 2)
+  local col = math.floor((ui.width - width) / 2)
 
-  -- 3. INSTANTIATE THE PICKER WINDOW CORE
-  pickers
-    .new({}, {
-      prompt_title = 'Select Target Environment',
-      initial_mode = 'normal', -- Disables terminal input text typing completely
-      sorting_strategy = 'ascending', -- Keeps elements sorted from top to bottom
-      layout_strategy = 'center', -- Forces dialog box to the dead center of the screen
-
-      -- THE FIX FOR COLLAPSING: Geometry parameters must reside inside the explicit strategy key!
-      layout_config = {
-        center = {
-          width = 42,
-          height = win_height, -- Tells Telescope exactly how many rows to display
-        },
-      },
-
-      borderchars = {
-        prompt = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
-        results = { '─', '│', '─', '│', '├', '┤', '╯', '╰' },
-        preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
-      },
-
-      finder = finders.new_table({
-        results = envs,
-        entry_maker = function(name)
-          -- Identify the numeric index rank location of this item row segment
-          local row_num = 0
-          for i, val in ipairs(envs) do
-            if val == name then
-              row_num = i
-              break
-            end
-          end
-
-          -- Nerd Font V3 icons that feature exactly matching width alignments
-          local radio_icon = (name == current_active) and ' ' or ' '
-
-          -- Formats index selection numbers cleanly onto the left column row text
-          local display_text = string.format(' %d. %s %s', row_num, radio_icon, name)
-
-          return {
-            value = name,
-            display = display_text,
-            ordinal = name,
-          }
-        end,
-      }),
-
-      sorter = conf.generic_sorter({}),
-
-      attach_mappings = function(prompt_bufnr, map)
-        local function make_selection()
-          local selection = action_state.get_selected_entry()
-          actions.close(prompt_bufnr)
-          if selection then
-            _G.metadata.active_env = selection.value
-            vim.cmd('redrawstatus') -- Instantly redraws your statusline indicators
-            OS.notify(string.format('PlatformIO active_env swapped -> %s', selection.value), 'info')
-          end
-        end
-
-        -- Action: Map traditional navigation confirmation keys
-        map('n', '<CR>', make_selection)
-        map('n', '<Space>', make_selection)
-
-        -- 4. NUMBER KEY MAP ROUTER: Direct binding map for '1' through '9' choices
-        for idx = 1, math.min(#envs, 9) do
-          map('n', tostring(idx), function()
-            local picker_instance = action_state.get_current_picker(prompt_bufnr)
-            -- Move Telescope's internal focus selection state array index pointer (0-based)
-            picker_instance:set_selection(idx - 1)
-            make_selection()
-          end)
-        end
-
-        return true
-      end,
-    })
-    :find()
+  -- 5. Open Neovim's native floating selection popup panel instantly!
+  -- This forces a clean, centered GUI card without any sizing collapse bugs.
+  vim.api.nvim_select_popupmenu(items, {
+    height = #envs,
+    width = width,
+    row = row,
+    col = col,
+    kind = 'nvimpio_menu',
+  }, function(selected_idx)
+    -- This execution callback triggers when an option row is accepted
+    if selected_idx and selected_idx > 0 then
+      local chosen_env = envs[selected_idx]
+      if chosen_env then
+        _G.metadata.active_env = chosen_env
+        vim.cmd('redrawstatus') -- Instantly redraws your statusline indicators
+        OS.notify(string.format('PlatformIO active_env swapped -> %s', chosen_env), 'info')
+      end
+    end
+  end)
 end
 
 return M
