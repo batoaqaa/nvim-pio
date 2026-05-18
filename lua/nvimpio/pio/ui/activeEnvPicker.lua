@@ -8,38 +8,93 @@ function M.select_env_picker()
     return
   end
 
-  -- 1. Gather all environment names cleanly
   local envs = {}
   for name, _ in pairs(_G.metadata.envs) do
     table.insert(envs, name)
   end
   table.sort(envs)
 
-  -- 2. Define a tiny, centered dropdown window config layout
-  local tiny_window = require('telescope.themes').get_dropdown({
-    prompt_prefix = ' ', -- Blank out the search prompt icon to look like a simple window
-    layout_config = { width = 35, height = #envs + 2 }, -- Force it small and narrow
+  -- 1. Use an explicit, styled GUI block configuration
+  local gui_dialog = require('telescope.themes').get_dropdown({
+    -- Hide structural line text prompts entirely to look like a small window card
+    prompt_prefix = '   ',
+    selection_caret = ' ❯ ',
+
+    -- Force a small, square dialogue geometry in the dead center
+    layout_strategy = 'center',
+    layout_config = {
+      width = 32,
+      height = #envs + 2,
+    },
+
+    -- Strip out top line prompt structures so it acts purely as a selector list
+    borderchars = {
+      prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+      results = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+      preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+    },
   })
 
-  -- 3. Leverage Neovim's selection core with native radio format parameters
+  -- 2. Pass to the selection core with explicit checkbox decoration properties
   vim.ui.select(envs, {
-    prompt = 'Select Target Environment',
+    prompt = 'Select Environment Target',
     kind = 'nvimpio_env_selector',
     format_item = function(name)
-      -- Simple Radio Button UI decoration row
+      -- Renders as stylized radio buttons [●] or [○]
       return (name == current_active) and (' [●] ' .. name) or (' [○] ' .. name)
     end,
-    telescope = tiny_window,
+    telescope = gui_dialog,
   }, function(choice)
     if choice then
       _G.metadata.active_env = choice
-      vim.cmd('redrawstatus') -- Instantly swap your statusline radio buttons
+      vim.cmd('redrawstatus') -- Instantly updates your statusline indicators
       OS.notify(string.format('Swapped to -> %s', choice), 'info')
     end
   end)
 end
 
 return M
+
+-- local M = {}
+--
+-- function M.select_env_picker()
+--   local current_active = pio.get_active_env('UI Picker: ')
+--   if not current_active or not _G.metadata or not _G.metadata.envs then
+--     return
+--   end
+--
+--   -- 1. Gather all environment names cleanly
+--   local envs = {}
+--   for name, _ in pairs(_G.metadata.envs) do
+--     table.insert(envs, name)
+--   end
+--   table.sort(envs)
+--
+--   -- 2. Define a tiny, centered dropdown window config layout
+--   local tiny_window = require('telescope.themes').get_dropdown({
+--     prompt_prefix = ' ', -- Blank out the search prompt icon to look like a simple window
+--     layout_config = { width = 35, height = #envs + 2 }, -- Force it small and narrow
+--   })
+--
+--   -- 3. Leverage Neovim's selection core with native radio format parameters
+--   vim.ui.select(envs, {
+--     prompt = 'Select Target Environment',
+--     kind = 'nvimpio_env_selector',
+--     format_item = function(name)
+--       -- Simple Radio Button UI decoration row
+--       return (name == current_active) and (' [●] ' .. name) or (' [○] ' .. name)
+--     end,
+--     telescope = tiny_window,
+--   }, function(choice)
+--     if choice then
+--       _G.metadata.active_env = choice
+--       vim.cmd('redrawstatus') -- Instantly swap your statusline radio buttons
+--       OS.notify(string.format('Swapped to -> %s', choice), 'info')
+--     end
+--   end)
+-- end
+--
+-- return M
 
 -- local pio = require('nvimpio.pio.upkeep')
 --
