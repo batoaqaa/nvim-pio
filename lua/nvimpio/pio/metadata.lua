@@ -111,7 +111,7 @@ _G.metadata = setmetatable({}, {
                 require('nvimpio.clangd.control').getUnknownArgs('active_env change: ')
                 if _G.metadata then _G.metadata.isBusy = false end
                 -- clangdRestart()
-              end, 'active_env change: ')
+              end, from)
             else
               local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
               OS.notify(string.format('%sBuild Failed %s',from, err), 'error')
