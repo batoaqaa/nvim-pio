@@ -48,7 +48,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   local current_pio_opts = (main.options and main.options.pio) or (main.defaults and main.defaults.pio) or {}
   local raw_runtime_dir = current_pio_opts.pio_runtime_dir
     or (OS.is_win and (os.getenv('USERPROFILE') .. '\\.platformio') or (vim.uv.os_homedir() .. '/.platformio'))
-  local raw_storage_dir = current_pio_opts.pio_storage_dir or raw_runtime_dir
+  local raw_storage_dir = current_pio_opts.pio_storage_dir or vim.env.PLATFORMIO_CORE_DIR or raw_runtime_dir
 
   local base_runtime = pio.clean(raw_runtime_dir)
   local target_bin = pio.clean(base_runtime .. OS.folder_sep .. 'penv' .. OS.folder_sep .. OS.bin_dir)
@@ -68,7 +68,8 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
       vim.env.PATH = main.config.pio_runtime_dir .. OS.path_sep .. stripped_path
     end
 
-    local final_storage = pio.clean(pio.check_ini_override() or raw_storage_dir or vim.env.PLATFORMIO_CORE_DIR or base_runtime)
+    -- local final_storage = pio.clean(pio.check_ini_override() or raw_storage_dir or vim.env.PLATFORMIO_CORE_DIR or base_runtime)
+    local final_storage = raw_storage_dir
     if final_storage and vim.fn.isdirectory(final_storage) == 0 then
       vim.fn.mkdir(final_storage, 'p')
     end

@@ -18,12 +18,13 @@ if not core_dir then core_dir = vim.fs.joinpath(OS.defaultHome, '.platformio') e
 -- stylua: ignore
 ------------------------------------------------------
 function M.get_pio_bin_dir()
-  -- 3. Use 'Scripts' for Windows and 'bin' for Unix-like systems
-  local bin_subfolder = OS.is_win and 'penv/Scripts' or 'penv/bin'
-
-  -- Normalize the path to handle mix of '/' and '\' on Windows
-  local full_path = vim.fs.joinpath(core_dir, bin_subfolder)
-  return full_path
+  -- -- 3. Use 'Scripts' for Windows and 'bin' for Unix-like systems
+  -- local bin_subfolder = OS.is_win and 'penv/Scripts' or 'penv/bin'
+  --
+  -- -- Normalize the path to handle mix of '/' and '\' on Windows
+  -- local full_path = vim.fs.joinpath(core_dir, bin_subfolder)
+  -- return full_path
+  return require('nvimpio').config.pio_runtime_dir
 end
 
 --INFO: Verify PIO version
@@ -39,82 +40,52 @@ function M.verify_version()
 end
 
 
--- stylua: ignore
-function M.check_ini_override()
-  local ini_file = vim.uv.cwd() .. OS.folder_sep .. 'platformio.ini'
-  if vim.fn.filereadable(ini_file) == 0 then return nil end
-
-  local in_platformio_section = false
-
-  for _, line in ipairs(vim.fn.readfile(ini_file)) do
-    local clean = line:lower():gsub('%s+', '') -- Strip whitespace & normalize casing
-
-    if clean:match('^%[platformio%]$') then in_platformio_section = true
-    elseif clean:match('^%[.*%]$') then in_platformio_section = false
-    elseif in_platformio_section and clean:match('^core_dir=') then return line:match('=%s*(.-)%s*$') end
-  end
-  return nil
-end
-
-
-
+-- -- stylua: ignore
+-- function M.check_ini_override()
+--   local ini_file = vim.uv.cwd() .. OS.folder_sep .. 'platformio.ini'
+--   if vim.fn.filereadable(ini_file) == 0 then return nil end
+--
+--   local in_platformio_section = false
+--
+--   for _, line in ipairs(vim.fn.readfile(ini_file)) do
+--     local clean = line:lower():gsub('%s+', '') -- Strip whitespace & normalize casing
+--
+--     if clean:match('^%[platformio%]$') then in_platformio_section = true
+--     elseif clean:match('^%[.*%]$') then in_platformio_section = false
+--     elseif in_platformio_section and clean:match('^core_dir=') then return line:match('=%s*(.-)%s*$') end
+--   end
+--   return nil
+-- end
+--
+--
+--
 
 
 
 
 
 --------------------------------------------------------------------------------
-function M.get_bin_dir()
-  local core_dir = os.getenv('PLATFORMIO_CORE_DIR') or vim.fs.joinpath(OS.defaultHome, '.platformio')
-  local bin_subfolder = OS.is_win and 'penv/Scripts' or 'penv/bin'
-  local pio_bin = vim.fs.joinpath(core_dir, bin_subfolder)
-  return pio_bin
-end
-
---INFO:
--- stylua: ignore start
--------------------------------------------------------------------------------
-function M.removeFromPath(path_to_remove)
-  if not path_to_remove or path_to_remove == '' then return end
-
-  -- 1. Standardize the path we want to delete using Neovim's built-in normalizer
-  local target_clean = vim.fs.normalize(path_to_remove)
-  if OS.is_win then target_clean = target_clean:lower() end
-
-  -- 2. Split the active system PATH string into a clean list array
-  local active_paths = vim.split(vim.env.PATH or '', OS.path_sep, { trimempty = true })
-
-  -- 3. Filter the array using normalized cross-platform validations
-  local preserved_paths = vim.tbl_filter(function(path_segment)
-    -- Normalize the current segment we are checking from the system array
-    local segment_clean = vim.fs.normalize(path_segment)
-
-    -- Windows paths are completely case-insensitive; force lowercase to prevent
-    -- 'C:\' vs 'c:\' drive letter mismatch bugs from bypassing the filter!
-    if OS.is_win then segment_clean = segment_clean:lower() end
-
-    -- Return true ONLY if this system path does NOT match our target path
-    return segment_clean ~= target_clean
-  end, active_paths)
-
-  -- 4. Rejoin the array and update Neovim's active process environment context instantly
-  vim.env.PATH = table.concat(preserved_paths, OS.path_sep)
-end
-
-function M.pioPathUpdate()
-  local sep = OS.path_sep
-  local binPath = M.get_bin_dir()
-
-  -- Check if 'pio' binary is already visible to Neovim
-  local has_pio = vim.fn.executable("pio") == 1
-
-  if not has_pio then
-    -- vim.env.PLATFORMIO_CORE_DIR = "/root/.platformio"
-    vim.env.PATH = binPath .. sep .. vim.env.PATH
-    OS.notify('PIO env: ' .. binPath .. ' added to path', 'info')
-  end
-end
-
+-- function M.get_bin_dir()
+--   local core_dir = os.getenv('PLATFORMIO_CORE_DIR') or vim.fs.joinpath(OS.defaultHome, '.platformio')
+--   local bin_subfolder = OS.is_win and 'penv/Scripts' or 'penv/bin'
+--   local pio_bin = vim.fs.joinpath(core_dir, bin_subfolder)
+--   return pio_bin
+-- end
+--
+-- function M.pioPathUpdate()
+--   local sep = OS.path_sep
+--   local binPath = M.get_bin_dir()
+--
+--   -- Check if 'pio' binary is already visible to Neovim
+--   local has_pio = vim.fn.executable("pio") == 1
+--
+--   if not has_pio then
+--     -- vim.env.PLATFORMIO_CORE_DIR = "/root/.platformio"
+--     vim.env.PATH = binPath .. sep .. vim.env.PATH
+--     OS.notify('PIO env: ' .. binPath .. ' added to path', 'info')
+--   end
+-- end
+--
 local function finalize(success)
   M.is_running = false
   while #M.queue > 0 do

@@ -234,11 +234,8 @@ function M.get_active__env(from)
           val = vim.trim(val)
           if current_section == 'platformio' then
             platformio_vars[key] = val
-            if key == 'default_envs' then
-              default_envs_raw = val
-            end
-          elseif current_section == 'env' then
-            global_env_defaults[key] = val
+            if key == 'default_envs' then default_envs_raw = val end
+          elseif current_section == 'env' then global_env_defaults[key] = val
           elseif current_section:match('^env:') then
             local env_name = current_section:match('^env:(.+)')
             raw_envs[env_name][key] = val
@@ -251,15 +248,12 @@ function M.get_active__env(from)
   -- 3. Verify that the file actually contains hardware environment declarations
   if next(raw_envs) == nil then
     OS.notify(from .. 'No active environments found in platformio.ini', 'warn')
-    if _G.metadata then
-      _G.metadata.active_env = ''
-    end
+    if _G.metadata then _G.metadata.active_env = '' end
     return nil
   end
 
   -- 4. Initialize or clear the target global structure to mirror your requested dictionary layout
-  -- _G.metadata = _G.metadata or {}
-  _G.metadata.core_dir = interpolate_string(platformio_vars.core_dir or '', platformio_vars)
+  _G.metadata.core_dir = interpolate_string(platformio_vars.core_dir or '', platformio_vars) or require('nvimpio').config.pio_storage_dir
   _G.metadata.packages_dir = interpolate_string(platformio_vars.packages_dir or '', platformio_vars)
   _G.metadata.platforms_dir = interpolate_string(platformio_vars.platforms_dir or '', platformio_vars)
   _G.metadata.default_envs = normalize_value('default_envs', default_envs_raw)
@@ -270,14 +264,10 @@ function M.get_active__env(from)
     _G.metadata.envs[env_name] = {}
 
     -- Load base properties from common [env] section
-    for k, v in pairs(global_env_defaults) do
-      _G.metadata.envs[env_name][k] = v
-    end
+    for k, v in pairs(global_env_defaults) do _G.metadata.envs[env_name][k] = v end
 
     -- Overwrite with specific target board variables
-    for k, v in pairs(local_pairs) do
-      _G.metadata.envs[env_name][k] = v
-    end
+    for k, v in pairs(local_pairs) do _G.metadata.envs[env_name][k] = v end
 
     -- Interpolate string values and convert to proper data types (Lists, Numbers)
     for k, v in pairs(_G.metadata.envs[env_name]) do
@@ -333,7 +323,8 @@ function M.pio_refresh(callback, from)
     if active_env then OS.notify(msg .. 'active_env= ' .. active_env, "info") end
     if active_env then M.fetch_metadata(callback, active_env, from, 1) end
   end
-  on_done(_G.metadata.active_env)
+  -- on_done(_G.metadata.active_env)
+  on_done(M.get_active__env(from))
   -- M.fetch_config(on_done, from)
 end
 
@@ -342,104 +333,104 @@ end
 -- Get project configuration
 -- =============================================================================
 -- stylua: ignore
-function M.fetch_config(on_done, from)
-  local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
-  local meta = _G.metadata
-
-  local active_env
-  vim.system({ 'pio', 'project', 'config', '--json-output' }, { text = true }, function(obj)
-    vim.schedule(function()
-      -- 1. Check Execution
-      if obj.code ~= 0 then
-        local errmsg = obj.code == 127 and "'pio' not found" or (obj.stderr or 'Unknown Error')
-        return OS.notify(msg .. 'Config Error: ' .. errmsg, "error")
-      end
-
-      -- 2. Decode JSON safely
-      local ok, decoded = pcall(vim.json.decode, obj.stdout or '')
-      if not ok or type(decoded) ~= 'table' then
-        return OS.notify(msg .. 'Failed to decode config JSON', "error")
-      end
-
-      -- local formated = misc.jsonFormat(decoded)
-      -- local file = misc.joinPath(vim.uv.cwd(), 'config.json')
-      -- misc.writeFile(file, formated, {})
-
-      -- Reset core structure
-      meta.envs = {}
-      meta.default_envs = {}
-      local valid_envs = {}
-
-      -- 3. Parse Sections
-      for _, section in ipairs(decoded) do
-        local name, data = section[1], section[2]
-        if name == 'platformio' then
-          for _, kv in ipairs(data) do
-            meta[kv[1]] = kv[2]
-          end
-        elseif name:match('^env:') then
-          local env_name = name:match('^env:(.+)')
-          if not active_env then active_env = env_name end
-          valid_envs[env_name] = true
-          meta.envs[env_name] = {}
-          for _, kv in ipairs(data) do
-            meta.envs[env_name][kv[1]] = kv[2]
-          end
-        end
-      end
-
-      -- 4. Assign active_env
-      -- Validation: Find the first default_env that actually exists as a block
-      for _, env_name in ipairs(meta.default_envs) do
-        if valid_envs[env_name] then
-          active_env = env_name
-          break
-        end
-      end
-
-      -- ....
-      if valid_envs[meta.active_env] then
-        active_env = meta.active_env
-      else
-        -- OS.notify(msg .. string.format(' fetch_config active_env: %s', active_env), 'info')
-        meta.active_env = active_env
-      end
-
-      -- M.updateDefaultEnv()
-
-      -- 5. Resolve Paths (INI -> Env -> Default)
-      local path_map = {
-        { key = 'core_dir', env = 'PLATFORMIO_CORE_DIR', sub = '/.platformio' },
-        { key = 'packages_dir', env = 'PLATFORMIO_PACKAGES_DIR', sub = '/.platformio/packages' },
-        { key = 'platforms_dir', env = 'PLATFORMIO_PLATFORMS_DIR', sub = '/.platformio/platforms' },
-      }
-
-      for _, item in ipairs(path_map) do
-        local val = meta[item.key]
-        -- Fallback chain
-        if not val or val == '' then
-          val = os.getenv(item.env) or (OS.defaultHome .. item.sub)
-        end
-        -- Expand variables and Normalize
-        if type(val) == 'string' then
-          val = val:gsub('%%${platformio.core_dir}', meta.core_dir or '')
-          meta[item.key] = misc.normalizePath(val)
-        end
-      end
-
-      -- 6. Trigger next step
-      if meta.active_env ~= '' then
-        OS.notify(msg .. 'Config sync successful', "info")
-      else
-        OS.notify(msg .. 'No [env:] found. Please add a board.', "error")
-      end
-
-      if on_done then
-        vim.schedule(function() on_done(active_env) end)
-      end
-    end)
-  end)
-end
+-- function M.fetch_config(on_done, from)
+--   local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
+--   local meta = _G.metadata
+--
+--   local active_env
+--   vim.system({ 'pio', 'project', 'config', '--json-output' }, { text = true }, function(obj)
+--     vim.schedule(function()
+--       -- 1. Check Execution
+--       if obj.code ~= 0 then
+--         local errmsg = obj.code == 127 and "'pio' not found" or (obj.stderr or 'Unknown Error')
+--         return OS.notify(msg .. 'Config Error: ' .. errmsg, "error")
+--       end
+--
+--       -- 2. Decode JSON safely
+--       local ok, decoded = pcall(vim.json.decode, obj.stdout or '')
+--       if not ok or type(decoded) ~= 'table' then
+--         return OS.notify(msg .. 'Failed to decode config JSON', "error")
+--       end
+--
+--       -- local formated = misc.jsonFormat(decoded)
+--       -- local file = misc.joinPath(vim.uv.cwd(), 'config.json')
+--       -- misc.writeFile(file, formated, {})
+--
+--       -- Reset core structure
+--       meta.envs = {}
+--       meta.default_envs = {}
+--       local valid_envs = {}
+--
+--       -- 3. Parse Sections
+--       for _, section in ipairs(decoded) do
+--         local name, data = section[1], section[2]
+--         if name == 'platformio' then
+--           for _, kv in ipairs(data) do
+--             meta[kv[1]] = kv[2]
+--           end
+--         elseif name:match('^env:') then
+--           local env_name = name:match('^env:(.+)')
+--           if not active_env then active_env = env_name end
+--           valid_envs[env_name] = true
+--           meta.envs[env_name] = {}
+--           for _, kv in ipairs(data) do
+--             meta.envs[env_name][kv[1]] = kv[2]
+--           end
+--         end
+--       end
+--
+--       -- 4. Assign active_env
+--       -- Validation: Find the first default_env that actually exists as a block
+--       for _, env_name in ipairs(meta.default_envs) do
+--         if valid_envs[env_name] then
+--           active_env = env_name
+--           break
+--         end
+--       end
+--
+--       -- ....
+--       if valid_envs[meta.active_env] then
+--         active_env = meta.active_env
+--       else
+--         -- OS.notify(msg .. string.format(' fetch_config active_env: %s', active_env), 'info')
+--         meta.active_env = active_env
+--       end
+--
+--       -- M.updateDefaultEnv()
+--
+--       -- 5. Resolve Paths (INI -> Env -> Default)
+--       local path_map = {
+--         { key = 'core_dir', env = 'PLATFORMIO_CORE_DIR', sub = '/.platformio' },
+--         { key = 'packages_dir', env = 'PLATFORMIO_PACKAGES_DIR', sub = '/.platformio/packages' },
+--         { key = 'platforms_dir', env = 'PLATFORMIO_PLATFORMS_DIR', sub = '/.platformio/platforms' },
+--       }
+--
+--       for _, item in ipairs(path_map) do
+--         local val = meta[item.key]
+--         -- Fallback chain
+--         if not val or val == '' then
+--           val = os.getenv(item.env) or (OS.defaultHome .. item.sub)
+--         end
+--         -- Expand variables and Normalize
+--         if type(val) == 'string' then
+--           val = val:gsub('%%${platformio.core_dir}', meta.core_dir or '')
+--           meta[item.key] = misc.normalizePath(val)
+--         end
+--       end
+--
+--       -- 6. Trigger next step
+--       if meta.active_env ~= '' then
+--         OS.notify(msg .. 'Config sync successful', "info")
+--       else
+--         OS.notify(msg .. 'No [env:] found. Please add a board.', "error")
+--       end
+--
+--       if on_done then
+--         vim.schedule(function() on_done(active_env) end)
+--       end
+--     end)
+--   end)
+-- end
 
 --INFO:
 -- get pio project metadata info
