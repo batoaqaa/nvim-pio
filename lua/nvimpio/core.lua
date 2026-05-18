@@ -1,43 +1,11 @@
 -- local pio = require('nvimpio.pioCheck')
-local val = require('nvimpio.validator')
+-- local val = require('nvimpio.validator')
 -- local menu = require('nvimpio.menu')
 -- local main = require('nvimpio') -- Reference our parent init module safely
 
 local M = {}
 
 local pio_term = nil
-
--- Private Helper: Merges user configurations with full plugin default values once triggered
--- stylua: ignore
-local function initialize_full_options()
-  local main = require("nvimpio")
-  local menu = require('nvimpio.menu')
-  if main.options and main.options.menu_bindings then return end
-
-  -- 1. Create a clean deep copy of all factory defaults
-  local primitive_defaults = vim.deepcopy(main.defaults)
-
-  -- 2. Strip out the menu bindings array so tbl_deep_extend doesn't wipe it out!
-  primitive_defaults.menu_bindings = nil
-
-  -- 3. Isolate the user's custom layout overrides
-  local user_bindings = main.options and main.options.menu_bindings
-  if main.options then main.options.menu_bindings = nil end
-
-  -- 4. Safely merge primitives on top of your public factory baseline template
-  local full_defaults = vim.tbl_deep_extend('force', primitive_defaults, main.options or {})
-  main.options = full_defaults
-
-  -- 5. Route list array combining safely through our custom merge engine
-  main.options.menu_bindings = user_bindings and menu.merge_menu_tree(main.defaults.menu_bindings, user_bindings, 'menu_bindings')
-    or vim.deepcopy(main.defaults.menu_bindings)
-
-  -- 6. Pass everything through the data type constraints validation layer
-  local ok, err = val.validate_all_options(main.options)
-  if not ok then
-    error('PlatformIO Configuration Error:\n' .. err, 0)
-  end
-end
 
 -- Verifies tracking paths and triggers the background installer loop if unpopulated
 --------------------------------------------------------------------------------
@@ -213,7 +181,7 @@ end
 function M.execute_cmd_clean(target_command)
   local main = require('nvimpio')
   local pio = require('nvimpio.pioCheck')
-  initialize_full_options()
+  main.initialize_full_options()
 
   local status, ToggleTerm = pcall(require, 'toggleterm.terminal')
   if not status then
@@ -251,7 +219,7 @@ end
 
 function M.configure_paths()
   local main = require('nvimpio')
-  initialize_full_options()
+  main.initialize_full_options()
   vim.schedule(function()
     vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir' }, function(r)
       if not r or r == '' then

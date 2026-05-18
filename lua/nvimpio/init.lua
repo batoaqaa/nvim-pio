@@ -16,6 +16,40 @@ M.options = nil -- This will hold the complete configuration table safely in mem
 M.defaults = require('nvimpio.defConfig')
 -- local pioCheck = require('nvimpio.pioCheck')
 
+-- Private Helper: Merges user configurations with full plugin default values once triggered
+-- stylua: ignore
+function M.initialize_full_options()
+  local main = require("nvimpio")
+  local menu = require('nvimpio.menu')
+  local val = require('nvimpio.validator')
+
+  if main.options and main.options.menu_bindings then return end
+
+  -- 1. Create a clean deep copy of all factory defaults
+  local primitive_defaults = vim.deepcopy(main.defaults)
+
+  -- 2. Strip out the menu bindings array so tbl_deep_extend doesn't wipe it out!
+  primitive_defaults.menu_bindings = nil
+
+  -- 3. Isolate the user's custom layout overrides
+  local user_bindings = main.options and main.options.menu_bindings
+  if main.options then main.options.menu_bindings = nil end
+
+  -- 4. Safely merge primitives on top of your public factory baseline template
+  local full_defaults = vim.tbl_deep_extend('force', primitive_defaults, main.options or {})
+  main.options = full_defaults
+
+  -- 5. Route list array combining safely through our custom merge engine
+  main.options.menu_bindings = user_bindings and menu.merge_menu_tree(main.defaults.menu_bindings, user_bindings, 'menu_bindings')
+    or vim.deepcopy(main.defaults.menu_bindings)
+
+  -- 6. Pass everything through the data type constraints validation layer
+  local ok, err = val.validate_all_options(main.options)
+  if not ok then
+    error('PlatformIO Configuration Error:\n' .. err, 0)
+  end
+end
+
 -- INFO:
 ---stylua: ignore start
 -------------------------------------------------------------------------------
@@ -29,14 +63,13 @@ function M.setup(user_opts)
     if M.isActivated then return end
 
     M.isActivated = true
-    vim.schedule(function ()
+    -- vim.schedule(function ()
       vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
-      local core = require("nvimpio.core")
-      core.initialize_full_options()
+      M.initialize_full_options()
       local menu = require('nvimpio.menu')
       menu.buildUserMenu(M.options)
       require('nvimpio.pio.control').init(M.options.clangd)
-    end)
+    -- end)
   end
 
   -- INFO: Pioini
