@@ -215,7 +215,7 @@ function M.getUnknownArgs(from)
         boilerplate.args = args_table
         boilerplate_gen('.clangd', vim.g.platformioRootDir)
 
-        OS.notify(from .. ' Clangd: ✅Extracted ' .. #args_table .. ' flags.')
+        OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
         M.restart()
       end)
     end)
