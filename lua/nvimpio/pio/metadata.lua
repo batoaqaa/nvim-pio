@@ -101,14 +101,14 @@ _G.metadata = setmetatable({}, {
 
 
         _G.metadata.isBusy = true
-        OS.notify('active_env change: compiledb update ...', 'info')
+        OS.notify(from .. 'compiledb update ...', 'info')
         vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', value }, { text = true }, function(obj)
           vim.schedule(function()
             if obj.code == 0 then
               OS.notify(from .. 'compiledb update Success', 'info')
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function()
-                require('nvimpio.clangd.control').getUnknownArgs('active_env change: ')
+                require('nvimpio.clangd.control').getUnknownArgs(from)
                 if _G.metadata then _G.metadata.isBusy = false end
                 -- clangdRestart()
               end, from)
