@@ -1,67 +1,48 @@
 local pio = require('nvimpio.pio.upkeep')
 
-local M = {}
+local function create_floating_window()
+  -- 1. Create an unlisted, scratch buffer (no file attached)
+  local buf = vim.api.nvim_create_buf(false, true)
 
-function M.select_env_picker()
-  local current_active = pio.get_active_env('UI Picker: ')
-  if not current_active or not _G.metadata or not _G.metadata.envs then
-    return
-  end
+  -- 2. Get the current editor dimensions to calculate center placement
+  local stats = vim.api.nvim_list_uis()[1]
+  local width = 60
+  local height = 10
+  local row = math.floor((stats.height - height) / 2)
+  local col = math.floor((stats.width - width) / 2)
 
-  local envs = {}
-  for name, _ in pairs(_G.metadata.envs) do
-    table.insert(envs, name)
-  end
-  table.sort(envs)
+  -- 3. Define layout parameters
+  local win_config = {
+    relative = 'editor', -- Position relative to the entire Neovim screen
+    width = width,
+    height = height,
+    row = row,
+    col = col,
+    style = 'minimal', -- Turns off line numbers, statusline, etc.
+    border = 'rounded', -- Adds a beautiful border ("single", "double", "rounded", "solid")
+    title = ' My Float ', -- Floating window header (Requires Nvim 0.9+)
+    title_pos = 'center',
+  }
 
-  -- 1. Create a tiny centered theme block WITH FIXED GEOMETRY AT FACTORY CREATION
-  local theme = require('telescope.themes').get_dropdown({
-    prompt_title = 'Select Environment',
-    layout_config = { width = 36, height = #envs + 2, prompt_position = 'top' },
+  -- 4. Open the window and focus your cursor inside it (true)
+  local win = vim.api.nvim_open_win(buf, true, win_config)
+
+  -- 5. Optional: Add text to the floating window buffer
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+    'Hello from the floating window!',
+    "Press 'q' to close this menu.",
   })
 
-  -- 2. Use Telescope's direct string list execution channel to lock window boundaries
-  require('telescope.builtin').pickers(theme, {
-    prompt_title = 'Select Target Board',
-    initial_mode = 'normal', -- Disables typing, allows arrow/number navigation instantly
-
-    finder = require('telescope.finders').new_table({
-      results = envs,
-      entry_maker = function(name)
-        local idx = vim.fn.index(envs, name) + 1
-        local checkbox = (name == current_active) and '[x]' or '[ ]' -- Font safe brackets
-        return { value = name, display = string.format(' %d. %s %s', idx, checkbox, name), ordinal = name }
-      end,
-    }),
-
-    attach_mappings = function(prompt_bufnr, map)
-      local make_selection = function()
-        local selection = require('telescope.actions.state').get_selected_entry()
-        require('telescope.actions').close(prompt_bufnr)
-        if selection then
-          _G.metadata.active_env = selection.value
-          vim.cmd('redrawstatus') -- Swaps your statusline indicators immediately
-          OS.notify(string.format('PlatformIO target swapped -> %s', selection.value), 'info')
-        end
-      end
-
-      map('n', '<CR>', make_selection)
-      map('n', '<Space>', make_selection)
-
-      -- 3. Number bindings map layout: Typing '1', '2' shifts selections instantly
-      for idx = 1, math.min(#envs, 9) do
-        map('n', tostring(idx), function()
-          require('telescope.actions.state').get_current_picker(prompt_bufnr):set_selection(idx - 1)
-          make_selection()
-        end)
-      end
-      return true
-    end,
-  })
+  -- 6. Optional: Map 'q' to instantly close only this specific window
+  vim.keymap.set('n', 'q', function()
+    if vim.api.nvim_win_is_valid(win) then
+      vim.api.nvim_win_close(win, true)
+    end
+  end, { buffer = buf, silent = true })
 end
 
-return M
-
+-- Create a user command so you can type :MyFloat to see it work
+vim.api.nvim_create_user_command('MyFloat', create_floating_window, {})
 -- local M = {}
 --
 -- function M.select_env_picker()
