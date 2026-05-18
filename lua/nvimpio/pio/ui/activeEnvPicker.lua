@@ -3,72 +3,160 @@ local pio = require('nvimpio.pio.upkeep')
 local M = {}
 
 function M.select_env_picker()
-  -- 1. Refresh active environments data structures via your engine
   local current_active = pio.get_active_env('UI Picker: ')
   if not current_active or not _G.metadata or not _G.metadata.envs then
     return
   end
 
-  -- 2. Gather and sort environment names cleanly
   local envs = {}
   for name, _ in pairs(_G.metadata.envs) do
     table.insert(envs, name)
   end
   table.sort(envs)
 
-  -- 3. CRITICAL INITIALIZATION PASS (Copying your working Terminal List architecture!)
-  -- This guarantees Telescope intercepts our upcoming vim.ui.select loop natively!
-  local telescope = require('telescope')
-  telescope.setup({
-    extensions = {
-      ['ui-select'] = {
-        require('telescope.themes').get_dropdown({
-          -- Your custom clean border configuration rules
-          borderchars = {
-            prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
-            results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
-            preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
-          },
-          prompt_position = 'top',
-          prompt_prefix = '🔍 ',
-          selection_caret = '❯ ',
-          entry_prefix = '  ',
-          initial_mode = 'insert',
-          scroll_strategy = 'cycle',
-          sorting_strategy = 'ascending',
-          color_devicons = true,
-          use_less = true,
-        }),
-      },
+  local pickers = require('telescope.pickers')
+  local finders = require('telescope.finders')
+  local actions = require('telescope.actions')
+  local action_state = require('telescope.actions.state')
+
+  -- Define a tight, small dropdown configuration targeting the dead center
+  local theme = require('telescope.themes').get_dropdown({
+    borderchars = {
+      prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' }, -- Empty spacer boundary
+      results = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' }, -- Seamless rounded dialogue card
+      preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
     },
+    layout_config = {
+      width = 35,
+      height = #envs + 1, -- Tight structural bounding box height matching the element list size
+    },
+    sorting_strategy = 'ascending',
+    selection_caret = '❯ ',
+    entry_prefix = '  ',
   })
-  telescope.load_extension('ui-select')
 
-  -- 4. Invoke the picker. It will now consistently render as a beautiful centered GUI card!
-  vim.ui.select(envs, {
-    prompt = 'Select Active Hardware Target:',
-    kind = 'nvimpio_env_selector',
+  -- Build the picker
+  local picker = pickers.new(theme, {
+    prompt_title = false, -- 1. DISMISS THE SEARCH HEADER TEXT LINE ENTIRELY
+    initial_mode = 'normal', -- 2. FORCE NORMAL MODE INITIALLY (Disables terminal prompt typing)
 
-    -- Format your options with stylized checkboxes/radio buttons
-    format_item = function(name)
-      return (name == current_active) and (' [●] ' .. name) or (' [○] ' .. name)
+    finder = finders.new_table({
+      results = envs,
+      entry_maker = function(name)
+        -- 3. UNIFORM FONT RADIO ICONS: Perfect matching layout width alignment sizes
+        local radio_icon = (name == current_active) and '  ' or '  '
+        return {
+          value = name,
+          display = radio_icon .. name,
+          ordinal = name,
+        }
+      end,
+    }),
+
+    attach_mappings = function(prompt_bufnr, map)
+      -- Action: Save choice and refresh layout variables instantly
+      local function make_selection()
+        local selection = action_state.get_selected_entry()
+        actions.close(prompt_bufnr)
+        if selection then
+          _G.metadata.active_env = selection.value
+          vim.cmd('redrawstatus') -- Syncs your custom statusline indicators immediately
+          OS.notify(string.format('PlatformIO active_env swapped -> %s', selection.value), 'info')
+        end
+      end
+
+      -- Confirm selection on standard text entry points
+      map('n', '<CR>', make_selection)
+      map('n', '<Space>', make_selection)
+
+      -- 4. NUMBER SHORTCUT BINDINGS: Typing '1', '2', or '3' selects that list row item JIT!
+      for idx = 1, math.min(#envs, 9) do
+        map('n', tostring(idx), function()
+          -- Set the internal window cursor row to match the typed hotkey index offset
+          pcall(vim.api.nvim_win_set_cursor, 0, { idx, 0 })
+          make_selection()
+        end)
+      end
+
+      return true
     end,
-  }, function(choice)
-    if choice then
-      -- Commit choice to global tracking contexts
-      _G.metadata.active_env = choice
+  })
 
-      -- Instantly update statusline markers
-      vim.cmd('redrawstatus')
-
-      OS.notify(string.format('PlatformIO active_env swapped -> %s', choice), 'info')
-    else
-      vim.api.nvim_echo({ { 'No environment target selected.', 'Normal' } }, true, {})
-    end
-  end)
+  -- Launch the floating radio dialog box menu frame
+  picker:find()
 end
 
 return M
+
+-- local M = {}
+--
+-- function M.select_env_picker()
+--   -- 1. Refresh active environments data structures via your engine
+--   local current_active = pio.get_active_env('UI Picker: ')
+--   if not current_active or not _G.metadata or not _G.metadata.envs then
+--     return
+--   end
+--
+--   -- 2. Gather and sort environment names cleanly
+--   local envs = {}
+--   for name, _ in pairs(_G.metadata.envs) do
+--     table.insert(envs, name)
+--   end
+--   table.sort(envs)
+--
+--   -- 3. CRITICAL INITIALIZATION PASS (Copying your working Terminal List architecture!)
+--   -- This guarantees Telescope intercepts our upcoming vim.ui.select loop natively!
+--   local telescope = require('telescope')
+--   telescope.setup({
+--     extensions = {
+--       ['ui-select'] = {
+--         require('telescope.themes').get_dropdown({
+--           -- Your custom clean border configuration rules
+--           borderchars = {
+--             prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+--             results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+--             preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+--           },
+--           prompt_position = 'top',
+--           prompt_prefix = '🔍 ',
+--           selection_caret = '❯ ',
+--           entry_prefix = '  ',
+--           initial_mode = 'insert',
+--           scroll_strategy = 'cycle',
+--           sorting_strategy = 'ascending',
+--           color_devicons = true,
+--           use_less = true,
+--         }),
+--       },
+--     },
+--   })
+--   telescope.load_extension('ui-select')
+--
+--   -- 4. Invoke the picker. It will now consistently render as a beautiful centered GUI card!
+--   vim.ui.select(envs, {
+--     prompt = 'Select Active Hardware Target:',
+--     kind = 'nvimpio_env_selector',
+--
+--     -- Format your options with stylized checkboxes/radio buttons
+--     format_item = function(name)
+--       return (name == current_active) and (' [●] ' .. name) or (' [○ ] ' .. name)
+--     end,
+--   }, function(choice)
+--     if choice then
+--       -- Commit choice to global tracking contexts
+--       _G.metadata.active_env = choice
+--
+--       -- Instantly update statusline markers
+--       vim.cmd('redrawstatus')
+--
+--       OS.notify(string.format('PlatformIO active_env swapped -> %s', choice), 'info')
+--     else
+--       vim.api.nvim_echo({ { 'No environment target selected.', 'Normal' } }, true, {})
+--     end
+--   end)
+-- end
+--
+-- return M
 
 -- local M = {}
 --
