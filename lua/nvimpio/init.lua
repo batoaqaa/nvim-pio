@@ -30,11 +30,13 @@ function M.setup(user_opts)
     if M.isActivated then return end
 
     M.isActivated = true
-    vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
+    vim.schedule(function ()
+      vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
 
-    require("nvimpio.core").initialize_full_options()
-    menu.buildUserMenu(M.options)
-    require('nvimpio.pio.control').init(M.options.clangd)
+      require("nvimpio.core").initialize_full_options()
+      menu.buildUserMenu(M.options)
+      require('nvimpio.pio.control').init(M.options.clangd)
+    end)
   end
 
   -- INFO: Pioini
