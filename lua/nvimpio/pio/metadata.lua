@@ -99,11 +99,11 @@ _G.metadata = setmetatable({}, {
 
 
         _G.metadata.isBusy = true
-        OS.notify('PIO platformio.ini change: compiledb update ...', 'info')
+        OS.notify('active_env change: compiledb update ...', 'info')
         vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', value }, { text = true }, function(obj)
           vim.schedule(function()
             if obj.code == 0 then
-              OS.notify('PIO platformio.ini change: compiledb update Success', 'info')
+              OS.notify('active_env change: compiledb update Success', 'info')
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function()
                 require('nvimpio.clangd.control').getUnknownArgs('active_env change: ')
@@ -112,7 +112,7 @@ _G.metadata = setmetatable({}, {
               end, 'PIO platformio.ini  change: ')
             else
               local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
-              OS.notify('PIO platformio.ini change: Build Failed: ' .. err, 'error')
+              OS.notify('active_env change: Build Failed ' .. err, 'error')
               _G.metadata.isBusy = false
             end
           end)
