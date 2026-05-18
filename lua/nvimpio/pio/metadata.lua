@@ -190,8 +190,32 @@ function M.switch_env()
       OS.notify(string.format('Switched active_env: %s', choice), 'info')
       _G.metadata.active_env = choice
 
+      -------------------------
+      vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', choice }, { text = true }, function(obj)
+        vim.schedule(function()
+          if obj.code == 0 then
+            OS.notify('PIO platformio.ini change: compiledb update Success', 'info')
+            local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+            pio_refresh(function()
+              -- clangd.getUnknownArgs('PIO platformio.ini  change: ')
+              -- self.isBusy = false
+              if _G.metadata then _G.metadata.isBusy = false end
+            end, 'PIO platformio.ini  change: ')
+          else
+            local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
+            OS.notify('PIO platformio.ini change: Build Failed: ' .. err, 'error')
+            -- self.isBusy = false
+            if _G.metadata then _G.metadata.isBusy = false end
+          end
+        end)
+      end)
+      local pio_manager = require('nvimpio.pio.upkeep').pio_refresh
+      pio_manager(function()
+        require('nvimpio.clangd.control').getUnknownArgs('active_env change: ')
+      end)
+      -------------------------
       -- 4. Persist change to disk (silently)
-      M.save_project_config(true)
+      M.save_project_config('Swithched env ')
 
       -- 5. Notify the user with the new board info
       local board = _G.metadata.envs[choice].board or 'unknown'
@@ -200,18 +224,7 @@ function M.switch_env()
       -- 6. RESTART LSP (Crucial for refreshing includes/defines)
       -- We wrap in pcall in case clangd isn't actually running yet
 
-      local pio_manager = require('platformio.pio_setup').pio_manager
-      pio_manager.refresh(function()
-        M.compile_commands()
-        local lsp_restart = require('platformio.tools').lsp_restart
-        lsp_restart('clangd')
-      end)
 
-      pcall(function()
-        -- Force LSP to pick up new fallbackFlags/defines
-        local lsp_restart = require('platformio.lsp.tools').lsp_restart
-        lsp_restart()
-      end)
     end
   end)
 end
