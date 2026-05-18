@@ -14,10 +14,10 @@ function M.select_env_picker()
   end
   table.sort(envs)
 
-  -- 1. Grab your working, centered dropdown geometry configuration
+  -- 1. Grab your working, centered dropdown geometry configuration base
   local dropdown = require('telescope.themes').get_dropdown({
     prompt_title = 'Select Environment',
-    layout_config = { width = 38, height = #envs + 2 }, -- Forces it wide enough to show all envs
+    layout_config = { width = 38 }, -- Remove height from here to prevent theme overriding
     borderchars = {
       prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
       results = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
@@ -25,10 +25,15 @@ function M.select_env_picker()
     },
   })
 
-  -- 2. Open a dedicated Telescope Picker (Prevents the 1-line collapsing bug!)
+  -- 2. Force structural expansion dimensions directly inside the picker options table
   require('telescope.pickers')
     .new(dropdown, {
       initial_mode = 'normal', -- Disables typing, allows arrow/number navigation instantly
+
+      -- THE CRITICAL GEOMETRY LOCK: Completely disables auto-shrinking loops!
+      results_height = #envs + 1,
+      dynamic_preview_title = true,
+
       finder = require('telescope.finders').new_table({
         results = envs,
         entry_maker = function(name)
