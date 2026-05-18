@@ -1,11 +1,11 @@
-local core = require('nvimpio.core')
+local pio = require('nvimpio.pio.upkeep')
 
 local M = {}
 
 -- Interactive Environment Selection Panel
 function M.select_env_picker()
   -- 1. Trigger JIT parsing to ensure _G.metadata state is completely fresh and populated
-  local current_active = core.get_active__env('UI Picker: ')
+  local current_active = pio.get_active_env('UI Picker: ')
 
   -- Safety guard: Exit gracefully if platformio.ini was missing or empty
   if not current_active or not _G.metadata or not _G.metadata.envs then

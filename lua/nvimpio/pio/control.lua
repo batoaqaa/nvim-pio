@@ -139,7 +139,7 @@ function M.start_watchers()
         end
 
         self.last_hash = new_hash
-        local env = pio.get_active__env('PIO platformio.ini change:')
+        local env = pio.get_active_env('PIO platformio.ini change:')
 
         if not env then
           self.isBusy = false

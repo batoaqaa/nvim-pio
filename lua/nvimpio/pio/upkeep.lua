@@ -238,7 +238,7 @@ end
 
 -- Combined Orchestrator: Parses platformio.ini, populates _G.metadata, returns active_env
 -- stylua: ignore
-function M.get_active__env(from)
+function M.get_active_env(from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
   -- 1. Pin the file check strictly to the current working directory (CWD)
@@ -368,7 +368,7 @@ function M.pio_refresh(callback, from)
     if active_env then M.fetch_metadata(callback, active_env, from, 1) end
   end
   -- on_done(_G.metadata.active_env)
-  on_done(M.get_active__env(from))
+  on_done(M.get_active_env(from))
   -- M.fetch_config(on_done, from)
 end
 
@@ -866,7 +866,7 @@ function M.handlePioinitDb(result, board, on_done)
     end
   elseif result == 'PASS1' then -- current_id
     OS.notify('PIO init+db:  pass ' .. current_id, "info")
-      active_env = M.get_active__env('PIO init+db: ')
+      active_env = M.get_active_env('PIO init+db: ')
     -- if not active_env or (active_env == board) then
       -- boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
       -- boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
