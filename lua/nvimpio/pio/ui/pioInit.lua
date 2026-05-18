@@ -8,11 +8,11 @@ local themes = require('telescope.themes')
 
 local wizard_data = {}
 
--- Visual Notifications
-local function notify(msg, level)
-  local misc = require('nvimpio.utils.misc')
-  misc.notify('PIO init+db: ' .. msg, level or 'info')
-end
+-- -- Visual Notifications
+-- local function notify(msg, level)
+--   local misc = require('nvimpio.utils.misc')
+--   misc.notify('PIO init+db: ' .. msg, level or 'info')
+-- end
 
 -- Reusable Small Menu for Yes/No and Frameworks
 local function small_menu(title, results, callback)
@@ -55,7 +55,7 @@ local function finalize_setup()
     pio.handlePioinit(status, wizard_data.board_id, wizard_data.on_done)
   end
 
-  notify('Starting project setup for ' .. wizard_data.board_id .. '...')
+  OS.notify('Starting project setup for ' .. wizard_data.board_id .. '...')
   pio.run_sequence({ cmnds = commands, cb = final_cb })
 end
 
@@ -139,7 +139,7 @@ local function launch_project_init(on_done)
   if on_done and type(on_done) == 'function' then
     wizard_data.on_done = on_done
   end
-  notify('Fetching board database...')
+  OS.notify('Fetching board database...')
 
   local handle = io.popen('pio boards --json-output')
   if not handle then
@@ -150,7 +150,7 @@ local function launch_project_init(on_done)
 
   local ok, json_data = pcall(vim.json.decode, result)
   if not ok or type(json_data) ~= 'table' then
-    notify('Failed to parse board data.', 'error')
+    OS.notify('Failed to parse board data.', 'error')
     return
   end
 
