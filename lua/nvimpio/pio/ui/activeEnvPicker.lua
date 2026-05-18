@@ -1,5 +1,67 @@
 local pio = require('nvimpio.pio.upkeep')
 
+local M = {}
+
+function M.select_env_picker()
+  local current_active = pio.get_active_env('UI Picker: ')
+  if not current_active or not _G.metadata or not _G.metadata.envs then
+    return
+  end
+
+  local envs = {}
+  for name, _ in pairs(_G.metadata.envs) do
+    table.insert(envs, name)
+  end
+  table.sort(envs)
+
+  -- 1. Create a tiny centered theme block WITH FIXED GEOMETRY AT FACTORY CREATION
+  local theme = require('telescope.themes').get_dropdown({
+    prompt_title = 'Select Environment',
+    layout_config = { width = 36, height = #envs + 2, prompt_position = 'top' },
+  })
+
+  -- 2. Use Telescope's direct string list execution channel to lock window boundaries
+  require('telescope.builtin').pickers(theme, {
+    prompt_title = 'Select Target Board',
+    initial_mode = 'normal', -- Disables typing, allows arrow/number navigation instantly
+
+    finder = require('telescope.finders').new_table({
+      results = envs,
+      entry_maker = function(name)
+        local idx = vim.fn.index(envs, name) + 1
+        local checkbox = (name == current_active) and '[x]' or '[ ]' -- Font safe brackets
+        return { value = name, display = string.format(' %d. %s %s', idx, checkbox, name), ordinal = name }
+      end,
+    }),
+
+    attach_mappings = function(prompt_bufnr, map)
+      local make_selection = function()
+        local selection = require('telescope.actions.state').get_selected_entry()
+        require('telescope.actions').close(prompt_bufnr)
+        if selection then
+          _G.metadata.active_env = selection.value
+          vim.cmd('redrawstatus') -- Swaps your statusline indicators immediately
+          OS.notify(string.format('PlatformIO target swapped -> %s', selection.value), 'info')
+        end
+      end
+
+      map('n', '<CR>', make_selection)
+      map('n', '<Space>', make_selection)
+
+      -- 3. Number bindings map layout: Typing '1', '2' shifts selections instantly
+      for idx = 1, math.min(#envs, 9) do
+        map('n', tostring(idx), function()
+          require('telescope.actions.state').get_current_picker(prompt_bufnr):set_selection(idx - 1)
+          make_selection()
+        end)
+      end
+      return true
+    end,
+  })
+end
+
+return M
+
 -- local M = {}
 --
 -- function M.select_env_picker()
@@ -71,38 +133,38 @@ local pio = require('nvimpio.pio.upkeep')
 --
 -- return M
 
-local M = {}
-
-function M.select_env_picker()
-  local current_active = pio.get_active_env('UI Picker: ')
-  if not current_active or not _G.metadata or not _G.metadata.envs then
-    return
-  end
-
-  -- 1. Build an optimized, numbered menu list using basic brackets
-  local menu_lines = { '--- Select Active Target Environment ---' }
-  local envs = {}
-  for name, _ in pairs(_G.metadata.envs) do
-    table.insert(envs, name)
-  end
-  table.sort(envs)
-
-  for idx, name in ipairs(envs) do
-    local checkbox = (name == current_active) and '[x]' or '[ ]'
-    table.insert(menu_lines, string.format('%d. %s %s', idx, checkbox, name))
-  end
-
-  -- 2. Trigger Neovim's native selection engine instantly
-  -- Users just tap numbers (1, 2, 3) or use arrows to select a board!
-  local choice = vim.fn.inputlist(menu_lines)
-  if choice > 0 and choice <= #envs then
-    _G.metadata.active_env = envs[choice]
-    vim.cmd('redrawstatus') -- Swaps your statusline indicators immediately
-    OS.notify(string.format('PlatformIO target swapped -> %s', envs[choice]), 'info')
-  end
-end
-
-return M
+-- local M = {}
+--
+-- function M.select_env_picker()
+--   local current_active = pio.get_active_env('UI Picker: ')
+--   if not current_active or not _G.metadata or not _G.metadata.envs then
+--     return
+--   end
+--
+--   -- 1. Build an optimized, numbered menu list using basic brackets
+--   local menu_lines = { '--- Select Active Target Environment ---' }
+--   local envs = {}
+--   for name, _ in pairs(_G.metadata.envs) do
+--     table.insert(envs, name)
+--   end
+--   table.sort(envs)
+--
+--   for idx, name in ipairs(envs) do
+--     local checkbox = (name == current_active) and '[x]' or '[ ]'
+--     table.insert(menu_lines, string.format('%d. %s %s', idx, checkbox, name))
+--   end
+--
+--   -- 2. Trigger Neovim's native selection engine instantly
+--   -- Users just tap numbers (1, 2, 3) or use arrows to select a board!
+--   local choice = vim.fn.inputlist(menu_lines)
+--   if choice > 0 and choice <= #envs then
+--     _G.metadata.active_env = envs[choice]
+--     vim.cmd('redrawstatus') -- Swaps your statusline indicators immediately
+--     OS.notify(string.format('PlatformIO target swapped -> %s', envs[choice]), 'info')
+--   end
+-- end
+--
+-- return M
 
 -- local M = {}
 --
