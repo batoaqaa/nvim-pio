@@ -259,37 +259,36 @@ function M.get_active__env(from)
   _G.metadata.default_envs = normalize_value('default_envs', default_envs_raw)
   _G.metadata.envs = {}
 
-  -- 5. Blend common options, interpolate variables, apply correct data types
+  -- 5. Inject common properties, expand path string tokens, apply real data types
   for env_name, local_pairs in pairs(raw_envs) do
     _G.metadata.envs[env_name] = {}
 
     -- Load base properties from common [env] section
     for k, v in pairs(global_env_defaults) do _G.metadata.envs[env_name][k] = v end
 
-    -- Overwrite with specific target board variables
+    -- Mix in specific board properties (overwriting common presets if declared)
     for k, v in pairs(local_pairs) do _G.metadata.envs[env_name][k] = v end
 
-    -- Interpolate string values and convert to proper data types (Lists, Numbers)
+    -- Run values normalization and token transformations
     for k, v in pairs(_G.metadata.envs[env_name]) do
       local interpolated = interpolate_string(v, platformio_vars)
       _G.metadata.envs[env_name][k] = normalize_value(k, interpolated)
     end
 
-    -- Ensure required empty lists are preserved if missing from the block definitions
+    -- Ensure required structure arrays are instantiated even if left blank by user text rows
     if _G.metadata.envs[env_name].extra_scripts == nil then
       _G.metadata.envs[env_name].extra_scripts = {}
     end
   end
 
-  -- 6. TIMELINE PRIORITY WATERFALL RESOLUTION
-  -- Priority 1: Retain the current environment choice if it remains un-commented and valid
+  -- 6. RESOLVE ACTIVE SELECTION (3-TIER PRIORITY WATERFALL)
+  -- Priority 1: Retain the active string selection if it remains valid and present
   if _G.metadata.active_env and _G.metadata.envs[_G.metadata.active_env] then
     return _G.metadata.active_env
   end
 
   -- Priority 2: Fall back to variables listed in the parsed default_envs array parameters
   local def_envs = _G.metadata.default_envs
-  -- Explicit type validation loop boundary completely pacifies the type checker
   if type(def_envs) == 'table' then
     for _, env_name in ipairs(def_envs) do
       if _G.metadata.envs[env_name] then
