@@ -1,51 +1,76 @@
 local pio = require('nvimpio.pio.upkeep')
-
-local M = {}
--- local function create_floating_window()
-function M.select_env_picker()
-  -- 1. Create an unlisted, scratch buffer (no file attached)
-  local buf = vim.api.nvim_create_buf(false, true)
-
-  -- 2. Get the current editor dimensions to calculate center placement
-  local stats = vim.api.nvim_list_uis()[1]
-  local width = 60
-  local height = 10
-  local row = math.floor((stats.height - height) / 2)
-  local col = math.floor((stats.width - width) / 2)
-
-  -- 3. Define layout parameters
-  local win_config = {
-    relative = 'editor', -- Position relative to the entire Neovim screen
-    width = width,
-    height = height,
-    row = row,
-    col = col,
-    style = 'minimal', -- Turns off line numbers, statusline, etc.
-    border = 'rounded', -- Adds a beautiful border ("single", "double", "rounded", "solid")
-    title = ' My Float ', -- Floating window header (Requires Nvim 0.9+)
-    title_pos = 'center',
-  }
-
-  -- 4. Open the window and focus your cursor inside it (true)
-  local win = vim.api.nvim_open_win(buf, true, win_config)
-
-  -- 5. Optional: Add text to the floating window buffer
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
-    'Hello from the floating window!',
-    "Press 'q' to close this menu.",
+local function select_env_picker()
+  local telescope = require('telescope')
+  telescope.setup({
+    extensions = {
+      ['ui-select'] = {
+        require('telescope.themes').get_dropdown({
+          borderchars = {
+            prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+            results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+            preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+          },
+          prompt_position = 'top', -- "top" or "bottom"
+          prompt_prefix = '🔍 ', -- Prompt prefix
+          selection_caret = '❯ ', -- Selection indicator
+          entry_prefix = '  ', -- Entry prefix
+          initial_mode = 'insert', -- "insert" or "normal"
+          scroll_strategy = 'cycle', -- "cycle" or "limit"
+          sorting_strategy = 'ascending', -- "ascending" or "descending"
+          color_devicons = true, -- Color file icons
+          use_less = true, -- Use less for preview
+          -- prompt_prefix = " ",
+          -- selection_caret = " ",
+          -- color_devicons = true,
+        }),
+      },
+    },
   })
+  telescope.load_extension('ui-select')
+  local current_active = pio.get_active_env('UI Picker: ')
+  if not current_active or not _G.metadata or not _G.metadata.envs then
+    return
+  end
 
-  -- 6. Optional: Map 'q' to instantly close only this specific window
-  vim.keymap.set('n', 'q', function()
-    if vim.api.nvim_win_is_valid(win) then
-      vim.api.nvim_win_close(win, true)
+  local envs = {}
+  for name, _ in pairs(_G.metadata.envs) do
+    table.insert(envs, name)
+  end
+  table.sort(envs)
+  --
+
+  if #envs == 0 then
+    vim.api.nvim_echo({ { 'No envs found.', 'Normal' } }, true, {})
+    return
+  end
+
+  vim.ui.select(envs, {
+    prompt = 'Select Active Hardware Target:',
+    kind = 'nvimpio_env_selector',
+
+    -- Format your options with stylized checkboxes/radio buttons
+    format_item = function(name)
+      return (name == current_active) and (' [●] ' .. name) or (' [○] ' .. name)
+    end,
+  }, function(choice)
+    if choice then
+      -- Commit choice to global tracking contexts
+      _G.metadata.active_env = choice
+
+      -- Instantly update statusline markers
+      vim.cmd('redrawstatus')
+
+      OS.notify(string.format('PlatformIO active_env swapped -> %s', choice), 'info')
+    else
+      vim.api.nvim_echo({ { 'No environment target selected.', 'Normal' } }, true, {})
     end
-  end, { buffer = buf, silent = true })
+  end)
 end
 
--- Create a user command so you can type :MyFloat to see it work
-vim.api.nvim_create_user_command('MyFloat', M.select_env_picker, {})
-return M
+return {
+  select_env_picker = select_env_picker,
+}
+
 -- local M = {}
 --
 -- function M.select_env_picker()
