@@ -226,7 +226,7 @@ end
 --stylua: ignore
 --=============================================================================
 function M.init(clangd)
-  OS.notify('Clangd: initialize', "info")
+  OS.notify('Clangd Control: initialize', "info")
 
   require('nvimpio.clangd.commands')
 

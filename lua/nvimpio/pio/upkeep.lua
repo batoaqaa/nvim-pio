@@ -915,7 +915,7 @@ function M.handlePioinit(result, board, on_done)
     end
   -- elseif result == 'PASS1' then
   elseif result == 'DONE' then -- result of the last command
-    OS.notify('PIO init: Done', "info")
+    OS.notify('PIO: project init Done', "info")
     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
     _G.metadata.active_env = board

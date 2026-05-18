@@ -221,7 +221,7 @@ function M.init(clangd_config)
       -- clangd.getUnknownArgs('PIO start: ')
       boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
       _G.metadata.isBusy = false
-    end, 'PIO start: ')
+    end, 'PIO Control: ')
   end
 end
 

@@ -79,6 +79,7 @@ _G.metadata = setmetatable({}, {
     vim.schedule(function()
       -- M.save_project_config(true)
       if key == 'toolchain_root' then
+        local from = 'Meta PATH env: '
         local binPath = value .. '/bin'
 
         local oldPath = oldValue .. '/bin'
@@ -87,14 +88,15 @@ _G.metadata = setmetatable({}, {
         removeFromPath(oldPath)
         local end_time = vim.loop.hrtime()
         local duration = (end_time - start_time) / 1e6
-        OS.notify(string.format('PIO env: ' .. oldPath .. ' removed from path in %.2fms', duration), 'info')
+        OS.notify(string.format('%s %s removed from path in %.2fms', from, oldPath, duration), 'info')
 
         vim.env.PATH = binPath .. OS.path_sep .. vim.env.PATH
         -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
 
-        OS.notify('PIO env: ' .. binPath .. ' added to path', 'info')
+        OS.notify(string.format('%s %s added to path',from, binPath), 'info')
       -- elseif key == 'last_projectChecksum' then
       elseif key == 'active_env' then
+        local from = 'Meta active_env change: '
         -- OS.notify(string.format('old_env=%s new_env=%s', oldValue, _pio_metadata[key]), 'info')
 
 
@@ -103,7 +105,7 @@ _G.metadata = setmetatable({}, {
         vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', value }, { text = true }, function(obj)
           vim.schedule(function()
             if obj.code == 0 then
-              OS.notify('active_env change: compiledb update Success', 'info')
+              OS.notify(from .. 'compiledb update Success', 'info')
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function()
                 require('nvimpio.clangd.control').getUnknownArgs('active_env change: ')
@@ -112,7 +114,7 @@ _G.metadata = setmetatable({}, {
               end, 'active_env change: ')
             else
               local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
-              OS.notify('active_env change: Build Failed ' .. err, 'error')
+              OS.notify(string.format('%sBuild Failed %s',from, err), 'error')
               _G.metadata.isBusy = false
             end
           end)
