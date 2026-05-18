@@ -3,7 +3,6 @@ require('nvimpio.osInfo')
 
 -- local pio = require('nvimpio.pioCheck')
 -- local val = require('nvimpio.validator')
-local menu = require('nvimpio.menu')
 
 local M = {}
 
@@ -32,8 +31,9 @@ function M.setup(user_opts)
     M.isActivated = true
     vim.schedule(function ()
       vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
-
-      require("nvimpio.core").initialize_full_options()
+      local core = require("nvimpio.core")
+      core.initialize_full_options()
+      local menu = require('nvimpio.menu')
       menu.buildUserMenu(M.options)
       require('nvimpio.pio.control').init(M.options.clangd)
     end)
