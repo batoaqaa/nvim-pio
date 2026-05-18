@@ -921,6 +921,7 @@ function M.handlePioinit(result, board, on_done)
     _G.metadata.active_env = board
     if trm then trm:close() end
     M.cleanSequencer()
+    if on_done and type(on_done) == "function" then on_done(true) end
   elseif result == 'FAIL' then
     if on_done and type(on_done) == "function" then on_done(false) end
     M.cleanSequencer()
