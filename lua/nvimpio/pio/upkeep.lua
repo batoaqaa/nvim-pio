@@ -361,7 +361,7 @@ end
 -------------------------------------------------------------------------------
 function M.pio_refresh(callback, from)
   local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
-  OS.notify(msg ..'Config sync ...', "info")
+  -- OS.notify(msg ..'Config sync ...', "info")
 
   local function on_done(active_env)
     if active_env then OS.notify(msg .. 'active_env= ' .. active_env, "info") end
