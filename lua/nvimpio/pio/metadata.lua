@@ -94,12 +94,8 @@ _G.metadata = setmetatable({}, {
         -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
 
         OS.notify(string.format('%s %s added to path',from, binPath), 'info')
-      -- elseif key == 'last_projectChecksum' then
       elseif key == 'active_env' then
         local from = 'Meta active_env change: '
-        -- OS.notify(string.format('old_env=%s new_env=%s', oldValue, _pio_metadata[key]), 'info')
-
-
         _G.metadata.isBusy = true
         OS.notify(from .. 'compiledb update ...', 'info')
         vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', value }, { text = true }, function(obj)
@@ -120,16 +116,21 @@ _G.metadata = setmetatable({}, {
           end)
         end)
 
-
-
-
-
-        -- require('nvimpio.clangd.control').getUnknownArgs('active_env change: ')
-      -- if not active_env or (active_env == board) then
       end
     end)
   end,
 })
+
+-- Highly optimized string retriever for statusline rendering loops
+function M.get_status_string()
+  -- Catch early boot or uninitialized states safely
+  if not _G.metadata or not _G.metadata.active_env or _G.metadata.active_env == "" then
+    return ""
+  end
+
+  -- Return a clean visual indicator snippet (using the filled circle or an electronics icon)
+  return string.format("   %s", _G.metadata.active_env)
+end
 
 local config_path = vim.fs.joinpath(vim.uv.cwd(), '.project_config.json')
 

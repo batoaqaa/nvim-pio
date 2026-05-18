@@ -1,5 +1,6 @@
 -- stylua: ignore start
 require('nvimpio.osInfo')
+require('nvimpio.statusline')
 
 -- local pio = require('nvimpio.pioCheck')
 -- local val = require('nvimpio.validator')
