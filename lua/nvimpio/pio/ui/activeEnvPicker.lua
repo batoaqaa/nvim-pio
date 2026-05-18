@@ -3,57 +3,127 @@ local pio = require('nvimpio.pio.upkeep')
 local M = {}
 
 function M.select_env_picker()
+  -- 1. Refresh active environments data structures via your engine
   local current_active = pio.get_active_env('UI Picker: ')
   if not current_active or not _G.metadata or not _G.metadata.envs then
     return
   end
 
+  -- 2. Gather and sort environment names cleanly
   local envs = {}
   for name, _ in pairs(_G.metadata.envs) do
     table.insert(envs, name)
   end
   table.sort(envs)
 
-  -- 1. Use an explicit, styled GUI block configuration
-  local gui_dialog = require('telescope.themes').get_dropdown({
-    -- Hide structural line text prompts entirely to look like a small window card
-    prompt_prefix = '   ',
-    selection_caret = ' ❯ ',
-
-    -- Force a small, square dialogue geometry in the dead center
-    layout_strategy = 'center',
-    layout_config = {
-      width = 32,
-      height = #envs + 2,
-    },
-
-    -- Strip out top line prompt structures so it acts purely as a selector list
-    borderchars = {
-      prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
-      results = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
-      preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+  -- 3. CRITICAL INITIALIZATION PASS (Copying your working Terminal List architecture!)
+  -- This guarantees Telescope intercepts our upcoming vim.ui.select loop natively!
+  local telescope = require('telescope')
+  telescope.setup({
+    extensions = {
+      ['ui-select'] = {
+        require('telescope.themes').get_dropdown({
+          -- Your custom clean border configuration rules
+          borderchars = {
+            prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+            results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+            preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+          },
+          prompt_position = 'top',
+          prompt_prefix = '🔍 ',
+          selection_caret = '❯ ',
+          entry_prefix = '  ',
+          initial_mode = 'insert',
+          scroll_strategy = 'cycle',
+          sorting_strategy = 'ascending',
+          color_devicons = true,
+          use_less = true,
+        }),
+      },
     },
   })
+  telescope.load_extension('ui-select')
 
-  -- 2. Pass to the selection core with explicit checkbox decoration properties
+  -- 4. Invoke the picker. It will now consistently render as a beautiful centered GUI card!
   vim.ui.select(envs, {
-    prompt = 'Select Environment Target',
+    prompt = 'Select Active Hardware Target:',
     kind = 'nvimpio_env_selector',
+
+    -- Format your options with stylized checkboxes/radio buttons
     format_item = function(name)
-      -- Renders as stylized radio buttons [●] or [○]
       return (name == current_active) and (' [●] ' .. name) or (' [○] ' .. name)
     end,
-    telescope = gui_dialog,
   }, function(choice)
     if choice then
+      -- Commit choice to global tracking contexts
       _G.metadata.active_env = choice
-      vim.cmd('redrawstatus') -- Instantly updates your statusline indicators
-      OS.notify(string.format('Swapped to -> %s', choice), 'info')
+
+      -- Instantly update statusline markers
+      vim.cmd('redrawstatus')
+
+      OS.notify(string.format('PlatformIO active_env swapped -> %s', choice), 'info')
+    else
+      vim.api.nvim_echo({ { 'No environment target selected.', 'Normal' } }, true, {})
     end
   end)
 end
 
 return M
+
+-- local M = {}
+--
+-- function M.select_env_picker()
+--   local current_active = pio.get_active_env('UI Picker: ')
+--   if not current_active or not _G.metadata or not _G.metadata.envs then
+--     return
+--   end
+--
+--   local envs = {}
+--   for name, _ in pairs(_G.metadata.envs) do
+--     table.insert(envs, name)
+--   end
+--   table.sort(envs)
+--
+--   -- 1. Use an explicit, styled GUI block configuration
+--   local gui_dialog = require('telescope.themes').get_dropdown({
+--     -- Hide structural line text prompts entirely to look like a small window card
+--     prompt_prefix = '   ',
+--     selection_caret = ' ❯ ',
+--
+--     -- Force a small, square dialogue geometry in the dead center
+--     layout_strategy = 'center',
+--     layout_config = {
+--       width = 32,
+--       height = #envs + 2,
+--     },
+--
+--     -- Strip out top line prompt structures so it acts purely as a selector list
+--     borderchars = {
+--       prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+--       results = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+--       preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+--     },
+--   })
+--
+--   -- 2. Pass to the selection core with explicit checkbox decoration properties
+--   vim.ui.select(envs, {
+--     prompt = 'Select Environment Target',
+--     kind = 'nvimpio_env_selector',
+--     format_item = function(name)
+--       -- Renders as stylized radio buttons [●] or [○]
+--       return (name == current_active) and (' [●] ' .. name) or (' [○] ' .. name)
+--     end,
+--     telescope = gui_dialog,
+--   }, function(choice)
+--     if choice then
+--       _G.metadata.active_env = choice
+--       vim.cmd('redrawstatus') -- Instantly updates your statusline indicators
+--       OS.notify(string.format('Swapped to -> %s', choice), 'info')
+--     end
+--   end)
+-- end
+--
+-- return M
 
 -- local M = {}
 --
