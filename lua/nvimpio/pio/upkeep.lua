@@ -151,130 +151,176 @@ end
 --   return paths
 -- end
 
+------------------------------------------------------------------------------
+-- Start
+------------------------------------------------------------------------------
+
+-- Helper: Splits string parameters by comma delimiters into clean arrays
+-- stylua: ignore
+local function split_comma_array(str)
+  if not str or str == "" then return {} end
+  local res = {}
+  for item in str:gmatch("([^%s,]+)") do table.insert(res, item) end
+  return res
+end
+
+-- Helper: Converts value strings into proper data types (Numbers, Lists, or Strings)
+-- stylua: ignore
+local function normalize_value(key, val)
+  val = vim.trim(val)
+  if val == '' then return {} end
+
+  local num = tonumber(val)
+  if num then return num end
+
+  -- if key == "framework" or key == "extra_scripts" or key == "default_envs" then
+  if key == 'extra_scripts' or key == 'default_envs' then return split_comma_array(val) end
+
+  return val
+end
+
+-- Helper: Replaces ${platformio.core_dir} syntax with its actual absolute value string
+-- stylua: ignore
+local function interpolate_string(val, platformio_lookup)
+  if type(val) ~= 'string' then return val end
+
+  return val:gsub('%${platformio%.([%w_]+)}', function(matched_key)
+    local replacement = platformio_lookup[matched_key] or ''
+    -- Use forward slashes natively or match your precise formatting configuration
+    return replacement
+  end)
+end
+
+-- Combined Orchestrator: Parses platformio.ini, populates _G.metadata, returns active_env
+-- stylua: ignore
 function M.get_active__env(from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
-  -- 1. Locate the configuration using safe, cross-platform Neovim core logic
-local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
-if vim.fn.filereadable(path) == 0 then
-  OS.notify(from .. 'platformio.ini not found in current working directory.', 'error')
-  return nil
-end
-  -- local files = vim.fs.find('platformio.ini', {
-  --   path = vim.api.nvim_buf_get_name(0):match('(.*[/\\])') or vim.uv.cwd(),
-  --   upward = true,
-  --   stop = OS.defaultHome,
-  -- })
-  --
-  -- local path = files[1]
-  -- if not path then
-  --   OS.notify(msg .. 'platformio.ini not found.', 'error')
-  --   return nil
-  -- end
+  -- 1. Pin the file check strictly to the current working directory (CWD)
+  local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
+  if vim.fn.filereadable(path) == 0 then
+    OS.notify(from .. 'platformio.ini not found in current working directory.', 'error')
+    return nil
+  end
 
-  -- 2. Extract contents
   local ok, content = misc.readFile(path)
   if not ok or not content then
     OS.notify(from .. 'Could not read platformio.ini at ' .. path, 'warn')
     return nil
   end
 
+  -- Temp tracking containers to hold line state during parsing
+  local global_env_defaults = {}
+  local platformio_vars = {}
+  local raw_envs = {}
+  local current_section = nil
   local default_envs_raw = ''
-  local valid_envs = {}
-  -- local env_ports = {} -- Map of environment configurations to their specified port profiles
-  -- local current_section = nil
-  local in_platformio_block = false
 
-
-
-  -- 3. Loop through lines with explicit, two-stage comment detection
+  -- 2. Line parsing pass with rigorous comment and space stripping
   for line in vim.gsplit(content, '[\r\n]+') do
-    print(line)
-    -- Strip semicolons (;) and hash (#) comments along with their leading/trailing whitespace
     line = line:gsub('%s*[;#].*$', ''):gsub('^%s+', ''):gsub('%s+$', '')
 
-    -- Only evaluate the text row if it contains true, non-comment parameters properties
     if line ~= '' then
       local section = line:match('^%[(.+)%]$')
       if section then
-        in_platformio_block = (section == 'platformio')
-
-        local env_name = section:match('^env:(.+)')
-        if env_name then
-          valid_envs[env_name] = true
+        current_section = section
+        if section:match('^env:') then
+          local env_name = section:match('^env:(.+)')
+          raw_envs[env_name] = {}
         end
-      end
-
-      -- Capture hardware target keys (e.g. upload_port = COM3 or /dev/ttyUSB0)
-      -- if current_section and current_section:match('^env:') then
-      --   local port_val = line:match('^upload_port%s*=%s*(.+)')
-      --   if port_val then
-      --     local env_name = current_section:match('^env:(.+)')
-      --     env_ports[env_name] = port_val
-      --   end
-      -- end
-
-      if in_platformio_block then
-        local def = line:match('^default_envs%s*=%s*(.*)')
-        if def then
-          default_envs_raw = def
+      elseif current_section then
+        local key, val = line:match('^%s*([%w_%-]+)%s*=%s*(.-)%s*$')
+        if key and val then
+          val = vim.trim(val)
+          if current_section == 'platformio' then
+            platformio_vars[key] = val
+            if key == 'default_envs' then
+              default_envs_raw = val
+            end
+          elseif current_section == 'env' then
+            global_env_defaults[key] = val
+          elseif current_section:match('^env:') then
+            local env_name = current_section:match('^env:(.+)')
+            raw_envs[env_name][key] = val
+          end
         end
       end
     end
   end
 
-  -- -- Fetch physical hardware ports active right now
-  -- local connected_ports = get_connected_ports()
-  -- -- Helper closure to verify if an environment matches a plugged-in USB board
-  -- local function is_physically_connected(env_name)
-  --   local target_port = env_ports[env_name]
-  --   if not target_port then
-  --     return true
-  --   end -- If no port is locked in INI, default to true (auto-detect)
-  --   return connected_ports[target_port] == true
-  -- end
-
-  -- 4. CRITICAL RESOLUTION: Check if the cache contains any valid environments
-  if next(valid_envs) == nil then
-    OS.notify(from .. 'No active, environments found in platformio.ini', 'warn')
-    _G.metadata.active_env = ''
+  -- 3. Verify that the file actually contains hardware environment declarations
+  if next(raw_envs) == nil then
+    OS.notify(from .. 'No active environments found in platformio.ini', 'warn')
+    if _G.metadata then
+      _G.metadata.active_env = ''
+    end
     return nil
   end
 
-  -- Priority 1: Keep the current active selection if it's still valid
-  if _G.metadata.active_env and valid_envs[_G.metadata.active_env] then
+  -- 4. Initialize or clear the target global structure to mirror your requested dictionary layout
+  -- _G.metadata = _G.metadata or {}
+  _G.metadata.core_dir = interpolate_string(platformio_vars.core_dir or '', platformio_vars)
+  _G.metadata.packages_dir = interpolate_string(platformio_vars.packages_dir or '', platformio_vars)
+  _G.metadata.platforms_dir = interpolate_string(platformio_vars.platforms_dir or '', platformio_vars)
+  _G.metadata.default_envs = normalize_value('default_envs', default_envs_raw)
+  _G.metadata.envs = {}
+
+  -- 5. Blend common options, interpolate variables, apply correct data types
+  for env_name, local_pairs in pairs(raw_envs) do
+    _G.metadata.envs[env_name] = {}
+
+    -- Load base properties from common [env] section
+    for k, v in pairs(global_env_defaults) do
+      _G.metadata.envs[env_name][k] = v
+    end
+
+    -- Overwrite with specific target board variables
+    for k, v in pairs(local_pairs) do
+      _G.metadata.envs[env_name][k] = v
+    end
+
+    -- Interpolate string values and convert to proper data types (Lists, Numbers)
+    for k, v in pairs(_G.metadata.envs[env_name]) do
+      local interpolated = interpolate_string(v, platformio_vars)
+      _G.metadata.envs[env_name][k] = normalize_value(k, interpolated)
+    end
+
+    -- Ensure required empty lists are preserved if missing from the block definitions
+    if _G.metadata.envs[env_name].extra_scripts == nil then
+      _G.metadata.envs[env_name].extra_scripts = {}
+    end
+  end
+
+  -- 6. TIMELINE PRIORITY WATERFALL RESOLUTION
+  -- Priority 1: Retain the current environment choice if it remains un-commented and valid
+  if _G.metadata.active_env and _G.metadata.envs[_G.metadata.active_env] then
     return _G.metadata.active_env
   end
 
-  -- Priority 2: Fall back to the uncommented default_envs array parameters
-  if default_envs_raw ~= '' then
-    for env_name in default_envs_raw:gmatch('([^%s,]+)') do
-      if valid_envs[env_name] then
-        -- OS.notify(string.format(from .. ' get active_env1: %s', env_name), 'info')
+  -- Priority 2: Fall back to variables listed in the parsed default_envs array parameters
+  local def_envs = _G.metadata.default_envs
+  -- Explicit type validation loop boundary completely pacifies the type checker
+  if type(def_envs) == 'table' then
+    for _, env_name in ipairs(def_envs) do
+      if _G.metadata.envs[env_name] then
         _G.metadata.active_env = env_name
         return env_name
       end
     end
   end
 
-  -- 5. Fallback selection scanning matching active targets sequentially
-  -- for env_name, _ in pairs(valid_envs) do
-  --   if is_physically_connected(env_name) then
-  --     return env_name
-  --   end
-  -- end
-
-  -- Priority 3: Ultimate JIT fallback—grab the very first valid uncommented key
-  -- If Priorities 1 & 2 fail, this ensures a predictable return instead of leaking nil stack pointers
-  local first_valid = next(valid_envs)
+  -- Priority 3: Fall back to the very first available board key configuration found
+  local first_valid = next(_G.metadata.envs)
   if first_valid then
-    -- OS.notify(string.format(from .. ' get active_env2: %s', first_valid), 'info')
     _G.metadata.active_env = first_valid
     return first_valid
   end
 
   return nil
 end
+------------------------------------------------------------------------------
+-- end
+------------------------------------------------------------------------------
 
 --INFO:
 --stylua: ignore
