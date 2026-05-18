@@ -1,6 +1,8 @@
 local pio = require('nvimpio.pio.upkeep')
 
-local function create_floating_window()
+local M = {}
+-- local function create_floating_window()
+function M.select_env_picker()
   -- 1. Create an unlisted, scratch buffer (no file attached)
   local buf = vim.api.nvim_create_buf(false, true)
 
@@ -42,7 +44,8 @@ local function create_floating_window()
 end
 
 -- Create a user command so you can type :MyFloat to see it work
-vim.api.nvim_create_user_command('MyFloat', create_floating_window, {})
+vim.api.nvim_create_user_command('MyFloat', M.select_env_picker, {})
+return M
 -- local M = {}
 --
 -- function M.select_env_picker()
