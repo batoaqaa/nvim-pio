@@ -1,6 +1,6 @@
-local pio = require('nvimpio.pioCheck')
+-- local pio = require('nvimpio.pioCheck')
 local val = require('nvimpio.validator')
-local menu = require('nvimpio.menu')
+-- local menu = require('nvimpio.menu')
 -- local main = require('nvimpio') -- Reference our parent init module safely
 
 local M = {}
@@ -11,6 +11,7 @@ local pio_term = nil
 -- stylua: ignore
 local function initialize_full_options()
   local main = require("nvimpio")
+  local menu = require('nvimpio.menu')
   if main.options and main.options.menu_bindings then return end
 
   -- 1. Create a clean deep copy of all factory defaults
@@ -211,6 +212,7 @@ end
 
 function M.execute_cmd_clean(target_command)
   local main = require('nvimpio')
+  local pio = require('nvimpio.pioCheck')
   initialize_full_options()
 
   local status, ToggleTerm = pcall(require, 'toggleterm.terminal')
