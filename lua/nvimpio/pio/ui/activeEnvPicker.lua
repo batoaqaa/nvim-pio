@@ -3,11 +3,13 @@ local pio = require('nvimpio.pio.upkeep')
 local M = {}
 
 function M.select_env_picker()
+  -- 1. Refresh active environments data structures via your engine
   local current_active = pio.get_active_env('UI Picker: ')
   if not current_active or not _G.metadata or not _G.metadata.envs then
     return
   end
 
+  -- 2. Extract and sort environment board strings cleanly
   local envs = {}
   for name, _ in pairs(_G.metadata.envs) do
     table.insert(envs, name)
@@ -20,21 +22,24 @@ function M.select_env_picker()
   local action_state = require('telescope.actions.state')
   local conf = require('telescope.config').values
 
-  -- 1. FORCE THE WINDOW OPEN: Explicit dimensions prevent layout collapse bugs
-  local height_padding = #envs + 2
-  local win_height = math.max(height_padding, 4) -- Enforce a minimum safe sizing envelope
+  -- Calculate precise bounded scaling geometry based on list length parameters
+  local calculated_height = #envs + 2
+  local win_height = math.max(calculated_height, 4)
 
+  -- 3. INSTANTIATE THE PICKER WINDOW CORE
   pickers
     .new({}, {
-      prompt_title = 'Select Environment', -- Keeping a structural title anchors the window constraints
-      initial_mode = 'normal', -- Blocks command bar typing inputs natively
-      sorting_strategy = 'ascending', -- Keeps rows ordered from top to bottom
+      prompt_title = 'Select Target Environment',
+      initial_mode = 'normal', -- Disables terminal input text typing completely
+      sorting_strategy = 'ascending', -- Keeps elements sorted from top to bottom
+      layout_strategy = 'center', -- Forces dialog box to the dead center of the screen
 
-      -- Centered layout specifications
-      layout_strategy = 'center',
+      -- THE FIX FOR COLLAPSING: Geometry parameters must reside inside the explicit strategy key!
       layout_config = {
-        width = 42,
-        height = win_height,
+        center = {
+          width = 42,
+          height = win_height, -- Tells Telescope exactly how many rows to display
+        },
       },
 
       borderchars = {
@@ -46,7 +51,7 @@ function M.select_env_picker()
       finder = finders.new_table({
         results = envs,
         entry_maker = function(name)
-          -- Find the numeric index sequence location of this item row
+          -- Identify the numeric index rank location of this item row segment
           local row_num = 0
           for i, val in ipairs(envs) do
             if val == name then
@@ -55,10 +60,10 @@ function M.select_env_picker()
             end
           end
 
-          -- 2. UNIVERSAL NERD FONT V3 ICONS: Perfectly matching structural sizing alignment
+          -- Nerd Font V3 icons that feature exactly matching width alignments
           local radio_icon = (name == current_active) and ' ' or ' '
 
-          -- 3. DISPLAY ROW NUMBERS: Formats text row with index numbers natively on the left column
+          -- Formats index selection numbers cleanly onto the left column row text
           local display_text = string.format(' %d. %s %s', row_num, radio_icon, name)
 
           return {
@@ -77,21 +82,21 @@ function M.select_env_picker()
           actions.close(prompt_bufnr)
           if selection then
             _G.metadata.active_env = selection.value
-            vim.cmd('redrawstatus') -- Refreshes statusline visual indicators immediately
+            vim.cmd('redrawstatus') -- Instantly redraws your statusline indicators
             OS.notify(string.format('PlatformIO active_env swapped -> %s', selection.value), 'info')
           end
         end
 
-        -- Map traditional confirmation keys
+        -- Action: Map traditional navigation confirmation keys
         map('n', '<CR>', make_selection)
         map('n', '<Space>', make_selection)
 
-        -- 4. DYNAMIC NUMBER HOTKEY ROUTING MUX: Typing '1', '2' triggers immediate selection shifts
+        -- 4. NUMBER KEY MAP ROUTER: Direct binding map for '1' through '9' choices
         for idx = 1, math.min(#envs, 9) do
           map('n', tostring(idx), function()
-            -- Use Telescope's internal state controllers to move the selection pointer safely
             local picker_instance = action_state.get_current_picker(prompt_bufnr)
-            picker_instance:set_selection(idx - 1) -- Telescope selection array indexing is 0-based
+            -- Move Telescope's internal focus selection state array index pointer (0-based)
+            picker_instance:set_selection(idx - 1)
             make_selection()
           end)
         end
