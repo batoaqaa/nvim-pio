@@ -899,6 +899,37 @@ function M.handlePioinitDb(result, board, on_done)
 end
 
 
+-- stylua: ignore
+function M.handlePioinit(result, board, on_done)
+  if result == 'INIT' then
+    -- OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
+    if #M.queue > 0 then
+      _G.metadata.isBusy = true
+      -- boilerplate.core_dir = _G.metadata.core_dir
+      boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
+      boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
+
+      trm = term.ToggleTerminal(pop(M.queue), 'float')
+      -- active_env = M.get_active__env('PIO init+db: ')
+      if trm and on_done and type(on_done) == "function" then
+        vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
+      end
+    end
+  -- elseif result == 'PASS1' then
+  elseif result == 'DONE' then -- result of the last command
+    OS.notify('PIO init+db: Done', "info")
+    boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+    boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+    _G.metadata.active_env = board
+    if trm then trm:close() end
+    M.cleanSequencer()
+  elseif result == 'FAIL' then
+    if on_done and type(on_done) == "function" then on_done(false) end
+    M.cleanSequencer()
+  end
+end
+
+
 ------------------------------------------------------
 -- Handle after piolib execution
 -- =============================================================================

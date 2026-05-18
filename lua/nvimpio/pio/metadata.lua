@@ -96,7 +96,33 @@ _G.metadata = setmetatable({}, {
       -- elseif key == 'last_projectChecksum' then
       elseif key == 'active_env' then
         -- OS.notify(string.format('old_env=%s new_env=%s', oldValue, _pio_metadata[key]), 'info')
-        require('nvimpio.clangd.control').getUnknownArgs('active_env change: ')
+
+
+        _G.metadata.isBusy = true
+        OS.notify('PIO platformio.ini change: compiledb update ...', 'info')
+        vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', value }, { text = true }, function(obj)
+          vim.schedule(function()
+            if obj.code == 0 then
+              OS.notify('PIO platformio.ini change: compiledb update Success', 'info')
+              local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+              pio_refresh(function()
+                require('nvimpio.clangd.control').getUnknownArgs('active_env change: ')
+                if _G.metadata then _G.metadata.isBusy = false end
+                -- clangdRestart()
+              end, 'PIO platformio.ini  change: ')
+            else
+              local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
+              OS.notify('PIO platformio.ini change: Build Failed: ' .. err, 'error')
+              _G.metadata.isBusy = false
+            end
+          end)
+        end)
+
+
+
+
+
+        -- require('nvimpio.clangd.control').getUnknownArgs('active_env change: ')
       -- if not active_env or (active_env == board) then
       end
     end)
