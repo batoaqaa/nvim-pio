@@ -42,7 +42,7 @@ function M.select_env_picker()
       -- Commit choice to global reactive metadata register
       _G.metadata.active_env = chosen_env
 
-      vim.notify(string.format('PlatformIO target swapped -> %s', chosen_env), vim.log.levels.INFO, { title = 'PlatformIO Wizard' })
+      OS.notify(string.format('PlatformIO active_env swapped -> %s', chosen_env), 'info')
     end
   end)
 end
