@@ -194,7 +194,7 @@ function M.getUnknownArgs(from)
     OS.notify(from .. ' No source file found to check.', 'info')
     return
   else
-    OS.notify(from .. ' source file found to check.', 'info')
+    OS.notify(string.format('%s %s found to check.',from, check_file), 'info')
   end
 
   -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
