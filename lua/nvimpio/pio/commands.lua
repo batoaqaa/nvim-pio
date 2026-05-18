@@ -14,6 +14,10 @@ vim.api.nvim_create_user_command('PioCompileDB', function()
 end, { desc = "Install PlatformIO Core" })
 
 -- INFO: Switch Environment
+vim.api.nvim_create_user_command('PioPickEnv', function()
+  require('nvimpio.pio.ui.activeEnvPicker').activeEnvPicker()
+end, { desc = 'Switch [E]nvironment' })
+
 vim.keymap.set('n', '<leader>\\e', function()
   require('nvimpio.pio.ui.activeEnvPicker').activeEnvPicker()
 end, { desc = 'Switch [E]nvironment' })
