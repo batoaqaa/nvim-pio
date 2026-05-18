@@ -905,12 +905,10 @@ function M.handlePioinit(result, board, on_done)
     -- OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
     if #M.queue > 0 then
       _G.metadata.isBusy = true
-      -- boilerplate.core_dir = _G.metadata.core_dir
       boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
       boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
 
       trm = term.ToggleTerminal(pop(M.queue), 'float')
-      -- active_env = M.get_active__env('PIO init+db: ')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end

@@ -77,7 +77,7 @@ function M.getClangdConfig()
   -- local f_flags = [["-std=c++17", "-xc++"]]
 
   -- 2. Run your toolchain detection
-  if _G.metadata and _G.metadata.cc_compiler and _G.metadata.cc_compiler ~= '' then
+  if _G.metadata and _G.metadata.cc_path and _G.metadata.cc_path ~= '' then
     if _G.metadata.triplet and _G.metadata.triplet ~= '' then
       -- local include_flags = table.concat(vim.tbl_map(function(item)
       --   return '"' .. item .. '"'
