@@ -333,7 +333,8 @@ function M.pio_refresh(callback, from)
     if active_env then OS.notify(msg .. 'active_env= ' .. active_env, "info") end
     if active_env then M.fetch_metadata(callback, active_env, from, 1) end
   end
-  M.fetch_config(on_done, from)
+  on_done(_G.metadata.active_env)
+  -- M.fetch_config(on_done, from)
 end
 
 -- INFO:
@@ -823,13 +824,14 @@ function M.handlePioinitDb(result, board, on_done)
       boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
 
       trm = term.ToggleTerminal(pop(M.queue), 'float')
-      active_env = M.get_active__env('PIO init+db: ')
+      -- active_env = M.get_active__env('PIO init+db: ')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
     end
   elseif result == 'PASS1' then -- current_id
     OS.notify('PIO init+db:  pass ' .. current_id, "info")
+      active_env = M.get_active__env('PIO init+db: ')
     -- if not active_env or (active_env == board) then
       -- boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
       -- boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
