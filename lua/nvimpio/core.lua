@@ -1,7 +1,7 @@
 local pio = require('nvimpio.pioCheck')
 local val = require('nvimpio.validator')
 local menu = require('nvimpio.menu')
-local main = require('nvimpio') -- Reference our parent init module safely
+-- local main = require('nvimpio') -- Reference our parent init module safely
 
 local M = {}
 
@@ -10,6 +10,7 @@ local pio_term = nil
 -- Private Helper: Merges user configurations with full plugin default values once triggered
 -- stylua: ignore
 local function initialize_full_options()
+  local main = require("nvimpio")
   if main.options and main.options.menu_bindings then return end
 
   -- 1. Create a clean deep copy of all factory defaults
@@ -58,6 +59,7 @@ end
 -- Checks toolchain existence and resolves paths without parsing heavy structures
 -- stylua: ignore
 function M.ensure_toolchain_active(on_success_callback, retry_counter)
+  local main = require("nvimpio")
   retry_counter = retry_counter or 0
 
   -- JIT Path Gateway: Safely parses configuration choices at invocation runtime
@@ -208,6 +210,7 @@ end
 -- end
 
 function M.execute_cmd_clean(target_command)
+  local main = require('nvimpio')
   initialize_full_options()
 
   local status, ToggleTerm = pcall(require, 'toggleterm.terminal')
@@ -245,6 +248,7 @@ function M.execute_init(args)
 end
 
 function M.configure_paths()
+  local main = require('nvimpio')
   initialize_full_options()
   vim.schedule(function()
     vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir' }, function(r)
