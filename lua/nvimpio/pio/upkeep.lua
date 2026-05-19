@@ -277,13 +277,13 @@ function M.get_active_env(from)
     metadata.envs[env_name] = {}
 
     -- Load base properties from common [env] section
-    for k, v in pairs(global_env_defaults) do _G.metadata.envs[env_name][k] = v end
+    for k, v in pairs(global_env_defaults) do metadata.envs[env_name][k] = v end
 
     -- Mix in specific board properties (overwriting common presets if declared)
-    for k, v in pairs(local_pairs) do _G.metadata.envs[env_name][k] = v end
+    for k, v in pairs(local_pairs) do metadata.envs[env_name][k] = v end
 
     -- Run values normalization and token transformations
-    for k, v in pairs(_G.metadata.envs[env_name]) do
+    for k, v in pairs(metadata.envs[env_name]) do
       local interpolated = interpolate_string(v, platformio_vars)
       metadata.envs[env_name][k] = normalize_value(k, interpolated)
     end
@@ -301,20 +301,20 @@ function M.get_active_env(from)
   end
 
   -- Priority 2: Fall back to variables listed in the parsed default_envs array parameters
-  local def_envs = _G.metadata.default_envs
+  local def_envs = metadata.default_envs
   if type(def_envs) == 'table' then
     for _, env_name in ipairs(def_envs) do
-      if _G.metadata.envs[env_name] then
-        _G.metadata.active_env = env_name
+      if metadata.envs[env_name] then
+        -- _G.metadata.active_env = env_name
         return env_name, metadata
       end
     end
   end
 
   -- Priority 3: Fall back to the very first available board key configuration found
-  local first_valid = next(_G.metadata.envs)
+  local first_valid = next(metadata.envs)
   if first_valid then
-    _G.metadata.active_env = first_valid
+    -- _G.metadata.active_env = first_valid
     return first_valid, metadata
   end
 
