@@ -25,10 +25,10 @@ end, { desc = 'Switch [E]nvironment' })
 -- stylua: ignore
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
-vim.api.nvim_create_user_command('PioInstall', function()
-    require('nvimpio.pio.ui.pioInstall').pioInstall()
-end, { desc = "Install PlatformIO Core" })
-
+-- vim.api.nvim_create_user_command('PioInstall', function()
+--     require('nvimpio.pio.ui.pioInstall').pioInstall()
+-- end, { desc = "Install PlatformIO Core" })
+--
 vim.api.nvim_create_user_command('PioInstall', function()
   vim.g.platformioRootDir = vim.uv.cwd()
   -- require("nvimpio.core").execute_init(args)

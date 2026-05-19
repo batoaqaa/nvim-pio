@@ -1,8 +1,3 @@
--- local pio = require('nvimpio.pioCheck')
--- local val = require('nvimpio.validator')
--- local menu = require('nvimpio.menu')
--- local main = require('nvimpio') -- Reference our parent init module safely
-
 local M = {}
 
 local pio_term = nil
