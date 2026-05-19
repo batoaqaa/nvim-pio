@@ -493,7 +493,7 @@ function M.fetch_metadata(callback, env, from, attempts)
   local function buildIdedata()
     OS.notify(msg .. 'Initializing project metadata...', "info")
     -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
-    vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env, '-s' }, { text = true }, function(obj)
+    vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { text = true }, function(obj)
       vim.schedule(function()
         if obj.code == 0 then
           OS.notify(msg .. 'Initializing project metadata success.', "info")
@@ -574,7 +574,7 @@ function M.fetch_metadata(callback, env, from, attempts)
       end
     end)
   end
-  local cmd = string.format('pio run -t compiledb -e %s -s', active_env)
+  local cmd = string.format('pio run -t compiledb -e %s', active_env)
   pio.run_sequence({ cmnds = { cmd }, cb = cb })
 
   ---------------------------------------------------------
