@@ -117,7 +117,6 @@ _G.metadata = setmetatable({}, {
         end
         local cmd = 'pio run -t compiledb -e ' .. value
         pio.run_sequence({ cmnds = { cmd }, cb = cb })
-
         -- vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', value }, { text = true }, function(obj)
         --   vim.schedule(function()
         --     if obj.code == 0 then
@@ -135,6 +134,31 @@ _G.metadata = setmetatable({}, {
         --     end
         --   end)
         -- end)
+      elseif key == 'last_projectChecksum' then
+        local from = 'Meta last_projectChecksum change: '
+        _G.metadata.isBusy = true
+        OS.notify(from .. 'compiledb update ...', 'info')
+
+        local pio = require('nvimpio.pio.upkeep')
+        local cb = function(status)
+          pio.handlePioDB(status, function (suscess)
+            if(suscess)then
+              OS.notify(from .. 'compiledb update Success', 'info')
+              local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+              pio_refresh(function()
+                require('nvimpio.clangd.control').getUnknownArgs(from)
+                if _G.metadata then _G.metadata.isBusy = false end
+              end, from)
+            else
+              OS.notify(string.format('%sBuild Failed %s',from), 'error')
+              _G.metadata.isBusy = false
+            end
+          end)
+        end
+        local cmd = 'pio run -t compiledb -e ' .. pio.get_active_env(from)
+        pio.run_sequence({ cmnds = { cmd }, cb = cb })
+
+
 
       end
     end)
@@ -196,6 +220,14 @@ function M.load_project_config()
           _pio_metadata[k] = v
         end
         last_saved_hash = vim.fn.sha256(json_data)
+
+        local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
+        local checksum_file = misc.joinPath(build_dir, 'project.checksum')
+        local cok, current_checksum = misc.readFile(checksum_file)
+        if cok and (type(current_checksum) == 'string' and current_checksum ~= '') then
+          _G.metadata.last_projectChecksum = current_checksum
+        end
+    -- if current_checksum == meta.last_projectChecksum then
         return
       end
     end
