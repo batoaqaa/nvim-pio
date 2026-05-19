@@ -35,6 +35,7 @@ end
 
 --INFO:
 -------------------------------------------------------------------------------
+local metaBusy = false
 -- Usage:
 -- 1. Internal State & Defaults
 local _pio_metadata = {
@@ -78,7 +79,8 @@ _G.metadata = setmetatable({}, {
     -- Trigger background actions
     vim.schedule(function()
       -- M.save_project_config(true)
-      if key == 'toolchain_root' then
+      if key == 'toolchain_root' and not metaBusy then
+        metaBusy = true
         local from = 'Meta PATH env: '
         local binPath = value .. '/bin'
 
@@ -94,7 +96,9 @@ _G.metadata = setmetatable({}, {
         -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
 
         OS.notify(string.format('%s %s added to path',from, binPath), 'info')
-      elseif key == 'active_env' then
+        metaBusy = false
+      elseif key == 'active_env' and not metaBusy then
+        metaBusy = true
         local from = 'Meta active_env change: '
         _G.metadata.isBusy = true
         OS.notify(from .. 'compiledb update ...', 'info')
@@ -134,7 +138,9 @@ _G.metadata = setmetatable({}, {
         --     end
         --   end)
         -- end)
-      elseif key == 'last_projectChecksum' then
+        metaBusy = false
+      elseif key == 'last_projectChecksum' and not metaBusy then
+        metaBusy = true
         local from = 'Meta last_projectChecksum change: '
         _G.metadata.isBusy = true
         OS.notify(from .. 'compiledb update ...', 'info')
@@ -158,8 +164,7 @@ _G.metadata = setmetatable({}, {
         local cmd = 'pio run -t compiledb -e ' .. pio.get_active_env(from)
         pio.run_sequence({ cmnds = { cmd }, cb = cb })
 
-
-
+        metaBusy = false
       end
     end)
   end,
