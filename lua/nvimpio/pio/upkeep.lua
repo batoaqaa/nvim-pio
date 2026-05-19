@@ -322,8 +322,9 @@ function M.pio_refresh(callback, from)
     if active_env then OS.notify(msg .. 'active_env= ' .. active_env, "info") end
     if active_env then M.fetch_metadata(callback, active_env, from, 1) end
   end
-  -- on_done(_G.metadata.active_env)
-  on_done(M.get_active_env(from))
+  local active_env = M.get_active_env(from)
+  if active_env and active_env ~= '' then on_done(M.get_active_env(from))
+  else OS.notify('No active env', 'error') end
   -- M.fetch_config(on_done, from)
 end
 
@@ -452,7 +453,8 @@ function M.fetch_metadata(callback, env, from, attempts)
   --INFO:
   --INTERNAL PROCESSOR: Applies parsed data to _G.metadata
   ---------------------------------------------------------
-  local function apply_metadata(data, checksum)
+  local function apply_metadata(data)
+  -- local function apply_metadata(data, checksum)
     if not data then return false end
 
     local norm = function(p) return misc.normalizePath(p) or '' end
@@ -495,7 +497,8 @@ function M.fetch_metadata(callback, env, from, attempts)
   ---------------------------------------------------------
   local function buildIdedata()
     OS.notify(msg .. 'Initializing project metadata...', "info")
-    vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
+    -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
+    vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env, '-s' }, { text = true }, function(obj)
       vim.schedule(function()
         if obj.code == 0 then
           OS.notify(msg .. 'Initializing project metadata success.', "info")
@@ -535,7 +538,8 @@ function M.fetch_metadata(callback, env, from, attempts)
     -- local file = misc.joinPath(vim.uv.cwd(), 'idedata.json')
     -- misc.writeFile(file, formated, {})
 
-    if cok and apply_metadata(decoded, current_checksum) then
+    -- if cok and apply_metadata(decoded, current_checksum) then
+    if cok and apply_metadata(decoded) then
       local metadata = require('nvimpio.pio.metadata')
       metadata.save_project_config(msg)
       OS.notify(msg .. 'Metadata synced from cache', "info")

@@ -97,26 +97,27 @@ _G.metadata = setmetatable({}, {
       elseif key == 'active_env' then
         local from = 'Meta active_env change: '
         _G.metadata.isBusy = true
-        OS.notify(from .. 'compiledb update ...', 'info')
-
-        local pio = require('nvimpio.pio.upkeep')
-        local cb = function(status)
-          pio.handlePioDB(status, function (suscess)
-            if(suscess)then
-              OS.notify(from .. 'compiledb update Success', 'info')
+        -- OS.notify(from .. 'compiledb update ...', 'info')
+        --
+        -- local pio = require('nvimpio.pio.upkeep')
+        -- local cb = function(status)
+          -- pio.handlePioDB(status, function (suscess)
+          --   if(suscess)then
+          --     OS.notify(from .. 'compiledb update Success', 'info')
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function()
                 require('nvimpio.clangd.control').getUnknownArgs(from)
                 if _G.metadata then _G.metadata.isBusy = false end
               end, from)
-            else
-              OS.notify(string.format('%sBuild Failed %s',from), 'error')
-              _G.metadata.isBusy = false
-            end
-          end)
-        end
-        local cmd = 'pio run -t compiledb -e ' .. value
-        pio.run_sequence({ cmnds = { cmd }, cb = cb })
+        --     else
+        --       OS.notify(string.format('%sBuild Failed %s',from), 'error')
+        --       _G.metadata.isBusy = false
+        --     end
+        --   end)
+        -- end
+        -- local cmd = 'pio run -t compiledb -e ' .. value
+        -- pio.run_sequence({ cmnds = { cmd }, cb = cb })
+
         -- vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', value }, { text = true }, function(obj)
         --   vim.schedule(function()
         --     if obj.code == 0 then
@@ -134,29 +135,29 @@ _G.metadata = setmetatable({}, {
         --     end
         --   end)
         -- end)
-      elseif key == 'last_projectChecksum' then
-        local from = 'Meta last_projectChecksum change: '
-        _G.metadata.isBusy = true
-        OS.notify(from .. 'compiledb update ...', 'info')
-
-        local pio = require('nvimpio.pio.upkeep')
-        local cb = function(status)
-          pio.handlePioDB(status, function (suscess)
-            if(suscess)then
-              OS.notify(from .. 'compiledb update Success', 'info')
-              local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-              pio_refresh(function()
-                require('nvimpio.clangd.control').getUnknownArgs(from)
-                if _G.metadata then _G.metadata.isBusy = false end
-              end, from)
-            else
-              OS.notify(string.format('%sBuild Failed %s',from), 'error')
-              _G.metadata.isBusy = false
-            end
-          end)
-        end
-        local cmd = 'pio run -t compiledb -e ' .. pio.get_active_env(from)
-        pio.run_sequence({ cmnds = { cmd }, cb = cb })
+      -- elseif key == 'last_projectChecksum' then
+      --   local from = 'Meta last_projectChecksum change: '
+      --   _G.metadata.isBusy = true
+      --   OS.notify(from .. 'compiledb update ...', 'info')
+      --
+      --   local pio = require('nvimpio.pio.upkeep')
+      --   local cb = function(status)
+      --     pio.handlePioDB(status, function (suscess)
+      --       if(suscess)then
+      --         OS.notify(from .. 'compiledb update Success', 'info')
+      --         local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+      --         pio_refresh(function()
+      --           require('nvimpio.clangd.control').getUnknownArgs(from)
+      --           if _G.metadata then _G.metadata.isBusy = false end
+      --         end, from)
+      --       else
+      --         OS.notify(string.format('%sBuild Failed %s',from), 'error')
+      --         _G.metadata.isBusy = false
+      --       end
+      --     end)
+      --   end
+      --   local cmd = 'pio run -t compiledb -e ' .. pio.get_active_env(from)
+      --   pio.run_sequence({ cmnds = { cmd }, cb = cb })
       end
     end)
   end,
@@ -208,9 +209,9 @@ end
 function M.load_project_config()
   local misc = require('nvimpio.utils.misc')
 
-  local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
-  local checksum_file = misc.joinPath(build_dir, 'project.checksum')
-  local cok, current_checksum = misc.readFile(checksum_file)
+  -- local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
+  -- local checksum_file = misc.joinPath(build_dir, 'project.checksum')
+  -- local cok, current_checksum = misc.readFile(checksum_file)
   if vim.fn.filereadable(config_path) == 1 then
     local _, json_data = misc.readFile(config_path)
     if json_data then
@@ -224,9 +225,9 @@ function M.load_project_config()
         return
       end
     end
-  elseif cok and (type(current_checksum) == 'string' and current_checksum ~= '') then
-    _G.metadata.last_projectChecksum = current_checksum
-    OS.notify('checksum_file')
+  -- elseif cok and (type(current_checksum) == 'string' and current_checksum ~= '') then
+  --   _G.metadata.last_projectChecksum = current_checksum
+  --   OS.notify('checksum_file')
   -- else
   --   _G.metadata.last_projectChecksum = vim.fn.sha256('')
   --   OS.notify('no checksum_file')

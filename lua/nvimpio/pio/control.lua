@@ -239,14 +239,14 @@ function M.init(clangd_config)
 
   -- If the file already exists, do an initial sync
   -- if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
-  --   _G.metadata.isBusy = true
-  --   local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-  --   pio_refresh(function()
-  --     boilerplate.core_dir = _G.metadata.core_dir
-  --     -- clangd.getUnknownArgs('PIO start: ')
-  --     boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
-  --     _G.metadata.isBusy = false
-  --   end, 'PIO Control: ')
+    _G.metadata.isBusy = true
+    local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+    pio_refresh(function()
+      boilerplate.core_dir = _G.metadata.core_dir
+      -- clangd.getUnknownArgs('PIO start: ')
+      boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
+      _G.metadata.isBusy = false
+    end, 'PIO Control: ')
   -- end
 end
 
