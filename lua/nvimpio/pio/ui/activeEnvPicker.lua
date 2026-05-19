@@ -1,42 +1,42 @@
 local pio = require('nvimpio.pio.upkeep')
 
--- local M = {}
---
--- function M.select_env_picker()
---   if not _G.metadata or not _G.metadata.envs then
---     return
---   end
---   local current_active = _G.metadata.active_env
---
---   -- 1. Harvest and sort your environment targets array list
---   local envs = {}
---   for env_name, _ in pairs(_G.metadata.envs) do
---     table.insert(envs, env_name)
---   end
---   table.sort(envs)
---
---   -- 2. Pass variables straight down to Neovim's selection core.
---   -- Because you already configured and loaded telescope's 'ui-select' extension
---   -- in your working pioTermList, it will automatically wrap this list into your
---   -- centered dropdown GUI look, honoring all row heights without collapsing!
---   vim.ui.select(envs, {
---     prompt = 'Select Active Target Environment:',
---     kind = 'nvimpio_env_selector',
---     format_item = function(name)
---       local idx = vim.fn.index(envs, name) + 1
---       -- Clean, universal text brackets guarantee no broken '?' character symbols
---       return string.format(' %d. %s %s', idx, (name == current_active) and '[x]' or '[ ]', name)
---     end,
---   }, function(choice)
---     if choice then
---       _G.metadata.active_env = choice
---       vim.cmd('redrawstatus') -- Instantly updates your radio buttons on your statusline
---       OS.notify(string.format('PlatformIO target swapped -> %s', choice), 'info')
---     end
---   end)
--- end
---
--- return M
+local M = {}
+
+function M.select_env_picker()
+  if not _G.metadata or not _G.metadata.envs then
+    return
+  end
+  local current_active = _G.metadata.active_env
+
+  -- 1. Harvest and sort your environment targets array list
+  local envs = {}
+  for env_name, _ in pairs(_G.metadata.envs) do
+    table.insert(envs, env_name)
+  end
+  table.sort(envs)
+
+  -- 2. Pass variables straight down to Neovim's selection core.
+  -- Because you already configured and loaded telescope's 'ui-select' extension
+  -- in your working pioTermList, it will automatically wrap this list into your
+  -- centered dropdown GUI look, honoring all row heights without collapsing!
+  vim.ui.select(envs, {
+    prompt = 'Select Active Target Environment:',
+    kind = 'nvimpio_env_selector',
+    format_item = function(name)
+      local idx = vim.fn.index(envs, name) + 1
+      -- Clean, universal text brackets guarantee no broken '?' character symbols
+      return string.format(' %d. %s %s', idx, (name == current_active) and '[x]' or '[ ]', name)
+    end,
+  }, function(choice)
+    if choice then
+      _G.metadata.active_env = choice
+      vim.cmd('redrawstatus') -- Instantly updates your radio buttons on your statusline
+      OS.notify(string.format('PlatformIO target swapped -> %s', choice), 'info')
+    end
+  end)
+end
+
+return M
 
 -- local M = {}
 --
@@ -107,93 +107,92 @@ local pio = require('nvimpio.pio.upkeep')
 --
 -- return M
 
--- local pio = require('nvimpio.pio.upkeep')
-local function select_env_picker()
-  local telescope = require('telescope')
-  telescope.setup({
-    extensions = {
-      ['ui-select'] = {
-        require('telescope.themes').get_dropdown({
-          borderchars = {
-            prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
-            results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
-            preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
-          },
-          prompt_position = 'top', -- "top" or "bottom"
-          -- prompt_prefix = '🔍 ', -- Prompt prefix
-          selection_caret = '❯ ', -- Selection indicator
-          entry_prefix = '  ', -- Entry prefix
-          initial_mode = 'insert', -- "insert" or "normal"
-          scroll_strategy = 'cycle', -- "cycle" or "limit"
-          sorting_strategy = 'ascending', -- "ascending" or "descending"
-          color_devicons = true, -- Color file icons
-          use_less = true, -- Use less for preview
-          -- prompt_prefix = " ",
-          -- selection_caret = " ",
-          -- color_devicons = true,
-        }),
-      },
-    },
-  })
-  telescope.load_extension('ui-select')
-  local current_active = pio.get_active_env('UI Picker: ')
-  if not current_active or not _G.metadata or not _G.metadata.envs then
-    return
-  end
-
-  local envs = {}
-  local id = 1
-  for name, _ in pairs(_G.metadata.envs) do
-    table.insert(envs, { id = id, name = name })
-    -- table.insert(envs, name)
-    id = id + 1
-  end
-  -- table.sort(envs)
-  --
-
-  if #envs == 0 then
-    OS.notify('No envs found.', 'warn')
-    return
-  end
-
-  vim.ui.select(envs, {
-    prompt = 'Select Active Target Environment:',
-    kind = 'nvimpio_env_selector',
-    format_item = function(item)
-      -- local idx = vim.fn.index(envs, name) + 1
-      -- Clean, universal text brackets guarantee no broken '?' character symbols
-      -- return string.format(' %d. %s %s', idx, (name == current_active) and '[x]' or '[ ]', name)
-      return string.format(' %d. %s %s', item.id, (item.name == current_active) and '[x]' or '[ ]', item.name)
-    end,
-    -- vim.ui.select(envs, {
-    --   prompt = 'Select Active env:',
-    --   kind = 'nvimpio_env_selector',
-    --
-    --   format_item = function(item)
-    --     return string.format('%d:%s %s', item.id, (item.name == current_active) and ' [●] ' or ' [○ ] ', item.name)
-    --   end,
-    --   -- Format your options with stylized checkboxes/radio buttons
-    --   -- format_item = function(name)
-    --   --   return (name == current_active) and (' [●] ' .. name) or (' [○ ] ' .. name)
-    --   -- end,
-  }, function(choice)
-    if choice then
-      -- Commit choice to global tracking contexts
-      _G.metadata.active_env = choice.name
-
-      -- Instantly update statusline markers
-      vim.cmd('redrawstatus')
-
-      OS.notify(string.format('PlatformIO active_env swapped -> %s', choice), 'info')
-    else
-      vim.api.nvim_echo({ { 'No environment target selected.', 'Normal' } }, true, {})
-    end
-  end)
-end
-
-return {
-  select_env_picker = select_env_picker,
-}
+-- local function select_env_picker()
+--   local telescope = require('telescope')
+--   telescope.setup({
+--     extensions = {
+--       ['ui-select'] = {
+--         require('telescope.themes').get_dropdown({
+--           borderchars = {
+--             prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+--             results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+--             preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+--           },
+--           prompt_position = 'top', -- "top" or "bottom"
+--           -- prompt_prefix = '🔍 ', -- Prompt prefix
+--           selection_caret = '❯ ', -- Selection indicator
+--           entry_prefix = '  ', -- Entry prefix
+--           initial_mode = 'insert', -- "insert" or "normal"
+--           scroll_strategy = 'cycle', -- "cycle" or "limit"
+--           sorting_strategy = 'ascending', -- "ascending" or "descending"
+--           color_devicons = true, -- Color file icons
+--           use_less = true, -- Use less for preview
+--           -- prompt_prefix = " ",
+--           -- selection_caret = " ",
+--           -- color_devicons = true,
+--         }),
+--       },
+--     },
+--   })
+--   telescope.load_extension('ui-select')
+--   local current_active = pio.get_active_env('UI Picker: ')
+--   if not current_active or not _G.metadata or not _G.metadata.envs then
+--     return
+--   end
+--
+--   local envs = {}
+--   local id = 1
+--   for name, _ in pairs(_G.metadata.envs) do
+--     table.insert(envs, { id = id, name = name })
+--     -- table.insert(envs, name)
+--     id = id + 1
+--   end
+--   -- table.sort(envs)
+--   --
+--
+--   if #envs == 0 then
+--     OS.notify('No envs found.', 'warn')
+--     return
+--   end
+--
+--   vim.ui.select(envs, {
+--     prompt = 'Select Active Target Environment:',
+--     kind = 'nvimpio_env_selector',
+--     format_item = function(item)
+--       -- local idx = vim.fn.index(envs, name) + 1
+--       -- Clean, universal text brackets guarantee no broken '?' character symbols
+--       -- return string.format(' %d. %s %s', idx, (name == current_active) and '[x]' or '[ ]', name)
+--       return string.format(' %d. %s %s', item.id, (item.name == current_active) and '[x]' or '[ ]', item.name)
+--     end,
+--     -- vim.ui.select(envs, {
+--     --   prompt = 'Select Active env:',
+--     --   kind = 'nvimpio_env_selector',
+--     --
+--     --   format_item = function(item)
+--     --     return string.format('%d:%s %s', item.id, (item.name == current_active) and ' [●] ' or ' [○ ] ', item.name)
+--     --   end,
+--     --   -- Format your options with stylized checkboxes/radio buttons
+--     --   -- format_item = function(name)
+--     --   --   return (name == current_active) and (' [●] ' .. name) or (' [○ ] ' .. name)
+--     --   -- end,
+--   }, function(choice)
+--     if choice then
+--       -- Commit choice to global tracking contexts
+--       _G.metadata.active_env = choice.name
+--
+--       -- Instantly update statusline markers
+--       vim.cmd('redrawstatus')
+--
+--       OS.notify(string.format('PlatformIO active_env swapped -> %s', choice), 'info')
+--     else
+--       vim.api.nvim_echo({ { 'No environment target selected.', 'Normal' } }, true, {})
+--     end
+--   end)
+-- end
+--
+-- return {
+--   select_env_picker = select_env_picker,
+-- }
 
 -- local M = {}
 --

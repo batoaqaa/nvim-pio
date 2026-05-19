@@ -198,6 +198,31 @@ function M.start_watchers()
   for _, target in ipairs(targets) do watch_file(target, target.cb) end
 end
 
+local telescope = require('telescope')
+telescope.setup({
+  extensions = {
+    ['ui-select'] = {
+      -- 2. FORCE THE CENTERED DROPDOWN THEME INTERNALLY FOR VIM.UI.SELECT
+      require('telescope.themes').get_dropdown({
+        borderchars = {
+          prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+          results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+          preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+        },
+        prompt_position = 'top',
+        prompt_prefix = '🔍 ',
+        selection_caret = '❯ ',
+        entry_prefix = '  ',
+        initial_mode = 'normal', -- Keeps arrow & number keys active instantly!
+        sorting_strategy = 'ascending',
+      }),
+    },
+  },
+})
+-- 3. CRITICAL: Hijack Neovim's native vim.ui.select() API core wrapper
+telescope.load_extension('ui-select')
+
+
 --INFO: 6.  Exported setup function
 --stylua: ignore
 -------------------------------------------------------------------------------
