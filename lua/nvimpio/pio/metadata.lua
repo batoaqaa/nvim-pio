@@ -101,7 +101,6 @@ _G.metadata = setmetatable({}, {
         OS.notify(from .. 'compiledb update ...', 'info')
 
         local pio = require('nvimpio.pio.upkeep')
-        -- local cb = pio.handlePioDB
         local cb = function(status)
           pio.handlePioinit(status, function (suscess)
             if(suscess)then
@@ -110,7 +109,6 @@ _G.metadata = setmetatable({}, {
               pio_refresh(function()
                 require('nvimpio.clangd.control').getUnknownArgs(from)
                 if _G.metadata then _G.metadata.isBusy = false end
-                -- clangdRestart()
               end, from)
             else
               OS.notify(string.format('%sBuild Failed %s',from), 'error')
@@ -121,9 +119,7 @@ _G.metadata = setmetatable({}, {
         local cmd = 'pio run -t compiledb -e ' .. current_env
         pio.run_sequence({ cmnds = { cmd }, cb = cb })
 
-
-
-        -- vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', value }, { text = true }, function(obj)
+        -- vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', current_env }, { text = true }, function(obj)
         --   vim.schedule(function()
         --     if obj.code == 0 then
         --       OS.notify(from .. 'compiledb update Success', 'info')
