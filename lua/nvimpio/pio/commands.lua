@@ -29,6 +29,41 @@ vim.api.nvim_create_user_command('PioInstall', function()
     require('nvimpio.pio.ui.pioInstall').pioInstall()
 end, { desc = "Install PlatformIO Core" })
 
+vim.api.nvim_create_user_command('PioInstall', function()
+  vim.g.platformioRootDir = vim.uv.cwd()
+  -- require("nvimpio.core").execute_init(args)
+  require('nvimpio.core').ensure_toolchain_active(
+    -- pioCheck.pioStatus(
+    function(success)
+      if success then
+        vim.g.platformioRootDir = vim.uv.cwd()
+        require('nvimpio.init').activate()
+      else
+      end
+    end,
+    0
+  )
+  -- end, false)
+end, {
+  force = true,
+  desc = 'Start the PlatformIO guided install wizard',
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 -- stylua: ignore
 -- INFO: manage gitignore
 ------------------------------------------------------

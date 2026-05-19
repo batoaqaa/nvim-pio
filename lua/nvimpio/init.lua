@@ -50,27 +50,27 @@ function M.initialize_full_options()
   end
 end
 
+------------------------------------------------------------------------
+-- Activation: Turn on the plugin features
+function M.activate()
+  if M.isActivated then return end
+
+  M.isActivated = true
+  -- vim.schedule(function ()
+    vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
+    M.initialize_full_options()
+    local menu = require('nvimpio.menu')
+    menu.buildUserMenu(M.options)
+    require('nvimpio.pio.control').init(M.options.clangd)
+  -- end)
+end
+
 -- INFO:
 ---stylua: ignore start
 -------------------------------------------------------------------------------
 function M.setup(user_opts)
   user_opts = user_opts or {}
   M.options = vim.deepcopy(user_opts)
-
-  ------------------------------------------------------------------------
-  -- Activation: Turn on the plugin features
-  local function activate()
-    if M.isActivated then return end
-
-    M.isActivated = true
-    -- vim.schedule(function ()
-      vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
-      M.initialize_full_options()
-      local menu = require('nvimpio.menu')
-      menu.buildUserMenu(M.options)
-      require('nvimpio.pio.control').init(M.options.clangd)
-    -- end)
-  end
 
   -- INFO: Pioini
   vim.api.nvim_create_user_command('Pioinit', function()
@@ -86,7 +86,7 @@ function M.setup(user_opts)
             if done then
               -- vim.clangd.getUnknownArgs()
               -- if M.config.clangd.install then require('nvimpio.clangd.config') end
-              activate()
+              M.activate()
             end
           end)
         else
@@ -107,7 +107,7 @@ function M.setup(user_opts)
       -- pioCheck.pioStatus(
       require('nvimpio.core').ensure_toolchain_active(function(success)
         if success then
-          activate()
+          M.activate()
         end
       end, 0)
       -- end, true)
