@@ -958,9 +958,9 @@ function M.handlePioDB(result, on_done)
       trm = term.ToggleTerminal(pop(M.queue), 'float')
     end
   elseif result == 'DONE' then -- result of the only and the last command
-    vim.schedule(function()
+    -- vim.schedule(function()
       if on_done and type(on_done) == 'function' then on_done(true) end
-    end)
+    -- end)
     if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
