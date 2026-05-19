@@ -2,67 +2,69 @@ local pio = require('nvimpio.pio.upkeep')
 
 local M = {}
 
-function M.select_env_picker()
-  local current_active = pio.get_active_env('UI Picker: ')
-  if not current_active or not _G.metadata or not _G.metadata.envs then
-    return
-  end
-
-  -- 1. Build an optimized, numbered menu list using basic brackets
-  local menu_lines = { '--- Select Active Target Environment ---' }
-  local envs = {}
-  for name, _ in pairs(_G.metadata.envs) do
-    table.insert(envs, name)
-  end
-  table.sort(envs)
-
-  for idx, name in ipairs(envs) do
-    local checkbox = (name == current_active) and '[x]' or '[ ]'
-    table.insert(menu_lines, string.format('%d. %s %s', idx, checkbox, name))
-  end
-
-  -- 2. Trigger Neovim's native selection engine instantly
-  -- Users just tap numbers (1, 2, 3) or use arrows to select a board!
-  local choice = vim.fn.inputlist(menu_lines)
-  if choice > 0 and choice <= #envs then
-    _G.metadata.active_env = envs[choice]
-    vim.cmd('redrawstatus') -- Swaps your statusline indicators immediately
-    OS.notify(string.format('PlatformIO target swapped -> %s', envs[choice]), 'info')
-  end
-end
 -- function M.select_env_picker()
---   if not _G.metadata or not _G.metadata.envs then
+--   local current_active = pio.get_active_env('UI Picker: ')
+--   if not current_active or not _G.metadata or not _G.metadata.envs then
 --     return
 --   end
---   local current_active = _G.metadata.active_env
 --
---   -- 1. Harvest and sort your environment targets array list
+--   -- 1. Build an optimized, numbered menu list using basic brackets
+--   local menu_lines = { '--- Select Active Target Environment ---' }
 --   local envs = {}
---   for env_name, _ in pairs(_G.metadata.envs) do
---     table.insert(envs, env_name)
+--   for name, _ in pairs(_G.metadata.envs) do
+--     table.insert(envs, name)
 --   end
 --   table.sort(envs)
 --
---   -- 2. Pass variables straight down to Neovim's selection core.
---   -- Because you already configured and loaded telescope's 'ui-select' extension
---   -- in your working pioTermList, it will automatically wrap this list into your
---   -- centered dropdown GUI look, honoring all row heights without collapsing!
---   vim.ui.select(envs, {
---     prompt = 'Select Active Target Environment:',
---     kind = 'nvimpio_env_selector',
---     format_item = function(name)
---       local idx = vim.fn.index(envs, name) + 1
---       -- Clean, universal text brackets guarantee no broken '?' character symbols
---       return string.format(' %d. %s %s', idx, (name == current_active) and '[x]' or '[ ]', name)
---     end,
---   }, function(choice)
---     if choice then
---       _G.metadata.active_env = choice
---       vim.cmd('redrawstatus') -- Instantly updates your radio buttons on your statusline
---       OS.notify(string.format('PlatformIO target swapped -> %s', choice), 'info')
---     end
---   end)
+--   for idx, name in ipairs(envs) do
+--     local checkbox = (name == current_active) and '[x]' or '[ ]'
+--     table.insert(menu_lines, string.format('%d. %s %s', idx, checkbox, name))
+--   end
+--
+--   -- 2. Trigger Neovim's native selection engine instantly
+--   -- Users just tap numbers (1, 2, 3) or use arrows to select a board!
+--   local choice = vim.fn.inputlist(menu_lines)
+--   if choice > 0 and choice <= #envs then
+--     _G.metadata.active_env = envs[choice]
+--     vim.cmd('redrawstatus') -- Swaps your statusline indicators immediately
+--     OS.notify(string.format('PlatformIO target swapped -> %s', envs[choice]), 'info')
+--   end
 -- end
+
+function M.select_env_picker()
+  if not _G.metadata or not _G.metadata.envs then
+    return
+  end
+  -- local current_active = _G.metadata.active_env
+  local current_active = pio.get_active_env('UI Picker: ')
+
+  -- 1. Harvest and sort your environment targets array list
+  local envs = {}
+  for env_name, _ in pairs(_G.metadata.envs) do
+    table.insert(envs, env_name)
+  end
+  table.sort(envs)
+
+  -- 2. Pass variables straight down to Neovim's selection core.
+  -- Because you already configured and loaded telescope's 'ui-select' extension
+  -- in your working pioTermList, it will automatically wrap this list into your
+  -- centered dropdown GUI look, honoring all row heights without collapsing!
+  vim.ui.select(envs, {
+    prompt = 'Select Active Target Environment:',
+    kind = 'nvimpio_env_selector',
+    format_item = function(name)
+      local idx = vim.fn.index(envs, name) + 1
+      -- Clean, universal text brackets guarantee no broken '?' character symbols
+      return string.format(' %d. %s %s', idx, (name == current_active) and '[x]' or '[ ]', name)
+    end,
+  }, function(choice)
+    if choice then
+      _G.metadata.active_env = choice
+      vim.cmd('redrawstatus') -- Instantly updates your radio buttons on your statusline
+      OS.notify(string.format('PlatformIO target swapped -> %s', choice), 'info')
+    end
+  end)
+end
 
 return M
 
