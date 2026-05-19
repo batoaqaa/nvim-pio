@@ -332,9 +332,9 @@ function M.get_active_env(from)
   if type(def_envs) == 'table' then
     for _, env_name in ipairs(def_envs) do
       if metadata.envs[env_name] then
-        if _G.metadata then
-          _G.metadata.active_env = env_name
-        end
+        -- if _G.metadata then
+        --   _G.metadata.active_env = env_name
+        -- end
         return env_name, metadata
       end
     end
@@ -343,9 +343,9 @@ function M.get_active_env(from)
   -- Check C: Absolute fallback—simply extract the very first key available in our map
   local first_valid = next(metadata.envs)
   if first_valid then
-    if _G.metadata then
-      _G.metadata.active_env = first_valid
-    end
+    -- if _G.metadata then
+    --   _G.metadata.active_env = first_valid
+    -- end
     return first_valid, metadata
   end
 
