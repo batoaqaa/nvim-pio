@@ -215,6 +215,10 @@ end
 -------------------------------------------------------------------------------
 function M.load_project_config()
   local misc = require('nvimpio.utils.misc')
+
+  local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
+  local checksum_file = misc.joinPath(build_dir, 'project.checksum')
+  local cok, current_checksum = misc.readFile(checksum_file)
   if vim.fn.filereadable(config_path) == 1 then
     local _, json_data = misc.readFile(config_path)
     if json_data then
@@ -225,21 +229,16 @@ function M.load_project_config()
           _pio_metadata[k] = v
         end
         last_saved_hash = vim.fn.sha256(json_data)
-
-        local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
-        local checksum_file = misc.joinPath(build_dir, 'project.checksum')
-        local cok, current_checksum = misc.readFile(checksum_file)
-        if cok and (type(current_checksum) == 'string' and current_checksum ~= '') then
-          _G.metadata.last_projectChecksum = current_checksum
-          OS.notify('checksum_file')
-        else
-          _G.metadata.last_projectChecksum = vim.fn.sha256('')
-          OS.notify('no checksum_file')
-        end
-    -- if current_checksum == meta.last_projectChecksum then
         return
       end
     end
+  elseif cok and (type(current_checksum) == 'string' and current_checksum ~= '') then
+    _G.metadata.last_projectChecksum = current_checksum
+    OS.notify('checksum_file')
+  else
+    _G.metadata.last_projectChecksum = vim.fn.sha256('')
+    OS.notify('no checksum_file')
+    -- if current_checksum == meta.last_projectChecksum then
   end
   -- If no file, initialize hash with defaults
   last_saved_hash = vim.fn.sha256(misc.jsonFormat(_pio_metadata))
