@@ -79,7 +79,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
 
     if type(on_success_callback) == 'function' then
       on_success_callback(true)
-      if retry_counter == 0 then OS.notify('PIO already installed and verified')
+      if retry_counter == 0 then OS.notify('PIO already installed and verified') end
     end
   else
     if retry_counter >= 1 then
