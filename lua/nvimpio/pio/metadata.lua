@@ -98,9 +98,12 @@ _G.metadata = setmetatable({}, {
         local from = 'Meta active_env change: '
         _G.metadata.isBusy = true
         OS.notify(from .. 'compiledb update ...', 'info')
-        vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', value }, { text = true }, function(obj)
-          vim.schedule(function()
-            if obj.code == 0 then
+
+        local pio = require('nvimpio.pio.upkeep')
+        -- local cb = pio.handlePioDB
+        local cb = function(status)
+          pio.handlePioinit(status, function (suscess)
+            if(suscess)then
               OS.notify(from .. 'compiledb update Success', 'info')
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function()
@@ -109,12 +112,33 @@ _G.metadata = setmetatable({}, {
                 -- clangdRestart()
               end, from)
             else
-              local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
-              OS.notify(string.format('%sBuild Failed %s',from, err), 'error')
+              OS.notify(string.format('%sBuild Failed %s',from), 'error')
               _G.metadata.isBusy = false
             end
           end)
-        end)
+        end
+        local cmd = 'pio run -t compiledb -e ' .. value
+        pio.run_sequence({ cmnds = { cmd }, cb = cb })
+
+
+
+        -- vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', value }, { text = true }, function(obj)
+        --   vim.schedule(function()
+        --     if obj.code == 0 then
+        --       OS.notify(from .. 'compiledb update Success', 'info')
+        --       local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+        --       pio_refresh(function()
+        --         require('nvimpio.clangd.control').getUnknownArgs(from)
+        --         if _G.metadata then _G.metadata.isBusy = false end
+        --         -- clangdRestart()
+        --       end, from)
+        --     else
+        --       local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
+        --       OS.notify(string.format('%sBuild Failed %s',from, err), 'error')
+        --       _G.metadata.isBusy = false
+        --     end
+        --   end)
+        -- end)
 
       end
     end)

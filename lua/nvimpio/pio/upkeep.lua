@@ -947,8 +947,8 @@ function M.clangFormat(result)
 end
 
 -- =============================================================================
--- stylua: ignore
-function M.handlePioDB(result)
+--- stylua: ignore
+function M.handlePioDB(result, on_done)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
@@ -957,15 +957,23 @@ function M.handlePioDB(result)
     end
   elseif result == 'DONE' then -- result of the only and the last command
     vim.schedule(function()
-      OS.notify('PIO compiledb: Done', "info")
-      M.pio_refresh(function()
-        clangd.getUnknownArgs('PIO compiledb: ')
-        boilerplate.core_dir = _G.metadata.core_dir
-      end, 'PIO compiledb: ')
+      if on_done and type(on_done) == 'function' then
+        on_done(true)
+      end
+      -- OS.notify('PIO compiledb: Done', "info")
+      -- M.pio_refresh(function()
+      --   clangd.getUnknownArgs('PIO compiledb: ')
+      --   boilerplate.core_dir = _G.metadata.core_dir
+      -- end, 'PIO compiledb: ')
     end)
-    if trm then trm:close() end
+    if trm then
+      trm:close()
+    end
     M.cleanSequencer()
   elseif result == 'FAIL' then
+    if on_done and type(on_done) == 'function' then
+      on_done(false)
+    end
     M.cleanSequencer()
   end
 end
