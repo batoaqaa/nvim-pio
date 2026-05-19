@@ -956,16 +956,16 @@ function M.handlePioDB(result, on_done)
       -- if trm then trm:open() end
     end
   elseif result == 'DONE' then -- result of the only and the last command
-    vim.schedule(function()
-      if on_done and type(on_done) == 'function' then
-        on_done(true)
-      end
-      -- OS.notify('PIO compiledb: Done', "info")
-      -- M.pio_refresh(function()
-      --   clangd.getUnknownArgs('PIO compiledb: ')
-      --   boilerplate.core_dir = _G.metadata.core_dir
-      -- end, 'PIO compiledb: ')
-    end)
+    -- vim.schedule(function()
+    if on_done and type(on_done) == 'function' then
+      on_done(true)
+    end
+    -- OS.notify('PIO compiledb: Done', "info")
+    -- M.pio_refresh(function()
+    --   clangd.getUnknownArgs('PIO compiledb: ')
+    --   boilerplate.core_dir = _G.metadata.core_dir
+    -- end, 'PIO compiledb: ')
+    -- end)
     if trm then
       trm:close()
     end
