@@ -7,10 +7,10 @@ require('nvimpio.statusline')
 
 local M = {}
 
-M.isActivated = false -- Tracks if commands/features are loaded
+-- M.isActivated = false -- Tracks if commands/features are loaded
 
 -- Persistent internal storage for runtime verified properties
-M.config = { pio_runtime_dir = nil, pio_storage_dir = nil, }
+M.config = { pio_runtime_dir = nil, pio_storage_dir = nil, isActivated = false}
 M.options = nil -- This will hold the complete configuration table safely in memory
 
 -- Minimal primitive defaults to ensure the commands can register safely
@@ -53,15 +53,15 @@ end
 ------------------------------------------------------------------------
 -- Activation: Turn on the plugin features
 function M.activate()
-  if M.isActivated then return end
+  if M.config.isActivated then return end
 
-  M.isActivated = true
+  M.config.isActivated = true
   -- vim.schedule(function ()
-    vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
-    M.initialize_full_options()
-    local menu = require('nvimpio.menu')
-    menu.buildUserMenu(M.options)
-    require('nvimpio.pio.control').init(M.options.clangd)
+  vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
+  M.initialize_full_options()
+  local menu = require('nvimpio.menu')
+  menu.buildUserMenu(M.options)
+  require('nvimpio.pio.control').init(M.options.clangd)
   -- end)
 end
 
