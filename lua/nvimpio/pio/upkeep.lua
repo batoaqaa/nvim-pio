@@ -519,36 +519,39 @@ function M.fetch_metadata(callback, env, from, attempts)
     --   return true
     -- end -- Already updated
 
-    ----------------------------------------------------------------
-    -- STEP 2: Cache Path (idedata.json exists and checksum changed)
-    ----------------------------------------------------------------
-    local idok, content = misc.readFile(idedata_file)
-    if idok and (type(content) == 'string' and content ~= '') then
-      local cok, decoded = pcall(vim.json.decode, content)
+  else
+    current_checksum = vim.fn.sha256('')
+  end
+  ----------------------------------------------------------------
+  -- STEP 2: Cache Path (idedata.json exists and checksum changed)
+  ----------------------------------------------------------------
+  local idok, content = misc.readFile(idedata_file)
+  if idok and (type(content) == 'string' and content ~= '') then
+    local cok, decoded = pcall(vim.json.decode, content)
 
-      -- local formated = misc.jsonFormat(decoded)
-      -- local file = misc.joinPath(vim.uv.cwd(), 'idedata.json')
-      -- misc.writeFile(file, formated, {})
+    -- local formated = misc.jsonFormat(decoded)
+    -- local file = misc.joinPath(vim.uv.cwd(), 'idedata.json')
+    -- misc.writeFile(file, formated, {})
 
-      if cok and apply_metadata(decoded, current_checksum) then
-        local metadata = require('nvimpio.pio.metadata')
-        metadata.save_project_config(msg)
-        OS.notify(msg .. 'Metadata synced from cache', "info")
-        -- if callback then vim.schedule(callback) end
+    if cok and apply_metadata(decoded, current_checksum) then
+      local metadata = require('nvimpio.pio.metadata')
+      metadata.save_project_config(msg)
+      OS.notify(msg .. 'Metadata synced from cache', "info")
+      -- if callback then vim.schedule(callback) end
 
-        if type(callback) == "function" then
-          vim.schedule(callback)
-        else
-          -- If it's not a function, just do nothing or print a debug message
-          OS.notify(msg .." Debug; callback was " .. type(callback), 'debug')
-        end
-
-        return true
+      if type(callback) == "function" then
+        vim.schedule(callback)
+      else
+        -- If it's not a function, just do nothing or print a debug message
+        OS.notify(msg .." Debug; callback was " .. type(callback), 'debug')
       end
-    -- else
+
+      return true
     end
   -- else
   end
+  -- else
+  -- end
   ------------------------------------------------------------------------------------
   -- STEP 3: Auto-Initialize (If files project.checksum and idedata.json are missing)
   ------------------------------------------------------------------------------------
