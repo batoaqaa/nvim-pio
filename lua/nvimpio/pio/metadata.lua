@@ -192,7 +192,8 @@ function M.load_project_config()
       local ok, table_data = pcall(vim.json.decode, json_data)
       if ok and type(table_data) == 'table' then
         for k, v in pairs(table_data) do
-          _G.metadata[k] = v
+          -- _G.metadata[k] = v
+          _pio_metadata[k] = v
         end
         last_saved_hash = vim.fn.sha256(json_data)
         return
