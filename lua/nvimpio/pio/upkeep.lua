@@ -529,16 +529,7 @@ function M.fetch_metadata(callback, env, from, attempts)
   -------------------------------------------------------------------
   local ok, current_checksum = misc.readFile(checksum_file)
   if ok and (type(current_checksum) == 'string' and current_checksum ~= '') then
-    -- if current_checksum == meta.last_projectChecksum then
-    --   OS.notify(msg .. 'Metadata synced with cache', "info")
-    --   -- if callback then callback() end
-    --   if callback then vim.schedule(callback) end
-    --   return true
-    -- end -- Already updated
     meta.last_projectChecksum = current_checksum
-
-  -- else
-  --   current_checksum = vim.fn.sha256('')
   end
   ----------------------------------------------------------------
   -- STEP 2: Cache Path (idedata.json exists and checksum changed)
@@ -575,9 +566,8 @@ function M.fetch_metadata(callback, env, from, attempts)
   -- STEP 3: Auto-Initialize (If files project.checksum and idedata.json are missing)
   ------------------------------------------------------------------------------------
   -- buildIdedata()
-  local pio = require('nvimpio.pio.upkeep')
   local cb = function(status)
-    pio.handlePioDB(status, function (suscess)
+    M.handlePioDB(status, function (suscess)
       if(suscess)then
         OS.notify(string.format('%s Initializing project metadata success for %s.', msg, active_env), "info")
         if attempts > 0 then
@@ -590,8 +580,10 @@ function M.fetch_metadata(callback, env, from, attempts)
       end
     end)
   end
-  local cmd = string.format('pio run -t compiledb -e %s', active_env)
-  pio.run_sequence({ cmnds = { cmd }, cb = cb })
+    -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
+  local idecmd = string.format('pio run -t idedata -e %s s', active_env)
+  local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+  M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb })
 
   ---------------------------------------------------------
   -- STEP 4: Standard CLI Fallback (The Slow Path)
@@ -993,6 +985,9 @@ function M.handlePioDB(result, on_done)
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(pop(M.queue), 'float')
     end
+  elseif result == 'PASS' .. current_id then
+      OS.notify('PIO install:  pass ' .. current_id, "info")
+      if #M.queue > 0 then trm:send(pop(M.queue), false) end
   elseif result == 'DONE' then -- result of the only and the last command
     -- vim.schedule(function()
       if on_done and type(on_done) == 'function' then on_done(true) end
