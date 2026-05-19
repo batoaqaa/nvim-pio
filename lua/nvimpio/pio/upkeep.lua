@@ -212,7 +212,9 @@ function M.get_active_env(from)
         current_section = section
         if section:match('^env:') then
           local env_name = section:match('^env:(.+)')
-          raw_envs[env_name] = {}
+          if not raw_envs[env_name] then
+            raw_envs[env_name] = {}
+          end
         end
       elseif current_section then
         local key, val = line:match('^%s*([%w_%-]+)%s*=%s*(.-)%s*$')
