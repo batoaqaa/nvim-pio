@@ -35,7 +35,6 @@ end
 
 --INFO:
 -------------------------------------------------------------------------------
-local metaBusy = false
 -- Usage:
 -- 1. Internal State & Defaults
 local _pio_metadata = {
@@ -79,8 +78,7 @@ _G.metadata = setmetatable({}, {
     -- Trigger background actions
     vim.schedule(function()
       -- M.save_project_config(true)
-      if key == 'toolchain_root' and not metaBusy then
-        metaBusy = true
+      if key == 'toolchain_root' then
         local from = 'Meta PATH env: '
         local binPath = value .. '/bin'
 
@@ -96,9 +94,7 @@ _G.metadata = setmetatable({}, {
         -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
 
         OS.notify(string.format('%s %s added to path',from, binPath), 'info')
-        metaBusy = false
-      elseif key == 'active_env' and not metaBusy then
-        metaBusy = true
+      elseif key == 'active_env' then
         local from = 'Meta active_env change: '
         _G.metadata.isBusy = true
         OS.notify(from .. 'compiledb update ...', 'info')
@@ -138,9 +134,7 @@ _G.metadata = setmetatable({}, {
         --     end
         --   end)
         -- end)
-        metaBusy = false
-      elseif key == 'last_projectChecksum' and not metaBusy then
-        metaBusy = true
+      elseif key == 'last_projectChecksum' then
         local from = 'Meta last_projectChecksum change: '
         _G.metadata.isBusy = true
         OS.notify(from .. 'compiledb update ...', 'info')
@@ -163,8 +157,6 @@ _G.metadata = setmetatable({}, {
         end
         local cmd = 'pio run -t compiledb -e ' .. pio.get_active_env(from)
         pio.run_sequence({ cmnds = { cmd }, cb = cb })
-
-        metaBusy = false
       end
     end)
   end,
@@ -235,10 +227,9 @@ function M.load_project_config()
   elseif cok and (type(current_checksum) == 'string' and current_checksum ~= '') then
     _G.metadata.last_projectChecksum = current_checksum
     OS.notify('checksum_file')
-  else
-    _G.metadata.last_projectChecksum = vim.fn.sha256('')
-    OS.notify('no checksum_file')
-    -- if current_checksum == meta.last_projectChecksum then
+  -- else
+  --   _G.metadata.last_projectChecksum = vim.fn.sha256('')
+  --   OS.notify('no checksum_file')
   end
   -- If no file, initialize hash with defaults
   last_saved_hash = vim.fn.sha256(misc.jsonFormat(_pio_metadata))
