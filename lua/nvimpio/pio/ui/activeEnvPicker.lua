@@ -166,10 +166,11 @@ local function select_env_picker()
   --   end,
   --   kind = 'PioTerminals',
   local envs = {}
-  local id = 1
+  -- local id = 1
   for name, _ in pairs(_G.metadata.envs) do
-    table.insert(envs, { id = id, name = name })
-    id = id + 1
+    -- table.insert(envs, { id = id, name = name })
+    table.insert(envs, name)
+    -- id = id + 1
   end
   -- table.sort(envs)
   --
