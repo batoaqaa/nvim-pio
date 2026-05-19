@@ -96,13 +96,12 @@ _G.metadata = setmetatable({}, {
         OS.notify(string.format('%s %s added to path',from, binPath), 'info')
       elseif key == 'active_env' then
         local from = 'Meta active_env change: '
-        local current_env = tostring(value)
         _G.metadata.isBusy = true
         OS.notify(from .. 'compiledb update ...', 'info')
 
         local pio = require('nvimpio.pio.upkeep')
         local cb = function(status)
-          pio.handlePioinit(status, function (suscess)
+          pio.handlePioDB(status, function (suscess)
             if(suscess)then
               OS.notify(from .. 'compiledb update Success', 'info')
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
@@ -116,10 +115,10 @@ _G.metadata = setmetatable({}, {
             end
           end)
         end
-        local cmd = 'pio run -t compiledb -e ' .. current_env
+        local cmd = 'pio run -t compiledb -e ' .. value
         pio.run_sequence({ cmnds = { cmd }, cb = cb })
 
-        -- vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', current_env }, { text = true }, function(obj)
+        -- vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', value }, { text = true }, function(obj)
         --   vim.schedule(function()
         --     if obj.code == 0 then
         --       OS.notify(from .. 'compiledb update Success', 'info')
