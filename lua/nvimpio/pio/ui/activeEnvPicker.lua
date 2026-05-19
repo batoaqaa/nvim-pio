@@ -1,4 +1,5 @@
 local pio = require('nvimpio.pio.upkeep')
+
 local M = {}
 
 function M.select_env_picker()
@@ -7,84 +8,36 @@ function M.select_env_picker()
   end
   local current_active = _G.metadata.active_env
 
-  -- Extract the environment keys cleanly
+  -- 1. Harvest and sort your environment targets array list
   local envs = {}
   for env_name, _ in pairs(_G.metadata.envs) do
     table.insert(envs, env_name)
   end
   table.sort(envs)
 
-  -- 1. Explicitly config layout constraints inside the main theme dictionary call
-  local theme = require('telescope.themes').get_dropdown({
-    prompt_prefix = ' ', -- Blank space replaces the search icon to make it a pure menu
-    selection_caret = '❯ ',
-    entry_prefix = '  ',
-    sorting_strategy = 'ascending',
-
-    -- THE COLLAPSE CURE FOR NORMAL MODE:
-    -- Forcing an explicit results_height constraints lock right here tells
-    -- Telescope's engine to ignore fluid sizing math and keep the window wide open!
-    layout_config = {
-      width = 38,
-      height = #envs + 2, -- Explicitly allocates exactly enough vertical row height
-    },
-
-    borderchars = {
-      prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' }, -- Blank prompt boundary
-      results = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' }, -- Pristine rounded dialog card
-      preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
-    },
-  })
-
-  -- 2. Open the dedicated Picker pipeline wrapper
-  require('telescope.pickers')
-    .new(theme, {
-      prompt_title = false, -- Completely erases the prompt line text box header frame
-      initial_mode = 'normal', -- Safe to use now! Disables terminal typing prompts natively
-
-      finder = require('telescope.finders').new_table({
-        results = envs,
-        entry_maker = function(name)
-          local idx = vim.fn.index(envs, name) + 1
-          local checkbox = (name == current_active) and '[x]' or '[ ]' -- Font safe brackets
-          return {
-            value = name,
-            display = string.format(' %d. %s %s', idx, checkbox, name),
-            ordinal = name,
-          }
-        end,
-      }),
-
-      sorter = require('telescope.config').values.generic_sorter(theme),
-
-      attach_mappings = function(prompt_bufnr, map)
-        local make_selection = function()
-          local selection = require('telescope.actions.state').get_selected_entry()
-          require('telescope.actions').close(prompt_bufnr)
-          if selection then
-            _G.metadata.active_env = selection.value
-            vim.cmd('redrawstatus') -- Swaps your statusline indicators immediately
-            OS.notify(string.format('PlatformIO target swapped -> %s', selection.value), 'info')
-          end
-        end
-
-        map('n', '<CR>', make_selection)
-        map('n', '<Space>', make_selection)
-
-        -- Map Number Keys (1, 2, 3...) to trigger instant target updates
-        for idx = 1, #envs do
-          map('n', tostring(idx), function()
-            require('telescope.actions.state').get_current_picker(prompt_bufnr):set_selection(idx - 1)
-            make_selection()
-          end)
-        end
-        return true
-      end,
-    })
-    :find()
+  -- 2. Pass variables straight down to Neovim's selection core.
+  -- Because you already configured and loaded telescope's 'ui-select' extension
+  -- in your working pioTermList, it will automatically wrap this list into your
+  -- centered dropdown GUI look, honoring all row heights without collapsing!
+  vim.ui.select(envs, {
+    prompt = 'Select Active Target Environment:',
+    kind = 'nvimpio_env_selector',
+    format_item = function(name)
+      local idx = vim.fn.index(envs, name) + 1
+      -- Clean, universal text brackets guarantee no broken '?' character symbols
+      return string.format(' %d. %s %s', idx, (name == current_active) and '[x]' or '[ ]', name)
+    end,
+  }, function(choice)
+    if choice then
+      _G.metadata.active_env = choice
+      vim.cmd('redrawstatus') -- Instantly updates your radio buttons on your statusline
+      OS.notify(string.format('PlatformIO target swapped -> %s', choice), 'info')
+    end
+  end)
 end
 
 return M
+
 -- local M = {}
 --
 -- function M.select_env_picker()
