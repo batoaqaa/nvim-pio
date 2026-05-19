@@ -192,7 +192,10 @@ function M.getUnknownArgs(from)
 
   if not check_file then
     OS.notify(from .. ' No source file found to check.', 'info')
-    return
+    boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+    boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+    check_file = vim.uv.cwd() .. '/src/main.cpp'
+    -- return
   else
     OS.notify(string.format('%s %s found to check.',from, check_file), 'info')
   end
