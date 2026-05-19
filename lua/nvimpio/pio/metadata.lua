@@ -96,6 +96,7 @@ _G.metadata = setmetatable({}, {
         OS.notify(string.format('%s %s added to path',from, binPath), 'info')
       elseif key == 'active_env' then
         local from = 'Meta active_env change: '
+        local current_env = value
         _G.metadata.isBusy = true
         OS.notify(from .. 'compiledb update ...', 'info')
 
@@ -117,7 +118,7 @@ _G.metadata = setmetatable({}, {
             end
           end)
         end
-        local cmd = 'pio run -t compiledb -e ' .. value
+        local cmd = 'pio run -t compiledb -e ' .. current_env
         pio.run_sequence({ cmnds = { cmd }, cb = cb })
 
 
