@@ -6,12 +6,12 @@ local function select_env_picker()
       ['ui-select'] = {
         require('telescope.themes').get_dropdown({
           borderchars = {
-            prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+            -- prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
             results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
             preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
           },
-          prompt_position = 'top', -- "top" or "bottom"
-          prompt_prefix = '🔍 ', -- Prompt prefix
+          -- prompt_position = 'top', -- "top" or "bottom"
+          -- prompt_prefix = '🔍 ', -- Prompt prefix
           selection_caret = '❯ ', -- Selection indicator
           entry_prefix = '  ', -- Entry prefix
           initial_mode = 'insert', -- "insert" or "normal"
@@ -32,26 +32,55 @@ local function select_env_picker()
     return
   end
 
+  -- local terms = require('toggleterm.terminal').get_all(true)
+  -- if #terms ~= 0 then
+  --   for i = 1, #terms do
+  --     if terms[i].display_name and terms[i].display_name ~= '' and terms[i].display_name:find('pio', 1) then
+  --       local misc = require('nvimpio.utils.misc')
+  --       local termtype = misc.strsplit(terms[i].display_name, ':')[1]
+  --       table.insert(toggleterm_list, {
+  --         term = terms[i],
+  --         termtype = termtype, -- Store the terminal type [piomon or piocli]
+  --       })
+  --     end
+  --   end
+  -- end
+  -- vim.ui.select(toggleterm_list, {
+  --   prompt = 'Select a PIO terminal window:',
+  --   format_item = function(item)
+  --     return string.format(
+  --       '%d:%s (hidden: %s)',
+  --       item.term.id,
+  --       item.termtype,
+  --       vim.api.nvim_buf_is_loaded(item.term.bufnr) and (vim.fn.bufwinid(item.term.bufnr) == -1)
+  --     )
+  --   end,
+  --   kind = 'PioTerminals',
   local envs = {}
+  local id = 1
   for name, _ in pairs(_G.metadata.envs) do
-    table.insert(envs, name)
+    table.insert(envs, { id = id, name = name })
+    id = id + 1
   end
-  table.sort(envs)
+  -- table.sort(envs)
   --
 
   if #envs == 0 then
-    vim.api.nvim_echo({ { 'No envs found.', 'Normal' } }, true, {})
+    OS.notify('No envs found.', 'warn')
     return
   end
 
   vim.ui.select(envs, {
-    prompt = 'Select Active Hardware Target:',
+    prompt = 'Select Active env:',
     kind = 'nvimpio_env_selector',
 
-    -- Format your options with stylized checkboxes/radio buttons
-    format_item = function(name)
-      return (name == current_active) and (' [●] ' .. name) or (' [○] ' .. name)
+    format_item = function(item)
+      return string.format('%d:%s %s', item.id, (item.name == current_active) and ' [●] ' or ' [○ ] ', item.name)
     end,
+    -- Format your options with stylized checkboxes/radio buttons
+    -- format_item = function(name)
+    --   return (name == current_active) and (' [●] ' .. name) or (' [○ ] ' .. name)
+    -- end,
   }, function(choice)
     if choice then
       -- Commit choice to global tracking contexts
