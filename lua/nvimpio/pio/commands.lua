@@ -37,7 +37,9 @@ vim.api.nvim_create_user_command('PioInstall', function()
     function(success)
       if success then
         vim.g.platformioRootDir = vim.uv.cwd()
-        require('nvimpio').activate()
+        --@type NvimPio
+        local nvimpio = require('nvimpio')
+        nvimpio.activate()
       else
       end
     end,

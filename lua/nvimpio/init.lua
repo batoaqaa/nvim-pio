@@ -2,9 +2,7 @@
 require('nvimpio.osInfo')
 require('nvimpio.statusline')
 
--- local pio = require('nvimpio.pioCheck')
--- local val = require('nvimpio.validator')
-
+--@class NvimPio
 local M = {}
 
 local isActivated = false -- Tracks if commands/features are loaded
