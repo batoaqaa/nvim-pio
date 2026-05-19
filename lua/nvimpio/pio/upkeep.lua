@@ -445,12 +445,6 @@ function M.fetch_metadata(callback, env, from, attempts)
     return
   end
 
-  -- Set up file paths
-  local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
-  local build_env_dir = misc.joinPath(build_dir, active_env)
-  local checksum_file = misc.joinPath(build_dir, 'project.checksum')
-  local idedata_file = misc.joinPath(build_env_dir, 'idedata.json')
-
   --INFO:
   --INTERNAL PROCESSOR: Applies parsed data to _G.metadata
   ---------------------------------------------------------
@@ -512,6 +506,11 @@ function M.fetch_metadata(callback, env, from, attempts)
     return true
   end
 
+  -- Set up file paths
+  local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
+  local build_env_dir = misc.joinPath(build_dir, active_env)
+  local checksum_file = misc.joinPath(build_dir, 'project.checksum')
+  local idedata_file = misc.joinPath(build_env_dir, 'idedata.json')
   -------------------------------------------------------------------
   -- STEP 1: Fast Checksum Check (project.checksum and idedata.json)
   -------------------------------------------------------------------
@@ -562,7 +561,21 @@ function M.fetch_metadata(callback, env, from, attempts)
   ------------------------------------------------------------------------------------
   -- STEP 3: Auto-Initialize (If files project.checksum and idedata.json are missing)
   ------------------------------------------------------------------------------------
-  buildIdedata()
+  -- buildIdedata()
+  local pio = require('nvimpio.pio.upkeep')
+  local cb = function(status)
+    pio.handlePioDB(status, function (suscess)
+      if(suscess)then
+        OS.notify(msg .. 'Initializing project metadata success.', "info")
+        M.fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
+      else
+        OS.notify(string.format('%sBuild Failed %s', msg), 'error')
+        _G.metadata.isBusy = false
+      end
+    end)
+  end
+  local cmd = string.format('pio run -t compiledb -e %s -s', active_env)
+  pio.run_sequence({ cmnds = { cmd }, cb = cb })
 
   ---------------------------------------------------------
   -- STEP 4: Standard CLI Fallback (The Slow Path)
