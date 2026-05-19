@@ -29,7 +29,7 @@ function M.select_env_picker()
   -- 3. Execute the standard Telescope Dialogue Window Card
   require('telescope.pickers')
     .new(theme, {
-      initial_mode = 'normal', -- Immediate normal mode blocks command line typing inputs
+      initial_mode = 'insert', -- Immediate normal mode blocks command line typing inputs
       finder = require('telescope.finders').new_table({
         results = envs,
         entry_maker = function(name)
