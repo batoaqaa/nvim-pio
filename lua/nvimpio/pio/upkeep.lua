@@ -483,7 +483,8 @@ function M.fetch_metadata(callback, env, from, attempts)
     -- meta.includes_build = quote_map(inc.build, '-I')
     -- meta.includes_toolchain = quote_map(inc.toolchain, '-isystem')
     -- meta.includes_compatlib = quote_map(inc.compatlib, '-isystem')
-    meta.last_projectChecksum = checksum
+
+    -- meta.last_projectChecksum = checksum
     pcall(M.get_sysroot_triplet, meta.cc_path)
 
     return true
@@ -518,9 +519,10 @@ function M.fetch_metadata(callback, env, from, attempts)
     --   if callback then vim.schedule(callback) end
     --   return true
     -- end -- Already updated
+    meta.last_projectChecksum = current_checksum
 
-  else
-    current_checksum = vim.fn.sha256('')
+  -- else
+  --   current_checksum = vim.fn.sha256('')
   end
   ----------------------------------------------------------------
   -- STEP 2: Cache Path (idedata.json exists and checksum changed)
