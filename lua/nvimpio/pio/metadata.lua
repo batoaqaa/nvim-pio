@@ -231,8 +231,10 @@ function M.load_project_config()
         local cok, current_checksum = misc.readFile(checksum_file)
         if cok and (type(current_checksum) == 'string' and current_checksum ~= '') then
           _G.metadata.last_projectChecksum = current_checksum
+          OS.notify('checksum_file')
         else
           _G.metadata.last_projectChecksum = vim.fn.sha256('')
+          OS.notify('no checksum_file')
         end
     -- if current_checksum == meta.last_projectChecksum then
         return
