@@ -1,5 +1,6 @@
 local pio = require('nvimpio.pio.upkeep')
 local M = {}
+
 function M.select_env_picker()
   -- Assume your engine populated _G.metadata.envs with your target table
   if not _G.metadata or not _G.metadata.envs then
@@ -17,11 +18,20 @@ function M.select_env_picker()
   -- 2. Build the Centered Dropdown GUI Theme Geometry
   local theme = require('telescope.themes').get_dropdown({
     prompt_title = 'Select Environment',
-    results_title = 'Available Boards', -- Forces the window open, preventing collapsing bugs!
-    layout_config = { width = 38, height = #envs + 3 },
+    results_title = 'Available Boards',
+
+    -- ADJUSTMENT 1: Increase the height container envelope size multiplier!
+    -- Changing this to #envs + 5 or #envs + 6 gives the window plenty of extra row lines.
+    layout_config = {
+      width = 38,
+      height = #envs + 5,
+    },
+
+    -- ADJUSTMENT 2: Restore the top framing borders of the prompt container window canopy.
+    -- Wiping these entirely causes the dropdown engine to collapse internal height spaces.
     borderchars = {
-      prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
-      results = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+      prompt = { '─', '│', ' ', '│', '╭', '╮', '│', '│' },
+      results = { '─', '│', '─', '│', '├', '┤', '╯', '╰' },
       preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
     },
   })
@@ -29,7 +39,7 @@ function M.select_env_picker()
   -- 3. Execute the standard Telescope Dialogue Window Card
   require('telescope.pickers')
     .new(theme, {
-      initial_mode = 'insert', -- Immediate normal mode blocks command line typing inputs
+      initial_mode = 'insert',
       finder = require('telescope.finders').new_table({
         results = envs,
         entry_maker = function(name)
@@ -49,20 +59,27 @@ function M.select_env_picker()
             OS.notify(string.format('PlatformIO target swapped -> %s', selection.value), 'info')
           end
         end
+
+        -- Map normal mode keys
         map('n', '<CR>', make_selection)
         map('n', '<Space>', make_selection)
 
+        -- Map insert mode keys (Since your config sets initial_mode = 'insert'!)
+        map('i', '<CR>', make_selection)
+
         -- Map Number Keys (1, 2, 3...) to trigger instant target updates
+        -- Added both normal ('n') and insert ('i') support so typing numbers jumps instantly!
         for idx = 1, math.min(#envs, 9) do
-          map('n', tostring(idx), function()
+          local handler = function()
             require('telescope.actions.state').get_current_picker(prompt_bufnr):set_selection(idx - 1)
             make_selection()
-          end)
+          end
+          map('n', tostring(idx), handler)
+          map('i', tostring(idx), handler)
         end
         return true
       end,
     })
     :find()
 end
-
 return M
