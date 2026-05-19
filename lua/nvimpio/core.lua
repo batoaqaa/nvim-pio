@@ -77,11 +77,14 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     -- vim.env.PLATFORMIO_CORE_DIR = raw_storage_dir
     main.config.pio_storage_dir = raw_storage_dir
 
-    if type(on_success_callback) == 'function' then on_success_callback(true) end
+    if type(on_success_callback) == 'function' then
+      on_success_callback(true)
+      if retry_counter == 0 then OS.notify('PIO already installed and verified')
+    end
   else
     if retry_counter >= 1 then
       return vim.schedule(function()
-        vim.notify("PlatformIO path resolution failed. Target missing.", vim.log.levels.ERROR)
+        OS.notify("PlatformIO path resolution failed. Target missing.", 'error')
       end)
     end
     vim.schedule(function()
@@ -92,11 +95,11 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
             M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
           end)
         else
-          if main.OS then main.OS.notify('Installer module missing', 'error') end
+          OS.notify('Installer module missing', 'error')
           if type(on_success_callback) == 'function' then on_success_callback(false) end
         end
       else
-        if main.OS then main.OS.notify('Execution aborted: Toolchain missing.', 'warn') end
+        OS.notify('Execution aborted: Toolchain missing.', 'warn')
         if type(on_success_callback) == 'function' then on_success_callback(false) end
       end
     end)
@@ -110,7 +113,7 @@ function M.execute_cmd_clean(target_command)
 
   local status, ToggleTerm = pcall(require, 'toggleterm.terminal')
   if not status then
-    return vim.notify('ToggleTerm is required but missing.', 4)
+    return OS.notify('ToggleTerm is required but missing.', 'error')
   end
 
   local pio_bin = main.config.pio_bin_dir or (pio.clean(main.options.pio.pio_runtime_dir) .. OS.folder_sep .. 'penv' .. OS.folder_sep .. OS.bin_dir)
@@ -157,7 +160,7 @@ function M.configure_paths()
         main.options.pio.pio_runtime_dir = r
         main.options.pio.pio_storage_dir = s
         M.ensure_toolchain_active(function()
-          vim.notify('PlatformIO Wizard workspace paths updated successfully!', 2)
+          OS.notify('PlatformIO Wizard workspace paths updated successfully!')
         end)
       end)
     end)

@@ -2,7 +2,7 @@
 require('nvimpio.osInfo')
 require('nvimpio.statusline')
 
---@class NvimPio
+---@class NvimPio
 local M = {}
 
 local isActivated = false -- Tracks if commands/features are loaded

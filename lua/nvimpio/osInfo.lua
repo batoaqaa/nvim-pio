@@ -72,6 +72,9 @@ local os_info = {
   ---@param msg string The message to display
   ---@param level string|integer|nil
   notify = function(msg, level)
+
+    -- vim.log = { levels = { TRACE = 0, DEBUG = 1, INFO = 2, WARN = 3, ERROR = 4, OFF = 5, }, }
+
     local string_to_level = {
       info = vim.log.levels.INFO,
       warn = vim.log.levels.WARN,
