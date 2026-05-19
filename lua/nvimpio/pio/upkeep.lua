@@ -567,7 +567,10 @@ function M.fetch_metadata(callback, env, from, attempts)
     pio.handlePioDB(status, function (suscess)
       if(suscess)then
         OS.notify(msg .. 'Initializing project metadata success.', "info")
-        M.fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
+        if attempts > 0 then
+          M.fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
+        end
+        return
       else
         OS.notify(string.format('%sBuild Failed %s', msg), 'error')
         _G.metadata.isBusy = false
