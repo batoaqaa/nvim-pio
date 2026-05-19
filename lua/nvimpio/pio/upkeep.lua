@@ -581,7 +581,7 @@ function M.fetch_metadata(callback, env, from, attempts)
     end)
   end
     -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
-  local idecmd = string.format('pio run -t idedata -e %s s', active_env)
+  local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
   local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
   M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb })
 
