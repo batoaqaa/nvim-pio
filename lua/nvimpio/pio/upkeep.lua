@@ -322,8 +322,9 @@ function M.pio_refresh(callback, from)
     if active_env then OS.notify(msg .. 'active_env= ' .. active_env, "info") end
     if active_env then M.fetch_metadata(callback, active_env, from, 1) end
   end
+
   local active_env = M.get_active_env(from)
-  if active_env and active_env ~= '' then on_done(M.get_active_env(from))
+  if active_env and active_env ~= '' then on_done(active_env)
   else OS.notify('No active env', 'error') end
   -- M.fetch_config(on_done, from)
 end
