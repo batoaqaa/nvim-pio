@@ -196,6 +196,14 @@ end
 function M.get_active_env(from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
+  local metadata = {
+    envs = {},
+    core_dir = '',
+    packages_dir = '',
+    platforms_dir = '',
+    default_envs = {}
+  }
+
   -- 1. Pin the file check strictly to the current working directory (CWD)
   local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
   if vim.fn.filereadable(path) == 0 then
@@ -253,15 +261,20 @@ function M.get_active_env(from)
   end
 
   -- 4. Initialize or clear the target global structure to mirror your requested dictionary layout
-  _G.metadata.core_dir = interpolate_string(platformio_vars.core_dir or '', platformio_vars) or require('nvimpio').config.pio_storage_dir
-  _G.metadata.packages_dir = interpolate_string(platformio_vars.packages_dir or '', platformio_vars)
-  _G.metadata.platforms_dir = interpolate_string(platformio_vars.platforms_dir or '', platformio_vars)
-  _G.metadata.default_envs = normalize_value('default_envs', default_envs_raw)
-  _G.metadata.envs = {}
+  -- _G.metadata.core_dir = interpolate_string(platformio_vars.core_dir or '', platformio_vars) or require('nvimpio').config.pio_storage_dir
+  metadata.core_dir = interpolate_string(platformio_vars.core_dir or '', platformio_vars) or require('nvimpio').config.pio_storage_dir
+  -- _G.metadata.packages_dir = interpolate_string(platformio_vars.packages_dir or '', platformio_vars)
+  metadata.packages_dir = interpolate_string(platformio_vars.packages_dir or '', platformio_vars)
+  -- _G.metadata.platforms_dir = interpolate_string(platformio_vars.platforms_dir or '', platformio_vars)
+  metadata.platforms_dir = interpolate_string(platformio_vars.platforms_dir or '', platformio_vars)
+  -- _G.metadata.default_envs = normalize_value('default_envs', default_envs_raw)
+  metadata.default_envs = normalize_value('default_envs', default_envs_raw)
+  -- _G.metadata.envs = {}
+  metadata.envs = {}
 
   -- 5. Inject common properties, expand path string tokens, apply real data types
   for env_name, local_pairs in pairs(raw_envs) do
-    _G.metadata.envs[env_name] = {}
+    metadata.envs[env_name] = {}
 
     -- Load base properties from common [env] section
     for k, v in pairs(global_env_defaults) do _G.metadata.envs[env_name][k] = v end
@@ -272,19 +285,19 @@ function M.get_active_env(from)
     -- Run values normalization and token transformations
     for k, v in pairs(_G.metadata.envs[env_name]) do
       local interpolated = interpolate_string(v, platformio_vars)
-      _G.metadata.envs[env_name][k] = normalize_value(k, interpolated)
+      metadata.envs[env_name][k] = normalize_value(k, interpolated)
     end
 
     -- Ensure required structure arrays are instantiated even if left blank by user text rows
-    if _G.metadata.envs[env_name].extra_scripts == nil then
-      _G.metadata.envs[env_name].extra_scripts = {}
+    if metadata.envs[env_name].extra_scripts == nil then
+      metadata.envs[env_name].extra_scripts = {}
     end
   end
 
   -- 6. RESOLVE ACTIVE SELECTION (3-TIER PRIORITY WATERFALL)
   -- Priority 1: Retain the active string selection if it remains valid and present
-  if _G.metadata.active_env and _G.metadata.envs[_G.metadata.active_env] then
-    return _G.metadata.active_env
+  if _G.metadata.active_env and metadata.envs[_G.metadata.active_env] then
+    return _G.metadata.active_env, metadata
   end
 
   -- Priority 2: Fall back to variables listed in the parsed default_envs array parameters
@@ -293,7 +306,7 @@ function M.get_active_env(from)
     for _, env_name in ipairs(def_envs) do
       if _G.metadata.envs[env_name] then
         _G.metadata.active_env = env_name
-        return env_name
+        return env_name, metadata
       end
     end
   end
@@ -302,7 +315,7 @@ function M.get_active_env(from)
   local first_valid = next(_G.metadata.envs)
   if first_valid then
     _G.metadata.active_env = first_valid
-    return first_valid
+    return first_valid, metadata
   end
 
   return nil
