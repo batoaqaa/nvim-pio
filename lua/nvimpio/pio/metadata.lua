@@ -96,7 +96,7 @@ _G.metadata = setmetatable({}, {
         OS.notify(string.format('%s %s added to path',from, binPath), 'info')
       elseif key == 'active_env' then
         local from = 'Meta active_env change: '
-        local current_env = value
+        local current_env = tostring(value)
         _G.metadata.isBusy = true
         OS.notify(from .. 'compiledb update ...', 'info')
 
