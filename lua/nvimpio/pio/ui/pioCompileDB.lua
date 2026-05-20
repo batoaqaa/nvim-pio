@@ -8,7 +8,7 @@ local function pioCompileDB()
   local cb = pio.handlePioDB
   local cmd = 'pio run -t compiledb -e ' .. active_env
 
-  pio.run_sequence({ cmnds = { cmd }, cb = cb })
+  pio.run_sequence({ cmnds = { cmd }, cb = cb , from = 'PioCompileDB:'})
 end
 
 return {

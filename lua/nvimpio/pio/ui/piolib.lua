@@ -71,7 +71,8 @@ local function pick_library(json_data)
         local db_cmd = string.format('pio run -t compiledb -e %s', active_env)
         pio.run_sequence({
           cmnds = {lib_cmd, db_cmd},
-          cb = pio.handlePiolib
+          cb = pio.handlePiolib,
+          from = 'Piolib:'
         })
       end)
       return true

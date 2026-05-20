@@ -147,7 +147,8 @@ function M.setFormatStyle()
     local pio = require('nvimpio.pio.upkeep')
     pio.run_sequence({
         cmnds = {cmd},
-        cb = pio.clangFormat
+        cb = pio.clangFormat,
+        from = 'clangdIntall',
     })
 
     -- using hidden system command for setting clang-format style

@@ -46,7 +46,7 @@ local function pioInstall(runtime_dir, on_done)
   end
 
   -- 6. open toggleterm and install platformio
-  pio.run_sequence({ cmnds = { download_cmd, install_cmd }, cb = cb })
+  pio.run_sequence({ cmnds = { download_cmd, install_cmd }, cb = cb, from = 'PioInstall:' })
 end
 
 return {

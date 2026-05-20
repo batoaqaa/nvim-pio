@@ -56,7 +56,7 @@ local function finalize_setup()
   end
 
   OS.notify('Starting project setup for ' .. wizard_data.board_id .. '...')
-  pio.run_sequence({ cmnds = commands, cb = final_cb })
+  pio.run_sequence({ cmnds = commands, cb = final_cb, from = 'Pioinit:' })
 end
 
 --- SEQUENTIAL STEPS ---

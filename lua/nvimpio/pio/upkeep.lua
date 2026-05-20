@@ -886,7 +886,7 @@ function M.fetch_metadata(callback, env, from, attempts)
     -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
   local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
   local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-  M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb })
+  M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = 'PIO refresh:' })
 
   ---------------------------------------------------------
   -- STEP 4: Standard CLI Fallback (The Slow Path)
@@ -1098,12 +1098,13 @@ end
 -- INFO: commands sequencer
 -- stylua: ignore
 -- =============================================================================
-M.run_sequence = function(tasks)
+M.run_sequence = function(tasks, from)
   M.queue = {}
   local commands = tasks.cmnds
 
 
   local token = string.format("%04d", session_counter)
+  print(from)
   print(session_counter)
   print(token)
   print(vim.inspect(commands))
