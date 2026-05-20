@@ -392,15 +392,14 @@ end
 -- get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
 local refreshBusy = false
-local active_env = ''
+-- local active_env = ''
 -- stylua: ignore
 --=============================================================================
 fetch_metadata = function(callback, env, from, attempts)
   local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
   attempts = tonumber(attempts) or 1
   local meta = _G.metadata
-  -- local active_env = env or meta.active_env
-  active_env = active_env or meta.active_env
+  local active_env = env or meta.active_env
 
   local function fire_callback(status)
     refreshBusy = false
@@ -528,13 +527,13 @@ end
 function M.pio_refresh(callback, from)
   local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
-  active_env = _G.metadata and _G.metadata.active_env
+  local active_env = _G.metadata and _G.metadata.active_env
+
   if refreshBusy then
     OS.notify(string.format('%s refresh busy ...', msg), 'info')
     if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
     return
   end
-
   refreshBusy = true
 
   local function on_done(env)

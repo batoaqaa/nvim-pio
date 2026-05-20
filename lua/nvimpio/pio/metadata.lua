@@ -109,7 +109,7 @@ _G.metadata = setmetatable({}, {
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function(suscess)
                 if suscess then
-                  -- local pio = require('nvimpio.pio.upkeep')
+        local pio = require('nvimpio.pio.upkeep')
                   -- local active_env, metadata = pio.get_active_env(from)
                   -- if active_env and active_env ~= '' then
                   --   metadata = metadata or {}
@@ -240,15 +240,9 @@ function M.load_project_config()
         return
       end
     end
-  -- elseif cok and (type(current_checksum) == 'string' and current_checksum ~= '') then
-  --   _G.metadata.last_projectChecksum = current_checksum
-  --   OS.notify('checksum_file')
-  -- else
-  --   _G.metadata.last_projectChecksum = vim.fn.sha256('')
-  --   OS.notify('no checksum_file')
   end
   -- If no file, initialize hash with defaults
-  last_saved_hash = vim.fn.sha256(misc.jsonFormat(_pio_metadata))
+
   local pio = require('nvimpio.pio.upkeep')
   local active_env, metadata = pio.get_active_env('meta load: ')
   if active_env and active_env ~= '' then
@@ -260,6 +254,8 @@ function M.load_project_config()
     _pio_metadata.envs = metadata.envs
     _G.metadata.active_env = active_env
   end
+
+  last_saved_hash = vim.fn.sha256(misc.jsonFormat(_pio_metadata))
 end
 
 --INFO:
