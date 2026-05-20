@@ -455,9 +455,11 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- Complete Cache-Hit Evaluation Rule
   -- if ok and idok and current_checksum ~= '' and content ~= '' then
   if idok and content ~= '' then
+    OS.notify('level1')
     -- if meta.last_projectChecksum == current_checksum or attempts == 0 then
       local cok, decoded = pcall(vim.json.decode, content)
       if cok and apply_metadata(decoded) then
+    OS.notify('level2')
         local metadata = require('nvimpio.pio.metadata')
         metadata.save_project_config(from)
         OS.notify(from .. 'Metadata synced from cache', "info")
