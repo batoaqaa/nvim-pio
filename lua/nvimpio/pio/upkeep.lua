@@ -1098,13 +1098,13 @@ end
 -- INFO: commands sequencer
 -- stylua: ignore
 -- =============================================================================
-M.run_sequence = function(tasks, from)
+M.run_sequence = function(tasks)
   M.queue = {}
   local commands = tasks.cmnds
 
 
   local token = string.format("%04d", session_counter)
-  print(from)
+  print(tasks.from)
   print(session_counter)
   print(token)
   print(vim.inspect(commands))
