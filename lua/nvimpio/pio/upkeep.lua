@@ -58,63 +58,6 @@ function M.get_sysroot_triplet(cc_compiler)
   return nil
 end
 
---INFO:
--- stylua: ignore
--------------------------------------------------------------------------------
--- function M.updateDefaultEnv()
---   local path = vim.fn.getcwd() .. "/platformio.ini"
---   local active_env = _G.metadata.active_env
---   if not active_env or active_env == "" then return end
---
---   _G.metadata.isBusy = true
---   local ok, content = misc.readFile(path)
---   if not ok or not content then
---     _G.metadata.isBusy = false
---     return
---   end
---
---   local new_lines = {}
---   local updated = false
---   local in_platformio = false
---
---   -- Process text and newline separately to maintain file integrity
---   for text, newline in content:gmatch("([^\r\n]*)([\r\n]+)") do
---     local is_header = text:match("^%s*%[([^%]]+)%]")
---
---     if is_header == "platformio" then
---       in_platformio = true
---     elseif is_header then
---       -- If leaving [platformio] without updating, insert it now
---       if in_platformio and not updated then
---         table.insert(new_lines, "default_envs = " .. active_env .. newline)
---         updated = true
---       end
---       in_platformio = false
---     end
---
---     if in_platformio and text:match("^%s*default_envs%s*=") then
---       table.insert(new_lines, "default_envs = " .. active_env .. newline)
---       updated = true
---     else
---       -- Keep original text and original newline (preserves spacing)
---       table.insert(new_lines, text .. newline)
---     end
---   end
---
---   -- Fallback for missing sections
---   if not updated then
---     if in_platformio then
---       table.insert(new_lines, "default_envs = " .. active_env .. "\n")
---     else
---       table.insert(new_lines, 1, "[platformio]\ndefault_envs = " .. active_env .. "\n\n")
---     end
---   end
---
---   misc.writeFile(path, table.concat(new_lines), {})
---   OS.notify("PIO reset default_envs: " .. active_env)
---   _G.metadata.isBusy = false
--- -------------------------------------------------------------------------------
--- end
 
 --INFO:
 -- Fast environment detection from platformio.ini file(no external calls)
@@ -271,187 +214,6 @@ function M.get_active_env(from)
   return target, metadata
 end
 -- stylua: ignore end
-
-
-
-
--- <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-
--- new
--- stylua: ignore
--- function M.get_active_env(from)
---   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
---
---   -- 1. Structural target return skeleton structure
---   local metadata = { envs = {}, core_dir = '', packages_dir = '', platforms_dir = '', default_envs = {}, }
---
---   local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
---   if vim.fn.filereadable(path) == 0 then
---     OS.notify(from .. 'platformio.ini not found in current working directory.', 'error')
---     return nil, metadata
---   end
---
---   local ok, content = misc.readFile(path)
---   if not ok or not content then
---     OS.notify(from .. 'Could not read platformio.ini at ' .. path, 'warn')
---     return nil, metadata
---   end
---
---   local global_env_defaults = {}
---   local platformio_vars = {}
---   local raw_envs = {}
---   local current_section = nil
---   local default_envs_raw = ''
---
---   -- 2. First Pass: Lexical line scanner extracting pure, un-interpolated configurations
---   for line in vim.gsplit(content, '[\r\n]+') do
---     line = line:gsub('%s*[;#].*$', ''):gsub('^%s+', ''):gsub('%s+$', '')
---
---     if line ~= '' then
---       local section = line:match('^%[(.+)%]$')
---       if section then
---         current_section = section
---         if section:match('^env:') then
---           local env_name = section:match('^env:(.+)')
---           if not raw_envs[env_name] then raw_envs[env_name] = {} end
---         end
---       elseif current_section then
---         local key, val = line:match('^%s*([%w_%-]+)%s*=%s*(.-)%s*$')
---         if key and val then
---           val = vim.trim(val)
---           if current_section == 'platformio' then
---             platformio_vars[key] = val
---             if key == 'default_envs' then default_envs_raw = val end
---           elseif current_section == 'env' then global_env_defaults[key] = val
---           elseif current_section:match('^env:') then
---             local env_name = current_section:match('^env:(.+)')
---             raw_envs[env_name][key] = val
---           end
---         end
---       end
---     end
---   end
---
---   if next(raw_envs) == nil then
---     OS.notify(from .. 'No active environments found in platformio.ini', 'warn')
---     if _G.metadata then
---       _G.metadata.active_env = ''
---     end
---     return nil, metadata
---   end
---
---   -- Helper: Transforms raw text strings dynamically into native primitives or vectors
---   local function normalize_value(key, value)
---     if not value or value == '' then
---       return (key == 'extra_scripts' or key == 'default_envs') and {} or ''
---     end
---     -- Split explicitly by whitespace or commas for known list arrays
---     if key == 'default_envs' or key == 'extra_scripts' then
---       return vim.split(value, '[%s,]+', { trimempty = true })
---     end
---     -- Convert numeric strings like "115200" to absolute Lua numbers
---     return tonumber(value) or value
---   end
---
---   -- Helper: Recursively scans strings to evaluate multi-tiered variables like ${platformio.core_dir}
---   local function interpolate_string(text, current_env_name)
---     if type(text) ~= 'string' or not text:match('%$%{.-%}') then return text end
---
---     local resolved = (
---       text:gsub('%$%{([^}]+)%}', function(token)
---         -- Match global lookup references: ${platformio.core_dir}
---         if token:match('^platformio%.') then
---           local key = token:gsub('^platformio%.', '')
---           return platformio_vars[key] or ''
---         end
---         -- Match environment self-references: ${this.board}
---         if token:match('^this%.') and current_env_name and raw_envs[current_env_name] then
---           local key = token:gsub('^this%.', '')
---           return raw_envs[current_env_name][key] or global_env_defaults[key] or ''
---         end
---         return '${' .. token .. '}'
---       end)
---     )
---
---     -- Re-evaluate recursively if another token sequence remains nested inside
---     if resolved:match('%$%{.-%}') and resolved ~= text then
---       return interpolate_string(resolved, current_env_name)
---     end
---     return resolved
---   end
---
---   -- 3. Resolve base platformio metadata layout structures
---   local nvimpio_fallback = require('nvimpio').config.pio_storage_dir or '~/.platformio'
---   platformio_vars.core_dir = interpolate_string(platformio_vars.core_dir or nvimpio_fallback, nil)
---   platformio_vars.packages_dir = interpolate_string(platformio_vars.packages_dir or '${platformio.core_dir}/packages', nil)
---   platformio_vars.platforms_dir = interpolate_string(platformio_vars.platforms_dir or '${platformio.core_dir}/platforms', nil)
---
---   metadata.core_dir = platformio_vars.core_dir
---   metadata.packages_dir = platformio_vars.packages_dir
---   metadata.platforms_dir = platformio_vars.platforms_dir
---   metadata.default_envs = normalize_value('default_envs', default_envs_raw)
---
---   -- 4. Cascade parameters from base [env] down into individual active environments
---   for env_name, local_pairs in pairs(raw_envs) do
---     metadata.envs[env_name] = {}
---
---     -- Inject shared base configurations first
---     for k, v in pairs(global_env_defaults) do
---       metadata.envs[env_name][k] = v
---     end
---
---     -- Overwrite options using specific environment variations
---     for k, v in pairs(local_pairs) do
---       metadata.envs[env_name][k] = v
---     end
---
---     -- Evaluate string interpolations and map items cleanly to correct primitive types
---     for k, v in pairs(metadata.envs[env_name]) do
---       local interpolated = interpolate_string(v, env_name)
---       metadata.envs[env_name][k] = normalize_value(k, interpolated)
---     end
---
---     -- Safety check: Guarantee that extra_scripts is always an array table
---     if metadata.envs[env_name].extra_scripts == nil then
---       metadata.envs[env_name].extra_scripts = {}
---     end
---   end
---
---   -- 5. Selection Pipeline Phase: Determine the active_env key targeting string
---   -- Check A: Global persistent variable matching an active option
---   if _G.metadata and _G.metadata.active_env and metadata.envs[_G.metadata.active_env] then
---     return _G.metadata.active_env, metadata
---   end
---
---   -- Check B: Fall back to the default_envs definition list extracted from INI
---   local def_envs = metadata.default_envs
---   if type(def_envs) == 'table' then
---     for _, env_name in ipairs(def_envs) do
---       if metadata.envs[env_name] then
---         -- if _G.metadata then
---         --   _G.metadata.active_env = env_name
---         -- end
---         return env_name, metadata
---       end
---     end
---   end
---
---   -- Check C: Absolute fallback—simply extract the very first key available in our map
---   local first_valid = next(metadata.envs)
---   if first_valid then
---     -- if _G.metadata then
---     --   _G.metadata.active_env = first_valid
---     -- end
---     return first_valid, metadata
---   end
---
---   return nil, metadata
--- end
-
-
-
-
 
 --========================================================================================
 ------------------------------------------------------------------------------
@@ -626,113 +388,10 @@ end
 -- end
 --========================================================================================
 
--- INFO:
--- =============================================================================
--- Get project configuration
--- =============================================================================
--- stylua: ignore
--- function M.fetch_config(on_done, from)
---   local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
---   local meta = _G.metadata
---
---   local active_env
---   vim.system({ 'pio', 'project', 'config', '--json-output' }, { text = true }, function(obj)
---     vim.schedule(function()
---       -- 1. Check Execution
---       if obj.code ~= 0 then
---         local errmsg = obj.code == 127 and "'pio' not found" or (obj.stderr or 'Unknown Error')
---         return OS.notify(msg .. 'Config Error: ' .. errmsg, "error")
---       end
---
---       -- 2. Decode JSON safely
---       local ok, decoded = pcall(vim.json.decode, obj.stdout or '')
---       if not ok or type(decoded) ~= 'table' then
---         return OS.notify(msg .. 'Failed to decode config JSON', "error")
---       end
---
---       -- local formated = misc.jsonFormat(decoded)
---       -- local file = misc.joinPath(vim.uv.cwd(), 'config.json')
---       -- misc.writeFile(file, formated, {})
---
---       -- Reset core structure
---       meta.envs = {}
---       meta.default_envs = {}
---       local valid_envs = {}
---
---       -- 3. Parse Sections
---       for _, section in ipairs(decoded) do
---         local name, data = section[1], section[2]
---         if name == 'platformio' then
---           for _, kv in ipairs(data) do
---             meta[kv[1]] = kv[2]
---           end
---         elseif name:match('^env:') then
---           local env_name = name:match('^env:(.+)')
---           if not active_env then active_env = env_name end
---           valid_envs[env_name] = true
---           meta.envs[env_name] = {}
---           for _, kv in ipairs(data) do
---             meta.envs[env_name][kv[1]] = kv[2]
---           end
---         end
---       end
---
---       -- 4. Assign active_env
---       -- Validation: Find the first default_env that actually exists as a block
---       for _, env_name in ipairs(meta.default_envs) do
---         if valid_envs[env_name] then
---           active_env = env_name
---           break
---         end
---       end
---
---       -- ....
---       if valid_envs[meta.active_env] then
---         active_env = meta.active_env
---       else
---         -- OS.notify(msg .. string.format(' fetch_config active_env: %s', active_env), 'info')
---         meta.active_env = active_env
---       end
---
---       -- M.updateDefaultEnv()
---
---       -- 5. Resolve Paths (INI -> Env -> Default)
---       local path_map = {
---         { key = 'core_dir', env = 'PLATFORMIO_CORE_DIR', sub = '/.platformio' },
---         { key = 'packages_dir', env = 'PLATFORMIO_PACKAGES_DIR', sub = '/.platformio/packages' },
---         { key = 'platforms_dir', env = 'PLATFORMIO_PLATFORMS_DIR', sub = '/.platformio/platforms' },
---       }
---
---       for _, item in ipairs(path_map) do
---         local val = meta[item.key]
---         -- Fallback chain
---         if not val or val == '' then
---           val = os.getenv(item.env) or (OS.defaultHome .. item.sub)
---         end
---         -- Expand variables and Normalize
---         if type(val) == 'string' then
---           val = val:gsub('%%${platformio.core_dir}', meta.core_dir or '')
---           meta[item.key] = misc.normalizePath(val)
---         end
---       end
---
---       -- 6. Trigger next step
---       if meta.active_env ~= '' then
---         OS.notify(msg .. 'Config sync successful', "info")
---       else
---         OS.notify(msg .. 'No [env:] found. Please add a board.', "error")
---       end
---
---       if on_done then
---         vim.schedule(function() on_done(active_env) end)
---       end
---     end)
---   end)
--- end
-
 --INFO:
 -- get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
+local refreshBusy = false
 -- stylua: ignore
 --=============================================================================
 fetch_metadata = function(callback, env, from, attempts)
@@ -740,6 +399,14 @@ fetch_metadata = function(callback, env, from, attempts)
   attempts = tonumber(attempts) or 1
   local meta = _G.metadata
   local active_env = env or meta.active_env
+
+  local function fire_callback(status)
+    if type(callback) == "function" then
+      vim.schedule(function() callback(status) end)
+      refreshBusy = false
+    end
+  end
+
   if not active_env or active_env == '' then
     return
   end
@@ -753,198 +420,115 @@ fetch_metadata = function(callback, env, from, attempts)
 
     local norm = function(p) return misc.normalizePath(p) or '' end
 
-    -- Helper for flags/defines to keep order and formatting
-    -- local quote_map = function(list, prefix)
-    --   local res = {}
-    --   for _, v in ipairs(list or {}) do
-    --     local val = prefix and (prefix .. norm(v)) or v
-    --     table.insert(res, string.format('%s', val))
-    --   end
-    --   return res
-    -- end
-
     -- 1. Base Paths & Compilers
     meta.cc_path = norm(data.cc_path)
-    -- meta.cc_compiler = meta.cc_path
     meta.cxx_path = norm(data.cxx_path)
     meta.gdb_path = norm(data.gdb_path)
-
-    -- 2. Flags & Defines
-    -- meta.cc_flags = quote_map(data.cc_flags)
-    -- meta.cxx_flags = quote_map(data.cxx_flags)
-    -- meta.defines = quote_map(data.defines)
-
-    -- 3. Includes (Build, Toolchain, Compatlib)
-    -- local inc = data.includes or {}
-    -- meta.includes_build = quote_map(inc.build, '-I')
-    -- meta.includes_toolchain = quote_map(inc.toolchain, '-isystem')
-    -- meta.includes_compatlib = quote_map(inc.compatlib, '-isystem')
-
-    -- meta.last_projectChecksum = checksum
     pcall(M.get_sysroot_triplet, meta.cc_path)
 
     return true
   end
-
-  --INFO:
-  --Generate idedata.json
-  ---------------------------------------------------------
-  -- local function buildIdedata()
-  --   OS.notify(msg .. 'Initializing project metadata...', "info")
-  --   -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
-  --   vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { text = true }, function(obj)
-  --     vim.schedule(function()
-  --       if obj.code == 0 then
-  --         OS.notify(msg .. 'Initializing project metadata success.', "info")
-  --         M.fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
-  --       else
-  --         OS.notify(msg .. 'Initialization failed. Build project manually.: ' .. obj.stderr, "error")
-  --       end
-  --     end)
-  --   end)
-  --   return true
-  -- end
 
   -- Set up file paths
   local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
   local build_env_dir = misc.joinPath(build_dir, active_env)
   local checksum_file = misc.joinPath(build_dir, 'project.checksum')
   local idedata_file = misc.joinPath(build_env_dir, 'idedata.json')
+
   -------------------------------------------------------------------
   -- STEP 1: Fast Checksum Check (project.checksum and idedata.json)
   -------------------------------------------------------------------
   local ok, current_checksum = misc.readFile(checksum_file)
   local idok, content = misc.readFile(idedata_file)
+
+  -- Complete Cache-Hit Evaluation Rule
   if ok and idok and current_checksum ~= '' and content ~= '' then
-    if meta.last_projectChecksum == current_checksum then
+    if meta.last_projectChecksum == current_checksum or attempts == 0 then
       local cok, decoded = pcall(vim.json.decode, content)
       if cok and apply_metadata(decoded) then
         local metadata = require('nvimpio.pio.metadata')
         metadata.save_project_config(msg)
         OS.notify(msg .. 'Metadata synced from cache', "info")
 
-        if type(callback) == "function" then
-          vim.schedule(callback)
-        end
-        return true -- Cache Hit! Exits instantly on Call 1 without loops
+        -- Exit Path 2: Successful Cache Hit
+        fire_callback(true)
+        return true
       end
     end
   end
-  -- local is_cache_valid = false
-  -- if ok and (type(current_checksum) == 'string' and current_checksum ~= '') then
-  --   -- Only allow a clean cache hit if the token matches exactly what we have stored!
-  --   if meta.last_projectChecksum == current_checksum then
-  --     is_cache_valid = true
-  --   else
-  --     meta.last_projectChecksum = current_checksum -- Cache is dirty, store new key and rebuild below
-  --   end
-  -- end
+
+
+
   -- ----------------------------------------------------------------
   -- -- STEP 2: Cache Path (idedata.json exists and checksum changed)
   -- ----------------------------------------------------------------
-  -- if is_cache_valid then
-  --   local idok, content = misc.readFile(idedata_file)
-  --   if idok and (type(content) == 'string' and content ~= '') then
-  --     local cok, decoded = pcall(vim.json.decode, content)
-  --
-  --     -- local formated = misc.jsonFormat(decoded)
-  --     -- local file = misc.joinPath(vim.uv.cwd(), 'idedata.json')
-  --     -- misc.writeFile(file, formated, {})
-  --
-  --     -- if cok and apply_metadata(decoded, current_checksum) then
-  --     if cok and apply_metadata(decoded) then
-  --       local metadata = require('nvimpio.pio.metadata')
-  --       metadata.save_project_config(msg)
-  --       OS.notify(msg .. 'Metadata synced from cache', "info")
-  --       -- if callback then vim.schedule(callback) end
-  --
-  --       if type(callback) == "function" then
-  --         vim.schedule(callback)
-  --       else
-  --         -- If it's not a function, just do nothing or print a debug message
-  --         OS.notify(msg .." Debug; callback was " .. type(callback), 'debug')
-  --       end
-  --
-  --       return true
-  --     end
-  --   end
-  -- end
-  -- else
-  -- end
   ------------------------------------------------------------------------------------
   -- STEP 3: Auto-Initialize (If files project.checksum and idedata.json are missing)
   ------------------------------------------------------------------------------------
   -- buildIdedata()
+    -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
+
   local cb = function(status)
-    M.handlePioDB(status, function (suscess)
-      if(suscess)then
+    M.handlePioDB(status, function(success)
+      if success then
         OS.notify(string.format('%s Initializing project metadata success for %s.', msg, active_env), "info")
-        -- Store the valid checksum hash AFTER the compiler outputs the fresh files
-        if ok and current_checksum ~= '' then
-          meta.last_projectChecksum = current_checksum
+
+        -- Secure the validation signature token right after creation succeeds
+        local read_ok, fresh_checksum = misc.readFile(checksum_file)
+        if read_ok and fresh_checksum ~= '' then
+          meta.last_projectChecksum = fresh_checksum
         end
 
         if attempts > 0 then
-            fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
+          -- Execute recursive check loop to accurately verify and load newly compiled files
+          fetch_metadata(callback, active_env, from, attempts - 1)
+        else
+          -- Exit Path 3: Successful Generation Sequence (End of Recursion Tree)
+          fire_callback(true)
         end
-        return
       else
-        OS.notify(string.format('%sBuild Failed ', msg), 'error')
-        _G.metadata.isBusy = false
+        OS.notify(msg .. 'Build Failed', 'error')
+        vim.schedule(function()
+          meta.isBusy = false
+        end)
+        -- Exit Path 4: Generation Run Failed
+        fire_callback(false)
       end
     end)
   end
-    -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
   local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
   local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
   M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = 'PIO refresh:' })
-
-  ---------------------------------------------------------
-  -- STEP 4: Standard CLI Fallback (The Slow Path)
-  ---------------------------------------------------------
-  -- OS.notify(msg .. 'Metadata sync ...', "info")
-  -- vim.system({ 'pio', 'project', 'metadata', '-e', active_env, '--json-output' }, { text = true }, function(obj)
-  --   vim.schedule(function()
-  --     if obj.code ~= 0 then
-  --       if attempts > 0 then
-  --         vim.defer_fn(function() M.fetch_metadata(attempts - 1, env) end, 500)
-  --         return
-  --       end
-  --       return OS.notify(msg .. 'Metadata Error: ' .. (obj.stderr or 'Unknown'), "warn")
-  --     end
-  --
-  --     local ook, raw_data = pcall(vim.json.decode, obj.stdout or '')
-  --     local _, data = next(raw_data or {})
-  --
-  --     if ook and apply_metadata(data, current_checksum) then
-  --       OS.notify(msg .. 'Metadata synced from CLI', "info")
-  --       if callback then vim.schedule(callback) end
-  --     else
-  --       OS.notify(msg .. 'Failed to parse metadata output', "warn")
-  --     end
-  --   end)
-  -- end)
 end
 
 ------------------------------------------------------------------------------
 
---INFO:
---stylua: ignore
 -------------------------------------------------------------------------------
+--INFO:
+-- stylua: ignore
 function M.pio_refresh(callback, from)
-  print(from .. '1')
-  local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
-  -- OS.notify(msg ..'Config sync ...', "info")
+  if refreshBusy and type(callback) == 'function' then
+    vim.schedule(function() callback(false) end)
+  end
+
+  refreshBusy = true
+  local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
   local function on_done(active_env)
-    OS.notify(msg .. 'active_env= ' .. active_env, "info")
+    OS.notify(msg .. 'active_env= ' .. active_env, 'info')
     fetch_metadata(callback, active_env, from, 1)
   end
 
-  local active_env = _G.metadata.active_env  -- M.get_active_env(from)
+  local active_env = _G.metadata and _G.metadata.active_env
   if active_env and active_env ~= '' then on_done(active_env)
-  else OS.notify('No active env', 'error') end
-  -- fetch_config(on_done, from)
+  else
+    OS.notify('No active env', 'error')
+    -- Explicitly trigger callback when refresh conditions cannot be satisfied
+    if type(callback) == 'function' then
+      vim.schedule(function() callback(false) end)
+      refreshBusy = false
+    end
+  end
 end
 
 -- INFO:
@@ -1209,11 +793,9 @@ function M.handlePioinitDb(result, board, on_done)
       OS.notify(string.format('PIO init+db active_env: %s', board), 'info')
       _G.metadata.active_env = board
     end
-    M.pio_refresh(function()
-      if on_done and type(on_done) == "function" then on_done(true)
-      -- else clangd.getUnknownArgs('PIO init+db: ')
-      end
-      boilerplate.core_dir = _G.metadata.core_dir
+    M.pio_refresh(function(success)
+      if on_done and type(on_done) == "function" then on_done(true) end
+      if success then boilerplate.core_dir = _G.metadata.core_dir end
     end, 'PIO init+db: ')
     if trm then trm:close() end
     M.cleanSequencer()
@@ -1358,8 +940,8 @@ function M.handlePiolib(result)
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
       OS.notify('PIO lib+db: Done', "info")
-      M.pio_refresh(function()
-        clangd.getUnknownArgs('PIO lib+db: ')
+      M.pio_refresh(function(success)
+        if success then clangd.getUnknownArgs('PIO lib+db: ') end
       end, 'PIO lib+db: ')
     end)
     if trm then trm:close() end

@@ -153,10 +153,12 @@ function M.start_watchers()
             if obj.code == 0 then
               misc.notify('PIO platformio.ini change: compiledb update Success', 'info')
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-              pio_refresh(function()
-                clangd.getUnknownArgs('PIO platformio.ini  change: ')
+              pio_refresh(function(success)
+                if success then
+                  clangd.getUnknownArgs('PIO platformio.ini  change: ')
+                  if _G.metadata then _G.metadata.isBusy = false end
+                end
                 self.isBusy = false
-                if _G.metadata then _G.metadata.isBusy = false end
                 -- clangdRestart()
               end, 'PIO platformio.ini  change: ')
             else
@@ -184,11 +186,13 @@ function M.start_watchers()
           end
           vim.schedule(function()
             local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-            pio_refresh(function()
-              self.isBusy = false
+            pio_refresh(function(success)
+              if success then
+                misc.notify('PIO checksum: Metadata synced', 'info')
+                clangdRestart()
+              end
               if _G.metadata then _G.metadata.isBusy = false end
-              misc.notify('PIO checksum: Metadata synced', 'info')
-              clangdRestart()
+              self.isBusy = false
             end, 'PIO checksum: ')
           end)
         end
@@ -241,10 +245,12 @@ function M.init(clangd_config)
   -- if vim.fn.filereadable(vim.uv.cwd() .. '/platformio.ini') == 1 then
     _G.metadata.isBusy = true
     local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-    pio_refresh(function()
-      boilerplate.core_dir = _G.metadata.core_dir
-      -- clangd.getUnknownArgs('PIO start: ')
-      boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
+    pio_refresh(function(success)
+      if success then
+        boilerplate.core_dir = _G.metadata.core_dir
+        -- clangd.getUnknownArgs('PIO start: ')
+        boilerplate_gen([[.clang-format]], vim.g.platformioRootDir)
+      end
       _G.metadata.isBusy = false
     end, 'PIO Control: ')
   -- end

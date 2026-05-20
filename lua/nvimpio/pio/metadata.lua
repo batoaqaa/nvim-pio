@@ -117,8 +117,8 @@ _G.metadata = setmetatable({}, {
           --   if(suscess)then
           --     OS.notify(from .. 'compiledb update Success', 'info')
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-              pio_refresh(function()
-                require('nvimpio.clangd.control').getUnknownArgs(from)
+              pio_refresh(function(suscess)
+                if (suscess) then require('nvimpio.clangd.control').getUnknownArgs(from) end
                 if _G.metadata then _G.metadata.isBusy = false end
               end, from)
         --     else
