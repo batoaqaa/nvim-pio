@@ -384,8 +384,9 @@ local fetch_metadata -- Forward declare the variable shell
 local refreshBusy = false
 -- stylua: ignore
 --=============================================================================
+
 fetch_metadata = function(callback, active_env, from, attempts)
-  local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
+  from = (type(from)=='string' and from ~= '') and from or 'PIO: '
 
   attempts = tonumber(attempts) or 1
 
@@ -400,7 +401,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
     end
   end
 
-  OS.notify(string.format('%s refresh active_env=%s', msg, active_env))
+  OS.notify(string.format('%s refresh active_env=%s', from, active_env))
+
   if not active_env or active_env == '' then
     fire_callback(false)
     return
@@ -442,6 +444,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
   local checksum_file = misc.joinPath(build_dir, 'project.checksum')
   local idedata_file = misc.joinPath(build_env_dir, 'idedata.json')
 
+  OS.notify(string.format('idedata_file=%s', idedata_file))
+
   -------------------------------------------------------------------
   -- STEP 1: Fast Checksum Check (project.checksum and idedata.json)
   -------------------------------------------------------------------
@@ -455,8 +459,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
       local cok, decoded = pcall(vim.json.decode, content)
       if cok and apply_metadata(decoded) then
         local metadata = require('nvimpio.pio.metadata')
-        metadata.save_project_config(msg)
-        OS.notify(msg .. 'Metadata synced from cache', "info")
+        metadata.save_project_config(from)
+        OS.notify(from .. 'Metadata synced from cache', "info")
 
         -- Exit Path 2: Successful Cache Hit
         fire_callback(true)
@@ -479,7 +483,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   local cb = function(status)
     M.handlePioDB(status, function(success)
       if success then
-        OS.notify(string.format('%s Initializing project metadata success for %s.', msg, active_env), "info")
+        OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), "info")
 
         -- Secure the validation signature token right after creation succeeds
         local read_ok, fresh_checksum = misc.readFile(checksum_file)
@@ -496,7 +500,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
           fire_callback(false)
         end
       else
-        OS.notify(msg .. 'Build Failed', 'error')
+        OS.notify(from .. 'Build Failed', 'error')
         vim.schedule(function()
           if meta then meta.isBusy = false end
         end)
@@ -507,40 +511,12 @@ fetch_metadata = function(callback, active_env, from, attempts)
   end
   local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
   local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-  M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , msg) })
+  M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
 end
 
-------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
---INFO:
--- stylua: ignore
-function M.pio_refresh(callback, from)
-  local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
-
-
-  if refreshBusy then
-    OS.notify(string.format('%s refresh busy ...', msg), 'info')
-    if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
-    return
-  end
-  refreshBusy = true
 
 
 
-  local active_env = _G.metadata and _G.metadata.active_env
-
-
-
-  if active_env and active_env ~= '' then
-    OS.notify(msg .. 'active_env= ' .. active_env, 'info')
-    fetch_metadata(callback, active_env, from, 1)
-  else
-    OS.notify('No active env', 'error')
-    refreshBusy = false
-    if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
-  end
-end
 
 -- INFO:
 -- Fix compile_commands.json file with absoulute paths
