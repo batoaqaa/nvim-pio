@@ -513,7 +513,7 @@ fetch_metadata = function(callback, env, from, attempts)
   end
   local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
   local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-  M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = 'PIO refresh:' })
+  M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh' , msg) })
 end
 
 ------------------------------------------------------------------------------
