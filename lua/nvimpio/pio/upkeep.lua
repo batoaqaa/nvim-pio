@@ -477,6 +477,7 @@ function M.get_active_env(from)
     end
   end
 
+  print(from)
   print(vim.inspect(metadata))
   -- 6. RESOLVE ACTIVE SELECTION (3-TIER PRIORITY WATERFALL)
   -- Priority 1: Retain the active string selection if it remains valid and present
