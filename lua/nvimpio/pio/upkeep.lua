@@ -421,23 +421,21 @@ fetch_metadata = function(callback, active_env, from, attempts)
     local norm = function(p) return misc.normalizePath(p) or '' end
 
     -- 1. Base Paths & Compilers
-    vim.schedule(function()
-      meta.cc_path = norm(data.cc_path)
-      meta.cxx_path = norm(data.cxx_path)
-      meta.gdb_path = norm(data.gdb_path)
-      pcall(M.get_sysroot_triplet, meta.cc_path)
+    meta.cc_path = norm(data.cc_path)
+    meta.cxx_path = norm(data.cxx_path)
+    meta.gdb_path = norm(data.gdb_path)
+    pcall(M.get_sysroot_triplet, meta.cc_path)
 
-      -- local activeEnv, metadata = M.get_active_env(from)
-      -- if activeEnv and activeEnv ~= '' then
-      --   metadata = metadata or {}
-      --   _G.metadata.core_dir = metadata.core_dir
-      --   _G.metadata.packages_dir = metadata.packages_dir
-      --   _G.metadata.platforms_dir = metadata.platforms_dir
-      --   _G.metadata.default_envs = metadata.default_envs
-      --   _G.metadata.envs = metadata.envs
-      --   _G.metadata.active_env = activeEnv
-      -- end
-    end)
+    -- local activeEnv, metadata = M.get_active_env(from)
+    -- if activeEnv and activeEnv ~= '' then
+    --   metadata = metadata or {}
+    --   _G.metadata.core_dir = metadata.core_dir
+    --   _G.metadata.packages_dir = metadata.packages_dir
+    --   _G.metadata.platforms_dir = metadata.platforms_dir
+    --   _G.metadata.default_envs = metadata.default_envs
+    --   _G.metadata.envs = metadata.envs
+    --   _G.metadata.active_env = activeEnv
+    -- end
     return true
   end
 
@@ -524,11 +522,11 @@ end
 --INFO:
 -- stylua: ignore
 function M.pio_refresh(callback, from)
-  local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
+  from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
 
   if refreshBusy then
-    OS.notify(string.format('%s refresh busy ...', msg), 'info')
+    OS.notify(string.format('%s refresh busy ...', from), 'info')
     if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
     return
   end
@@ -542,7 +540,7 @@ function M.pio_refresh(callback, from)
     -- OS.notify(msg .. 'active_env= ' .. active_env, 'info')
     fetch_metadata(callback, active_env, from, 1)
   else
-    OS.notify('No active env', 'error')
+    OS.notify(from ..' No active env', 'error')
     refreshBusy = false
     if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
   end
