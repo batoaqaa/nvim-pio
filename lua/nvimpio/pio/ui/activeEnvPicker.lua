@@ -1,4 +1,5 @@
-local pio = require('nvimpio.pio.upkeep')
+-- local pio = require('nvimpio.pio.upkeep')
+
 local M = {}
 
 function M.select_env_picker()
@@ -7,17 +8,25 @@ function M.select_env_picker()
   end
   local current_active = _G.metadata.active_env
 
-  -- local envs = {}
-  -- for env_name, _ in pairs(_G.metadata.envs) do table.insert(envs, env_name) end
-  local envs = vim.tbl_keys(_G.metadata.envs)
-  table.sort(envs) -- Alphabetical sort for UI presentation
+  local envs = {}
+  for env_name, _ in pairs(_G.metadata.envs) do
+    table.insert(envs, env_name)
+  end
+  table.sort(envs)
 
-  -- Force the highlight colors to activate right before the window opens
   vim.api.nvim_set_hl(0, 'TelescopeBorder', { fg = '#4ec9b0', bg = 'NONE' })
 
+  -- DYNAMIC OVERRIDE: Inject a specific width just for this specific selection call!
+  -- This forces a temporary layout change without breaking your global settings.
+  local ui_select_opts = require('telescope.themes').get_dropdown({
+    layout_config = { width = 30 }, -- Super slim width for just the environment list
+  })
+
+  -- Apply it to the configuration registry safely
+  rawset(vim.ui, 'select', require('telescope.ui-select').select(ui_select_opts))
+
   vim.ui.select(envs, {
-    -- prompt = 'Select Active Target Environment:',
-    prompt = '',
+    prompt = 'Select Active Target Environment:',
     kind = 'nvimpio_env_selector',
     format_item = function(name)
       local idx = vim.fn.index(envs, name) + 1
@@ -33,6 +42,41 @@ function M.select_env_picker()
 end
 
 return M
+
+-- local M = {}
+--
+-- function M.select_env_picker()
+--   if not _G.metadata or not _G.metadata.envs then
+--     return
+--   end
+--   local current_active = _G.metadata.active_env
+--
+--   -- local envs = {}
+--   -- for env_name, _ in pairs(_G.metadata.envs) do table.insert(envs, env_name) end
+--   local envs = vim.tbl_keys(_G.metadata.envs)
+--   table.sort(envs) -- Alphabetical sort for UI presentation
+--
+--   -- Force the highlight colors to activate right before the window opens
+--   vim.api.nvim_set_hl(0, 'TelescopeBorder', { fg = '#4ec9b0', bg = 'NONE' })
+--
+--   vim.ui.select(envs, {
+--     -- prompt = 'Select Active Target Environment:',
+--     prompt = '',
+--     kind = 'nvimpio_env_selector',
+--     format_item = function(name)
+--       local idx = vim.fn.index(envs, name) + 1
+--       return string.format(' %d. %s %s', idx, (name == current_active) and '[x]' or '[ ]', name)
+--     end,
+--   }, function(choice)
+--     if choice then
+--       _G.metadata.active_env = choice
+--       vim.cmd('redrawstatus')
+--       OS.notify(string.format('PlatformIO target swapped -> %s', choice), 'info')
+--     end
+--   end)
+-- end
+--
+-- return M
 
 -- local M = {}
 --
