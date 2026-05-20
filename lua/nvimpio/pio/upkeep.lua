@@ -1002,7 +1002,7 @@ end
 -- stylua: ignore
 -- Initialize
 -- =============================================================================
-local current_token = tostring(math.random(10000, 99999))
+local current_token -- = tostring(math.random(10000, 99999))
 local current_id = -1 -- Holds 0 for DONE, or 1-9 for PASS
 
 local session_counter = 0 -- Our high-performance integer counter
