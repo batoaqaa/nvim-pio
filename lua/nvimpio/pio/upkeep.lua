@@ -460,7 +460,20 @@ fetch_metadata = function(callback, active_env, from, attempts)
     -- if meta.last_projectChecksum == current_checksum or attempts == 0 then
       local cok, decoded = pcall(vim.json.decode, content)
       if cok and apply_metadata(decoded) then
-    -- OS.notify('level2')
+        -- OS.notify('level2')
+
+
+        local cb = function(status)
+          M.handleIdedata(status, function(success)
+            if success then
+              OS.notify(string.format('%s compiledb success for %s.', from, active_env), "info")
+            end
+          end)
+        end
+        local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+        M.run_sequence({ cmnds = { dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+
+
         OS.notify(from .. 'Metadata synced from cache', "info")
         local metadata = require('nvimpio.pio.metadata')
         metadata.save_project_config(from)
@@ -484,7 +497,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
 
   local cb = function(status)
-    M.handlePioDB(status, function(success)
+    M.handleIdedata(status, function(success)
       if success then
         OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), "info")
 
@@ -513,8 +526,9 @@ fetch_metadata = function(callback, active_env, from, attempts)
     end)
   end
   local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
-  local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-  M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+  -- local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+  M.run_sequence({ cmnds = { idecmd }, cb = cb, from = string.format('%s refresh ' , from) })
+  -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
 end
 
 
@@ -916,6 +930,28 @@ function M.clangFormat(result)
   end
 end
 
+------------------------------------------------------
+-- Handle command
+-- =============================================================================
+-- stylua: ignore
+function M.handleIdedata(result, on_done)
+  if result == 'INIT' then
+    if #M.queue > 0 then
+      _G.metadata.isBusy = true
+      trm = term.ToggleTerminal(pop(M.queue), 'float')
+    end
+  elseif result == 'DONE' then -- result of the only and the last command
+    OS.notify(string.format('%sidedata  done', fromMsg), "info")
+    vim.schedule(function()
+      if on_done and type(on_done) == 'function' then on_done(true) end
+    end)
+    if trm then trm:close() end
+    M.cleanSequencer()
+  elseif result == 'FAIL' then
+    M.cleanSequencer()
+  end
+end
+
 -- =============================================================================
 -- stylua: ignore
 function M.handlePioDB(result, on_done)
@@ -924,11 +960,11 @@ function M.handlePioDB(result, on_done)
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(pop(M.queue), 'float')
     end
-  elseif result == 'PASS' .. current_id then
-      OS.notify(string.format('%sidedata  pass%s', fromMsg, current_id), "info")
-      if #M.queue > 0 then trm:send(pop(M.queue), false) end
+  -- elseif result == 'PASS' .. current_id then
+  --     OS.notify(string.format('%sidedata  pass%s', fromMsg, current_id), "info")
+  --     if #M.queue > 0 then trm:send(pop(M.queue), false) end
   elseif result == 'DONE' then -- result of the only and the last command
-      OS.notify(string.format('%scompiledb  done', fromMsg), "info")
+    OS.notify(string.format('%scompiledb  done', fromMsg), "info")
     vim.schedule(function()
       if on_done and type(on_done) == 'function' then on_done(true) end
     end)
