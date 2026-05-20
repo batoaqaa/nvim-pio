@@ -200,16 +200,6 @@ function M.get_active_env(from)
     end
   end
   target = target or next(metadata.envs)
-  -- local target = nil
-  -- if type(metadata.default_envs) == 'table' then
-  --   for _, env_name in ipairs(metadata.default_envs) do
-  --     if metadata.envs[env_name] then
-  --       target = env_name
-  --       break
-  --     end
-  --   end
-  -- end
-  -- target = target or next(metadata.envs)
 
   return target, metadata
 end
@@ -392,14 +382,15 @@ end
 -- get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
 local refreshBusy = false
--- local active_env = ''
 -- stylua: ignore
 --=============================================================================
-fetch_metadata = function(callback, env, from, attempts)
+fetch_metadata = function(callback, active_env, from, attempts)
   local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
+
   attempts = tonumber(attempts) or 1
+
   local meta = _G.metadata
-  local active_env = env or meta.active_env
+  -- local active_env = env or meta.active_env
 
   local function fire_callback(status)
     refreshBusy = false
@@ -430,18 +421,17 @@ fetch_metadata = function(callback, env, from, attempts)
       meta.gdb_path = norm(data.gdb_path)
       pcall(M.get_sysroot_triplet, meta.cc_path)
 
-      local activeEnv, metadata = M.get_active_env(from)
-      if activeEnv and activeEnv ~= '' then
-        metadata = metadata or {}
-        _G.metadata.core_dir = metadata.core_dir
-        _G.metadata.packages_dir = metadata.packages_dir
-        _G.metadata.platforms_dir = metadata.platforms_dir
-        _G.metadata.default_envs = metadata.default_envs
-        _G.metadata.envs = metadata.envs
-        -- _G.metadata.active_env = activeEnv
-      end
+      -- local activeEnv, metadata = M.get_active_env(from)
+      -- if activeEnv and activeEnv ~= '' then
+      --   metadata = metadata or {}
+      --   _G.metadata.core_dir = metadata.core_dir
+      --   _G.metadata.packages_dir = metadata.packages_dir
+      --   _G.metadata.platforms_dir = metadata.platforms_dir
+      --   _G.metadata.default_envs = metadata.default_envs
+      --   _G.metadata.envs = metadata.envs
+      --   _G.metadata.active_env = activeEnv
+      -- end
     end)
-
     return true
   end
 
@@ -527,7 +517,6 @@ end
 function M.pio_refresh(callback, from)
   local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
-  local active_env = _G.metadata and _G.metadata.active_env
 
   if refreshBusy then
     OS.notify(string.format('%s refresh busy ...', msg), 'info')
@@ -536,16 +525,28 @@ function M.pio_refresh(callback, from)
   end
   refreshBusy = true
 
-  local function on_done(env)
-    OS.notify(msg .. 'active_env= ' .. env, 'info')
-    fetch_metadata(callback, env, from, 1)
+  local activeEnv, metadata = M.get_active_env(from)
+  if activeEnv and activeEnv ~= '' then
+    metadata = metadata or {}
+    _G.metadata.core_dir = metadata.core_dir
+    _G.metadata.packages_dir = metadata.packages_dir
+    _G.metadata.platforms_dir = metadata.platforms_dir
+    _G.metadata.default_envs = metadata.default_envs
+    _G.metadata.envs = metadata.envs
+    _G.metadata.active_env = activeEnv
   end
 
-  if active_env and active_env ~= '' then on_done(active_env)
+
+  local active_env = _G.metadata and _G.metadata.active_env
+
+
+
+  if active_env and active_env ~= '' then
+    OS.notify(msg .. 'active_env= ' .. active_env, 'info')
+    fetch_metadata(callback, active_env, from, 1)
   else
     OS.notify('No active env', 'error')
     refreshBusy = false
-    -- Explicitly trigger callback when refresh conditions cannot be satisfied
     if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
   end
 end
