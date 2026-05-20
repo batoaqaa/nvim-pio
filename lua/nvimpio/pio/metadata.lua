@@ -35,8 +35,21 @@ end
 
 --INFO:
 -------------------------------------------------------------------------------
+--[[
 -- Usage:
 -- 1. Internal State & Defaults
+---@class PioGlobalMetadata
+---@field active_env string|nil The currently running target board configuration environment
+---@field isBusy boolean Flag indicating if background processes are executing commands
+---@field cc_path string Path mapping to the current active C compiler binary executable
+---@field cxx_path string Path mapping to the active C++ compiler binary executable
+---@field gdb_path string Path mapping to the target hardware debugger binary executable
+---@field last_projectChecksum string|nil The unique build signature hash string from PlatformIO
+
+-- Initialize the global object cleanly without overwriting if it exists
+---@type PioGlobalMetadata
+]]
+
 local _pio_metadata = {
   isBusy = false,
   envs = {},

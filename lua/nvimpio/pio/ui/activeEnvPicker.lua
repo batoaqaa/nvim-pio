@@ -6,8 +6,8 @@ function M.select_env_picker()
   if not _G.metadata or not _G.metadata.envs then
     return
   end
-  -- local current_active = _G.metadata.active_env
-  local current_active = pio.get_active_env('UI Picker: ')
+  local current_active = _G.metadata.active_env
+  -- local current_active = pio.get_active_env('UI Picker: ')
 
   -- 1. EXTRACT KEYS: Use pairs() to harvest the environment board names
   local envs = {}

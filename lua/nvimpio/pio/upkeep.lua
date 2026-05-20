@@ -199,7 +199,10 @@ function M.get_active_env(from)
       end
     end
   end
-  target = target or next(metadata.envs)
+  --
+  -- if meta.envs and meta.envs[target_env] ~= nil then
+  --vim.tbl_keys(meta.envs)
+  target = target or (metadata.envs[_G.metadata.active_env] and _G.metadata.active_env) or next(metadata.envs)
 
   return target, metadata
 end
@@ -531,11 +534,9 @@ function M.pio_refresh(callback, from)
   end
   refreshBusy = true
 
-
-
+  -- Completely safe from crashes, even if _G.metadata is nil
+  -- local active_env = vim.tbl_get(_G, "metadata", "active_env")
   local active_env = _G.metadata and _G.metadata.active_env
-
-
 
   if active_env and active_env ~= '' then
     OS.notify(msg .. 'active_env= ' .. active_env, 'info')
