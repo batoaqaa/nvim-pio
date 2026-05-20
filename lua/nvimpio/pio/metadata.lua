@@ -106,7 +106,7 @@ _G.metadata = setmetatable({}, {
           _pio_metadata.platforms_dir = metadata.platforms_dir
           _pio_metadata.default_envs = metadata.default_envs
           _pio_metadata.envs = metadata.envs
-          _G.metadata.active_env = active_env
+          _pio_metadata.active_env = active_env
         end
         -- OS.notify(from .. 'compiledb update ...', 'info')
         --
