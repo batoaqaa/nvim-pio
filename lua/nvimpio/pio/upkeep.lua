@@ -1298,9 +1298,9 @@ function M.handlePioDB(result, on_done)
       if #M.queue > 0 then trm:send(pop(M.queue), false) end
   elseif result == 'DONE' then -- result of the only and the last command
       OS.notify('PIO compiledb:  done ', "info")
-    -- vim.schedule(function()
+    vim.schedule(function()
       if on_done and type(on_done) == 'function' then on_done(true) end
-    -- end)
+    end)
     if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
