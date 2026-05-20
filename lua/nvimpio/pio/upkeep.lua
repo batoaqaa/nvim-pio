@@ -455,12 +455,13 @@ fetch_metadata = function(callback, env, from, attempts)
   -------------------------------------------------------------------
   -- STEP 1: Fast Checksum Check (project.checksum and idedata.json)
   -------------------------------------------------------------------
-  local ok, current_checksum = misc.readFile(checksum_file)
+  -- local ok, current_checksum = misc.readFile(checksum_file)
   local idok, content = misc.readFile(idedata_file)
 
   -- Complete Cache-Hit Evaluation Rule
-  if ok and idok and current_checksum ~= '' and content ~= '' then
-    if meta.last_projectChecksum == current_checksum or attempts == 0 then
+  -- if ok and idok and current_checksum ~= '' and content ~= '' then
+  if idok and content ~= '' then
+    -- if meta.last_projectChecksum == current_checksum or attempts == 0 then
       local cok, decoded = pcall(vim.json.decode, content)
       if cok and apply_metadata(decoded) then
         local metadata = require('nvimpio.pio.metadata')
@@ -471,7 +472,7 @@ fetch_metadata = function(callback, env, from, attempts)
         fire_callback(true)
         return true
       end
-    end
+    -- end
   end
 
 
