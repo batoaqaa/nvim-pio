@@ -1207,10 +1207,10 @@ function M.handlePioinit(result, board, on_done)
     OS.notify('PIO: project init Done', "info")
     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-    _G.metadata.active_env = board
     if trm then trm:close() end
-    M.cleanSequencer()
     if on_done and type(on_done) == "function" then on_done(true) end
+    _G.metadata.active_env = board
+    M.cleanSequencer()
   elseif result == 'FAIL' then
     if on_done and type(on_done) == "function" then on_done(false) end
     M.cleanSequencer()
