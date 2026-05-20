@@ -398,10 +398,10 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
   local function fire_callback(status)
     refreshBusy = false
-    if type(callback) == "function" then
+    vim.schedule(function()
       if (status) then require('nvimpio.clangd.control').getUnknownArgs(from) end
-      vim.schedule(function() callback(status) end)
-    end
+      if type(callback) == "function" then callback(status) end
+    end)
   end
 
   -- OS.notify(string.format('%s refresh active_env=%s', from, active_env))
@@ -461,9 +461,9 @@ fetch_metadata = function(callback, active_env, from, attempts)
       local cok, decoded = pcall(vim.json.decode, content)
       if cok and apply_metadata(decoded) then
     -- OS.notify('level2')
+        OS.notify(from .. 'Metadata synced from cache', "info")
         local metadata = require('nvimpio.pio.metadata')
         metadata.save_project_config(from)
-        OS.notify(from .. 'Metadata synced from cache', "info")
 
         -- Exit Path 2: Successful Cache Hit
         fire_callback(true)
