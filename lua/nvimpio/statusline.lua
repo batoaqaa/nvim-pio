@@ -1,7 +1,7 @@
 local M = {}
 
 -- This is the public function that users or UI frameworks can query
-function M.get_status_string()
+function M.get_sgggus_string()
   if not _G.metadata or not _G.metadata.active_env or _G.metadata.active_env == '' then
     return ''
   end

@@ -109,17 +109,17 @@ _G.metadata = setmetatable({}, {
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function(suscess)
                 if suscess then
-                  local pio = require('nvimpio.pio.upkeep')
-                  local active_env, metadata = pio.get_active_env(from)
-                  if active_env and active_env ~= '' then
-                    metadata = metadata or {}
-                    _pio_metadata.core_dir = metadata.core_dir
-                    _pio_metadata.packages_dir = metadata.packages_dir
-                    _pio_metadata.platforms_dir = metadata.platforms_dir
-                    _pio_metadata.default_envs = metadata.default_envs
-                    _pio_metadata.envs = metadata.envs
-                    _pio_metadata.active_env = active_env
-                  end
+                  -- local pio = require('nvimpio.pio.upkeep')
+                  -- local active_env, metadata = pio.get_active_env(from)
+                  -- if active_env and active_env ~= '' then
+                  --   metadata = metadata or {}
+                  --   _pio_metadata.core_dir = metadata.core_dir
+                  --   _pio_metadata.packages_dir = metadata.packages_dir
+                  --   _pio_metadata.platforms_dir = metadata.platforms_dir
+                  --   _pio_metadata.default_envs = metadata.default_envs
+                  --   _pio_metadata.envs = metadata.envs
+                  --   _pio_metadata.active_env = active_env
+                  -- end
                 end
                 -- if (suscess) then require('nvimpio.clangd.control').getUnknownArgs(from) end
                 if _G.metadata then _G.metadata.isBusy = false end
