@@ -1106,6 +1106,7 @@ M.run_sequence = function(tasks)
   local token = string.format("%04d", session_counter)
   print(session_counter)
   print(token)
+  print(vim.inspect(commands))
   session_counter = session_counter + 1
   if session_counter > 9999 then session_counter = 1 end
 
