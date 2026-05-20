@@ -1005,7 +1005,7 @@ end
 local current_token -- = tostring(math.random(10000, 99999))
 local current_id = -1 -- Holds 0 for DONE, or 1-9 for PASS
 
-local session_counter = 0 -- Our high-performance integer counter
+local session_counter = 1 -- Our high-performance integer counter
 local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
 local callBack = nil -- Your execution hook function pointer
 M.queue = {}
@@ -1102,9 +1102,9 @@ M.run_sequence = function(tasks)
   M.queue = {}
   local commands = tasks.cmnds
 
+  local token = string.format("%04d", session_counter)
   session_counter = session_counter + 1
   if session_counter > 9999 then session_counter = 1 end
-  local token = string.format("%04d", session_counter)
 
   local total = #commands
 
