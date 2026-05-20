@@ -149,186 +149,305 @@ end
 --   end
 --   return paths
 -- end
+-- >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+-- Latest
 
+-- //////////////////////////////////////////////////////////////////////////////
+
+-- stylua: ignore start
+-- 1. Helper: Converts raw string properties to numbers, string arrays, or defaults
+local function normalize_value(key, value)
+  if not value or value == "" then
+    return (key == "extra_scripts" or key == "default_envs") and {} or ""
+  end
+  if key == "default_envs" or key == "extra_scripts" then
+    return vim.split(value, "[%s,]+", { trimempty = true })
+  end
+  return tonumber(value) or value
+end
+
+-- 2. Helper: Recursively interpolates ${platformio.core_dir} or ${this.board} tokens
+local function interpolate(text, current_env, pio_vars, base_env, raw_envs)
+  if type(text) ~= "string" or not text:match("%$%{.-%}") then return text end
+
+  local resolved = (text:gsub("%$%{([^}]+)%}", function(token)
+    if token:match("^platformio%.") then
+      return pio_vars[token:gsub("^platformio%.", "")] or ""
+    end
+    if token:match("^this%.") and current_env and raw_envs[current_env] then
+      local key = token:gsub("^this%.", "")
+      return raw_envs[current_env][key] or base_env[key] or ""
+    end
+    return "${" .. token .. "}"
+  end))
+
+  return (resolved ~= text) and interpolate(resolved, current_env, pio_vars, base_env, raw_envs) or resolved
+end
+
+-- 3. Pure Data Pipeline (No Global Side-Effects)
+function M.get_active_env(from)
+  from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
+  local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
+
+  if vim.fn.filereadable(path) == 0 then
+    OS.notify(from .. 'platformio.ini not found in workspace.', 'error')
+    return nil, {}
+  end
+  local ok, content = misc.readFile(path)
+  if not ok or not content then
+    OS.notify(from .. 'Could not read platformio.ini at ' .. path, 'warn')
+    return nil, {}
+  end
+
+  local pio_vars, base_env, raw_envs, current_sec = {}, {}, {}, nil
+
+  -- Parse configuration line-by-line without collapsing spaces
+  for line in vim.gsplit(content, '\n') do
+    line = line:gsub('\r$', ''):gsub('^%s+', ''):gsub('%s+$', ''):gsub('%s*[;#].*$', '')
+    local sec = line:match('^%[(.+)%]$')
+
+    if sec then
+      current_sec = sec
+      local env_name = sec:match('^env:(.+)$')
+      if env_name then raw_envs[env_name] = raw_envs[env_name] or {} end
+    elseif current_sec and line ~= '' then
+      local k, v = line:match('^%s*([%w_%-]+)%s*=%s*(.-)%s*$')
+      if k and v then
+        if current_sec == 'platformio' then pio_vars[k] = vim.trim(v)
+        elseif current_sec == 'env' then base_env[k] = vim.trim(v)
+        elseif current_sec:match('^env:') then raw_envs[current_sec:match('^env:(.+)$')][k] = vim.trim(v) end
+      end
+    end
+  end
+
+  if not next(raw_envs) then
+    OS.notify(from .. 'No active environments found in platformio.ini', 'warn')
+    return nil, {}
+  end
+
+  -- Construct final metadata response schema
+  local storage_fallback = require('nvimpio').config.pio_storage_dir or "~/.platformio"
+  local metadata = {
+    core_dir = interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs),
+    packages_dir = interpolate(pio_vars.packages_dir or "${platformio.core_dir}/packages", nil, pio_vars, base_env, raw_envs),
+    platforms_dir = interpolate(pio_vars.platforms_dir or "${platformio.core_dir}/platforms", nil, pio_vars, base_env, raw_envs),
+    default_envs = normalize_value('default_envs', pio_vars.default_envs),
+    envs = {}
+  }
+
+  -- Merge [env] defaults down into each specific profile block
+  for env, locals in pairs(raw_envs) do
+    metadata.envs[env] = vim.tbl_deep_extend("force", base_env, locals)
+    for k, v in pairs(metadata.envs[env]) do
+      metadata.envs[env][k] = normalize_value(k, interpolate(v, env, pio_vars, base_env, raw_envs))
+    end
+    metadata.envs[env].extra_scripts = metadata.envs[env].extra_scripts or {}
+  end
+
+  -- Determine active environment order target (INI Default -> First Valid)
+  local target = nil
+  local def_envs = metadata.default_envs -- Extract to a local variable
+
+  if type(def_envs) == 'table' then
+    for _, env_name in ipairs(def_envs) do -- LSP knows 'def_envs' is safely a table here
+      if metadata.envs[env_name] then
+        target = env_name
+        break
+      end
+    end
+  end
+  target = target or next(metadata.envs)
+  -- local target = nil
+  -- if type(metadata.default_envs) == 'table' then
+  --   for _, env_name in ipairs(metadata.default_envs) do
+  --     if metadata.envs[env_name] then
+  --       target = env_name
+  --       break
+  --     end
+  --   end
+  -- end
+  -- target = target or next(metadata.envs)
+
+  return target, metadata
+end
+-- stylua: ignore end
+
+
+
+
+-- <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 
 -- new
 -- stylua: ignore
-function M.get_active_env(from)
-  from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
-
-  -- 1. Structural target return skeleton structure
-  local metadata = { envs = {}, core_dir = '', packages_dir = '', platforms_dir = '', default_envs = {}, }
-
-  local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
-  if vim.fn.filereadable(path) == 0 then
-    OS.notify(from .. 'platformio.ini not found in current working directory.', 'error')
-    return nil, metadata
-  end
-
-  local ok, content = misc.readFile(path)
-  if not ok or not content then
-    OS.notify(from .. 'Could not read platformio.ini at ' .. path, 'warn')
-    return nil, metadata
-  end
-
-  local global_env_defaults = {}
-  local platformio_vars = {}
-  local raw_envs = {}
-  local current_section = nil
-  local default_envs_raw = ''
-
-  -- 2. First Pass: Lexical line scanner extracting pure, un-interpolated configurations
-  for line in vim.gsplit(content, '[\r\n]+') do
-    line = line:gsub('%s*[;#].*$', ''):gsub('^%s+', ''):gsub('%s+$', '')
-
-    if line ~= '' then
-      local section = line:match('^%[(.+)%]$')
-      if section then
-        current_section = section
-        if section:match('^env:') then
-          local env_name = section:match('^env:(.+)')
-          if not raw_envs[env_name] then
-            raw_envs[env_name] = {}
-          end
-        end
-      elseif current_section then
-        local key, val = line:match('^%s*([%w_%-]+)%s*=%s*(.-)%s*$')
-        if key and val then
-          val = vim.trim(val)
-          if current_section == 'platformio' then
-            platformio_vars[key] = val
-            if key == 'default_envs' then
-              default_envs_raw = val
-            end
-          elseif current_section == 'env' then
-            global_env_defaults[key] = val
-          elseif current_section:match('^env:') then
-            local env_name = current_section:match('^env:(.+)')
-            raw_envs[env_name][key] = val
-          end
-        end
-      end
-    end
-  end
-
-  if next(raw_envs) == nil then
-    OS.notify(from .. 'No active environments found in platformio.ini', 'warn')
-    if _G.metadata then
-      _G.metadata.active_env = ''
-    end
-    return nil, metadata
-  end
-
-  -- Helper: Transforms raw text strings dynamically into native primitives or vectors
-  local function normalize_value(key, value)
-    if not value or value == '' then
-      return (key == 'extra_scripts' or key == 'default_envs') and {} or ''
-    end
-    -- Split explicitly by whitespace or commas for known list arrays
-    if key == 'default_envs' or key == 'extra_scripts' then
-      return vim.split(value, '[%s,]+', { trimempty = true })
-    end
-    -- Convert numeric strings like "115200" to absolute Lua numbers
-    return tonumber(value) or value
-  end
-
-  -- Helper: Recursively scans strings to evaluate multi-tiered variables like ${platformio.core_dir}
-  local function interpolate_string(text, current_env_name)
-    if type(text) ~= 'string' or not text:match('%$%{.-%}') then
-      return text
-    end
-
-    local resolved = (
-      text:gsub('%$%{([^}]+)%}', function(token)
-        -- Match global lookup references: ${platformio.core_dir}
-        if token:match('^platformio%.') then
-          local key = token:gsub('^platformio%.', '')
-          return platformio_vars[key] or ''
-        end
-        -- Match environment self-references: ${this.board}
-        if token:match('^this%.') and current_env_name and raw_envs[current_env_name] then
-          local key = token:gsub('^this%.', '')
-          return raw_envs[current_env_name][key] or global_env_defaults[key] or ''
-        end
-        return '${' .. token .. '}'
-      end)
-    )
-
-    -- Re-evaluate recursively if another token sequence remains nested inside
-    if resolved:match('%$%{.-%}') and resolved ~= text then
-      return interpolate_string(resolved, current_env_name)
-    end
-    return resolved
-  end
-
-  -- 3. Resolve base platformio metadata layout structures
-  local nvimpio_fallback = require('nvimpio').config.pio_storage_dir or '~/.platformio'
-  platformio_vars.core_dir = interpolate_string(platformio_vars.core_dir or nvimpio_fallback, nil)
-  platformio_vars.packages_dir = interpolate_string(platformio_vars.packages_dir or '${platformio.core_dir}/packages', nil)
-  platformio_vars.platforms_dir = interpolate_string(platformio_vars.platforms_dir or '${platformio.core_dir}/platforms', nil)
-
-  metadata.core_dir = platformio_vars.core_dir
-  metadata.packages_dir = platformio_vars.packages_dir
-  metadata.platforms_dir = platformio_vars.platforms_dir
-  metadata.default_envs = normalize_value('default_envs', default_envs_raw)
-
-  -- 4. Cascade parameters from base [env] down into individual active environments
-  for env_name, local_pairs in pairs(raw_envs) do
-    metadata.envs[env_name] = {}
-
-    -- Inject shared base configurations first
-    for k, v in pairs(global_env_defaults) do
-      metadata.envs[env_name][k] = v
-    end
-
-    -- Overwrite options using specific environment variations
-    for k, v in pairs(local_pairs) do
-      metadata.envs[env_name][k] = v
-    end
-
-    -- Evaluate string interpolations and map items cleanly to correct primitive types
-    for k, v in pairs(metadata.envs[env_name]) do
-      local interpolated = interpolate_string(v, env_name)
-      metadata.envs[env_name][k] = normalize_value(k, interpolated)
-    end
-
-    -- Safety check: Guarantee that extra_scripts is always an array table
-    if metadata.envs[env_name].extra_scripts == nil then
-      metadata.envs[env_name].extra_scripts = {}
-    end
-  end
-
-  -- 5. Selection Pipeline Phase: Determine the active_env key targeting string
-  -- Check A: Global persistent variable matching an active option
-  if _G.metadata and _G.metadata.active_env and metadata.envs[_G.metadata.active_env] then
-    return _G.metadata.active_env, metadata
-  end
-
-  -- Check B: Fall back to the default_envs definition list extracted from INI
-  local def_envs = metadata.default_envs
-  if type(def_envs) == 'table' then
-    for _, env_name in ipairs(def_envs) do
-      if metadata.envs[env_name] then
-        -- if _G.metadata then
-        --   _G.metadata.active_env = env_name
-        -- end
-        return env_name, metadata
-      end
-    end
-  end
-
-  -- Check C: Absolute fallback—simply extract the very first key available in our map
-  local first_valid = next(metadata.envs)
-  if first_valid then
-    -- if _G.metadata then
-    --   _G.metadata.active_env = first_valid
-    -- end
-    return first_valid, metadata
-  end
-
-  return nil, metadata
-end
+-- function M.get_active_env(from)
+--   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
+--
+--   -- 1. Structural target return skeleton structure
+--   local metadata = { envs = {}, core_dir = '', packages_dir = '', platforms_dir = '', default_envs = {}, }
+--
+--   local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
+--   if vim.fn.filereadable(path) == 0 then
+--     OS.notify(from .. 'platformio.ini not found in current working directory.', 'error')
+--     return nil, metadata
+--   end
+--
+--   local ok, content = misc.readFile(path)
+--   if not ok or not content then
+--     OS.notify(from .. 'Could not read platformio.ini at ' .. path, 'warn')
+--     return nil, metadata
+--   end
+--
+--   local global_env_defaults = {}
+--   local platformio_vars = {}
+--   local raw_envs = {}
+--   local current_section = nil
+--   local default_envs_raw = ''
+--
+--   -- 2. First Pass: Lexical line scanner extracting pure, un-interpolated configurations
+--   for line in vim.gsplit(content, '[\r\n]+') do
+--     line = line:gsub('%s*[;#].*$', ''):gsub('^%s+', ''):gsub('%s+$', '')
+--
+--     if line ~= '' then
+--       local section = line:match('^%[(.+)%]$')
+--       if section then
+--         current_section = section
+--         if section:match('^env:') then
+--           local env_name = section:match('^env:(.+)')
+--           if not raw_envs[env_name] then raw_envs[env_name] = {} end
+--         end
+--       elseif current_section then
+--         local key, val = line:match('^%s*([%w_%-]+)%s*=%s*(.-)%s*$')
+--         if key and val then
+--           val = vim.trim(val)
+--           if current_section == 'platformio' then
+--             platformio_vars[key] = val
+--             if key == 'default_envs' then default_envs_raw = val end
+--           elseif current_section == 'env' then global_env_defaults[key] = val
+--           elseif current_section:match('^env:') then
+--             local env_name = current_section:match('^env:(.+)')
+--             raw_envs[env_name][key] = val
+--           end
+--         end
+--       end
+--     end
+--   end
+--
+--   if next(raw_envs) == nil then
+--     OS.notify(from .. 'No active environments found in platformio.ini', 'warn')
+--     if _G.metadata then
+--       _G.metadata.active_env = ''
+--     end
+--     return nil, metadata
+--   end
+--
+--   -- Helper: Transforms raw text strings dynamically into native primitives or vectors
+--   local function normalize_value(key, value)
+--     if not value or value == '' then
+--       return (key == 'extra_scripts' or key == 'default_envs') and {} or ''
+--     end
+--     -- Split explicitly by whitespace or commas for known list arrays
+--     if key == 'default_envs' or key == 'extra_scripts' then
+--       return vim.split(value, '[%s,]+', { trimempty = true })
+--     end
+--     -- Convert numeric strings like "115200" to absolute Lua numbers
+--     return tonumber(value) or value
+--   end
+--
+--   -- Helper: Recursively scans strings to evaluate multi-tiered variables like ${platformio.core_dir}
+--   local function interpolate_string(text, current_env_name)
+--     if type(text) ~= 'string' or not text:match('%$%{.-%}') then return text end
+--
+--     local resolved = (
+--       text:gsub('%$%{([^}]+)%}', function(token)
+--         -- Match global lookup references: ${platformio.core_dir}
+--         if token:match('^platformio%.') then
+--           local key = token:gsub('^platformio%.', '')
+--           return platformio_vars[key] or ''
+--         end
+--         -- Match environment self-references: ${this.board}
+--         if token:match('^this%.') and current_env_name and raw_envs[current_env_name] then
+--           local key = token:gsub('^this%.', '')
+--           return raw_envs[current_env_name][key] or global_env_defaults[key] or ''
+--         end
+--         return '${' .. token .. '}'
+--       end)
+--     )
+--
+--     -- Re-evaluate recursively if another token sequence remains nested inside
+--     if resolved:match('%$%{.-%}') and resolved ~= text then
+--       return interpolate_string(resolved, current_env_name)
+--     end
+--     return resolved
+--   end
+--
+--   -- 3. Resolve base platformio metadata layout structures
+--   local nvimpio_fallback = require('nvimpio').config.pio_storage_dir or '~/.platformio'
+--   platformio_vars.core_dir = interpolate_string(platformio_vars.core_dir or nvimpio_fallback, nil)
+--   platformio_vars.packages_dir = interpolate_string(platformio_vars.packages_dir or '${platformio.core_dir}/packages', nil)
+--   platformio_vars.platforms_dir = interpolate_string(platformio_vars.platforms_dir or '${platformio.core_dir}/platforms', nil)
+--
+--   metadata.core_dir = platformio_vars.core_dir
+--   metadata.packages_dir = platformio_vars.packages_dir
+--   metadata.platforms_dir = platformio_vars.platforms_dir
+--   metadata.default_envs = normalize_value('default_envs', default_envs_raw)
+--
+--   -- 4. Cascade parameters from base [env] down into individual active environments
+--   for env_name, local_pairs in pairs(raw_envs) do
+--     metadata.envs[env_name] = {}
+--
+--     -- Inject shared base configurations first
+--     for k, v in pairs(global_env_defaults) do
+--       metadata.envs[env_name][k] = v
+--     end
+--
+--     -- Overwrite options using specific environment variations
+--     for k, v in pairs(local_pairs) do
+--       metadata.envs[env_name][k] = v
+--     end
+--
+--     -- Evaluate string interpolations and map items cleanly to correct primitive types
+--     for k, v in pairs(metadata.envs[env_name]) do
+--       local interpolated = interpolate_string(v, env_name)
+--       metadata.envs[env_name][k] = normalize_value(k, interpolated)
+--     end
+--
+--     -- Safety check: Guarantee that extra_scripts is always an array table
+--     if metadata.envs[env_name].extra_scripts == nil then
+--       metadata.envs[env_name].extra_scripts = {}
+--     end
+--   end
+--
+--   -- 5. Selection Pipeline Phase: Determine the active_env key targeting string
+--   -- Check A: Global persistent variable matching an active option
+--   if _G.metadata and _G.metadata.active_env and metadata.envs[_G.metadata.active_env] then
+--     return _G.metadata.active_env, metadata
+--   end
+--
+--   -- Check B: Fall back to the default_envs definition list extracted from INI
+--   local def_envs = metadata.default_envs
+--   if type(def_envs) == 'table' then
+--     for _, env_name in ipairs(def_envs) do
+--       if metadata.envs[env_name] then
+--         -- if _G.metadata then
+--         --   _G.metadata.active_env = env_name
+--         -- end
+--         return env_name, metadata
+--       end
+--     end
+--   end
+--
+--   -- Check C: Absolute fallback—simply extract the very first key available in our map
+--   local first_valid = next(metadata.envs)
+--   if first_valid then
+--     -- if _G.metadata then
+--     --   _G.metadata.active_env = first_valid
+--     -- end
+--     return first_valid, metadata
+--   end
+--
+--   return nil, metadata
+-- end
 
 
 
@@ -456,7 +575,7 @@ end
 --   metadata.envs = {}
 --
 --   -- 5. Inject common properties, expand path string tokens, apply real data types
---   for env_name, local_pairs in pairs(raw_envs) do
+--   for env_name, local_pairs 'in pairs(raw_envs) do
 --     metadata.envs[env_name] = {}
 --
 --     -- Load base properties from common [env] section
