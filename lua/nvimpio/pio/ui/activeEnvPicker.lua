@@ -22,7 +22,7 @@ function M.select_env_picker()
       local line = string.format(' %d. %s %s', idx, (name == current_active) and '[x]' or '[ ]', name)
 
       -- FORCE WIDTH: Pad the string with spaces so it matches a minimum width (e.g., 45 characters)
-      local target_width = 45
+      local target_width = 25
       local padding_needed = target_width - #line
       if padding_needed > 0 then
         line = line .. string.rep(' ', padding_needed)
