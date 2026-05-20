@@ -404,7 +404,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     end
   end
 
-  OS.notify(string.format('%s refresh active_env=%s', from, active_env))
+  -- OS.notify(string.format('%s refresh active_env=%s', from, active_env))
 
   if not active_env or active_env == '' then
     fire_callback(false)
@@ -447,7 +447,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   local checksum_file = misc.joinPath(build_dir, 'project.checksum')
   local idedata_file = misc.joinPath(build_env_dir, 'idedata.json')
 
-  OS.notify(string.format('idedata_file=%s', idedata_file))
+  -- OS.notify(string.format('idedata_file=%s', idedata_file))
 
   -------------------------------------------------------------------
   -- STEP 1: Fast Checksum Check (project.checksum and idedata.json)
@@ -458,11 +458,11 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- Complete Cache-Hit Evaluation Rule
   -- if ok and idok and current_checksum ~= '' and content ~= '' then
   if idok and content ~= '' then
-    OS.notify('level1')
+    -- OS.notify('level1')
     -- if meta.last_projectChecksum == current_checksum or attempts == 0 then
       local cok, decoded = pcall(vim.json.decode, content)
       if cok and apply_metadata(decoded) then
-    OS.notify('level2')
+    -- OS.notify('level2')
         local metadata = require('nvimpio.pio.metadata')
         metadata.save_project_config(from)
         OS.notify(from .. 'Metadata synced from cache', "info")
@@ -539,7 +539,7 @@ function M.pio_refresh(callback, from)
   local active_env = _G.metadata and _G.metadata.active_env
 
   if active_env and active_env ~= '' then
-    OS.notify(msg .. 'active_env= ' .. active_env, 'info')
+    -- OS.notify(msg .. 'active_env= ' .. active_env, 'info')
     fetch_metadata(callback, active_env, from, 1)
   else
     OS.notify('No active env', 'error')
@@ -742,11 +742,6 @@ M.run_sequence = function(tasks)
   local token = string.format("%04d", session_counter)
 
   fromMsg = tasks.from
-  print(fromMsg)
-
-  print(session_counter)
-  print(token)
-  print(vim.inspect(commands))
 
   session_counter = session_counter + 1
   if session_counter > 9999 then session_counter = 1 end
