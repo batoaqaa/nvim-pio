@@ -400,6 +400,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     end
   end
 
+  OS.notify(string.format('%s refresh active_env=%s', msg, active_env))
   if not active_env or active_env == '' then
     fire_callback(false)
     return
