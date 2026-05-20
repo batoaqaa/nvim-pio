@@ -421,16 +421,16 @@ fetch_metadata = function(callback, active_env, from, attempts)
       meta.gdb_path = norm(data.gdb_path)
       pcall(M.get_sysroot_triplet, meta.cc_path)
 
-      -- local activeEnv, metadata = M.get_active_env(from)
-      -- if activeEnv and activeEnv ~= '' then
-      --   metadata = metadata or {}
-      --   _G.metadata.core_dir = metadata.core_dir
-      --   _G.metadata.packages_dir = metadata.packages_dir
-      --   _G.metadata.platforms_dir = metadata.platforms_dir
-      --   _G.metadata.default_envs = metadata.default_envs
-      --   _G.metadata.envs = metadata.envs
-      --   _G.metadata.active_env = activeEnv
-      -- end
+      local activeEnv, metadata = M.get_active_env(from)
+      if activeEnv and activeEnv ~= '' then
+        metadata = metadata or {}
+        _G.metadata.core_dir = metadata.core_dir
+        _G.metadata.packages_dir = metadata.packages_dir
+        _G.metadata.platforms_dir = metadata.platforms_dir
+        _G.metadata.default_envs = metadata.default_envs
+        _G.metadata.envs = metadata.envs
+        _G.metadata.active_env = activeEnv
+      end
     end)
     return true
   end
@@ -525,16 +525,6 @@ function M.pio_refresh(callback, from)
   end
   refreshBusy = true
 
-  local activeEnv, metadata = M.get_active_env(from)
-  if activeEnv and activeEnv ~= '' then
-    metadata = metadata or {}
-    _G.metadata.core_dir = metadata.core_dir
-    _G.metadata.packages_dir = metadata.packages_dir
-    _G.metadata.platforms_dir = metadata.platforms_dir
-    _G.metadata.default_envs = metadata.default_envs
-    _G.metadata.envs = metadata.envs
-    _G.metadata.active_env = activeEnv
-  end
 
 
   local active_env = _G.metadata and _G.metadata.active_env
