@@ -401,13 +401,14 @@ fetch_metadata = function(callback, env, from, attempts)
   local active_env = env or meta.active_env
 
   local function fire_callback(status)
+    refreshBusy = false
     if type(callback) == "function" then
       vim.schedule(function() callback(status) end)
-      refreshBusy = false
     end
   end
 
   if not active_env or active_env == '' then
+    fire_callback(false)
     return
   end
 
@@ -421,10 +422,12 @@ fetch_metadata = function(callback, env, from, attempts)
     local norm = function(p) return misc.normalizePath(p) or '' end
 
     -- 1. Base Paths & Compilers
-    meta.cc_path = norm(data.cc_path)
-    meta.cxx_path = norm(data.cxx_path)
-    meta.gdb_path = norm(data.gdb_path)
-    pcall(M.get_sysroot_triplet, meta.cc_path)
+    vim.schedule(function()
+      meta.cc_path = norm(data.cc_path)
+      meta.cxx_path = norm(data.cxx_path)
+      meta.gdb_path = norm(data.gdb_path)
+      pcall(M.get_sysroot_triplet, meta.cc_path)
+    end)
 
     return true
   end
@@ -489,7 +492,7 @@ fetch_metadata = function(callback, env, from, attempts)
       else
         OS.notify(msg .. 'Build Failed', 'error')
         vim.schedule(function()
-          meta.isBusy = false
+          if meta then meta.isBusy = false end
         end)
         -- Exit Path 4: Generation Run Failed
         fire_callback(false)
@@ -507,8 +510,12 @@ end
 --INFO:
 -- stylua: ignore
 function M.pio_refresh(callback, from)
-  if refreshBusy and type(callback) == 'function' then
-    vim.schedule(function() callback(false) end)
+
+  if refreshBusy then
+    if type(callback) == 'function' then
+      vim.schedule(function() callback(false) end)
+    end
+    return
   end
 
   refreshBusy = true
@@ -523,11 +530,9 @@ function M.pio_refresh(callback, from)
   if active_env and active_env ~= '' then on_done(active_env)
   else
     OS.notify('No active env', 'error')
+    refreshBusy = false
     -- Explicitly trigger callback when refresh conditions cannot be satisfied
-    if type(callback) == 'function' then
-      vim.schedule(function() callback(false) end)
-      refreshBusy = false
-    end
+    if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
   end
 end
 
