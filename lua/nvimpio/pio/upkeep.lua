@@ -625,26 +625,6 @@ end
 --   return nil
 -- end
 --========================================================================================
-------------------------------------------------------------------------------
-
---INFO:
---stylua: ignore
--------------------------------------------------------------------------------
-function M.pio_refresh(callback, from)
-  print(from .. '1')
-  local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
-  -- OS.notify(msg ..'Config sync ...', "info")
-
-  local function on_done(active_env)
-    if active_env then OS.notify(msg .. 'active_env= ' .. active_env, "info") end
-    if active_env then M.fetch_metadata(callback, active_env, from, 1) end
-  end
-
-  local active_env = _G.metadata.active_env  -- M.get_active_env(from)
-  if active_env and active_env ~= '' then on_done(active_env)
-  else OS.notify('No active env', 'error') end
-  -- M.fetch_config(on_done, from)
-end
 
 -- INFO:
 -- =============================================================================
@@ -752,10 +732,12 @@ end
 
 --INFO:
 -- get pio project metadata info
+local fetch_metadata -- Forward declare the variable shell
 -- stylua: ignore
 --=============================================================================
-function M.fetch_metadata(callback, env, from, attempts)
+fetch_metadata = function(callback, env, from, attempts)
   local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
+  attempts = tonumber(attempts) or 1
   local meta = _G.metadata
   local active_env = env or meta.active_env
   if not active_env or active_env == '' then
@@ -832,37 +814,44 @@ function M.fetch_metadata(callback, env, from, attempts)
   -- STEP 1: Fast Checksum Check (project.checksum and idedata.json)
   -------------------------------------------------------------------
   local ok, current_checksum = misc.readFile(checksum_file)
+  local is_cache_valid = false
   if ok and (type(current_checksum) == 'string' and current_checksum ~= '') then
-    meta.last_projectChecksum = current_checksum
+    -- Only allow a clean cache hit if the token matches exactly what we have stored!
+    if meta.last_projectChecksum == current_checksum then
+      is_cache_valid = true
+    else
+      meta.last_projectChecksum = current_checksum -- Cache is dirty, store new key and rebuild below
+    end
   end
   ----------------------------------------------------------------
   -- STEP 2: Cache Path (idedata.json exists and checksum changed)
   ----------------------------------------------------------------
-  local idok, content = misc.readFile(idedata_file)
-  if idok and (type(content) == 'string' and content ~= '') then
-    local cok, decoded = pcall(vim.json.decode, content)
+  if is_cache_valid then
+    local idok, content = misc.readFile(idedata_file)
+    if idok and (type(content) == 'string' and content ~= '') then
+      local cok, decoded = pcall(vim.json.decode, content)
 
-    -- local formated = misc.jsonFormat(decoded)
-    -- local file = misc.joinPath(vim.uv.cwd(), 'idedata.json')
-    -- misc.writeFile(file, formated, {})
+      -- local formated = misc.jsonFormat(decoded)
+      -- local file = misc.joinPath(vim.uv.cwd(), 'idedata.json')
+      -- misc.writeFile(file, formated, {})
 
-    -- if cok and apply_metadata(decoded, current_checksum) then
-    if cok and apply_metadata(decoded) then
-      local metadata = require('nvimpio.pio.metadata')
-      metadata.save_project_config(msg)
-      OS.notify(msg .. 'Metadata synced from cache', "info")
-      -- if callback then vim.schedule(callback) end
+      -- if cok and apply_metadata(decoded, current_checksum) then
+      if cok and apply_metadata(decoded) then
+        local metadata = require('nvimpio.pio.metadata')
+        metadata.save_project_config(msg)
+        OS.notify(msg .. 'Metadata synced from cache', "info")
+        -- if callback then vim.schedule(callback) end
 
-      if type(callback) == "function" then
-        vim.schedule(callback)
-      else
-        -- If it's not a function, just do nothing or print a debug message
-        OS.notify(msg .." Debug; callback was " .. type(callback), 'debug')
+        if type(callback) == "function" then
+          vim.schedule(callback)
+        else
+          -- If it's not a function, just do nothing or print a debug message
+          OS.notify(msg .." Debug; callback was " .. type(callback), 'debug')
+        end
+
+        return true
       end
-
-      return true
     end
-  -- else
   end
   -- else
   -- end
@@ -875,11 +864,12 @@ function M.fetch_metadata(callback, env, from, attempts)
       if(suscess)then
         OS.notify(string.format('%s Initializing project metadata success for %s.', msg, active_env), "info")
         if attempts > 0 then
-          M.fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
+          if meta then meta.last_projectChecksum = nil end
+          fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
         end
         return
       else
-        OS.notify(string.format('%sBuild Failed %s', msg), 'error')
+        OS.notify(string.format('%sBuild Failed ', msg), 'error')
         _G.metadata.isBusy = false
       end
     end)
@@ -916,6 +906,26 @@ function M.fetch_metadata(callback, env, from, attempts)
   -- end)
 end
 
+------------------------------------------------------------------------------
+
+--INFO:
+--stylua: ignore
+-------------------------------------------------------------------------------
+function M.pio_refresh(callback, from)
+  print(from .. '1')
+  local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
+  -- OS.notify(msg ..'Config sync ...', "info")
+
+  local function on_done(active_env)
+    OS.notify(msg .. 'active_env= ' .. active_env, "info")
+    fetch_metadata(callback, active_env, from, 1)
+  end
+
+  local active_env = _G.metadata.active_env  -- M.get_active_env(from)
+  if active_env and active_env ~= '' then on_done(active_env)
+  else OS.notify('No active env', 'error') end
+  -- fetch_config(on_done, from)
+end
 
 -- INFO:
 -- Fix compile_commands.json file with absoulute paths
