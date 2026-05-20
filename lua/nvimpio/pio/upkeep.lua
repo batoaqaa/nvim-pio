@@ -806,21 +806,21 @@ function M.fetch_metadata(callback, env, from, attempts)
   --INFO:
   --Generate idedata.json
   ---------------------------------------------------------
-  local function buildIdedata()
-    OS.notify(msg .. 'Initializing project metadata...', "info")
-    -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
-    vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { text = true }, function(obj)
-      vim.schedule(function()
-        if obj.code == 0 then
-          OS.notify(msg .. 'Initializing project metadata success.', "info")
-          M.fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
-        else
-          OS.notify(msg .. 'Initialization failed. Build project manually.: ' .. obj.stderr, "error")
-        end
-      end)
-    end)
-    return true
-  end
+  -- local function buildIdedata()
+  --   OS.notify(msg .. 'Initializing project metadata...', "info")
+  --   -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
+  --   vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { text = true }, function(obj)
+  --     vim.schedule(function()
+  --       if obj.code == 0 then
+  --         OS.notify(msg .. 'Initializing project metadata success.', "info")
+  --         M.fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
+  --       else
+  --         OS.notify(msg .. 'Initialization failed. Build project manually.: ' .. obj.stderr, "error")
+  --       end
+  --     end)
+  --   end)
+  --   return true
+  -- end
 
   -- Set up file paths
   local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
@@ -1102,9 +1102,9 @@ M.run_sequence = function(tasks)
   M.queue = {}
   local commands = tasks.cmnds
 
+  session_counter = session_counter + 1
   if session_counter > 9999 then session_counter = 1 end
   local token = string.format("%04d", session_counter)
-  session_counter = session_counter + 1
 
   local total = #commands
 
