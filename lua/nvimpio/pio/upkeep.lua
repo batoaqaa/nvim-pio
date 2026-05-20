@@ -515,6 +515,36 @@ fetch_metadata = function(callback, active_env, from, attempts)
 end
 
 
+-------------------------------------------------------------------------------
+--INFO:
+-- stylua: ignore
+function M.pio_refresh(callback, from)
+  local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
+
+
+  if refreshBusy then
+    OS.notify(string.format('%s refresh busy ...', msg), 'info')
+    if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
+    return
+  end
+  refreshBusy = true
+
+
+
+  local active_env = _G.metadata and _G.metadata.active_env
+
+
+
+  if active_env and active_env ~= '' then
+    OS.notify(msg .. 'active_env= ' .. active_env, 'info')
+    fetch_metadata(callback, active_env, from, 1)
+  else
+    OS.notify('No active env', 'error')
+    refreshBusy = false
+    if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
+  end
+end
+
 
 
 
