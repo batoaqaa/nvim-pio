@@ -639,6 +639,7 @@ local current_id = -1 -- Holds 0 for DONE, or 1-9 for PASS
 local session_counter = 1 -- Our high-performance integer counter
 local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
 local callBack = nil -- Your execution hook function pointer
+local fromMsg = ''
 M.queue = {}
 term.stdout_callback = M.stdoutcallback
 local trm
@@ -735,10 +736,14 @@ M.run_sequence = function(tasks)
 
 
   local token = string.format("%04d", session_counter)
-  print(tasks.from)
+
+  fromMsg = tasks.from
+  print(fromMsg)
+
   print(session_counter)
   print(token)
   print(vim.inspect(commands))
+
   session_counter = session_counter + 1
   if session_counter > 9999 then session_counter = 1 end
 
@@ -923,10 +928,10 @@ function M.handlePioDB(result, on_done)
       trm = term.ToggleTerminal(pop(M.queue), 'float')
     end
   elseif result == 'PASS' .. current_id then
-      OS.notify('PIO idedata:  pass ' .. current_id, "info")
+      OS.notify(string.format('%sidedata:  pass%s', fromMsg, current_id), "info")
       if #M.queue > 0 then trm:send(pop(M.queue), false) end
   elseif result == 'DONE' then -- result of the only and the last command
-      OS.notify('PIO compiledb:  done ', "info")
+      OS.notify(string.format('%scompiledb:  done', fromMsg), "info")
     vim.schedule(function()
       if on_done and type(on_done) == 'function' then on_done(true) end
     end)
