@@ -631,6 +631,7 @@ end
 --stylua: ignore
 -------------------------------------------------------------------------------
 function M.pio_refresh(callback, from)
+  print(from .. '1')
   local msg = (type(from)=='string' and from ~= '') and from or 'PIO: '
   -- OS.notify(msg ..'Config sync ...', "info")
 
