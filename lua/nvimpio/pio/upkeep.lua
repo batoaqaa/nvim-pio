@@ -879,13 +879,13 @@ fetch_metadata = function(callback, env, from, attempts)
     M.handlePioDB(status, function (suscess)
       if(suscess)then
         OS.notify(string.format('%s Initializing project metadata success for %s.', msg, active_env), "info")
+        -- Store the valid checksum hash AFTER the compiler outputs the fresh files
+        if ok and current_checksum ~= '' then
+          meta.last_projectChecksum = current_checksum
+        end
+
         if attempts > 0 then
-          if meta and type(meta.last_projectChecksum) == 'string' and meta.last_projectChecksum ~= '' then
-            meta.last_projectChecksum = nil
-          end
-          vim.schedule(function ()
             fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
-          end)
         end
         return
       else
