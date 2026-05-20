@@ -511,8 +511,10 @@ end
 --INFO:
 -- stylua: ignore
 function M.pio_refresh(callback, from)
+  local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
   if refreshBusy then
+    OS.notify(string.format('%s refresh busy ...', msg), 'info')
     if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
     return
   end
@@ -529,7 +531,6 @@ function M.pio_refresh(callback, from)
   end
 
   refreshBusy = true
-  local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
   local function on_done(env)
     OS.notify(msg .. 'active_env= ' .. env, 'info')
