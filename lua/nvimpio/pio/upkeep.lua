@@ -1102,9 +1102,9 @@ M.run_sequence = function(tasks)
   M.queue = {}
   local commands = tasks.cmnds
 
-  session_counter = session_counter + 1
   if session_counter > 9999 then session_counter = 1 end
   local token = string.format("%04d", session_counter)
+  session_counter = session_counter + 1
 
   local total = #commands
 
@@ -1289,9 +1289,10 @@ function M.handlePioDB(result, on_done)
       trm = term.ToggleTerminal(pop(M.queue), 'float')
     end
   elseif result == 'PASS' .. current_id then
-      OS.notify('PIO install:  pass ' .. current_id, "info")
+      OS.notify('PIO idedata:  pass ' .. current_id, "info")
       if #M.queue > 0 then trm:send(pop(M.queue), false) end
   elseif result == 'DONE' then -- result of the only and the last command
+      OS.notify('PIO compiledb:  done ', "info")
     -- vim.schedule(function()
       if on_done and type(on_done) == 'function' then on_done(true) end
     -- end)
