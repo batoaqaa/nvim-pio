@@ -403,6 +403,7 @@ fetch_metadata = function(callback, env, from, attempts)
   local function fire_callback(status)
     refreshBusy = false
     if type(callback) == "function" then
+      if (status) then require('nvimpio.clangd.control').getUnknownArgs(from) end
       vim.schedule(function() callback(status) end)
     end
   end
@@ -512,21 +513,30 @@ end
 function M.pio_refresh(callback, from)
 
   if refreshBusy then
-    if type(callback) == 'function' then
-      vim.schedule(function() callback(false) end)
-    end
+    if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
     return
+  end
+
+  local active_env, metadata = M.get_active_env(from)
+  if active_env and active_env ~= '' then
+    metadata = metadata or {}
+    _G.metadata.core_dir = metadata.core_dir
+    _G.metadata.packages_dir = metadata.packages_dir
+    _G.metadata.platforms_dir = metadata.platforms_dir
+    _G.metadata.default_envs = metadata.default_envs
+    _G.metadata.envs = metadata.envs
+    _G.metadata.active_env = active_env
   end
 
   refreshBusy = true
   local msg = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
-  local function on_done(active_env)
-    OS.notify(msg .. 'active_env= ' .. active_env, 'info')
-    fetch_metadata(callback, active_env, from, 1)
+  local function on_done(env)
+    OS.notify(msg .. 'active_env= ' .. env, 'info')
+    fetch_metadata(callback, env, from, 1)
   end
 
-  local active_env = _G.metadata and _G.metadata.active_env
+  -- local active_env = _G.metadata and _G.metadata.active_env
   if active_env and active_env ~= '' then on_done(active_env)
   else
     OS.notify('No active env', 'error')
