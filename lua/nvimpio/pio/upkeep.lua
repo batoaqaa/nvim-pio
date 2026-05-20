@@ -499,7 +499,7 @@ fetch_metadata = function(callback, env, from, attempts)
           fetch_metadata(callback, active_env, from, attempts - 1)
         else
           -- Exit Path 3: Successful Generation Sequence (End of Recursion Tree)
-          fire_callback(true)
+          fire_callback(false)  --- ??????
         end
       else
         OS.notify(msg .. 'Build Failed', 'error')
@@ -529,7 +529,6 @@ function M.pio_refresh(callback, from)
     if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
     return
   end
-
 
   refreshBusy = true
 
