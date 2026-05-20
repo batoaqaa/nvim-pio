@@ -1102,7 +1102,10 @@ M.run_sequence = function(tasks)
   M.queue = {}
   local commands = tasks.cmnds
 
+
   local token = string.format("%04d", session_counter)
+  print(session_counter)
+  print(token)
   session_counter = session_counter + 1
   if session_counter > 9999 then session_counter = 1 end
 
