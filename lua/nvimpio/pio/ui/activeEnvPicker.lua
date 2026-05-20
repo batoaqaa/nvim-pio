@@ -16,7 +16,8 @@ function M.select_env_picker()
   vim.api.nvim_set_hl(0, 'TelescopeBorder', { fg = '#4ec9b0', bg = 'NONE' })
 
   vim.ui.select(envs, {
-    prompt = 'Select Active Target Environment:',
+    -- prompt = 'Select Active Target Environment:',
+    prompt = '',
     kind = 'nvimpio_env_selector',
     format_item = function(name)
       local idx = vim.fn.index(envs, name) + 1
