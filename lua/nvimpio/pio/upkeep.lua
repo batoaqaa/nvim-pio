@@ -665,6 +665,7 @@ local args_table = {}
 -- =============================================================================
 function M.stdoutcallback(data, name)
   name = name or ''
+  print(name)
   if not data or #data == 0 then
     return
   end
