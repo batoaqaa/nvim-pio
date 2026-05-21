@@ -685,6 +685,7 @@ function M.stdoutcallback(data, name)
     local has_fail = content:find(fail_pattern) ~= nil
 
     if name == 'stderr' then
+      print('on_stderr')
       -- Do specific processing for errors
       for _, line in ipairs(data) do
         if line ~= '' then
