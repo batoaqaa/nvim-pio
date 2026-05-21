@@ -18,8 +18,8 @@ function M.clangdIntall(callback, package_name)
   -- no need by default mason do prepend
   -- vim.env.PATH = mason_bin .. (vim.fn.has('win32') == 1 and ';' or ':') .. vim.env.PATH
 
-  local mok, mason = pcall(require, 'mason')
-  if mok then mason.setup({}) end
+  -- local mok, mason = pcall(require, 'mason')
+  -- if mok then mason.setup({}) end
 
   local registry = require('mason-registry')
 
