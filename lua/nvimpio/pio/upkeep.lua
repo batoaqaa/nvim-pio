@@ -791,6 +791,8 @@ M.run_sequence = function(tasks)
 
   if callBack then
     vim.schedule(function()
+      clangd_extracted_args = {}       -- Clear the collected flags table
+      M.clangd_check_active = true     -- Arm the parsing loop tracker
       pio_buffer = ''
       term.stdout_callback = M.stdoutcallback
       callBack('INIT')
@@ -990,16 +992,12 @@ function M.handleClangdCheck(result, on_done)
     end)
     if trm then trm:close() end
     M.cleanSequencer()
-    M.clangd_check_active = false
-    M.clangd_extracted_args = {}
   elseif result == 'FAIL' then
     OS.notify(string.format('%sclangd check  fail', fromMsg), 'info')
     vim.schedule(function()
       if on_done and type(on_done) == 'function' then on_done(true, clangd_extracted_args) end
     end)
     if trm then trm:close() end
-    M.clangd_check_active = false
-    M.clangd_extracted_args = {}
     M.cleanSequencer()
   end
 end
