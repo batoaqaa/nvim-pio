@@ -457,32 +457,29 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- if ok and idok and current_checksum ~= '' and content ~= '' then
   if idok and content ~= '' then
     -- OS.notify('level1')
-    -- if meta.last_projectChecksum == current_checksum or attempts == 0 then
-      local cok, decoded = pcall(vim.json.decode, content)
-      if cok and apply_metadata(decoded) then
-        -- OS.notify('level2')
+    local cok, decoded = pcall(vim.json.decode, content)
+    if cok and apply_metadata(decoded) then
+      -- OS.notify('level2')
 
-
-        local cb = function(status)
-          M.handleIdedata(status, function(success)
-            if success then
-              OS.notify(string.format('%s compiledb success for %s.', from, active_env), "info")
-            end
-          end)
-        end
-        local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-        M.run_sequence({ cmnds = { dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
-
-
-        OS.notify(from .. 'Metadata synced from cache', "info")
-        local metadata = require('nvimpio.pio.metadata')
-        metadata.save_project_config(from)
-
-        -- Exit Path 2: Successful Cache Hit
-        fire_callback(true)
-        return true
+      local cb = function(status)
+        M.handleIdedata(status, function(success)
+          if success then
+            OS.notify(string.format('%s compiledb success for %s.', from, active_env), "info")
+          end
+        end)
       end
-    -- end
+      local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+      M.run_sequence({ cmnds = { dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+
+
+      OS.notify(from .. 'Metadata synced from cache', "info")
+      local metadata = require('nvimpio.pio.metadata')
+      metadata.save_project_config(from)
+
+      -- Exit Path 2: Successful Cache Hit
+      fire_callback(true)
+      return true
+    end
   end
 
 
