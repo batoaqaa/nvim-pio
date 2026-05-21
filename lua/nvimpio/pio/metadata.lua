@@ -122,69 +122,12 @@ _G.metadata = setmetatable({}, {
           _pio_metadata.envs = metadata.envs
         end
 
-        -- OS.notify(from .. 'compiledb update ...', 'info')
-        --
-        -- local pio = require('nvimpio.pio.upkeep')
-        -- local cb = function(status)
-          -- pio.handlePioDB(status, function (suscess)
-          --   if(suscess)then
-          --     OS.notify(from .. 'compiledb update Success', 'info')
-              local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-              pio_refresh(function(suscess)
-                if suscess then
-                end
-                -- if (suscess) then require('nvimpio.clangd.control').getUnknownArgs(from) end
-                if _G.metadata then _G.metadata.isBusy = false end
-              end, from)
-        --     else
-        --       OS.notify(string.format('%sBuild Failed %s',from), 'error')
-        --       _G.metadata.isBusy = false
-        --     end
-        --   end)
-        -- end
-        -- local cmd = 'pio run -t compiledb -e ' .. value
-        -- pio.run_sequence({ cmnds = { cmd }, cb = cb })
-
-        -- vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', value }, { text = true }, function(obj)
-        --   vim.schedule(function()
-        --     if obj.code == 0 then
-        --       OS.notify(from .. 'compiledb update Success', 'info')
-        --       local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-        --       pio_refresh(function()
-        --         require('nvimpio.clangd.control').getUnknownArgs(from)
-        --         if _G.metadata then _G.metadata.isBusy = false end
-        --         -- clangdRestart()
-        --       end, from)
-        --     else
-        --       local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
-        --       OS.notify(string.format('%sBuild Failed %s',from, err), 'error')
-        --       _G.metadata.isBusy = false
-        --     end
-        --   end)
-        -- end)
+        local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+        pio_refresh(function(_)
+          -- if (suscess) then require('nvimpio.clangd.control').getUnknownArgs(from) end
+          if _G.metadata then _G.metadata.isBusy = false end
+        end, from)
       -- elseif key == 'last_projectChecksum' then
-      --   local from = 'Meta last_projectChecksum change: '
-      --   _G.metadata.isBusy = true
-      --   OS.notify(from .. 'compiledb update ...', 'info')
-      --
-      --   local pio = require('nvimpio.pio.upkeep')
-      --   local cb = function(status)
-      --     pio.handlePioDB(status, function (suscess)
-      --       if(suscess)then
-      --         OS.notify(from .. 'compiledb update Success', 'info')
-      --         local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-      --         pio_refresh(function()
-      --           require('nvimpio.clangd.control').getUnknownArgs(from)
-      --           if _G.metadata then _G.metadata.isBusy = false end
-      --         end, from)
-      --       else
-      --         OS.notify(string.format('%sBuild Failed %s',from), 'error')
-      --         _G.metadata.isBusy = false
-      --       end
-      --     end)
-      --   end
-      --   local cmd = 'pio run -t compiledb -e ' .. pio.get_active_env(from)
-      --   pio.run_sequence({ cmnds = { cmd }, cb = cb })
       end
     end)
   end,
@@ -235,10 +178,6 @@ end
 -------------------------------------------------------------------------------
 function M.load_project_config()
   local misc = require('nvimpio.utils.misc')
-
-  -- local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
-  -- local checksum_file = misc.joinPath(build_dir, 'project.checksum')
-  -- local cok, current_checksum = misc.readFile(checksum_file)
   if vim.fn.filereadable(config_path) == 1 then
     local _, json_data = misc.readFile(config_path)
     if json_data then
@@ -246,18 +185,16 @@ function M.load_project_config()
       if ok and type(table_data) == 'table' then
         for k, v in pairs(table_data) do
           _G.metadata[k] = v
-          -- if k == 'toolchain_root' then
-          --   _G.metadata[k] = v
-          -- else
-          --   _pio_metadata[k] = v
-          -- end
+          -- _pio_metadata[k] = v
+
+          -- if k == 'toolchain_root' then _G.metadata[k] = v
+          -- else _pio_metadata[k] = v end
         end
         last_saved_hash = vim.fn.sha256(json_data)
         return
       end
     end
   end
-  -- If no file, initialize hash with defaults
 
   local pio = require('nvimpio.pio.upkeep')
   local active_env, metadata = pio.get_active_env('meta load: ')
@@ -271,6 +208,7 @@ function M.load_project_config()
     _G.metadata.active_env = active_env
   end
 
+  -- If no file, initialize hash with defaults
   last_saved_hash = vim.fn.sha256(misc.jsonFormat(_pio_metadata))
 end
 
