@@ -207,7 +207,7 @@ function M.getUnknownArgs(from)
     local cmd_str = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
     local pio = require('nvimpio.pio.upkeep')
     local cb = function(status)
-      pio.handleIdedata(status, function(success, args_table)
+      pio.handleClangdCheck(status, function(success, args_table)
         args_table = args_table or {}
         if success then
           boilerplate.args = args_table
