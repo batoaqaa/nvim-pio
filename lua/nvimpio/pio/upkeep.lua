@@ -399,7 +399,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   local function fire_callback(status)
     refreshBusy = false
     vim.schedule(function()
-      if (status) then require('nvimpio.clangd.control').getUnknownArgs(from) end
+      -- if (status) then require('nvimpio.clangd.control').getUnknownArgs(from) end
       if type(callback) == "function" then callback(status) end
     end)
   end
@@ -462,8 +462,9 @@ fetch_metadata = function(callback, active_env, from, attempts)
       -- OS.notify('level2')
 
       local cb = function(status)
-        M.handleIdedata(status, function(success)
+        M.handlePioinitDb(status, function(success)
           if success then
+            if (success) then require('nvimpio.clangd.control').getUnknownArgs(from) end
             OS.notify(string.format('%s compiledb success for %s.', from, active_env), "info")
           end
         end)
