@@ -682,6 +682,7 @@ function M.stdoutcallback(_, _, data, _)
     ---------------------------------------------------------------------------
     -- If your clangd check sequence is running, scrape the incoming buffer data
     if M.clangd_check_active then
+      print('check')
       -- 1. Exclude lines containing .clang-format configurations to prevent false hits
       if not string.find(content, "%.clang%-format") then
         -- 2. Extract your targeted unknown compiler arguments
