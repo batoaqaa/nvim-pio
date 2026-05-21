@@ -659,13 +659,15 @@ term.stdout_callback = M.stdoutcallback
 local trm
 local nvimpio = require('nvimpio')
 
-local args_table = {}
+-- Ensure this table is declared in your module scope or function closure
+local clangd_extracted_args = {}
+-- Set this to true when launching the clangd terminal, false when done
+M.clangd_check_active = false
+
 -- INFO: ToggleTerminal commands stdout filter
---- stylua: ignore
+-- stylua: ignore
 -- =============================================================================
-function M.stdoutcallback(data, name)
-  name = name or ''
-  print(name)
+function M.stdoutcallback(_, _, data, _)
   if not data or #data == 0 then
     return
   end
@@ -674,6 +676,22 @@ function M.stdoutcallback(data, name)
     -- local content = pio_buffer .. table.concat(data, '', 1, #data - 1)
     local content = pio_buffer .. table.concat(data, '', 1, #data)
     pio_buffer = data[#data] -- Save the new partial line
+
+    ---------------------------------------------------------------------------
+    -- 🛠️ INJECTED CLANGD FLAG EXTRACTION LOGIC
+    ---------------------------------------------------------------------------
+    -- If your clangd check sequence is running, scrape the incoming buffer data
+    if M.clangd_check_active then
+      -- 1. Exclude lines containing .clang-format configurations to prevent false hits
+      if not string.find(content, "%.clang%-format") then
+        -- 2. Extract your targeted unknown compiler arguments
+        for arg in string.gmatch(content, "unknown argument[:%s]+'([^']+)'") do
+          table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
+        end
+      end
+    end
+    ---------------------------------------------------------------------------
+
 
     local pass_target = 'PASS' .. current_id
 
@@ -685,56 +703,33 @@ function M.stdoutcallback(data, name)
     local has_done = content:find(done_pattern) ~= nil
     local has_fail = content:find(fail_pattern) ~= nil
 
-    if name == 'stderr' then
-      print('on_stderr')
-      -- Do specific processing for errors
-      for _, line in ipairs(data) do
-        if line ~= '' then
-          for arg in string.gmatch(line, "unknown argument[:%s]+'([^']+)'") do
-            table.insert(args_table, string.format('"%s"', arg:gsub('[;%.]$', '')))
-          end
-        end
-      end
-      print(vim.inspect(args_table))
-    elseif name == 'stdout' then
-      -- local pass_target = 'PASS' .. current_id
-      --
-      -- local pass_pattern = '_CMMNDS_' .. current_token .. ':' .. pass_target
-      -- local fail_pattern = '_CMMNDS_' .. current_token .. ':FAIL'
-      -- local done_pattern = '_CMMNDS_' .. current_token .. ':DONE'
-      --
-      -- local has_pass = content:find(pass_pattern) ~= nil
-      -- local has_done = content:find(done_pattern) ~= nil
-      -- local has_fail = content:find(fail_pattern) ~= nil
+    if has_pass or has_fail or has_done then
+      local active_cb = callBack
 
-      if has_pass or has_fail or has_done then
-        local active_cb = callBack
 
-        local final_status = 'FAIL'
-        if has_fail then
-          final_status = 'FAIL'
-          callBack = nil
-          M.queue = {}
-          pio_buffer = ''
+      local final_status = 'FAIL'
+      if has_fail then
+        final_status = 'FAIL'
+        callBack = nil
+        M.queue = {}
+        pio_buffer = ''
         -- M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
-        elseif has_done then
-          final_status = 'DONE'
-          callBack = nil
-          pio_buffer = ''
-          M.queue = {}
-        elseif has_pass then
-          final_status = pass_target
-        end
-
-        if final_status and active_cb then
-          vim.schedule(function()
-            active_cb(final_status)
-          end)
-        end
-
-        return -- Break out immediately upon executing the callback
+      elseif has_done then
+        final_status = 'DONE'
+        callBack = nil
+        pio_buffer = ''
+        M.queue = {}
+      elseif has_pass then
+        final_status = pass_target
       end
+
+      if final_status and active_cb then
+        vim.schedule(function() active_cb(final_status) end)
+      end
+
+      return -- Break out immediately upon executing the callback
     end
+
   else
     -- Only one element (no newline yet;) means the line isn't finished yet
     pio_buffer = pio_buffer .. data[1]
@@ -972,6 +967,36 @@ function M.handleIdedata(result, on_done)
     if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
+    M.cleanSequencer()
+  end
+end
+
+------------------------------------------------------
+-- Handle command
+-- =============================================================================
+-- stylua: ignore
+function M.handleClangdCheck(result, on_done)
+  if result == 'INIT' then
+    if #M.queue > 0 then
+      M.clangd_check_active = true
+      _G.metadata.isBusy = true
+      trm = term.ToggleTerminal(pop(M.queue), 'float')
+    end
+  elseif result == 'DONE' then -- result of the only and the last command
+    OS.notify(string.format('%sclangd check  done', fromMsg), 'info')
+    vim.schedule(function()
+      if on_done and type(on_done) == 'function' then on_done(true, clangd_extracted_args) end
+    end)
+    if trm then trm:close() end
+    M.cleanSequencer()
+    M.clangd_check_active = false
+  elseif result == 'FAIL' then
+    OS.notify(string.format('%sclangd check  fail', fromMsg), 'info')
+    vim.schedule(function()
+      if on_done and type(on_done) == 'function' then on_done(true, clangd_extracted_args) end
+    end)
+    if trm then trm:close() end
+    M.clangd_check_active = false
     M.cleanSequencer()
   end
 end
