@@ -37,9 +37,20 @@ if tok then trouble.setup({}) end
 ----------------------------------------------------------------------------------------
 -- INFO: setup and install mason packages
 -----------------------------------------------------------------------------------------
--- by default Mason binaries are prepended to the path
-local mok, mason = pcall(require, 'mason')
-if mok then mason.setup({}) end
+-- 1. Snapshot the memory footprint BEFORE forcing any file reloads
+local is_mason_loaded = package.loaded["mason"] ~= nil
+local is_mason_lsp_loaded = package.loaded["mason-lspconfig"] ~= nil
+
+-- 2. Safely capture the module references
+local mason_ok, mason = pcall(require, "mason")
+local mason_lsp_ok, mason_lspconfig = pcall(require, "mason-lspconfig")
+
+  -- by default Mason binaries are prepended to the path
+if mason_ok then
+  if not is_mason_loaded then
+    mason.setup({})
+  end
+end
 
 -- List of packages you want Mason to ensure are installed
 -- local ensure_installed = {
@@ -78,12 +89,31 @@ if mok then mason.setup({}) end
 ----------------------------------------------------------------------------------------
 -- INFO: install clangd using mason-lspconfig
 -----------------------------------------------------------------------------------------
-local mmok, mason_lspconfig = pcall(require, 'mason-lspconfig')
-if mmok then
-  mason_lspconfig.setup({
-    ensure_installed = { 'clangd', 'lua_ls', 'pyrefly', 'yamlls', 'jsonls' },
-    automatic_enable = true, -- this will automatically enable LSP servers after lsp.config
-  })
+local lspconfig_config = {
+  -- Add any servers you want to guarantee exist in your environment
+  ensure_installed = { 'clangd', 'lua_ls', 'pyrefly', 'yamlls', 'jsonls' },
+  automatic_installation = true,
+}
+
+if mason_lsp_ok then
+
+  if not is_mason_lsp_loaded then
+    -- CASE 1: True first-time load. Trigger core bridging system and automatic installs.
+    mason_lspconfig.setup({lspconfig_config })
+  else
+    -- CASE 2: Already active in runtime memory. 
+    -- Mutate the active configuration table to dynamically register new settings/servers.
+    local lsp_settings = require("mason-lspconfig.settings")
+
+    -- Deep extend the live global configuration table directly
+    lsp_settings.current = vim.tbl_deep_extend("force", lsp_settings.current or {}, lspconfig_config)
+
+    -- 💡 Bonus: If your PlatformIO pipeline just updated `ensure_installed`, 
+    -- you can tell Mason-LSPConfig to immediately process and check for missing servers right now!
+    require("mason-lspconfig.ensure_installed")()
+  end
+else
+  OS.notify("mason-lspconfig is not installed on this system!", 'warn')
 end
 
 local capabilities = vim.lsp.protocol.make_client_capabilities()
