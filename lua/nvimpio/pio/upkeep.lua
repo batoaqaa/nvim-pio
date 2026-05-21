@@ -659,10 +659,12 @@ term.stdout_callback = M.stdoutcallback
 local trm
 local nvimpio = require('nvimpio')
 
+local args_table = {}
 -- INFO: ToggleTerminal commands stdout filter
--- stylua: ignore
+--- stylua: ignore
 -- =============================================================================
-function M.stdoutcallback(_, _, data)
+function M.stdoutcallback(data, name)
+  name = name or ''
   if not data or #data == 0 then
     return
   end
@@ -682,33 +684,55 @@ function M.stdoutcallback(_, _, data)
     local has_done = content:find(done_pattern) ~= nil
     local has_fail = content:find(fail_pattern) ~= nil
 
-    if has_pass or has_fail or has_done then
-      local active_cb = callBack
+    if name == 'stderr' then
+      -- Do specific processing for errors
+      for _, line in ipairs(data) do
+        if line ~= '' then
+          for arg in string.gmatch(line, "unknown argument[:%s]+'([^']+)'") do
+            table.insert(args_table, string.format('"%s"', arg:gsub('[;%.]$', '')))
+          end
+        end
+      end
+      print(vim.inspect(args_table))
+    elseif name == 'stdout' then
+      -- local pass_target = 'PASS' .. current_id
+      --
+      -- local pass_pattern = '_CMMNDS_' .. current_token .. ':' .. pass_target
+      -- local fail_pattern = '_CMMNDS_' .. current_token .. ':FAIL'
+      -- local done_pattern = '_CMMNDS_' .. current_token .. ':DONE'
+      --
+      -- local has_pass = content:find(pass_pattern) ~= nil
+      -- local has_done = content:find(done_pattern) ~= nil
+      -- local has_fail = content:find(fail_pattern) ~= nil
 
+      if has_pass or has_fail or has_done then
+        local active_cb = callBack
 
-      local final_status = 'FAIL'
-      if has_fail then
-        final_status = 'FAIL'
-        callBack = nil
-        M.queue = {}
-        pio_buffer = ''
+        local final_status = 'FAIL'
+        if has_fail then
+          final_status = 'FAIL'
+          callBack = nil
+          M.queue = {}
+          pio_buffer = ''
         -- M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
-      elseif has_done then
-        final_status = 'DONE'
-        callBack = nil
-        pio_buffer = ''
-        M.queue = {}
-      elseif has_pass then
-        final_status = pass_target
-      end
+        elseif has_done then
+          final_status = 'DONE'
+          callBack = nil
+          pio_buffer = ''
+          M.queue = {}
+        elseif has_pass then
+          final_status = pass_target
+        end
 
-      if final_status and active_cb then
-        vim.schedule(function() active_cb(final_status) end)
-      end
+        if final_status and active_cb then
+          vim.schedule(function()
+            active_cb(final_status)
+          end)
+        end
 
-      return -- Break out immediately upon executing the callback
+        return -- Break out immediately upon executing the callback
+      end
     end
-
   else
     -- Only one element (no newline yet;) means the line isn't finished yet
     pio_buffer = pio_buffer .. data[1]

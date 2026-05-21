@@ -203,16 +203,16 @@ function M.getUnknownArgs(from)
 
   -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
   M.clangdIntall(function(clangdCmd)
-    -- local cmd =  clangdCmd .. ' --compile-commands-dir=. --check=' .. check_file .. ' --log=error'
-    -- local pio = require('nvimpio.pio.upkeep')
-    -- local cb = function(status)
-    --   pio.handleIdedata(status, function(success)
-    --     if success then
-    --       OS.notify(string.format('%s clangdCmd success', from), "info")
-    --     end
-    --   end)
-    -- end
-    -- pio.run_sequence({ cmnds = { cmd }, cb = cb, from = string.format('%s clangdCmd' , from) })
+    local cmd_str = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
+    local pio = require('nvimpio.pio.upkeep')
+    local cb = function(status)
+      pio.handleIdedata(status, function(success)
+        if success then
+          OS.notify(string.format('%s clangdCmd success', from), "info")
+        end
+      end)
+    end
+    pio.run_sequence({ cmnds = { cmd_str }, cb = cb, from = string.format('%s clangdCmd' , from) })
 
     -- run 'clangd --check=' command on user '.clangd'
     local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }

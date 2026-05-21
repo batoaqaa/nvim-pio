@@ -5,6 +5,7 @@ local config = require('nvimpio').config
 -- to fix require loop, toggleterm is using stdout_callback function in 'platformio.utils.pio'
 -- M.stdout_callback will be assigned by 'platformio.utils.pio'
 M.stdout_callback = nil
+M.exit_callback = nil
 
 ------------------------------------------------------
 function M.strsplit(inputstr, del)
@@ -164,9 +165,16 @@ function M.ToggleTerminal(command, direction)
     pioOpts.id = 99
 
     -- INFO: on_stdout
-    pioOpts.on_stdout = function(t, job, data)
+    pioOpts.on_stdout = function(_, _, data, name)
       if type(M.stdout_callback) == 'function' then
-        M.stdout_callback(t, job, data)
+        M.stdout_callback(data, name)
+      end
+    end
+
+    -- INFO: on_stdout
+    pioOpts.on_stderr = function(_, _, data, name)
+      if type(M.stdout_callback) == 'function' then
+        M.stdout_callback(data, name)
       end
     end
   end
