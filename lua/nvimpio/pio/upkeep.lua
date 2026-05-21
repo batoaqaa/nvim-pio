@@ -462,7 +462,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
       -- OS.notify('level2')
 
       local cb = function(status)
-        M.handlePioinitDb(status, function(success)
+        M.handlePioDB(status, function(success)
           if success then
             if (success) then require('nvimpio.clangd.control').getUnknownArgs(from) end
             OS.notify(string.format('%s compiledb success for %s.', from, active_env), "info")
