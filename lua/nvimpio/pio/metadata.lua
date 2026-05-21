@@ -249,6 +249,7 @@ function M.load_project_config()
           _pio_metadata[k] = v
         end
         last_saved_hash = vim.fn.sha256(json_data)
+        _G.metadata.toolchain_root = _pio_metadata.toolchain_root
         return
       end
     end
