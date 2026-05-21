@@ -636,7 +636,7 @@ function M.compile_commandsFix() --M.dbPathsFix()
     local end_time = vim.loop.hrtime()
     local duration = (end_time - start_time) / 1e6
     OS.notify(string.format('compiledb: paths fixed in %.2fms', duration), "info")
-    clangd.restart()
+    -- clangd.restart()
   end
   OS.notify("no need to fixPaths")
   _G.metadata.isBusy = false
