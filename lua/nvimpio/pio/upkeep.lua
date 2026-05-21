@@ -1016,6 +1016,7 @@ function M.handlePioDB(result, on_done)
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify(string.format('%scompiledb  done', fromMsg), "info")
     vim.schedule(function()
+      M.compile_commandsFix() --M.dbPathsFix()
       if on_done and type(on_done) == 'function' then on_done(true) end
     end)
     if trm then trm:close() end
