@@ -991,6 +991,7 @@ function M.handleClangdCheck(result, on_done)
     if trm then trm:close() end
     M.cleanSequencer()
     M.clangd_check_active = false
+    M.clangd_extracted_args = {}
   elseif result == 'FAIL' then
     OS.notify(string.format('%sclangd check  fail', fromMsg), 'info')
     vim.schedule(function()
@@ -998,6 +999,7 @@ function M.handleClangdCheck(result, on_done)
     end)
     if trm then trm:close() end
     M.clangd_check_active = false
+    M.clangd_extracted_args = {}
     M.cleanSequencer()
   end
 end
