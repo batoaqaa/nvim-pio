@@ -236,7 +236,7 @@ function M.getUnknownArgs(from)
 
 
         -- Extract anything clangd reports as an 'unknown argument'
-        if string.find(output, "%.clang%-format") then
+        if not string.find(output, "%.clang%-format") then
           for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
             table.insert(args_table, string.format('"%s"', arg:gsub('[;%.]$', '')))
           end
