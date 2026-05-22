@@ -863,7 +863,7 @@ function M.stdoutcallback(_, _, data, _)
           table.insert(clangd_extracted_args, clean_flag)
         end
       end
-      print('Backward Scraped Flags Table:')
+      print(string.format('current_token %', current_token))
       print(vim.inspect(clangd_extracted_args))
     end
 
