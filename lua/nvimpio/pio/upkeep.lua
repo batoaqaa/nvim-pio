@@ -666,6 +666,7 @@ local clangd_extracted_args = {}
 -- Set this to true when launching the clangd terminal, false when done
 local clangd_check_active = false
 
+M.token_echo_passed = false
 -- INFO: ToggleTerminal commands stdout filter
 -- stylua: ignore
 -- =============================================================================
@@ -699,7 +700,6 @@ function M.stdoutcallback(_, _, data, _)
 
 
     -- Add this state variable to your module scope (at the top of your file)
-    M.token_echo_passed = false
 
     -- Inside your callback function:
     if clangd_check_active then
@@ -822,6 +822,7 @@ M.run_sequence = function(tasks)
   if callBack then
     vim.schedule(function()
       clangd_extracted_args = {}       -- Clear the collected flags table
+      clangd_check_active = false
       clangd_check_active = false     -- Arm the parsing loop tracker
       pio_buffer = ''
       term.stdout_callback = M.stdoutcallback
