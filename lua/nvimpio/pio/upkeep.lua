@@ -465,7 +465,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
         local cb = function(status)
           M.handlePioDB(status, function(success)
             if success then
-              if (success) then require('nvimpio.clangd.control').getUnknownArgs(from) end
+              -- if (success) then require('nvimpio.clangd.control').getUnknownArgs(from) end
               OS.notify(string.format('%s compiledb success for %s.', from, active_env), "info")
             end
           end)
@@ -972,6 +972,7 @@ function M.handleIdedata(result, on_done)
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify(string.format('%scompiledb  done', fromMsg), "info")
     vim.schedule(function()
+      require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
       if on_done and type(on_done) == 'function' then on_done(true) end
     end)
     if trm then trm:close() end
@@ -1024,6 +1025,7 @@ function M.handlePioDB(result, on_done)
     OS.notify(string.format('%scompiledb  done', fromMsg), "info")
     vim.schedule(function()
       -- M.compile_commandsFix() --M.dbPathsFix()
+      require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
       if on_done and type(on_done) == 'function' then on_done(true) end
     end)
     if trm then trm:close() end
