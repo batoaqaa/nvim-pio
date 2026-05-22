@@ -835,13 +835,13 @@ function M.stdoutcallback(_, _, data, _)
           clangd_extracted_args = {}
 
           -- 1. Locate the exact boundary where the CURRENT run's command input echo ends
-          local echo_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
+          local echo_pattern = '_CMMNDS_' .. current_token .. '":"DONE' -- .. final_status
           local _, echo_end_idx = string.find(content, echo_pattern, 1, true)
 
-          if not echo_end_idx then
-            local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
-            _, echo_end_idx = string.find(content, fallback_echo, 1, true)
-          end
+          -- if not echo_end_idx then
+          --   local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
+          --   _, echo_end_idx = string.find(content, fallback_echo, 1, true)
+          -- end
 
           -- 2. Locate where the final matching status result string begins in the current view
           local target_result_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
