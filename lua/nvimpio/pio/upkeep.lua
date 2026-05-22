@@ -649,6 +649,144 @@ end
 -- stylua: ignore
 -- Initialize
 -- =============================================================================
+-- =============================================================================
+-- =============================================================================
+-- =============================================================================
+-- local current_token -- = tostring(math.random(10000, 99999))
+-- local current_id = -1 -- Holds 0 for DONE, or 1-9 for PASS
+--
+-- local session_counter = 1 -- Our high-performance integer counter
+-- local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
+-- local callBack = nil -- Your execution hook function pointer
+-- local fromMsg = ''
+-- M.queue = {}
+-- term.stdout_callback = M.stdoutcallback
+-- local trm
+-- local nvimpio = require('nvimpio')
+--
+-- -- Ensure this table is declared in your module scope or function closure
+-- local clangd_extracted_args = {}
+-- -- Set this to true when launching the clangd terminal, false when done
+-- local clangd_check_active = false
+-- M.token_echo_passed = false
+--
+-- -- INFO: ToggleTerminal commands stdout filter
+-- -- stylua: ignore
+-- -- =============================================================================
+-- function M.stdoutcallback(_, _, data, _)
+--   if not data or #data == 0 then
+--     return
+--   end
+--
+--   if #data > 1 then
+--     -- local content = pio_buffer .. table.concat(data, '', 1, #data - 1)
+--     local content = pio_buffer .. table.concat(data, '', 1, #data)
+--     pio_buffer = data[#data] -- Save the new partial line
+--
+--     ---------------------------------------------------------------------------
+--     -- 🛠️ INJECTED CLANGD FLAG EXTRACTION LOGIC
+--     ---------------------------------------------------------------------------
+--     -- If your clangd check sequence is running, scrape the incoming buffer data
+--     -- if clangd_check_active then
+--     --   -- 1. Exclude lines containing .clang-format configurations to prevent false hits
+--     --   if not string.find(content, "%.clang%-format") then
+--     --     -- 2. Extract your targeted unknown compiler arguments
+--     --     for arg in string.gmatch(content, "unknown argument[:%s]+'([^']+)'") do
+--     --       table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
+--     --     end
+--     --   end
+--     --   print('check')
+--     --   print(vim.inspect(clangd_extracted_args))
+--     -- end
+--
+--
+--
+--
+--     -- Add this state variable to your module scope (at the top of your file)
+--
+--     -- Inside your callback function:
+--     if clangd_check_active then
+--       -- 1. Create your two distinct patterns
+--       local  echo_pattern_done = '_CMMNDS_' .. current_token .. '":"DONE'
+--
+--       -- 2. Check if the initial command echo has just streamed past
+--
+--       local _, echo_end_idx = string.find(content, echo_pattern_done, 1, true)
+--
+--
+--       local target_text = content
+--       if echo_end_idx then
+--         M.token_echo_passed = true
+--         target_text = string.sub(content, echo_end_idx + 1)
+--       end
+--
+--       -- 3. Check if the final output result has arrived (signals the absolute end)
+--
+--       -- 4. THE GATED LOOP: Only extract AFTER the echo has passed, but BEFORE the final done token closes it
+--       if M.token_echo_passed and not string.find(target_text, "%.clang%-format") then
+-- clangd_extracted_args = {}
+--         print(vim.inspect(clangd_extracted_args))
+--         for arg in string.gmatch(target_text, "unknown argument[:%s]+'([^']+)'") do
+--           table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
+--         end
+--         print(vim.inspect(clangd_extracted_args))
+--       end
+--     end
+--
+--     ---------------------------------------------------------------------------
+--
+--
+--     local pass_target = 'PASS' .. current_id
+--
+--     local pass_pattern = '_CMMNDS_' .. current_token .. ':' .. pass_target
+--     local fail_pattern = '_CMMNDS_' .. current_token .. ':FAIL'
+--     local done_pattern = '_CMMNDS_' .. current_token .. ':DONE'
+--
+--     local has_pass = content:find(pass_pattern) ~= nil
+--     local has_done = content:find(done_pattern) ~= nil
+--     local has_fail = content:find(fail_pattern) ~= nil
+--
+--     if has_pass or has_fail or has_done then
+--       local active_cb = callBack
+--
+--
+--       local final_status = 'FAIL'
+--       if has_fail then
+--         final_status = 'FAIL'
+--         callBack = nil
+--         M.queue = {}
+--         pio_buffer = ''
+--         -- M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
+--       elseif has_done then
+--         final_status = 'DONE'
+--         callBack = nil
+--         pio_buffer = ''
+--         M.queue = {}
+--       elseif has_pass then
+--         final_status = pass_target
+--       end
+--
+--       if final_status and active_cb then
+--         vim.schedule(function() active_cb(final_status) end)
+--       end
+--
+--       return -- Break out immediately upon executing the callback
+--     end
+--
+--   else
+--     -- Only one element (no newline yet;) means the line isn't finished yet
+--     pio_buffer = pio_buffer .. data[1]
+--   end
+--
+--   -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
+--   if #pio_buffer > 5000 then
+--     pio_buffer = pio_buffer:sub(-2500)
+--   end
+-- end
+-- -- =============================================================================
+-- -- =============================================================================
+
+
 local current_token -- = tostring(math.random(10000, 99999))
 local current_id = -1 -- Holds 0 for DONE, or 1-9 for PASS
 
@@ -661,80 +799,79 @@ term.stdout_callback = M.stdoutcallback
 local trm
 local nvimpio = require('nvimpio')
 
--- Ensure this table is declared in your module scope or function closure
 local clangd_extracted_args = {}
--- Set this to true when launching the clangd terminal, false when done
 local clangd_check_active = false
 M.token_echo_passed = false
 
--- INFO: ToggleTerminal commands stdout filter
--- stylua: ignore
--- =============================================================================
 function M.stdoutcallback(_, _, data, _)
   if not data or #data == 0 then
     return
   end
 
   if #data > 1 then
-    -- local content = pio_buffer .. table.concat(data, '', 1, #data - 1)
     local content = pio_buffer .. table.concat(data, '', 1, #data)
     pio_buffer = data[#data] -- Save the new partial line
 
-    ---------------------------------------------------------------------------
-    -- 🛠️ INJECTED CLANGD FLAG EXTRACTION LOGIC
-    ---------------------------------------------------------------------------
-    -- If your clangd check sequence is running, scrape the incoming buffer data
-    -- if clangd_check_active then
-    --   -- 1. Exclude lines containing .clang-format configurations to prevent false hits
-    --   if not string.find(content, "%.clang%-format") then
-    --     -- 2. Extract your targeted unknown compiler arguments
-    --     for arg in string.gmatch(content, "unknown argument[:%s]+'([^']+)'") do
-    --       table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
-    --     end
-    --   end
-    --   print('check')
-    --   print(vim.inspect(clangd_extracted_args))
-    -- end
-
-
-
-
-    -- Add this state variable to your module scope (at the top of your file)
-
-    -- Inside your callback function:
     if clangd_check_active then
-      -- 1. Create your two distinct patterns
-      local  echo_pattern_done = '_CMMNDS_' .. current_token .. '":"DONE'
+      -------------------------------------------------------------------------
+      -- 1. DEFINE PATTERNS FOR BOTH EXPECTED ECHO OUTCOMES (DONE & FAIL)
+      -------------------------------------------------------------------------
+      local echo_pattern_done = '_CMMNDS_' .. current_token .. '":"DONE'
+      local echo_pattern_fail = '_CMMNDS_' .. current_token .. '":"FAIL'
 
-      -- 2. Check if the initial command echo has just streamed past
+      local result_pattern_done = '_CMMNDS_' .. current_token .. ':DONE'
+      local result_pattern_fail = '_CMMNDS_' .. current_token .. ':FAIL'
 
+      -------------------------------------------------------------------------
+      -- 2. DISCOVER THE CHRONOLOGICAL ECHO BOUNDARY AND INDEX POSITION
+      -------------------------------------------------------------------------
       local _, echo_end_idx = string.find(content, echo_pattern_done, 1, true)
+      if not echo_end_idx then
+        _, echo_end_idx = string.find(content, echo_pattern_fail, 1, true)
+      end
 
-
+      -- If the echo block passes by, advance content index to right after it
       local target_text = content
       if echo_end_idx then
         M.token_echo_passed = true
         target_text = string.sub(content, echo_end_idx + 1)
       end
 
-      -- 3. Check if the final output result has arrived (signals the absolute end)
+      -------------------------------------------------------------------------
+      -- 3. CHECK FOR COMPLETE PROCESS TERMINATION RESULT MARKS
+      -------------------------------------------------------------------------
+      local check_done = string.find(content, result_pattern_done, 1, true) ~= nil or string.find(content, result_pattern_fail, 1, true) ~= nil
 
-      -- 4. THE GATED LOOP: Only extract AFTER the echo has passed, but BEFORE the final done token closes it
-      if M.token_echo_passed and not string.find(target_text, "%.clang%-format") then
-clangd_extracted_args = {}
-        print(vim.inspect(clangd_extracted_args))
-        for arg in string.gmatch(target_text, "unknown argument[:%s]+'([^']+)'") do
-          table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
+      -------------------------------------------------------------------------
+      -- 4. BACKWARD REVERSE-MATCH ARGUMENT EXTRACTION
+      -------------------------------------------------------------------------
+      if M.token_echo_passed and not check_done and not string.find(target_text, '%.clang%-format') then
+        -- Clear our temporary collector before running the backward match
+        clangd_extracted_args = {}
+
+        -- A. Reverse the sliced text stack to traverse it from the end backwards
+        local reversed_text = string.reverse(target_text)
+
+        -- B. Reverse pattern string format: '([^']+)'+[:%s]tnemugra nwonknu
+        local reversed_pattern = "'([^']+)'+[:%s]tnemugra nwonknu"
+
+        -- C. Execute backward matching sequence loop
+        -- Using string.gmatch on the reversed text scans from the end backward!
+        for rev_arg in string.gmatch(reversed_text, reversed_pattern) do
+          -- D. Reverse the captured argument string back to its normal shape
+          local normal_arg = string.reverse(rev_arg)
+
+          -- Sanitize punctuation tails and wrap in configuration quotes
+          local clean_flag = string.format('"%s"', normal_arg:gsub('[;%.]$', ''))
+          table.insert(clangd_extracted_args, clean_flag)
         end
+
+        print('Backward Scraped Flags Table:')
         print(vim.inspect(clangd_extracted_args))
       end
     end
 
-    ---------------------------------------------------------------------------
-
-
     local pass_target = 'PASS' .. current_id
-
     local pass_pattern = '_CMMNDS_' .. current_token .. ':' .. pass_target
     local fail_pattern = '_CMMNDS_' .. current_token .. ':FAIL'
     local done_pattern = '_CMMNDS_' .. current_token .. ':DONE'
@@ -745,31 +882,37 @@ clangd_extracted_args = {}
 
     if has_pass or has_fail or has_done then
       local active_cb = callBack
-
-
       local final_status = 'FAIL'
+
       if has_fail then
         final_status = 'FAIL'
         callBack = nil
         M.queue = {}
         pio_buffer = ''
-        -- M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
+        M.token_echo_passed = false -- Reset layout gate parameter
       elseif has_done then
         final_status = 'DONE'
         callBack = nil
         pio_buffer = ''
         M.queue = {}
+        M.token_echo_passed = false -- Reset layout gate parameter
       elseif has_pass then
         final_status = pass_target
       end
 
       if final_status and active_cb then
-        vim.schedule(function() active_cb(final_status) end)
+        -- Forward your collected arguments straight to the scheduled completion code block
+        local final_args = clangd_extracted_args
+        vim.schedule(function()
+          active_cb(final_status, final_args)
+        end)
+
+        -- Instantly break table pointers to guarantee pure next runs
+        clangd_extracted_args = {}
       end
 
       return -- Break out immediately upon executing the callback
     end
-
   else
     -- Only one element (no newline yet;) means the line isn't finished yet
     pio_buffer = pio_buffer .. data[1]
