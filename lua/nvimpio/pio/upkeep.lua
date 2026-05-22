@@ -817,7 +817,6 @@ function M.stdoutcallback(_, _, data, _)
       -- 1. DEFINE PATTERNS FOR BOTH EXPECTED ECHO OUTCOMES (DONE & FAIL)
       -------------------------------------------------------------------------
       local echo_pattern_done = '_CMMNDS_' .. current_token .. '":"DONE'
-      -- local echo_pattern_fail = '_CMMNDS_' .. current_token .. '":"FAIL'
 
       local result_pattern_done = '_CMMNDS_' .. current_token .. ':DONE'
       local result_pattern_fail = '_CMMNDS_' .. current_token .. ':FAIL'
@@ -826,11 +825,7 @@ function M.stdoutcallback(_, _, data, _)
       -- 2. DISCOVER THE CHRONOLOGICAL ECHO BOUNDARY AND INDEX POSITION
       -------------------------------------------------------------------------
       local _, echo_end_idx = string.find(content, echo_pattern_done, 1, true)
-      -- if not echo_end_idx then
-      --   _, echo_end_idx = string.find(content, echo_pattern_fail, 1, true)
-      -- end
 
-      -- If the echo block passes by, advance content index to right after it
       local target_text = content
       if echo_end_idx then
         M.token_echo_passed = true
@@ -867,12 +862,13 @@ function M.stdoutcallback(_, _, data, _)
           local clean_flag = string.format('"%s"', normal_arg:gsub('[;%.]$', ''))
           table.insert(clangd_extracted_args, clean_flag)
         end
-
-        print('Backward Scraped Flags Table:')
-        print(vim.inspect(clangd_extracted_args))
       end
+      print('Backward Scraped Flags Table:')
+      print(vim.inspect(clangd_extracted_args))
     end
 
+    -------------------------------------------------------------------------
+    -------------------------------------------------------------------------
     local pass_target = 'PASS' .. current_id
     local pass_pattern = '_CMMNDS_' .. current_token .. ':' .. pass_target
     local fail_pattern = '_CMMNDS_' .. current_token .. ':FAIL'
