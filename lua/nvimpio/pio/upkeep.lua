@@ -838,6 +838,7 @@ function M.stdoutcallback(_, _, data, _)
           local echo_pattern = '_CMMNDS_' .. current_token .. '":"DONE' -- .. final_status
           local _, echo_end_idx = string.find(content, echo_pattern, 1, true)
           print(echo_pattern)
+          print(echo_end_idx)
 
           -- if not echo_end_idx then
           --   local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
@@ -846,12 +847,13 @@ function M.stdoutcallback(_, _, data, _)
 
           -- 2. Locate where the final matching status result string begins in the current view
           local target_result_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
-          print(target_result_pattern)
           local result_start_idx = string.find(content, target_result_pattern, 1, true)
+          print(target_result_pattern)
+          print(result_start_idx)
 
           -- 3. Slice out the text block BETWEEN those two markers
           -- This completely deletes any old command logs or historical text sitting above the run!
-          if echo_end_idx and result_start_idx and result_start_idx > echo_end_idx then
+          if echo_end_idx and result_start_idx and echo_end_idx > result_start_idx then
             local fresh_run_logs = string.sub(content, echo_end_idx + 1, result_start_idx - 1)
             print(fresh_run_logs)
 
