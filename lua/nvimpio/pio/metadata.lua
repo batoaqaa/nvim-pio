@@ -91,6 +91,7 @@ _G.metadata = setmetatable({}, {
     -- Trigger background actions
     vim.schedule(function()
       -- M.save_project_config(true)
+      -------------------------------------------------------------------------------
       if key == 'toolchain_root' then
         local from = 'Meta PATH env: '
         local binPath = value .. '/bin'
@@ -105,8 +106,9 @@ _G.metadata = setmetatable({}, {
 
         vim.env.PATH = binPath .. OS.path_sep .. vim.env.PATH
         -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
-
         OS.notify(string.format('%s %s added to path',from, binPath), 'info')
+
+      -------------------------------------------------------------------------------
       elseif key == 'active_env' then
         local from = 'Meta active_env change: '
         _G.metadata.isBusy = true
