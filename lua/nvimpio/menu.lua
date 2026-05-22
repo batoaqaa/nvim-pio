@@ -77,13 +77,61 @@ function M.buildUserMenu(config)
     return
   end
 
+  local wk_config = { preset = 'helix' }
+  local is_whichkey_loaded = package.loaded['which-key'] ~= nil
   local ok, wk = pcall(require, 'which-key')
-  if not ok then
-    vim.api.nvim_echo({ { 'which-key plugin not found!', 'ErrorMsg' } }, true, {})
-    return
+  if ok then
+    if not is_whichkey_loaded then
+      wk.setup({
+        preset = 'helix', --"classic", --"helix", --
+        delay = 0,
+        icons = {
+          -- set icon mappings to true if you have a Nerd Font
+          mappings = vim.g.have_nerd_font,
+          -- If you are using a Nerd Font: set icons.keys to an empty table which will use the
+          -- default which-key.nvim defined Nerd Font icons, otherwise define a string table
+          keys = vim.g.have_nerd_font and {} or {
+            Up = '<Up> ',
+            Down = '<Down> ',
+            Left = '<Left> ',
+            Right = '<Right> ',
+            C = '<C-…> ',
+            M = '<M-…> ',
+            D = '<D-…> ',
+            S = '<S-…> ',
+            CR = '<CR> ',
+            Esc = '<Esc> ',
+            ScrollWheelDown = '<ScrollWheelDown> ',
+            ScrollWheelUp = '<ScrollWheelUp> ',
+            NL = '<NL> ',
+            BS = '<BS> ',
+            Space = '<Space> ',
+            Tab = '<Tab> ',
+            F1 = '<F1>',
+            F2 = '<F2>',
+            F3 = '<F3>',
+            F4 = '<F4>',
+            F5 = '<F5>',
+            F6 = '<F6>',
+            F7 = '<F7>',
+            F8 = '<F8>',
+            F9 = '<F9>',
+            F10 = '<F10>',
+            F11 = '<F11>',
+            F12 = '<F12>',
+          },
+        },
+        -- sort = { "order", "group", "manual", "mod" },
+        sort = { 'local', 'order', 'group', 'alphanum', 'mod' },
+      }) --'modern', --'classic'
+    else
+      local wk_settings = require('which-key.settings')
+      wk_settings.current = vim.tbl_deep_extend('force', wk_settings.current or {}, wk_config)
+    end
+    -- vim.api.nvim_echo({ { 'which-key plugin not found!', 'ErrorMsg' } }, true, {})
+    -- return
   end
 
-  wk.setup({ preset = 'helix' }) --'modern', --'classic'
   local wkConfig = require('which-key.config')
   wkConfig.sort = { 'order', 'group', 'manual', 'mod' }
 

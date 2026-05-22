@@ -1,3 +1,4 @@
+-----------------------------------------------------------------------------------------
 -- Fidget is an unintrusive window in the corner of your editor
 --- stylua: ignore start
 local fidget_config = {
