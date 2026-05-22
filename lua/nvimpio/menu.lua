@@ -125,8 +125,8 @@ function M.buildUserMenu(config)
         sort = { 'local', 'order', 'group', 'alphanum', 'mod' },
       }) --'modern', --'classic'
     else
-      local wk_settings = require('which-key.settings')
-      wk_settings.current = vim.tbl_deep_extend('force', wk_settings.current or {}, wk_config)
+      -- Directly alter a single live configuration flag
+      require('which-key').config.preset = 'helix'
     end
     -- vim.api.nvim_echo({ { 'which-key plugin not found!', 'ErrorMsg' } }, true, {})
     -- return
