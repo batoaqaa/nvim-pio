@@ -814,7 +814,7 @@ function M.stdoutcallback(_, _, data, _)
 
     if clangd_check_active then
       -------------------------------------------------------------------------
-      -- 1. DEFINE PATTERNS FOR BOTH EXPECTED ECHO OUTCOMES (DONE & FAIL)
+      -- 1. DEFINE PATTERNS FOR BOTH EXPECTED OUTCOMES
       -------------------------------------------------------------------------
       local echo_pattern_done = '_CMMNDS_' .. current_token .. '":"DONE'
 
@@ -822,51 +822,44 @@ function M.stdoutcallback(_, _, data, _)
       local result_pattern_fail = '_CMMNDS_' .. current_token .. ':FAIL'
 
       -------------------------------------------------------------------------
-      -- 2. DISCOVER THE CHRONOLOGICAL ECHO BOUNDARY AND INDEX POSITION
+      -- 2. DISCOVER THE CHRONOLOGICAL ECHO BOUNDARY END INDEX
       -------------------------------------------------------------------------
       local _, echo_end_idx = string.find(content, echo_pattern_done, 1, true)
 
-      local target_text = content .. data[#data] .. '\n'
-      if echo_end_idx then
-        M.token_echo_passed = true
-        target_text = string.sub(content, echo_end_idx + 1)
+      -------------------------------------------------------------------------
+      -- 3. CHECK FOR COMPLETE PROCESS TERMINATION RESULT MARKS AND INDEXES
+      -------------------------------------------------------------------------
+      -- Find the starting index location of the final result token
+      local result_start_idx, _ = string.find(content, result_pattern_done, 1, true)
+      if not result_start_idx then
+        result_start_idx, _ = string.find(content, result_pattern_fail, 1, true)
       end
 
       -------------------------------------------------------------------------
-      -- 3. CHECK FOR COMPLETE PROCESS TERMINATION RESULT MARKS
+      -- 4. CAPTURE AND PARSE THE EXACT SUBSTRING IN BETWEEN
       -------------------------------------------------------------------------
-      local check_done = string.find(target_text, result_pattern_done, 1, true) ~= nil
-      local check_fail = string.find(target_text, result_pattern_fail, 1, true) ~= nil
+      -- If both boundaries are present in the buffer, we slice the text block
+      if echo_end_idx and result_start_idx and result_start_idx > echo_end_idx then
+        -- Extract the pure output between the end of the echo and the start of the result
+        local target_text = string.sub(content, echo_end_idx + 1, result_start_idx - 1)
 
-      -------------------------------------------------------------------------
-      -- 4. BACKWARD REVERSE-MATCH ARGUMENT EXTRACTION
-      -------------------------------------------------------------------------
-      -- if M.token_echo_passed and not check_done and not string.find(target_text, '%.clang%-format') then
-      if M.token_echo_passed and not check_fail and not string.find(target_text, '%.clang%-format') then
-        -- Clear our temporary collector before running the backward match
-        clangd_extracted_args = {}
+        -- Exclude lines containing .clang-format configurations to prevent false hits
+        if not string.find(target_text, '%.clang%-format') then
+          -- Clear our temporary collector before running the match
+          clangd_extracted_args = {}
 
-        -- A. Reverse the sliced text stack to traverse it from the end backwards
-        local reversed_text = string.reverse(target_text)
-
-        -- B. Reverse pattern string format: '([^']+)'+[:%s]tnemugra nwonknu
-        local reversed_pattern = "'([^']+)'+[:%s]tnemugra nwonknu"
-
-        -- C. Execute backward matching sequence loop
-        -- Using string.gmatch on the reversed text scans from the end backward!
-        for rev_arg in string.gmatch(reversed_text, reversed_pattern) do
-          -- D. Reverse the captured argument string back to its normal shape
-          local normal_arg = string.reverse(rev_arg)
-
-          -- Sanitize punctuation tails and wrap in configuration quotes
-          local clean_flag = string.format('"%s"', normal_arg:gsub('[;%.]$', ''))
-          table.insert(clangd_extracted_args, clean_flag)
+          -- Standard forward search (since we have the exact slice, direction doesn't matter)
+          for arg in string.gmatch(target_text, "unknown argument[:%s]+'([^']+)'") do
+            -- Sanitize punctuation tails and wrap in configuration quotes
+            local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
+            table.insert(clangd_extracted_args, clean_flag)
+          end
         end
       end
+
       print(string.format('current_token %s', current_token))
       print(vim.inspect(clangd_extracted_args))
     end
-
     -------------------------------------------------------------------------
     -------------------------------------------------------------------------
     local pass_target = 'PASS' .. current_id
