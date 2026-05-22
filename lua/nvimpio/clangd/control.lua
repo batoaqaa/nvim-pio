@@ -67,7 +67,7 @@ end
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
---stylua: ignore
+-- stylua: ignore
 function M.getClangdConfig()
   local new_root_dir = vim.uv.cwd() or '.'
   if not new_root_dir then return end
@@ -126,7 +126,6 @@ function M.restart()
   _G.metadata.isBusy = false
 end
 
-
 -- INFO: set_clang_format_style()
 --------------------------------------------------------------------------------
 -- stylua: ignore
@@ -141,35 +140,35 @@ function M.setFormatStyle()
     -- Define the command as a table for cleaner execution
     -- We use cmd /c only because of the '>' redirect
 
-  M.clangdIntall(function(clangdCmd)
-    -- using toggleterm for setting clang-format style
-    local cmd = string.format('%s --style=%s --dump-config > .clang-format',clangdCmd, choice:lower())
-    local pio = require('nvimpio.pio.upkeep')
-    pio.run_sequence({
-        cmnds = {cmd},
+    M.clangdIntall(function(clangdCmd)
+      -- using toggleterm for setting clang-format style
+      local cmd = string.format('%s --style=%s --dump-config > .clang-format', clangdCmd, choice:lower())
+      local pio = require('nvimpio.pio.upkeep')
+      pio.run_sequence({
+        cmnds = { cmd },
         cb = pio.clangFormat,
         from = 'clangdIntall',
-    })
+      })
 
-    -- using hidden system command for setting clang-format style
-    -- local cmd = { clangdCmd, string.format('--style=%s --dump-config > .clang-format', choice:lower()) }
-    -- Execute asynchronously
-    -- vim.system(cmd, { text = true }, function(obj)
-    --   -- This callback runs when the process finishes
-    --   -- Use vim.schedule to perform UI tasks/API calls on the main thread
-    --   vim.schedule(function()
-    --     if obj.code == 0 then
-    --       OS.notify('Created .clang-format (' .. choice .. ')', "info")
-    --
-    --       -- Restart clangd to apply the new rules
-    --       M.restart()
-    --       print('LSP Reloaded: Using ' .. choice .. ' style.')
-    --     else
-    --       OS.notify('Failed to generate .clang-format. Error: ' .. (obj.stderr or "Unknown"), "error")
-    --     end
-    --   end)
-    -- end)
-  end, 'clang-format')
+      -- using hidden system command for setting clang-format style
+      -- local cmd = { clangdCmd, string.format('--style=%s --dump-config > .clang-format', choice:lower()) }
+      -- Execute asynchronously
+      -- vim.system(cmd, { text = true }, function(obj)
+      --   -- This callback runs when the process finishes
+      --   -- Use vim.schedule to perform UI tasks/API calls on the main thread
+      --   vim.schedule(function()
+      --     if obj.code == 0 then
+      --       OS.notify('Created .clang-format (' .. choice .. ')', "info")
+      --
+      --       -- Restart clangd to apply the new rules
+      --       M.restart()
+      --       print('LSP Reloaded: Using ' .. choice .. ' style.')
+      --     else
+      --       OS.notify('Failed to generate .clang-format. Error: ' .. (obj.stderr or "Unknown"), "error")
+      --     end
+      --   end)
+      -- end)
+    end, 'clang-format')
   end)
 end
 
@@ -209,6 +208,7 @@ function M.getUnknownArgs(from)
     local cb = function(status)
       pio.handleClangdCheck(status, function(success, args_table)
         args_table = args_table or {}
+        print(vim.inspect(args_table))
         if success then
           boilerplate.args = args_table
           boilerplate_gen('.clangd', vim.g.platformioRootDir)
