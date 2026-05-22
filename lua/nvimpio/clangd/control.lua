@@ -225,9 +225,21 @@ function M.getUnknownArgs(from)
         local output = (obj.stdout or '') .. (obj.stderr or '')
         local args_table = {}
 
+
+
+    --   if not check_done and not string.find(content, "%.clang%-format") then
+    --     for arg in string.gmatch(content, "unknown argument[:%s]+'([^']+)'") do
+          -- table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
+    --     end
+    --   end
+
+
+
         -- Extract anything clangd reports as an 'unknown argument'
-        for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
-          table.insert(args_table, string.format('"%s"', arg:gsub('[;%.]$', '')))
+        if string.find(output, "%.clang%-format") then
+          for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
+            table.insert(args_table, string.format('"%s"', arg:gsub('[;%.]$', '')))
+          end
         end
 
         -- 4. UPDATE: Rebuild with the new discovered flags
