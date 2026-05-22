@@ -1188,7 +1188,7 @@ function M.handleClangdCheck(result, on_done)
     if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
-    OS.notify(string.format('%sclangd check  fail', fromMsg), 'info')
+    OS.notify(string.format('%s clangd check  fail', fromMsg), 'info')
     local final_args = clangd_extracted_args -- Hold the pointer reference for the scheduled function
     vim.schedule(function()
       if on_done and type(on_done) == 'function' then on_done(true, final_args) end
