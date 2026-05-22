@@ -817,7 +817,7 @@ function M.stdoutcallback(_, _, data, _)
       -- 1. DEFINE PATTERNS FOR BOTH EXPECTED ECHO OUTCOMES (DONE & FAIL)
       -------------------------------------------------------------------------
       local echo_pattern_done = '_CMMNDS_' .. current_token .. '":"DONE'
-      local echo_pattern_fail = '_CMMNDS_' .. current_token .. '":"FAIL'
+      -- local echo_pattern_fail = '_CMMNDS_' .. current_token .. '":"FAIL'
 
       local result_pattern_done = '_CMMNDS_' .. current_token .. ':DONE'
       local result_pattern_fail = '_CMMNDS_' .. current_token .. ':FAIL'
@@ -826,9 +826,9 @@ function M.stdoutcallback(_, _, data, _)
       -- 2. DISCOVER THE CHRONOLOGICAL ECHO BOUNDARY AND INDEX POSITION
       -------------------------------------------------------------------------
       local _, echo_end_idx = string.find(content, echo_pattern_done, 1, true)
-      if not echo_end_idx then
-        _, echo_end_idx = string.find(content, echo_pattern_fail, 1, true)
-      end
+      -- if not echo_end_idx then
+      --   _, echo_end_idx = string.find(content, echo_pattern_fail, 1, true)
+      -- end
 
       -- If the echo block passes by, advance content index to right after it
       local target_text = content
@@ -840,14 +840,16 @@ function M.stdoutcallback(_, _, data, _)
       -------------------------------------------------------------------------
       -- 3. CHECK FOR COMPLETE PROCESS TERMINATION RESULT MARKS
       -------------------------------------------------------------------------
-      local check_done = string.find(content, result_pattern_done, 1, true) ~= nil or string.find(content, result_pattern_fail, 1, true) ~= nil
+      local check_done = string.find(target_text, result_pattern_done, 1, true) ~= nil
+      local check_fail = string.find(target_text, result_pattern_fail, 1, true) ~= nil
 
+      clangd_extracted_args = {}
       -------------------------------------------------------------------------
       -- 4. BACKWARD REVERSE-MATCH ARGUMENT EXTRACTION
       -------------------------------------------------------------------------
-      if M.token_echo_passed and not check_done and not string.find(target_text, '%.clang%-format') then
+      -- if M.token_echo_passed and not check_done and not string.find(target_text, '%.clang%-format') then
+      if M.token_echo_passed and not check_fail and not string.find(target_text, '%.clang%-format') then
         -- Clear our temporary collector before running the backward match
-        clangd_extracted_args = {}
 
         -- A. Reverse the sliced text stack to traverse it from the end backwards
         local reversed_text = string.reverse(target_text)
