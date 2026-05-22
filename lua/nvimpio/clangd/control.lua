@@ -208,7 +208,6 @@ function M.getUnknownArgs(from)
     local cb = function(status)
       pio.handleClangdCheck(status, function(success, args_table)
         args_table = args_table or {}
-        print(vim.inspect(args_table))
         if success then
           boilerplate.args = args_table
           boilerplate_gen('.clangd', vim.g.platformioRootDir)
