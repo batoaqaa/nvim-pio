@@ -655,10 +655,10 @@ end
 -- local current_token -- = tostring(math.random(10000, 99999))
 -- local current_id = -1 -- Holds 0 for DONE, or 1-9 for PASS
 --
-local session_counter = 1 -- Our high-performance integer counter
+-- local session_counter = 1 -- Our high-performance integer counter
 -- local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
 -- local callBack = nil -- Your execution hook function pointer
-local fromMsg = ''
+-- local fromMsg = ''
 -- M.queue = {}
 -- term.stdout_callback = M.stdoutcallback
 -- local trm
@@ -785,21 +785,20 @@ local fromMsg = ''
 -- end
 -- -- =============================================================================
 -- -- =============================================================================
-
 local current_token -- = tostring(math.random(10000, 99999))
-local current_id = -1
+local current_id = -1 -- Holds 0 for DONE, or 1-9 for PASS
 
+local session_counter = 1
 local pio_buffer = ''
 local callBack = nil
+local fromMsg = ''
 M.queue = {}
 term.stdout_callback = M.stdoutcallback
+local trm
+local nvimpio = require('nvimpio')
 
 local clangd_extracted_args = {}
 local clangd_check_active = false
-
--- 🌟 State variable to ensure we only capture text from the current active run
-local is_collecting = false
-local clangd_log_buffer = {}
 
 function M.stdoutcallback(_, _, data, _)
   if not data or #data == 0 then
@@ -808,70 +807,83 @@ function M.stdoutcallback(_, _, data, _)
 
   if #data > 1 then
     local content = pio_buffer .. table.concat(data, '', 1, #data)
-    pio_buffer = data[#data]
-
-    if clangd_check_active then
-      -- 1. GATE OPENER: Only start collecting AFTER the fresh command input echo passes
-      if content:find('_CMMNDS_' .. current_token .. '":"DONE') or content:find('_CMMNDS_' .. current_token .. '":"FAIL') then
-        is_collecting = true
-      end
-
-      -- 2. STREAM COLLECTION: Accumulate fresh lines strictly within the active window
-      if is_collecting and not content:find('%.clang%-format') then
-        table.insert(clangd_log_buffer, content)
-      end
-    end
+    pio_buffer = data[#data] -- Save the new partial line
 
     local pass_target = 'PASS' .. current_id
-    local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
-    local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
-    local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
+    local pass_pattern = '_CMMNDS_' .. current_token .. ':' .. pass_target
+    local fail_pattern = '_CMMNDS_' .. current_token .. ':FAIL'
+    local done_pattern = '_CMMNDS_' .. current_token .. ':DONE'
+
+    local has_pass = content:find(pass_pattern) ~= nil
+    local has_done = content:find(done_pattern) ~= nil
+    local has_fail = content:find(fail_pattern) ~= nil
 
     if has_pass or has_fail or has_done then
       local active_cb = callBack
-      local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
+      local final_status = 'FAIL'
 
       if has_fail or has_done then
+        final_status = has_fail and 'FAIL' or 'DONE'
         callBack = nil
         M.queue = {}
         pio_buffer = ''
 
         -----------------------------------------------------------------------
-        -- 🌟 ONE-TIME EXTRACTOR ON TERMINATION
+        -- 🌟 ROBUST ONE-TIME FLAG EXTRACTOR (RUNS ONLY ON SYSTEM FINISH)
         -----------------------------------------------------------------------
-        clangd_extracted_args = {}
-        local full_log = table.concat(clangd_log_buffer, '\n')
+        -- If this specific task was marked as an active clangd flag evaluation job
+        if clangd_check_active then
+          clangd_extracted_args = {}
 
-        -- Strip away any command echoes captured on the first line
-        full_log = full_log:gsub('_CMMNDS_' .. current_token .. '":"DONE', '')
-        full_log = full_log:gsub('_CMMNDS_' .. current_token .. '":"FAIL', '')
+          -- Find the end index of the input command echo to isolate output
+          local echo_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
+          local _, echo_end_idx = string.find(content, echo_pattern, 1, true)
 
-        -- Extract your targeted unknown compiler arguments safely
-        for arg in string.gmatch(full_log, "unknown argument[:%s]+'([^']+)'") do
-          table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
+          -- Fallback if the terminal grouped string outputs differently
+          if not echo_end_idx then
+            local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
+            _, echo_end_idx = string.find(content, fallback_echo, 1, true)
+          end
+
+          -- Slice the string so we only analyze text that came AFTER the command input echo
+          local target_text = echo_end_idx and string.sub(content, echo_end_idx + 1) or content
+
+          -- Parse the isolated data block safely
+          if not string.find(target_text, '%.clang%-format') then
+            -- Use a temporary table and lookup map to prevent duplicates
+            local seen = {}
+            for arg in string.gmatch(target_text, "unknown argument[:%s]+'([^']+)'") do
+              local formatted_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
+              if not seen[formatted_flag] then
+                seen[formatted_flag] = true
+                table.insert(clangd_extracted_args, formatted_flag)
+              end
+            end
+          end
+
+          -- Reset flag state tracker for the next execution sequence
+          clangd_check_active = false
         end
-
-        -- Wipe trackers to guarantee a clean slate for the next execution run
-        clangd_log_buffer = {}
-        clangd_check_active = false
-        is_collecting = false
         -----------------------------------------------------------------------
+      elseif has_pass then
+        final_status = pass_target
       end
 
+      -- 🚀 Native call safely triggered: No extra params passed down to break upkeep.lua
       if final_status and active_cb then
-        local final_args = clangd_extracted_args
         vim.schedule(function()
-          active_cb(final_status, final_args)
+          active_cb(final_status)
         end)
-        clangd_extracted_args = {}
       end
 
-      return
+      return -- Break out immediately upon executing the callback
     end
   else
-    pio_buffer = pio_buffer .. data
+    -- Only one element (no newline yet;) means the line isn't finished yet
+    pio_buffer = pio_buffer .. data[1]
   end
 
+  -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
   if #pio_buffer > 5000 then
     pio_buffer = pio_buffer:sub(-2500)
   end
