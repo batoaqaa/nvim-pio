@@ -664,7 +664,7 @@ local nvimpio = require('nvimpio')
 -- Ensure this table is declared in your module scope or function closure
 local clangd_extracted_args = {}
 -- Set this to true when launching the clangd terminal, false when done
-M.clangd_check_active = false
+local clangd_check_active = false
 
 -- INFO: ToggleTerminal commands stdout filter
 -- stylua: ignore
@@ -683,7 +683,7 @@ function M.stdoutcallback(_, _, data, _)
     -- 🛠️ INJECTED CLANGD FLAG EXTRACTION LOGIC
     ---------------------------------------------------------------------------
     -- If your clangd check sequence is running, scrape the incoming buffer data
-    if M.clangd_check_active then
+    if clangd_check_active then
       print('check')
       -- 1. Exclude lines containing .clang-format configurations to prevent false hits
       if not string.find(content, "%.clang%-format") then
@@ -793,8 +793,6 @@ M.run_sequence = function(tasks)
 
   if callBack then
     vim.schedule(function()
-      clangd_extracted_args = {}       -- Clear the collected flags table
-      M.clangd_check_active = true     -- Arm the parsing loop tracker
       pio_buffer = ''
       term.stdout_callback = M.stdoutcallback
       callBack('INIT')
@@ -807,6 +805,8 @@ end
 -- =============================================================================
 -- stylua: ignore
 function M.cleanSequencer()
+  clangd_extracted_args = {}       -- Clear the collected flags table
+  clangd_check_active = false     -- Arm the parsing loop tracker
   _G.metadata.isBusy = false
   term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
   -- if trm then trm:close() end
@@ -989,7 +989,8 @@ end
 function M.handleClangdCheck(result, on_done)
   if result == 'INIT' then
     if #M.queue > 0 then
-      M.clangd_check_active = true
+      clangd_extracted_args = {}       -- Clear the collected flags table
+      clangd_check_active = true     -- Arm the parsing loop tracker
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(pop(M.queue), 'float')
     end
