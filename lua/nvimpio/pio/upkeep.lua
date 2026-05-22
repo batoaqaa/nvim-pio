@@ -684,8 +684,15 @@ function M.stdoutcallback(_, _, data, _)
     ---------------------------------------------------------------------------
     -- If your clangd check sequence is running, scrape the incoming buffer data
     if clangd_check_active then
+
+
+      local check_pattern = '_CMMNDS_' .. current_token .. '":"DONE'
+      local check_done = content:find(check_pattern) ~= nil
+      -- if check_done then end
+
+
       -- 1. Exclude lines containing .clang-format configurations to prevent false hits
-      if not string.find(content, "%.clang%-format") then
+      if check_done and not string.find(content, "%.clang%-format") then
         -- 2. Extract your targeted unknown compiler arguments
         for arg in string.gmatch(content, "unknown argument[:%s]+'([^']+)'") do
           table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
