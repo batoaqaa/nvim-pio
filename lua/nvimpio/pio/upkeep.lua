@@ -800,6 +800,9 @@ local nvimpio = require('nvimpio')
 local clangd_extracted_args = {}
 local clangd_check_active = false
 
+-- 🌟 ROBUST ISOLATED STRING ACCUMULATOR FOR THE RUN
+M.current_run_raw_text = ''
+
 function M.stdoutcallback(_, _, data, _)
   if not data or #data == 0 then
     return
@@ -808,6 +811,14 @@ function M.stdoutcallback(_, _, data, _)
   if #data > 1 then
     local content = pio_buffer .. table.concat(data, '', 1, #data)
     pio_buffer = data[#data] -- Save the new partial line
+
+    ---------------------------------------------------------------------------
+    -- 🌟 1. CONTINUOUSLY ACCUMULATE FRESH CHUNKS SAFELY
+    ---------------------------------------------------------------------------
+    if clangd_check_active then
+      -- Accumulate the raw data stream chunks into our isolated text sandbox
+      M.current_run_raw_text = M.current_run_raw_text .. content
+    end
 
     local pass_target = 'PASS' .. current_id
     local pass_pattern = '_CMMNDS_' .. current_token .. ':' .. pass_target
@@ -829,35 +840,27 @@ function M.stdoutcallback(_, _, data, _)
         pio_buffer = ''
 
         -----------------------------------------------------------------------
-        -- 🌟 FIX: ISOLATE FRESH RESULTS FROM TERMINAL SCROLLBACK HISTORY
+        -- 🌟 2. PARSE THE COMPLETE ISOLATED RUN SANDBOX AT COMPLETION
         -----------------------------------------------------------------------
         if clangd_check_active then
           clangd_extracted_args = {}
 
-          -- 1. Locate the exact boundary where the CURRENT run's command input echo ends
-          local echo_pattern = '_CMMNDS_' .. current_token .. '":"DONE' -- .. final_status
-          local _, echo_end_idx = string.find(content, echo_pattern, 1, true)
-          print(echo_pattern)
-          print(echo_end_idx)
+          -- Look for the boundary indexes inside our private, non-truncated sandbox
+          local echo_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
+          local _, echo_end_idx = string.find(M.current_run_raw_text, echo_pattern, 1, true)
 
-          -- if not echo_end_idx then
-          --   local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
-          --   _, echo_end_idx = string.find(content, fallback_echo, 1, true)
-          -- end
+          if not echo_end_idx then
+            local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
+            _, echo_end_idx = string.find(M.current_run_raw_text, fallback_echo, 1, true)
+          end
 
-          -- 2. Locate where the final matching status result string begins in the current view
           local target_result_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
-          local result_start_idx = string.find(content, target_result_pattern, 1, true)
-          print(target_result_pattern)
-          print(result_start_idx)
+          local result_start_idx = string.find(M.current_run_raw_text, target_result_pattern, 1, true)
 
-          -- 3. Slice out the text block BETWEEN those two markers
-          -- This completely deletes any old command logs or historical text sitting above the run!
+          -- Slice out the exact text segment between the boundary markers
           if echo_end_idx and result_start_idx and result_start_idx > echo_end_idx then
-            local fresh_run_logs = string.sub(content, result_start_idx + 1, echo_end_idx - 1)
-            print(fresh_run_logs)
+            local fresh_run_logs = string.sub(M.current_run_raw_text, echo_end_idx + 1, result_start_idx - 1)
 
-            -- 4. Parse the isolated fresh log text block
             if not string.find(fresh_run_logs, '%.clang%-format') then
               local seen = {}
               for arg in string.gmatch(fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
@@ -870,6 +873,8 @@ function M.stdoutcallback(_, _, data, _)
             end
           end
 
+          -- Wipe the isolated task tracking states completely
+          M.current_run_raw_text = ''
           clangd_check_active = false
         end
         -----------------------------------------------------------------------
@@ -886,11 +891,16 @@ function M.stdoutcallback(_, _, data, _)
       return -- Break out immediately upon executing the callback
     end
   else
-    -- Only one element (no newline yet;) means the line isn't finished yet
-    pio_buffer = pio_buffer .. data[1]
+    -- Only one element means the line isn't finished yet
+    pio_buffer = pio_buffer .. data
+
+    -- Sync single lines into our isolated sandbox if the check loop is active
+    if clangd_check_active then
+      M.current_run_raw_text = M.current_run_raw_text .. data
+    end
   end
 
-  -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
+  -- Your safety guard trims pio_buffer normally, but M.current_run_raw_text is unaffected!
   if #pio_buffer > 5000 then
     pio_buffer = pio_buffer:sub(-2500)
   end
@@ -946,6 +956,7 @@ M.run_sequence = function(tasks)
   if callBack then
     vim.schedule(function()
       clangd_extracted_args = {}       -- Clear the collected flags table
+M.current_run_raw_text = ''
       clangd_check_active = false
       clangd_check_active = false     -- Arm the parsing loop tracker
       pio_buffer = ''
