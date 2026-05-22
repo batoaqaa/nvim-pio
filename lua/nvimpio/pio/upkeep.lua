@@ -665,8 +665,8 @@ local nvimpio = require('nvimpio')
 local clangd_extracted_args = {}
 -- Set this to true when launching the clangd terminal, false when done
 local clangd_check_active = false
-
 M.token_echo_passed = false
+
 -- INFO: ToggleTerminal commands stdout filter
 -- stylua: ignore
 -- =============================================================================
@@ -704,11 +704,10 @@ function M.stdoutcallback(_, _, data, _)
     -- Inside your callback function:
     if clangd_check_active then
       -- 1. Create your two distinct patterns
-      local done_input_echo = '_CMMNDS_' .. current_token .. '":"DONE'
-      local fail_input_echo = '_CMMNDS_' .. current_token .. '":"FAIL'
+      local raw_input_echo = '_CMMNDS_' .. current_token .. '":"DONE'
 
       -- 2. Check if the initial command echo has just streamed past
-      if string.find(content, done_input_echo, 1, true) or string.find(content, fail_input_echo, 1, true) then
+      if string.find(content, raw_input_echo, 1, true) then
         M.token_echo_passed = true
       end
 
