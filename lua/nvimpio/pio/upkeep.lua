@@ -855,10 +855,9 @@ function M.stdoutcallback(_, _, data, _)
             table.insert(clangd_extracted_args, clean_flag)
           end
         end
+        print(string.format('current_token %s', current_token))
+        print(vim.inspect(clangd_extracted_args))
       end
-
-      print(string.format('current_token %s', current_token))
-      print(vim.inspect(clangd_extracted_args))
     end
     -------------------------------------------------------------------------
     -------------------------------------------------------------------------
