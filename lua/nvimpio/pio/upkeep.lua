@@ -826,7 +826,7 @@ function M.stdoutcallback(_, _, data, _)
       -------------------------------------------------------------------------
       local _, echo_end_idx = string.find(content, echo_pattern_done, 1, true)
 
-      local target_text = content
+      local target_text = content .. data[#data] .. '\n'
       if echo_end_idx then
         M.token_echo_passed = true
         target_text = string.sub(content, echo_end_idx + 1)
