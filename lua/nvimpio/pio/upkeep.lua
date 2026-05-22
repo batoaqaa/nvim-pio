@@ -853,8 +853,8 @@ function M.stdoutcallback(_, _, data, _)
 
           -- 3. Slice out the text block BETWEEN those two markers
           -- This completely deletes any old command logs or historical text sitting above the run!
-          if echo_end_idx and result_start_idx and echo_end_idx > result_start_idx then
-            local fresh_run_logs = string.sub(content, echo_end_idx + 1, result_start_idx - 1)
+          if echo_end_idx and result_start_idx and result_start_idx > echo_end_idx then
+            local fresh_run_logs = string.sub(content, result_start_idx + 1, echo_end_idx - 1)
             print(fresh_run_logs)
 
             -- 4. Parse the isolated fresh log text block
