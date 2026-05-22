@@ -793,6 +793,8 @@ M.run_sequence = function(tasks)
 
   if callBack then
     vim.schedule(function()
+      clangd_extracted_args = {}       -- Clear the collected flags table
+      clangd_check_active = false     -- Arm the parsing loop tracker
       pio_buffer = ''
       term.stdout_callback = M.stdoutcallback
       callBack('INIT')
@@ -805,8 +807,6 @@ end
 -- =============================================================================
 -- stylua: ignore
 function M.cleanSequencer()
-  clangd_extracted_args = {}       -- Clear the collected flags table
-  clangd_check_active = false     -- Arm the parsing loop tracker
   _G.metadata.isBusy = false
   term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
   -- if trm then trm:close() end
