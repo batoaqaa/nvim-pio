@@ -655,10 +655,10 @@ end
 -- local current_token -- = tostring(math.random(10000, 99999))
 -- local current_id = -1 -- Holds 0 for DONE, or 1-9 for PASS
 --
--- local session_counter = 1 -- Our high-performance integer counter
+local session_counter = 1 -- Our high-performance integer counter
 -- local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
 -- local callBack = nil -- Your execution hook function pointer
--- local fromMsg = ''
+local fromMsg = ''
 -- M.queue = {}
 -- term.stdout_callback = M.stdoutcallback
 -- local trm
