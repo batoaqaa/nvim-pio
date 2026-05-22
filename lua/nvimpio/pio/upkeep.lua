@@ -786,22 +786,20 @@ end
 -- -- =============================================================================
 -- -- =============================================================================
 
-
 local current_token -- = tostring(math.random(10000, 99999))
-local current_id = -1 -- Holds 0 for DONE, or 1-9 for PASS
+local current_id = -1
 
-local session_counter = 1 -- Our high-performance integer counter
-local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
-local callBack = nil -- Your execution hook function pointer
-local fromMsg = ''
+local pio_buffer = ''
+local callBack = nil
 M.queue = {}
 term.stdout_callback = M.stdoutcallback
-local trm
-local nvimpio = require('nvimpio')
 
 local clangd_extracted_args = {}
 local clangd_check_active = false
-M.token_echo_passed = false
+
+-- 🌟 State variable to ensure we only capture text from the current active run
+local is_collecting = false
+local clangd_log_buffer = {}
 
 function M.stdoutcallback(_, _, data, _)
   if not data or #data == 0 then
@@ -810,105 +808,70 @@ function M.stdoutcallback(_, _, data, _)
 
   if #data > 1 then
     local content = pio_buffer .. table.concat(data, '', 1, #data)
-    pio_buffer = data[#data] -- Save the new partial line
+    pio_buffer = data[#data]
 
     if clangd_check_active then
-      -------------------------------------------------------------------------
-      -- 1. DEFINE PATTERNS FOR BOTH EXPECTED OUTCOMES
-      -------------------------------------------------------------------------
-      local echo_pattern_done = '_CMMNDS_' .. current_token .. '":"DONE'
-
-      local result_pattern_done = '_CMMNDS_' .. current_token .. ':DONE'
-      local result_pattern_fail = '_CMMNDS_' .. current_token .. ':FAIL'
-
-      -------------------------------------------------------------------------
-      -- 2. DISCOVER THE CHRONOLOGICAL ECHO BOUNDARY END INDEX
-      -------------------------------------------------------------------------
-      local _, echo_end_idx = string.find(content, echo_pattern_done, 1, true)
-
-      -------------------------------------------------------------------------
-      -- 3. CHECK FOR COMPLETE PROCESS TERMINATION RESULT MARKS AND INDEXES
-      -------------------------------------------------------------------------
-      -- Find the starting index location of the final result token
-      local result_start_idx, _ = string.find(content, result_pattern_done, 1, true)
-      if not result_start_idx then
-        result_start_idx, _ = string.find(content, result_pattern_fail, 1, true)
+      -- 1. GATE OPENER: Only start collecting AFTER the fresh command input echo passes
+      if content:find('_CMMNDS_' .. current_token .. '":"DONE') or content:find('_CMMNDS_' .. current_token .. '":"FAIL') then
+        is_collecting = true
       end
 
-      -------------------------------------------------------------------------
-      -- 4. CAPTURE AND PARSE THE EXACT SUBSTRING IN BETWEEN
-      -------------------------------------------------------------------------
-      -- If both boundaries are present in the buffer, we slice the text block
-      if echo_end_idx and result_start_idx and result_start_idx > echo_end_idx then
-        -- Extract the pure output between the end of the echo and the start of the result
-        local target_text = string.sub(content, echo_end_idx + 1, result_start_idx - 1)
-
-        -- Exclude lines containing .clang-format configurations to prevent false hits
-        if not string.find(target_text, '%.clang%-format') then
-          -- Clear our temporary collector before running the match
-          clangd_extracted_args = {}
-
-          -- Standard forward search (since we have the exact slice, direction doesn't matter)
-          for arg in string.gmatch(target_text, "unknown argument[:%s]+'([^']+)'") do
-            -- Sanitize punctuation tails and wrap in configuration quotes
-            local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
-            table.insert(clangd_extracted_args, clean_flag)
-          end
-        end
-        print(string.format('current_token %s', current_token))
-        print(vim.inspect(clangd_extracted_args))
+      -- 2. STREAM COLLECTION: Accumulate fresh lines strictly within the active window
+      if is_collecting and not content:find('%.clang%-format') then
+        table.insert(clangd_log_buffer, content)
       end
     end
-    -------------------------------------------------------------------------
-    -------------------------------------------------------------------------
-    local pass_target = 'PASS' .. current_id
-    local pass_pattern = '_CMMNDS_' .. current_token .. ':' .. pass_target
-    local fail_pattern = '_CMMNDS_' .. current_token .. ':FAIL'
-    local done_pattern = '_CMMNDS_' .. current_token .. ':DONE'
 
-    local has_pass = content:find(pass_pattern) ~= nil
-    local has_done = content:find(done_pattern) ~= nil
-    local has_fail = content:find(fail_pattern) ~= nil
+    local pass_target = 'PASS' .. current_id
+    local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
+    local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
+    local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
 
     if has_pass or has_fail or has_done then
       local active_cb = callBack
-      local final_status = 'FAIL'
+      local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
 
-      if has_fail then
-        final_status = 'FAIL'
+      if has_fail or has_done then
         callBack = nil
         M.queue = {}
         pio_buffer = ''
-        M.token_echo_passed = false -- Reset layout gate parameter
-      elseif has_done then
-        final_status = 'DONE'
-        callBack = nil
-        pio_buffer = ''
-        M.queue = {}
-        M.token_echo_passed = false -- Reset layout gate parameter
-      elseif has_pass then
-        final_status = pass_target
+
+        -----------------------------------------------------------------------
+        -- 🌟 ONE-TIME EXTRACTOR ON TERMINATION
+        -----------------------------------------------------------------------
+        clangd_extracted_args = {}
+        local full_log = table.concat(clangd_log_buffer, '\n')
+
+        -- Strip away any command echoes captured on the first line
+        full_log = full_log:gsub('_CMMNDS_' .. current_token .. '":"DONE', '')
+        full_log = full_log:gsub('_CMMNDS_' .. current_token .. '":"FAIL', '')
+
+        -- Extract your targeted unknown compiler arguments safely
+        for arg in string.gmatch(full_log, "unknown argument[:%s]+'([^']+)'") do
+          table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
+        end
+
+        -- Wipe trackers to guarantee a clean slate for the next execution run
+        clangd_log_buffer = {}
+        clangd_check_active = false
+        is_collecting = false
+        -----------------------------------------------------------------------
       end
 
       if final_status and active_cb then
-        -- Forward your collected arguments straight to the scheduled completion code block
         local final_args = clangd_extracted_args
         vim.schedule(function()
           active_cb(final_status, final_args)
         end)
-
-        -- Instantly break table pointers to guarantee pure next runs
         clangd_extracted_args = {}
       end
 
-      return -- Break out immediately upon executing the callback
+      return
     end
   else
-    -- Only one element (no newline yet;) means the line isn't finished yet
-    pio_buffer = pio_buffer .. data[1]
+    pio_buffer = pio_buffer .. data
   end
 
-  -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
   if #pio_buffer > 5000 then
     pio_buffer = pio_buffer:sub(-2500)
   end
