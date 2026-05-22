@@ -800,7 +800,7 @@ local nvimpio = require('nvimpio')
 local clangd_extracted_args = {}
 local clangd_check_active = false
 
--- 🌟 ROBUST ISOLATED STRING ACCUMULATOR FOR THE RUN
+-- Safe persistent string sandbox for the run history
 M.current_run_raw_text = ''
 
 function M.stdoutcallback(_, _, data, _)
@@ -813,10 +813,9 @@ function M.stdoutcallback(_, _, data, _)
     pio_buffer = data[#data] -- Save the new partial line
 
     ---------------------------------------------------------------------------
-    -- 🌟 1. CONTINUOUSLY ACCUMULATE FRESH CHUNKS SAFELY
+    -- 1. CONTINUOUSLY ACCUMULATE FRESH MULTI-LINE CHUNKS SAFELY
     ---------------------------------------------------------------------------
     if clangd_check_active then
-      -- Accumulate the raw data stream chunks into our isolated text sandbox
       M.current_run_raw_text = M.current_run_raw_text .. content
     end
 
@@ -840,12 +839,12 @@ function M.stdoutcallback(_, _, data, _)
         pio_buffer = ''
 
         -----------------------------------------------------------------------
-        -- 🌟 2. PARSE THE COMPLETE ISOLATED RUN SANDBOX AT COMPLETION
+        -- 2. PARSE THE ISOLATED TEXT SANDBOX ON COMPLETION
         -----------------------------------------------------------------------
         if clangd_check_active then
           clangd_extracted_args = {}
 
-          -- Look for the boundary indexes inside our private, non-truncated sandbox
+          -- Look for boundaries in our private, un-truncated string sandbox
           local echo_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
           local _, echo_end_idx = string.find(M.current_run_raw_text, echo_pattern, 1, true)
 
@@ -891,12 +890,15 @@ function M.stdoutcallback(_, _, data, _)
       return -- Break out immediately upon executing the callback
     end
   else
+    ---------------------------------------------------------------------------
+    -- 🔒 FIX: TARGET DATA[1] STRINGS TO PREVENT TABLE CONCATENATION CRASHES
+    ---------------------------------------------------------------------------
     -- Only one element means the line isn't finished yet
-    pio_buffer = pio_buffer .. data
+    pio_buffer = pio_buffer .. data[1]
 
     -- Sync single lines into our isolated sandbox if the check loop is active
     if clangd_check_active then
-      M.current_run_raw_text = M.current_run_raw_text .. data
+      M.current_run_raw_text = M.current_run_raw_text .. data[1]
     end
   end
 
