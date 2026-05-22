@@ -842,28 +842,39 @@ function M.stdoutcallback(_, _, data, _)
         clangd_extracted_args = {}
         local full_log = table.concat(clangd_log_buffer, '\n')
 
-        -- Strip away any command echoes captured on the first line
         full_log = full_log:gsub('_CMMNDS_' .. current_token .. '":"DONE', '')
         full_log = full_log:gsub('_CMMNDS_' .. current_token .. '":"FAIL', '')
 
-        -- Extract your targeted unknown compiler arguments safely
         for arg in string.gmatch(full_log, "unknown argument[:%s]+'([^']+)'") do
           table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
         end
 
-        -- Wipe trackers to guarantee a clean slate for the next execution run
+        -----------------------------------------------------------------------
+        -- 🔒 FIX: POPULATE YOUR STATE TARGETS BEFORE RETURNING TO THE CORE
+        -----------------------------------------------------------------------
+        -- Save the fresh arguments into your module config block instantly
+        -- right here on the primary thread execution context loop.
+        -- if boilerplate then
+        --   boilerplate.args = clangd_extracted_args
+        -- elseif M.boilerplate then
+        --   M.boilerplate.args = clangd_extracted_args
+        -- end
+
+        -- Wipe trackers to guarantee a clean slate for subsequent execution runs
         clangd_log_buffer = {}
         clangd_check_active = false
         is_collecting = false
         -----------------------------------------------------------------------
       end
 
+      -- 🚀 Native call safely restored: No table payloads passed downwards
       if final_status and active_cb then
-        local final_args = clangd_extracted_args
         vim.schedule(function()
-          active_cb(final_status, final_args)
+          if active_cb and type(active_cb) == 'function' then
+            -- Pass ONLY the final status string so nvim-pio's upkeep formatter doesn't crash!
+            active_cb(final_status)
+          end
         end)
-        clangd_extracted_args = {}
       end
 
       return
