@@ -837,6 +837,7 @@ function M.stdoutcallback(_, _, data, _)
           -- 1. Locate the exact boundary where the CURRENT run's command input echo ends
           local echo_pattern = '_CMMNDS_' .. current_token .. '":"DONE' -- .. final_status
           local _, echo_end_idx = string.find(content, echo_pattern, 1, true)
+          print(echo_pattern)
 
           -- if not echo_end_idx then
           --   local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
@@ -845,6 +846,7 @@ function M.stdoutcallback(_, _, data, _)
 
           -- 2. Locate where the final matching status result string begins in the current view
           local target_result_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
+          print(target_result_pattern)
           local result_start_idx = string.find(content, target_result_pattern, 1, true)
 
           -- 3. Slice out the text block BETWEEN those two markers
