@@ -721,6 +721,7 @@ function M.stdoutcallback(_, _, data, _)
 
       -- 4. THE GATED LOOP: Only extract AFTER the echo has passed, but BEFORE the final done token closes it
       if M.token_echo_passed and not string.find(target_text, "%.clang%-format") then
+clangd_extracted_args = {}
         print(vim.inspect(clangd_extracted_args))
         for arg in string.gmatch(target_text, "unknown argument[:%s]+'([^']+)'") do
           table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
