@@ -832,38 +832,72 @@ function M.stdoutcallback(_, _, data, _)
         -- 🌟 ROBUST ONE-TIME FLAG EXTRACTOR (RUNS ONLY ON SYSTEM FINISH)
         -----------------------------------------------------------------------
         -- If this specific task was marked as an active clangd flag evaluation job
+        -- if clangd_check_active then
+        --   clangd_extracted_args = {}
+        --
+        --   -- Find the end index of the input command echo to isolate output
+        --   local echo_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
+        --   local _, echo_end_idx = string.find(content, echo_pattern, 1, true)
+        --
+        --   -- Fallback if the terminal grouped string outputs differently
+        --   if not echo_end_idx then
+        --     local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
+        --     _, echo_end_idx = string.find(content, fallback_echo, 1, true)
+        --   end
+        --
+        --   -- Slice the string so we only analyze text that came AFTER the command input echo
+        --   local target_text = echo_end_idx and string.sub(content, echo_end_idx + 1) or content
+        --
+        --   -- Parse the isolated data block safely
+        --   if not string.find(target_text, '%.clang%-format') then
+        --     -- Use a temporary table and lookup map to prevent duplicates
+        --     local seen = {}
+        --     for arg in string.gmatch(target_text, "unknown argument[:%s]+'([^']+)'") do
+        --       local formatted_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
+        --       if not seen[formatted_flag] then
+        --         seen[formatted_flag] = true
+        --         table.insert(clangd_extracted_args, formatted_flag)
+        --       end
+        --     end
+        --   end
+        --
+        --   -- Reset flag state tracker for the next execution sequence
+        --   clangd_check_active = false
+        -- end
+
+        -- 1. Declare this state variable at the very top of your file (outside the function)
+        M.is_capturing = false
+
+        -- 2. Inside your function chunk processing loop:
         if clangd_check_active then
-          clangd_extracted_args = {}
-
-          -- Find the end index of the input command echo to isolate output
           local echo_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
-          local _, echo_end_idx = string.find(content, echo_pattern, 1, true)
+          local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
 
-          -- Fallback if the terminal grouped string outputs differently
+          -- Check if the echo boundary passes through this specific chunk
+          local _, echo_end_idx = string.find(content, echo_pattern, 1, true)
           if not echo_end_idx then
-            local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
             _, echo_end_idx = string.find(content, fallback_echo, 1, true)
           end
 
-          -- Slice the string so we only analyze text that came AFTER the command input echo
-          local target_text = echo_end_idx and string.sub(content, echo_end_idx + 1) or content
-
-          -- Parse the isolated data block safely
-          if not string.find(target_text, '%.clang%-format') then
-            -- Use a temporary table and lookup map to prevent duplicates
-            local seen = {}
-            for arg in string.gmatch(target_text, "unknown argument[:%s]+'([^']+)'") do
-              local formatted_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
-              if not seen[formatted_flag] then
-                seen[formatted_flag] = true
-                table.insert(clangd_extracted_args, formatted_flag)
-              end
-            end
+          -- If it's found in this chunk, open the gate and slice the remainder
+          local target_text = content
+          if echo_end_idx then
+            M.is_capturing = true
+            target_text = string.sub(content, echo_end_idx + 1)
           end
 
-          -- Reset flag state tracker for the next execution sequence
-          clangd_check_active = false
+          -- Continuously harvest flags while the gate is active across chunks
+          if M.is_capturing and not string.find(target_text, '%.clang%-format') then
+            for arg in string.gmatch(target_text, "unknown argument[:%s]+'([^']+)'") do
+              local formatted_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
+              -- (Optional: add deduplication logic here)
+              table.insert(clangd_extracted_args, formatted_flag)
+            end
+          end
         end
+
+        -- 3. Reset the state variable inside your has_done / has_fail cleanup block:
+        M.is_capturing = false
         -----------------------------------------------------------------------
       elseif has_pass then
         final_status = pass_target
