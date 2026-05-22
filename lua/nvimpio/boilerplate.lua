@@ -165,7 +165,6 @@ CompileFlags:
     ]
 Diagnostics:
   Suppress:  [
-    "drv_unknown_argument",
     "pp_file_not_found",
     "pp_file_not_found_angled_not_fatal",
     "pp_included_file_not_found",
@@ -185,6 +184,7 @@ CompileFlags:
     %s
     ]
 ]],
+    --"drv_unknown_argument",
   content = function(self)
     local cwdClangd = misc.joinPath(vim.uv.cwd(), '.clangd')
     local coreClangd = misc.joinPath(M.core_dir, '.clangd')
