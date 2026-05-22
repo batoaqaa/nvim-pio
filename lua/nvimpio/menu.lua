@@ -123,10 +123,9 @@ function M.buildUserMenu(config)
         },
         -- sort = { "order", "group", "manual", "mod" },
         sort = { 'local', 'order', 'group', 'alphanum', 'mod' },
-      }) --'modern', --'classic'
+      })
     else
-      -- Directly alter a single live configuration flag
-      require('which-key').config.preset = 'helix'
+      require('which-key').setup({ preset = 'helix' })
     end
     -- vim.api.nvim_echo({ { 'which-key plugin not found!', 'ErrorMsg' } }, true, {})
     -- return
