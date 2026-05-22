@@ -971,10 +971,14 @@ function M.handleIdedata(result, on_done)
   -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify(string.format('%scompiledb  done', fromMsg), "info")
-    vim.schedule(function()
+    vim.defer_fn(function()
       require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
-      if on_done and type(on_done) == 'function' then on_done(true) end
-    end)
+    end, 50) -- 50ms delay, adjust as needed
+    if on_done and type(on_done) == 'function' then on_done(true) end
+    -- vim.schedule(function()
+    --   require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
+    --   if on_done and type(on_done) == 'function' then on_done(true) end
+    -- end)
     if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
@@ -1026,11 +1030,13 @@ function M.handlePioDB(result, on_done)
   --     if #M.queue > 0 then trm:send(pop(M.queue), false) end
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify(string.format('%scompiledb  done', fromMsg), "info")
-    vim.schedule(function()
-      -- M.compile_commandsFix() --M.dbPathsFix()
+    vim.defer_fn(function()
       require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
-      if on_done and type(on_done) == 'function' then on_done(true) end
-    end)
+    end, 50) -- 50ms delay, adjust as needed
+    if on_done and type(on_done) == 'function' then on_done(true) end
+    -- vim.schedule(function()
+    --   -- M.compile_commandsFix() --M.dbPathsFix()
+    -- end)
     if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
