@@ -894,6 +894,7 @@ function M.stdoutcallback(_, _, data, _)
               table.insert(clangd_extracted_args, formatted_flag)
             end
           end
+          print(vim.inspect(clangd_extracted_args))
         end
 
         -- 3. Reset the state variable inside your has_done / has_fail cleanup block:
