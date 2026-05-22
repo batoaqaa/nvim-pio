@@ -204,7 +204,7 @@ function M.getUnknownArgs(from)
   -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
   M.clangdIntall(function(clangdCmd)
 
-    local cmd_str = string.format("%s --rebuild --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
+    local cmd_str = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
     local pio = require('nvimpio.pio.upkeep')
     local cb = function(status)
       pio.handleClangdCheck(status, function(success, args_table)
