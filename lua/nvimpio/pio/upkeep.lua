@@ -695,44 +695,44 @@ function M.stdoutcallback(_, _, data, _)
     --   print(vim.inspect(clangd_extracted_args))
     -- end
 
-    if clangd_check_active then
-      -- 1. Combine tokens safely
-      local raw_input_echo = '_CMMNDS_' .. current_token .. '":"DONE'
-      local done_shell_out = '_CMMNDS_' .. current_token .. ':DONE'
-      local fail_shell_out = '_CMMNDS_' .. current_token .. ':FAIL'
-
-      -- 2. Verify both string shapes in your content buffer
-      local contains_echo = string.find(content, raw_input_echo, 1, true) ~= nil
-      local contains_result = (string.find(content, done_shell_out, 1, true) ~= nil) or (string.find(content, fail_shell_out, 1, true) ~= nil)
-
-      -- 💡 THE TRICK:
-      -- If content has the clean result but DOES NOT have the quotes attached to it,
-      -- or if it has BOTH (meaning the input passed earlier and now the real result arrived!)
-      local check_done = false
-      if contains_result then
-        if contains_echo then
-          -- If both are present in the massive accumulated buffer, check if the clean 
-          -- result appears a second time or past the index position of the input echo
-          local _, second_match = string.find(content, done_shell_out, 1, true)
-          local _, third_match = string.find(content, fail_shell_out, 1, true)
-          local first_echo_start = string.find(content, raw_input_echo, 1, true)
-
-          if first_echo_start and (second_match or third_match) and (second_match > first_echo_start or third_match > first_echo_start) then
-            check_done = true
-          end
-        else
-          -- Clean result arrived alone on its own clean chunk line!
-          check_done = true
-        end
-      end
-
-      -- 3. Run your flag collector ONLY if the final execution milestone hasn't cleared yet
-      if not check_done and not string.find(content, "%.clang%-format") then
-        for arg in string.gmatch(content, "unknown argument[:%s]+'([^']+)'") do
-          table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
-        end
-      end
-    end
+    -- if clangd_check_active then
+    --   -- 1. Combine tokens safely
+    --   local raw_input_echo = '_CMMNDS_' .. current_token .. '":"DONE'
+    --   local done_shell_out = '_CMMNDS_' .. current_token .. ':DONE'
+    --   local fail_shell_out = '_CMMNDS_' .. current_token .. ':FAIL'
+    --
+    --   -- 2. Verify both string shapes in your content buffer
+    --   local contains_echo = string.find(content, raw_input_echo, 1, true) ~= nil
+    --   local contains_result = (string.find(content, done_shell_out, 1, true) ~= nil) or (string.find(content, fail_shell_out, 1, true) ~= nil)
+    --
+    --   -- 💡 THE TRICK:
+    --   -- If content has the clean result but DOES NOT have the quotes attached to it,
+    --   -- or if it has BOTH (meaning the input passed earlier and now the real result arrived!)
+    --   local check_done = false
+    --   if contains_result then
+    --     if contains_echo then
+    --       -- If both are present in the massive accumulated buffer, check if the clean 
+    --       -- result appears a second time or past the index position of the input echo
+    --       local _, second_match = string.find(content, done_shell_out, 1, true)
+    --       local _, third_match = string.find(content, fail_shell_out, 1, true)
+    --       local first_echo_start = string.find(content, raw_input_echo, 1, true)
+    --
+    --       if first_echo_start and (second_match or third_match) and (second_match > first_echo_start or third_match > first_echo_start) then
+    --         check_done = true
+    --       end
+    --     else
+    --       -- Clean result arrived alone on its own clean chunk line!
+    --       check_done = true
+    --     end
+    --   end
+    --
+    --   -- 3. Run your flag collector ONLY if the final execution milestone hasn't cleared yet
+    --   if not check_done and not string.find(content, "%.clang%-format") then
+    --     for arg in string.gmatch(content, "unknown argument[:%s]+'([^']+)'") do
+    --       table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
+    --     end
+    --   end
+    -- end
     ---------------------------------------------------------------------------
 
 
