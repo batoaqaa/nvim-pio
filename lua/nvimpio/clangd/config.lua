@@ -1,51 +1,64 @@
-local misc = require('nvimpio.utils.misc')
--- stylua: ignore start
 -- Fidget is an unintrusive window in the corner of your editor
-local fok, fidget = pcall(require, 'fidget')
-if fok then
-  fidget.setup({
-    version = '*',
-    notification = {
-      override_vim_notify = true, -- This redirect vim.notify to fidget
-      -- How to configure notification groups when instantiated
-      configs = { default = require('fidget.notification').default_config },
+--- stylua: ignore start
+local fidget_config = {
+  version = '*',
+  notification = {
+    override_vim_notify = true, -- This redirect vim.notify to fidget
+    -- How to configure notification groups when instantiated
+    configs = { default = require('fidget.notification').default_config },
+  },
+  progress = {
+    -- Clear notification group when LSP server detaches
+    clear_on_detach = function(client_id)
+      local client = vim.lsp.get_client_by_id(client_id)
+      return client and client.name or nil
+    end,
+    -- How to get a progress message's notification group key
+    notification_group = function(msg)
+      return msg.lsp_client.name
+    end,
+    -- Options related to Neovim's built-in LSP client
+    lsp = {
+      progress_ringbuf_size = 0, -- Configure the nvim's LSP progress ring buffer size
+      log_handler = false, -- Log `$/progress` handler invocations (for debugging)
     },
-    progress = {
-      -- Clear notification group when LSP server detaches
-      clear_on_detach = function(client_id)
-        local client = vim.lsp.get_client_by_id(client_id)
-        return client and client.name or nil
-      end,
-      -- How to get a progress message's notification group key
-      notification_group = function(msg)
-        return msg.lsp_client.name
-      end,
-      -- Options related to Neovim's built-in LSP client
-      lsp = {
-        progress_ringbuf_size = 0, -- Configure the nvim's LSP progress ring buffer size
-        log_handler = false, -- Log `$/progress` handler invocations (for debugging)
-      },
-    },
-  })
+  },
+}
+local is_fidget_loaded = package.loaded['fidget'] ~= nil
+local fidgetok, fidget = pcall(require, 'fidget')
+if fidgetok then
+  if not is_fidget_loaded then
+    fidget.setup({ fidget_config })
+  else
+    local fidget_settings = require('fidget.settings')
+
+    -- Deep extend the live global configuration table directly
+    fidget_settings.current = vim.tbl_deep_extend('force', fidget_settings.current or {}, fidget_config)
+  end
 end
 vim.notify = require('fidget').notify
 
 -----------------------------------------------------------------------------------------
+local is_trouble_loaded = package.loaded['trouble'] ~= nil
 local tok, trouble = pcall(require, 'trouble')
-if tok then trouble.setup({}) end
+if tok then
+  if not is_trouble_loaded then
+    trouble.setup({})
+  end
+end
 
 ----------------------------------------------------------------------------------------
 -- INFO: setup and install mason packages
 -----------------------------------------------------------------------------------------
 -- 1. Snapshot the memory footprint BEFORE forcing any file reloads
-local is_mason_loaded = package.loaded["mason"] ~= nil
-local is_mason_lsp_loaded = package.loaded["mason-lspconfig"] ~= nil
+local is_mason_loaded = package.loaded['mason'] ~= nil
+local is_mason_lsp_loaded = package.loaded['mason-lspconfig'] ~= nil
 
 -- 2. Safely capture the module references
-local mason_ok, mason = pcall(require, "mason")
-local mason_lsp_ok, mason_lspconfig = pcall(require, "mason-lspconfig")
+local mason_ok, mason = pcall(require, 'mason')
+local mason_lsp_ok, mason_lspconfig = pcall(require, 'mason-lspconfig')
 
-  -- by default Mason binaries are prepended to the path
+-- by default Mason binaries are prepended to the path
 if mason_ok then
   if not is_mason_loaded then
     mason.setup({})
@@ -96,24 +109,23 @@ local lspconfig_config = {
 }
 
 if mason_lsp_ok then
-
   if not is_mason_lsp_loaded then
     -- CASE 1: True first-time load. Trigger core bridging system and automatic installs.
-    mason_lspconfig.setup({lspconfig_config })
+    mason_lspconfig.setup({ lspconfig_config })
   else
-    -- CASE 2: Already active in runtime memory. 
+    -- CASE 2: Already active in runtime memory.
     -- Mutate the active configuration table to dynamically register new settings/servers.
-    local lsp_settings = require("mason-lspconfig.settings")
+    local lsp_settings = require('mason-lspconfig.settings')
 
     -- Deep extend the live global configuration table directly
-    lsp_settings.current = vim.tbl_deep_extend("force", lsp_settings.current or {}, lspconfig_config)
+    lsp_settings.current = vim.tbl_deep_extend('force', lsp_settings.current or {}, lspconfig_config)
 
-    -- 💡 Bonus: If your PlatformIO pipeline just updated `ensure_installed`, 
+    -- 💡 Bonus: If your PlatformIO pipeline just updated `ensure_installed`,
     -- you can tell Mason-LSPConfig to immediately process and check for missing servers right now!
-    require("mason-lspconfig.ensure_installed")()
+    require('mason-lspconfig.ensure_installed')()
   end
 else
-  OS.notify("mason-lspconfig is not installed on this system!", 'warn')
+  OS.notify('mason-lspconfig is not installed on this system!', 'warn')
 end
 
 local capabilities = vim.lsp.protocol.make_client_capabilities()
@@ -128,7 +140,9 @@ capabilities.textDocument.foldingRange = {
   },
 }
 local bok, blink = pcall(require, 'blink.cmp')
-if bok then capabilities = blink.get_lsp_capabilities(capabilities) end
+if bok then
+  capabilities = blink.get_lsp_capabilities(capabilities)
+end
 
 -- INFO: 1
 vim.lsp.config('*', {
