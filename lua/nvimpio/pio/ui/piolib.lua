@@ -65,8 +65,9 @@ local function pick_library(json_data)
         -- local command = 'pio pkg install --library "' .. pkg_name .. '"'
         -- command = command .. ' && pio run -t compiledb'
 
+        local meta = require('nvimpio.pio.metadata')
         local pio = require('nvimpio.pio.upkeep')
-        local active_env = pio.get_active_env('PIO lib+db: ')
+        local active_env = meta.get_active_env('PIO lib+db: ')
         local lib_cmd = string.format('pio pkg install --library "%s"',  pkg_name)
         local db_cmd = string.format('pio run -t compiledb -e %s', active_env)
         pio.run_sequence({
