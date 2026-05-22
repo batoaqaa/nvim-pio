@@ -706,7 +706,6 @@ function M.stdoutcallback(_, _, data, _)
       -- 1. Create your two distinct patterns
       local  echo_pattern_done = '_CMMNDS_' .. current_token .. '":"DONE'
 
-      print( echo_pattern_done)
       -- 2. Check if the initial command echo has just streamed past
 
       local _, echo_end_idx = string.find(content, echo_pattern_done, 1, true)
@@ -716,7 +715,6 @@ function M.stdoutcallback(_, _, data, _)
       if echo_end_idx then
         M.token_echo_passed = true
         target_text = string.sub(content, echo_end_idx + 1)
-        print('true')
       end
 
       -- 3. Check if the final output result has arrived (signals the absolute end)
@@ -726,8 +724,10 @@ function M.stdoutcallback(_, _, data, _)
         for arg in string.gmatch(target_text, "unknown argument[:%s]+'([^']+)'") do
           table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
         end
+        print( echo_pattern_done)
+        print('true')
+        print(vim.inspect(clangd_extracted_args))
       end
-      print(vim.inspect(clangd_extracted_args))
     end
 
     ---------------------------------------------------------------------------
