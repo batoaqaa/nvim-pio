@@ -704,20 +704,26 @@ function M.stdoutcallback(_, _, data, _)
     -- Inside your callback function:
     if clangd_check_active then
       -- 1. Create your two distinct patterns
-      local raw_input_echo = '_CMMNDS_' .. current_token .. '":"DONE'
+      local  echo_pattern_done = '_CMMNDS_' .. current_token .. '":"DONE'
 
-      print(raw_input_echo)
+      print( echo_pattern_done)
       -- 2. Check if the initial command echo has just streamed past
-      if string.find(content, raw_input_echo, 1, true) then
+
+      local _, echo_end_idx = string.find(content, echo_pattern_done, 1, true)
+
+
+      local target_text = content
+      if echo_end_idx then
         M.token_echo_passed = true
+        target_text = string.sub(content, echo_end_idx + 1)
         print('true')
       end
 
       -- 3. Check if the final output result has arrived (signals the absolute end)
 
       -- 4. THE GATED LOOP: Only extract AFTER the echo has passed, but BEFORE the final done token closes it
-      if M.token_echo_passed and not string.find(content, "%.clang%-format") then
-        for arg in string.gmatch(content, "unknown argument[:%s]+'([^']+)'") do
+      if M.token_echo_passed and not string.find(target_text, "%.clang%-format") then
+        for arg in string.gmatch(target_text, "unknown argument[:%s]+'([^']+)'") do
           table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
         end
       end
