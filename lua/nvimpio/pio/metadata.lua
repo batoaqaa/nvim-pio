@@ -124,12 +124,12 @@ _G.metadata = setmetatable({}, {
           _pio_metadata.envs = metadata.envs
         end
 
-        vim.cmd('redrawstatus')
         local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
         pio_refresh(function(_)
           -- if (suscess) then require('nvimpio.clangd.control').getUnknownArgs(from) end
           if _G.metadata then _G.metadata.isBusy = false end
         end, from)
+        vim.cmd('redrawstatus')
       -- elseif key == 'last_projectChecksum' then
       end
     end)
