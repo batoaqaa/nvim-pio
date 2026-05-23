@@ -1320,18 +1320,18 @@ function M.handleIdedata(result, active_env, on_done)
 
     clangd_extracted_args = {}       -- Clear the collected flags table
     clangd_check_active = true
-    if #M.queue > 0 then trm:send(pop(M.queue), false) end
+    vim.defer_fn(function()
+      -- require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
+      if #M.queue > 0 then trm:send(pop(M.queue), false) end
+    end, 50) -- 50ms delay, adjust as needed
   elseif result == 'DONE' then                                       -- unknown args DONE
-    -- vim.schedule(function()
-    --   require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
-    --   if on_done and type(on_done) == 'function' then on_done(true) end
-    -- end)
     if on_done and type(on_done) == 'function' then on_done(true) end
     if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then                                       -- FAIL
     if on_done and type(on_done) == 'function' then
       if pass2 then
+        OS.notify("passed")
         vim.schedule(function()
           boilerplate.args = clangd_extracted_args
           boilerplate_gen('.clangd', vim.g.platformioRootDir)
