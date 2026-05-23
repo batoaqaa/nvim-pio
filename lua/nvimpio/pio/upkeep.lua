@@ -497,7 +497,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
 
   local cb = function(status)
-    M.handleIdedata(status, function(success)
+    M.handleIdedata(status, active_env, function(success)
       if success then
         OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), "info")
 
@@ -1262,7 +1262,7 @@ end
 -- Handle command
 -- =============================================================================
 -- stylua: ignore
-function M.handleIdedata(result, on_done)
+function M.handleIdedata(result, active_env, on_done)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
@@ -1273,7 +1273,7 @@ function M.handleIdedata(result, on_done)
     if #M.queue > 0 then trm:send(pop(M.queue), false) end
   -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the only and the last command
-    OS.notify(string.format('%scompiledb  done', fromMsg), "info")
+    OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
     vim.defer_fn(function()
       require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
     end, 50) -- 50ms delay, adjust as needed
