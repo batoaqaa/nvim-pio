@@ -1,7 +1,7 @@
 local M = {}
 
 -- This is the public function that users or UI frameworks can query
-function M.get_sgggus_string()
+function M.get_status_string()
   -- 1. DEFENSE LAYER: If the global variable tables are missing, return a clean blank string
   if not _G.metadata or type(_G.metadata) ~= 'table' then
     return ''
