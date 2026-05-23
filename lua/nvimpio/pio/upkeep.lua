@@ -466,7 +466,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
           M.handlePioDB(status, active_env, function(success)
             if success then
               -- if (success) then require('nvimpio.clangd.control').getUnknownArgs(from) end
-              OS.notify(string.format('%s compiledb success for %s.', from, active_env), "info")
+              -- OS.notify(string.format('%s compiledb success for %s.', from, active_env), "info")
             end
           end)
         end
@@ -1332,7 +1332,6 @@ function M.handlePioDB(result, active_env, on_done)
       if #M.queue > 0 then trm:send(pop(M.queue), false) end
     -- end, 50) -- 50ms delay, adjust as needed
   elseif result == 'DONE' then -- result of the only and the last command
-    OS.notify(string.format('%s Clangd no unknown arga', fromMsg), 'info')
     if on_done and type(on_done) == 'function' then
       on_done(true)
       if pass1 then
