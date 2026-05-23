@@ -1310,13 +1310,11 @@ function M.handleIdedata(result, active_env, on_done)
       trm = term.ToggleTerminal(pop(M.queue), 'float')
     end
   elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
-        OS.notify("pass1")
     OS.notify(string.format('%sidedata  pass%s for %s', fromMsg, current_id, active_env), "info")
     if #M.queue > 0 then trm:send(pop(M.queue), false) end
   elseif result == 'PASS2' then -- .. current_id then                         -- compiledb PASS1
     OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
     pass2  = true
-        OS.notify("pass2")
 
     boilerplate.args = {}
     boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
@@ -1328,22 +1326,20 @@ function M.handleIdedata(result, active_env, on_done)
       if #M.queue > 0 then trm:send(pop(M.queue), false) end
     -- end, 50) -- 50ms delay, adjust as needed
   elseif result == 'DONE' then                                       -- unknown args DONE
-        OS.notify("done")
+    OS.notify(string.format('%s Clangd no unknown arga', fromMsg), 'info')
     if on_done and type(on_done) == 'function' then on_done(true) end
     if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then                                       -- FAIL
     if on_done and type(on_done) == 'function' then
-      OS.notify(vim.inspect(clangd_extracted_args))
       if pass2 then
-        OS.notify("fail good")
-        -- vim.schedule(function()
+        vim.schedule(function()
           boilerplate.args = clangd_extracted_args
           boilerplate_gen('.clangd', vim.g.platformioRootDir)
 
           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
           clangd.restart()
-        -- end)
+        end)
         on_done(true)
       else on_done(false) end
     end
