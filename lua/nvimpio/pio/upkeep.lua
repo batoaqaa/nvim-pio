@@ -470,8 +470,23 @@ fetch_metadata = function(callback, active_env, from, attempts)
             end
           end)
         end
-        local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-        M.run_sequence({ cmnds = { dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+
+
+        clangd.clangdIntall(function(clangdCmd)
+          local check_file = vim.fs.find(function(name)
+            return name:match('%.cpp$') or name:match('%.c$')
+          end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
+          if not check_file then
+            boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+            boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+            check_file = vim.uv.cwd() .. '/src/main.cpp'
+          end
+          local argscmd = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
+          local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+          -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+          M.run_sequence({ cmnds = { dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ' , from) })
+        end, 'clangd')
+
       end
 
 
@@ -1293,6 +1308,51 @@ function M.handleIdedata0(result, active_env, on_done)
   end
 end
 
+-- =============================================================================
+local pass1 = false
+-- stylua: ignore
+function M.handlePioDB(result, active_env, on_done)
+  if result == 'INIT' then
+    if #M.queue > 0 then
+      pass1 = false
+      _G.metadata.isBusy = true
+      trm = term.ToggleTerminal(pop(M.queue), 'float')
+    end
+  elseif result == 'PASS1' then -- .. current_id then                         -- compiledb PASS1
+    OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
+    pass1  = true
+
+    boilerplate.args = {}
+    boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
+
+    clangd_extracted_args = {}       -- Clear the collected flags table
+    clangd_check_active = true
+    -- vim.defer_fn(function()
+      -- require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
+      if #M.queue > 0 then trm:send(pop(M.queue), false) end
+    -- end, 50) -- 50ms delay, adjust as needed
+  elseif result == 'DONE' then -- result of the only and the last command
+    OS.notify(string.format('%s Clangd no unknown arga', fromMsg), 'info')
+    if on_done and type(on_done) == 'function' then on_done(true) end
+    if trm then trm:close() end
+    M.cleanSequencer()
+  elseif result == 'FAIL' then
+    if on_done and type(on_done) == 'function' then
+      if pass1 then
+        vim.defer_fn(function()
+          boilerplate.args = clangd_extracted_args
+          boilerplate_gen('.clangd', vim.g.platformioRootDir)
+          OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
+          clangd.restart()
+        end, 500) -- 50ms delay, adjust as needed
+        on_done(true)
+      else on_done(false) end
+    end
+    if trm then trm:close() end
+    M.cleanSequencer()
+  end
+end
+
 ------------------------------------------------------
 -- Handle command
 -- =============================================================================
@@ -1370,34 +1430,6 @@ function M.handleClangdCheck(result, on_done)
       if on_done and type(on_done) == 'function' then on_done(true, final_args) end
     end)
     if trm then trm:close() end
-    M.cleanSequencer()
-  end
-end
-
--- =============================================================================
--- stylua: ignore
-function M.handlePioDB(result, active_env, on_done)
-  if result == 'INIT' then
-    if #M.queue > 0 then
-      _G.metadata.isBusy = true
-      trm = term.ToggleTerminal(pop(M.queue), 'float')
-    end
-  -- elseif result == 'PASS' .. current_id then
-  --     OS.notify(string.format('%sidedata  pass%s', fromMsg, current_id), "info")
-  --     if #M.queue > 0 then trm:send(pop(M.queue), false) end
-  elseif result == 'DONE' then -- result of the only and the last command
-    OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
-    vim.defer_fn(function()
-      require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
-    end, 50) -- 50ms delay, adjust as needed
-    if on_done and type(on_done) == 'function' then on_done(true) end
-    -- vim.schedule(function()
-    --   -- M.compile_commandsFix() --M.dbPathsFix()
-    -- end)
-    if trm then trm:close() end
-    M.cleanSequencer()
-  elseif result == 'FAIL' then
-    if on_done and type(on_done) == 'function' then on_done(false) end
     M.cleanSequencer()
   end
 end
