@@ -933,6 +933,7 @@ function M.stdoutcallback(_, _, data, _)
     -- Safe single item array evaluation
     -- pio_buffer = pio_buffer .. data[1]
     content = content .. pio_buffer .. data[1]
+    pio_buffer = data[1]
   end
 
   local pass_target = 'PASS' .. current_id
