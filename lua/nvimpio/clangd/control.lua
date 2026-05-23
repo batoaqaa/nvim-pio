@@ -204,44 +204,44 @@ function M.getUnknownArgs(from)
   M.clangdIntall(function(clangdCmd)
 
     --------------------------------------------------------------------------------
-    -- local cmd_str = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
-    -- local pio = require('nvimpio.pio.upkeep')
-    -- local cb = function(status)
-    --   pio.handleClangdCheck(status, function(success, args_table)
-    --     args_table = args_table or {}
-    --     if success then
-    --       boilerplate.args = args_table
-    --       boilerplate_gen('.clangd', vim.g.platformioRootDir)
-    --
-    --       OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
-    --       M.restart()
-    --     end
-    --   end)
-    -- end
-    -- pio.run_sequence({ cmnds = { cmd_str }, cb = cb, from = string.format('%s clangdCmd' , from) })
+    local cmd_str = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
+    local pio = require('nvimpio.pio.upkeep')
+    local cb = function(status)
+      pio.handleClangdCheck(status, function(success, args_table)
+        args_table = args_table or {}
+        if success then
+          boilerplate.args = args_table
+          boilerplate_gen('.clangd', vim.g.platformioRootDir)
+
+          OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
+          M.restart()
+        end
+      end)
+    end
+    pio.run_sequence({ cmnds = { cmd_str }, cb = cb, from = string.format('%s clangdCmd' , from) })
 
     --------------------------------------------------------------------------------
-    local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
-    vim.system(cmd, { text = true }, function(obj)
-      vim.schedule(function()
-        local output = (obj.stdout or '') .. (obj.stderr or '')
-        local args_table = {}
-
-        -- Extract anything clangd reports as an 'unknown argument'
-        if not string.find(output, "%.clang%-format") then
-          for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
-            table.insert(args_table, string.format('"%s"', arg:gsub('[;%.]$', '')))
-          end
-        end
-
-        -- 4. UPDATE: Rebuild with the new discovered flags
-        boilerplate.args = args_table
-        boilerplate_gen('.clangd', vim.g.platformioRootDir)
-
-        OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
-        M.restart()
-      end)
-    end)
+    -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
+    -- vim.system(cmd, { text = true }, function(obj)
+    --   vim.schedule(function()
+    --     local output = (obj.stdout or '') .. (obj.stderr or '')
+    --     local args_table = {}
+    --
+    --     -- Extract anything clangd reports as an 'unknown argument'
+    --     if not string.find(output, "%.clang%-format") then
+    --       for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
+    --         table.insert(args_table, string.format('"%s"', arg:gsub('[;%.]$', '')))
+    --       end
+    --     end
+    --
+    --     -- 4. UPDATE: Rebuild with the new discovered flags
+    --     boilerplate.args = args_table
+    --     boilerplate_gen('.clangd', vim.g.platformioRootDir)
+    --
+    --     OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
+    --     M.restart()
+    --   end)
+    -- end)
   end, 'clangd')
 end
 --------------------------------------------------------------------------------
