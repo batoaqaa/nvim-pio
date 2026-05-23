@@ -496,31 +496,28 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- buildIdedata()
     -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
 
+  local cb = function(status)
+    M.handleIdedata(status, active_env, function(success)
+      if success then
+        OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), "info")
+
+        -- Secure the validation signature token right after creation succeeds
+        local read_ok, fresh_checksum = misc.readFile(checksum_file)
+        if read_ok and fresh_checksum ~= '' then meta.last_projectChecksum = fresh_checksum end
+
+        if attempts > 0 then
+          -- Execute recursive check loop to accurately verify and load newly compiled files
+          fetch_metadata(callback, active_env, from, attempts - 1)
+        else fire_callback(false) end
+      else
+        OS.notify(from .. 'Build Failed', 'error')
+        fire_callback(false)
+      end
+    end)
+  end
+
+  local argscmd = ''
   clangd.clangdIntall(function(clangdCmd)
-    local cb = function(status)
-      M.handleIdedata(status, active_env, function(success)
-        if success then
-          OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), "info")
-
-          -- Secure the validation signature token right after creation succeeds
-          local read_ok, fresh_checksum = misc.readFile(checksum_file)
-          if read_ok and fresh_checksum ~= '' then
-            meta.last_projectChecksum = fresh_checksum
-          end
-
-          if attempts > 0 then
-            -- Execute recursive check loop to accurately verify and load newly compiled files
-            fetch_metadata(callback, active_env, from, attempts - 1)
-          else
-            fire_callback(false)
-          end
-        else
-          OS.notify(from .. 'Build Failed', 'error')
-          fire_callback(false)
-        end
-      end)
-    end
-
     local check_file = vim.fs.find(function(name)
       return name:match('%.cpp$') or name:match('%.c$')
     end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
@@ -529,13 +526,13 @@ fetch_metadata = function(callback, active_env, from, attempts)
       boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
       check_file = vim.uv.cwd() .. '/src/main.cpp'
     end
-    -- pio.run_sequence({ cmnds = { cmd_str }, cb = cb, from = string.format('%s clangdCmd' , from) })
-    local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
-    local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-    local cmd_str = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
-    -- M.run_sequence({ cmnds = { idecmd }, cb = cb, from = string.format('%s refresh ' , from) })
-    M.run_sequence({ cmnds = { idecmd, dbcmd, cmd_str }, cb = cb, from = string.format('%s refresh ' , from) })
+    argscmd = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
   end, 'clangd')
+
+  local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
+  local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+  -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+  M.run_sequence({ cmnds = { idecmd, dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ' , from) })
 
 end
 
