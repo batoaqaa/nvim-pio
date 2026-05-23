@@ -1011,6 +1011,7 @@ function M.stdoutcallback(_, _, data, _)
           -- 2. Slice and parse the exact fresh run text block
           if start_idx and end_idx and end_idx > start_idx then
             local fresh_run_logs = string.sub(content, start_idx + 1, end_idx - 1)
+            print(fresh_run_logs)
 
             if not string.find(fresh_run_logs, '%.clang%-format') then
               local seen = {}
