@@ -1333,19 +1333,30 @@ function M.handlePioDB(result, active_env, on_done)
     -- end, 50) -- 50ms delay, adjust as needed
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify(string.format('%s Clangd no unknown arga', fromMsg), 'info')
-    if on_done and type(on_done) == 'function' then on_done(true) end
+    if on_done and type(on_done) == 'function' then
+      on_done(true)
+      if pass2 then
+        vim.defer_fn(function()
+          boilerplate.args = clangd_extracted_args
+          boilerplate_gen('.clangd', vim.g.platformioRootDir)
+          OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
+          clangd.restart()
+        end, 500) -- 50ms delay, adjust as needed
+      end
+    end
     if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
     if on_done and type(on_done) == 'function' then
-      if pass1 then on_done(true)
+      if pass1 then
+        vim.defer_fn(function()
+          boilerplate.args = clangd_extracted_args
+          boilerplate_gen('.clangd', vim.g.platformioRootDir)
+          OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
+          clangd.restart()
+        end, 500) -- 50ms delay, adjust as needed
+        on_done(true)
       else on_done(false) end
-      vim.defer_fn(function()
-        boilerplate.args = clangd_extracted_args
-        boilerplate_gen('.clangd', vim.g.platformioRootDir)
-        OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
-        clangd.restart()
-      end, 500) -- 50ms delay, adjust as needed
     end
     if trm then trm:close() end
     M.cleanSequencer()
@@ -1382,19 +1393,30 @@ function M.handleIdedata(result, active_env, on_done)
     -- end, 50) -- 50ms delay, adjust as needed
   elseif result == 'DONE' then                                       -- unknown args DONE
     OS.notify(string.format('%s Clangd no unknown arga', fromMsg), 'info')
-    if on_done and type(on_done) == 'function' then on_done(true) end
+    if on_done and type(on_done) == 'function' then
+      on_done(true)
+      if pass2 then
+        vim.defer_fn(function()
+          boilerplate.args = clangd_extracted_args
+          boilerplate_gen('.clangd', vim.g.platformioRootDir)
+          OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
+          clangd.restart()
+        end, 500) -- 50ms delay, adjust as needed
+      end
+    end
     if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then                                       -- FAIL
     if on_done and type(on_done) == 'function' then
-      if pass2 then on_done(true)
+      if pass2 then
+        vim.defer_fn(function()
+          boilerplate.args = clangd_extracted_args
+          boilerplate_gen('.clangd', vim.g.platformioRootDir)
+          OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
+          clangd.restart()
+        end, 500) -- 50ms delay, adjust as needed
+        on_done(true)
       else on_done(false) end
-      vim.defer_fn(function()
-        boilerplate.args = clangd_extracted_args
-        boilerplate_gen('.clangd', vim.g.platformioRootDir)
-        OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
-        clangd.restart()
-      end, 500) -- 50ms delay, adjust as needed
     end
     if trm then trm:close() end
     M.cleanSequencer()
