@@ -929,75 +929,76 @@ function M.stdoutcallback(_, _, data, _)
   if #data > 1 then
     content = content .. pio_buffer .. table.concat(data, '', 1, #data)
     pio_buffer = data[#data]
+  else
+    -- Safe single item array evaluation
+    -- pio_buffer = pio_buffer .. data[1]
+    content = content .. pio_buffer .. data[1]
+  end
 
-    local pass_target = 'PASS' .. current_id
-    local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
-    local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
-    local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
+  local pass_target = 'PASS' .. current_id
+  local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
+  local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
+  local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
 
-    if has_pass or has_fail or has_done then
-      local active_cb = callBack
-      local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
+  if has_pass or has_fail or has_done then
+    local active_cb = callBack
+    local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
 
-      if has_fail or has_done then
-        callBack = nil
-        M.queue = {}
+    if has_fail or has_done then
+      callBack = nil
+      M.queue = {}
 
-        -----------------------------------------------------------------------
-        -- 🌟 ONE-TIME EXTRACTOR ON TERMINATION (HISTORY COMPLETELY INTACT!)
-        -----------------------------------------------------------------------
-        if clangd_check_active then
-          clangd_extracted_args = {}
+      -----------------------------------------------------------------------
+      -- 🌟 ONE-TIME EXTRACTOR ON TERMINATION (HISTORY COMPLETELY INTACT!)
+      -----------------------------------------------------------------------
+      if clangd_check_active then
+        clangd_extracted_args = {}
 
-          -- 1. Find boundaries on the raw, un-truncated content string
-          local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
-          local _, start_idx = string.find(content, start_pattern, 1, true)
+        -- 1. Find boundaries on the raw, un-truncated content string
+        local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
+        local _, start_idx = string.find(content, start_pattern, 1, true)
 
-          if not start_idx then
-            local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
-            _, start_idx = string.find(content, fallback_echo, 1, true)
-          end
+        if not start_idx then
+          local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
+          _, start_idx = string.find(content, fallback_echo, 1, true)
+        end
 
-          local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
-          local end_idx = string.find(content, end_pattern, 1, true)
+        local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
+        local end_idx = string.find(content, end_pattern, 1, true)
 
-          -- 2. Slice and parse the exact fresh run text block
-          if start_idx and end_idx and end_idx > start_idx then
-            local fresh_run_logs = string.sub(content, start_idx + 1, end_idx - 1)
-            print(fresh_run_logs)
+        -- 2. Slice and parse the exact fresh run text block
+        if start_idx and end_idx and end_idx > start_idx then
+          local fresh_run_logs = string.sub(content, start_idx + 1, end_idx - 1)
+          print(fresh_run_logs)
 
-            if not string.find(fresh_run_logs, '%.clang%-format') then
-              local seen = {}
-              for arg in string.gmatch(fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
-                local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
-                if not seen[clean_flag] then
-                  seen[clean_flag] = true
-                  table.insert(clangd_extracted_args, clean_flag)
-                end
+          if not string.find(fresh_run_logs, '%.clang%-format') then
+            local seen = {}
+            for arg in string.gmatch(fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
+              local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
+              if not seen[clean_flag] then
+                seen[clean_flag] = true
+                table.insert(clangd_extracted_args, clean_flag)
               end
             end
           end
-
-          clangd_check_active = false
         end
 
-        -- 🏁 3. FLUSH THE BUFFER CLEAN HERE AT THE END OF THE COMMAND RUN
-        pio_buffer = ''
-        content = ''
-        -----------------------------------------------------------------------
+        clangd_check_active = false
       end
 
-      if final_status and active_cb then
-        vim.schedule(function()
-          active_cb(final_status)
-        end)
-      end
-
-      return
+      -- 🏁 3. FLUSH THE BUFFER CLEAN HERE AT THE END OF THE COMMAND RUN
+      pio_buffer = ''
+      content = ''
+      -----------------------------------------------------------------------
     end
-  else
-    -- Safe single item array evaluation
-    pio_buffer = pio_buffer .. data[1]
+
+    if final_status and active_cb then
+      vim.schedule(function()
+        active_cb(final_status)
+      end)
+    end
+
+    return
   end
 end
 -- =============================================================================
