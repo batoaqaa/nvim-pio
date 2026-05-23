@@ -920,6 +920,7 @@ local session_counter = 1 -- Our high-performance integer counter
 local fromMsg = ''
 local trm
 
+local content = ''
 function M.stdoutcallback(_, _, data, _)
   if not data or #data == 0 then
     return
@@ -927,7 +928,7 @@ function M.stdoutcallback(_, _, data, _)
 
   print(vim.inspect(data))
   if #data > 1 then
-    local content = pio_buffer .. table.concat(data, '', 1, #data)
+    content = content .. pio_buffer .. table.concat(data, '', 1, #data)
     pio_buffer = data[#data]
 
     local pass_target = 'PASS' .. current_id
@@ -939,54 +940,6 @@ function M.stdoutcallback(_, _, data, _)
       local active_cb = callBack
       local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
 
-      --       if has_fail or has_done then
-      --         final_status = has_fail and 'FAIL' or 'DONE'
-      --         callBack = nil
-      --         M.queue = {}
-      --         pio_buffer = ''
-      --
-      --         -----------------------------------------------------------------------
-      --         -- 2. PARSE THE ISOLATED TEXT SANDBOX ON COMPLETION
-      --         -----------------------------------------------------------------------
-      --         if clangd_check_active then
-      --           clangd_extracted_args = {}
-      --
-      --           -- Look for boundaries in our private, un-truncated string sandbox
-      --           local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
-      --           local _, start_idx = string.find(M.current_run_raw_text, start_pattern, 1, true)
-      --
-      --           if not start_idx then
-      --             local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
-      --             _, start_idx = string.find(M.current_run_raw_text, fallback_echo, 1, true)
-      --           end
-      --
-      --           local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
-      --           local end_idx = string.find(M.current_run_raw_text, end_pattern, 1, true)
-      --
-      --           -- Slice out the exact text segment between the boundary markers
-      --           if start_idx and end_idx and end_idx > start_idx then
-      --             local fresh_run_logs = string.sub(M.current_run_raw_text, start_idx + 1, end_idx - 1)
-      --
-      --             if not string.find(fresh_run_logs, '%.clang%-format') then
-      --               local seen = {}
-      --               for arg in string.gmatch(fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
-      --                 local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
-      --                 if not seen[clean_flag] then
-      --                   seen[clean_flag] = true
-      --                   table.insert(clangd_extracted_args, clean_flag)
-      --                 end
-      --               end
-      --             end
-      --           end
-      --
-      --           -- Wipe the isolated task tracking states completely
-      --           M.current_run_raw_text = ''
-      --           clangd_check_active = false
-      --         end
-      --         -----------------------------------------------------------------------
-      --       elseif has_pass then
-      --         final_status = pass_target
-      --       end
       if has_fail or has_done then
         callBack = nil
         M.queue = {}
@@ -1035,6 +988,7 @@ function M.stdoutcallback(_, _, data, _)
 
         -- 🏁 3. FLUSH THE BUFFER CLEAN HERE AT THE END OF THE COMMAND RUN
         pio_buffer = ''
+        content = ''
         -----------------------------------------------------------------------
       end
 
