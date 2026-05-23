@@ -1058,6 +1058,7 @@ M.run_sequence = function(tasks)
       clangd_check_active = false
       clangd_check_active = false -- Arm the parsing loop tracker
       pio_buffer = ''
+      content = ''
       term.stdout_callback = M.stdoutcallback
       callBack('INIT')
     end)
