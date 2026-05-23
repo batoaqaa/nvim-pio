@@ -919,7 +919,6 @@ local clangd_check_active = false
 local session_counter = 1 -- Our high-performance integer counter
 local fromMsg = ''
 local trm
-
 function M.stdoutcallback(_, _, data, _)
   if not data or #data == 0 then
     return
@@ -949,20 +948,20 @@ function M.stdoutcallback(_, _, data, _)
           clangd_extracted_args = {}
 
           -- 1. Find boundaries on the raw, un-truncated content string
-          local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
-          local _, start_idx = string.find(content, start_pattern, 1, true)
+          local echo_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
+          local _, echo_end_idx = string.find(content, echo_pattern, 1, true)
 
-          if not start_idx then
+          if not echo_end_idx then
             local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
-            _, start_idx = string.find(content, fallback_echo, 1, true)
+            _, echo_end_idx = string.find(content, fallback_echo, 1, true)
           end
 
-          local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
-          local end_idx = string.find(content, end_pattern, 1, true)
+          local target_result_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
+          local result_start_idx = string.find(content, target_result_pattern, 1, true)
 
           -- 2. Slice and parse the exact fresh run text block
-          if start_idx and end_idx and end_idx > start_idx then
-            local fresh_run_logs = string.sub(content, start_idx + 1, end_idx - 1)
+          if echo_end_idx and result_start_idx and result_start_idx > echo_end_idx then
+            local fresh_run_logs = string.sub(content, echo_end_idx + 1, result_start_idx - 1)
 
             if not string.find(fresh_run_logs, '%.clang%-format') then
               local seen = {}
@@ -996,6 +995,8 @@ function M.stdoutcallback(_, _, data, _)
     -- Safe single item array evaluation
     pio_buffer = pio_buffer .. data[1]
   end
+
+  -- NOTICE: Continuous pio_buffer trimming line is completely gone from here!
 end
 -- =============================================================================
 
