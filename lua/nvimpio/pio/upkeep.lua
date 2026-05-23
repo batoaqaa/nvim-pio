@@ -1332,13 +1332,13 @@ function M.handleIdedata(result, active_env, on_done)
     if on_done and type(on_done) == 'function' then
       if pass2 then
         OS.notify("passed")
-        vim.schedule(function()
+        -- vim.schedule(function()
           boilerplate.args = clangd_extracted_args
           boilerplate_gen('.clangd', vim.g.platformioRootDir)
 
           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
           clangd.restart()
-        end)
+        -- end)
         on_done(true)
       else on_done(false) end
     end
