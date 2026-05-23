@@ -1331,8 +1331,8 @@ function M.handleIdedata(result, active_env, on_done)
     M.cleanSequencer()
   elseif result == 'FAIL' then                                       -- FAIL
     if on_done and type(on_done) == 'function' then
+        OS.notify(vim.inspect(clangd_extracted_args))
       if pass2 then
-        OS.notify("passed")
         -- vim.schedule(function()
           boilerplate.args = clangd_extracted_args
           boilerplate_gen('.clangd', vim.g.platformioRootDir)
