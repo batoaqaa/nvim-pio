@@ -496,39 +496,50 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- buildIdedata()
     -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
 
-  local cb = function(status)
-    M.handleIdedata(status, active_env, function(success)
-      if success then
-        OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), "info")
 
-        -- Secure the validation signature token right after creation succeeds
-        local read_ok, fresh_checksum = misc.readFile(checksum_file)
-        if read_ok and fresh_checksum ~= '' then
-          meta.last_projectChecksum = fresh_checksum
-        end
 
-        if attempts > 0 then
-          -- Execute recursive check loop to accurately verify and load newly compiled files
-          fetch_metadata(callback, active_env, from, attempts - 1)
+  clangd.clangdIntall(function(clangdCmd)
+
+    local cb = function(status)
+      M.handleIdedata(status, active_env, function(success)
+        if success then
+          OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), "info")
+
+          -- Secure the validation signature token right after creation succeeds
+          local read_ok, fresh_checksum = misc.readFile(checksum_file)
+          if read_ok and fresh_checksum ~= '' then
+            meta.last_projectChecksum = fresh_checksum
+          end
+
+          if attempts > 0 then
+            -- Execute recursive check loop to accurately verify and load newly compiled files
+            fetch_metadata(callback, active_env, from, attempts - 1)
+          else
+            fire_callback(false)
+          end
         else
-          -- Exit Path 3: Successful Generation Sequence (End of Recursion Tree)
-          -- fire_callback(true)
+          OS.notify(from .. 'Build Failed', 'error')
           fire_callback(false)
         end
-      else
-        OS.notify(from .. 'Build Failed', 'error')
-        -- vim.schedule(function()
-        --   if meta then meta.isBusy = false end
-        -- end)
-        -- Exit Path 4: Generation Run Failed
-        fire_callback(false)
-      end
-    end)
-  end
-  local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
-  local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-  -- M.run_sequence({ cmnds = { idecmd }, cb = cb, from = string.format('%s refresh ' , from) })
-  M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+      end)
+    end
+
+    local check_file = vim.fs.find(function(name)
+      return name:match('%.cpp$') or name:match('%.c$')
+    end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
+    if not check_file then
+      boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+      boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+      check_file = vim.uv.cwd() .. '/src/main.cpp'
+    end
+    -- pio.run_sequence({ cmnds = { cmd_str }, cb = cb, from = string.format('%s clangdCmd' , from) })
+    local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
+    local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+    local cmd_str = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
+    -- M.run_sequence({ cmnds = { idecmd }, cb = cb, from = string.format('%s refresh ' , from) })
+    M.run_sequence({ cmnds = { idecmd, dbcmd, cmd_str }, cb = cb, from = string.format('%s refresh ' , from) })
+  end, 'clangd')
+
 end
 
 
@@ -1285,6 +1296,56 @@ function M.handleIdedata(result, active_env, on_done)
     if trm then trm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
+    M.cleanSequencer()
+  end
+end
+
+------------------------------------------------------
+-- Handle command
+-- =============================================================================
+-- stylua: ignore
+function M.handleIdedata2(result, active_env, on_done)
+  local pass2 = false
+  if result == 'INIT' then
+    if #M.queue > 0 then
+      _G.metadata.isBusy = true
+      trm = term.ToggleTerminal(pop(M.queue), 'float')
+    end
+  elseif result == 'PASS' .. current_id then
+    OS.notify(string.format('%sidedata  pass%s', fromMsg, current_id), "info")
+    if #M.queue > 0 then trm:send(pop(M.queue), false) end
+  elseif result == 'PASS' .. current_id then                         -- idedata PASS1
+    OS.notify(string.format('%compiledb  pass%s', fromMsg, current_id), "info")
+    pass2  = true
+
+    boilerplate.args = {}
+    boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
+
+    clangd_extracted_args = {}       -- Clear the collected flags table
+    clangd_check_active = true
+    if #M.queue > 0 then trm:send(pop(M.queue), false) end
+  elseif result == 'DONE' then                                       -- unknown args DONE
+    -- vim.schedule(function()
+    --   require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
+    --   if on_done and type(on_done) == 'function' then on_done(true) end
+    -- end)
+    if on_done and type(on_done) == 'function' then on_done(true) end
+    if trm then trm:close() end
+    M.cleanSequencer()
+  elseif result == 'FAIL' then                                       -- FAIL
+    if on_done and type(on_done) == 'function' then
+      if pass2 then
+        vim.schedule(function()
+          boilerplate.args = clangd_extracted_args
+          boilerplate_gen('.clangd', vim.g.platformioRootDir)
+
+          OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
+          clangd.restart()
+        end)
+        on_done(true)
+      else on_done(false) end
+    end
+    if trm then trm:close() end
     M.cleanSequencer()
   end
 end
