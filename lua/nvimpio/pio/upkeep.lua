@@ -909,18 +909,21 @@ end
 -- -- =============================================================================
 -- -- =============================================================================
 local current_token -- = tostring(math.random(10000, 99999))
+local session_counter = 1 -- Our high-performance integer counter
 local current_id = -1
-local pio_buffer = ''
+
 local callBack = nil
 M.queue = {}
 term.stdout_callback = M.stdoutcallback
+
 local clangd_extracted_args = {}
 local clangd_check_active = false
-local session_counter = 1 -- Our high-performance integer counter
+
 local fromMsg = ''
 local trm
-
+local pio_buffer = ''
 local content = ''
+
 function M.stdoutcallback(_, _, data, _)
   if not data or #data == 0 then
     return
@@ -982,6 +985,8 @@ function M.stdoutcallback(_, _, data, _)
               end
             end
           end
+        else
+          return
         end
 
         clangd_check_active = false
