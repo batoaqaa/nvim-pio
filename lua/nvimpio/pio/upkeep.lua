@@ -1335,7 +1335,7 @@ function M.handlePioDB(result, active_env, on_done)
     OS.notify(string.format('%s Clangd no unknown arga', fromMsg), 'info')
     if on_done and type(on_done) == 'function' then
       on_done(true)
-      if pass2 then
+      if pass1 then
         vim.defer_fn(function()
           boilerplate.args = clangd_extracted_args
           boilerplate_gen('.clangd', vim.g.platformioRootDir)
@@ -1376,7 +1376,7 @@ function M.handleIdedata(result, active_env, on_done)
       trm = term.ToggleTerminal(pop(M.queue), 'float')
     end
   elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
-    OS.notify(string.format('%sidedata  pass%s for %s', fromMsg, current_id, active_env), "info")
+    OS.notify(string.format('%sidedata  for %s', fromMsg, active_env), "info")
     if #M.queue > 0 then trm:send(pop(M.queue), false) end
   elseif result == 'PASS2' then -- .. current_id then                         -- compiledb PASS1
     OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
@@ -1392,7 +1392,6 @@ function M.handleIdedata(result, active_env, on_done)
       if #M.queue > 0 then trm:send(pop(M.queue), false) end
     -- end, 50) -- 50ms delay, adjust as needed
   elseif result == 'DONE' then                                       -- unknown args DONE
-    OS.notify(string.format('%s Clangd no unknown arga', fromMsg), 'info')
     if on_done and type(on_done) == 'function' then
       on_done(true)
       if pass2 then
