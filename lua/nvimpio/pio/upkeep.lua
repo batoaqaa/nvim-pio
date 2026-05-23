@@ -925,7 +925,7 @@ function M.stdoutcallback(_, _, data, _)
     return
   end
 
-  print(data)
+  print(vim.inspect(data))
   if #data > 1 then
     local content = pio_buffer .. table.concat(data, '', 1, #data)
     pio_buffer = data[#data]
