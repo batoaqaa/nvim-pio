@@ -907,6 +907,16 @@ end
 --   end
 -- end
 -- -- =============================================================================
+-- ⏳ 1. CRITICAL MODULE STATE TRACKER FOR TIMEOUTS
+M.safety_timer = nil
+--- Dynamic Timeout Reset Routine
+local function stop_safety_timer()
+  if M.safety_timer then
+    M.safety_timer:stop()
+    M.safety_timer:close()
+    M.safety_timer = nil
+  end
+end
 -- -- =============================================================================
 local current_token -- = tostring(math.random(10000, 99999))
 local session_counter = 1 -- Our high-performance integer counter
@@ -949,6 +959,8 @@ function M.stdoutcallback(_, _, data, _)
     local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
 
     if has_fail or has_done then
+      -- ✅ SUCCESSFUL RUN DETECTED: Kill the countdown timer immediately!
+      stop_safety_timer()
       callBack = nil
       M.queue = {}
 
@@ -973,7 +985,6 @@ function M.stdoutcallback(_, _, data, _)
         -- 2. Slice and parse the exact fresh run text block
         if start_idx and end_idx and end_idx > start_idx then
           local fresh_run_logs = string.sub(content, start_idx + 1, end_idx - 1)
-          print(fresh_run_logs)
 
           if not string.find(fresh_run_logs, '%.clang%-format') then
             local seen = {}
@@ -1037,10 +1048,10 @@ local nvimpio = require('nvimpio')
 M.run_sequence = function(tasks)
   M.queue = {}
   local commands = tasks.cmnds
+  fromMsg = tasks.from
+  callBack = tasks.cb -- 1. Save the callback in a local variable
 
   local token = string.format('%04d', session_counter)
-
-  fromMsg = tasks.from
 
   session_counter = session_counter + 1
   if session_counter > 9999 then
@@ -1048,24 +1059,46 @@ M.run_sequence = function(tasks)
   end
 
   local total = #commands
-
   for i, cmd in ipairs(commands) do
     local step_id = (i == total) and 0 or i
     table.insert(M.queue, { cmd, step_id, token })
   end
 
-  callBack = tasks.cb -- 1. Save the callback in a local variable
-
   -- if not nvimpio.is_active then require('nvimpio.pio.metadata') end
 
   if callBack then
     vim.schedule(function()
-      clangd_extracted_args = {} -- Clear the collected flags table
-      M.current_run_raw_text = ''
-      clangd_check_active = false
-      clangd_check_active = false -- Arm the parsing loop tracker
-      pio_buffer = ''
+      stop_safety_timer()
       content = ''
+      pio_buffer = ''
+      clangd_extracted_args = {} -- Clear the collected flags table
+      clangd_check_active = false -- Arm the parsing loop tracker
+
+      local max_execution_time_ms = 8000
+      local uv = vim.uv or vim.loop
+
+      M.safety_timer = uv.new_timer()
+      M.safety_timer:start(
+        max_execution_time_ms,
+        0,
+        vim.schedule_wrap(function()
+          if clangd_check_active or #content > 0 then
+            stop_safety_timer()
+            pio_buffer = ''
+            content = ''
+            clangd_check_active = false
+            M.queue = {} -- Break the queue sequence to prevent consecutive glitches
+
+            local fallback_cb = callBack
+            callBack = nil
+            OS.notify(fromMsg .. ' ⚠️ Clangd pipeline stalled. Hard buffer reset triggered!', 'error')
+            if fallback_cb and type(fallback_cb) == 'function' then
+              fallback_cb('FAIL')
+            end
+          end
+        end)
+      )
+
       term.stdout_callback = M.stdoutcallback
       callBack('INIT')
     end)
