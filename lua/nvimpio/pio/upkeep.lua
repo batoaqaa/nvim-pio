@@ -1325,6 +1325,7 @@ function M.handleIdedata(result, active_env, on_done)
       if #M.queue > 0 then trm:send(pop(M.queue), false) end
     end, 50) -- 50ms delay, adjust as needed
   elseif result == 'DONE' then                                       -- unknown args DONE
+        OS.notify("done")
     if on_done and type(on_done) == 'function' then on_done(true) end
     if trm then trm:close() end
     M.cleanSequencer()
