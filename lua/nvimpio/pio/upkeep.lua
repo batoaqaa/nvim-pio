@@ -926,7 +926,6 @@ function M.stdoutcallback(_, _, data, _)
     return
   end
 
-  print(vim.inspect(data))
   if #data > 1 then
     content = content .. pio_buffer .. table.concat(data, '', 1, #data)
     pio_buffer = data[#data]
@@ -953,8 +952,6 @@ function M.stdoutcallback(_, _, data, _)
           -- 1. Find boundaries on the raw, un-truncated content string
           local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
           local _, start_idx = string.find(content, start_pattern, 1, true)
-          print(start_pattern)
-          print(start_idx)
 
           if not start_idx then
             local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
@@ -963,8 +960,6 @@ function M.stdoutcallback(_, _, data, _)
 
           local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
           local end_idx = string.find(content, end_pattern, 1, true)
-          print(end_pattern)
-          print(end_idx)
 
           -- 2. Slice and parse the exact fresh run text block
           if start_idx and end_idx and end_idx > start_idx then
