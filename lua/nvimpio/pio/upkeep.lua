@@ -1082,7 +1082,7 @@ M.run_sequence = function(tasks)
       clangd_extracted_args = {} -- Clear the collected flags table
       clangd_check_active = false -- Arm the parsing loop tracker
 
-      local max_execution_time_ms = 8000
+      local max_execution_time_ms = 20000
       local uv = vim.uv or vim.loop
 
       M.safety_timer = uv.new_timer()
