@@ -122,6 +122,7 @@ _G.metadata = setmetatable({}, {
           _pio_metadata.platforms_dir = metadata.platforms_dir
           _pio_metadata.default_envs = metadata.default_envs
           _pio_metadata.envs = metadata.envs
+          vim.cmd('redrawstatus')
         end
 
         local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
