@@ -1308,10 +1308,10 @@ function M.handleIdedata(result, active_env, on_done)
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(pop(M.queue), 'float')
     end
-  elseif result == 'PASS' .. current_id then                         -- idedata PASS1
+  elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
     OS.notify(string.format('%sidedata  pass%s for %s', fromMsg, current_id, active_env), "info")
     if #M.queue > 0 then trm:send(pop(M.queue), false) end
-  elseif result == 'PASS' .. current_id then                         -- compiledb PASS1
+  elseif result == 'PASS2' then -- .. current_id then                         -- compiledb PASS1
     OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
     pass2  = true
 
