@@ -919,6 +919,7 @@ local clangd_check_active = false
 local session_counter = 1 -- Our high-performance integer counter
 local fromMsg = ''
 local trm
+-- =============================================================================
 function M.stdoutcallback(_, _, data, _)
   if not data or #data == 0 then
     return
@@ -928,23 +929,25 @@ function M.stdoutcallback(_, _, data, _)
     local content = pio_buffer .. table.concat(data, '', 1, #data)
     pio_buffer = data[#data]
 
-    local pass_target = 'PASS' .. current_id
-    local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
-    local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
-    local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
+    -- 🪓 FIX 1: Only check for tokens if the job hasn't already been marked dead!
+    -- This prevents the persistent 'content' string from double-triggering old tokens.
+    if clangd_check_active then
+      local pass_target = 'PASS' .. current_id
+      local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
+      local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
+      local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
 
-    if has_pass or has_fail or has_done then
-      local active_cb = callBack
-      local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
+      if has_pass or has_fail or has_done then
+        local active_cb = callBack
+        local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
 
-      if has_fail or has_done then
-        callBack = nil
-        M.queue = {}
+        if has_fail or has_done then
+          callBack = nil
+          M.queue = {}
 
-        -----------------------------------------------------------------------
-        -- 🌟 ONE-TIME EXTRACTOR ON TERMINATION (HISTORY COMPLETELY INTACT!)
-        -----------------------------------------------------------------------
-        if clangd_check_active then
+          -----------------------------------------------------------------------
+          -- 🌟 ONE-TIME EXTRACTOR ON TERMINATION (HISTORY COMPLETELY INTACT!)
+          -----------------------------------------------------------------------
           clangd_extracted_args = {}
 
           -- 1. Find boundaries on the raw, un-truncated content string
@@ -975,31 +978,30 @@ function M.stdoutcallback(_, _, data, _)
             end
           end
 
+          -- Deactivate instantly so no further text blocks can match this loop run
           clangd_check_active = false
+
+          -- 🏁 3. FLUSH THE BUFFER CLEAN HERE AT THE END OF THE COMMAND RUN
+          pio_buffer = ''
+          -----------------------------------------------------------------------
         end
 
-        -- 🏁 3. FLUSH THE BUFFER CLEAN HERE AT THE END OF THE COMMAND RUN
-        pio_buffer = ''
-        -----------------------------------------------------------------------
-      end
+        if final_status and active_cb then
+          vim.schedule(function()
+            active_cb(final_status)
+          end)
+        end
 
-      if final_status and active_cb then
-        vim.schedule(function()
-          active_cb(final_status)
-        end)
+        return
       end
-
-      return
     end
   else
-    -- Safe single item array evaluation
+    -- 🪟 FIX 2: Correct string array index selection to safely build uncompleted fragments
     pio_buffer = pio_buffer .. data[1]
   end
 
-  -- NOTICE: Continuous pio_buffer trimming line is completely gone from here!
+  -- Notice: Continuous trimmer line is safely gone without causing token race corruption!
 end
--- =============================================================================
-
 -- =============================================================================
 local function pop(queue)
   local current_step = table.remove(queue, 1)
