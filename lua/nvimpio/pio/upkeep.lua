@@ -516,7 +516,6 @@ fetch_metadata = function(callback, active_env, from, attempts)
     end)
   end
 
-  local argscmd = ''
   clangd.clangdIntall(function(clangdCmd)
     local check_file = vim.fs.find(function(name)
       return name:match('%.cpp$') or name:match('%.c$')
@@ -526,13 +525,13 @@ fetch_metadata = function(callback, active_env, from, attempts)
       boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
       check_file = vim.uv.cwd() .. '/src/main.cpp'
     end
-    argscmd = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
+    local argscmd = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
+    local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
+    local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+    -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+    M.run_sequence({ cmnds = { idecmd, dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ' , from) })
   end, 'clangd')
 
-  local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
-  local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-  -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
-  M.run_sequence({ cmnds = { idecmd, dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ' , from) })
 
 end
 
