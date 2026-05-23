@@ -298,6 +298,7 @@ function M.get_active_env(from)
     default_envs = normalize_value('default_envs', pio_vars.default_envs),
     envs = {}
   }
+  require('nvimpio').config.pio_storage_dir = metadata.core_dir
 
   -- Merge [env] defaults down into each specific profile block
   for env, locals in pairs(raw_envs) do

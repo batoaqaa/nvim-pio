@@ -78,7 +78,6 @@ function M.setup(user_opts)
       -- pioCheck.pioStatus(
       function(success)
         if success then
-          vim.g.platformioRootDir = vim.uv.cwd()
           -- pioCheck.pioPathUpdate()
           require('nvimpio.pio.ui.pioInit').pioInit(function(done)
             if done then
