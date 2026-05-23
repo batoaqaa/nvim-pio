@@ -466,7 +466,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
           M.handlePioDB(status, active_env, function(success)
             if success then
               -- if (success) then require('nvimpio.clangd.control').getUnknownArgs(from) end
-              -- OS.notify(string.format('%s compiledb success for %s.', from, active_env), "info")
+              OS.notify(string.format('%s compiledb success for %s.', from, active_env), "info")
             end
           end)
         end
@@ -496,10 +496,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- buildIdedata()
     -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
 
-
-
   clangd.clangdIntall(function(clangdCmd)
-
     local cb = function(status)
       M.handleIdedata(status, active_env, function(success)
         if success then
@@ -1273,7 +1270,7 @@ end
 -- Handle command
 -- =============================================================================
 -- stylua: ignore
-function M.handleIdedata(result, active_env, on_done)
+function M.handleIdedata0(result, active_env, on_done)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
@@ -1304,18 +1301,18 @@ end
 -- Handle command
 -- =============================================================================
 -- stylua: ignore
-function M.handleIdedata2(result, active_env, on_done)
+function M.handleIdedata(result, active_env, on_done)
   local pass2 = false
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(pop(M.queue), 'float')
     end
-  elseif result == 'PASS' .. current_id then
-    OS.notify(string.format('%sidedata  pass%s', fromMsg, current_id), "info")
-    if #M.queue > 0 then trm:send(pop(M.queue), false) end
   elseif result == 'PASS' .. current_id then                         -- idedata PASS1
-    OS.notify(string.format('%compiledb  pass%s', fromMsg, current_id), "info")
+    OS.notify(string.format('%sidedata  pass%s for %s', fromMsg, current_id, active_env), "info")
+    if #M.queue > 0 then trm:send(pop(M.queue), false) end
+  elseif result == 'PASS' .. current_id then                         -- compiledb PASS1
+    OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
     pass2  = true
 
     boilerplate.args = {}
