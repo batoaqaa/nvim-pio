@@ -463,10 +463,10 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
       if attempts > 0 then
         local cb = function(status)
-          M.handlePioDB(status, function(success)
+          M.handlePioDB(status, active_env, function(success)
             if success then
               -- if (success) then require('nvimpio.clangd.control').getUnknownArgs(from) end
-              OS.notify(string.format('%s compiledb success for %s.', from, active_env), "info")
+              -- OS.notify(string.format('%s compiledb success for %s.', from, active_env), "info")
             end
           end)
         end
@@ -1322,7 +1322,7 @@ end
 
 -- =============================================================================
 -- stylua: ignore
-function M.handlePioDB(result, on_done)
+function M.handlePioDB(result, active_env, on_done)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
@@ -1332,7 +1332,7 @@ function M.handlePioDB(result, on_done)
   --     OS.notify(string.format('%sidedata  pass%s', fromMsg, current_id), "info")
   --     if #M.queue > 0 then trm:send(pop(M.queue), false) end
   elseif result == 'DONE' then -- result of the only and the last command
-    OS.notify(string.format('%scompiledb  done', fromMsg), "info")
+    OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
     vim.defer_fn(function()
       require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
     end, 50) -- 50ms delay, adjust as needed
