@@ -1300,11 +1300,12 @@ end
 ------------------------------------------------------
 -- Handle command
 -- =============================================================================
+local pass2 = false
 -- stylua: ignore
 function M.handleIdedata(result, active_env, on_done)
-  local pass2 = false
   if result == 'INIT' then
     if #M.queue > 0 then
+      pass2 = false
       _G.metadata.isBusy = true
       trm = term.ToggleTerminal(pop(M.queue), 'float')
     end
