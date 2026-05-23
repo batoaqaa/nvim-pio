@@ -1320,10 +1320,10 @@ function M.handleIdedata(result, active_env, on_done)
 
     clangd_extracted_args = {}       -- Clear the collected flags table
     clangd_check_active = true
-    vim.defer_fn(function()
+    -- vim.defer_fn(function()
       -- require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
       if #M.queue > 0 then trm:send(pop(M.queue), false) end
-    end, 50) -- 50ms delay, adjust as needed
+    -- end, 50) -- 50ms delay, adjust as needed
   elseif result == 'DONE' then                                       -- unknown args DONE
         OS.notify("done")
     if on_done and type(on_done) == 'function' then on_done(true) end
