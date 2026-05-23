@@ -968,7 +968,7 @@ function M.stdoutcallback(_, _, data, _)
 
     if has_fail or has_done then
       -- ✅ SUCCESSFUL RUN DETECTED: Kill the countdown timer immediately!
-      stop_safety_timer()
+      -- stop_safety_timer()
       callBack = nil
       M.queue = {}
 
@@ -1076,36 +1076,36 @@ M.run_sequence = function(tasks)
 
   if callBack then
     vim.schedule(function()
-      stop_safety_timer()
       content = ''
       pio_buffer = ''
       clangd_extracted_args = {} -- Clear the collected flags table
       clangd_check_active = false -- Arm the parsing loop tracker
 
-      local max_execution_time_ms = 20000
-      local uv = vim.uv or vim.loop
-
-      M.safety_timer = uv.new_timer()
-      M.safety_timer:start(
-        max_execution_time_ms,
-        0,
-        vim.schedule_wrap(function()
-          if clangd_check_active or #content > 0 then
-            stop_safety_timer()
-            pio_buffer = ''
-            content = ''
-            clangd_check_active = false
-            M.queue = {} -- Break the queue sequence to prevent consecutive glitches
-
-            local fallback_cb = callBack
-            callBack = nil
-            OS.notify(fromMsg .. ' ⚠️ Clangd pipeline stalled. Hard buffer reset triggered!', 'error')
-            if fallback_cb and type(fallback_cb) == 'function' then
-              fallback_cb('FAIL')
-            end
-          end
-        end)
-      )
+      -- stop_safety_timer()
+      -- local max_execution_time_ms = 20000
+      -- local uv = vim.uv or vim.loop
+      --
+      -- M.safety_timer = uv.new_timer()
+      -- M.safety_timer:start(
+      --   max_execution_time_ms,
+      --   0,
+      --   vim.schedule_wrap(function()
+      --     if clangd_check_active or #content > 0 then
+      --       stop_safety_timer()
+      --       pio_buffer = ''
+      --       content = ''
+      --       clangd_check_active = false
+      --       M.queue = {} -- Break the queue sequence to prevent consecutive glitches
+      --
+      --       local fallback_cb = callBack
+      --       callBack = nil
+      --       OS.notify(fromMsg .. ' ⚠️ Clangd pipeline stalled. Hard buffer reset triggered!', 'error')
+      --       if fallback_cb and type(fallback_cb) == 'function' then
+      --         fallback_cb('FAIL')
+      --       end
+      --     end
+      --   end)
+      -- )
 
       term.stdout_callback = M.stdoutcallback
       callBack('INIT')
