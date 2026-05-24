@@ -209,6 +209,7 @@ function M.getUnknownArgs(from)
     --   end)
     -- end)
 
+    OS.notify('getting unknown arguments for file ' .. check_file)
     --------------------------------------------------------------------------------
     local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
     vim.system(cmd, { text = true }, function(obj)
