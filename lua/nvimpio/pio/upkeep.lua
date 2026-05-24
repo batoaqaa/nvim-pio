@@ -903,7 +903,7 @@ function M.handlePioinit(result, board, on_done)
     end
   -- elseif result == 'PASS1' then
   elseif result == 'DONE' then -- result of the last command
-    OS.notify('PIO: project init Done', "info")
+    OS.notify(fromMsg .. 'project init Done', "info")
     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
     if trm then trm:close() end
