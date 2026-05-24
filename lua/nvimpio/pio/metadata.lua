@@ -188,6 +188,7 @@ function M.load_project_config()
   else
     local active_env, metadata = M.get_active_env('meta load: ')
     if active_env and active_env ~= '' then
+      OS.notify(active_env)
       metadata = metadata or {}
       _pio_metadata.core_dir = metadata.core_dir
       _pio_metadata.packages_dir = metadata.packages_dir
@@ -305,9 +306,7 @@ function M.get_active_env(from)
       end
     end
   end
-  --
-  -- if meta.envs and meta.envs[target_env] ~= nil then
-  --vim.tbl_keys(meta.envs)
+
   target = target or (metadata.envs[_G.metadata.active_env] and _G.metadata.active_env) or next(metadata.envs)
 
   return target, metadata
