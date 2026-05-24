@@ -37,7 +37,7 @@ function M.buildIdedata(from, active_env, cb)
     vim.schedule(function()
       local ok = (obj.code == 0)
       if ok then
-        OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), 'info')
+        OS.notify(string.format('%s build idedata success for %s.', from, active_env), 'info')
       else
         notify_system_error(from, string.format('build idedata for %s failed: ', active_env), obj)
       end
@@ -57,7 +57,6 @@ function M.buildCompileDB(from, active_env, cb)
       local ok = (obj.code == 0)
       if ok then
         OS.notify(string.format('%s build compiledb success for %s.', from, active_env), 'info')
-        OS.notify(from .. 'build compiledb success.', "info")
       else
         notify_system_error(from, string.format('build compiledb for %s failed: ', active_env), obj)
       end
