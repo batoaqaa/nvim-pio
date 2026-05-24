@@ -3,6 +3,7 @@ local M = {}
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 
+-- stylua: ignore start
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
 --stylua: ignore
@@ -184,12 +185,11 @@ function M.setFormatStyle()
   end)
 end
 
---------------------------------------------------------------------------------
+
 -- INFO: get_clangd_unknown_args
--- stylua: ignore
 --------------------------------------------------------------------------------
 ---@param from string
-function M.getUnknownArgs(from)
+function M.getUnknownArgsCli(from)
   from = (type(from)=='string' and from ~= '') and from or 'PIO: '
   -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
   boilerplate.args = {}
@@ -230,8 +230,8 @@ function M.getUnknownArgs(from)
     OS.notify('getting unknown arguments for file ' .. check_file)
     --------------------------------------------------------------------------------
     -- cli
-    -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--query-driver=' .. _G.metadata.query_driver, '--log=error' }
-    local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
+    local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--query-driver=**', '--log=error' }
+    -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
     vim.system(cmd, { text = true }, function(obj)
       vim.schedule(function()
         local output = (obj.stdout or '') .. (obj.stderr or '')
@@ -258,24 +258,53 @@ function M.getUnknownArgs(from)
         M.restart()
       end)
     end)
+  end, 'clangd')
+end
 
+
+-- INFO: get_clangd_unknown_args
+--------------------------------------------------------------------------------
+---@param from string
+function M.getUnknownArgsGui(from)
+  from = (type(from)=='string' and from ~= '') and from or 'PIO: '
+  -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
+  boilerplate.args = {}
+
+  -- Strip out any previous dynamic blocks to prevent endless growing
+  boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
+
+  -- 2. FIND: Grab the first .cpp or .c file in /src
+  local check_file = vim.fs.find(function(name)
+    return name:match('%.cpp$') or name:match('%.c$')
+  end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
+
+  if not check_file then
+    boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+    boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+    check_file = vim.uv.cwd() .. '/src/main.cpp'
+  end
+
+  -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
+  M.clangdIntall(function(clangdCmd)
+    OS.notify('getting unknown arguments for file ' .. check_file)
+    --------------------------------------------------------------------------------
     --------------------------------------------------------------------------------
     -- gui
-    -- local cmd_str = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error', clangdCmd, check_file, _G.metadata.query_driver)
-    -- local pio = require('nvimpio.pio.upkeep')
-    -- local cb = function(status)
-    --   pio.handleClangdCheck(status, function(success, args_table)
-    --     args_table = args_table or {}
-    --     if success then
-    --       boilerplate.args = args_table
-    --       boilerplate_gen('.clangd', vim.g.platformioRootDir)
-    --
-    --       OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
-    --       M.restart()
-    --     end
-    --   end)
-    -- end
-    -- pio.run_sequence({ cmnds = { cmd_str }, cb = cb, from = string.format('%s clangdCmd' , from) })
+    local cmd_str = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error', clangdCmd, check_file, _G.metadata.query_driver)
+    local pio = require('nvimpio.pio.upkeep')
+    local cb = function(status)
+      pio.handleClangdCheck(status, function(success, args_table)
+        args_table = args_table or {}
+        if success then
+          boilerplate.args = args_table
+          boilerplate_gen('.clangd', vim.g.platformioRootDir)
+
+          OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
+          M.restart()
+        end
+      end)
+    end
+    pio.run_sequence({ cmnds = { cmd_str }, cb = cb, from = string.format('%s clangdCmd' , from) })
   end, 'clangd')
 end
 --------------------------------------------------------------------------------
@@ -291,9 +320,9 @@ function M.init(clangd)
     vim.cmd.edit(vim.lsp.log.get_filename())
   end, { desc = 'open LSP [l]og' })
 
-  if clangd.install then
-    require('nvimpio.clangd.config')
-  end
+  if clangd.install then require('nvimpio.clangd.config') end
 end
+
+-- stylua: ignore end
 
 return M

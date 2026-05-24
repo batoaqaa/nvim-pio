@@ -167,7 +167,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
       require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
         if is_successful then
           -- OS.notify('Database is ready. Proceeding with analysis...')
-          clangd.getUnknownArgs(from)
+          clangd.getUnknownArgsCli(from)
         else
           OS.notify('Skipping next steps due to compilation database failure.', 'error')
         end
@@ -998,7 +998,7 @@ function M.handleIdedata0(result, active_env, on_done)
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
     vim.defer_fn(function()
-      require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
+      require('nvimpio.clangd.control').getUnknownArgsCli(fromMsg)
     end, 50) -- 50ms delay, adjust as needed
     if on_done and type(on_done) == 'function' then on_done(true) end
     -- vim.schedule(function()
@@ -1175,7 +1175,7 @@ function M.handlePiolib(result)
     vim.schedule(function()
       OS.notify('PIO lib+db: Done', "info")
       M.pio_refresh(function(success)
-        if success then clangd.getUnknownArgs('PIO lib+db: ') end
+        if success then clangd.getUnknownArgsCli('PIO lib+db: ') end
       end, 'PIO lib+db: ')
     end)
     if trm then trm:close() end
