@@ -157,7 +157,7 @@ function M.start_watchers()
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function(success)
                 if success then
-                  clangd.getUnknownArgsCli('PIO platformio.ini  change: ')
+                  -- clangd.getUnknownArgsCli('PIO platformio.ini  change: ')
                   if _G.metadata then _G.metadata.isBusy = false end
                 end
                 self.isBusy = false
