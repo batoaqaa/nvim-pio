@@ -163,6 +163,11 @@ CompileFlags:
     "-Wno-unknown-warning-option",
     "-Wno-unused-includes",
     ]
+Tweaks:
+  Disable: [
+    "SwapBinaryOperands",
+    "ExtractFunction",
+  ]
 Diagnostics:
   Suppress:  [
     "pp_file_not_found",
