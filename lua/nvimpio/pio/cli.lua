@@ -1,25 +1,23 @@
 local M = {}
 
+---@diaglist disable-next-line: undefined-field
+local uv = vim.uv or vim.loop -- Handles backward compatibility across Neovim versions
+
 local ToggleTerminal = require('nvimpio.utils.term').ToggleTerminal
 local misc = require('nvimpio.utils.misc')
-
 
 -- stylua: ignore start
 --INFO: Generate idedata.json
 ------------------------------------------------------------------------------------
 function M.buildIdedata(from, active_env, cb)
   OS.notify(from .. 'Initializing project metadata...', "info")
-  vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
+  vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { timeout = 60000, text = true }, function(obj)
     vim.schedule(function()
       local ok = (obj.code == 0)
       if ok == 0 then
         OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), 'info')
-        -- Execute recursive check loop to accurately verify and load newly compiled files
-        -- if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
-        -- else fire_callback(false) end
       else
         OS.notify(from .. 'Initialization failed. Build project manually.: ' .. obj.stderr, "error")
-        -- fire_callback(false)
       end
 
       if cb and type(cb) == "function" then cb(ok) end
@@ -33,13 +31,25 @@ end
 function M.buildCompileDB(from, active_env, cb)
   active_env = active_env or _G.metadata.active_env
   OS.notify(from .. 'Initializing project compiledb ...', "info")
-  vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { text = true }, function(obj)
+  vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { timeout = 60000,  text = true }, function(obj)
     vim.schedule(function()
       local ok = (obj.code == 0)
-
       if ok == 0 then OS.notify(from .. 'build compiledb success.', "info")
-      else OS.notify(from .. 'build compiledb failed ' .. obj.stderr, "error") end
+      else
+        OS.notify(from .. 'build compiledb failed ' .. obj.stderr, "error")
 
+        local error_text = uv["strerror"](obj.code) or "Unknown System Error"
+        -- local error_text = uv.strerror(obj.code) or "Unknown System Error"
+
+        -- Fallback capture: If the process was violently terminated by a signal instead
+        if obj.signal and obj.signal > 0 then
+          error_text = "Process killed by Signal (" .. obj.signal .. ")"
+        end
+
+        -- Log the readable text message clearly alongside stderr logs
+        local final_msg = string.format("build failed: %s\n%s", error_text, obj.stderr or '')
+        OS.notify(from .. final_msg, "error")
+      end
       if cb and type(cb) == "function" then cb(ok) end
     end)
   end)
