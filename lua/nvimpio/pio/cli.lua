@@ -37,7 +37,7 @@ function M.buildIdedata(from, active_env, cb)
   vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { timeout = 60000, text = true }, function(obj)
     vim.schedule(function()
       local ok = (obj.code == 0)
-      if ok == 0 then
+      if ok then
         OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), 'info')
       else
         notify_system_error(from, 'build idedata failed: ', obj)
