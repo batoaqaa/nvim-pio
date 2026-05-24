@@ -293,7 +293,7 @@ function M.getUnknownArgsGui(from)
 
 -- C:/Users/batoaqaa/AppData/Local/nvim-data/mason/bin/clangd.cmd --compile-commands-dir=. --check=C:/VSCode/data/Projects/Digital-Wall-Clock-Long-ESP32S3-Pray5/src/mainClock.cpp --query-driver=C:/Users/batoaqaa/.platformio/esp32s3/packages/toolchain-xtensa-esp32s3/bin/xtensa-esp32s3-elf-* --log=error
 -- "--fallback-style=llvm" --compile_args_from=filesystem -- -Wno-unknown-argument && echo _CMMNDS_0001:DONE || echo _CMMNDS_0001:FAIL
-    local cmd_str = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error --fallback-style=llvm" --compile_args_from=filesystem -- -Wno-unknown-argument', clangdCmd, check_file, _G.metadata.query_driver)
+    local cmd_str = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error --fallback-style=llvm --compile_args_from=filesystem -Wno-unknown-argument', clangdCmd, check_file, _G.metadata.query_driver)
     local pio = require('nvimpio.pio.upkeep')
     local cb = function(status)
       pio.handleClangdCheck(status, function(success, args_table)
