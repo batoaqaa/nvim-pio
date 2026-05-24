@@ -35,18 +35,18 @@ vim.api.nvim_create_autocmd('LspAttach', {
           end, bufnr)
         end, { desc = 'Switch between source/header' })
 
-        client.handlers['textDocument/publishDiagnostics'] = function(_, result, ctx) -- Removed config here
-          local filtered = {}
-          for _, diagnostic in ipairs(result.diagnostics) do
-            if not string.match(diagnostic.message, 'too many arguments') then
-              table.insert(filtered, diagnostic)
-            end
-          end
-          result.diagnostics = filtered
-
-          -- Pass exactly 3 arguments to avoid the warning
-          vim.lsp.diagnostic.on_publish_diagnostics(_, result, ctx)
-        end
+        -- client.handlers['textDocument/publishDiagnostics'] = function(_, result, ctx) -- Removed config here
+        --   local filtered = {}
+        --   for _, diagnostic in ipairs(result.diagnostics) do
+        --     if not string.match(diagnostic.message, 'too many arguments') then
+        --       table.insert(filtered, diagnostic)
+        --     end
+        --   end
+        --   result.diagnostics = filtered
+        --
+        --   -- Pass exactly 3 arguments to avoid the warning
+        --   vim.lsp.diagnostic.on_publish_diagnostics(_, result, ctx)
+        -- end
       end
 
       -- use lsp completion if no blink

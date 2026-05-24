@@ -101,6 +101,24 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
+  -- 1. Dynamically inject the Lua filter function into the parsed table
+  clangd_config.handlers = {
+    ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+      if result and result.diagnostics then
+        local filtered = {}
+        for _, diagnostic in ipairs(result.diagnostics) do
+          -- Strip out the ESPAsyncWebServer macro expansion error instantly
+          if not string.match(diagnostic.message, "too many arguments") then
+            table.insert(filtered, diagnostic)
+          end
+        end
+        result.diagnostics = filtered
+      end
+      -- Pass cleanly down to the Neovim 0.11 global LSP handler
+      vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
+    end,
+  }
+
   if clangd_config then return clangd_config end
 end
 
