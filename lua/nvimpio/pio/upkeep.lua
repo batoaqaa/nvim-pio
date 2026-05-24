@@ -191,7 +191,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
             check_file = vim.uv.cwd() .. '/src/main.cpp'
           end
           -- local argscmd = string.format('%s --compile-commands-dir=. --check=%s --log=error', clangdCmd, check_file)
-          local argscmd = string.format('%s --compile-commands-dir=. --check=%s --query_driver=%s --log=error', clangdCmd, check_file, _G.metadata.query_driver)
+          local argscmd = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error', clangdCmd, check_file, _G.metadata.query_driver)
           local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
           -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
           M.run_sequence({ cmnds = { dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ', from) })
@@ -249,7 +249,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
       check_file = vim.uv.cwd() .. '/src/main.cpp'
     end
     -- local argscmd = string.format('%s --compile-commands-dir=. --check=%s --log=error', clangdCmd, check_file)
-    local argscmd = string.format('%s --compile-commands-dir=. --check=%s --query_driver=%s --log=error', clangdCmd, check_file, _G.metadata.query_driver)
+    local argscmd = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error', clangdCmd, check_file, _G.metadata.query_driver)
     local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
     local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
     -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
