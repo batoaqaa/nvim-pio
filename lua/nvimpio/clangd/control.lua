@@ -128,17 +128,39 @@ function M.getClangdConfig()
 
         for _, diagnostic in ipairs(result.diagnostics) do
           local code = diagnostic.code or ""
+          local msg = (diagnostic.message or ""):lower()
 
-          -- 🛡️ SAFETY CHECK: If it's a fatal error that breaks normal compilation (Severity 1),
-          -- AND it's not part of the broken microcontroller macro, keep it visible!
-          if diagnostic.severity == 1 and not vs_code_blocklist[code] then
+          -- DYNAMIC DETECTION: Catch errors by code name OR by explicit message text patterns
+          local is_driver_noise = vs_code_blocklist[code]
+                               or string.match(msg, "unknown argument")
+                               or string.match(msg, "%-mlongcalls")
+
+          -- 1. If it's a driver/macro configuration error, skip it completely
+          if is_driver_noise then
+            -- Drop it silently, exactly like VS Code does!
+
+          -- 2. If it's any other genuine fatal compilation error, pass it to the screen
+          elseif diagnostic.severity == 1 then
             table.insert(filtered, diagnostic)
 
-          -- 🛑 WARNING FILTER: If it matches a warning or code inside our blocklist, skip it natively
+          -- 3. Otherwise, pass normal warnings through if they aren't blocked
           elseif not vs_code_blocklist[code] then
             table.insert(filtered, diagnostic)
           end
         end
+        -- for _, diagnostic in ipairs(result.diagnostics) do
+        --   local code = diagnostic.code or ""
+        --
+        --   -- 🛡️ SAFETY CHECK: If it's a fatal error that breaks normal compilation (Severity 1),
+        --   -- AND it's not part of the broken microcontroller macro, keep it visible!
+        --   if diagnostic.severity == 1 and not vs_code_blocklist[code] then
+        --     table.insert(filtered, diagnostic)
+        --
+        --   -- 🛑 WARNING FILTER: If it matches a warning or code inside our blocklist, skip it natively
+        --   elseif not vs_code_blocklist[code] then
+        --     table.insert(filtered, diagnostic)
+        --   end
+        -- end
 
         -- Swap the cluttered diagnostics package out for our clean, pristine table array
         result.diagnostics = filtered
