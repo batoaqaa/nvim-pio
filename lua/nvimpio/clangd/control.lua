@@ -108,10 +108,17 @@ function M.getClangdConfig()
       if result and result.diagnostics then
         local filtered = {}
         for _, diagnostic in ipairs(result.diagnostics) do
-          -- Strip out the ESPAsyncWebServer macro expansion error instantly
-          if not string.match(diagnostic.message, "too many arguments") then
+          local msg = diagnostic.message:lower()
+          -- Drop macro errors, tweak errors, and unknown flag warnings silently
+          if not string.match(msg, "too many arguments")
+             and not string.match(msg, "tweak:")
+             and not string.match(msg, "mlongcalls") then
             table.insert(filtered, diagnostic)
           end
+          -- -- Strip out the ESPAsyncWebServer macro expansion error instantly
+          -- if not string.match(diagnostic.message, "too many arguments") then
+          --   table.insert(filtered, diagnostic)
+          -- end
         end
         result.diagnostics = filtered
       end
