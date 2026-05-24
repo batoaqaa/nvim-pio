@@ -90,6 +90,18 @@ vim.api.nvim_create_autocmd('LspAttach', {
         --
       end
 
+      -- if client and client:supports_method("textDocument/publishDiagnostics") then
+      --   local filtered_diagnostics = {}
+      --   for _, diagnostic in ipairs(result.diagnostics) do
+      --     -- Skip the annoying macro argument warning completely
+      --     if not string.match(diagnostic.message, "too many arguments provided") then
+      --       table.insert(filtered_diagnostics, diagnostic)
+      --     end
+      --   end
+      --   result.diagnostics = filtered_diagnostics
+      --   vim.lsp.diagnostic.on_publish_diagnostics(_, result, ctx, config)
+      -- end
+
       ------------------------------------------------------------------
       local lspkeymaps = require('nvimpio.clangd.keymaps')
       lspkeymaps.lspKeymaps(client, bufnr)

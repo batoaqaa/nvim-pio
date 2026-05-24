@@ -163,13 +163,9 @@ CompileFlags:
     "-Wno-unknown-warning-option",
     "-Wno-unused-includes",
     ]
-Tweaks:
-  Disable: [
-    "SwapBinaryOperands",
-    "ExtractFunction",
-  ]
 Diagnostics:
   Suppress:  [
+    "macro_too_many_args",
     "pp_file_not_found",
     "pp_file_not_found_angled_not_fatal",
     "pp_included_file_not_found",
