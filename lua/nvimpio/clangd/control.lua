@@ -290,7 +290,8 @@ function M.getUnknownArgsGui(from)
     --------------------------------------------------------------------------------
     --------------------------------------------------------------------------------
     -- gui
-    local cmd_str = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error', clangdCmd, check_file, _G.metadata.query_driver)
+
+    local cmd_str = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error -Wno-unknown-argument --change-cognitive-reasons=false', clangdCmd, check_file, _G.metadata.query_driver)
     local pio = require('nvimpio.pio.upkeep')
     local cb = function(status)
       pio.handleClangdCheck(status, function(success, args_table)
