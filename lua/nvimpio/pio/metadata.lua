@@ -199,18 +199,16 @@ function M.load_project_config()
     end
   end
 
-  -- local pio = require('nvimpio.pio.upkeep')
-  local active_env, metadata = M.get_active_env('meta load: ')
-  -- local active_env, metadata = pio.get_active_env('meta load: ')
-  if active_env and active_env ~= '' then
-    metadata = metadata or {}
-    _pio_metadata.core_dir = metadata.core_dir
-    _pio_metadata.packages_dir = metadata.packages_dir
-    _pio_metadata.platforms_dir = metadata.platforms_dir
-    _pio_metadata.default_envs = metadata.default_envs
-    _pio_metadata.envs = metadata.envs
-    _G.metadata.active_env = active_env
-  end
+  -- local active_env, metadata = M.get_active_env('meta load: ')
+  -- if active_env and active_env ~= '' then
+  --   metadata = metadata or {}
+  --   _pio_metadata.core_dir = metadata.core_dir
+  --   _pio_metadata.packages_dir = metadata.packages_dir
+  --   _pio_metadata.platforms_dir = metadata.platforms_dir
+  --   _pio_metadata.default_envs = metadata.default_envs
+  --   _pio_metadata.envs = metadata.envs
+  --   _G.metadata.active_env = active_env
+  -- end
 
   -- If no file, initialize hash with defaults
   last_saved_hash = vim.fn.sha256(misc.jsonFormat(_pio_metadata))
