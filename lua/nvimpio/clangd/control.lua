@@ -211,7 +211,8 @@ function M.getUnknownArgs(from)
 
     OS.notify('getting unknown arguments for file ' .. check_file)
     --------------------------------------------------------------------------------
-    local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
+    -- cli
+    local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--query-driver=' .. _G.metadata.query_driver, '--log=error' }
     vim.system(cmd, { text = true }, function(obj)
       vim.schedule(function()
         local output = (obj.stdout or '') .. (obj.stderr or '')
@@ -240,7 +241,8 @@ function M.getUnknownArgs(from)
     end)
 
     --------------------------------------------------------------------------------
-    -- local cmd_str = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
+    -- gui
+    -- local cmd_str = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error', clangdCmd, check_file, _G.metadata.query_driver)
     -- local pio = require('nvimpio.pio.upkeep')
     -- local cb = function(status)
     --   pio.handleClangdCheck(status, function(success, args_table)
