@@ -212,7 +212,8 @@ function M.getUnknownArgs(from)
     OS.notify('getting unknown arguments for file ' .. check_file)
     --------------------------------------------------------------------------------
     -- cli
-    local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--query-driver=' .. _G.metadata.query_driver, '--log=error' }
+    -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--query-driver=' .. _G.metadata.query_driver, '--log=error' }
+    local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
     vim.system(cmd, { text = true }, function(obj)
       vim.schedule(function()
         local output = (obj.stdout or '') .. (obj.stderr or '')
