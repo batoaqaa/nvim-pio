@@ -166,7 +166,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
       -- cli
       require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
         if is_successful then
-          OS.notify('Database is ready. Proceeding with analysis...')
+          -- OS.notify('Database is ready. Proceeding with analysis...')
           clangd.getUnknownArgs(from)
         else
           OS.notify('Skipping next steps due to compilation database failure.', 'error')
@@ -214,13 +214,12 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- cli
   require('nvimpio.pio.cli').buildIdedata(from, active_env, function(is_successful)
     if is_successful then
-      OS.notify('Idedata is ready. Proceeding with analysis...')
+      -- OS.notify(from .. 'Idedata is ready. Proceeding with analysis...')
         -- Execute recursive check loop to accurately verify and load newly compiled files
       if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
       else fire_callback(false) end
-      -- clangd.getUnknownArgs(from)
     else
-      OS.notify('Skipping next steps due to compilation idedata failure.', 'error')
+      OS.notify(from .. 'Skipping next steps due to compilation idedata failure.', 'error')
       fire_callback(false)
     end
   end)
