@@ -37,16 +37,21 @@ function M.buildCompileDB(from, active_env, cb)
       if ok == 0 then OS.notify(from .. 'build compiledb success.', "info")
       else
         OS.notify(from .. 'build compiledb failed ' .. obj.stderr, "error")
-        local error_text = uv['strerror'](-obj.code) or uv['strerror'](obj.code)
+        local error_map = {
+          [1]   = "PlatformIO general execution failure (Check your code code syntax or profile constraints)",
+          [2]   = "Configuration file formatting conflict (Check your platformio.ini structure)",
+          [124] = "Asynchronous timeout operation exceeded limits",
+          [127] = "Executable environment missing (PlatformIO command 'pio' was not found in your $PATH system variables)"
+        }
 
-        -- If both lookups fail to map a string description, provide a clean numerical fallback
-        if not error_text then
-          error_text = "OS Exit Code " .. tostring(obj.code)
-        end
+        -- Resolve the text message using the lookup table, falling back to the raw integer code
+        local error_text = error_map[obj.code] or string.format("OS Shell Exit Code (%d)", obj.code)
 
-        -- Safe concatenation that guarantees no nil extraction crashes can bubble up
-        local err_log = obj.stderr or 'No standard error log generated.'
-        OS.notify(from .. 'build compiledb failed: ' .. error_text .. '\nDetails: ' .. err_log, "error")
+        -- Safely grab the standard error block, or default to an empty string if it's missing
+        local details = (obj.stderr and obj.stderr ~= "") and ("\nDetails: " .. obj.stderr) or ""
+
+        -- Execute the notification safely without any nil value crashes bubbling up!
+        OS.notify(from .. 'build compiledb failed: ' .. error_text .. details, "error")
       end
       if cb and type(cb) == "function" then cb(ok) end
     end)
