@@ -2,7 +2,7 @@
 
 -- 1. Gather all the data first
 local sysname = vim.uv.os_uname().sysname
-local is_win = (sysname:find('Windows') or vim.fn.has('win32') == 1)
+local is_win = (sysname:find('Windows') or vim.fn.has('win32') == 1 or vim.fn.has("win64") == 1)
 local is_mac = sysname == 'Darwin'
 local is_linux = sysname == 'Linux'
 -- Check for WSL
