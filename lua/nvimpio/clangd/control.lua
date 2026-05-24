@@ -189,7 +189,6 @@ function M.getUnknownArgs(from)
     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
     check_file = vim.uv.cwd() .. '/src/main.cpp'
-    -- return
   else
     -- OS.notify(string.format('%s %s found to check.',from, check_file), 'info')
   end
@@ -197,23 +196,27 @@ function M.getUnknownArgs(from)
   -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
   M.clangdIntall(function(clangdCmd)
 
+    -- local output_chunks = {}
+    -- local clangd_cmd = { "clangd", "--compile-commands-dir=.", "--check=" .. check_file, "--log=error" }
+    -- -- 3. Run in a completely isolated background thread pool
+    -- vim.system(clangd_cmd, {
+    --   text = true,
+    --   -- ⏳ THE BULLETPROOF TIMEOUT: Native OS process monitoring.
+    --   -- Sets a generous maximum hard cutoff time limit (e.g., 60 seconds)
+    --   -- to comfortably accommodate slow platform installations or library downloads.
+    --   timeout = 60000,
+    --   stdout = function(_, data) if data then table.insert(output_chunks, data) end end,
+    --   stderr = function(_, data) if data then table.insert(output_chunks, data) end end,
+    -- }, function(obj)
+    --   vim.schedule(function()
+    --   end)
+    -- end)
 
-    local output_chunks = {}
-    local clangd_cmd = { "clangd", "--compile-commands-dir=.", "--check=" .. check_file, "--log=error" }
-
-    -- 3. Run in a completely isolated background thread pool
-    vim.system(clangd_cmd, {
-      text = true,
-      -- ⏳ THE BULLETPROOF TIMEOUT: Native OS process monitoring.
-      -- Sets a generous maximum hard cutoff time limit (e.g., 60 seconds)
-      -- to comfortably accommodate slow platform installations or library downloads.
-      timeout = 60000,
-      stdout = function(_, data) if data then table.insert(output_chunks, data) end end,
-      stderr = function(_, data) if data then table.insert(output_chunks, data) end end,
-    }, function(obj)
+    --------------------------------------------------------------------------------
+    local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
+    vim.system(cmd, { text = true }, function(obj)
       vim.schedule(function()
-      -- Merge all captured output streams natively into one clean historic log block
-      local output = table.concat(output_chunks)
+        local output = (obj.stdout or '') .. (obj.stderr or '')
         local args_table = {}
         local seen = {} -- 🌟 Look-up filter to prevent duplicate flags
 
@@ -221,6 +224,7 @@ function M.getUnknownArgs(from)
         if not string.find(output, "%.clang%-format") then
           for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
             local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
+
             -- ✅ Only save the flag if we haven't encountered it yet on this run
             if not seen[clean_flag] then
               seen[clean_flag] = true
@@ -228,7 +232,7 @@ function M.getUnknownArgs(from)
             end
           end
         end
-
+        -- 4. UPDATE: Rebuild with the new discovered flags
         boilerplate.args = args_table
         boilerplate_gen('.clangd', vim.g.platformioRootDir)
 
@@ -236,39 +240,6 @@ function M.getUnknownArgs(from)
         M.restart()
       end)
     end)
-
-
-
-    --------------------------------------------------------------------------------
-    -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
-    -- vim.system(cmd, { text = true }, function(obj)
-    --   vim.schedule(function()
-    --     local output = (obj.stdout or '') .. (obj.stderr or '')
-    --     local args_table = {}
-    --     local seen = {} -- 🌟 Look-up filter to prevent duplicate flags
-    --
-    --     -- Extract anything clangd reports as an 'unknown argument'
-    --     if not string.find(output, "%.clang%-format") then
-    --       for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
-    --         -- table.insert(args_table, string.format('"%s"', arg:gsub('[;%.]$', '')))
-    --
-    --         local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
-    --
-    --         -- ✅ Only save the flag if we haven't encountered it yet on this run
-    --         if not seen[clean_flag] then
-    --           seen[clean_flag] = true
-    --           table.insert(args_table, clean_flag)
-    --         end
-    --       end
-    --     end
-    --     -- 4. UPDATE: Rebuild with the new discovered flags
-    --     boilerplate.args = args_table
-    --     boilerplate_gen('.clangd', vim.g.platformioRootDir)
-    --
-    --     OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
-    --     M.restart()
-    --   end)
-    -- end)
 
     --------------------------------------------------------------------------------
     -- local cmd_str = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
