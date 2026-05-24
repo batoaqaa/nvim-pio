@@ -67,7 +67,8 @@ vim.api.nvim_set_hl(0, 'PioStatus', {
 -- INFO: Set diagnostic config
 vim.diagnostic.config({
   virtual_lines = true,
-  update_in_insert = true,
+  virtual_text = false,
+  update_in_insert = false,
   underline = true,
   severity_sort = true,
   float = {

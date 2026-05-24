@@ -107,18 +107,29 @@ function M.getClangdConfig()
     ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
       if result and result.diagnostics then
         local filtered = {}
+
         for _, diagnostic in ipairs(result.diagnostics) do
-          local msg = diagnostic.message:lower()
-          -- Drop macro errors, tweak errors, and unknown flag warnings silently
-          if not string.match(msg, "too many arguments")
-             and not string.match(msg, "tweak:")
-             and not string.match(msg, "mlongcalls") then
+          local code = diagnostic.code or ""
+          -- Neovim maps DiagnosticSeverity.Error directly to the integer 1
+          local is_fatal_error = (diagnostic.severity == 1)
+
+          -- 🛡️ SAFETY SHIELD: If it's a fatal error that breaks compilation, 
+          -- NEVER hide it, regardless of what the code name is.
+          if is_fatal_error then
             table.insert(filtered, diagnostic)
+          else
+            -- 🛑 WARNING FILTER: Only filter out non-fatal warning noise families
+            local is_unsupported_flag = string.match(code, "^drv_")
+            local is_macro_conflict   = string.match(code, "^macro_") or string.match(code, "^pp_")
+            local is_target_clash     = string.match(code, "^err_target")
+                                        or code == "redefinition_different_typedef"
+                                        or code == "unused_macro_definition"
+
+            -- If it's a normal warning but NOT part of our microcontroller noise list, keep it
+            if not (is_unsupported_flag or is_macro_conflict or is_target_clash) then
+              table.insert(filtered, diagnostic)
+            end
           end
-          -- -- Strip out the ESPAsyncWebServer macro expansion error instantly
-          -- if not string.match(diagnostic.message, "too many arguments") then
-          --   table.insert(filtered, diagnostic)
-          -- end
         end
         result.diagnostics = filtered
       end
