@@ -185,12 +185,9 @@ function M.getUnknownArgs(from)
   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
 
   if not check_file then
-    -- OS.notify(from .. ' No source file found to check.', 'info')
     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
     check_file = vim.uv.cwd() .. '/src/main.cpp'
-  else
-    -- OS.notify(string.format('%s %s found to check.',from, check_file), 'info')
   end
 
   -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)

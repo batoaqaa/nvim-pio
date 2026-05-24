@@ -10,7 +10,8 @@
 -- INFO: update/generate compileDB
 ----------------------------------------------------------------
 vim.api.nvim_create_user_command('PioCompileDB', function()
-    require('nvimpio.pio.ui.pioCompileDB').pioCompileDB()
+  -- require('nvimpio.pio.upkeep.cli').buildCompileDB(':PioCompileDB', _G.metadata.active_env)
+  require('nvimpio.pio.ui.pioCompileDB').pioCompileDB()
 end, { desc = "Install PlatformIO Core" })
 
 -- INFO: Switch Environment

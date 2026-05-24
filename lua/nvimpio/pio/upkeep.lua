@@ -41,7 +41,6 @@ function M.get_sysroot_triplet(cc_compiler)
   local sysroot = misc.normalizePath(toolchain_root .. '/' .. triplet)
   local query_driver = misc.normalizePath(bin_path .. '/' .. triplet .. '-*')
 
-  -- OS.notify('triplet= ' .. triplet, "info")
   -- Only return data if the sysroot folder actually exists on disk
   if vim.fn.isdirectory(sysroot) == 1 then
     _G.metadata.triplet = triplet
@@ -92,333 +91,44 @@ end
 --   end
 --   return paths
 -- end
--- >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
--- Latest
 
--- //////////////////////////////////////////////////////////////////////////////
 
--- stylua: ignore start
--- 1. Helper: Converts raw string properties to numbers, string arrays, or defaults
--- local function normalize_value(key, value)
---   if not value or value == "" then
---     return (key == "extra_scripts" or key == "default_envs") and {} or ""
---   end
---   if key == "default_envs" or key == "extra_scripts" then
---     return vim.split(value, "[%s,]+", { trimempty = true })
---   end
---   return tonumber(value) or value
--- end
---
--- -- 2. Helper: Recursively interpolates ${platformio.core_dir} or ${this.board} tokens
--- local function interpolate(text, current_env, pio_vars, base_env, raw_envs)
---   if type(text) ~= "string" or not text:match("%$%{.-%}") then return text end
---
---   local resolved = (text:gsub("%$%{([^}]+)%}", function(token)
---     if token:match("^platformio%.") then
---       return pio_vars[token:gsub("^platformio%.", "")] or ""
---     end
---     if token:match("^this%.") and current_env and raw_envs[current_env] then
---       local key = token:gsub("^this%.", "")
---       return raw_envs[current_env][key] or base_env[key] or ""
---     end
---     return "${" .. token .. "}"
---   end))
---
---   return (resolved ~= text) and interpolate(resolved, current_env, pio_vars, base_env, raw_envs) or resolved
--- end
---
--- -- 3. Pure Data Pipeline (No Global Side-Effects)
--- function M.get_active_env(from)
---   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
---   local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
---
---   if vim.fn.filereadable(path) == 0 then
---     OS.notify(from .. 'platformio.ini not found in workspace.', 'error')
---     return nil, {}
---   end
---   local ok, content = misc.readFile(path)
---   if not ok or not content then
---     OS.notify(from .. 'Could not read platformio.ini at ' .. path, 'warn')
---     return nil, {}
---   end
---
---   local pio_vars, base_env, raw_envs, current_sec = {}, {}, {}, nil
---
---   -- Parse configuration line-by-line without collapsing spaces
---   for line in vim.gsplit(content, '\n') do
---     line = line:gsub('\r$', ''):gsub('^%s+', ''):gsub('%s+$', ''):gsub('%s*[;#].*$', '')
---     local sec = line:match('^%[(.+)%]$')
---
---     if sec then
---       current_sec = sec
---       local env_name = sec:match('^env:(.+)$')
---       if env_name then raw_envs[env_name] = raw_envs[env_name] or {} end
---     elseif current_sec and line ~= '' then
---       local k, v = line:match('^%s*([%w_%-]+)%s*=%s*(.-)%s*$')
---       if k and v then
---         if current_sec == 'platformio' then pio_vars[k] = vim.trim(v)
---         elseif current_sec == 'env' then base_env[k] = vim.trim(v)
---         elseif current_sec:match('^env:') then raw_envs[current_sec:match('^env:(.+)$')][k] = vim.trim(v) end
---       end
---     end
---   end
---
---   if not next(raw_envs) then
---     OS.notify(from .. 'No active environments found in platformio.ini', 'warn')
---     return nil, {}
---   end
---
---   -- Construct final metadata response schema
---   local storage_fallback = require('nvimpio').config.pio_storage_dir or "~/.platformio"
---   local metadata = {
---     core_dir = interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs),
---     packages_dir = interpolate(pio_vars.packages_dir or "${platformio.core_dir}/packages", nil, pio_vars, base_env, raw_envs),
---     platforms_dir = interpolate(pio_vars.platforms_dir or "${platformio.core_dir}/platforms", nil, pio_vars, base_env, raw_envs),
---     default_envs = normalize_value('default_envs', pio_vars.default_envs),
---     envs = {}
---   }
---
---   -- Merge [env] defaults down into each specific profile block
---   for env, locals in pairs(raw_envs) do
---     metadata.envs[env] = vim.tbl_deep_extend("force", base_env, locals)
---     for k, v in pairs(metadata.envs[env]) do
---       metadata.envs[env][k] = normalize_value(k, interpolate(v, env, pio_vars, base_env, raw_envs))
---     end
---     metadata.envs[env].extra_scripts = metadata.envs[env].extra_scripts or {}
---   end
---
---   -- Determine active environment order target (INI Default -> First Valid)
---   local target = nil
---   local def_envs = metadata.default_envs -- Extract to a local variable
---
---   if type(def_envs) == 'table' then
---     for _, env_name in ipairs(def_envs) do -- LSP knows 'def_envs' is safely a table here
---       if metadata.envs[env_name] then
---         target = env_name
---         break
---       end
---     end
---   end
---   --
---   -- if meta.envs and meta.envs[target_env] ~= nil then
---   --vim.tbl_keys(meta.envs)
---   target = target or (metadata.envs[_G.metadata.active_env] and _G.metadata.active_env) or next(metadata.envs)
---
---   return target, metadata
--- end
--- stylua: ignore end
-
---========================================================================================
-------------------------------------------------------------------------------
--- Start
-------------------------------------------------------------------------------
---
--- Helper: Splits string parameters by comma delimiters into clean arrays
--- stylua: ignore
--- local function split_comma_array(str)
---   if not str or str == "" then return {} end
---   local res = {}
---   for item in str:gmatch("([^%s,]+)") do table.insert(res, item) end
---   return res
--- end
---
--- -- Helper: Converts value strings into proper data types (Numbers, Lists, or Strings)
--- -- stylua: ignore
--- local function normalize_value(key, val)
---   val = vim.trim(val)
---   if val == '' then return {} end
---
---   local num = tonumber(val)
---   if num then return num end
---
---   -- if key == "framework" or key == "extra_scripts" or key == "default_envs" then
---   if key == 'extra_scripts' or key == 'default_envs' then return split_comma_array(val) end
---
---   return val
--- end
--- -- Helper: Replaces ${platformio.core_dir} syntax with its actual absolute value string
--- -- stylua: ignore
--- local function interpolate_string(val, platformio_lookup)
---   if type(val) ~= 'string' then return val end
---
---   return val:gsub('%${platformio%.([%w_]+)}', function(matched_key)
---     local replacement = platformio_lookup[matched_key] or ''
---     -- Use forward slashes natively or match your precise formatting configuration
---     return replacement
---   end)
--- end
---
--- -- Combined Orchestrator: Parses platformio.ini, populates _G.metadata, returns active_env
--- -- stylua: ignore
--- function M.get_active_env(from)
---   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
---
---   local metadata = {
---     envs = {},
---     core_dir = '',
---     packages_dir = '',
---     platforms_dir = '',
---     default_envs = {}
---   }
---
---   -- 1. Pin the file check strictly to the current working directory (CWD)
---   local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
---   if vim.fn.filereadable(path) == 0 then
---     OS.notify(from .. 'platformio.ini not found in current working directory.', 'error')
---     return nil, {}
---   end
---
---   local ok, content = misc.readFile(path)
---   if not ok or not content then
---     OS.notify(from .. 'Could not read platformio.ini at ' .. path, 'warn')
---     return nil, {}
---   end
---
---   -- Temp tracking containers to hold line state during parsing
---   local global_env_defaults = {}
---   local platformio_vars = {}
---   local raw_envs = {}
---   local current_section = nil
---   local default_envs_raw = ''
---
---   -- 2. Line parsing pass with rigorous comment and space stripping
---   for line in vim.gsplit(content, '[\r\n]+') do
---     line = line:gsub('%s*[;#].*$', ''):gsub('^%s+', ''):gsub('%s+$', '')
---
---     if line ~= '' then
---       local section = line:match('^%[(.+)%]$')
---       if section then
---         current_section = section
---         if section:match('^env:') then
---           local env_name = section:match('^env:(.+)')
---           raw_envs[env_name] = {}
---         end
---       elseif current_section then
---         local key, val = line:match('^%s*([%w_%-]+)%s*=%s*(.-)%s*$')
---         if key and val then
---           val = vim.trim(val)
---           if current_section == 'platformio' then
---             platformio_vars[key] = val
---             if key == 'default_envs' then default_envs_raw = val end
---           elseif current_section == 'env' then global_env_defaults[key] = val
---           elseif current_section:match('^env:') then
---             local env_name = current_section:match('^env:(.+)')
---             raw_envs[env_name][key] = val
---           end
---         end
---       end
---     end
---   end
---
---   -- 3. Verify that the file actually contains hardware environment declarations
---   if next(raw_envs) == nil then
---     OS.notify(from .. 'No active environments found in platformio.ini', 'warn')
---     if _G.metadata then _G.metadata.active_env = '' end
---     return nil, {}
---   end
---
---   -- 4. Initialize or clear the target global structure to mirror your requested dictionary layout
---   -- _G.metadata.core_dir = interpolate_string(platformio_vars.core_dir or '', platformio_vars) or require('nvimpio').config.pio_storage_dir
---   metadata.core_dir = interpolate_string(platformio_vars.core_dir or '', platformio_vars) or require('nvimpio').config.pio_storage_dir
---   -- _G.metadata.packages_dir = interpolate_string(platformio_vars.packages_dir or '', platformio_vars)
---   metadata.packages_dir = interpolate_string(platformio_vars.packages_dir or '', platformio_vars)
---   -- _G.metadata.platforms_dir = interpolate_string(platformio_vars.platforms_dir or '', platformio_vars)
---   metadata.platforms_dir = interpolate_string(platformio_vars.platforms_dir or '', platformio_vars)
---   -- _G.metadata.default_envs = normalize_value('default_envs', default_envs_raw)
---   metadata.default_envs = normalize_value('default_envs', default_envs_raw)
---   -- _G.metadata.envs = {}
---   metadata.envs = {}
---
---   -- 5. Inject common properties, expand path string tokens, apply real data types
---   for env_name, local_pairs 'in pairs(raw_envs) do
---     metadata.envs[env_name] = {}
---
---     -- Load base properties from common [env] section
---     for k, v in pairs(global_env_defaults) do metadata.envs[env_name][k] = v end
---
---     -- Mix in specific board properties (overwriting common presets if declared)
---     for k, v in pairs(local_pairs) do metadata.envs[env_name][k] = v end
---
---     -- Run values normalization and token transformations
---     for k, v in pairs(metadata.envs[env_name]) do
---       local interpolated = interpolate_string(v, platformio_vars)
---       metadata.envs[env_name][k] = normalize_value(k, interpolated)
---     end
---
---     -- Ensure required structure arrays are instantiated even if left blank by user text rows
---     if metadata.envs[env_name].extra_scripts == nil then
---       metadata.envs[env_name].extra_scripts = {}
---     end
---   end
---
---   print(from)
---   print(vim.inspect(metadata))
---   -- 6. RESOLVE ACTIVE SELECTION (3-TIER PRIORITY WATERFALL)
---   -- Priority 1: Retain the active string selection if it remains valid and present
---   if _G.metadata.active_env and metadata.envs[_G.metadata.active_env] then
---     return _G.metadata.active_env, metadata
---   end
---
---   -- Priority 2: Fall back to variables listed in the parsed default_envs array parameters
---   local def_envs = metadata.default_envs
---   if type(def_envs) == 'table' then
---     for _, env_name in ipairs(def_envs) do
---       if metadata.envs[env_name] then
---         -- _G.metadata.active_env = env_name
---         return env_name, metadata
---       end
---     end
---   end
---
---   -- Priority 3: Fall back to the very first available board key configuration found
---   local first_valid = next(metadata.envs)
---   if first_valid then
---     -- _G.metadata.active_env = first_valid
---     return first_valid, metadata
---   end
---
---   return nil
--- end
---========================================================================================
-
---INFO:
--- get pio project metadata info
+--=============================================================================
+--INFO:get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
 local refreshBusy = false
 -- stylua: ignore
---=============================================================================
-
 fetch_metadata = function(callback, active_env, from, attempts)
-  from = (type(from)=='string' and from ~= '') and from or 'PIO: '
+  from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
   attempts = tonumber(attempts) or 1
-
   local meta = _G.metadata
-  -- local active_env = env or meta.active_env
+
+  -- Set up file paths
+  local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
+  local build_env_dir = misc.joinPath(build_dir, active_env)
+  local checksum_file = misc.joinPath(build_dir, 'project.checksum')
+  local idedata_file = misc.joinPath(build_env_dir, 'idedata.json')
 
   local function fire_callback(status)
     refreshBusy = false
     vim.schedule(function()
-      -- if (status) then require('nvimpio.clangd.control').getUnknownArgs(from) end
-      if type(callback) == "function" then callback(status) end
+      if type(callback) == 'function' then callback(status) end
     end)
   end
+  if not active_env or active_env == '' then fire_callback(false) return end
 
-  -- OS.notify(string.format('%s refresh active_env=%s', from, active_env))
-
-  if not active_env or active_env == '' then
-    fire_callback(false)
-    return
-  end
-
-  --INFO:
-  --INTERNAL PROCESSOR: Applies parsed data to _G.metadata
+  --INFO:INTERNAL PROCESSOR: Applies parsed data to _G.metadata
   ---------------------------------------------------------
   local function apply_metadata(data)
-  -- local function apply_metadata(data, checksum)
-    if not data then return false end
+    -- local function apply_metadata(data, checksum)
+    if not data then
+      return false
+    end
 
-    local norm = function(p) return misc.normalizePath(p) or '' end
+    local norm = function(p)
+      return misc.normalizePath(p) or ''
+    end
 
     -- 1. Base Paths & Compilers
     meta.cc_path = norm(data.cc_path)
@@ -436,148 +146,59 @@ fetch_metadata = function(callback, active_env, from, attempts)
     --   _G.metadata.envs = metadata.envs
     --   _G.metadata.active_env = activeEnv
     -- end
+
+    -- Secure the validation signature token right after creation succeeds
+    local read_ok, fresh_checksum = misc.readFile(checksum_file)
+    if read_ok and fresh_checksum ~= '' then meta.last_projectChecksum = fresh_checksum end
+
     return true
   end
 
-  --INFO:
-  --Generate idedata.json
-  ------------------------------------------------------------------------------------
-  -- local function buildIdedata()
-  --   OS.notify(from .. 'Initializing project metadata...', "info")
-  --   vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
-  --     vim.schedule(function()
-  --       if obj.code == 0 then
-  --         OS.notify(from .. 'Initializing project metadata success.', "info")
-  --         fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
-  --       else
-  --         OS.notify(from .. 'Initialization failed. Build project manually.: ' .. obj.stderr, "error")
-  --       end
-  --     end)
-  --   end)
-  --   return true
-  -- end
-  -- buildIdedata()
 
-  --INFO:
-  --Generate compiledb
-  ------------------------------------------------------------------------------------
-  -- local function buildCompiledb()
-  --   OS.notify(from .. 'Initializing project compiledb ...', "info")
-  --   vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { text = true }, function(obj)
-  --     vim.schedule(function()
-  --       if obj.code == 0 then
-  --         OS.notify(from .. 'Initializing project metadata success.', "info")
-  --         fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
-  --       else
-  --         OS.notify(from .. 'Initialization failed. Build project manually.: ' .. obj.stderr, "error")
-  --       end
-  --     end)
-  --   end)
-  --   return true
-  -- end
-  -- buildCompiledb()
-
-  --INFO:
-  --Generate getUnknownArgs
-  ------------------------------------------------------------------------------------
-  -- local function getUnknownArgs()
-  --   clangd.clangdIntall(function(clangdCmd)
-  --     boilerplate.args = {}
-  --     boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
-  --     local check_file = vim.fs.find(function(name)
-  --       return name:match('%.cpp$') or name:match('%.c$')
-  --     end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
-  --     if not check_file then
-  --       boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
-  --       boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-  --       check_file = vim.uv.cwd() .. '/src/main.cpp'
-  --     end
-  --     local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
-  --     vim.system(cmd, { text = true }, function(obj)
-  --       vim.schedule(function()
-  --         local output = (obj.stdout or '') .. (obj.stderr or '')
-  --         local args_table = {}
-  --         local seen = {} -- 🌟 Look-up filter to prevent duplicate flags
-  --
-  --         -- Extract anything clangd reports as an 'unknown argument'
-  --         if not string.find(output, "%.clang%-format") then
-  --           for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
-  --             local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
-  --
-  --             -- ✅ Only save the flag if we haven't encountered it yet on this run
-  --             if not seen[clean_flag] then
-  --               seen[clean_flag] = true
-  --               table.insert(args_table, clean_flag)
-  --             end
-  --           end
-  --         end
-  --         -- 4. UPDATE: Rebuild with the new discovered flags
-  --         boilerplate.args = args_table
-  --         boilerplate_gen('.clangd', vim.g.platformioRootDir)
-  --
-  --         OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
-  --         clangd.restart()
-  --       end)
-  --     end)
-  --   end, 'clangd')
-  -- end
-  -- getUnknownArgs()
-
-
-
-
-
-
-  -- Set up file paths
-  local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
-  local build_env_dir = misc.joinPath(build_dir, active_env)
-  local checksum_file = misc.joinPath(build_dir, 'project.checksum')
-  local idedata_file = misc.joinPath(build_env_dir, 'idedata.json')
-
-  -- OS.notify(string.format('idedata_file=%s', idedata_file))
-
-  -------------------------------------------------------------------
-  -- STEP 1: Fast Checksum Check (project.checksum and idedata.json)
-  -------------------------------------------------------------------
-  -- local ok, current_checksum = misc.readFile(checksum_file)
-  local idok, content = misc.readFile(idedata_file)
-
+  -- ----------------------------------------------------------------
+  -- -- STEP 1: Cache Path (idedata.json exists )
+  -- ----------------------------------------------------------------
   -- Complete Cache-Hit Evaluation Rule
-  -- if ok and idok and current_checksum ~= '' and content ~= '' then
+  local idok, content = misc.readFile(idedata_file)
   if idok and content ~= '' then
-    -- OS.notify('level1')
     local cok, decoded = pcall(vim.json.decode, content)
     if cok and apply_metadata(decoded) then
-      -- OS.notify('level2')
-
-      if attempts > 0 then
-        local cb = function(status)
-          M.handlePioDB(status, active_env, function(success)
-            if success then
-              -- if (success) then require('nvimpio.clangd.control').getUnknownArgs(from) end
-              -- OS.notify(string.format('%s compiledb success for %s.', from, active_env), "info")
-            end
-          end)
+      -- cli
+      require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
+        if is_successful then
+          OS.notify('Database is ready. Proceeding with analysis...')
+          clangd.getUnknownArgs(from)
+        else
+          OS.notify('Skipping next steps due to compilation database failure.', 'error')
         end
+      end)
+      if attempts > 0 then
+        do end
 
-        clangd.clangdIntall(function(clangdCmd)
-          local check_file = vim.fs.find(function(name)
-            return name:match('%.cpp$') or name:match('%.c$')
-          end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
-          if not check_file then
-            boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
-            boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-            check_file = vim.uv.cwd() .. '/src/main.cpp'
-          end
-          local argscmd = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
-          local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-          -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
-          M.run_sequence({ cmnds = { dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ' , from) })
-        end, 'clangd')
+        -- ui
+        -- local cb = function(status)
+        --   M.handlePioDB(status, active_env, function(success)
+        --     if success then do end end
+        --   end)
+        -- end
 
+        -- clangd.clangdIntall(function(clangdCmd)
+        --   local check_file = vim.fs.find(function(name)
+        --     return name:match('%.cpp$') or name:match('%.c$')
+        --   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
+        --   if not check_file then
+        --     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+        --     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+        --     check_file = vim.uv.cwd() .. '/src/main.cpp'
+        --   end
+        --   local argscmd = string.format('%s --compile-commands-dir=. --check=%s --log=error', clangdCmd, check_file)
+        --   local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+        --   -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+        --   M.run_sequence({ cmnds = { dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ', from) })
+        -- end, 'clangd')
       end
 
-      OS.notify(from .. 'Metadata synced from cache', "info")
+      OS.notify(from .. 'Metadata synced from cache', 'info')
       local metadata = require('nvimpio.pio.metadata')
       metadata.save_project_config(from)
 
@@ -587,53 +208,56 @@ fetch_metadata = function(callback, active_env, from, attempts)
     end
   end
 
-
-
-  -- ----------------------------------------------------------------
-  -- -- STEP 2: Cache Path (idedata.json exists and checksum changed)
-  -- ----------------------------------------------------------------
   ------------------------------------------------------------------------------------
-  -- STEP 3: Auto-Initialize (If files project.checksum and idedata.json are missing)
+  -- STEP 2: Auto-Initialize (If file idedata.json missing)
   ------------------------------------------------------------------------------------
   -- buildIdedata()
-    -- vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
 
-  local cb = function(status)
-    M.handleIdedata(status, active_env, function(success)
-      if success then
-        OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), "info")
-
-        -- Secure the validation signature token right after creation succeeds
-        local read_ok, fresh_checksum = misc.readFile(checksum_file)
-        if read_ok and fresh_checksum ~= '' then meta.last_projectChecksum = fresh_checksum end
-
-        if attempts > 0 then
-          -- Execute recursive check loop to accurately verify and load newly compiled files
-          fetch_metadata(callback, active_env, from, attempts - 1)
-        else fire_callback(false) end
-      else
-        OS.notify(from .. 'Build Failed', 'error')
-        fire_callback(false)
-      end
-    end)
-  end
-
-  clangd.clangdIntall(function(clangdCmd)
-    local check_file = vim.fs.find(function(name)
-      return name:match('%.cpp$') or name:match('%.c$')
-    end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
-    if not check_file then
-      boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
-      boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-      check_file = vim.uv.cwd() .. '/src/main.cpp'
+  -- cli
+  require('nvimpio.pio.cli').buildIdedata(from, active_env, function(is_successful)
+    if is_successful then
+      OS.notify('Idedata is ready. Proceeding with analysis...')
+        -- Execute recursive check loop to accurately verify and load newly compiled files
+      if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
+      else fire_callback(false) end
+      -- clangd.getUnknownArgs(from)
+    else
+      OS.notify('Skipping next steps due to compilation idedata failure.', 'error')
+      fire_callback(false)
     end
-    local argscmd = string.format("%s --compile-commands-dir=. --check=%s --log=error", clangdCmd, check_file)
-    local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
-    local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-    -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
-    M.run_sequence({ cmnds = { idecmd, dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ' , from) })
-  end, 'clangd')
+  end)
 
+  -- ui
+  -- local cb = function(status)
+  --   M.handleIdedata(status, active_env, function(success)
+  --     if success then
+  --       OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), 'info')
+  --
+  --       -- Execute recursive check loop to accurately verify and load newly compiled files
+  --       if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
+  --       else fire_callback(false) end
+  --     else
+  --       OS.notify(from .. 'Build Failed', 'error')
+  --       fire_callback(false)
+  --     end
+  --   end)
+  -- end
+  --
+  -- clangd.clangdIntall(function(clangdCmd)
+  --   local check_file = vim.fs.find(function(name)
+  --     return name:match('%.cpp$') or name:match('%.c$')
+  --   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
+  --   if not check_file then
+  --     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+  --     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+  --     check_file = vim.uv.cwd() .. '/src/main.cpp'
+  --   end
+  --   local argscmd = string.format('%s --compile-commands-dir=. --check=%s --log=error', clangdCmd, check_file)
+  --   local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
+  --   local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+  --   -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+  --   M.run_sequence({ cmnds = { idecmd, dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ', from) })
+  -- end, 'clangd')
 end
 
 

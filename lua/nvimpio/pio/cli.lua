@@ -4,7 +4,47 @@ local ToggleTerminal = require('nvimpio.utils.term').ToggleTerminal
 local misc = require('nvimpio.utils.misc')
 
 
--- stylua: ignore
+-- stylua: ignore start
+--INFO: Generate idedata.json
+------------------------------------------------------------------------------------
+function M.buildIdedata(from, active_env, cb)
+  OS.notify(from .. 'Initializing project metadata...', "info")
+  vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
+    vim.schedule(function()
+      local ok = (obj.code == 0)
+      if ok == 0 then
+        OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), 'info')
+        -- Execute recursive check loop to accurately verify and load newly compiled files
+        -- if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
+        -- else fire_callback(false) end
+      else
+        OS.notify(from .. 'Initialization failed. Build project manually.: ' .. obj.stderr, "error")
+        -- fire_callback(false)
+      end
+
+      if cb and type(cb) == "function" then cb(ok) end
+    end)
+  end)
+  return true
+end
+
+--INFO: Generate compiledb
+------------------------------------------------------------------------------------
+function M.buildCompileDB(from, active_env, cb)
+  active_env = active_env or _G.metadata.active_env
+  OS.notify(from .. 'Initializing project compiledb ...', "info")
+  vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { text = true }, function(obj)
+    vim.schedule(function()
+      local ok = (obj.code == 0)
+
+      if ok == 0 then OS.notify(from .. 'build compiledb success.', "info")
+      else OS.notify(from .. 'build compiledb failed ' .. obj.stderr, "error") end
+
+      if cb and type(cb) == "function" then cb(ok) end
+    end)
+  end)
+end
+
 --INFO: Piocmd(h/f)
 ------------------------------------------------------
 function M.piocmd(cmd_table, direction)
@@ -18,7 +58,6 @@ function M.piocmd(cmd_table, direction)
   end
 end
 
--- stylua: ignore
 --INFO: Piodebug
 ------------------------------------------------------
 function M.piodebug(args_table)
@@ -29,7 +68,6 @@ function M.piodebug(args_table)
   ToggleTerminal(command, 'float')
 end
 
--- stylua: ignore
 --INFO: Piomon
 ------------------------------------------------------
 function M.piomon(args_table)
@@ -50,7 +88,6 @@ function M.piomon(args_table)
   else ToggleTerminal(command, 'horizontal') end
 end
 
--- stylua: ignore
 --INFO: Piorun
 ------------------------------------------------------
 function M.piobuild()
@@ -74,22 +111,14 @@ function M.pioclean()
 end
 
 function M.piorun(arg_table)
-  if not misc.pio_install_check() then
-    return
-  end
-  if arg_table[1] == '' then
-    M.pioupload()
-  elseif arg_table[1] == 'upload' then
-    M.pioupload()
-  elseif arg_table[1] == 'uploadfs' then
-    M.piouploadfs()
-  elseif arg_table[1] == 'build' then
-    M.piobuild()
-  elseif arg_table[1] == 'clean' then
-    M.pioclean()
-  else
-    vim.misc.notify('Invalid argument: build, upload, uploadfs or clean', 'warn')
-  end
+  if not misc.pio_install_check() then return end
+  if arg_table[1] == '' then M.pioupload()
+  elseif arg_table[1] == 'upload' then M.pioupload()
+  elseif arg_table[1] == 'uploadfs' then M.piouploadfs()
+  elseif arg_table[1] == 'build' then M.piobuild()
+  elseif arg_table[1] == 'clean' then M.pioclean()
+  else vim.misc.notify('Invalid argument: build, upload, uploadfs or clean', 'warn') end
 end
+-- stylua: ignore end
 
 return M
