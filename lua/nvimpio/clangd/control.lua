@@ -268,6 +268,10 @@ function M.init(clangd)
 
   require('nvimpio.clangd.commands')
 
+  vim.keymap.set('n', 'gll', function()
+    vim.cmd.edit(vim.lsp.log.get_filename())
+  end, { desc = 'open LSP [l]og' })
+
   if clangd.install then
     require('nvimpio.clangd.config')
   end

@@ -23,9 +23,6 @@ function K.lspKeymaps(client, bufnr)
   -- bufkeymap('n', 'gle', '<Cmd>Telescope diagnostics<CR>', 'Show diagnostic [e]rror messages')
   bufkeymap('n', 'glq', vim.diagnostic.setloclist, 'Open diagnostic [q]uickfix list')
   --
-  vim.keymap.set('n', 'gll', function()
-    vim.cmd.edit(vim.lsp.log.get_filename())
-  end, { desc = 'open LSP [l]og' })
   -- stylua: ignore start
   -- << local trouble = require("trouble").toggle
   -- << bufkeymap('n', "<leader>tt", function() trouble() end, "Toggle Trouble")
