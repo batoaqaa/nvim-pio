@@ -199,9 +199,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
       end
 
       OS.notify(from .. 'Metadata synced from cache', 'info')
-      local metadata = require('nvimpio.pio.metadata')
-      metadata.save_project_config(from)
-
+      require('nvimpio.pio.metadata').save_project_config(from)
       -- Exit Path 2: Successful Cache Hit
       fire_callback(true)
       return true

@@ -1,8 +1,5 @@
 local M = {}
 
----@diaglist disable-next-line: undefined-field
-local uv = vim.uv or vim.loop -- Handles backward compatibility across Neovim versions
-
 local ToggleTerminal = require('nvimpio.utils.term').ToggleTerminal
 local misc = require('nvimpio.utils.misc')
 
@@ -34,7 +31,7 @@ function M.buildCompileDB(from, active_env, cb)
   vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { timeout = 60000,  text = true }, function(obj)
     vim.schedule(function()
       local ok = (obj.code == 0)
-      if ok == 0 then OS.notify(from .. 'build compiledb success.', "info")
+      if ok then OS.notify(from .. 'build compiledb success.', "info")
       else
         OS.notify(from .. 'build compiledb failed ' .. obj.stderr, "error")
         local error_map = {
