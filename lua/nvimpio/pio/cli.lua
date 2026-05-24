@@ -33,7 +33,6 @@ end
 --INFO: Generate idedata.json
 ------------------------------------------------------------------------------------
 function M.buildIdedata(from, active_env, cb)
-  OS.notify(from .. 'Initializing project metadata...', "info")
   vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { timeout = 60000, text = true }, function(obj)
     vim.schedule(function()
       local ok = (obj.code == 0)
@@ -53,7 +52,6 @@ end
 ------------------------------------------------------------------------------------
 function M.buildCompileDB(from, active_env, cb)
   active_env = active_env or _G.metadata.active_env
-  OS.notify(from .. 'Initializing project compiledb ...', "info")
   vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { timeout = 60000,  text = true }, function(obj)
     vim.schedule(function()
       local ok = (obj.code == 0)
