@@ -164,38 +164,38 @@ fetch_metadata = function(callback, active_env, from, attempts)
     local cok, decoded = pcall(vim.json.decode, content)
     if cok and apply_metadata(decoded) then
       -- cli
-      require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
-        if is_successful then
-          -- OS.notify('Database is ready. Proceeding with analysis...')
-          clangd.getUnknownArgs(from)
-        else
-          OS.notify('Skipping next steps due to compilation database failure.', 'error')
-        end
-      end)
+      -- require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
+      --   if is_successful then
+      --     -- OS.notify('Database is ready. Proceeding with analysis...')
+      --     clangd.getUnknownArgs(from)
+      --   else
+      --     OS.notify('Skipping next steps due to compilation database failure.', 'error')
+      --   end
+      -- end)
 
       -- gui
-      -- if attempts > 0 then
-      --   local cb = function(status)
-      --     M.handlePioDB(status, active_env, function(success)
-      --       if success then do end end
-      --     end)
-      --   end
-      --
-      --   clangd.clangdIntall(function(clangdCmd)
-      --     local check_file = vim.fs.find(function(name)
-      --       return name:match('%.cpp$') or name:match('%.c$')
-      --     end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
-      --     if not check_file then
-      --       boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
-      --       boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-      --       check_file = vim.uv.cwd() .. '/src/main.cpp'
-      --     end
-      --     local argscmd = string.format('%s --compile-commands-dir=. --check=%s --log=error', clangdCmd, check_file)
-      --     local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-      --     -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
-      --     M.run_sequence({ cmnds = { dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ', from) })
-      --   end, 'clangd')
-      -- end
+      if attempts > 0 then
+        local cb = function(status)
+          M.handlePioDB(status, active_env, function(success)
+            if success then do end end
+          end)
+        end
+
+        clangd.clangdIntall(function(clangdCmd)
+          local check_file = vim.fs.find(function(name)
+            return name:match('%.cpp$') or name:match('%.c$')
+          end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
+          if not check_file then
+            boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+            boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+            check_file = vim.uv.cwd() .. '/src/main.cpp'
+          end
+          local argscmd = string.format('%s --compile-commands-dir=. --check=%s --log=error', clangdCmd, check_file)
+          local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+          -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+          M.run_sequence({ cmnds = { dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ', from) })
+        end, 'clangd')
+      end
 
       OS.notify(from .. 'Metadata synced from cache', 'info')
       require('nvimpio.pio.metadata').save_project_config(from)
@@ -210,49 +210,49 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- buildIdedata()
 
   -- cli
-  require('nvimpio.pio.cli').buildIdedata(from, active_env, function(is_successful)
-    if is_successful then
-      -- OS.notify(from .. 'Idedata is ready. Proceeding with analysis...')
-        -- Execute recursive check loop to accurately verify and load newly compiled files
-      if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
-      else fire_callback(false) end
-    else
-      OS.notify(from .. 'Skipping next steps due to compilation idedata failure.', 'error')
-      fire_callback(false)
-    end
-  end)
+  -- require('nvimpio.pio.cli').buildIdedata(from, active_env, function(is_successful)
+  --   if is_successful then
+  --     -- OS.notify(from .. 'Idedata is ready. Proceeding with analysis...')
+  --       -- Execute recursive check loop to accurately verify and load newly compiled files
+  --     if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
+  --     else fire_callback(false) end
+  --   else
+  --     OS.notify(from .. 'Skipping next steps due to compilation idedata failure.', 'error')
+  --     fire_callback(false)
+  --   end
+  -- end)
 
   -- gui
-  -- local cb = function(status)
-  --   M.handleIdedata(status, active_env, function(success)
-  --     if success then
-  --       OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), 'info')
-  --
-  --       -- Execute recursive check loop to accurately verify and load newly compiled files
-  --       if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
-  --       else fire_callback(false) end
-  --     else
-  --       OS.notify(from .. 'Build Failed', 'error')
-  --       fire_callback(false)
-  --     end
-  --   end)
-  -- end
-  --
-  -- clangd.clangdIntall(function(clangdCmd)
-  --   local check_file = vim.fs.find(function(name)
-  --     return name:match('%.cpp$') or name:match('%.c$')
-  --   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
-  --   if not check_file then
-  --     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
-  --     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-  --     check_file = vim.uv.cwd() .. '/src/main.cpp'
-  --   end
-  --   local argscmd = string.format('%s --compile-commands-dir=. --check=%s --log=error', clangdCmd, check_file)
-  --   local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
-  --   local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-  --   -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
-  --   M.run_sequence({ cmnds = { idecmd, dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ', from) })
-  -- end, 'clangd')
+  local cb = function(status)
+    M.handleIdedata(status, active_env, function(success)
+      if success then
+        OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), 'info')
+
+        -- Execute recursive check loop to accurately verify and load newly compiled files
+        if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
+        else fire_callback(false) end
+      else
+        OS.notify(from .. 'Build Failed', 'error')
+        fire_callback(false)
+      end
+    end)
+  end
+
+  clangd.clangdIntall(function(clangdCmd)
+    local check_file = vim.fs.find(function(name)
+      return name:match('%.cpp$') or name:match('%.c$')
+    end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
+    if not check_file then
+      boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+      boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+      check_file = vim.uv.cwd() .. '/src/main.cpp'
+    end
+    local argscmd = string.format('%s --compile-commands-dir=. --check=%s --log=error', clangdCmd, check_file)
+    local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
+    local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+    -- M.run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+    M.run_sequence({ cmnds = { idecmd, dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ', from) })
+  end, 'clangd')
 end
 
 
