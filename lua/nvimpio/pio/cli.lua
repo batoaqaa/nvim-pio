@@ -37,18 +37,16 @@ function M.buildCompileDB(from, active_env, cb)
       if ok == 0 then OS.notify(from .. 'build compiledb success.', "info")
       else
         OS.notify(from .. 'build compiledb failed ' .. obj.stderr, "error")
+        local error_text = uv['strerror'](-obj.code) or uv['strerror'](obj.code)
 
-        local error_text = uv["strerror"](obj.code) or "Unknown System Error"
-        -- local error_text = uv.strerror(obj.code) or "Unknown System Error"
-
-        -- Fallback capture: If the process was violently terminated by a signal instead
-        if obj.signal and obj.signal > 0 then
-          error_text = "Process killed by Signal (" .. obj.signal .. ")"
+        -- If both lookups fail to map a string description, provide a clean numerical fallback
+        if not error_text then
+          error_text = "OS Exit Code " .. tostring(obj.code)
         end
 
-        -- Log the readable text message clearly alongside stderr logs
-        local final_msg = string.format("build failed: %s\n%s", error_text, obj.stderr or '')
-        OS.notify(from .. final_msg, "error")
+        -- Safe concatenation that guarantees no nil extraction crashes can bubble up
+        local err_log = obj.stderr or 'No standard error log generated.'
+        OS.notify(from .. 'build compiledb failed: ' .. error_text .. '\nDetails: ' .. err_log, "error")
       end
       if cb and type(cb) == "function" then cb(ok) end
     end)
