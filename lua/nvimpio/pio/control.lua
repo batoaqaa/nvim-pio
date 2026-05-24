@@ -233,6 +233,13 @@ telescope.load_extension('ui-select')
 --stylua: ignore
 -------------------------------------------------------------------------------
 function M.init(clangd_config)
+  "neoclide/coc.nvim",
+  branch = "release",
+  config = function()
+    -- Automatically install the exact VS Code clangd extension wrapper
+    vim.fn["coc#util#install_extension"]({ "coc-clangd" })
+  end
+}
   require('nvimpio.pio.commands')
   misc.notify('PIO Control: initialize', "info")
 

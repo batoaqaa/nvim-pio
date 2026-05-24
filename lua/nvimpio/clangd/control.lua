@@ -101,42 +101,68 @@ function M.getClangdConfig()
   local tok, clangd_config = pcall(vim.json.decode, merged_json)
 
   if not tok then return nil end
+  clangd_config.on_init = function(client, _)
+    -- Intercept the cross-compilation system-commands pipeline natively
+    client.commands["clangd.applyTweak"] = function() end -- Kills background tweak popups completely
 
-  -- 1. Dynamically inject the Lua filter function into the parsed table
-  clangd_config.handlers = {
-    ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-      if result and result.diagnostics then
-        local filtered = {}
+    -- Inject an internal filter loop into the compiler arguments payload
+    if client.server_capabilities then
+      -- Tell the core engine to ignore the broken GCC optimizations
+      local original_parse = client.request
+      client.request = function(method, params, callback, bufnr)
 
-        for _, diagnostic in ipairs(result.diagnostics) do
-          local code = diagnostic.code or ""
-          -- Neovim maps DiagnosticSeverity.Error directly to the integer 1
-          local is_fatal_error = (diagnostic.severity == 1)
-
-          -- 🛡️ SAFETY SHIELD: If it's a fatal error that breaks compilation, 
-          -- NEVER hide it, regardless of what the code name is.
-          if is_fatal_error then
-            table.insert(filtered, diagnostic)
-          else
-            -- 🛑 WARNING FILTER: Only filter out non-fatal warning noise families
-            local is_unsupported_flag = string.match(code, "^drv_")
-            local is_macro_conflict   = string.match(code, "^macro_") or string.match(code, "^pp_")
-            local is_target_clash     = string.match(code, "^err_target")
-                                        or code == "redefinition_different_typedef"
-                                        or code == "unused_macro_definition"
-
-            -- If it's a normal warning but NOT part of our microcontroller noise list, keep it
-            if not (is_unsupported_flag or is_macro_conflict or is_target_clash) then
-              table.insert(filtered, diagnostic)
-            end
+        -- Intercept compilation requests and clean out the arguments array
+        if method == "textDocument/didOpen" or method == "textDocument/didChange" then
+          if params and params.textDocument then
+            -- Removes incompatible microcontroller instruction flags before parsing
+            vim.cmd([[silent! !sed -i 's/-mlongcalls//g' compile_commands.json]])
           end
         end
-        result.diagnostics = filtered
+        return original_parse(method, params, callback, bufnr)
       end
-      -- Pass cleanly down to the Neovim 0.11 global LSP handler
-      vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
-    end,
-  }
+    end
+    return true
+  end
+
+  -- 1. Dynamically inject the Lua filter function into the parsed table
+  -- clangd_config.handlers = {
+  --   ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+  --     if result and result.diagnostics then
+  --       local filtered = {}
+  --
+  --       for _, diagnostic in ipairs(result.diagnostics) do
+  --         local code = diagnostic.code or ""
+  --         -- Neovim maps DiagnosticSeverity.Error directly to the integer 1
+  --         local is_fatal_error = (diagnostic.severity == 1)
+  --
+  --         -- 🛡️ SAFETY SHIELD: If it's a fatal error that breaks compilation, 
+  --         -- NEVER hide it, regardless of what the code name is.
+  --         if is_fatal_error then
+  --           table.insert(filtered, diagnostic)
+  --         else
+  --           -- 🛑 WARNING FILTER: Only filter out non-fatal warning noise families
+  --           local is_unsupported_flag = string.match(code, "^drv_")
+  --           local is_macro_conflict   = string.match(code, "^macro_") or string.match(code, "^pp_")
+  --           local is_target_clash     = string.match(code, "^err_target")
+  --                                       or code == "redefinition_different_typedef"
+  --                                       or code == "unused_macro_definition"
+  --
+  --           -- If it's a normal warning but NOT part of our microcontroller noise list, keep it
+  --           if not (is_unsupported_flag or is_macro_conflict or is_target_clash) then
+  --             table.insert(filtered, diagnostic)
+  --           end
+  --         end
+  --       end
+  --       result.diagnostics = filtered
+  --     end
+  --     -- Pass cleanly down to the Neovim 0.11 global LSP handler
+  --     vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
+  --   end,
+  -- }
+
+
+
+
 
   if clangd_config then return clangd_config end
 end
