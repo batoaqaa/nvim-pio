@@ -3,6 +3,32 @@ local M = {}
 local ToggleTerminal = require('nvimpio.utils.term').ToggleTerminal
 local misc = require('nvimpio.utils.misc')
 
+--- Handles and formats asynchronous vim.system errors cleanly
+---@param from string The notification origin tag
+---@param prefix_msg string The introductory text (e.g., "build compiledb failed: ")
+---@param obj table The raw result object returned from vim.system
+local function notify_system_error(from, prefix_msg, obj)
+  local error_map = {
+    [1] = 'PlatformIO general execution failure (Check code syntax or profile constraints)',
+    [2] = 'Configuration file formatting conflict (Check platformio.ini structure)',
+    [124] = 'Asynchronous timeout operation exceeded limits (Hard Timeout reached)',
+    [127] = "Executable environment missing (PlatformIO command 'pio' was not found in your $PATH variables)",
+  }
+
+  -- Handle native operating system timeout signals (SIGTERM = 15 or exit code 124)
+  local is_timeout = (obj.code == 124 or obj.signal == 15)
+  local err_code = is_timeout and 124 or obj.code
+
+  -- Resolve the text message using the lookup table, falling back to the raw integer code
+  local error_text = error_map[err_code] or string.format('OS Shell Exit Code (%d)', obj.code)
+
+  -- Safely grab the standard error block, or default to a safe blank fallback string
+  local details = (obj.stderr and obj.stderr ~= '') and ('\nDetails: ' .. obj.stderr) or ''
+
+  -- Send a singular clean notification
+  OS.notify(from .. prefix_msg .. error_text .. details, 'error')
+end
+
 -- stylua: ignore start
 --INFO: Generate idedata.json
 ------------------------------------------------------------------------------------
@@ -14,7 +40,7 @@ function M.buildIdedata(from, active_env, cb)
       if ok == 0 then
         OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), 'info')
       else
-        OS.notify(from .. 'Initialization failed. Build project manually.: ' .. obj.stderr, "error")
+        notify_system_error(from, 'build idedata failed: ', obj)
       end
 
       if cb and type(cb) == "function" then cb(ok) end
@@ -33,22 +59,7 @@ function M.buildCompileDB(from, active_env, cb)
       local ok = (obj.code == 0)
       if ok then OS.notify(from .. 'build compiledb success.', "info")
       else
-        OS.notify(from .. 'build compiledb failed ' .. obj.stderr, "error")
-        local error_map = {
-          [1]   = "PlatformIO general execution failure (Check your code code syntax or profile constraints)",
-          [2]   = "Configuration file formatting conflict (Check your platformio.ini structure)",
-          [124] = "Asynchronous timeout operation exceeded limits",
-          [127] = "Executable environment missing (PlatformIO command 'pio' was not found in your $PATH system variables)"
-        }
-
-        -- Resolve the text message using the lookup table, falling back to the raw integer code
-        local error_text = error_map[obj.code] or string.format("OS Shell Exit Code (%d)", obj.code)
-
-        -- Safely grab the standard error block, or default to an empty string if it's missing
-        local details = (obj.stderr and obj.stderr ~= "") and ("\nDetails: " .. obj.stderr) or ""
-
-        -- Execute the notification safely without any nil value crashes bubbling up!
-        OS.notify(from .. 'build compiledb failed: ' .. error_text .. details, "error")
+        notify_system_error(from, 'build compiledb failed: ', obj)
       end
       if cb and type(cb) == "function" then cb(ok) end
     end)
