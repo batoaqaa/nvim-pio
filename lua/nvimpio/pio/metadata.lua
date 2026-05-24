@@ -136,17 +136,6 @@ _G.metadata = setmetatable({}, {
   end,
 })
 
--- Highly optimized string retriever for statusline rendering loops
-function M.get_status_string()
-  -- Catch early boot or uninitialized states safely
-  if not _G.metadata or not _G.metadata.active_env or _G.metadata.active_env == "" then
-    return ""
-  end
-
-  -- Return a clean visual indicator snippet (using the filled circle or an electronics icon)
-  return string.format("   %s", _G.metadata.active_env)
-end
-
 local config_path = vim.fs.joinpath(vim.uv.cwd(), '.project_config.json')
 
 --INFO:
@@ -189,7 +178,6 @@ function M.load_project_config()
         for k, v in pairs(table_data) do
           _G.metadata[k] = v
           -- _pio_metadata[k] = v
-
           -- if k == 'toolchain_root' then _G.metadata[k] = v
           -- else _pio_metadata[k] = v end
         end
@@ -197,25 +185,24 @@ function M.load_project_config()
         return
       end
     end
+  else
+    local active_env, metadata = M.get_active_env('meta load: ')
+    if active_env and active_env ~= '' then
+      metadata = metadata or {}
+      _pio_metadata.core_dir = metadata.core_dir
+      _pio_metadata.packages_dir = metadata.packages_dir
+      _pio_metadata.platforms_dir = metadata.platforms_dir
+      _pio_metadata.default_envs = metadata.default_envs
+      _pio_metadata.envs = metadata.envs
+      _G.metadata.active_env = active_env
+    end
   end
-
-  -- local active_env, metadata = M.get_active_env('meta load: ')
-  -- if active_env and active_env ~= '' then
-  --   metadata = metadata or {}
-  --   _pio_metadata.core_dir = metadata.core_dir
-  --   _pio_metadata.packages_dir = metadata.packages_dir
-  --   _pio_metadata.platforms_dir = metadata.platforms_dir
-  --   _pio_metadata.default_envs = metadata.default_envs
-  --   _pio_metadata.envs = metadata.envs
-  --   _G.metadata.active_env = active_env
-  -- end
 
   -- If no file, initialize hash with defaults
   last_saved_hash = vim.fn.sha256(misc.jsonFormat(_pio_metadata))
 end
 
--- //////////////////////////////////////////////////////////////////////////////
-
+-- ///////////////////// get_active_env /////////////////////
 -- stylua: ignore start
 -- 1. Helper: Converts raw string properties to numbers, string arrays, or defaults
 local function normalize_value(key, value)
@@ -314,9 +301,7 @@ function M.get_active_env(from)
 
   if type(def_envs) == 'table' then
     for _, env_name in ipairs(def_envs) do -- LSP knows 'def_envs' is safely a table here
-      if metadata.envs[env_name] then
-        target = env_name
-        break
+      if metadata.envs[env_name] then target = env_name break
       end
     end
   end
@@ -328,6 +313,7 @@ function M.get_active_env(from)
   return target, metadata
 end
 -- stylua: ignore end
+-- ///////////////////// get_active_env /////////////////////
 
 --========================================================================================
 --INFO:

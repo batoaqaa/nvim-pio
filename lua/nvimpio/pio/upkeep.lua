@@ -439,6 +439,95 @@ fetch_metadata = function(callback, active_env, from, attempts)
     return true
   end
 
+  --INFO:
+  --Generate idedata.json
+  ------------------------------------------------------------------------------------
+  -- local function buildIdedata()
+  --   OS.notify(from .. 'Initializing project metadata...', "info")
+  --   vim.system({ 'pio', 'run', '-t', 'idedata', '-e', active_env, '-s' }, { text = true }, function(obj)
+  --     vim.schedule(function()
+  --       if obj.code == 0 then
+  --         OS.notify(from .. 'Initializing project metadata success.', "info")
+  --         fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
+  --       else
+  --         OS.notify(from .. 'Initialization failed. Build project manually.: ' .. obj.stderr, "error")
+  --       end
+  --     end)
+  --   end)
+  --   return true
+  -- end
+  -- buildIdedata()
+
+  --INFO:
+  --Generate compiledb
+  ------------------------------------------------------------------------------------
+  -- local function buildCompiledb()
+  --   OS.notify(from .. 'Initializing project compiledb ...', "info")
+  --   vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { text = true }, function(obj)
+  --     vim.schedule(function()
+  --       if obj.code == 0 then
+  --         OS.notify(from .. 'Initializing project metadata success.', "info")
+  --         fetch_metadata(callback, active_env, from, attempts - 1) -- Recursive call after files created
+  --       else
+  --         OS.notify(from .. 'Initialization failed. Build project manually.: ' .. obj.stderr, "error")
+  --       end
+  --     end)
+  --   end)
+  --   return true
+  -- end
+  -- buildCompiledb()
+
+  --INFO:
+  --Generate getUnknownArgs
+  ------------------------------------------------------------------------------------
+  -- local function getUnknownArgs()
+  --   clangd.clangdIntall(function(clangdCmd)
+  --     boilerplate.args = {}
+  --     boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
+  --     local check_file = vim.fs.find(function(name)
+  --       return name:match('%.cpp$') or name:match('%.c$')
+  --     end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
+  --     if not check_file then
+  --       boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+  --       boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+  --       check_file = vim.uv.cwd() .. '/src/main.cpp'
+  --     end
+  --     local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
+  --     vim.system(cmd, { text = true }, function(obj)
+  --       vim.schedule(function()
+  --         local output = (obj.stdout or '') .. (obj.stderr or '')
+  --         local args_table = {}
+  --         local seen = {} -- 🌟 Look-up filter to prevent duplicate flags
+  --
+  --         -- Extract anything clangd reports as an 'unknown argument'
+  --         if not string.find(output, "%.clang%-format") then
+  --           for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
+  --             local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
+  --
+  --             -- ✅ Only save the flag if we haven't encountered it yet on this run
+  --             if not seen[clean_flag] then
+  --               seen[clean_flag] = true
+  --               table.insert(args_table, clean_flag)
+  --             end
+  --           end
+  --         end
+  --         -- 4. UPDATE: Rebuild with the new discovered flags
+  --         boilerplate.args = args_table
+  --         boilerplate_gen('.clangd', vim.g.platformioRootDir)
+  --
+  --         OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
+  --         clangd.restart()
+  --       end)
+  --     end)
+  --   end, 'clangd')
+  -- end
+  -- getUnknownArgs()
+
+
+
+
+
+
   -- Set up file paths
   local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
   local build_env_dir = misc.joinPath(build_dir, active_env)
@@ -471,7 +560,6 @@ fetch_metadata = function(callback, active_env, from, attempts)
           end)
         end
 
-
         clangd.clangdIntall(function(clangdCmd)
           local check_file = vim.fs.find(function(name)
             return name:match('%.cpp$') or name:match('%.c$')
@@ -488,7 +576,6 @@ fetch_metadata = function(callback, active_env, from, attempts)
         end, 'clangd')
 
       end
-
 
       OS.notify(from .. 'Metadata synced from cache', "info")
       local metadata = require('nvimpio.pio.metadata')
@@ -547,7 +634,6 @@ fetch_metadata = function(callback, active_env, from, attempts)
     M.run_sequence({ cmnds = { idecmd, dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ' , from) })
   end, 'clangd')
 
-
 end
 
 
@@ -557,7 +643,6 @@ end
 function M.pio_refresh(callback, from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
-
   if refreshBusy then
     OS.notify(string.format('%s refresh busy ...', from), 'info')
     if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
@@ -565,7 +650,6 @@ function M.pio_refresh(callback, from)
   end
   refreshBusy = true
 
-  -- Completely safe from crashes, even if _G.metadata is nil
   -- local active_env = vim.tbl_get(_G, "metadata", "active_env")
   local active_env = _G.metadata and _G.metadata.active_env
 
@@ -579,13 +663,10 @@ function M.pio_refresh(callback, from)
   end
 end
 
-
-
-
+-------------------------------------------------------------------------------
 -- INFO:
 -- Fix compile_commands.json file with absoulute paths
 -- stylua: ignore
--- =============================================================================
 function M.compile_commandsFix() --M.dbPathsFix()
   local filename = vim.fs.joinpath(vim.uv.cwd(), 'compile_commands.json')
   local content = vim.fn.readfile(filename)
