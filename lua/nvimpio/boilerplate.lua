@@ -159,6 +159,7 @@ CompileFlags:
   Add:  [
     "-xc++",
     "-std=gnu++17",
+    "-Wno-unknown-argument",
     "-Wno-pragma-system-header-outside-header",
     "-Wno-unknown-warning-option",
     "-Wno-unused-includes",
