@@ -450,6 +450,41 @@ function M.init(clangd)
   -- ====================================================================
   -- 🌟 THE CORE GLOBAL SHIELD: INTERCEPTS RENDERER BEFORE TEXT IS DRAWN
   -- ====================================================================
+-- ====================================================================
+-- 🌟 THE ISOLATED CLANGD HANDLER GATEWAY (ZERO PERFORMANCE LOSS FOR OTHER LSPs)
+-- ====================================================================
+  local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
+
+  vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+    -- Get the active client object processing this exact message package
+    local client = vim.lsp.get_client_by_id(ctx.client_id)
+
+    -- 🛡️ CONDITIONAL GATEWAY: Only scrub data frames if they originate from clangd
+    if client and client.name == "clangd" then
+      if result and result.diagnostics then
+        local cleaned = {}
+
+        for _, diagnostic in ipairs(result.diagnostics) do
+          local code = diagnostic.code or ""
+          local msg = (diagnostic.message or ""):lower()
+
+          -- Simultaneously evaluate our dynamic blocklist dictionary and pattern text strings
+          local is_blocked = M.runtime_blocklist[code]
+                          or string.find(msg, "unknown argument", 1, true)
+                          or string.find(msg, "-mlongcalls", 1, true)
+                          or string.find(msg, "tweak:", 1, true)
+
+          if not is_blocked then
+            table.insert(cleaned, diagnostic)
+          end
+        end
+        result.diagnostics = cleaned
+      end
+    end
+
+    -- Safely pass the payload to the native engine, completely untouched for all other LSPs!
+    original_diagnostic_handler(err, result, ctx, config)
+  end
   -- Add this right at the bottom of your init.lua
   -- ====================================================================
   -- 🌟 THE ROCK-SOLID LSP REDIRECTION FILTER (PREVENTS CRASHES)
