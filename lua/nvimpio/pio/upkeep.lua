@@ -153,6 +153,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
     -- Secure the validation signature token right after creation succeeds
     local read_ok, fresh_checksum = misc.readFile(checksum_file)
+    if read_ok and fresh_checksum ~= '' and fresh_checksum ~= meta.last_projectChecksum then OS.notify('checksum change ', 'info') end
     if read_ok and fresh_checksum ~= '' then meta.last_projectChecksum = fresh_checksum end
 
     return true
