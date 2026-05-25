@@ -84,12 +84,12 @@ boilerplate['.clangd_config.json'] = {
 {
   "cmd": [
     "clangd",
-    "--all-scopes-completion",
-    "--background-index=false",
+    "--enable-config",
     "limit-results=100",
+    "--background-index=false",
+    "--all-scopes-completion",
     "--clang-tidy",
     "--compile_args_from=filesystem",
-    "--enable-config",
     "--completion-parse=always",
     "--completion-style=detailed",
     "--header-insertion=iwyu",
@@ -145,6 +145,7 @@ boilerplate['.clangd'] = {
 ---
 CompileFlags:
   Remove: [
+    "-mlongcalls",
     "-Wunknown-warning-option",
     "-fno-tree-switch-conversion",
     "-fno-fat-lto-objects",
@@ -152,6 +153,7 @@ CompileFlags:
     "-mtext-section-literals",
     "-mlong-calls",
     "-fstrict-volatile-bitfields",
+    "-mfix-esp32-psram-cache-issue",
     "-march=.*",
     "-mabi=.*",
     "-mcpu=.*",
