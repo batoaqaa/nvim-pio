@@ -83,9 +83,6 @@ local runtime_blocklist = {
   -- ["unused_macro_definition"] = true,               -- Mutes system config macro flooding
 }
 
-
-
-
 -- stylua: ignore
 function M.getClangdConfig()
   local new_root_dir = vim.uv.cwd() or '.'
@@ -125,20 +122,9 @@ function M.getClangdConfig()
   local tok, clangd_config = pcall(vim.json.decode, merged_json)
 
   if not tok then return nil end
-  -- ====================================================================
 
-  -- 2. LOAD PREVIOUSLY SAVED DYNAMIC CODES ON BOOT
-  local f_read = io.open(blocklist_file, "r")
-  if f_read then
-    for line in f_read:lines() do
-      -- Strip hidden Windows carriage returns and whitespaces cleanly
-      local clean_code = line:gsub("\r", ""):gsub("^%s*(.-)%s*$", "%1")
-      if clean_code ~= "" then runtime_blocklist[clean_code] = true end
-    end
-    f_read:close()
-  end
   -- ====================================================================
-  -- 2. THE COMPILER RENDERING HANDLERS INTERFACE
+  -- 3. THE COMPILER RENDERING HANDLERS INTERFACE
   -- ====================================================================
   clangd_config.handlers = {
     ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
@@ -441,6 +427,22 @@ end
 --=============================================================================
 function M.init(clangd)
   OS.notify('Clangd Control: initialize', "info")
+
+  -- ====================================================================
+  -- 2. LOAD PREVIOUSLY SAVED DYNAMIC CODES ON BOOT
+  local f_read = io.open(blocklist_file, "rb")
+  if f_read then
+    for line in f_read:lines() do
+      -- Strip hidden Windows carriage returns and whitespaces cleanly
+      local clean_code = line:gsub("\r", ""):gsub("^%s*(.-)%s*$", "%1")
+      if clean_code ~= "" then
+        runtime_blocklist[clean_code] = true
+        print(clean_code)
+      end
+    end
+    f_read:close()
+  end
+  -- ====================================================================
 
   require('nvimpio.clangd.commands')
 
