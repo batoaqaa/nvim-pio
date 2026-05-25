@@ -222,8 +222,11 @@ function M.block_diagnostic_under_cursor()
       vim.diagnostic.set(ns_id, current_buf, {})
     end
     -- Refresh active buffer layout right away without restarting Neovim
-    M.restart()
-    vim.cmd("edit!")
+    -- vim.cmd("edit!")
+    vim.cmd('checktime')
+    vim.schedule(function ()
+      M.restart()
+    end)
     vim.notify("✅ Silenced '" .. target_string .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
   else
     vim.notify("❌ No valid LSP diagnostic error found under cursor.", vim.log.levels.ERROR)
