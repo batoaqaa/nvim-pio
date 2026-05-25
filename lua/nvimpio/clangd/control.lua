@@ -119,8 +119,14 @@ local function sync_blocklist_from_disk()
     f_read:close()
   end
 end
--- Pre-load it once on editor initialization
-sync_blocklist_from_disk()
+-- -- Pre-load it once on editor initialization
+-- sync_blocklist_from_disk()
+-- Guarantees the file is parsed AFTER Neovim has calculated true system paths
+vim.api.nvim_create_autocmd("VimEnter", {
+  callback = function()
+    sync_blocklist_from_disk()
+  end,
+})
 
 
 -- stylua: ignore
@@ -171,6 +177,7 @@ function M.getClangdConfig()
     ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
       -- 1. Always sync the blocklist from disk right before parsing frames
       sync_blocklist_from_disk()
+
       if result and result.diagnostics then
         local filtered = {}
         for _, diagnostic in ipairs(result.diagnostics) do
@@ -279,7 +286,7 @@ function M.block_diagnostic_under_cursor()
     -- local f_append = io.open(blocklist_file, "a")
     -- if f_append then
     --   f_append:write(save_line .. "\n")
-    --   f_append:close()
+    --   f_append:close():
     -- end
 
     -- Force instant in-memory sync so we don't wait for the next handler cycle
