@@ -41,6 +41,7 @@ function M.get_sysroot_triplet(cc_compiler)
   local sysroot = misc.normalizePath(toolchain_root .. '/' .. triplet)
   local query_driver = misc.normalizePath(bin_path .. '/' .. triplet .. '-*')
   query_driver = OS.is_win and query_driver:gsub('/', '\\') or query_driver
+  print(query_driver)
 
 
 
