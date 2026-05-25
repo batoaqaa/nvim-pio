@@ -207,7 +207,7 @@ function M.manage_file_diagnostics_interactive()
             local is_driver = string.match(final_choice.code:lower(), '^drv_')
             local msg = is_driver and 'Stripped matching toolchain argument!' or 'Suppressed diagnostic code globally!'
             vim.notify('✅ ' .. msg, vim.log.levels.WARN, { title = 'Project .clangd Mangler' })
-            vim.cmd('LspRestart clangd')
+            -- vim.cmd('LspRestart clangd')
             -- vim.cmd("LspRestart clangd")
             require('nvimpio.clangd.control').restart()
           else
