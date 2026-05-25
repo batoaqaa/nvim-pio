@@ -136,23 +136,25 @@ function M.getClangdConfig()
           local code = diagnostic.code or ""
           local msg = (diagnostic.message or ""):lower()
 
-          -- 🌟 DYNAMIC PATTERN CHECKER (No hardcoded words!)
-          local matches_dynamic_text = false
-          for saved_pattern, _ in pairs(runtime_blocklist) do
-            -- If the entry in our blocklist matches a fragment of the message, block it
-            if string.match(msg, saved_pattern) then
-              matches_dynamic_text = true
-              break
-            end
-          end
+          -- 🌟 BACKEND TEXT PATTERN MATCHING FALLBACKS
+          local matches_text_pattern = string.find(msg, "unknown argument", 1, true)
+                                    or string.find(msg, "-mlongcalls", 1, true)
+                                    or string.find(msg, "tweak:", 1, true)
 
-          local is_driver_noise = runtime_blocklist[code] or matches_dynamic_text
+          -- Combine error codes and text patterns into a single master shield evaluation
+          local is_explicitly_blocked = runtime_blocklist[code] or matches_text_pattern
 
-          if is_driver_noise then
-            -- Drop it silently
+          -- ─── 🌟 THE CRITICAL PRECEDENCE GATEWAY FIX ───
+          if is_explicitly_blocked then
+            -- 🥇 HIGHEST PRIORITY: If it is blocked in our list or text patterns,
+            -- DROP IT INSTANTLY. Never let it reach the severity shield!
+
           elseif diagnostic.severity == 1 then
+            -- 🥈 SECONDARY PRIORITY: Keep genuine compilation breaks (missing semicolons, typos)
             table.insert(filtered, diagnostic)
+
           elseif not runtime_blocklist[code] then
+            -- 🥉 TERTIARY PRIORITY: Pass normal unblocked warnings through
             table.insert(filtered, diagnostic)
           end
         end
@@ -186,50 +188,50 @@ function M.block_diagnostic_under_cursor()
     print(code)
     local msg = target_diag.message or ""
     print(msg)
-    local target_string = ""
+    local target_code = ""
 
     -- CASE A: If the error has a valid code handle, use it
     if code and code ~= "" then
-      target_string = code
-    else
-      -- CASE B: Blank code -> Extract the first two words dynamically (e.g. "unknown argument")
-      local word1, word2 = string.match(msg:lower(), "([%w%-]+)%s+([%w%-]+)")
-      if word1 and word2 then
-        target_string = word1 .. " " .. word2
-      else
-        target_string = msg:lower():gsub("([^%w%s])", "%%%1")
-      end
+      target_code = code
+    -- else
+    --   -- CASE B: Blank code -> Extract the first two words dynamically (e.g. "unknown argument")
+    --   local word1, word2 = string.match(msg:lower(), "([%w%-]+)%s+([%w%-]+)")
+    --   if word1 and word2 then
+    --     target_code = word1 .. " " .. word2
+    --   else
+    --     target_code = msg:lower():gsub("([^%w%s])", "%%%1")
+    --   end
     end
 
     -- Check if it's already blocked
-    if runtime_blocklist[target_string] then
-      vim.notify("ℹ️ '" .. target_string .. "' is already blocked.", vim.log.levels.INFO)
+    if runtime_blocklist[target_code] then
+      vim.notify("ℹ️ '" .. target_code .. "' is already blocked.", vim.log.levels.INFO)
       return
     end
 
     -- Inject into memory table instantly
-    runtime_blocklist[target_string] = true
+    runtime_blocklist[target_code] = true
 
     -- Append to disk permanently
     local f_append = io.open(blocklist_file, "ab")
     if f_append then
-      f_append:write(target_string .. "\n")
+      f_append:write(target_code .. "\n")
       f_append:close()
     end
 
-    local current_buf = vim.api.nvim_get_current_buf()
-    local namespaces = vim.diagnostic.get_namespaces()
-    for ns_id, _ in pairs(namespaces) do
-      -- Passes an integer explicitly to avoid the type checking crash
-      vim.diagnostic.set(ns_id, current_buf, {})
-    end
+    -- local current_buf = vim.api.nvim_get_current_buf()
+    -- local namespaces = vim.diagnostic.get_namespaces()
+    -- for ns_id, _ in pairs(namespaces) do
+    --   -- Passes an integer explicitly to avoid the type checking crash
+    --   vim.diagnostic.set(ns_id, current_buf, {})
+    -- end
     -- Refresh active buffer layout right away without restarting Neovim
-    -- vim.cmd("edit!")
-    vim.cmd('checktime')
+    vim.cmd("edit!")
+    -- vim.cmd('checktime')
     vim.schedule(function ()
       M.restart()
     end)
-    vim.notify("✅ Silenced '" .. target_string .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
+    vim.notify("✅ Silenced '" .. target_code .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
   else
     vim.notify("❌ No valid LSP diagnostic error found under cursor.", vim.log.levels.ERROR)
   end
@@ -442,9 +444,7 @@ function M.init(clangd)
       local clean_code = line:gsub("\r", ""):gsub("^%s*(.-)%s*$", "%1")
       if clean_code ~= "" then
         runtime_blocklist[clean_code] = true
-        print('clean_code ' .. clean_code)
       end
-    print(vim.inspect(runtime_blocklist))
     end
     f_read:close()
   end
