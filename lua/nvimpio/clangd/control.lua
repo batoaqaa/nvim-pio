@@ -134,6 +134,7 @@ function M.getClangdConfig()
           local is_driver_noise = vs_code_blocklist[code]
                                or string.match(msg, "unknown argument")
                                or string.match(msg, "%-mlongcalls")
+                               or string.match(msg, "tweak:")
 
           -- 1. If it's a driver/macro configuration error, skip it completely
           if is_driver_noise then
