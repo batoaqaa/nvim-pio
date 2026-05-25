@@ -103,7 +103,8 @@ local function sync_blocklist_from_disk()
   local f_read = io.open(blocklist_file, "r")
   if f_read then
     for line in f_read:lines() do
-      local clean_entry = vim.trim(line)
+      -- local clean_entry = vim.trim(line)
+      local clean_entry = line:gsub("\r", ""):gsub("^%s*(.-)%s*$", "%1")
       if clean_entry ~= "" then
         if string.match(clean_entry, "^pattern:") then
           local raw_pattern = string.sub(clean_entry, 9)
