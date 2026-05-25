@@ -146,14 +146,14 @@ boilerplate['.clangd'] = {
 CompileFlags:
   Remove: [
     "-mlongcalls",
-    "-Wunknown-warning-option",
+    "-fstrict-volatile-bitfields",
     "-fno-tree-switch-conversion",
+    "-mfix-esp32-psram-cache-issue",
+    "-Wunknown-warning-option",
     "-fno-fat-lto-objects",
     "-fno-canonical-system-headers",
     "-mtext-section-literals",
     "-mlong-calls",
-    "-fstrict-volatile-bitfields",
-    "-mfix-esp32-psram-cache-issue",
     "-march=.*",
     "-mabi=.*",
     "-mcpu=.*",
@@ -163,6 +163,10 @@ CompileFlags:
     "-xc++",
     "-std=gnu++17",
     "-Wno-unknown-argument",
+    "-Wno-macro-redefined",
+    "-Wno-invalid-token-paste",
+    "-Wno-typedef-redefinition",
+    "-Wno-unknown-attributes",
     "-Wno-pragma-system-header-outside-header",
     "-Wno-unknown-warning-option",
     "-Wno-unused-includes",
@@ -170,6 +174,7 @@ CompileFlags:
 Diagnostics:
   Suppress:  [
     "macro_too_many_args",
+    "unused_macro_definition",
     "pp_file_not_found",
     "pp_file_not_found_angled_not_fatal",
     "pp_included_file_not_found",
