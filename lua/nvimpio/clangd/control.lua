@@ -84,16 +84,6 @@ local runtime_blocklist = {
 }
 
 
--- 2. LOAD PREVIOUSLY SAVED DYNAMIC CODES ON BOOT
-local f_read = io.open(blocklist_file, "r")
-if f_read then
-  for line in f_read:lines() do
-    -- Strip hidden Windows carriage returns and whitespaces cleanly
-    local clean_code = line:gsub("\r", ""):gsub("^%s*(.-)%s*$", "%1")
-    if clean_code ~= "" then runtime_blocklist[clean_code] = true end
-  end
-  f_read:close()
-end
 
 
 -- stylua: ignore
@@ -137,6 +127,16 @@ function M.getClangdConfig()
   if not tok then return nil end
   -- ====================================================================
 
+  -- 2. LOAD PREVIOUSLY SAVED DYNAMIC CODES ON BOOT
+  local f_read = io.open(blocklist_file, "r")
+  if f_read then
+    for line in f_read:lines() do
+      -- Strip hidden Windows carriage returns and whitespaces cleanly
+      local clean_code = line:gsub("\r", ""):gsub("^%s*(.-)%s*$", "%1")
+      if clean_code ~= "" then runtime_blocklist[clean_code] = true end
+    end
+    f_read:close()
+  end
   -- ====================================================================
   -- 2. THE COMPILER RENDERING HANDLERS INTERFACE
   -- ====================================================================
