@@ -223,7 +223,7 @@ function M.block_diagnostic_under_cursor()
     runtime_blocklist[target_string] = true
 
     -- Append to disk permanently
-    local f_append = io.open(blocklist_file, "a")
+    local f_append = io.open(blocklist_file, "ab")
     if f_append then
       f_append:write(target_string .. "\n")
       f_append:close()
