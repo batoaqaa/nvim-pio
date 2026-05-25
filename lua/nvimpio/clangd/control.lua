@@ -548,12 +548,14 @@ vim.lsp.enable("clangd")
 
       -- C. Ingress insertion: Inject choice code string inside the YAML Suppress block array
       local pattern = "(Suppress:%s*%[)"
-      local replacement = "Suppress: [\n    \"" .. target_code .. "\","
+      local replacement = "Suppress: [\n    " .. target_code .. ","
+      -- local replacement = "Suppress: [\n    \"" .. target_code .. "\","
       local updated_content, count = string.gsub(file_content, pattern, replacement)
 
       if count == 0 then
         pattern = "(Suppress:)"
-        replacement = "Suppress:\n    - \"" .. target_code .. "\""
+        replacement = "Suppress:\n    - " .. target_code
+        -- replacement = "Suppress:\n    - \"" .. target_code .. "\""
         updated_content = string.gsub(file_content, pattern, replacement)
       end
 
@@ -574,7 +576,7 @@ vim.lsp.enable("clangd")
   -- 4. BIND TO A UNIFIED WORKSPACE SHORTCUT MAPPING
   -- vim.keymap.set("n", "<leader>da", "<cmd>lua _G.manage_file_diagnostics_interactive()<CR>", { desc = "Review and Ignore File LSP Codes" })
   -- ====================================================================
-  -- ====================================================================
+  -- ================== working    ======================================
   -- ====================================================================
   -- 🌟 THE ISOLATED CLANGD HANDLER GATEWAY (ZERO PERFORMANCE LOSS FOR OTHER LSPs)
   -- ====================================================================
