@@ -566,7 +566,8 @@ vim.lsp.enable("clangd")
 
       -- E. Reboot the active language server engine background tracking nodes
       vim.notify("🚀 Suppressing rule: Injecting '" .. target_code .. "' into global compiler limits...", vim.log.levels.WARN, { title = "Global Clangd Config Manager" })
-      vim.cmd("LspRestart clangd")
+      -- vim.cmd("LspRestart clangd")
+      M.restart()
     end)
   end
 
