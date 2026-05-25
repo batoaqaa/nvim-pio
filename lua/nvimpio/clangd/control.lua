@@ -229,6 +229,12 @@ function M.block_diagnostic_under_cursor()
       f_append:close()
     end
 
+    local current_buf = vim.api.nvim_get_current_buf()
+    local namespaces = vim.diagnostic.get_namespaces()
+    for ns_id, _ in pairs(namespaces) do
+      -- Passes an integer explicitly to avoid the type checking crash
+      vim.diagnostic.set(ns_id, current_buf, {})
+    end
     -- Refresh active buffer layout right away without restarting Neovim
     vim.cmd("edit!")
     vim.notify("✅ Silenced '" .. target_string .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
