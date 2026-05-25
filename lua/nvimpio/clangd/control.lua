@@ -452,30 +452,37 @@ function M.init(clangd)
   -- 🌟 THE CORE GLOBAL SHIELD: INTERCEPTS RENDERER BEFORE TEXT IS DRAWN
   -- ====================================================================
   -- Add this right at the bottom of your init.lua
-  vim.diagnostic.config({
-    -- 🌟 NATIVE RENDER FILTER: Intercepts diagnostics before drawing them
-    filter = function(namespace, diagnostic)
-      local ns_info = vim.diagnostic.get_namespace(namespace)
+  -- ====================================================================
+  -- 🌟 THE ROCK-SOLID LSP REDIRECTION FILTER (PREVENTS CRASHES)
+  -- ====================================================================
+  -- Intercept the global raw handler loop directly at the client message entry point
+  local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
 
-      -- Only evaluate filters if the message originates from clangd
-      if ns_info and string.match(ns_info.name:lower(), "clangd") then
+  vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+    if result and result.diagnostics then
+      local cleaned = {}
+
+      for _, diagnostic in ipairs(result.diagnostics) do
         local code = diagnostic.code or ""
         local msg = (diagnostic.message or ""):lower()
 
-        -- Check our memory arrays and text signatures simultaneously
+        -- Evaluate your dynamic blocklist arrays and text properties simultaneously
         local is_blocked = runtime_blocklist[code]
                         or string.find(msg, "unknown argument", 1, true)
                         or string.find(msg, "-mlongcalls", 1, true)
                         or string.find(msg, "tweak:", 1, true)
 
-        if is_blocked then
-          return false -- 🥇 DROP IT INSTANTLY: Tells Neovim to hide this diagnostic completely
+        if not is_blocked then
+          -- Only push forward standard compile markers and true syntax exceptions
+          table.insert(cleaned, diagnostic)
         end
       end
-
-      return true -- Allow all genuine syntax breaks and unblocked items to render safely
+      result.diagnostics = cleaned
     end
-  })
+
+    -- Safely pass the perfectly sanitized payload down to aerial, nvim-pio, and Neovim core
+    original_diagnostic_handler(err, result, ctx, config)
+  end
   --==========================================================================
 
   require('nvimpio.clangd.commands')
