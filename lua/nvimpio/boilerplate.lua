@@ -94,7 +94,7 @@ boilerplate['.clangd_config.json'] = {
     "--completion-style=detailed",
     "--header-insertion=iwyu",
     "--fallback-style=llvm",
-    "--log=error",
+    "--log=verbose",
     "--pch-storage=memory",
     "--pretty",
     "--ranking-model=decision_forest",
