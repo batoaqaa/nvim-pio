@@ -448,11 +448,8 @@ function M.init(clangd)
   end
 
   -- ====================================================================
-  -- 🌟 THE CORE GLOBAL SHIELD: INTERCEPTS RENDERER BEFORE TEXT IS DRAWN
+  -- 🌟 THE ISOLATED CLANGD HANDLER GATEWAY (ZERO PERFORMANCE LOSS FOR OTHER LSPs)
   -- ====================================================================
--- ====================================================================
--- 🌟 THE ISOLATED CLANGD HANDLER GATEWAY (ZERO PERFORMANCE LOSS FOR OTHER LSPs)
--- ====================================================================
   local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
 
   vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
@@ -470,10 +467,9 @@ function M.init(clangd)
 
           -- Simultaneously evaluate our dynamic blocklist dictionary and pattern text strings
           local is_blocked = M.runtime_blocklist[code]
-                          or string.find(msg, "unknown argument", 1, true)
-                          or string.find(msg, "-mlongcalls", 1, true)
-                          or string.find(msg, "tweak:", 1, true)
-
+                          -- or string.find(msg, "unknown argument", 1, true)
+                          -- or string.find(msg, "-mlongcalls", 1, true)
+                          -- or string.find(msg, "tweak:", 1, true)
           if not is_blocked then
             table.insert(cleaned, diagnostic)
           end
@@ -481,42 +477,9 @@ function M.init(clangd)
         result.diagnostics = cleaned
       end
     end
-
     -- Safely pass the payload to the native engine, completely untouched for all other LSPs!
     original_diagnostic_handler(err, result, ctx, config)
   end
-  -- Add this right at the bottom of your init.lua
-  -- ====================================================================
-  -- 🌟 THE ROCK-SOLID LSP REDIRECTION FILTER (PREVENTS CRASHES)
-  -- ====================================================================
-  -- Intercept the global raw handler loop directly at the client message entry point
-  -- local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
-  --
-  -- vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-  --   if result and result.diagnostics then
-  --     local cleaned = {}
-  --
-  --     for _, diagnostic in ipairs(result.diagnostics) do
-  --       local code = diagnostic.code or ""
-  --       local msg = (diagnostic.message or ""):lower()
-  --
-  --       -- Evaluate your dynamic blocklist arrays and text properties simultaneously
-  --       local is_blocked = runtime_blocklist[code]
-  --                       or string.find(msg, "unknown argument", 1, true)
-  --                       or string.find(msg, "-mlongcalls", 1, true)
-  --                       or string.find(msg, "tweak:", 1, true)
-  --
-  --       if not is_blocked then
-  --         -- Only push forward standard compile markers and true syntax exceptions
-  --         table.insert(cleaned, diagnostic)
-  --       end
-  --     end
-  --     result.diagnostics = cleaned
-  --   end
-  --
-  --   -- Safely pass the perfectly sanitized payload down to aerial, nvim-pio, and Neovim core
-  --   original_diagnostic_handler(err, result, ctx, config)
-  -- end
   -- --==========================================================================
 
   require('nvimpio.clangd.commands')
