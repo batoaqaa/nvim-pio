@@ -450,7 +450,20 @@ end
 function M.init(clangd)
   OS.notify('Clangd Control: initialize', "info")
 
+  vim.api.nvim_create_autocmd({ "BufReadPost", "BufEnter" }, {
+    pattern = { "*.cpp", "*.h", "*.c" },
+    callback = function(args)
+      -- Instantly delete the old background diagnostic cache layout for this file buffer
+      vim.diagnostic.reset(nil, args.buf)
 
+      -- Force a quick text evaluation poll to tell clangd to send a fresh package
+      vim.schedule(function()
+        if vim.api.nvim_buf_is_valid(args.buf) then
+          vim.cmd("silent! make! -n") -- Safely nudges the server pipeline without changing code
+        end
+      end)
+    end,
+  })
   require('nvimpio.clangd.commands')
 
   vim.keymap.set('n', 'gll', function()
