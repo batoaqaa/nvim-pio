@@ -65,7 +65,7 @@ end
 -----------------------------------------------------------------------------------------
 
 -- 1. DEFINE PATHS AND MEMORY BUFFERS
-local blocklist_file = vim.fn.stdpath("data") .. "/clangd_blocklist.txt"
+local blocklist_file = vim.uv.cwd() .. "/clangd_blocklist.txt"
 local runtime_blocklist = {
   -- Preprocessor & Macro Overload Errors
   -- ["macro_too_many_args"] = true,                   -- Silences ESPAsyncWebServer warnings
