@@ -23,6 +23,7 @@ function K.lspKeymaps(client, bufnr)
   -- bufkeymap('n', 'gle', '<Cmd>Telescope diagnostics<CR>', 'Show diagnostic [e]rror messages')
   bufkeymap('n', 'glq', vim.diagnostic.setloclist, 'Open diagnostic [q]uickfix list')
   --
+  -- bufkeymap('n', '<leader>\\b', '<cmd>lua _G.block_diagnostic_under_cursor()<CR>', 'Dynamic Block Local Microcontroller LSP Code/Text')
   -- stylua: ignore start
   -- << local trouble = require("trouble").toggle
   -- << bufkeymap('n', "<leader>tt", function() trouble() end, "Toggle Trouble")
