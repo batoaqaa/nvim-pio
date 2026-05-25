@@ -146,7 +146,7 @@ function M.getClangdConfig()
             end
           end
 
-          local is_driver_noise = runtime_blocklist[code] -- or matches_dynamic_text
+          local is_driver_noise = runtime_blocklist[code] or matches_dynamic_text
 
           if is_driver_noise then
             -- Drop it silently
@@ -444,6 +444,7 @@ function M.init(clangd)
         runtime_blocklist[clean_code] = true
         print('clean_code ' .. clean_code)
       end
+    print(vim.inspect(runtime_blocklist))
     end
     f_read:close()
   end
