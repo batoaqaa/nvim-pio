@@ -448,38 +448,165 @@ function M.init(clangd)
   end
 
   -- ====================================================================
-  -- 🌟 THE ISOLATED CLANGD HANDLER GATEWAY (ZERO PERFORMANCE LOSS FOR OTHER LSPs)
   -- ====================================================================
-  local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
+  -- ====================================================================
+-- 1. DEFINE GLOBAL CONFIGURATION PATHS NATIVELY
+local appdata = os.getenv("LOCALAPPDATA") or (os.getenv("USERPROFILE") .. "\\AppData\\Local")
+local global_config_dir = appdata .. "\\clangd"
+local global_config_file = global_config_dir .. "\\config.yaml"
 
-  vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-    -- Get the active client object processing this exact message package
-    local client = vim.lsp.get_client_by_id(ctx.client_id)
+if vim.fn.isdirectory(global_config_dir) == 0 then
+  vim.fn.mkdir(global_config_dir, "p")
+end
 
-    -- 🛡️ CONDITIONAL GATEWAY: Only scrub data frames if they originate from clangd
-    if client and client.name == "clangd" then
-      if result and result.diagnostics then
-        local cleaned = {}
+-- ====================================================================
+-- 2. NATIVE UNIVERSAL CLIENT SPECIFICATION
+-- ====================================================================
+vim.lsp.config("clangd", {
+  cmd = {
+    "clangd",
+    "--enable-config",            -- Forces clangd to read your global file
+    "--background-index=false",   -- Protects CPU from your 13,000-line file
+    "--limit-results=100",        -- Prevents autocomplete UI lag
+    "--query-driver=C:/Users/batoaqaa/.platformio/esp32s3/packages/toolchain-xtensa-esp32s3/bin/*"
+  },
+  filetypes = { "c", "cpp", "objc", "objcpp" },
+})
+vim.lsp.enable("clangd")
 
-        for _, diagnostic in ipairs(result.diagnostics) do
-          local code = diagnostic.code or ""
-          local msg = (diagnostic.message or ""):lower()
+  -- ====================================================================
+  -- 3. THE INTERACTIVE BULK MANGLEMENT SELECTOR ENGINE
+  -- ====================================================================
+  function M.manage_file_diagnostics_interactive()
+    local current_buf = vim.api.nvim_get_current_buf()
+    -- Fetch ALL diagnostics currently active for the open file buffer
+    local diagnostics = vim.diagnostic.get(current_buf)
 
-          -- Simultaneously evaluate our dynamic blocklist dictionary and pattern text strings
-          local is_blocked = M.runtime_blocklist[code]
-                          -- or string.find(msg, "unknown argument", 1, true)
-                          -- or string.find(msg, "-mlongcalls", 1, true)
-                          -- or string.find(msg, "tweak:", 1, true)
-          if not is_blocked then
-            table.insert(cleaned, diagnostic)
-          end
-        end
-        result.diagnostics = cleaned
+    if #diagnostics == 0 then
+      vim.notify("✅ No active LSP diagnostics found in this file!", vim.log.levels.INFO)
+      return
+    end
+
+    -- Track unique diagnostic codes to prevent displaying duplicates in the menu
+    local unique_items = {}
+    local seen_codes = {}
+
+    for _, diag in ipairs(diagnostics) do
+      local code = diag.code
+      if code and code ~= "" and not seen_codes[code] then
+        seen_codes[code] = true
+        table.insert(unique_items, {
+          code = code,
+          message = diag.message,
+          line = diag.lnum + 1
+        })
       end
     end
-    -- Safely pass the payload to the native engine, completely untouched for all other LSPs!
-    original_diagnostic_handler(err, result, ctx, config)
+
+    if #unique_items == 0 then
+      vim.notify("ℹ️ Active diagnostics do not contain valid internal error codes.", vim.log.levels.INFO)
+      return
+    end
+
+    -- Render the selectable popup menu window layout
+    vim.ui.select(unique_items, {
+      prompt = " 🛠️ Select an LSP Error Code to Suppress Permanently (.clangd) ",
+      format_item = function(item)
+        -- Formats the rows beautifully inside the floating layout window
+        return string.format("[%s] Line %d: %s", item.code, item.line, item.message:sub(1, 60) .. "...")
+      end,
+    }, function(choice)
+      -- If the user hits 'q' or Esc to close the menu without selecting, abort safely
+      if not choice then return end
+
+      local target_code = choice.code
+
+      -- A. Ensure base structure configuration files are fully present on disk
+      local f_check = io.open(global_config_file, "r")
+      if not f_check then
+        local f_init = io.open(global_config_file, "wb")
+        if f_init then
+          f_init:write("CompileFlags:\n  Remove: []\n  Add: []\nDiagnostics:\n  Suppress: []\n")
+          f_init:close()
+        end
+      else
+        f_check:close()
+      end
+
+      -- B. Load text layout to execute duplication security gates
+      local file_content = ""
+      local f_read = io.open(global_config_file, "rb")
+      if f_read then
+        file_content = f_read:read("*all")
+        f_read:close()
+      end
+
+      if string.find(file_content, target_code, 1, true) then
+        vim.notify("ℹ️ '" .. target_code .. "' is already suppressed inside config.yaml.", vim.log.levels.INFO)
+        return
+      end
+
+      -- C. Ingress insertion: Inject choice code string inside the YAML Suppress block array
+      local pattern = "(Suppress:%s*%[)"
+      local replacement = "Suppress: [\n    \"" .. target_code .. "\","
+      local updated_content, count = string.gsub(file_content, pattern, replacement)
+
+      if count == 0 then
+        pattern = "(Suppress:)"
+        replacement = "Suppress:\n    - \"" .. target_code .. "\""
+        updated_content = string.gsub(file_content, pattern, replacement)
+      end
+
+      -- D. Write configurations instantly down to binary streams storage paths
+      local f_write = io.open(global_config_file, "wb")
+      if f_write then
+        f_write:write(updated_content)
+        f_write:close()
+      end
+
+      -- E. Reboot the active language server engine background tracking nodes
+      vim.notify("🚀 Suppressing rule: Injecting '" .. target_code .. "' into global compiler limits...", vim.log.levels.WARN, { title = "Global Clangd Config Manager" })
+      vim.cmd("LspRestart clangd")
+    end)
   end
+
+  -- 4. BIND TO A UNIFIED WORKSPACE SHORTCUT MAPPING
+  -- vim.keymap.set("n", "<leader>da", "<cmd>lua _G.manage_file_diagnostics_interactive()<CR>", { desc = "Review and Ignore File LSP Codes" })
+  -- ====================================================================
+  -- ====================================================================
+  -- ====================================================================
+  -- 🌟 THE ISOLATED CLANGD HANDLER GATEWAY (ZERO PERFORMANCE LOSS FOR OTHER LSPs)
+  -- ====================================================================
+  -- local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
+  --
+  -- vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+  --   -- Get the active client object processing this exact message package
+  --   local client = vim.lsp.get_client_by_id(ctx.client_id)
+  --
+  --   -- 🛡️ CONDITIONAL GATEWAY: Only scrub data frames if they originate from clangd
+  --   if client and client.name == "clangd" then
+  --     if result and result.diagnostics then
+  --       local cleaned = {}
+  --
+  --       for _, diagnostic in ipairs(result.diagnostics) do
+  --         local code = diagnostic.code or ""
+  --         local msg = (diagnostic.message or ""):lower()
+  --
+  --         -- Simultaneously evaluate our dynamic blocklist dictionary and pattern text strings
+  --         local is_blocked = M.runtime_blocklist[code]
+  --                         -- or string.find(msg, "unknown argument", 1, true)
+  --                         -- or string.find(msg, "-mlongcalls", 1, true)
+  --                         -- or string.find(msg, "tweak:", 1, true)
+  --         if not is_blocked then
+  --           table.insert(cleaned, diagnostic)
+  --         end
+  --       end
+  --       result.diagnostics = cleaned
+  --     end
+  --   end
+  --   -- Safely pass the payload to the native engine, completely untouched for all other LSPs!
+  --   original_diagnostic_handler(err, result, ctx, config)
+  -- end
   -- --==========================================================================
 
   require('nvimpio.clangd.commands')
