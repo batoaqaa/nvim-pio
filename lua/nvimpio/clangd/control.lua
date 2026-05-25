@@ -249,6 +249,9 @@ function M.block_diagnostic_under_cursor()
       f_append:close()
     end
 
+    -- Force instant in-memory sync so we don't wait for the next handler cycle
+    sync_blocklist_from_disk()
+
     -- Update active window layouts cleanly right away without restarting Neovim
     vim.cmd("edit!")
     vim.notify("✅ Silenced '" .. display_name .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
