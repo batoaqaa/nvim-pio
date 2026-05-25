@@ -373,7 +373,7 @@ local function get_code_under_cursor()
 end
 
 -- Create the execution function to permanently ban a code on the fly
-_G.block_diagnostic_under_cursor = function()
+function M.block_diagnostic_under_cursor()
   local target_code = get_code_under_cursor()
   if target_code then
     if runtime_blocklist[target_code] then

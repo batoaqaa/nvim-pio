@@ -6,7 +6,14 @@
 -- +: At least one argument.
 -- -1: Zero or one argument (like ?, explicitly).
 
--- stylua: ignore
+-- stylua: ignore start
+-- INFO: update/generate compileDB
+----------------------------------------------------------------
+vim.api.nvim_create_user_command('PioDiagnosticBlock', function()
+  -- require('nvimpio.pio.upkeep.cli').buildCompileDB(':PioCompileDB', _G.metadata.active_env)
+  require('nvimpio.clangd.control').block_diagnostic_under_cursor()
+end, { desc = "Install PlatformIO Core" })
+
 -- INFO: update/generate compileDB
 ----------------------------------------------------------------
 vim.api.nvim_create_user_command('PioCompileDB', function()
@@ -23,7 +30,6 @@ vim.keymap.set('n', '<leader>\\e', function()
   require('nvimpio.pio.ui.activeEnvPicker').select_env_picker()
 end, { desc = 'Switch [E]nvironment' })
 
--- stylua: ignore
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
 -- vim.api.nvim_create_user_command('PioInstall', function()
@@ -52,9 +58,6 @@ end, {
 })
 
 
-
-
--- stylua: ignore
 -- INFO: manage gitignore
 ------------------------------------------------------
 vim.api.nvim_create_user_command('PioGitIgnore',
@@ -67,7 +70,6 @@ vim.api.nvim_create_user_command('PioGitIgnore',
   }
 )
 
--- stylua: ignore
 -- INFO: List ToggleTerminals
 ------------------------------------------------------
 vim.api.nvim_create_user_command('PioTermList',
@@ -96,9 +98,8 @@ vim.api.nvim_create_user_command('Piorun', function(opts)
   require('nvimpio.pio.cli').piorun({ args })
 end, {
   nargs = '?',
-  complete = function(_, _, _)
-    return { 'upload', 'uploadfs', 'build', 'clean' } -- Autocompletion options
-  end,
+  -- Autocompletion options
+  complete = function(_, _, _) return { 'upload', 'uploadfs', 'build', 'clean' } end,
 })
 
 --INFO: Piomon
@@ -112,15 +113,9 @@ end, {
     local parts = vim.split(cmd_line, '%s+')
     local BAUD = { '4800', '9600', '57600', '115200' }
     local ports = {}
-    for _, item in ipairs(piolsserial.tty_list) do
-      table.insert(ports, item.port)
-    end
-    if #parts == 2 then
-      return BAUD
-    end
-    if #parts == 3 then
-      return ports
-    end
+    for _, item in ipairs(piolsserial.tty_list) do table.insert(ports, item.port) end
+    if #parts == 2 then return BAUD end
+    if #parts == 3 then return ports end
     return {}
   end,
 })
@@ -158,3 +153,5 @@ end, {
 vim.api.nvim_create_user_command('Piodebug', function()
   require('nvimpio.pio.cli').piodebug()
 end, {})
+
+-- stylua: ignore end
