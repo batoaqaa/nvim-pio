@@ -287,7 +287,8 @@ function M.block_diagnostic_under_cursor()
 
     -- Update active window layouts cleanly right away without restarting Neovim
     vim.cmd("edit!")
-    vim.notify("✅ Silenced '" .. display_name .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
+    vim.notify("✅ Silenced error text containing '" .. generic_keyword .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
+    -- vim.notify("✅ Silenced '" .. display_name .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
   else
     vim.notify("❌ No active LSP diagnostic error found under cursor.", vim.log.levels.ERROR)
   end
