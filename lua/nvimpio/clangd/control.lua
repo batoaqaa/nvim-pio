@@ -148,6 +148,7 @@ function M.getClangdConfig()
           if is_explicitly_blocked then
             -- 🥇 HIGHEST PRIORITY: If it is blocked in our list or text patterns,
             -- DROP IT INSTANTLY. Never let it reach the severity shield!
+            print(code)
 
           elseif diagnostic.severity == 1 then
             -- 🥈 SECONDARY PRIORITY: Keep genuine compilation breaks (missing semicolons, typos)
