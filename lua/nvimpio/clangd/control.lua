@@ -67,19 +67,19 @@ end
 -- 1. DEFINE PATHS AND MEMORY BUFFERS
 local blocklist_file = vim.uv.cwd() .. "/clangd_blocklist.txt"
 local runtime_blocklist = {
-  -- Preprocessor & Macro Overload Errors
+  -- -- Preprocessor & Macro Overload Errors
   -- ["macro_too_many_args"] = true,                   -- Silences ESPAsyncWebServer warnings
   -- ["too_many_args_in_macro_invoc"] = true,          -- Silences fatal preprocessor macro spikes
   -- ["pp_file_not_found"] = true,                     -- Silences nested SDK header routing gaps
-
-  -- GCC Toolchain Conflict Flags
-  ["drv_unknown_argument_with_suggestion"] = true,  -- Silences the -mlongcalls warning
-  ["drv_unknown_argument"] = true,                  -- Silences other architecture specific flags
-
-  -- Host Machine vs Microcontroller Architecture Clashes
-  ["redefinition_different_typedef"] = true,        -- Silences int vs ssize_t library overrides
-  ["err_target_unknown_arch"] = true,               -- Silences unmapped core parser targets
-  ["unused_macro_definition"] = true,               -- Mutes system config macro flooding
+  --
+  -- -- GCC Toolchain Conflict Flags
+  -- ["drv_unknown_argument_with_suggestion"] = true,  -- Silences the -mlongcalls warning
+  -- ["drv_unknown_argument"] = true,                  -- Silences other architecture specific flags
+  --
+  -- -- Host Machine vs Microcontroller Architecture Clashes
+  -- ["redefinition_different_typedef"] = true,        -- Silences int vs ssize_t library overrides
+  -- ["err_target_unknown_arch"] = true,               -- Silences unmapped core parser targets
+  -- ["unused_macro_definition"] = true,               -- Mutes system config macro flooding
 }
 
 -- stylua: ignore
