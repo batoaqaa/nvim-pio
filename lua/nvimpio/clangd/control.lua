@@ -183,7 +183,9 @@ function M.block_diagnostic_under_cursor()
 
   if target_diag then
     local code = target_diag.code
+    print(code)
     local msg = target_diag.message or ""
+    print(msg)
     local target_string = ""
 
     -- CASE A: If the error has a valid code handle, use it
@@ -440,7 +442,7 @@ function M.init(clangd)
       local clean_code = line:gsub("\r", ""):gsub("^%s*(.-)%s*$", "%1")
       if clean_code ~= "" then
         runtime_blocklist[clean_code] = true
-        print(clean_code)
+        print('clean_code ' .. clean_code)
       end
     end
     f_read:close()
