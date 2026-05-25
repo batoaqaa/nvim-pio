@@ -88,6 +88,28 @@ local runtime_patterns = {
   -- ["%-mlongcalls"] = true,
   -- ["tweak:"] = true,
 }
+
+local function sync_blocklist_from_disk()
+  local f_read = io.open(blocklist_file, "r")
+  if f_read then
+    for line in f_read:lines() do
+      local clean_entry = vim.trim(line)
+      if clean_entry ~= "" then
+        if string.match(clean_entry, "^pattern:") then
+          local raw_pattern = string.sub(clean_entry, 9)
+          runtime_patterns[raw_pattern] = true
+        else
+          runtime_blocklist[clean_entry] = true
+        end
+      end
+    end
+    f_read:close()
+  end
+end
+-- Pre-load it once on editor initialization
+sync_blocklist_from_disk()
+
+
 -- stylua: ignore
 function M.getClangdConfig()
   local new_root_dir = vim.uv.cwd() or '.'
@@ -129,30 +151,12 @@ function M.getClangdConfig()
   if not tok then return nil end
   -- ====================================================================
 
-  -- 2. SECURELY PRE-LOAD BLOCKLIST USING STANDARD LUA ON BOOT
-  local f_read = io.open(blocklist_file, "r")
-  if f_read then
-    for line in f_read:lines() do
-      -- Trim trailing and leading white spaces/carriage returns cleanly on Windows
-      local clean_entry = vim.trim(line)
-      if clean_entry ~= "" then
-        -- If the line is an explicit text string match pattern wrapper
-        if string.match(clean_entry, "^pattern:") then
-          local raw_pattern = string.sub(clean_entry, 9)
-          runtime_patterns[raw_pattern] = true
-        else
-          runtime_blocklist[clean_entry] = true
-        end
-      end
-    end
-    f_read:close()
-  end
-
   -- ====================================================================
-  -- 3. BULLETPROOF MICROCONTROLLER LANGUAGE SERVER SPEC
+  -- 2. THE COMPILER RENDERING HANDLERS INTERFACE
   -- ====================================================================
   clangd_config.handlers = {
     ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+      sync_blocklist_from_disk()
       if result and result.diagnostics then
         local filtered = {}
         for _, diagnostic in ipairs(result.diagnostics) do
@@ -190,7 +194,7 @@ function M.getClangdConfig()
 end
 
 -- ====================================================================
--- 4. DYNAMIC INTERACTION LAYER (KEYMAP & POPUP BUILDER) in ('nvimpio.pio.diagnostic')
+-- 3. DYNAMIC INTERACTION LAYER
 -- ====================================================================
 -- Create the execution function to permanently ban a code on the fly
 function M.block_diagnostic_under_cursor()
