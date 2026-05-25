@@ -2,6 +2,7 @@ local M = {}
 
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
+local misc = require('nvimpio.utils.misc')
 
 -- stylua: ignore start
 ----------------------------------------------------------------------------------------
@@ -62,16 +63,35 @@ end
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
+
+-- 1. DEFINE PATHS AND MEMORY BUFFERS
+local blocklist_file = vim.fn.stdpath("data") .. "/clangd_blocklist.txt"
+local runtime_blocklist = {
+  -- Preprocessor & Macro Overload Errors
+  -- ["macro_too_many_args"] = true,                   -- Silences ESPAsyncWebServer warnings
+  -- ["too_many_args_in_macro_invoc"] = true,          -- Silences fatal preprocessor macro spikes
+  -- ["pp_file_not_found"] = true,                     -- Silences nested SDK header routing gaps
+
+  -- GCC Toolchain Conflict Flags
+  ["drv_unknown_argument_with_suggestion"] = true,  -- Silences the -mlongcalls warning
+  ["drv_unknown_argument"] = true,                  -- Silences other architecture specific flags
+
+  -- Host Machine vs Microcontroller Architecture Clashes
+  ["redefinition_different_typedef"] = true,        -- Silences int vs ssize_t library overrides
+  ["err_target_unknown_arch"] = true,               -- Silences unmapped core parser targets
+  ["unused_macro_definition"] = true,               -- Mutes system config macro flooding
+}
+
 -- stylua: ignore
 function M.getClangdConfig()
   local new_root_dir = vim.uv.cwd() or '.'
   if not new_root_dir then return end
 
-  -- 1. Safe defaults (Standard clangd behavior)
+  -- Safe defaults (Standard clangd behavior)
   local q_driver, merged_json = '**', ''
   -- local f_flags = [["-std=c++17", "-xc++"]]
 
-  -- 2. Run your toolchain detection
+  -- Run your toolchain detection
   if _G.metadata and _G.metadata.cc_path and _G.metadata.cc_path ~= '' then
     if _G.metadata.triplet and _G.metadata.triplet ~= '' then
       -- local include_flags = table.concat(vim.tbl_map(function(item)
@@ -88,7 +108,7 @@ function M.getClangdConfig()
     end
   end
 
-  -- 3. Format your template string
+  -- Format your template string
   local json_config = boilerplate_gen([[.clangd_config.json]], vim.g.platformioRootDir)
   if not json_config then return nil end
 
@@ -103,70 +123,115 @@ function M.getClangdConfig()
   if not tok then return nil end
 
 
-  -- 1. Dynamically inject the Lua filter function into the parsed table
-  -- clangd_config.handlers = {
-  --   ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-  --     if result and result.diagnostics then
-  --       local filtered = {}
-  --
-  --       -- DYNAMIC BLOCKLIST (Matches the precise internal names used by VS Code)
-  --       local vs_code_blocklist = {
-  --         -- Preprocessor & Macro Overload Errors
-  --         ["macro_too_many_args"] = true,                   -- Silences ESPAsyncWebServer warnings
-  --         ["too_many_args_in_macro_invoc"] = true,          -- Silences fatal preprocessor macro spikes
-  --         ["pp_file_not_found"] = true,                     -- Silences nested SDK header routing gaps
-  --
-  --         -- GCC Toolchain Conflict Flags
-  --         ["drv_unknown_argument_with_suggestion"] = true,  -- Silences the -mlongcalls warning
-  --         ["drv_unknown_argument"] = true,                  -- Silences other architecture specific flags
-  --
-  --         -- Host Machine vs Microcontroller Architecture Clashes
-  --         ["redefinition_different_typedef"] = true,        -- Silences int vs ssize_t library overrides
-  --         ["err_target_unknown_arch"] = true,               -- Silences unmapped core parser targets
-  --         ["unused_macro_definition"] = true,               -- Mutes system config macro flooding
-  --       }
-  --
-  --       for _, diagnostic in ipairs(result.diagnostics) do
-  --         local code = diagnostic.code or ""
-  --         local msg = (diagnostic.message or ""):lower()
-  --
-  --         -- DYNAMIC DETECTION: Catch errors by code name OR by explicit message text patterns
-  --         local is_driver_noise = vs_code_blocklist[code]
-  --                              or string.match(msg, "unknown argument")
-  --                              or string.match(msg, "%-mlongcalls")
-  --                              or string.match(msg, "tweak:")
-  --
-  --         -- 1. If it's a driver/macro configuration error, skip it completely
-  --         if is_driver_noise then
-  --           -- Drop it silently, exactly like VS Code does!
-  --
-  --         -- 2. If it's any other genuine fatal compilation error, pass it to the screen
-  --         elseif diagnostic.severity == 1 then
-  --           table.insert(filtered, diagnostic)
-  --
-  --         -- 3. Otherwise, pass normal warnings through if they aren't blocked
-  --         elseif not vs_code_blocklist[code] then
-  --           table.insert(filtered, diagnostic)
-  --         end
-  --       end
-  --
-  --       -- Swap the cluttered diagnostics package out for our clean, pristine table array
-  --       result.diagnostics = filtered
-  --
-  --
-  --
-  --     end
-  --     -- Pass cleanly down to the Neovim 0.11 global LSP handler
-  --     vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
-  --   end,
-  -- }
+  -- 2. LOAD PREVIOUSLY SAVED DYNAMIC CODES ON BOOT
+  local bl_ok, content = misc.readFile(vim.fn.stdpath("data") .. "/clangd_blocklist.txt")
+  if bl_ok and content and content ~= '' then
+      for _, line in ipairs(vim.split(content, "\r?\n")) do
+        local clean_code = line:gsub("%s+", "")
+        if clean_code ~= "" then
+          runtime_blocklist[clean_code] = true
+        end
+      end
+  end
+  -- ====================================================================
+  -- 3. BULLETPROOF MICROCONTROLLER LANGUAGE SERVER SPEC
+  -- ====================================================================
+  clangd_config.handlers = {
+    ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+      if result and result.diagnostics then
+        local filtered = {}
 
+        for _, diagnostic in ipairs(result.diagnostics) do
+          local code = diagnostic.code or ""
+          local msg = (diagnostic.message or ""):lower()
 
+          -- DYNAMIC DETECTION: Catch errors by code name OR by explicit message text patterns
+          local is_driver_noise = runtime_blocklist[code]
+                               or string.match(msg, "unknown argument")
+                               or string.match(msg, "%-mlongcalls")
+                               or string.match(msg, "tweak:")
 
+          -- 1. If it's a driver/macro configuration error, skip it completely
+          if is_driver_noise then
+            -- Drop it silently, exactly like VS Code does!
 
+          -- 2. If it's any other genuine fatal compilation error, pass it to the screen
+          elseif diagnostic.severity == 1 then
+            table.insert(filtered, diagnostic)
 
+          -- 3. Otherwise, pass normal warnings through if they aren't blocked
+          elseif not runtime_blocklist[code] then
+            table.insert(filtered, diagnostic)
+          end
+        end
+
+        -- Swap the cluttered diagnostics package out for our clean, pristine table array
+        result.diagnostics = filtered
+      end
+      -- Pass cleanly down to the Neovim 0.11 global LSP handler
+      vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
+    end,
+  }
   if clangd_config then return clangd_config end
 end
+
+-- ====================================================================
+-- 4. DYNAMIC INTERACTION LAYER (KEYMAP & POPUP BUILDER) in ('nvimpio.pio.diagnostic')
+-- ====================================================================
+local function get_code_under_cursor()
+  local line, col = unpack(vim.api.nvim_win_get_cursor(0))
+  local diagnostics = vim.diagnostic.get(0, { lnum = line - 1 })
+  for _, diag in ipairs(diagnostics) do
+    if col >= diag.col and col <= diag.end_col and diag.code and diag.code ~= "" then
+      return diag.code
+    end
+  end
+  return nil
+end
+
+-- Create the execution function to permanently ban a code on the fly
+_G.block_diagnostic_under_cursor = function()
+  local target_code = get_code_under_cursor()
+  if target_code then
+    if runtime_blocklist[target_code] then
+      vim.notify("ℹ️ '" .. target_code .. "' is already blocked.", vim.log.levels.INFO)
+      return
+    end
+
+    -- Inject into memory table instantly
+    runtime_blocklist[target_code] = true
+
+    -- Append to disk permanently
+    local f_append = io.open(blocklist_file, "a")
+    if f_append then
+      f_append:write(target_code .. "\n")
+      f_append:close()
+    end
+
+    -- Refresh active buffer layout right away without restarting Neovim
+    vim.cmd("edit!")
+    vim.notify("✅ Silenced '" .. target_code .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
+  else
+    vim.notify("❌ No valid LSP diagnostic code found under cursor.", vim.log.levels.ERROR)
+  end
+end
+
+-- Map the functionality to a clean keyboard shortcut mapping
+vim.keymap.set("n", "<leader>db", "<cmd>lua _G.block_diagnostic_under_cursor()<CR>", { desc = "Dynamic Block LSP Code" })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 -- INFO: clangdRestart()
 --------------------------------------------------------------------------------
