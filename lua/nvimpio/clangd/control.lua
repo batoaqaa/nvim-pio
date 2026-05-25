@@ -104,61 +104,61 @@ function M.getClangdConfig()
 
 
   -- 1. Dynamically inject the Lua filter function into the parsed table
-  -- clangd_config.handlers = {
-  --   ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-  --     if result and result.diagnostics then
-  --       local filtered = {}
-  --
-  --       -- DYNAMIC BLOCKLIST (Matches the precise internal names used by VS Code)
-  --       local vs_code_blocklist = {
-  --         -- Preprocessor & Macro Overload Errors
-  --         ["macro_too_many_args"] = true,                   -- Silences ESPAsyncWebServer warnings
-  --         ["too_many_args_in_macro_invoc"] = true,          -- Silences fatal preprocessor macro spikes
-  --         ["pp_file_not_found"] = true,                     -- Silences nested SDK header routing gaps
-  --
-  --         -- GCC Toolchain Conflict Flags
-  --         ["drv_unknown_argument_with_suggestion"] = true,  -- Silences the -mlongcalls warning
-  --         ["drv_unknown_argument"] = true,                  -- Silences other architecture specific flags
-  --
-  --         -- Host Machine vs Microcontroller Architecture Clashes
-  --         ["redefinition_different_typedef"] = true,        -- Silences int vs ssize_t library overrides
-  --         ["err_target_unknown_arch"] = true,               -- Silences unmapped core parser targets
-  --         ["unused_macro_definition"] = true,               -- Mutes system config macro flooding
-  --       }
-  --
-  --       for _, diagnostic in ipairs(result.diagnostics) do
-  --         local code = diagnostic.code or ""
-  --         local msg = (diagnostic.message or ""):lower()
-  --
-  --         -- DYNAMIC DETECTION: Catch errors by code name OR by explicit message text patterns
-  --         local is_driver_noise = vs_code_blocklist[code]
-  --                              or string.match(msg, "unknown argument")
-  --                              or string.match(msg, "%-mlongcalls")
-  --
-  --         -- 1. If it's a driver/macro configuration error, skip it completely
-  --         if is_driver_noise then
-  --           -- Drop it silently, exactly like VS Code does!
-  --
-  --         -- 2. If it's any other genuine fatal compilation error, pass it to the screen
-  --         elseif diagnostic.severity == 1 then
-  --           table.insert(filtered, diagnostic)
-  --
-  --         -- 3. Otherwise, pass normal warnings through if they aren't blocked
-  --         elseif not vs_code_blocklist[code] then
-  --           table.insert(filtered, diagnostic)
-  --         end
-  --       end
-  --
-  --       -- Swap the cluttered diagnostics package out for our clean, pristine table array
-  --       result.diagnostics = filtered
-  --
-  --
-  --
-  --     end
-  --     -- Pass cleanly down to the Neovim 0.11 global LSP handler
-  --     vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
-  --   end,
-  -- }
+  clangd_config.handlers = {
+    ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+      if result and result.diagnostics then
+        local filtered = {}
+
+        -- DYNAMIC BLOCKLIST (Matches the precise internal names used by VS Code)
+        local vs_code_blocklist = {
+          -- Preprocessor & Macro Overload Errors
+          ["macro_too_many_args"] = true,                   -- Silences ESPAsyncWebServer warnings
+          ["too_many_args_in_macro_invoc"] = true,          -- Silences fatal preprocessor macro spikes
+          ["pp_file_not_found"] = true,                     -- Silences nested SDK header routing gaps
+
+          -- GCC Toolchain Conflict Flags
+          ["drv_unknown_argument_with_suggestion"] = true,  -- Silences the -mlongcalls warning
+          ["drv_unknown_argument"] = true,                  -- Silences other architecture specific flags
+
+          -- Host Machine vs Microcontroller Architecture Clashes
+          ["redefinition_different_typedef"] = true,        -- Silences int vs ssize_t library overrides
+          ["err_target_unknown_arch"] = true,               -- Silences unmapped core parser targets
+          ["unused_macro_definition"] = true,               -- Mutes system config macro flooding
+        }
+
+        for _, diagnostic in ipairs(result.diagnostics) do
+          local code = diagnostic.code or ""
+          local msg = (diagnostic.message or ""):lower()
+
+          -- DYNAMIC DETECTION: Catch errors by code name OR by explicit message text patterns
+          local is_driver_noise = vs_code_blocklist[code]
+                               or string.match(msg, "unknown argument")
+                               or string.match(msg, "%-mlongcalls")
+
+          -- 1. If it's a driver/macro configuration error, skip it completely
+          if is_driver_noise then
+            -- Drop it silently, exactly like VS Code does!
+
+          -- 2. If it's any other genuine fatal compilation error, pass it to the screen
+          elseif diagnostic.severity == 1 then
+            table.insert(filtered, diagnostic)
+
+          -- 3. Otherwise, pass normal warnings through if they aren't blocked
+          elseif not vs_code_blocklist[code] then
+            table.insert(filtered, diagnostic)
+          end
+        end
+
+        -- Swap the cluttered diagnostics package out for our clean, pristine table array
+        result.diagnostics = filtered
+
+
+
+      end
+      -- Pass cleanly down to the Neovim 0.11 global LSP handler
+      vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
+    end,
+  }
 
 
 
