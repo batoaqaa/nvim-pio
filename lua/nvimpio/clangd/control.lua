@@ -65,22 +65,22 @@ end
 
 -----------------------------------------------------------------------------------------
 -- 1. DEFINE PATHS AND MEMORY BUFFERS
-local blocklist_file = vim.uv.cwd() .. "/clangd_blocklist.txt"
-M.runtime_blocklist = {
-  -- -- Preprocessor & Macro Overload Errors
-  -- ["macro_too_many_args"] = true,                   -- Silences ESPAsyncWebServer warnings
-  -- ["too_many_args_in_macro_invoc"] = true,          -- Silences fatal preprocessor macro spikes
-  -- ["pp_file_not_found"] = true,                     -- Silences nested SDK header routing gaps
-  --
-  -- -- GCC Toolchain Conflict Flags
-  -- ["drv_unknown_argument_with_suggestion"] = true,  -- Silences the -mlongcalls warning
-  -- ["drv_unknown_argument"] = true,                  -- Silences other architecture specific flags
-  --
-  -- -- Host Machine vs Microcontroller Architecture Clashes
-  -- ["redefinition_different_typedef"] = true,        -- Silences int vs ssize_t library overrides
-  -- ["err_target_unknown_arch"] = true,               -- Silences unmapped core parser targets
-  -- ["unused_macro_definition"] = true,               -- Mutes system config macro flooding
-}
+-- local blocklist_file = vim.uv.cwd() .. "/clangd_blocklist.txt"
+-- M.runtime_blocklist = {
+--   -- -- Preprocessor & Macro Overload Errors
+--   -- ["macro_too_many_args"] = true,                   -- Silences ESPAsyncWebServer warnings
+--   -- ["too_many_args_in_macro_invoc"] = true,          -- Silences fatal preprocessor macro spikes
+--   -- ["pp_file_not_found"] = true,                     -- Silences nested SDK header routing gaps
+--   --
+--   -- -- GCC Toolchain Conflict Flags
+--   -- ["drv_unknown_argument_with_suggestion"] = true,  -- Silences the -mlongcalls warning
+--   -- ["drv_unknown_argument"] = true,                  -- Silences other architecture specific flags
+--   --
+--   -- -- Host Machine vs Microcontroller Architecture Clashes
+--   -- ["redefinition_different_typedef"] = true,        -- Silences int vs ssize_t library overrides
+--   -- ["err_target_unknown_arch"] = true,               -- Silences unmapped core parser targets
+--   -- ["unused_macro_definition"] = true,               -- Mutes system config macro flooding
+-- }
 
 -- stylua: ignore
 function M.getClangdConfig()
@@ -122,48 +122,6 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
-  -- ====================================================================
-  -- 3. THE COMPILER RENDERING HANDLERS INTERFACE
-  -- ====================================================================
-  -- clangd_config.handlers = {
-  --   ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-  --     -- ====================================================================
-  --     -- 2. Always sync the blocklist from disk right before parsing frames
-  --
-  --     if result and result.diagnostics then
-  --       local filtered = {}
-  --       for _, diagnostic in ipairs(result.diagnostics) do
-  --         local code = diagnostic.code or ""
-  --         local msg = (diagnostic.message or ""):lower()
-  --
-  --         -- 🌟 BACKEND TEXT PATTERN MATCHING FALLBACKS
-  --         local matches_text_pattern = string.find(msg, "unknown argument", 1, true)
-  --                                   or string.find(msg, "-mlongcalls", 1, true)
-  --                                   or string.find(msg, "tweak:", 1, true)
-  --
-  --         -- Combine error codes and text patterns into a single master shield evaluation
-  --         local is_explicitly_blocked = runtime_blocklist[code] or matches_text_pattern
-  --
-  --         -- ─── 🌟 THE CRITICAL PRECEDENCE GATEWAY FIX ───
-  --         if is_explicitly_blocked then
-  --           -- 🥇 HIGHEST PRIORITY: If it is blocked in our list or text patterns,
-  --           -- DROP IT INSTANTLY. Never let it reach the severity shield!
-  --
-  --         elseif diagnostic.severity == 1 then
-  --           -- 🥈 SECONDARY PRIORITY: Keep genuine compilation breaks (missing semicolons, typos)
-  --           table.insert(filtered, diagnostic)
-  --
-  --         elseif not runtime_blocklist[code] then
-  --           -- 🥉 TERTIARY PRIORITY: Pass normal unblocked warnings through
-  --           table.insert(filtered, diagnostic)
-  --         end
-  --       end
-  --       result.diagnostics = filtered
-  --     end
-  --     -- Pass cleanly down to the Neovim 0.11 global LSP handler
-  --     vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
-  --   end,
-  -- }
   if clangd_config then return clangd_config end
 end
 
@@ -435,206 +393,18 @@ function M.init(clangd)
 
   -- ====================================================================
   -- 1. LOAD PREVIOUSLY SAVED DYNAMIC CODES ON BOOT
-  local f_read = io.open(blocklist_file, "rb")
-  if f_read then
-    for line in f_read:lines() do
-      -- Strip hidden Windows carriage returns and whitespaces cleanly
-      local clean_code = line:gsub("\r", ""):gsub("^%s*(.-)%s*$", "%1")
-      if clean_code ~= "" then
-        M.runtime_blocklist[clean_code] = true
-      end
-    end
-    f_read:close()
-  end
+  -- local f_read = io.open(blocklist_file, "rb")
+  -- if f_read then
+  --   for line in f_read:lines() do
+  --     -- Strip hidden Windows carriage returns and whitespaces cleanly
+  --     local clean_code = line:gsub("\r", ""):gsub("^%s*(.-)%s*$", "%1")
+  --     if clean_code ~= "" then
+  --       M.runtime_blocklist[clean_code] = true
+  --     end
+  --   end
+  --   f_read:close()
+  -- end
 
-  -- ====================================================================
-  -- ====================================================================
-  -- ====================================================================
--- 1. DEFINE GLOBAL CONFIGURATION PATHS NATIVELY
-local appdata = os.getenv("LOCALAPPDATA") or (os.getenv("USERPROFILE") .. "\\AppData\\Local")
-local global_config_dir = appdata .. "\\clangd"
-local global_config_file = global_config_dir .. "\\config.yaml"
-
-if vim.fn.isdirectory(global_config_dir) == 0 then
-  vim.fn.mkdir(global_config_dir, "p")
-end
-
--- ====================================================================
--- 2. NATIVE UNIVERSAL CLIENT SPECIFICATION
--- ====================================================================
-vim.lsp.config("clangd", {
-  cmd = {
-    "clangd",
-    "--enable-config",            -- Forces clangd to read your global file
-    "--background-index=false",   -- Protects CPU from your 13,000-line file
-    "--limit-results=100",        -- Prevents autocomplete UI lag
-    "--query-driver=C:/Users/batoaqaa/.platformio/esp32s3/packages/toolchain-xtensa-esp32s3/bin/*"
-  },
-  filetypes = { "c", "cpp", "objc", "objcpp" },
-})
-vim.lsp.enable("clangd")
-
--- ====================================================================
--- 3. THE INTERACTIVE BULK MANGLEMENT SELECTOR ENGINE
--- ====================================================================
-function M.manage_file_diagnostics_interactive()
-  local current_buf = vim.api.nvim_get_current_buf()
-  local diagnostics = vim.diagnostic.get(current_buf)
-  local local_clangd_file = vim.fn.getcwd() .. "/.clangd"
-
-  if #diagnostics == 0 then
-    vim.notify("✅ No active LSP diagnostics found in this file!", vim.log.levels.INFO)
-    return
-  end
-
-  local unique_items = {}
-  local seen_codes = {}
-
-  for _, diag in ipairs(diagnostics) do
-    local code = diag.code
-    if code and code ~= "" and not seen_codes[code] then
-      seen_codes[code] = true
-      table.insert(unique_items, {
-        code = code,
-        message = diag.message,
-        line = diag.lnum + 1
-      })
-    end
-  end
-
-  if #unique_items == 0 then
-    vim.notify("ℹ6 Active diagnostics do not contain valid internal error codes.", vim.log.levels.INFO)
-    return
-  end
-
-  vim.ui.select(unique_items, {
-    prompt = " 🛠7 Select an LSP Error to Suppress Permanently inside Local .clangd ",
-    format_item = function(item)
-      return string.format("[%s] Line %d: %s", item.code, item.line, item.message:sub(1, 60) .. "...")
-    end,
-  }, function(choice)
-    if not choice then return end
-
-    -- Initialize baseline if file is completely missing
-    local f_check = io.open(local_clangd_file, "r")
-    if not f_check then
-      local f_init = io.open(local_clangd_file, "wb")
-      if f_init then
-        local baseline_template = [[
-CompileFlags:
-  Remove: []
-  Add:
-    [
-      "-xc++",
-      "-std=gnu++17",
-      "-Wno-unknown-argument",
-      "-Wno-macro-redefined",
-      "-Wno-invalid-token-paste",
-      "-Wno-typedef-redefinition",
-      "-Wno-unknown-attributes",
-      "-Wno-pragma-system-header-outside-header",
-      "-Wno-unknown-warning-option",
-      "-Wno-unused-includes",
-    ]
-Diagnostics:
-  Suppress:
-    [
-      "macro_too_many_args",
-      "unused_macro_definition",
-      "pp_file_not_found",
-      "pp_file_not_found_angled_not_fatal",
-      "pp_included_file_not_found",
-      "pp_including_mainfile_in_preamble",
-      "unused-includes",
-      "misc-definitions-in-headers",
-    ]
-  ClangTidy:
-    Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
-
----
-# Dynamic configuration block generated by nvim-pio
-CompileFlags:
-  Remove: [
-    "-mlongcalls",
-    "-fstrict-volatile-bitfields",
-    "-fno-tree-switch-conversion"
-    ]
-]]
-        f_init:write(baseline_template)
-        f_init:close()
-      end
-    else
-      f_check:close()
-    end
-
-    local file_content = ""
-    local f_read = io.open(local_clangd_file, "rb")
-    if f_read then
-      file_content = f_read:read("*all")
-      f_read:close()
-    end
-
-    local target_item = ""
-    local is_driver_flag = string.match(choice.code:lower(), "^drv_") or string.match(choice.message:lower(), "unknown argument")
-
-    if is_driver_flag then
-      local extracted_flag = string.match(choice.message, "['\"](%-.-)['\"]") or string.match(choice.message, "%s(%-.*)%s")
-      if not extracted_flag then
-        extracted_flag = string.match(choice.message, "argument%s+(%-.*)$") or "-mlongcalls"
-      end
-      target_item = vim.trim(extracted_flag):gsub("[',;\"%s]", "")
-    else
-      target_item = choice.code
-    end
-
-    if string.find(file_content, target_item, 1, true) then
-      vim.notify("ℹ7 '" .. target_item .. "' is already mapped inside your .clangd file.", vim.log.levels.INFO)
-      return
-    end
-
-    -- Split file to isolate the dynamic block at the bottom
-    local sections = vim.split(file_content, "# Dynamic configuration block generated by nvim%-pio")
-    local base_part = sections[1]
-    local dynamic_part = sections[2] or ""
-
-    local updated_dynamic = ""
-
-    if is_driver_flag then
-      -- 🌟 Option A: Inject into CompileFlags.Remove block inside the dynamic part
-      local pattern = "(CompileFlags:%s*\n%s*Remove:%s*%[)"
-      local replacement = "CompileFlags:\n  Remove: [\n    \"" .. target_item .. "\","
-      updated_dynamic = string.gsub(dynamic_part, pattern, replacement)
-    else
-      -- 🌟 Option B: Inject into Diagnostics.Suppress block inside the dynamic part
-      if string.find(dynamic_part, "Diagnostics:%s*\n%s*Suppress:%s*%[") then
-        -- Append to existing Diagnostics list
-        local pattern = "(Diagnostics:%s*\n%s*Suppress:%s*%[)"
-        local replacement = "Diagnostics:\n  Suppress: [\n    " .. target_item .. ","
-        updated_dynamic = string.gsub(dynamic_part, pattern, replacement)
-      else
-        -- Create a brand new Diagnostics section cleanly at the end of the file
-        updated_dynamic = dynamic_part .. "\nDiagnostics:\n  Suppress: [\n    " .. target_item .. ",\n  ]"
-      end
-    end
-
-    -- Reconstruct the full file clean array stream
-    local final_content = base_part .. "# Dynamic configuration block generated by nvim-pio" .. updated_dynamic
-
-    local f_write = io.open(local_clangd_file, "wb")
-    if f_write then
-      f_write:write(final_content)
-      f_write:close()
-    end
-
-    local status_msg = is_driver_flag and ("Stripped flag '" .. target_item .. "'") or ("Suppressed code '" .. target_item .. "'")
-    vim.notify("✅ " .. status_msg .. " under the dynamic configuration block!", vim.log.levels.WARN, { title = "Project .clangd Mangler" })
-    -- vim.cmd("LspRestart clangd")
-    M.restart()
-  end)
-end
-
-  -- 4. BIND TO A UNIFIED WORKSPACE SHORTCUT MAPPING
-  -- vim.keymap.set("n", "<leader>da", "<cmd>lua _G.manage_file_diagnostics_interactive()<CR>", { desc = "Review and Ignore File LSP Codes" })
   -- ====================================================================
   -- ================== working    ======================================
   -- ====================================================================
