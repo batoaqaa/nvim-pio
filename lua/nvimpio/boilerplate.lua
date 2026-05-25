@@ -85,7 +85,7 @@ boilerplate['.clangd_config.json'] = {
   "cmd": [
     "clangd",
     "--enable-config",
-    "limit-results=100",
+    "--limit-results=100",
     "--background-index=false",
     "--all-scopes-completion",
     "--clang-tidy",
