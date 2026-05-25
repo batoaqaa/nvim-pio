@@ -8,4 +8,8 @@ vim.api.nvim_create_user_command('ClangdCheckArgs', function(_)
 end, {})
 -- Clangdrestart
 vim.api.nvim_create_user_command('Clangdrestart', control.restart, {})
+-- INFO: ClangdDiagnosticBlock
+----------------------------------------------------------------
+vim.api.nvim_create_user_command('ClangdDiagnosticBlock', control.block_diagnostic_under_cursor, {})
+
 --------------------------------------------------------------------------------

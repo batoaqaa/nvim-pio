@@ -9,13 +9,6 @@
 -- stylua: ignore start
 -- INFO: update/generate compileDB
 ----------------------------------------------------------------
-vim.api.nvim_create_user_command('PioDiagnosticBlock', function()
-  -- require('nvimpio.pio.upkeep.cli').buildCompileDB(':PioCompileDB', _G.metadata.active_env)
-  require('nvimpio.clangd.control').block_diagnostic_under_cursor()
-end, { desc = "Install PlatformIO Core" })
-
--- INFO: update/generate compileDB
-----------------------------------------------------------------
 vim.api.nvim_create_user_command('PioCompileDB', function()
   -- require('nvimpio.pio.upkeep.cli').buildCompileDB(':PioCompileDB', _G.metadata.active_env)
   require('nvimpio.pio.ui.pioCompileDB').pioCompileDB()
