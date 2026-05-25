@@ -226,42 +226,61 @@ function M.block_diagnostic_under_cursor()
   if target_diag then
     local code = target_diag.code
     local msg = target_diag.message or ""
-    local save_line = ""
-    local display_name = ""
 
-    -- CASE A: The error has an official code ID
-    if code and code ~= "" then
-      if runtime_blocklist[code] then
-        vim.notify("ℹ️ Code '" .. code .. "' is already blocked.", vim.log.levels.INFO)
-        return
-      end
-      runtime_blocklist[code] = true
-      save_line = code
-      display_name = "Code: " .. code
 
-    -- CASE B: No official code handle exists -> Extract raw string message pattern instead
-    else
-      -- Escape special regex chars like symbols/hyphens to make text matching safe
-      local clean_msg = msg:lower():gsub("([^%w%s])", "%%%1")
-      -- Shorten long error arrays to a clean sentence fragment match
-      local snippet = string.match(clean_msg, "[^:]+") or clean_msg
-      snippet = vim.trim(snippet)
-
-      if runtime_patterns[snippet] then
-        vim.notify("ℹ️ Pattern matching this text is already blocked.", vim.log.levels.INFO)
-        return
-      end
-      runtime_patterns[snippet] = true
-      save_line = "pattern:" .. snippet
-      display_name = "Text Pattern: " .. msg
+    -- FORCE DYNAMIC TEXT PROTECTION:
+    -- We save BOTH the code name AND the first two words of the error text
+    -- This guarantees it catches it even if clangd glitches its code reporting.
+    local word1, word2 = string.match(msg:lower(), "([%w%-]+)%s+([%w%-]+)")
+    local generic_keyword = "unknown argument"
+    if word1 and word2 then
+      generic_keyword = word1 .. " " .. word2
     end
 
-    -- Append the dynamic signature to your disk text file permanently using standard Lua
+    -- Write entries to disk text file permanently
     local f_append = io.open(blocklist_file, "a")
     if f_append then
-      f_append:write(save_line .. "\n")
+      if code and code ~= "" then f_append:write(code .. "\n") end
+      f_append:write("pattern:" .. generic_keyword .. "\n")
       f_append:close()
     end
+
+    -- local save_line = ""
+    -- local display_name = ""
+    --
+    -- -- CASE A: The error has an official code ID
+    -- if code and code ~= "" then
+    --   if runtime_blocklist[code] then
+    --     vim.notify("ℹ️ Code '" .. code .. "' is already blocked.", vim.log.levels.INFO)
+    --     return
+    --   end
+    --   runtime_blocklist[code] = true
+    --   save_line = code
+    --   display_name = "Code: " .. code
+    --
+    -- -- CASE B: No official code handle exists -> Extract raw string message pattern instead
+    -- else
+    --   -- Escape special regex chars like symbols/hyphens to make text matching safe
+    --   local clean_msg = msg:lower():gsub("([^%w%s])", "%%%1")
+    --   -- Shorten long error arrays to a clean sentence fragment match
+    --   local snippet = string.match(clean_msg, "[^:]+") or clean_msg
+    --   snippet = vim.trim(snippet)
+    --
+    --   if runtime_patterns[snippet] then
+    --     vim.notify("ℹ️ Pattern matching this text is already blocked.", vim.log.levels.INFO)
+    --     return
+    --   end
+    --   runtime_patterns[snippet] = true
+    --   save_line = "pattern:" .. snippet
+    --   display_name = "Text Pattern: " .. msg
+    -- end
+    --
+    -- -- Append the dynamic signature to your disk text file permanently using standard Lua
+    -- local f_append = io.open(blocklist_file, "a")
+    -- if f_append then
+    --   f_append:write(save_line .. "\n")
+    --   f_append:close()
+    -- end
 
     -- Force instant in-memory sync so we don't wait for the next handler cycle
     sync_blocklist_from_disk()
