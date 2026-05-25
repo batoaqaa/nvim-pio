@@ -129,19 +129,6 @@ function M.getClangdConfig()
   clangd_config.handlers = {
     ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
       -- ====================================================================
-      -- 1. LOAD PREVIOUSLY SAVED DYNAMIC CODES ON BOOT
-      local f_read = io.open(blocklist_file, "rb")
-      if f_read then
-        for line in f_read:lines() do
-          -- Strip hidden Windows carriage returns and whitespaces cleanly
-          local clean_code = line:gsub("\r", ""):gsub("^%s*(.-)%s*$", "%1")
-          if clean_code ~= "" then
-            runtime_blocklist[clean_code] = true
-          end
-        end
-        f_read:close()
-      end
-      -- ====================================================================
       -- 2. Always sync the blocklist from disk right before parsing frames
 
       if result and result.diagnostics then
@@ -162,7 +149,6 @@ function M.getClangdConfig()
           if is_explicitly_blocked then
             -- 🥇 HIGHEST PRIORITY: If it is blocked in our list or text patterns,
             -- DROP IT INSTANTLY. Never let it reach the severity shield!
-            print(code)
 
           elseif diagnostic.severity == 1 then
             -- 🥈 SECONDARY PRIORITY: Keep genuine compilation breaks (missing semicolons, typos)
@@ -200,9 +186,7 @@ function M.block_diagnostic_under_cursor()
 
   if target_diag then
     local code = target_diag.code
-    print(code)
     local msg = target_diag.message or ""
-    print(msg)
     local target_code = ""
 
     -- CASE A: If the error has a valid code handle, use it
@@ -450,20 +434,20 @@ end
 function M.init(clangd)
   OS.notify('Clangd Control: initialize', "info")
 
-  vim.api.nvim_create_autocmd({ "BufReadPost", "BufEnter" }, {
-    pattern = { "*.cpp", "*.h", "*.c" },
-    callback = function(args)
-      -- Instantly delete the old background diagnostic cache layout for this file buffer
-      vim.diagnostic.reset(nil, args.buf)
+  -- ====================================================================
+  -- 1. LOAD PREVIOUSLY SAVED DYNAMIC CODES ON BOOT
+  local f_read = io.open(blocklist_file, "rb")
+  if f_read then
+    for line in f_read:lines() do
+      -- Strip hidden Windows carriage returns and whitespaces cleanly
+      local clean_code = line:gsub("\r", ""):gsub("^%s*(.-)%s*$", "%1")
+      if clean_code ~= "" then
+        runtime_blocklist[clean_code] = true
+      end
+    end
+    f_read:close()
+  end
 
-      -- Force a quick text evaluation poll to tell clangd to send a fresh package
-      vim.schedule(function()
-        if vim.api.nvim_buf_is_valid(args.buf) then
-          vim.cmd("silent! make! -n") -- Safely nudges the server pipeline without changing code
-        end
-      end)
-    end,
-  })
   require('nvimpio.clangd.commands')
 
   vim.keymap.set('n', 'gll', function()
