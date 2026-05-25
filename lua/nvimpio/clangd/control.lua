@@ -146,7 +146,7 @@ function M.getClangdConfig()
             end
           end
 
-          local is_driver_noise = runtime_blocklist[code] or matches_dynamic_text
+          local is_driver_noise = runtime_blocklist[code] -- or matches_dynamic_text
 
           if is_driver_noise then
             -- Drop it silently
