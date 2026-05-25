@@ -90,6 +90,16 @@ local runtime_patterns = {
 }
 
 local function sync_blocklist_from_disk()
+  -- If the file doesn't exist yet, create an empty one automatically
+  local f_check = io.open(blocklist_file, "r")
+  if not f_check then
+    local f_create = io.open(blocklist_file, "w")
+    if f_create then f_create:close() end
+  else
+    f_check:close()
+  end
+
+  -- Safely open the file to read its saved rules
   local f_read = io.open(blocklist_file, "r")
   if f_read then
     for line in f_read:lines() do
