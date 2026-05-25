@@ -1,4 +1,5 @@
 local M = {}
+
 -- ====================================================================
 -- 1. SURGICAL CONFIGURATION INJECTION ENGINE
 -- ====================================================================
@@ -68,12 +69,12 @@ local function inject_into_clangd(code, message)
   end
 
   local target_item = ''
-  -- 🌟 FIXED STABLE ALIGNMENT: Variable matches its condition checks perfectly down the line
   local is_driver_flag = string.match(code:lower(), '^drv_') or string.match(message:lower(), 'unknown argument')
 
   if is_driver_flag then
     local extracted_flag = string.match(message, '[\'"](%-.-)[\'"]') or string.match(message, '%s(%-.*)%s')
     if not extracted_flag then
+      -- 🌟 FIXED SCOPE MATRIX: Points directly to 'message' variable pool instead of choice.message
       extracted_flag = string.match(message, 'argument%s+(%-.*)$') or '-mlongcalls'
     end
     target_item = vim.trim(extracted_flag):gsub('[\',;"%s]', '')
@@ -117,6 +118,14 @@ end
 -- 3. THE PREMIUM SNACKS.PICKER SELECTION COMPONENT
 -- ====================================================================
 function M.manage_file_diagnostics_interactive()
+  -- 🌟 FIXED CASE SENSITIVITY: Dynamically resolves global or required lowercase instance
+  ---@diagnostic disable-next-line: undefined-field
+  local snacks_api = _G.snacks or pcall(require, 'snacks') and require('snacks')
+  if not snacks_api or not snacks_api.picker then
+    vim.notify('❌ snacks.nvim picker component is not fully loaded yet.', vim.log.levels.ERROR)
+    return
+  end
+
   local current_buf = vim.api.nvim_get_current_buf()
   local diagnostics = vim.diagnostic.get(current_buf)
 
@@ -125,12 +134,10 @@ function M.manage_file_diagnostics_interactive()
     return
   end
 
-  -- Transform native diagnostics array into clean Snacks.Picker item structures
   local picker_items = {}
   for _, diag in ipairs(diagnostics) do
     local code_name = diag.code or 'uncategorized_noise'
 
-    -- Format visual row indicators and severity color highlight names
     local sev_icon, sev_hl = '⚠️ ', 'DiagnosticWarn'
     if diag.severity == 1 then
       sev_icon, sev_hl = '❌', 'DiagnosticError'
@@ -139,34 +146,28 @@ function M.manage_file_diagnostics_interactive()
     table.insert(picker_items, {
       text = string.format('[%s] Line %d: %s', code_name, diag.lnum + 1, diag.message),
       idx = #picker_items + 1,
-      -- Essential picker tracking tags hooks
       code = code_name,
       message = diag.message,
       file = vim.api.nvim_buf_get_name(current_buf),
       pos = { diag.lnum + 1, diag.col },
-      -- Icon design properties configurations
       icon = sev_icon,
       icon_hl = sev_hl,
     })
   end
 
-  -- Fire the premium interactive floating canvas layout picker interface
-  Snacks.picker({
+  snacks_api.picker({
     source = 'Microcontroller Diagnostic Mangler',
     items = picker_items,
-    layout = 'vertical', -- Vertical preview matches your wide 13k line panels beautifully
+    layout = 'vertical',
     win = {
       input = {
         keys = {
-          -- 🌟 SHORTCUT A: Use standard 'Tab' to multi-select several different items concurrently
           ['<Tab>'] = { 'toggle_select', mode = { 'n', 'i' } },
-          -- 🌟 SHORTCUT B: Press 'Ctrl+g' to instantly blanket suppress an ENTIRE family code classification at once
           ['<C-g>'] = { 'suppress_group_action', mode = { 'n', 'i' } },
         },
       },
     },
     actions = {
-      -- Execution mapping when pressing Enter on highlighted selections
       confirm = function(picker, item)
         picker:close()
         if not item then
@@ -190,7 +191,6 @@ function M.manage_file_diagnostics_interactive()
         end
       end,
 
-      -- Execution handler when pressing Ctrl+g to wipe a category completely
       suppress_group_action = function(picker, item)
         if not item then
           return
