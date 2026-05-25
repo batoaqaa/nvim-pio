@@ -543,7 +543,7 @@ function M.manage_file_diagnostics_interactive()
 
       if not target_flag then
         -- Fallback parsing string matching combinations
-        target_flag = string.match(choice.message, "argument%s+(%-.*)$") or "-mlongcalls"
+        target_flag = string.match(choice.message, "argument%s+(%-.*)$")
       end
       target_flag = vim.trim(target_flag):gsub("[',;\"%s]", "")
 
