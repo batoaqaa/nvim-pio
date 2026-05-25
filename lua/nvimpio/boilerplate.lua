@@ -184,11 +184,6 @@ Diagnostics:
     ]
   ClangTidy:
     Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
-Tweaks:
-  SwapBinaryOperands:
-    Disabled: true
-  ExtractFunction:
-    Disabled: true
 ]],
 
   dynamic = [[
