@@ -178,7 +178,7 @@ function M.manage_file_diagnostics_interactive()
             vim.log.levels.WARN,
             { title = 'Project .clangd Mangler' }
           )
-          vim.cmd('LspRestart clangd')
+          require('nvimpio.clangd.control').restart()
         else
           vim.notify('ℹ All items in group are already fully suppressed.', vim.log.levels.INFO)
         end
