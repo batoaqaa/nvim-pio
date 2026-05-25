@@ -2,7 +2,6 @@ local M = {}
 
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
-local misc = require('nvimpio.utils.misc')
 
 -- stylua: ignore start
 ----------------------------------------------------------------------------------------
@@ -67,7 +66,7 @@ end
 -----------------------------------------------------------------------------------------
 -- 1. DEFINE PATHS AND MEMORY BUFFERS
 local blocklist_file = vim.uv.cwd() .. "/clangd_blocklist.txt"
-local runtime_blocklist = {
+M.runtime_blocklist = {
   -- -- Preprocessor & Macro Overload Errors
   -- ["macro_too_many_args"] = true,                   -- Silences ESPAsyncWebServer warnings
   -- ["too_many_args_in_macro_invoc"] = true,          -- Silences fatal preprocessor macro spikes
@@ -203,13 +202,13 @@ function M.block_diagnostic_under_cursor()
     end
 
     -- Check if it's already blocked
-    if runtime_blocklist[target_code] then
+    if M.runtime_blocklist[target_code] then
       vim.notify("ℹ️ '" .. target_code .. "' is already blocked.", vim.log.levels.INFO)
       return
     end
 
     -- Inject into memory table instantly
-    runtime_blocklist[target_code] = true
+    M.runtime_blocklist[target_code] = true
 
     -- Append to disk permanently
     local f_append = io.open(blocklist_file, "ab")
@@ -442,7 +441,7 @@ function M.init(clangd)
       -- Strip hidden Windows carriage returns and whitespaces cleanly
       local clean_code = line:gsub("\r", ""):gsub("^%s*(.-)%s*$", "%1")
       if clean_code ~= "" then
-        runtime_blocklist[clean_code] = true
+        M.runtime_blocklist[clean_code] = true
       end
     end
     f_read:close()
