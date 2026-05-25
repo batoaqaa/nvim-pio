@@ -110,7 +110,9 @@ local function sync_blocklist_from_disk()
           local raw_pattern = string.sub(clean_entry, 9)
           runtime_patterns[raw_pattern] = true
         else
+          -- Save it as BOTH a code block and a generic text pattern to catch all edge cases!
           runtime_blocklist[clean_entry] = true
+          runtime_patterns[clean_entry:lower()] = true
         end
       end
     end
@@ -167,6 +169,7 @@ function M.getClangdConfig()
   -- ====================================================================
   clangd_config.handlers = {
     ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+      -- 1. Always sync the blocklist from disk right before parsing frames
       sync_blocklist_from_disk()
       if result and result.diagnostics then
         local filtered = {}
