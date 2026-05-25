@@ -65,183 +65,6 @@ end
 -----------------------------------------------------------------------------------------
 
 -----------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------
--- -- 1. DEFINE PATHS AND MEMORY BUFFERS
--- local blocklist_file = vim.fn.stdpath("data") .. "/clangd_blocklist.txt"
---
--- local runtime_blocklist = {
-  -- -- Preprocessor & Macro Overload Errors
-  -- ["macro_too_many_args"] = true,                   -- Silences ESPAsyncWebServer warnings
-  -- ["too_many_args_in_macro_invoc"] = true,          -- Silences fatal preprocessor macro spikes
-  -- ["pp_file_not_found"] = true,                     -- Silences nested SDK header routing gaps
-  --
-  -- -- GCC Toolchain Conflict Flags
-  -- ["drv_unknown_argument_with_suggestion"] = true,  -- Silences the -mlongcalls warning
-  -- ["drv_unknown_argument"] = true,                  -- Silences other architecture specific flags
-  --
-  -- -- Host Machine vs Microcontroller Architecture Clashes
-  -- ["redefinition_different_typedef"] = true,        -- Silences int vs ssize_t library overrides
-  -- ["err_target_unknown_arch"] = true,               -- Silences unmapped core parser targets
-  -- ["unused_macro_definition"] = true,               -- Mutes system config macro flooding
--- }
---
--- local runtime_patterns = {
---   ["unknown argument"] = true,
---   ["%-mlongcalls"] = true,
---   ["tweak:"] = true,
--- }
---
--- -- 2. ASYNCHRONOUSLY PRE-LOAD BLOCKLIST USING VIM.UV
--- local function load_blocklist_async()
---   -- Open the file descriptors natively via uv
---   vim.uv.fs_open(blocklist_file, "r", 438, function(err, fd)
---     if err or not fd then return end
---
---     -- Fetch stats to find total byte layout size
---     vim.uv.fs_fstat(fd, function(stat_err, stat)
---       if stat_err or not stat then
---         vim.uv.fs_close(fd)
---         return
---       end
---
---       -- Read the full raw buffer string off your hard drive disk
---       vim.uv.fs_read(fd, stat.size, 0, function(read_err, data)
---         vim.uv.fs_close(fd)
---         if read_err or not data then return end
---
---         -- Parse the raw text buffer stream into individual clean table lines
---         vim.schedule(function()
---           for line in string.gmatch(data, "[^\r\n]+") do
---             local clean_entry = vim.trim(line)
---             if clean_entry ~= "" then
---               if string.match(clean_entry, "^pattern:") then
---                 local raw_pattern = string.sub(clean_entry, 9)
---                 runtime_patterns[raw_pattern] = true
---               else
---                 runtime_blocklist[clean_entry] = true
---               end
---             end
---           end
---         end)
---       end)
---     end)
---   end)
--- end
---
--- -- Run file pre-load operation
--- load_blocklist_async()
---
--- -- ====================================================================
--- -- 3. THE COMPILER RENDERING HANDLERS INTERFACE
--- -- ====================================================================
--- local clangd_config = {
---   cmd = {
---     "clangd",
---     "--background-index=false",
---     "--limit-results=100",
---     "--query-driver=C:/Users/batoaqaa/.platformio/esp32s3/packages/toolchain-xtensa-esp32s3/bin/*"
---   },
---   filetypes = { "c", "cpp", "objc", "objcpp" },
---   handlers = {
---     ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
---       if result and result.diagnostics then
---         local filtered = {}
---         for _, diagnostic in ipairs(result.diagnostics) do
---           local code = diagnostic.code or ""
---           local msg = (diagnostic.message or ""):lower()
---
---           local matches_text_pattern = false
---           for pat, _ in pairs(runtime_patterns) do
---             if string.match(msg, pat) then
---               matches_text_pattern = true
---               break
---             end
---           end
---
---           local is_driver_noise = runtime_blocklist[code] or matches_text_pattern
---
---           if is_driver_noise then
---             -- Drop it silently!
---           elseif diagnostic.severity == 1 then
---             table.insert(filtered, diagnostic)
---           elseif not runtime_blocklist[code] then
---             table.insert(filtered, diagnostic)
---           end
---         end
---         result.diagnostics = filtered
---       end
---       vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
---     end,
---   }
--- }
--- vim.lsp.config("clangd", clangd_config)
--- vim.lsp.enable("clangd")
---
--- -- ====================================================================
--- -- 4. DYNAMIC INTERACTION ENGINE (SMART DETECTOR & UV SAVE)
--- -- ====================================================================
--- _G.block_diagnostic_under_cursor = function()
---   local line, col = unpack(vim.api.nvim_win_get_cursor(0))
---   local diagnostics = vim.diagnostic.get(0, { lnum = line - 1 })
---
---   local target_diag = nil
---   for _, diag in ipairs(diagnostics) do
---     if col >= diag.col and col <= diag.end_col then
---       target_diag = diag
---       break
---     end
---   end
---
---   if target_diag then
---     local code = target_diag.code
---     local msg = target_diag.message or ""
---     local save_line = ""
---     local display_name = ""
---
---     if code and code ~= "" then
---       if runtime_blocklist[code] then
---         vim.notify("ℹ️ Code '" .. code .. "' is already blocked.", vim.log.levels.INFO)
---         return
---       end
---       runtime_blocklist[code] = true
---       save_line = code
---       display_name = "Code: " .. code
---     else
---       local clean_msg = msg:lower():gsub("([^%w%s])", "%%%1")
---       local snippet = string.match(clean_msg, "[^:]+") or clean_msg
---       snippet = vim.trim(snippet)
---
---       if runtime_patterns[snippet] then
---         vim.notify("ℹ️ Pattern matching this text is already blocked.", vim.log.levels.INFO)
---         return
---       end
---       runtime_patterns[snippet] = true
---       save_line = "pattern:" .. snippet
---       display_name = "Text Pattern: " .. msg
---     end
---
---     -- Write data permanently to disk using asynchronous vim.uv structures
---     vim.uv.fs_open(blocklist_file, "a", 438, function(open_err, fd)
---       if open_err or not fd then return end
---       vim.uv.fs_write(fd, save_line .. "\n", -1, function(write_err)
---         vim.uv.fs_close(fd)
---         if write_err then return end
---
---         -- Safe execution return switch to refresh editor UI layouts
---         vim.schedule(function()
---           vim.cmd("edit!")
---           vim.notify("✅ Silenced '" .. display_name .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
---         end)
---       end)
---     end)
---   else
---     vim.notify("❌ No active LSP diagnostic error found under cursor.", vim.log.levels.ERROR)
---   end
--- end
---
--- vim.keymap.set("n", "<leader>db", "<cmd>lua _G.block_diagnostic_under_cursor()<CR>", { desc = "Dynamic Block LSP Code/Text" })
------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------
 -- 1. DEFINE PATHS AND MEMORY BUFFERS
 local blocklist_file = vim.uv.cwd() .. "/clangd_blocklist.txt"
 local runtime_blocklist = {
@@ -261,9 +84,9 @@ local runtime_blocklist = {
 }
 
 local runtime_patterns = {
-  ["unknown argument"] = true,
-  ["%-mlongcalls"] = true,
-  ["tweak:"] = true,
+  -- ["unknown argument"] = true,
+  -- ["%-mlongcalls"] = true,
+  -- ["tweak:"] = true,
 }
 -- stylua: ignore
 function M.getClangdConfig()
@@ -304,18 +127,27 @@ function M.getClangdConfig()
   local tok, clangd_config = pcall(vim.json.decode, merged_json)
 
   if not tok then return nil end
+  -- ====================================================================
 
-
-  -- 2. LOAD PREVIOUSLY SAVED DYNAMIC CODES ON BOOT
-  local bl_ok, content = misc.readFile(vim.fn.stdpath("data") .. "/clangd_blocklist.txt")
-  if bl_ok and content and content ~= '' then
-      for _, line in ipairs(vim.split(content, "\r?\n")) do
-        local clean_code = line:gsub("%s+", "")
-        if clean_code ~= "" then
-          runtime_blocklist[clean_code] = true
+  -- 2. SECURELY PRE-LOAD BLOCKLIST USING STANDARD LUA ON BOOT
+  local f_read = io.open(blocklist_file, "r")
+  if f_read then
+    for line in f_read:lines() do
+      -- Trim trailing and leading white spaces/carriage returns cleanly on Windows
+      local clean_entry = vim.trim(line)
+      if clean_entry ~= "" then
+        -- If the line is an explicit text string match pattern wrapper
+        if string.match(clean_entry, "^pattern:") then
+          local raw_pattern = string.sub(clean_entry, 9)
+          runtime_patterns[raw_pattern] = true
+        else
+          runtime_blocklist[clean_entry] = true
         end
       end
+    end
+    f_read:close()
   end
+
   -- ====================================================================
   -- 3. BULLETPROOF MICROCONTROLLER LANGUAGE SERVER SPEC
   -- ====================================================================
@@ -323,32 +155,31 @@ function M.getClangdConfig()
     ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
       if result and result.diagnostics then
         local filtered = {}
-
         for _, diagnostic in ipairs(result.diagnostics) do
           local code = diagnostic.code or ""
           local msg = (diagnostic.message or ""):lower()
 
-          -- DYNAMIC DETECTION: Catch errors by code name OR by explicit message text patterns
-          local is_driver_noise = runtime_blocklist[code]
-                               or string.match(msg, "unknown argument")
-                               or string.match(msg, "%-mlongcalls")
-                               or string.match(msg, "tweak:")
+          -- Loop check across our dynamic message pattern blocks
+          local matches_text_pattern = false
+          for pat, _ in pairs(runtime_patterns) do
+            if string.match(msg, pat) then
+              matches_text_pattern = true
+              break
+            end
+          end
 
-          -- 1. If it's a driver/macro configuration error, skip it completely
+          -- Evaluate dynamic codes and dynamic text simultaneously
+          local is_driver_noise = runtime_blocklist[code] or matches_text_pattern
+
           if is_driver_noise then
-            -- Drop it silently, exactly like VS Code does!
-
-          -- 2. If it's any other genuine fatal compilation error, pass it to the screen
+            -- Drop it silently!
           elseif diagnostic.severity == 1 then
+            -- Keep true fatal compiler breaks (like missing semicolons or typos)
             table.insert(filtered, diagnostic)
-
-          -- 3. Otherwise, pass normal warnings through if they aren't blocked
           elseif not runtime_blocklist[code] then
             table.insert(filtered, diagnostic)
           end
         end
-
-        -- Swap the cluttered diagnostics package out for our clean, pristine table array
         result.diagnostics = filtered
       end
       -- Pass cleanly down to the Neovim 0.11 global LSP handler
@@ -361,46 +192,66 @@ end
 -- ====================================================================
 -- 4. DYNAMIC INTERACTION LAYER (KEYMAP & POPUP BUILDER) in ('nvimpio.pio.diagnostic')
 -- ====================================================================
-local function get_code_under_cursor()
-  local line, col = unpack(vim.api.nvim_win_get_cursor(0))
-  local diagnostics = vim.diagnostic.get(0, { lnum = line - 1 })
-  for _, diag in ipairs(diagnostics) do
-    if col >= diag.col and col <= diag.end_col and diag.code and diag.code ~= "" then
-      return diag.code
-    end
-  end
-  return nil
-end
-
 -- Create the execution function to permanently ban a code on the fly
 function M.block_diagnostic_under_cursor()
-  local target_code = get_code_under_cursor()
-  if target_code then
-    if runtime_blocklist[target_code] then
-      vim.notify("ℹ️ '" .. target_code .. "' is already blocked.", vim.log.levels.INFO)
-      return
+  local line, col = unpack(vim.api.nvim_win_get_cursor(0))
+  local diagnostics = vim.diagnostic.get(0, { lnum = line - 1 })
+
+  local target_diag = nil
+  for _, diag in ipairs(diagnostics) do
+    if col >= diag.col and col <= diag.end_col then
+      target_diag = diag
+      break
+    end
+  end
+
+  if target_diag then
+    local code = target_diag.code
+    local msg = target_diag.message or ""
+    local save_line = ""
+    local display_name = ""
+
+    -- CASE A: The error has an official code ID
+    if code and code ~= "" then
+      if runtime_blocklist[code] then
+        vim.notify("ℹ️ Code '" .. code .. "' is already blocked.", vim.log.levels.INFO)
+        return
+      end
+      runtime_blocklist[code] = true
+      save_line = code
+      display_name = "Code: " .. code
+
+    -- CASE B: No official code handle exists -> Extract raw string message pattern instead
+    else
+      -- Escape special regex chars like symbols/hyphens to make text matching safe
+      local clean_msg = msg:lower():gsub("([^%w%s])", "%%%1")
+      -- Shorten long error arrays to a clean sentence fragment match
+      local snippet = string.match(clean_msg, "[^:]+") or clean_msg
+      snippet = vim.trim(snippet)
+
+      if runtime_patterns[snippet] then
+        vim.notify("ℹ️ Pattern matching this text is already blocked.", vim.log.levels.INFO)
+        return
+      end
+      runtime_patterns[snippet] = true
+      save_line = "pattern:" .. snippet
+      display_name = "Text Pattern: " .. msg
     end
 
-    -- Inject into memory table instantly
-    runtime_blocklist[target_code] = true
-
-    -- Append to disk permanently
+    -- Append the dynamic signature to your disk text file permanently using standard Lua
     local f_append = io.open(blocklist_file, "a")
     if f_append then
-      f_append:write(target_code .. "\n")
+      f_append:write(save_line .. "\n")
       f_append:close()
     end
 
-    -- Refresh active buffer layout right away without restarting Neovim
+    -- Update active window layouts cleanly right away without restarting Neovim
     vim.cmd("edit!")
-    vim.notify("✅ Silenced '" .. target_code .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
+    vim.notify("✅ Silenced '" .. display_name .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
   else
-    vim.notify("❌ No valid LSP diagnostic code found under cursor.", vim.log.levels.ERROR)
+    vim.notify("❌ No active LSP diagnostic error found under cursor.", vim.log.levels.ERROR)
   end
 end
-
--- Map the functionality to a clean keyboard shortcut mapping
-vim.keymap.set("n", "<leader>db", "<cmd>lua _G.block_diagnostic_under_cursor()<CR>", { desc = "Dynamic Block LSP Code" })
 
 
 
