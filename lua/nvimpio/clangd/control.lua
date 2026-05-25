@@ -126,45 +126,45 @@ function M.getClangdConfig()
   -- ====================================================================
   -- 3. THE COMPILER RENDERING HANDLERS INTERFACE
   -- ====================================================================
-  clangd_config.handlers = {
-    ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-      -- ====================================================================
-      -- 2. Always sync the blocklist from disk right before parsing frames
-
-      if result and result.diagnostics then
-        local filtered = {}
-        for _, diagnostic in ipairs(result.diagnostics) do
-          local code = diagnostic.code or ""
-          local msg = (diagnostic.message or ""):lower()
-
-          -- 🌟 BACKEND TEXT PATTERN MATCHING FALLBACKS
-          local matches_text_pattern = string.find(msg, "unknown argument", 1, true)
-                                    or string.find(msg, "-mlongcalls", 1, true)
-                                    or string.find(msg, "tweak:", 1, true)
-
-          -- Combine error codes and text patterns into a single master shield evaluation
-          local is_explicitly_blocked = runtime_blocklist[code] or matches_text_pattern
-
-          -- ─── 🌟 THE CRITICAL PRECEDENCE GATEWAY FIX ───
-          if is_explicitly_blocked then
-            -- 🥇 HIGHEST PRIORITY: If it is blocked in our list or text patterns,
-            -- DROP IT INSTANTLY. Never let it reach the severity shield!
-
-          elseif diagnostic.severity == 1 then
-            -- 🥈 SECONDARY PRIORITY: Keep genuine compilation breaks (missing semicolons, typos)
-            table.insert(filtered, diagnostic)
-
-          elseif not runtime_blocklist[code] then
-            -- 🥉 TERTIARY PRIORITY: Pass normal unblocked warnings through
-            table.insert(filtered, diagnostic)
-          end
-        end
-        result.diagnostics = filtered
-      end
-      -- Pass cleanly down to the Neovim 0.11 global LSP handler
-      vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
-    end,
-  }
+  -- clangd_config.handlers = {
+  --   ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+  --     -- ====================================================================
+  --     -- 2. Always sync the blocklist from disk right before parsing frames
+  --
+  --     if result and result.diagnostics then
+  --       local filtered = {}
+  --       for _, diagnostic in ipairs(result.diagnostics) do
+  --         local code = diagnostic.code or ""
+  --         local msg = (diagnostic.message or ""):lower()
+  --
+  --         -- 🌟 BACKEND TEXT PATTERN MATCHING FALLBACKS
+  --         local matches_text_pattern = string.find(msg, "unknown argument", 1, true)
+  --                                   or string.find(msg, "-mlongcalls", 1, true)
+  --                                   or string.find(msg, "tweak:", 1, true)
+  --
+  --         -- Combine error codes and text patterns into a single master shield evaluation
+  --         local is_explicitly_blocked = runtime_blocklist[code] or matches_text_pattern
+  --
+  --         -- ─── 🌟 THE CRITICAL PRECEDENCE GATEWAY FIX ───
+  --         if is_explicitly_blocked then
+  --           -- 🥇 HIGHEST PRIORITY: If it is blocked in our list or text patterns,
+  --           -- DROP IT INSTANTLY. Never let it reach the severity shield!
+  --
+  --         elseif diagnostic.severity == 1 then
+  --           -- 🥈 SECONDARY PRIORITY: Keep genuine compilation breaks (missing semicolons, typos)
+  --           table.insert(filtered, diagnostic)
+  --
+  --         elseif not runtime_blocklist[code] then
+  --           -- 🥉 TERTIARY PRIORITY: Pass normal unblocked warnings through
+  --           table.insert(filtered, diagnostic)
+  --         end
+  --       end
+  --       result.diagnostics = filtered
+  --     end
+  --     -- Pass cleanly down to the Neovim 0.11 global LSP handler
+  --     vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
+  --   end,
+  -- }
   if clangd_config then return clangd_config end
 end
 
@@ -447,6 +447,36 @@ function M.init(clangd)
     end
     f_read:close()
   end
+
+  -- ====================================================================
+  -- 🌟 THE CORE GLOBAL SHIELD: INTERCEPTS RENDERER BEFORE TEXT IS DRAWN
+  -- ====================================================================
+  -- Add this right at the bottom of your init.lua
+  vim.diagnostic.config({
+    -- 🌟 NATIVE RENDER FILTER: Intercepts diagnostics before drawing them
+    filter = function(namespace, diagnostic)
+      local ns_info = vim.diagnostic.get_namespace(namespace)
+
+      -- Only evaluate filters if the message originates from clangd
+      if ns_info and string.match(ns_info.name:lower(), "clangd") then
+        local code = diagnostic.code or ""
+        local msg = (diagnostic.message or ""):lower()
+
+        -- Check our memory arrays and text signatures simultaneously
+        local is_blocked = runtime_blocklist[code]
+                        or string.find(msg, "unknown argument", 1, true)
+                        or string.find(msg, "-mlongcalls", 1, true)
+                        or string.find(msg, "tweak:", 1, true)
+
+        if is_blocked then
+          return false -- 🥇 DROP IT INSTANTLY: Tells Neovim to hide this diagnostic completely
+        end
+      end
+
+      return true -- Allow all genuine syntax breaks and unblocked items to render safely
+    end
+  })
+  --==========================================================================
 
   require('nvimpio.clangd.commands')
 
