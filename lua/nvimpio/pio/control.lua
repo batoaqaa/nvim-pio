@@ -234,6 +234,7 @@ telescope.load_extension('ui-select')
 -------------------------------------------------------------------------------
 function M.init(clangd_config)
   require('nvimpio.pio.commands')
+  require('nvimpio.pio.diagnostic')
   misc.notify('PIO Control: initialize', "info")
 
   require('nvimpio.pio.metadata') --.load_project_config()
