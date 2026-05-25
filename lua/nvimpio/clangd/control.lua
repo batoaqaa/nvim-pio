@@ -474,104 +474,115 @@ vim.lsp.config("clangd", {
 })
 vim.lsp.enable("clangd")
 
-  -- ====================================================================
-  -- 3. THE INTERACTIVE BULK MANGLEMENT SELECTOR ENGINE
-  -- ====================================================================
-  function M.manage_file_diagnostics_interactive()
-    local current_buf = vim.api.nvim_get_current_buf()
-    -- Fetch ALL diagnostics currently active for the open file buffer
-    local diagnostics = vim.diagnostic.get(current_buf)
+-- ====================================================================
+-- 3. THE INTERACTIVE BULK MANGLEMENT SELECTOR ENGINE
+-- ====================================================================
+function M.manage_file_diagnostics_interactive()
+  local current_buf = vim.api.nvim_get_current_buf()
+  local diagnostics = vim.diagnostic.get(current_buf)
 
-    if #diagnostics == 0 then
-      vim.notify("✅ No active LSP diagnostics found in this file!", vim.log.levels.INFO)
-      return
+  if #diagnostics == 0 then
+    vim.notify("✅ No active LSP diagnostics found in this file!", vim.log.levels.INFO)
+    return
+  end
+
+  local unique_items = {}
+  local seen_codes = {}
+
+  for _, diag in ipairs(diagnostics) do
+    local code = diag.code
+    if code and code ~= "" and not seen_codes[code] then
+      seen_codes[code] = true
+      table.insert(unique_items, {
+        code = code,
+        message = diag.message,
+        line = diag.lnum + 1
+      })
+    end
+  end
+
+  if #unique_items == 0 then
+    vim.notify("ℹ️ Active diagnostics do not contain valid internal error codes.", vim.log.levels.INFO)
+    return
+  end
+
+  vim.ui.select(unique_items, {
+    prompt = " 🛠️ Select an LSP Error Code to Suppress Permanently (.clangd) ",
+    format_item = function(item)
+      return string.format("[%s] Line %d: %s", item.code, item.line, item.message:sub(1, 60) .. "...")
+    end,
+  }, function(choice)
+    if not choice then return end
+
+    -- Initialize file layout with standard YAML array slots if completely missing
+    local f_check = io.open(global_config_file, "r")
+    if not f_check then
+      local f_init = io.open(global_config_file, "wb")
+      if f_init then
+        f_init:write("CompileFlags:\n  Remove: []\n  Add: []\nDiagnostics:\n  Suppress: []\n")
+        f_init:close()
+      end
+    else
+      f_check:close()
     end
 
-    -- Track unique diagnostic codes to prevent displaying duplicates in the menu
-    local unique_items = {}
-    local seen_codes = {}
-
-    for _, diag in ipairs(diagnostics) do
-      local code = diag.code
-      if code and code ~= "" and not seen_codes[code] then
-        seen_codes[code] = true
-        table.insert(unique_items, {
-          code = code,
-          message = diag.message,
-          line = diag.lnum + 1
-        })
-      end
+    local file_content = ""
+    local f_read = io.open(global_config_file, "rb")
+    if f_read then
+      file_content = f_read:read("*all")
+      f_read:close()
     end
 
-    if #unique_items == 0 then
-      vim.notify("ℹ️ Active diagnostics do not contain valid internal error codes.", vim.log.levels.INFO)
-      return
-    end
+    local updated_content = file_content
+    local display_message = ""
 
-    -- Render the selectable popup menu window layout
-    vim.ui.select(unique_items, {
-      prompt = " 🛠️ Select an LSP Error Code to Suppress Permanently (.clangd) ",
-      format_item = function(item)
-        -- Formats the rows beautifully inside the floating layout window
-        return string.format("[%s] Line %d: %s", item.code, item.line, item.message:sub(1, 60) .. "...")
-      end,
-    }, function(choice)
-      -- If the user hits 'q' or Esc to close the menu without selecting, abort safely
-      if not choice then return end
+    -- 🌟 STRATEGY SPLIT LAYER: Determine if it's a Driver execution flag vs standard warning
+    if string.match(choice.code:lower(), "^drv_") then
+      -- 1. Extract the exact target flag from the text payload (e.g. extracts "-mlongcalls" out of message)
+      local target_flag = string.match(choice.message, "['\"](%-.-)['\"]") or string.match(choice.message, "%s(%-.*)%s")
 
-      local target_code = choice.code
-
-      -- A. Ensure base structure configuration files are fully present on disk
-      local f_check = io.open(global_config_file, "r")
-      if not f_check then
-        local f_init = io.open(global_config_file, "wb")
-        if f_init then
-          f_init:write("CompileFlags:\n  Remove: []\n  Add: []\nDiagnostics:\n  Suppress: []\n")
-          f_init:close()
-        end
-      else
-        f_check:close()
+      if not target_flag then
+        -- Fallback parsing string matching combinations
+        target_flag = string.match(choice.message, "argument%s+(%-.*)$") or "-mlongcalls"
       end
+      target_flag = vim.trim(target_flag):gsub("[',;\"%s]", "")
 
-      -- B. Load text layout to execute duplication security gates
-      local file_content = ""
-      local f_read = io.open(global_config_file, "rb")
-      if f_read then
-        file_content = f_read:read("*all")
-        f_read:close()
-      end
-
-      if string.find(file_content, target_code, 1, true) then
-        vim.notify("ℹ️ '" .. target_code .. "' is already suppressed inside config.yaml.", vim.log.levels.INFO)
+      if string.find(file_content, target_flag, 1, true) then
+        vim.notify("ℹ️ Flag '" .. target_flag .. "' is already stripped in your CompileFlags.", vim.log.levels.INFO)
         return
       end
 
-      -- C. Ingress insertion: Inject choice code string inside the YAML Suppress block array
+      -- 2. Inject the target argument straight into the input-stage Remove array block
+      local pattern = "(Remove:%s*%[)"
+      local replacement = "Remove: [\n    \"" .. target_flag .. "\","
+      updated_content = string.gsub(file_content, pattern, replacement)
+      display_message = "Stripped flag '" .. target_flag .. "' from compilation database!"
+    else
+      -- 3. STANDARD CRASH GATEWAY: Pass standard warnings directly into Diagnostic.Suppress
+      if string.find(file_content, choice.code, 1, true) then
+        vim.notify("ℹ️ '" .. choice.code .. "' is already suppressed inside config.yaml.", vim.log.levels.INFO)
+        return
+      end
+
       local pattern = "(Suppress:%s*%[)"
-      local replacement = "Suppress: [\n    " .. target_code .. ","
-      -- local replacement = "Suppress: [\n    \"" .. target_code .. "\","
-      local updated_content, count = string.gsub(file_content, pattern, replacement)
+      local replacement = "Suppress: [\n    " .. choice.code .. ","
+      updated_content = string.gsub(file_content, pattern, replacement)
+      display_message = "Suppressed warning code '" .. choice.code .. "' globally!"
+    end
 
-      if count == 0 then
-        pattern = "(Suppress:)"
-        replacement = "Suppress:\n    - " .. target_code
-        -- replacement = "Suppress:\n    - \"" .. target_code .. "\""
-        updated_content = string.gsub(file_content, pattern, replacement)
-      end
+    -- Commit the updated specifications back down to your file system storage tracks
+    local f_write = io.open(global_config_file, "wb")
+    if f_write then
+      f_write:write(updated_content)
+      f_write:close()
+    end
 
-      -- D. Write configurations instantly down to binary streams storage paths
-      local f_write = io.open(global_config_file, "wb")
-      if f_write then
-        f_write:write(updated_content)
-        f_write:close()
-      end
-
-      -- E. Reboot the active language server engine background tracking nodes
-      vim.notify("🚀 Suppressing rule: Injecting '" .. target_code .. "' into global compiler limits...", vim.log.levels.WARN, { title = "Global Clangd Config Manager" })
-      -- vim.cmd("LspRestart clangd")
-      M.restart()
-    end)
-  end
+    -- Force instant native server reload
+    vim.notify("🚀 " .. display_message, vim.log.levels.WARN, { title = "Global Clangd Config Manager" })
+    -- vim.cmd("LspRestart clangd")
+    M.restart()
+  end)
+end
 
   -- 4. BIND TO A UNIFIED WORKSPACE SHORTCUT MAPPING
   -- vim.keymap.set("n", "<leader>da", "<cmd>lua _G.manage_file_diagnostics_interactive()<CR>", { desc = "Review and Ignore File LSP Codes" })
