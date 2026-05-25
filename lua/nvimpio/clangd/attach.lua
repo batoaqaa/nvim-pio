@@ -34,6 +34,32 @@ vim.api.nvim_create_autocmd('LspAttach', {
             end)
           end, bufnr)
         end, { desc = 'Switch between source/header' })
+
+        client.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
+          if result and result.diagnostics then
+            local cleaned = {}
+
+            local clangd = require('nvimpio.clangd.control') --.piolsp
+            for _, diagnostic in ipairs(result.diagnostics) do
+              local code = diagnostic.code or ''
+              local msg = (diagnostic.message or ''):lower()
+
+              -- Evaluate your blocklist maps and text signatures simultaneously
+              local is_blocked = clangd.runtime_blocklist[code]
+                or string.find(msg, 'unknown argument', 1, true)
+                or string.find(msg, '-mlongcalls', 1, true)
+                or string.find(msg, 'tweak:', 1, true)
+
+              if not is_blocked then
+                table.insert(cleaned, diagnostic)
+              end
+            end
+            result.diagnostics = cleaned
+          end
+
+          -- Safely pass the clean data to the core engine
+          vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
+        end
       end
 
       -- use lsp completion if no blink
