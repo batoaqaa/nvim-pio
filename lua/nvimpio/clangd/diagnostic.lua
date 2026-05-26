@@ -7,7 +7,7 @@ local M = {}
 ---@diagnostic disable: undefined-global
 
 -- ====================================================================
--- 1. SURGICAL CONFIGURATION INJECTION ENGINE (SINGLE DOCUMENT UNIFIED)
+-- 1. SURGICAL CONFIGURATION INJECTION ENGINE (PROPER YAML QUOTING TYPE)
 -- ====================================================================
 local local_clangd_file = vim.fn.getcwd() .. '/.clangd'
 
@@ -16,7 +16,7 @@ local function ensure_baseline_template()
   if not f_check then
     local f_init = io.open(local_clangd_file, 'wb')
     if f_init then
-      -- 🌟 UNIFIED TEMPLATE: No multi-document triple-dashes to break Clangd parsing
+      -- 🌟 FIXED SYNTAX BASELINE: Driver flags have quotes, Warnings do NOT have quotes
       local baseline_template = [[
 CompileFlags:
   Remove: [
@@ -38,17 +38,16 @@ CompileFlags:
       "-Wno-unused-includes",
     ]
 Diagnostics:
-  Suppress:
-    [
-      "macro_too_many_args",
-      "unused_macro_definition",
-      "pp_file_not_found",
-      "pp_file_not_found_angled_not_fatal",
-      "pp_included_file_not_found",
-      "pp_including_mainfile_in_preamble",
-      "unused-includes",
-      "misc-definitions-in-headers",
-    ]
+  Suppress: [
+    macro_too_many_args,
+    unused_macro_definition,
+    pp_file_not_found,
+    pp_file_not_found_angled_not_fatal,
+    pp_included_file_not_found,
+    pp_including_mainfile_in_preamble,
+    unused-includes,
+    misc-definitions-in-headers,
+  ]
   ClangTidy:
     Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
 
@@ -85,7 +84,7 @@ local function inject_into_clangd(code, message)
     target_item = code
   end
 
-  -- Protection Check: Prevent double-injecting parameters into the config
+  -- Guard checking signatures to prevent duplicated file streams mutations
   local search_signature = is_driver_flag and ('"' .. target_item .. '"') or target_item
   if string.find(file_content, search_signature, 1, true) then
     return false
@@ -95,30 +94,26 @@ local function inject_into_clangd(code, message)
   local is_flag_inserted = false
   local is_code_inserted = false
 
-  -- Read file line by line to append cleanly to the existing parent arrays
+  -- Read document array line-by-line to surgically inject text
   for line in string.gmatch(file_content, '[^\r\n]+') do
     local clean_line = vim.trim(line)
     table.insert(output_lines, line)
 
-    -- 1. If it's a driver flag, dynamically append it directly into the master CompileFlags.Remove array
+    -- 1. If it's a driver flag, append it with quotes inside CompileFlags.Remove
     if is_driver_flag and not is_flag_inserted and clean_line == 'CompileFlags:' then
-      -- Target the next structural line down to insert inside the list array wrapper
     elseif is_driver_flag and not is_flag_inserted and clean_line == 'Remove: [' then
       table.insert(output_lines, '    "' .. target_item .. '",')
       is_flag_inserted = true
     end
 
-    -- 2. If it's a warning code, dynamically append it directly into the master Diagnostics.Suppress array
+    -- 2. If it's a warning code, append it WITHOUT quotes inside Diagnostics.Suppress
     if not is_driver_flag and not is_code_inserted and clean_line == 'Diagnostics:' then
-      -- Target the next structural line down to insert inside the list array wrapper
-    elseif not is_driver_flag and not is_code_inserted and clean_line == 'Suppress:' then
-    elseif not is_driver_flag and not is_code_inserted and clean_line == '[' then
-      table.insert(output_lines, '      "' .. target_item .. '",')
+    elseif not is_driver_flag and not is_code_inserted and clean_line == 'Suppress: [' then
+      table.insert(output_lines, '    ' .. target_item .. ',')
       is_code_inserted = true
     end
   end
 
-  -- Commit perfectly formatted document back to disk with standard Unix newlines
   local f_write = io.open(local_clangd_file, 'wb')
   if f_write then
     f_write:write(table.concat(output_lines, '\n') .. '\n')
