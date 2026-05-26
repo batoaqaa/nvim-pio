@@ -123,7 +123,7 @@ local function inject_into_clangd(code, message)
 end
 
 -- ====================================================================
--- 3. THE PREMIUM SNACKS.PICKER SELECTION COMPONENT (GROUPED VIEW)
+-- 3. THE PREMIUM SNACKS.PICKER SELECTION COMPONENT
 -- ====================================================================
 function M.manage_file_diagnostics_interactive()
   local current_buf = vim.api.nvim_get_current_buf()
@@ -134,17 +134,9 @@ function M.manage_file_diagnostics_interactive()
     return
   end
 
-  -- Group instances to count family occurrences
-  local code_counts = {}
-  for _, diag in ipairs(diagnostics) do
-    local c_name = diag.code or 'uncategorized_noise'
-    code_counts[c_name] = (code_counts[c_name] or 0) + 1
-  end
-
   local picker_items = {}
   for _, diag in ipairs(diagnostics) do
     local code_name = diag.code or 'uncategorized_noise'
-    local instances_count = code_counts[code_name]
 
     local sev_icon, sev_hl = '⚠️ ', 'DiagnosticWarn'
     if diag.severity == 1 then
@@ -152,8 +144,10 @@ function M.manage_file_diagnostics_interactive()
     end
 
     table.insert(picker_items, {
-      -- 🌟 BUNDLED DISPLAY FORMAT: Groups visually by Category prefix strings
-      text = string.format('📂 Group [%s] (%d items) • Line %d', code_name, instances_count, diag.lnum + 1),
+      -- 🌟 THE KEY UI INTERACTION FIXES:
+      -- 1. Text goes into 'text' for pattern finding matching scopes
+      text = string.format('[%s] Line %d', code_name, diag.lnum + 1),
+      -- 2. Message detail goes into 'comment' to display it inline beautifully without triggering file links
       comment = diag.message,
       idx = #picker_items + 1,
       code = code_name,
@@ -163,20 +157,15 @@ function M.manage_file_diagnostics_interactive()
     })
   end
 
-  -- Sort list so identical error groups sit perfectly flush next to each other
-  table.sort(picker_items, function(a, b)
-    return a.code < b.code
-  end)
-
   Snacks.picker({
     source = 'Microcontroller Diagnostic Mangler',
     items = picker_items,
+    -- 🌟 VSCODE / TELESCOPE HYBRID LAYOUT MODE
     layout = 'vscode',
     win = {
       input = {
         keys = {
           ['<Tab>'] = { 'toggle_select', mode = { 'n', 'i' } },
-          -- 🌟 PRESS CTRL+G TO CLEANSE AN ENTIRE PARENT ERROR CLUSTER AT ONCE
           ['<C-g>'] = { 'suppress_group_action', mode = { 'n', 'i' } },
         },
       },
