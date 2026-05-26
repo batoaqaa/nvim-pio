@@ -68,7 +68,10 @@ local function inject_into_clangd(code, message)
   end
 
   local target_item = ''
-  local is_driver_flag = string.match(code:lower(), '^drv_') or string.match(message:lower(), 'unknown argument')
+  -- 🌟 ROBUST CHECK: Evaluate if it is a driver flag using clean normalized strings
+  local is_driver_flag = string.match(tostring(code):lower(), '^drv_')
+    or string.match(message:lower(), 'unknown argument')
+    or string.match(message:lower(), '%-mlongcalls')
 
   if is_driver_flag then
     local extracted_flag = string.match(message, '[\'"](%-.-)[\'"]') or string.match(message, '%s(%-.*)%s')
@@ -78,6 +81,11 @@ local function inject_into_clangd(code, message)
     target_item = vim.trim(extracted_flag):gsub('[\',;"%s]', '')
   else
     target_item = code
+  end
+
+  -- Fallback guard to prevent writing out trash elements
+  if not target_item or target_item == '' or target_item == 'uncategorized_noise' then
+    return false
   end
 
   if string.find(file_content, target_item, 1, true) then
@@ -99,6 +107,7 @@ local function inject_into_clangd(code, message)
       local replacement = 'Diagnostics:\n  Suppress: [\n    ' .. target_item .. ','
       updated_dynamic = string.gsub(dynamic_part, pattern, replacement)
     else
+      -- Build out standard diagnostic block headers safely if entirely missing down the line
       updated_dynamic = dynamic_part .. '\nDiagnostics:\n  Suppress: [\n    ' .. target_item .. ',\n  ]'
     end
   end
@@ -124,20 +133,21 @@ function M.manage_file_diagnostics_interactive()
     return
   end
 
-  -- Group diagnostics by code type
   local groups = {}
   local group_names = {}
 
   for _, diag in ipairs(diagnostics) do
-    local code = diag.code or 'uncategorized_noise'
-    if not groups[code] then
-      groups[code] = {}
-      table.insert(group_names, code)
+    -- Keep true internal tracking value intact, extract visual classification strings separately
+    local raw_code = diag.code or ''
+    local group_key = diag.code or 'uncategorized_noise'
+
+    if not groups[group_key] then
+      groups[group_key] = {}
+      table.insert(group_names, group_key)
     end
-    table.insert(groups[code], diag)
+    table.insert(groups[group_key], diag)
   end
 
-  -- Step 1: Select which Error Group you want to manage
   vim.ui.select(group_names, {
     prompt = ' 📂 Select an Error Group Type to Manage ',
     format_item = function(code)
@@ -150,7 +160,6 @@ function M.manage_file_diagnostics_interactive()
 
     local group_diagnostics = groups[selected_group]
 
-    -- Step 2: Choose action for this specific group
     local options = {
       '💥 Suppress ALL errors inside group [' .. selected_group .. ']',
       '🔍 Inspect and pick specific instances one by one',
@@ -164,10 +173,11 @@ function M.manage_file_diagnostics_interactive()
       end
 
       if action_choice == options[1] then
-        -- Action: Add ALL to .clangd loop bulk processing
         local total_added = 0
         for _, diag in ipairs(group_diagnostics) do
-          if inject_into_clangd(selected_group, diag.message) then
+          -- 🌟 CRITICAL FIX: Pass down the real underlying error data payload hooks natively
+          local actual_code = diag.code or selected_group
+          if inject_into_clangd(actual_code, diag.message) then
             total_added = total_added + 1
           end
         end
@@ -183,11 +193,10 @@ function M.manage_file_diagnostics_interactive()
           vim.notify('ℹ All items in group are already fully suppressed.', vim.log.levels.INFO)
         end
       else
-        -- Action: Individual line breakdown picker picker
         local individual_items = {}
         for _, diag in ipairs(group_diagnostics) do
           table.insert(individual_items, {
-            code = selected_group,
+            code = diag.code or selected_group, -- Preserve true references properties
             message = diag.message,
             line = diag.lnum + 1,
           })
@@ -204,11 +213,9 @@ function M.manage_file_diagnostics_interactive()
           end
 
           if inject_into_clangd(final_choice.code, final_choice.message) then
-            local is_driver = string.match(final_choice.code:lower(), '^drv_')
+            local is_driver = string.match(tostring(final_choice.code):lower(), '^drv_') or string.match(final_choice.message:lower(), 'unknown argument')
             local msg = is_driver and 'Stripped matching toolchain argument!' or 'Suppressed diagnostic code globally!'
             vim.notify('✅ ' .. msg, vim.log.levels.WARN, { title = 'Project .clangd Mangler' })
-            -- vim.cmd('LspRestart clangd')
-            -- vim.cmd("LspRestart clangd")
             require('nvimpio.clangd.control').restart()
           else
             vim.notify('ℹ Item is already handled inside configuration profiles.', vim.log.levels.INFO)
