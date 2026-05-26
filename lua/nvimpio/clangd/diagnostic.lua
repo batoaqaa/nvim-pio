@@ -221,7 +221,8 @@ function M.manage_file_diagnostics_interactive()
             vim.log.levels.WARN,
             { title = 'Compiler Mangler' }
           )
-          require('nvimpio.clangd.control').restart()
+          vim.cmd('edit!')
+          -- require('nvimpio.clangd.control').restart()
         else
           vim.notify('ℹ️ Global group constraints are already up to date.', vim.log.levels.INFO)
         end
