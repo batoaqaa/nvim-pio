@@ -1,22 +1,30 @@
 local M = {}
 
 -- ====================================================================
--- 0. CONFIGURATION & STATE MANIFEST PATHS
+-- 0. TELL THE LINTER TO EXPECT SNACKS GLOBALLY
+-- ====================================================================
+---@meta
+---@diagnostic disable: undefined-global
+
+-- ====================================================================
+-- 1. CONFIGURATION & STATE MANIFEST PATHS
 -- ====================================================================
 local root_markers = { 'platformio.ini', '.git', '.clangd' }
-local current_buf = vim.api.nvim_get_current_buf()
-local current_file = vim.api.nvim_buf_get_name(current_buf)
-local project_root = vim.fs.root(current_file, root_markers) or vim.fn.getcwd()
 
--- Isolated project JSON state database
+-- 🌟 FIXED: We fetch paths dynamically on boot, but do NOT grab static buffer IDs here anymore
+local initial_buf = vim.api.nvim_get_current_buf()
+local initial_file = vim.api.nvim_buf_get_name(initial_buf)
+local project_root = vim.fs.root(initial_file, root_markers) or vim.fn.getcwd()
+
+-- Isolated project JSON state database location
 local database_file = project_root .. '/.nvimpio_filters.json'
 
--- High-speed memory tracking tables
+-- High-speed memory tracking dictionaries
 local blocked_codes = {}
 local blocked_phrases = {}
 
 -- ====================================================================
--- 1. DATABASE DESERIALIZATION LOOPS (READ / WRITE)
+-- 2. DATABASE DESERIALIZATION LOOPS (READ / WRITE)
 -- ====================================================================
 local function load_filter_database()
   local f = io.open(database_file, 'rb')
@@ -40,7 +48,6 @@ local function save_filter_database()
   local f = io.open(database_file, 'wb')
   if f then
     local payload = { codes = blocked_codes, phrases = blocked_phrases }
-    -- Encode into standard formatted JSON output strings
     f:write(vim.json.encode(payload))
     f:close()
   end
@@ -50,10 +57,9 @@ end
 load_filter_database()
 
 -- ====================================================================
--- 2. UNIVERSAL INMEMORY REDIRECTION LAYER (ZERO LEAKS CATCHER)
+-- 3. UNIVERSAL INMEMORY REDIRECTION LAYER (ZERO LEAKS CATCHER)
 -- ====================================================================
 function M.clean_diagnostics_pipeline(diagnostics)
-  -- Always reload state metrics right before evaluation to handle updates hot
   load_filter_database()
 
   local cleaned = {}
@@ -61,7 +67,6 @@ function M.clean_diagnostics_pipeline(diagnostics)
     local code = diag.code or ''
     local msg = (diag.message or ''):lower()
 
-    -- Trace text conditions dynamically against your runtime arrays map
     local matches_text_pattern = false
     for saved_phrase, _ in pairs(blocked_phrases) do
       if string.find(msg, saved_phrase:lower(), 1, true) then
@@ -80,9 +85,12 @@ function M.clean_diagnostics_pipeline(diagnostics)
 end
 
 -- ====================================================================
--- 3. THE PREMIUM STATE-AWARE SNACKS.PICKER INTERFACE
+-- 4. THE PREMIUM STATE-AWARE SNACKS.PICKER INTERFACE
 -- ====================================================================
 function M.manage_file_diagnostics_interactive()
+  -- 🌟 CRITICAL REPAIR: Always grab the current active buffer ID dynamically
+  -- the exact millisecond the user executes this interactive function block!
+  local current_buf = vim.api.nvim_get_current_buf()
   local diagnostics = vim.diagnostic.get(current_buf)
 
   if #diagnostics == 0 then
