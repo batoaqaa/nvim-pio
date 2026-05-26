@@ -103,12 +103,12 @@ local function inject_into_clangd(code, message)
   local clean_dynamic = dynamic_part:gsub('\r', '')
 
   if is_driver_flag then
-    local pattern = '(CompileFlags:%s*\n%s*Remove:%s*%[)'
+    local pattern = "(CompileFlags:%s*\n%s*Remove:%s*%[)"
     local replacement = 'CompileFlags:\n  Remove: [\n    "' .. target_item .. '",'
     updated_dynamic = string.gsub(clean_dynamic, pattern, replacement)
   else
     if string.find(clean_dynamic, 'Diagnostics:%s*\n%s*Suppress:%s*%[') then
-      local pattern = '(Diagnostics:%s*\n%s*Suppress:%s*%[)'
+      local pattern = "(Diagnostics:%s*\n%s*Suppress:%s*%[)"
       local replacement = 'Diagnostics:\n  Suppress: [\n    ' .. target_item .. ','
       updated_dynamic = string.gsub(clean_dynamic, pattern, replacement)
     else
