@@ -179,7 +179,8 @@ function M.manage_file_diagnostics_interactive()
         if added > 0 then
           save_filter_database()
           vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
-          require('nvimpio.clangd.control').restart()
+          vim.cmd('edit!')
+          -- require('nvimpio.clangd.control').restart()
         else
           vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
         end
