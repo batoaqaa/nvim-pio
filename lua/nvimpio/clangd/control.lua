@@ -129,69 +129,69 @@ end
 -- 3. DYNAMIC INTERACTION LAYER
 -- ====================================================================
 -- Create the execution function to permanently ban a code on the fly
-function M.block_diagnostic_under_cursor()
-  local line, col = unpack(vim.api.nvim_win_get_cursor(0))
-  local diagnostics = vim.diagnostic.get(0, { lnum = line - 1 })
-
-  local target_diag = nil
-  for _, diag in ipairs(diagnostics) do
-    if col >= diag.col and col <= diag.end_col then
-      target_diag = diag
-      break
-    end
-  end
-
-  if target_diag then
-    local code = target_diag.code
-    local msg = target_diag.message or ""
-    local target_code = ""
-
-    -- CASE A: If the error has a valid code handle, use it
-    if code and code ~= "" then
-      target_code = code
-    -- else
-    --   -- CASE B: Blank code -> Extract the first two words dynamically (e.g. "unknown argument")
-    --   local word1, word2 = string.match(msg:lower(), "([%w%-]+)%s+([%w%-]+)")
-    --   if word1 and word2 then
-    --     target_code = word1 .. " " .. word2
-    --   else
-    --     target_code = msg:lower():gsub("([^%w%s])", "%%%1")
-    --   end
-    end
-
-    -- Check if it's already blocked
-    if M.runtime_blocklist[target_code] then
-      vim.notify("ℹ️ '" .. target_code .. "' is already blocked.", vim.log.levels.INFO)
-      return
-    end
-
-    -- Inject into memory table instantly
-    M.runtime_blocklist[target_code] = true
-
-    -- Append to disk permanently
-    local f_append = io.open(blocklist_file, "ab")
-    if f_append then
-      f_append:write(target_code .. "\n")
-      f_append:close()
-    end
-
-    -- local current_buf = vim.api.nvim_get_current_buf()
-    -- local namespaces = vim.diagnostic.get_namespaces()
-    -- for ns_id, _ in pairs(namespaces) do
-    --   -- Passes an integer explicitly to avoid the type checking crash
-    --   vim.diagnostic.set(ns_id, current_buf, {})
-    -- end
-    -- Refresh active buffer layout right away without restarting Neovim
-    vim.cmd("edit!")
-    -- vim.cmd('checktime')
-    vim.schedule(function ()
-      M.restart()
-    end)
-    vim.notify("✅ Silenced '" .. target_code .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
-  else
-    vim.notify("❌ No valid LSP diagnostic error found under cursor.", vim.log.levels.ERROR)
-  end
-end
+-- function M.block_diagnostic_under_cursor()
+--   local line, col = unpack(vim.api.nvim_win_get_cursor(0))
+--   local diagnostics = vim.diagnostic.get(0, { lnum = line - 1 })
+--
+--   local target_diag = nil
+--   for _, diag in ipairs(diagnostics) do
+--     if col >= diag.col and col <= diag.end_col then
+--       target_diag = diag
+--       break
+--     end
+--   end
+--
+--   if target_diag then
+--     local code = target_diag.code
+--     local msg = target_diag.message or ""
+--     local target_code = ""
+--
+--     -- CASE A: If the error has a valid code handle, use it
+--     if code and code ~= "" then
+--       target_code = code
+--     -- else
+--     --   -- CASE B: Blank code -> Extract the first two words dynamically (e.g. "unknown argument")
+--     --   local word1, word2 = string.match(msg:lower(), "([%w%-]+)%s+([%w%-]+)")
+--     --   if word1 and word2 then
+--     --     target_code = word1 .. " " .. word2
+--     --   else
+--     --     target_code = msg:lower():gsub("([^%w%s])", "%%%1")
+--     --   end
+--     end
+--
+--     -- Check if it's already blocked
+--     if M.runtime_blocklist[target_code] then
+--       vim.notify("ℹ️ '" .. target_code .. "' is already blocked.", vim.log.levels.INFO)
+--       return
+--     end
+--
+--     -- Inject into memory table instantly
+--     M.runtime_blocklist[target_code] = true
+--
+--     -- Append to disk permanently
+--     local f_append = io.open(blocklist_file, "ab")
+--     if f_append then
+--       f_append:write(target_code .. "\n")
+--       f_append:close()
+--     end
+--
+--     -- local current_buf = vim.api.nvim_get_current_buf()
+--     -- local namespaces = vim.diagnostic.get_namespaces()
+--     -- for ns_id, _ in pairs(namespaces) do
+--     --   -- Passes an integer explicitly to avoid the type checking crash
+--     --   vim.diagnostic.set(ns_id, current_buf, {})
+--     -- end
+--     -- Refresh active buffer layout right away without restarting Neovim
+--     vim.cmd("edit!")
+--     -- vim.cmd('checktime')
+--     vim.schedule(function ()
+--       M.restart()
+--     end)
+--     vim.notify("✅ Silenced '" .. target_code .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
+--   else
+--     vim.notify("❌ No valid LSP diagnostic error found under cursor.", vim.log.levels.ERROR)
+--   end
+-- end
 
 
 
@@ -404,7 +404,23 @@ function M.init(clangd)
   --   end
   --   f_read:close()
   -- end
+local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
 
+vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+  local client = vim.lsp.get_client_by_id(ctx.client_id)
+
+  if client and client.name == "clangd" then
+    if result and result.diagnostics then
+      -- 🌟 THE NATIVE BRIDGE: Pass diagnostics through your plugin module's memory filter
+      local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
+      if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
+        result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
+      end
+    end
+  end
+
+  original_diagnostic_handler(err, result, ctx, config)
+end
   -- ====================================================================
   -- ================== working    ======================================
   -- ====================================================================
