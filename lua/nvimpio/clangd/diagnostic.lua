@@ -48,7 +48,9 @@ local function save_filter_database()
   local f = io.open(database_file, 'wb')
   if f then
     local payload = { codes = blocked_codes, phrases = blocked_phrases }
-    f:write(vim.json.encode(payload))
+    local pretty = require('nvimpio.utils.misc').jsonFormat(payload)
+    f:write(pretty)
+    -- f:write(vim.json.encode(payload))
     f:close()
   end
 end
