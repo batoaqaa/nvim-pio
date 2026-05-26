@@ -2,9 +2,19 @@ local M = {}
 -- ====================================================================
 -- HELPERS FOR STRUCTURAL FILE INJECTION
 -- ====================================================================
-local local_clangd_file = vim.fn.getcwd() .. '/.clangd'
+local function get_local_clangd_path()
+  local current_buf = vim.api.nvim_get_current_buf()
+  local current_file = vim.api.nvim_buf_get_name(current_buf)
+
+  -- Search upward for PlatformIO or Git markers to locate the project root
+  local root_markers = { 'platformio.ini', '.git', '.clangd' }
+  local root_dir = vim.fs.root(current_file, root_markers) or vim.fn.getcwd()
+
+  return root_dir .. '/.clangd'
+end
 
 local function ensure_baseline_template()
+  local local_clangd_file = get_local_clangd_path()
   local f_check = io.open(local_clangd_file, 'r')
   if not f_check then
     local f_init = io.open(local_clangd_file, 'wb')
@@ -57,9 +67,9 @@ CompileFlags:
   end
 end
 
--- 🌟 FIXED: Accepts a list of items to process them simultaneously in a single write operation
 local function inject_batch_into_clangd(items_list)
   ensure_baseline_template()
+  local local_clangd_file = get_local_clangd_path()
 
   local file_content = ''
   local f_read = io.open(local_clangd_file, 'rb')
@@ -77,7 +87,6 @@ local function inject_batch_into_clangd(items_list)
   local flags_to_add = {}
   local codes_to_add = {}
 
-  -- Phase 1: Filter out duplicates and normalize items before modifying the file strings
   for _, item in ipairs(items_list) do
     local target_item = ''
     local is_driver_flag = string.match(tostring(item.code):lower(), '^drv_')
@@ -105,10 +114,8 @@ local function inject_batch_into_clangd(items_list)
     end
   end
 
-  -- Phase 2: Perform structural file manipulations if new rules exist
   local updated_dynamic = dynamic_part
 
-  -- Append driver flags cleanly into the existing group block
   for flag, _ in pairs(flags_to_add) do
     local pattern = '(CompileFlags:%s*\n%s*Remove:%s*%[)'
     local replacement = 'CompileFlags:\n  Remove: [\n    "' .. flag .. '",'
@@ -116,7 +123,6 @@ local function inject_batch_into_clangd(items_list)
     added_count = added_count + 1
   end
 
-  -- Append warning codes cleanly without duplicating diagnostic headers
   for code, _ in pairs(codes_to_add) do
     if string.find(updated_dynamic, 'Diagnostics:%s*\n%s*Suppress:%s*%[') then
       local pattern = '(Diagnostics:%s*\n%s*Suppress:%s*%[)'
@@ -128,7 +134,6 @@ local function inject_batch_into_clangd(items_list)
     added_count = added_count + 1
   end
 
-  -- Phase 3: Commit the final content back to disk
   if added_count > 0 then
     local final_content = base_part .. sep_marker .. updated_dynamic
     local f_write = io.open(local_clangd_file, 'wb')
@@ -189,8 +194,8 @@ function M.manage_file_diagnostics_interactive()
         return
       end
 
+      -- 🌟 FIXED CRITICAL CONDITION TRACKING: Check array index index 1 directly
       if action_choice == options[1] then
-        -- Action: Collect all group data and process them concurrently via the batch engine
         local batch_items = {}
         for _, diag in ipairs(group_diagnostics) do
           table.insert(batch_items, {
@@ -206,7 +211,6 @@ function M.manage_file_diagnostics_interactive()
           vim.notify('ℹ All items in group are already fully suppressed.', vim.log.levels.INFO)
         end
       else
-        -- Action: Individual instance picker
         local individual_items = {}
         for _, diag in ipairs(group_diagnostics) do
           table.insert(individual_items, {
