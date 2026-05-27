@@ -176,11 +176,17 @@ function M.manage_file_diagnostics_interactive()
 
   Snacks.picker({
     source = 'Microcontroller Diagnostic Mangler',
-    live = false,
-    finder = function()
-      return picker_items
-    end,
+    items = picker_items,
     layout = 'vscode',
+    win = {
+      input = {
+        keys = {
+          ['<Tab>'] = { 'toggle_select', mode = { 'n', 'i' } },
+          -- FIX 1: Remapped C-g to C-b to stop Snacks from high-jacking it for toggle_live
+          ['<C-b>'] = { 'suppress_group_action', mode = { 'n', 'i' } },
+        },
+      },
+    },
     actions = {
       confirm = function(picker, item)
         local selections = picker:selected()
@@ -202,21 +208,15 @@ function M.manage_file_diagnostics_interactive()
           end
         end
 
-        -- SYSTEM CACHE FLUSH PIPELINE
+        -- SYSTEM REFRESH PIPELINE
         vim.schedule(function()
-          -- 1. Explicitly clear the editor diagnostics layer instantly
           vim.diagnostic.reset(nil, current_buf)
-
-          -- 2. Trigger the reload sequence
           local restart_ok = pcall(function()
             require('nvimpio.clangd.control').restart()
           end)
           if not restart_ok then
             vim.cmd('LspRestart clangd')
           end
-
-          -- 3. Force the current buffer to reload from disk to refresh Clangd
-          vim.cmd('checktime')
           vim.cmd('edit!')
         end)
 
@@ -224,6 +224,55 @@ function M.manage_file_diagnostics_interactive()
           vim.notify('🔒 Permanent Override Committed! Injected ' .. processed_count .. ' suppressions.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
         else
           vim.notify('ℹ️ Selected items are already successfully mapped inside .clangd', vim.log.levels.INFO)
+        end
+      end,
+
+      suppress_group_action = function(picker, item)
+        -- Fallback check to extract selected item cleanly
+        local active_item = item or picker:current()
+        picker:close()
+        if not active_item then
+          return
+        end
+
+        local target_group_code = active_item.code
+        local bulk_diagnostics = vim.diagnostic.get(current_buf)
+        local total_group_added = 0
+
+        for _, diag in ipairs(bulk_diagnostics) do
+          local current_code = diag.code
+          if type(current_code) == 'table' then
+            current_code = current_code.code or current_code
+          end
+          current_code = tostring(current_code or 'uncategorized_noise')
+
+          if current_code == target_group_code then
+            if inject_into_clangd(current_code, diag.message) then
+              total_group_added = total_group_added + 1
+            end
+          end
+        end
+
+        -- SYSTEM REFRESH PIPELINE
+        vim.schedule(function()
+          vim.diagnostic.reset(nil, current_buf)
+          local restart_ok = pcall(function()
+            require('nvimpio.clangd.control').restart()
+          end)
+          if not restart_ok then
+            vim.cmd('LspRestart clangd')
+          end
+          vim.cmd('edit!')
+        end)
+
+        if total_group_added > 0 then
+          vim.notify(
+            '💥 Group Cleansed! Suppressed all ' .. total_group_added .. ' instances matching [' .. target_group_code .. ']',
+            vim.log.levels.WARN,
+            { title = 'Compiler Mangler' }
+          )
+        else
+          vim.notify('ℹ️ Global group schema constraints are already up to date.', vim.log.levels.INFO)
         end
       end,
     },
