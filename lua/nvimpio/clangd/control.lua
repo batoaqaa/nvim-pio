@@ -203,6 +203,23 @@ function M.restart()
     local name = 'clangd'
     OS.notify('LSP: Clangd restart.', 'warn')
 
+
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_loaded(bufnr) then
+        -- Get all active LSP clients explicitly attached to this specific buffer
+        local active_clients = vim.lsp.get_clients({ bufnr = bufnr, name = name })
+
+        -- Only clear the diagnostics if clangd is actively running on this buffer
+        if #active_clients > 0 then
+          vim.diagnostic.reset(nil, bufnr)
+        end
+      end
+    end
+
+
+
+
+
     local clangConfig = M.getClangdConfig()
 
     vim.lsp.config(name, clangConfig)
