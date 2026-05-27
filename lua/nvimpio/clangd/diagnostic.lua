@@ -11,7 +11,6 @@ local function ensure_baseline_template()
   if not f_check then
     local f_init = io.open(local_clangd_file, 'wb')
     if f_init then
-      -- Both baseline and dynamic blocks initialized as pristine, empty YAML arrays
       local baseline_template = [[
 CompileFlags:
   Remove: []
@@ -37,7 +36,6 @@ end
 --- Force-kills and re-spawns active compiler processes ONLY for clangd buffers
 function M.restart()
   vim.schedule(function()
-    -- Loop over loaded buffers and surgically clear diagnostics ONLY if clangd is attached
     for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
       if vim.api.nvim_buf_is_loaded(bufnr) then
         local active_clients = vim.lsp.get_clients({ bufnr = bufnr, name = 'clangd' })
@@ -46,9 +44,7 @@ function M.restart()
         end
       end
     end
-    -- Force Neovim to tear down and reload clangd client instances
-    -- vim.cmd('LspRestart clangd')
-    require('nvimpio.clangd.control').restart()
+    vim.cmd('LspRestart clangd')
   end)
 end
 
@@ -86,32 +82,71 @@ local function inject_into_clangd(code, message)
   local dynamic_part = tostring(sections[2] or '')
   dynamic_part = dynamic_part:gsub('\r', '')
 
-  -- Prevent structural entry duplicates from leaking into arrays
+  -- Prevent entry duplicates from leaking into arrays
   if string.find(dynamic_part, '"' .. target_item .. '"', 1, true) then
     return false
   end
 
-  local clean_dynamic = dynamic_part
-  local replacements_made = 0
+  -- SURGICAL LOOKUP ENGINE: Parse out raw block segments to reconstruct your exact output format
+  local compile_flags_block = dynamic_part:match('CompileFlags:%s*\n%s*Remove:%s*%[(.-)%]') or ''
+  local diagnostics_block = dynamic_part:match('Diagnostics:%s*\n%s*Suppress:%s*%[(.-)%]') or ''
 
-  if is_driver_flag then
-    local pattern = '([Cc]ompile[Ff]lags:%s*\n%s*[Rr]emove:%s*%[%s*\n?)'
-    local replacement = 'CompileFlags:\n  Remove: [\n    "' .. target_item .. '",\n'
-    clean_dynamic, replacements_made = string.gsub(clean_dynamic, pattern, replacement, 1)
-  else
-    local pattern = '([Dd]iagnostics:%s*\n%s*[Ss]uppress:%s*%[%s*\n?)'
-    local replacement = 'Diagnostics:\n  Suppress: [\n    "' .. target_item .. '",\n'
-    clean_dynamic, replacements_made = string.gsub(clean_dynamic, pattern, replacement, 1)
-  end
-
-  -- Safe structural fallback routine if formatting brackets are collapsed
-  if replacements_made == 0 then
-    if is_driver_flag then
-      clean_dynamic = clean_dynamic .. '\nCompileFlags:\n  Remove: [\n    "' .. target_item .. '"\n  ]'
-    else
-      clean_dynamic = clean_dynamic .. '\nDiagnostics:\n  Suppress: [\n    "' .. target_item .. '"\n  ]'
+  -- Clean line splits and strip blank characters
+  local current_flags = {}
+  for line in compile_flags_block:gmatch('[^\r\n]+') do
+    local clean = vim.trim(line):gsub('^"', ''):gsub('"$', ''):gsub(',$', '')
+    if clean ~= '' then
+      table.insert(current_flags, clean)
     end
   end
+
+  local current_diags = {}
+  for line in diagnostics_block:gmatch('[^\r\n]+') do
+    local clean = vim.trim(line):gsub('^"', ''):gsub('"$', ''):gsub(',$', '')
+    if clean ~= '' then
+      table.insert(current_diags, clean)
+    end
+  end
+
+  -- Add the new target item to the respective tracked list array context
+  if is_driver_flag then
+    table.insert(current_flags, target_item)
+  else
+    table.insert(current_diags, target_item)
+  end
+
+  -- RECONSTRUCTION LAYER: Rebuilds string formatting to match your output blueprint
+  local new_flags_str = ' []'
+  if #current_flags > 0 then
+    new_flags_str = ' [\n'
+    for i, flag in ipairs(current_flags) do
+      new_flags_str = new_flags_str .. '    "' .. flag .. '"'
+      -- Add standard comma separator rules on everything except the last item
+      if i < #current_flags then
+        new_flags_str = new_flags_str .. ',\n'
+      else
+        new_flags_str = new_flags_str .. ',\n' -- Kept trailing comma rule matching your exact blueprint
+      end
+    end
+    new_flags_str = new_flags_str .. '  ]'
+  end
+
+  local new_diags_str = ' []'
+  if #current_diags > 0 then
+    new_diags_str = ' [\n'
+    for i, diag in ipairs(current_diags) do
+      new_diags_str = new_diags_str .. '    "' .. diag .. '"'
+      if i < #current_diags then
+        new_diags_str = new_diags_str .. ',\n'
+      else
+        new_diags_str = new_diags_str .. ',\n'
+      end
+    end
+    new_diags_str = new_diags_str .. '  ]'
+  end
+
+  -- Assemble pristine final file chunk
+  local clean_dynamic = string.format('\nCompileFlags:\n  Remove:%s\nDiagnostics:\n  Suppress:%s\n', new_flags_str, new_diags_str)
 
   local final_content = base_part .. divider .. clean_dynamic
   local f_write = io.open(local_clangd_file, 'wb')
@@ -133,7 +168,6 @@ function M.manage_file_diagnostics_interactive()
     return
   end
 
-  -- Filter duplicates to keep UI selections clear
   local unique_items = {}
   local seen_keys = {}
 
@@ -141,7 +175,6 @@ function M.manage_file_diagnostics_interactive()
     local raw_code = diag.code
     local code_name = ''
 
-    -- Lint-safe explicit conditional check to completely satisfy lua-ls rules
     if type(raw_code) == 'table' then
       code_name = tostring(raw_code.code or 'uncategorized_noise')
     else
@@ -159,7 +192,6 @@ function M.manage_file_diagnostics_interactive()
     end
   end
 
-  -- Triggers your dropdown popup view via unified core selector mappings
   vim.ui.select(unique_items, {
     prompt = '🔍 Microcontroller Diagnostic Mangler',
     format_item = function(item)
@@ -172,7 +204,6 @@ function M.manage_file_diagnostics_interactive()
 
     local success = inject_into_clangd(choice.code, choice.message)
 
-    -- Force Surgical Cache Clear Pipeline
     vim.schedule(function()
       M.restart()
       vim.cmd('edit!')
