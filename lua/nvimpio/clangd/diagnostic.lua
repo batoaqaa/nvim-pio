@@ -78,9 +78,8 @@ local function inject_into_clangd(code, message)
   local target_item = tostring(code or '')
   local is_driver_flag = string.match(target_item:lower(), '^drv_') or string.match(message:lower(), 'unknown argument')
 
-  -- Fallback if code contains complex data fields
+  -- Fallback logic parsing diagnostics text frames
   if target_item == '' or target_item:match('^table:') or target_item == 'uncategorized_noise' then
-    -- Cleanly scrape a diagnostic key representation out of the compiler text stream
     target_item = message:match('%[(.-)%]') or message:match("'(.-)'") or 'uncategorized_noise'
   end
 
@@ -94,7 +93,7 @@ local function inject_into_clangd(code, message)
     target_item = vim.trim(target_item):gsub('[\',;"%s]', '')
   end
 
-  -- Prevent duplicate inclusions
+  -- Absolute double-quoted match validation
   if string.find(file_content, '"' .. target_item .. '"', 1, true) then
     return false
   end
@@ -131,7 +130,7 @@ end
 -- ====================================================================
 function M.manage_file_diagnostics_interactive()
   if not pcall(require, 'snacks') then
-    vim.notify('❌ Snacks.nvim module is missing!', vim.log.levels.ERROR)
+    vim.notify('❌ Snacks.nvim dependency missing from system load profile!', vim.log.levels.ERROR)
     return
   end
 
@@ -145,10 +144,9 @@ function M.manage_file_diagnostics_interactive()
 
   local picker_items = {}
   for _, diag in ipairs(diagnostics) do
-    -- Strip out underlying LSP raw dictionaries to fetch the real string literal representation
     local code_name = diag.code
     if type(code_name) == 'table' then
-      code_name = code_name.code or code_name[1]
+      code_name = code_name.code or code_name
     end
     code_name = tostring(code_name or 'uncategorized_noise')
 
@@ -182,8 +180,9 @@ function M.manage_file_diagnostics_interactive()
     },
     actions = {
       confirm = function(picker)
-        -- Dynamic lookup query parsing for multi-selection vs targeted line select
         local selections = picker:selected()
+
+        -- Fallback to the active focused line item context if no boxes are checked
         if #selections == 0 then
           local current = picker:current()
           if current then
@@ -197,11 +196,13 @@ function M.manage_file_diagnostics_interactive()
         end
 
         local processed_count = 0
-        for _, selected_item in ipairs(selections) do
-          -- Pull raw parameter mappings out of the snacks object abstraction payload
-          local item_data = selected_item.item or selected_item
-          if inject_into_clangd(item_data.code, item_data.message) then
-            processed_count = processed_count + 1
+        for _, obj in ipairs(selections) do
+          -- CRITICAL UNWRAP: Extract the real payload data mapped inside snacks metadata blocks
+          local item_data = obj.item or obj
+          if item_data and item_data.code then
+            if inject_into_clangd(item_data.code, item_data.message) then
+              processed_count = processed_count + 1
+            end
           end
         end
 
@@ -222,15 +223,17 @@ function M.manage_file_diagnostics_interactive()
           return
         end
 
+        -- CRITICAL UNWRAP: Extract group key from snacks inner item definition fields
         local item_data = current.item or current
         local target_group_code = item_data.code
+
         local bulk_diagnostics = vim.diagnostic.get(current_buf)
         local total_group_added = 0
 
         for _, diag in ipairs(bulk_diagnostics) do
           local current_code = diag.code
           if type(current_code) == 'table' then
-            current_code = current_code.code or current_code[1]
+            current_code = current_code.code or current_code
           end
           current_code = tostring(current_code or 'uncategorized_noise')
 
