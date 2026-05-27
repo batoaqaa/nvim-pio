@@ -3,16 +3,10 @@ local M = {}
 ---@meta
 ---@diagnostic disable: undefined-global
 
+-- ====================================================================
+-- 1. SURGICAL CONFIGURATION INJECTION ENGINE
+-- ====================================================================
 local local_clangd_file = vim.fn.getcwd() .. '/.clangd'
-
-local function print_telemetry(phase, data)
-  vim.schedule(function()
-    vim.api.nvim_echo({
-      { '🔍 [TELEMETRY: ' .. phase .. ']\n', 'DiagnosticHint' },
-      { vim.inspect(data) .. '\n', 'Normal' },
-    }, true, {})
-  end)
-end
 
 local function ensure_baseline_template()
   local f_check = io.open(local_clangd_file, 'r')
@@ -139,8 +133,13 @@ local function inject_into_clangd(code, message)
   return true
 end
 
+-- ====================================================================
+-- 3. THE PREMIUM SNACKS.PICKER SELECTION COMPONENT
+-- ====================================================================
 function M.manage_file_diagnostics_interactive()
-  if not pcall(require, 'snacks') then
+  local snacks_ok, snacks = pcall(require, 'snacks')
+  if not snacks_ok then
+    vim.notify('❌ Snacks.nvim missing!', vim.log.levels.ERROR)
     return
   end
 
@@ -148,17 +147,26 @@ function M.manage_file_diagnostics_interactive()
   local diagnostics = vim.diagnostic.get(current_buf)
 
   if #diagnostics == 0 then
-    vim.notify('✅ No active diagnostics detected!', vim.log.levels.INFO)
+    vim.notify('✅ Complete Parity: No active compiler exceptions detected!', vim.log.levels.INFO)
     return
   end
 
   local picker_items = {}
   for _, diag in ipairs(diagnostics) do
-    local code_name = diag.code
-    if type(code_name) == 'table' then
-      code_name = code_name.code or code_name
+    local raw_code = diag.code
+    local code_name = ''
+
+    -- FIX: Run an explicit conditional check to satisfy lua-ls linter requirements
+    if type(raw_code) == 'table' then
+      code_name = tostring(raw_code.code or 'uncategorized_noise')
+    else
+      code_name = tostring(raw_code or 'uncategorized_noise')
     end
-    code_name = tostring(code_name or 'uncategorized_noise')
+
+    local sev_icon = '⚠️ '
+    if diag.severity == 1 then
+      sev_icon = '❌'
+    end
 
     table.insert(picker_items, {
       text = string.format('[%s] Line %d', code_name, diag.lnum + 1),
@@ -166,49 +174,110 @@ function M.manage_file_diagnostics_interactive()
       idx = #picker_items + 1,
       code = code_name,
       message = diag.message,
-      icon = '❌',
+      icon = sev_icon,
     })
   end
 
-  -- ====================================================================
-  -- CORE TELEMETRY CONFIGURATION METHOD
-  -- ====================================================================
-  Snacks.picker({
-    source = 'Microcontroller Diagnostic Mangler',
+  snacks.picker.pick({
+    title = 'Microcontroller Diagnostic Mangler',
     items = picker_items,
     layout = 'vscode',
 
-    -- Explicitly notify the core engine that the stream is local and non-blocking
-    live = false,
+    actions = {
+      mangler_confirm = function(picker)
+        local selections = picker:selected()
+        if #selections == 0 then
+          local current = picker:current()
+          if current then
+            selections = { current }
+          end
+        end
 
-    -- BIND ACTIONS USING NATIVE PROPERTY INJECTION DEFINITIONS
-    confirm = function(picker)
-      local current = picker:current()
-      print_telemetry('CONFIRM ACTION FIRED', { current_row = current })
+        picker:close()
+        if #selections == 0 then
+          return
+        end
 
-      picker:close()
-      if not current then
-        return
-      end
+        local processed_count = 0
+        for _, node in ipairs(selections) do
+          if node and node.code and node.message then
+            if inject_into_clangd(node.code, node.message) then
+              processed_count = processed_count + 1
+            end
+          end
+        end
 
-      local success = inject_into_clangd(current.code, current.message)
-      print_telemetry('FILE WRITE STATUS', { success = success })
-
-      vim.schedule(function()
-        vim.diagnostic.reset(nil, current_buf)
-        pcall(function()
-          require('nvimpio.clangd.control').restart()
+        vim.schedule(function()
+          vim.diagnostic.reset(nil, current_buf)
+          local restart_ok = pcall(function()
+            require('nvimpio.clangd.control').restart()
+          end)
+          if not restart_ok then
+            vim.cmd('LspRestart clangd')
+          end
+          vim.cmd('edit!')
         end)
-        vim.cmd('edit!')
-      end)
-    end,
 
-    -- FORCE KEYBIND ASSIGNMENT AT THE ROOT LEVEL VIA DELEGATED INJECTION
+        if processed_count > 0 then
+          vim.notify('🔒 Permanent Override Committed! Injected ' .. processed_count .. ' suppressions.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
+        else
+          vim.notify('ℹ️ Selected items are already successfully mapped inside .clangd', vim.log.levels.INFO)
+        end
+      end,
+
+      mangler_group = function(picker)
+        local current = picker:current()
+        picker:close()
+        if not current then
+          return
+        end
+
+        local target_group_code = current.code
+        local bulk_diagnostics = vim.diagnostic.get(current_buf)
+        local total_group_added = 0
+
+        for _, diag in ipairs(bulk_diagnostics) do
+          local raw_c = diag.code
+          local current_code = ''
+
+          if type(raw_c) == 'table' then
+            current_code = tostring(raw_c.code or 'uncategorized_noise')
+          else
+            current_code = tostring(raw_c or 'uncategorized_noise')
+          end
+
+          if current_code == target_group_code then
+            if inject_into_clangd(current_code, diag.message) then
+              total_group_added = total_group_added + 1
+            end
+          end
+        end
+
+        vim.schedule(function()
+          vim.diagnostic.reset(nil, current_buf)
+          local restart_ok = pcall(function()
+            require('nvimpio.clangd.control').restart()
+          end)
+          if not restart_ok then
+            vim.cmd('LspRestart clangd')
+          end
+          vim.cmd('edit!')
+        end)
+
+        if total_group_added > 0 then
+          vim.notify('💥 Group Cleansed! Injected ' .. total_group_added .. ' suppressions.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
+        else
+          vim.notify('ℹ️ Global group schema constraints are already up to date.', vim.log.levels.INFO)
+        end
+      end,
+    },
+
     win = {
       input = {
         keys = {
-          -- We block Enter completely from evaluating structural lookup functions
-          ['<Cr>'] = { 'confirm', mode = { 'n', 'i' } },
+          ['<Tab>'] = { 'toggle_select', mode = { 'n', 'i' } },
+          ['<Cr>'] = { 'mangler_confirm', mode = { 'n', 'i' } },
+          ['<C-b>'] = { 'mangler_group', mode = { 'n', 'i' } },
         },
       },
     },
