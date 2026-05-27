@@ -47,7 +47,8 @@ function M.restart()
       end
     end
     -- Force Neovim to tear down and reload clangd client instances
-    vim.cmd('LspRestart clangd')
+    -- vim.cmd('LspRestart clangd')
+    require('nvimpio.clangd.control').restart()
   end)
 end
 
