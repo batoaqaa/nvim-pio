@@ -182,7 +182,7 @@ function M.manage_file_diagnostics_interactive()
       input = {
         keys = {
           ['<Tab>'] = { 'toggle_select', mode = { 'n', 'i' } },
-          -- FIX 1: Remapped C-g to C-b to stop Snacks from high-jacking it for toggle_live
+          -- Use C-b instead of C-g to avoid conflicts with Folke's internal live toggles
           ['<C-b>'] = { 'suppress_group_action', mode = { 'n', 'i' } },
         },
       },
@@ -190,8 +190,13 @@ function M.manage_file_diagnostics_interactive()
     actions = {
       confirm = function(picker, item)
         local selections = picker:selected()
-        if #selections == 0 and item then
-          selections = { item }
+
+        -- FIX 1: Explicit fallback verification if no multi-selections are checked
+        if #selections == 0 then
+          local active_row = item or picker:current()
+          if active_row then
+            selections = { active_row }
+          end
         end
 
         picker:close()
@@ -200,15 +205,15 @@ function M.manage_file_diagnostics_interactive()
         end
 
         local processed_count = 0
-        for _, item_node in ipairs(selections) do
-          if item_node and item_node.code and item_node.message then
-            if inject_into_clangd(item_node.code, item_node.message) then
+        for _, node in ipairs(selections) do
+          if node and node.code and node.message then
+            if inject_into_clangd(node.code, node.message) then
               processed_count = processed_count + 1
             end
           end
         end
 
-        -- SYSTEM REFRESH PIPELINE
+        -- HOT SWAP BUFFER CACHE REFRESH PIPELINE
         vim.schedule(function()
           vim.diagnostic.reset(nil, current_buf)
           local restart_ok = pcall(function()
@@ -228,14 +233,14 @@ function M.manage_file_diagnostics_interactive()
       end,
 
       suppress_group_action = function(picker, item)
-        -- Fallback check to extract selected item cleanly
-        local active_item = item or picker:current()
+        -- FIX 2: Safely extract active target context across any keyboard configuration mapping
+        local active_row = item or picker:current()
         picker:close()
-        if not active_item then
+        if not active_row then
           return
         end
 
-        local target_group_code = active_item.code
+        local target_group_code = active_row.code
         local bulk_diagnostics = vim.diagnostic.get(current_buf)
         local total_group_added = 0
 
@@ -253,7 +258,7 @@ function M.manage_file_diagnostics_interactive()
           end
         end
 
-        -- SYSTEM REFRESH PIPELINE
+        -- SYSTEM CACHE REFRESH PIPELINE
         vim.schedule(function()
           vim.diagnostic.reset(nil, current_buf)
           local restart_ok = pcall(function()
