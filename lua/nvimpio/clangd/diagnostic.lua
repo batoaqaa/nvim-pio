@@ -54,6 +54,7 @@ CompileFlags:
   ]
 Diagnostics:
   Suppress: [
+    "uncategorized_noise"
   ]
 ]]
       f_init:write(baseline_template)
@@ -63,7 +64,6 @@ Diagnostics:
     f_check:close()
   end
 end
--- "uncategorized_noise"
 
 local function inject_into_clangd(code, message)
   ensure_baseline_template()
