@@ -174,117 +174,104 @@ function M.manage_file_diagnostics_interactive()
     })
   end
 
-  -- Central Action Handler Logic
-  local function run_confirm_action(picker)
-    local selections = picker:selected()
-
-    if #selections == 0 then
-      local active_row = picker:current()
-      if active_row then
-        selections = { active_row }
-      end
-    end
-
-    picker:close()
-    if #selections == 0 then
-      return
-    end
-
-    local processed_count = 0
-    for _, node in ipairs(selections) do
-      if node and node.code and node.message then
-        if inject_into_clangd(node.code, node.message) then
-          processed_count = processed_count + 1
-        end
-      end
-    end
-
-    vim.schedule(function()
-      vim.diagnostic.reset(nil, current_buf)
-      local restart_ok = pcall(function()
-        require('nvimpio.clangd.control').restart()
-      end)
-      if not restart_ok then
-        vim.cmd('LspRestart clangd')
-      end
-      vim.cmd('edit!')
-    end)
-
-    if processed_count > 0 then
-      vim.notify('🔒 Permanent Override Committed! Injected ' .. processed_count .. ' suppressions.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
-    else
-      vim.notify('ℹ️ Selected items are already successfully mapped inside .clangd', vim.log.levels.INFO)
-    end
-  end
-
-  local function run_group_action(picker)
-    local active_row = picker:current()
-    picker:close()
-    if not active_row then
-      return
-    end
-
-    local target_group_code = active_row.code
-    local bulk_diagnostics = vim.diagnostic.get(current_buf)
-    local total_group_added = 0
-
-    for _, diag in ipairs(bulk_diagnostics) do
-      local current_code = diag.code
-      if type(current_code) == 'table' then
-        current_code = current_code.code or current_code
-      end
-      current_code = tostring(current_code or 'uncategorized_noise')
-
-      if current_code == target_group_code then
-        if inject_into_clangd(current_code, diag.message) then
-          total_group_added = total_group_added + 1
-        end
-      end
-    end
-
-    vim.schedule(function()
-      vim.diagnostic.reset(nil, current_buf)
-      local restart_ok = pcall(function()
-        require('nvimpio.clangd.control').restart()
-      end)
-      if not restart_ok then
-        vim.cmd('LspRestart clangd')
-      end
-      vim.cmd('edit!')
-    end)
-
-    if total_group_added > 0 then
-      vim.notify(
-        '💥 Group Cleansed! Suppressed all ' .. total_group_added .. ' instances matching [' .. target_group_code .. ']',
-        vim.log.levels.WARN,
-        { title = 'Compiler Mangler' }
-      )
-    else
-      vim.notify('ℹ️ Global group schema constraints are already up to date.', vim.log.levels.INFO)
-    end
-  end
-
   Snacks.picker({
     source = 'Microcontroller Diagnostic Mangler',
     items = picker_items,
     layout = 'vscode',
+    -- CRITICAL ARTIFACT FIX: Define standard structural operations within actions block
+    actions = {
+      mangler_confirm = function(picker, item)
+        local selections = picker:selected()
+        if #selections == 0 and item then
+          selections = { item }
+        end
+
+        picker:close()
+        if #selections == 0 then
+          return
+        end
+
+        local processed_count = 0
+        for _, node in ipairs(selections) do
+          if node and node.code and node.message then
+            if inject_into_clangd(node.code, node.message) then
+              processed_count = processed_count + 1
+            end
+          end
+        end
+
+        vim.schedule(function()
+          vim.diagnostic.reset(nil, current_buf)
+          local restart_ok = pcall(function()
+            require('nvimpio.clangd.control').restart()
+          end)
+          if not restart_ok then
+            vim.cmd('LspRestart clangd')
+          end
+          vim.cmd('edit!')
+        end)
+
+        if processed_count > 0 then
+          vim.notify('🔒 Permanent Override Committed! Injected ' .. processed_count .. ' suppressions.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
+        else
+          vim.notify('ℹ️ Selected items are already successfully mapped inside .clangd', vim.log.levels.INFO)
+        end
+      end,
+
+      mangler_group_suppress = function(picker, item)
+        local active_row = item or picker:current()
+        picker:close()
+        if not active_row then
+          return
+        end
+
+        local target_group_code = active_row.code
+        local bulk_diagnostics = vim.diagnostic.get(current_buf)
+        local total_group_added = 0
+
+        for _, diag in ipairs(bulk_diagnostics) do
+          local current_code = diag.code
+          if type(current_code) == 'table' then
+            current_code = current_code.code or current_code
+          end
+          current_code = tostring(current_code or 'uncategorized_noise')
+
+          if current_code == target_group_code then
+            if inject_into_clangd(current_code, diag.message) then
+              total_group_added = total_group_added + 1
+            end
+          end
+        end
+
+        vim.schedule(function()
+          vim.diagnostic.reset(nil, current_buf)
+          local restart_ok = pcall(function()
+            require('nvimpio.clangd.control').restart()
+          end)
+          if not restart_ok then
+            vim.cmd('LspRestart clangd')
+          end
+          vim.cmd('edit!')
+        end)
+
+        if total_group_added > 0 then
+          vim.notify(
+            '💥 Group Cleansed! Suppressed all ' .. total_group_added .. ' instances matching [' .. target_group_code .. ']',
+            vim.log.levels.WARN,
+            { title = 'Compiler Mangler' }
+          )
+        else
+          vim.notify('ℹ️ Global group schema constraints are already up to date.', vim.log.levels.INFO)
+        end
+      end,
+    },
     win = {
       input = {
         keys = {
           ['<Tab>'] = { 'toggle_select', mode = { 'n', 'i' } },
-          -- FIX: Pass standard lambda function execution wraps directly to keys definition blocks
-          ['<Cr>'] = {
-            function(picker)
-              run_confirm_action(picker)
-            end,
-            mode = { 'n', 'i' },
-          },
-          ['<C-b>'] = {
-            function(picker)
-              run_group_action(picker)
-            end,
-            mode = { 'n', 'i' },
-          },
+          -- CRITICAL FIX: Reference actions strictly via their named string identifiers
+          ['<Cr>'] = { 'mangler_confirm', mode = { 'n', 'i' } },
+          ['<C-b>'] = { 'mangler_group_suppress', mode = { 'n', 'i' } },
         },
       },
     },
