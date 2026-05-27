@@ -3,10 +3,16 @@ local M = {}
 ---@meta
 ---@diagnostic disable: undefined-global
 
--- ====================================================================
--- 1. SURGICAL CONFIGURATION INJECTION ENGINE
--- ====================================================================
 local local_clangd_file = vim.fn.getcwd() .. '/.clangd'
+
+local function print_telemetry(phase, data)
+  vim.schedule(function()
+    vim.api.nvim_echo({
+      { '🔍 [TELEMETRY: ' .. phase .. ']\n', 'DiagnosticHint' },
+      { vim.inspect(data) .. '\n', 'Normal' },
+    }, true, {})
+  end)
+end
 
 local function ensure_baseline_template()
   local f_check = io.open(local_clangd_file, 'r')
@@ -133,12 +139,8 @@ local function inject_into_clangd(code, message)
   return true
 end
 
--- ====================================================================
--- 3. THE PREMIUM SNACKS.PICKER SELECTION COMPONENT
--- ====================================================================
 function M.manage_file_diagnostics_interactive()
   if not pcall(require, 'snacks') then
-    vim.notify('❌ Snacks.nvim missing!', vim.log.levels.ERROR)
     return
   end
 
@@ -146,7 +148,7 @@ function M.manage_file_diagnostics_interactive()
   local diagnostics = vim.diagnostic.get(current_buf)
 
   if #diagnostics == 0 then
-    vim.notify('✅ Complete Parity: No active compiler exceptions detected!', vim.log.levels.INFO)
+    vim.notify('✅ No active diagnostics detected!', vim.log.levels.INFO)
     return
   end
 
@@ -158,120 +160,55 @@ function M.manage_file_diagnostics_interactive()
     end
     code_name = tostring(code_name or 'uncategorized_noise')
 
-    local sev_icon, sev_hl = '⚠️ ', 'DiagnosticWarn'
-    if diag.severity == 1 then
-      sev_icon, sev_hl = '❌', 'DiagnosticError'
-    end
-
     table.insert(picker_items, {
       text = string.format('[%s] Line %d', code_name, diag.lnum + 1),
       comment = diag.message,
       idx = #picker_items + 1,
       code = code_name,
       message = diag.message,
-      icon = sev_icon,
-      icon_hl = sev_hl,
+      icon = '❌',
     })
   end
 
+  -- ====================================================================
+  -- CORE TELEMETRY CONFIGURATION METHOD
+  -- ====================================================================
   Snacks.picker({
     source = 'Microcontroller Diagnostic Mangler',
     items = picker_items,
     layout = 'vscode',
-    -- CRITICAL ARTIFACT FIX: Define standard structural operations within actions block
-    actions = {
-      mangler_confirm = function(picker, item)
-        local selections = picker:selected()
-        if #selections == 0 and item then
-          selections = { item }
-        end
 
-        picker:close()
-        if #selections == 0 then
-          return
-        end
+    -- Explicitly notify the core engine that the stream is local and non-blocking
+    live = false,
 
-        local processed_count = 0
-        for _, node in ipairs(selections) do
-          if node and node.code and node.message then
-            if inject_into_clangd(node.code, node.message) then
-              processed_count = processed_count + 1
-            end
-          end
-        end
+    -- BIND ACTIONS USING NATIVE PROPERTY INJECTION DEFINITIONS
+    confirm = function(picker)
+      local current = picker:current()
+      print_telemetry('CONFIRM ACTION FIRED', { current_row = current })
 
-        vim.schedule(function()
-          vim.diagnostic.reset(nil, current_buf)
-          local restart_ok = pcall(function()
-            require('nvimpio.clangd.control').restart()
-          end)
-          if not restart_ok then
-            vim.cmd('LspRestart clangd')
-          end
-          vim.cmd('edit!')
+      picker:close()
+      if not current then
+        return
+      end
+
+      local success = inject_into_clangd(current.code, current.message)
+      print_telemetry('FILE WRITE STATUS', { success = success })
+
+      vim.schedule(function()
+        vim.diagnostic.reset(nil, current_buf)
+        pcall(function()
+          require('nvimpio.clangd.control').restart()
         end)
+        vim.cmd('edit!')
+      end)
+    end,
 
-        if processed_count > 0 then
-          vim.notify('🔒 Permanent Override Committed! Injected ' .. processed_count .. ' suppressions.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
-        else
-          vim.notify('ℹ️ Selected items are already successfully mapped inside .clangd', vim.log.levels.INFO)
-        end
-      end,
-
-      mangler_group_suppress = function(picker, item)
-        local active_row = item or picker:current()
-        picker:close()
-        if not active_row then
-          return
-        end
-
-        local target_group_code = active_row.code
-        local bulk_diagnostics = vim.diagnostic.get(current_buf)
-        local total_group_added = 0
-
-        for _, diag in ipairs(bulk_diagnostics) do
-          local current_code = diag.code
-          if type(current_code) == 'table' then
-            current_code = current_code.code or current_code
-          end
-          current_code = tostring(current_code or 'uncategorized_noise')
-
-          if current_code == target_group_code then
-            if inject_into_clangd(current_code, diag.message) then
-              total_group_added = total_group_added + 1
-            end
-          end
-        end
-
-        vim.schedule(function()
-          vim.diagnostic.reset(nil, current_buf)
-          local restart_ok = pcall(function()
-            require('nvimpio.clangd.control').restart()
-          end)
-          if not restart_ok then
-            vim.cmd('LspRestart clangd')
-          end
-          vim.cmd('edit!')
-        end)
-
-        if total_group_added > 0 then
-          vim.notify(
-            '💥 Group Cleansed! Suppressed all ' .. total_group_added .. ' instances matching [' .. target_group_code .. ']',
-            vim.log.levels.WARN,
-            { title = 'Compiler Mangler' }
-          )
-        else
-          vim.notify('ℹ️ Global group schema constraints are already up to date.', vim.log.levels.INFO)
-        end
-      end,
-    },
+    -- FORCE KEYBIND ASSIGNMENT AT THE ROOT LEVEL VIA DELEGATED INJECTION
     win = {
       input = {
         keys = {
-          ['<Tab>'] = { 'toggle_select', mode = { 'n', 'i' } },
-          -- CRITICAL FIX: Reference actions strictly via their named string identifiers
-          ['<Cr>'] = { 'mangler_confirm', mode = { 'n', 'i' } },
-          ['<C-b>'] = { 'mangler_group_suppress', mode = { 'n', 'i' } },
+          -- We block Enter completely from evaluating structural lookup functions
+          ['<Cr>'] = { 'confirm', mode = { 'n', 'i' } },
         },
       },
     },
