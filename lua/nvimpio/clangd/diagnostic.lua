@@ -79,7 +79,6 @@ local function inject_into_clangd(code, message)
   local is_driver_flag = string.match(target_item:lower(), '^drv_') or string.match(message:lower(), 'unknown argument')
 
   if is_driver_flag then
-    -- FIX: Repaired literal string capture sequence escapes
     local extracted_flag = string.match(message, '[\'"](%-.-)[\'"]') or string.match(message, '%s(%-.-)%s')
     if not extracted_flag then
       extracted_flag = string.match(message, 'argument%s+(%-.*)$') or '-mlongcalls'
@@ -99,6 +98,7 @@ local function inject_into_clangd(code, message)
 
   dynamic_part = dynamic_part:gsub('\r', '')
 
+  -- If it's already there, stop to avoid polluting the file
   if string.find(dynamic_part, '"' .. target_item .. '"', 1, true) then
     return false
   end
@@ -177,9 +177,7 @@ function M.manage_file_diagnostics_interactive()
 
   Snacks.picker({
     source = 'Microcontroller Diagnostic Mangler',
-    -- FIX 1: Turn off background server terminal string queries
     live = false,
-    -- FIX 2: Explicitly pass your static items collection via a finder wrap callback
     finder = function()
       return picker_items
     end,
@@ -207,11 +205,22 @@ function M.manage_file_diagnostics_interactive()
 
         if processed_count > 0 then
           vim.notify('🔒 Permanent Override Committed! Injected ' .. processed_count .. ' suppressions.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
+
+          -- Safe execution hook for triggering LSP server refresh pipelines
+          local restart_ok = pcall(function()
+            require('nvimpio.clangd.control').restart()
+          end)
+          if not restart_ok then
+            vim.schedule(function()
+              vim.cmd('LspRestart clangd')
+            end)
+          end
+        else
+          vim.notify('ℹ️ Selected items are already successfully mapped inside .clangd', vim.log.levels.INFO)
+          -- Force a manual restart helper if errors persist despite being mapped
           pcall(function()
             require('nvimpio.clangd.control').restart()
           end)
-        else
-          vim.notify('ℹ️ Selected items are already successfully mapped inside .clangd', vim.log.levels.INFO)
         end
       end,
     },
