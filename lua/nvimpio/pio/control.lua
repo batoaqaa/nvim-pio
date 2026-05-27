@@ -1,5 +1,6 @@
 local M = {}
 
+--stylua: ignore start
 local clangd = require('nvimpio.clangd.control')
 local pio = require('nvimpio.pio.upkeep')
 local misc = require('nvimpio.utils.misc')
@@ -31,7 +32,6 @@ local function get_hash(path)
 end
 
 --INFO:
---stylua: ignore
 --1.stop_watchers 
 -------------------------------------------------------------------------------
 function M.stop_watchers()
@@ -47,7 +47,6 @@ function M.stop_watchers()
 end
 
 --INFO:
---stylua: ignore
 --2.watcher cleanup
 -------------------------------------------------------------------------------
 function M.cleanup()
@@ -66,7 +65,6 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
 })
 
 --INFO:
---stylua: ignore
 --3. MAIN WATCHER: Efficient Folder Monitoring
 -------------------------------------------------------------------------------
 local function watch_file(target, callback)
@@ -112,7 +110,6 @@ local function watch_file(target, callback)
 end
 
 --INFO:
---stylua: ignore
 --4. start_watches
 -------------------------------------------------------------------------------
 function M.start_watchers()
@@ -204,8 +201,8 @@ function M.start_watchers()
   for _, target in ipairs(targets) do watch_file(target, target.cb) end
 end
 
-local telescope = require('telescope')
-telescope.setup({
+--INFO: telescope settings
+local telescope_config = {
   extensions = {
     ['ui-select'] = {
       -- 2. FORCE THE CENTERED DROPDOWN THEME INTERNALLY FOR VIM.UI.SELECT
@@ -224,19 +221,26 @@ telescope.setup({
       }),
     },
   },
-})
+}
+local is_telescope_loaded = package.loaded['telescope'] ~= nil
+local telescopeok, telescope = pcall(require, 'fidget')
+if telescopeok then
+  if not is_telescope_loaded then telescope.setup(telescope_config)
+  else
+    local telescope_settings = require('telescope.settings')
+    -- Deep extend the live global configuration table directly
+    telescope_settings.current = vim.tbl_deep_extend('force', telescope_settings.current or {}, telescope_config)
+  end
+end
 -- 3. CRITICAL: Hijack Neovim's native vim.ui.select() API core wrapper
 telescope.load_extension('ui-select')
 
 
 --INFO: 6.  Exported setup function
---stylua: ignore
 -------------------------------------------------------------------------------
 function M.init(clangd_config)
-  require('nvimpio.pio.commands')
-  -- require('nvimpio.pio.diagnostic')
   misc.notify('PIO Control: initialize', "info")
-
+  require('nvimpio.pio.commands')
   require('nvimpio.pio.metadata') --.load_project_config()
 
   if clangd_config.support then clangd.init(clangd_config) end
@@ -259,4 +263,5 @@ function M.init(clangd_config)
   -- end
 end
 
+-- stylua: ignore end
 return M

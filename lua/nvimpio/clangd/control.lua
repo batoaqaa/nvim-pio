@@ -362,11 +362,7 @@ function M.getUnknownArgsGui(from)
   M.clangdIntall(function(clangdCmd)
     OS.notify('getting unknown arguments for file ' .. check_file)
     --------------------------------------------------------------------------------
-    --------------------------------------------------------------------------------
     -- gui
-
--- C:/Users/batoaqaa/AppData/Local/nvim-data/mason/bin/clangd.cmd --compile-commands-dir=. --check=C:/VSCode/data/Projects/Digital-Wall-Clock-Long-ESP32S3-Pray5/src/mainClock.cpp --query-driver=C:/Users/batoaqaa/.platformio/esp32s3/packages/toolchain-xtensa-esp32s3/bin/xtensa-esp32s3-elf-* --log=error
--- "--fallback-style=llvm" --compile_args_from=filesystem -- -Wno-unknown-argument && echo _CMMNDS_0001:DONE || echo _CMMNDS_0001:FAIL
     local cmd_str = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error --enable-config --fallback-style=llvm --compile_args_from=filesystem', clangdCmd, check_file, _G.metadata.query_driver)
     local pio = require('nvimpio.pio.upkeep')
     local cb = function(status)
@@ -391,7 +387,7 @@ end
 function M.init(clangd)
   OS.notify('Clangd Control: initialize', "info")
 
-  -- working goodd
+  -- working good
 -- local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
 -- vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
 --   local client = vim.lsp.get_client_by_id(ctx.client_id)
