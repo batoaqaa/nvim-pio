@@ -202,38 +202,48 @@ function M.start_watchers()
 end
 
 --INFO: telescope settings
-local telescope_config = {
-  extensions = {
-    ['ui-select'] = {
-      -- 2. FORCE THE CENTERED DROPDOWN THEME INTERNALLY FOR VIM.UI.SELECT
-      require('telescope.themes').get_dropdown({
-        borderchars = {
-          prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
-          results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
-          preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
-        },
-        prompt_position = 'top',
-        prompt_prefix = '🔍 ',
-        selection_caret = '❯ ',
-        entry_prefix = '  ',
-        initial_mode = 'normal', -- Keeps arrow & number keys active instantly!
-        sorting_strategy = 'ascending',
-      }),
-    },
-  },
-}
+-- 1. Check if telescope is ALREADY cached in the environment
 local is_telescope_loaded = package.loaded['telescope'] ~= nil
-local telescopeok, telescope = pcall(require, 'telescope')
-if telescopeok then
-  if not is_telescope_loaded then telescope.setup(telescope_config)
+
+-- 2. Safely capture the Telescope module reference
+local telescope_ok, telescope = pcall(require, 'telescope')
+
+if telescope_ok then
+  local dropdown_settings = require('telescope.themes').get_dropdown({
+    borderchars = {
+      prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+      results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+      preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+    },
+    prompt_position  = 'top',
+    prompt_prefix    = '🔍 ',
+    selection_caret  = '❯ ',
+    entry_prefix     = '  ',
+    initial_mode     = 'normal',
+    sorting_strategy = 'ascending',
+  })
+
+  -- 3. Now the conditional branches will fire accurately
+  if not is_telescope_loaded then
+    -- Brand new setup
+    telescope.setup({
+      extensions = {
+        ['ui-select'] = dropdown_settings
+      }
+    })
   else
-    local telescope_settings = require('telescope.settings')
-    -- Deep extend the live global configuration table directly
-    telescope_settings.current = vim.tbl_deep_extend('force', telescope_settings.current or {}, telescope_config)
+    -- Fallback for injecting into an already active runtime profile
+    local ts_config = require('telescope.config')
+    ts_config.values.extensions = ts_config.values.extensions or {}
+    ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
+      'force',
+      ts_config.values.extensions['ui-select'] or {},
+      dropdown_settings
+    )
   end
+
+  pcall(telescope.load_extension, 'ui-select')
 end
--- 3. CRITICAL: Hijack Neovim's native vim.ui.select() API core wrapper
-telescope.load_extension('ui-select')
 
 
 --INFO: 6.  Exported setup function
