@@ -223,7 +223,7 @@ local telescope_config = {
   },
 }
 local is_telescope_loaded = package.loaded['telescope'] ~= nil
-local telescopeok, telescope = pcall(require, 'fidget')
+local telescopeok, telescope = pcall(require, 'telescope')
 if telescopeok then
   if not is_telescope_loaded then telescope.setup(telescope_config)
   else
