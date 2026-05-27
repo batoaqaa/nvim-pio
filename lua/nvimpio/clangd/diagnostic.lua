@@ -44,7 +44,8 @@ function M.restart()
         end
       end
     end
-    vim.cmd('LspRestart clangd')
+    -- vim.cmd('LspRestart clangd')
+    require('nvimpio.clangd.control').restart()
   end)
 end
 
