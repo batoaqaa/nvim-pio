@@ -98,7 +98,6 @@ local function inject_into_clangd(code, message)
 
   dynamic_part = dynamic_part:gsub('\r', '')
 
-  -- If it's already there, stop to avoid polluting the file
   if string.find(dynamic_part, '"' .. target_item .. '"', 1, true) then
     return false
   end
@@ -203,24 +202,28 @@ function M.manage_file_diagnostics_interactive()
           end
         end
 
-        if processed_count > 0 then
-          vim.notify('🔒 Permanent Override Committed! Injected ' .. processed_count .. ' suppressions.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
+        -- SYSTEM CACHE FLUSH PIPELINE
+        vim.schedule(function()
+          -- 1. Explicitly clear the editor diagnostics layer instantly
+          vim.diagnostic.reset(nil, current_buf)
 
-          -- Safe execution hook for triggering LSP server refresh pipelines
+          -- 2. Trigger the reload sequence
           local restart_ok = pcall(function()
             require('nvimpio.clangd.control').restart()
           end)
           if not restart_ok then
-            vim.schedule(function()
-              vim.cmd('LspRestart clangd')
-            end)
+            vim.cmd('LspRestart clangd')
           end
+
+          -- 3. Force the current buffer to reload from disk to refresh Clangd
+          vim.cmd('checktime')
+          vim.cmd('edit!')
+        end)
+
+        if processed_count > 0 then
+          vim.notify('🔒 Permanent Override Committed! Injected ' .. processed_count .. ' suppressions.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
         else
           vim.notify('ℹ️ Selected items are already successfully mapped inside .clangd', vim.log.levels.INFO)
-          -- Force a manual restart helper if errors persist despite being mapped
-          pcall(function()
-            require('nvimpio.clangd.control').restart()
-          end)
         end
       end,
     },
