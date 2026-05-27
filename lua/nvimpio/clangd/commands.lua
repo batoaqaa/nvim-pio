@@ -10,7 +10,7 @@ end, {})
 vim.api.nvim_create_user_command('Clangdrestart', control.restart, {})
 -- INFO: ClangdDiagnosticBlock
 ----------------------------------------------------------------
-vim.api.nvim_create_user_command('ClangdDiagnosticBlock', control.block_diagnostic_under_cursor, {})
--- vim.api.nvim_create_user_command('ClangdDiagnosticBlock', require('nvimpio.clangd.diagnostic').manage_file_diagnostics_interactive, {})
+-- vim.api.nvim_create_user_command('ClangdDiagnosticBlock', control.block_diagnostic_under_cursor, {})
+vim.api.nvim_create_user_command('ClangdDiagnosticBlock', require('nvimpio.clangd.diagnostic').manage_file_diagnostics_interactive, {})
 
 --------------------------------------------------------------------------------
