@@ -134,15 +134,9 @@ local function inject_into_clangd(code, message)
 end
 
 -- ====================================================================
--- 3. THE PREMIUM SNACKS.PICKER SELECTION COMPONENT
+-- 3. THE PREMIUM NATIVE SELECTION COMPONENT
 -- ====================================================================
 function M.manage_file_diagnostics_interactive()
-  local snacks_ok, snacks = pcall(require, 'snacks')
-  if not snacks_ok then
-    vim.notify('❌ Snacks.nvim missing!', vim.log.levels.ERROR)
-    return
-  end
-
   local current_buf = vim.api.nvim_get_current_buf()
   local diagnostics = vim.diagnostic.get(current_buf)
 
@@ -151,137 +145,63 @@ function M.manage_file_diagnostics_interactive()
     return
   end
 
-  local picker_items = {}
+  -- Build a unique lookup map to eliminate matching duplicates in our selection list
+  local unique_items = {}
+  local seen_keys = {}
+
   for _, diag in ipairs(diagnostics) do
     local raw_code = diag.code
     local code_name = ''
 
-    -- FIX: Run an explicit conditional check to satisfy lua-ls linter requirements
     if type(raw_code) == 'table' then
       code_name = tostring(raw_code.code or 'uncategorized_noise')
     else
       code_name = tostring(raw_code or 'uncategorized_noise')
     end
 
-    local sev_icon = '⚠️ '
-    if diag.severity == 1 then
-      sev_icon = '❌'
+    local unique_key = code_name .. '::' .. diag.message
+    if not seen_keys[unique_key] then
+      seen_keys[unique_key] = true
+      table.insert(unique_items, {
+        code = code_name,
+        message = diag.message,
+        line = diag.lnum + 1,
+      })
     end
-
-    table.insert(picker_items, {
-      text = string.format('[%s] Line %d', code_name, diag.lnum + 1),
-      comment = diag.message,
-      idx = #picker_items + 1,
-      code = code_name,
-      message = diag.message,
-      icon = sev_icon,
-    })
   end
 
-  snacks.picker.pick({
-    title = 'Microcontroller Diagnostic Mangler',
-    items = picker_items,
-    layout = 'vscode',
+  -- Hijack native vim.ui.select to let your layout config handle formatting beautifully
+  vim.ui.select(unique_items, {
+    prompt = '🔍 Microcontroller Diagnostic Mangler',
+    format_item = function(item)
+      return string.format('[%s] (Line %d) -> %s', item.code, item.line, item.message)
+    end,
+  }, function(choice)
+    -- This handles user cancellation (pressing escape/closing choice menu)
+    if not choice then
+      return
+    end
 
-    actions = {
-      mangler_confirm = function(picker)
-        local selections = picker:selected()
-        if #selections == 0 then
-          local current = picker:current()
-          if current then
-            selections = { current }
-          end
-        end
+    local success = inject_into_clangd(choice.code, choice.message)
 
-        picker:close()
-        if #selections == 0 then
-          return
-        end
+    -- Force System Flush
+    vim.schedule(function()
+      vim.diagnostic.reset(nil, current_buf)
+      local restart_ok = pcall(function()
+        require('nvimpio.clangd.control').restart()
+      end)
+      if not restart_ok then
+        vim.cmd('LspRestart clangd')
+      end
+      vim.cmd('edit!')
+    end)
 
-        local processed_count = 0
-        for _, node in ipairs(selections) do
-          if node and node.code and node.message then
-            if inject_into_clangd(node.code, node.message) then
-              processed_count = processed_count + 1
-            end
-          end
-        end
-
-        vim.schedule(function()
-          vim.diagnostic.reset(nil, current_buf)
-          local restart_ok = pcall(function()
-            require('nvimpio.clangd.control').restart()
-          end)
-          if not restart_ok then
-            vim.cmd('LspRestart clangd')
-          end
-          vim.cmd('edit!')
-        end)
-
-        if processed_count > 0 then
-          vim.notify('🔒 Permanent Override Committed! Injected ' .. processed_count .. ' suppressions.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
-        else
-          vim.notify('ℹ️ Selected items are already successfully mapped inside .clangd', vim.log.levels.INFO)
-        end
-      end,
-
-      mangler_group = function(picker)
-        local current = picker:current()
-        picker:close()
-        if not current then
-          return
-        end
-
-        local target_group_code = current.code
-        local bulk_diagnostics = vim.diagnostic.get(current_buf)
-        local total_group_added = 0
-
-        for _, diag in ipairs(bulk_diagnostics) do
-          local raw_c = diag.code
-          local current_code = ''
-
-          if type(raw_c) == 'table' then
-            current_code = tostring(raw_c.code or 'uncategorized_noise')
-          else
-            current_code = tostring(raw_c or 'uncategorized_noise')
-          end
-
-          if current_code == target_group_code then
-            if inject_into_clangd(current_code, diag.message) then
-              total_group_added = total_group_added + 1
-            end
-          end
-        end
-
-        vim.schedule(function()
-          vim.diagnostic.reset(nil, current_buf)
-          local restart_ok = pcall(function()
-            require('nvimpio.clangd.control').restart()
-          end)
-          if not restart_ok then
-            vim.cmd('LspRestart clangd')
-          end
-          vim.cmd('edit!')
-        end)
-
-        if total_group_added > 0 then
-          vim.notify('💥 Group Cleansed! Injected ' .. total_group_added .. ' suppressions.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
-        else
-          vim.notify('ℹ️ Global group schema constraints are already up to date.', vim.log.levels.INFO)
-        end
-      end,
-    },
-
-    win = {
-      input = {
-        keys = {
-          ['<Tab>'] = { 'toggle_select', mode = { 'n', 'i' } },
-          ['<Cr>'] = { 'mangler_confirm', mode = { 'n', 'i' } },
-          ['<C-b>'] = { 'mangler_group', mode = { 'n', 'i' } },
-        },
-      },
-    },
-  })
+    if success then
+      vim.notify('🔒 Suppression Committed: Injected [' .. choice.code .. '] into .clangd', vim.log.levels.WARN, { title = 'Compiler Mangler' })
+    else
+      vim.notify('ℹ️ Item is already successfully mapped inside .clangd', vim.log.levels.INFO)
+    end
+  end)
 end
 
 return M
