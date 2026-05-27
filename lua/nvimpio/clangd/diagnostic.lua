@@ -44,8 +44,7 @@ function M.restart()
         end
       end
     end
-    -- vim.cmd('LspRestart clangd')
-    require('nvimpio.clangd.control').restart()
+    vim.cmd('LspRestart clangd')
   end)
 end
 
@@ -88,14 +87,14 @@ local function inject_into_clangd(code, message)
     return false
   end
 
-  -- SURGICAL LOOKUP ENGINE: Parse out raw block segments to reconstruct your exact output format
+  -- Parse out raw block segments
   local compile_flags_block = dynamic_part:match('CompileFlags:%s*\n%s*Remove:%s*%[(.-)%]') or ''
   local diagnostics_block = dynamic_part:match('Diagnostics:%s*\n%s*Suppress:%s*%[(.-)%]') or ''
 
-  -- Clean line splits and strip blank characters
+  -- FIX: Strict sanitation cleanup to completely drop trailing double-quotes
   local current_flags = {}
   for line in compile_flags_block:gmatch('[^\r\n]+') do
-    local clean = vim.trim(line):gsub('^"', ''):gsub('"$', ''):gsub(',$', '')
+    local clean = vim.trim(line):gsub('^%s*"', ''):gsub('"%s*,?$', ''):gsub(',$', '')
     if clean ~= '' then
       table.insert(current_flags, clean)
     end
@@ -103,7 +102,7 @@ local function inject_into_clangd(code, message)
 
   local current_diags = {}
   for line in diagnostics_block:gmatch('[^\r\n]+') do
-    local clean = vim.trim(line):gsub('^"', ''):gsub('"$', ''):gsub(',$', '')
+    local clean = vim.trim(line):gsub('^%s*"', ''):gsub('"%s*,?$', ''):gsub(',$', '')
     if clean ~= '' then
       table.insert(current_diags, clean)
     end
@@ -116,18 +115,12 @@ local function inject_into_clangd(code, message)
     table.insert(current_diags, target_item)
   end
 
-  -- RECONSTRUCTION LAYER: Rebuilds string formatting to match your output blueprint
+  -- RECONSTRUCTION LAYER: Rebuilds string formatting to match your output blueprint exactly
   local new_flags_str = ' []'
   if #current_flags > 0 then
     new_flags_str = ' [\n'
-    for i, flag in ipairs(current_flags) do
-      new_flags_str = new_flags_str .. '    "' .. flag .. '"'
-      -- Add standard comma separator rules on everything except the last item
-      if i < #current_flags then
-        new_flags_str = new_flags_str .. ',\n'
-      else
-        new_flags_str = new_flags_str .. ',\n' -- Kept trailing comma rule matching your exact blueprint
-      end
+    for _, flag in ipairs(current_flags) do
+      new_flags_str = new_flags_str .. '    "' .. flag .. '",\n'
     end
     new_flags_str = new_flags_str .. '  ]'
   end
@@ -135,13 +128,8 @@ local function inject_into_clangd(code, message)
   local new_diags_str = ' []'
   if #current_diags > 0 then
     new_diags_str = ' [\n'
-    for i, diag in ipairs(current_diags) do
-      new_diags_str = new_diags_str .. '    "' .. diag .. '"'
-      if i < #current_diags then
-        new_diags_str = new_diags_str .. ',\n'
-      else
-        new_diags_str = new_diags_str .. ',\n'
-      end
+    for _, diag in ipairs(current_diags) do
+      new_diags_str = new_diags_str .. '    "' .. diag .. '",\n'
     end
     new_diags_str = new_diags_str .. '  ]'
   end
