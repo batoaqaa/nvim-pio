@@ -179,16 +179,26 @@ function M.manage_file_diagnostics_interactive()
           save_filter_database()
           vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 FORCE CLANGD LIVE RE-EVALUATION
-          -- We fetch the exact row where the cursor is currently resting
-          local current_line = vim.api.nvim_win_get_cursor(0)[1] - 1
-          local line_content = vim.api.nvim_buf_get_lines(current_buf, current_line, current_line + 1, false)[1] or ''
+          -- 🚀 SECURE HIGH-PERFORMANCE UPSTREAM MUTATION
+          -- Instead of messing with raw client indices or calling complex redraw hooks,
+          -- we pull Neovim's local buffer diagnostic storage array, run it through our
+          -- custom pipeline filter, and update Neovim's master namespace list.
 
-          -- Step 1: Inject a harmless trailing space to force a native document text delta
-          vim.api.nvim_buf_set_lines(current_buf, current_line, current_line + 1, false, { line_content .. ' ' })
+          local active_diagnostics = vim.diagnostic.get(current_buf)
+          local cleaned_diagnostics = M.clean_diagnostics_pipeline(active_diagnostics)
 
-          -- Step 2: Immediately strip it away in the same millisecond loop to restore absolute file parity
-          vim.api.nvim_buf_set_lines(current_buf, current_line, current_line + 1, false, { line_content })
+          -- Use a loop to dynamically extract and query active language client namespaces safely
+          local active_clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
+
+          for _, target_client in ipairs(active_clients) do
+            if target_client.id then
+              -- 1. Grab the precise internal LSP diagnostic namespace matching clangd
+              local ns = vim.lsp.diagnostic.get_namespace(target_client.id)
+
+              -- 2. Force-overwrite Neovim's display cache database records instantly
+              vim.diagnostic.set(ns, current_buf, cleaned_diagnostics)
+            end
+          end
         else
           vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
         end
@@ -235,16 +245,26 @@ function M.manage_file_diagnostics_interactive()
           save_filter_database()
           vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 FORCE CLANGD LIVE RE-EVALUATION
-          -- We fetch the exact row where the cursor is currently resting
-          local current_line = vim.api.nvim_win_get_cursor(0)[1] - 1
-          local line_content = vim.api.nvim_buf_get_lines(current_buf, current_line, current_line + 1, false)[1] or ''
+          -- 🚀 SECURE HIGH-PERFORMANCE UPSTREAM MUTATION
+          -- Instead of messing with raw client indices or calling complex redraw hooks,
+          -- we pull Neovim's local buffer diagnostic storage array, run it through our
+          -- custom pipeline filter, and update Neovim's master namespace list.
 
-          -- Step 1: Inject a harmless trailing space to force a native document text delta
-          vim.api.nvim_buf_set_lines(current_buf, current_line, current_line + 1, false, { line_content .. ' ' })
+          local active_diagnostics = vim.diagnostic.get(current_buf)
+          local cleaned_diagnostics = M.clean_diagnostics_pipeline(active_diagnostics)
 
-          -- Step 2: Immediately strip it away in the same millisecond loop to restore absolute file parity
-          vim.api.nvim_buf_set_lines(current_buf, current_line, current_line + 1, false, { line_content })
+          -- Use a loop to dynamically extract and query active language client namespaces safely
+          local active_clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
+
+          for _, target_client in ipairs(active_clients) do
+            if target_client.id then
+              -- 1. Grab the precise internal LSP diagnostic namespace matching clangd
+              local ns = vim.lsp.diagnostic.get_namespace(target_client.id)
+
+              -- 2. Force-overwrite Neovim's display cache database records instantly
+              vim.diagnostic.set(ns, current_buf, cleaned_diagnostics)
+            end
+          end
         else
           vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
         end
