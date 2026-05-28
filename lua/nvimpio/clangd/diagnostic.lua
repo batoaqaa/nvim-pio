@@ -231,27 +231,25 @@ function M.manage_file_diagnostics_interactive()
           save_filter_database()
           vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 UNIVERSAL NATIVE RERENDER STRATEGY
-          local clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
+          -- 🚀 SECURE HIGH-PERFORMANCE UPSTREAM MUTATION
+          -- Instead of messing with raw client indices or calling complex redraw hooks,
+          -- we pull Neovim's local buffer diagnostic storage array, run it through our
+          -- custom pipeline filter, and update Neovim's master namespace list.
 
-          -- 🌟 CRITICAL FIX: Lua arrays are 1-indexed. Explicitly grab the first client wrapper element.
-          local client = clients and clients[1]
+          local active_diagnostics = vim.diagnostic.get(current_buf)
+          local cleaned_diagnostics = M.clean_diagnostics_pipeline(active_diagnostics)
 
-          if client and client.id then
-            -- 1. Grab the precise global structural namespace id matching clangd
-            local ns = vim.lsp.diagnostic.get_namespace(client.id)
+          -- Use a loop to dynamically extract and query active language client namespaces safely
+          local active_clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
 
-            -- 2. Pull down the immutable database copy Neovim is caching in memory
-            local current_diagnostics = vim.diagnostic.get(current_buf)
+          for _, target_client in ipairs(active_clients) do
+            if target_client.id then
+              -- 1. Grab the precise internal LSP diagnostic namespace matching clangd
+              local ns = vim.lsp.diagnostic.get_namespace(target_client.id)
 
-            -- 3. Scrub it clean directly inside the runtime memory table variables
-            local filtered_diagnostics = M.clean_diagnostics_pipeline(current_diagnostics)
-
-            -- 4. Overwrite Neovim's absolute cache namespace for this buffer
-            vim.diagnostic.set(ns, current_buf, filtered_diagnostics)
-
-            -- 5. Force the underlying engine loop to perform a hard visual layout canvas re-render
-            vim.diagnostic.show(ns, current_buf, filtered_diagnostics)
+              -- 2. Force-overwrite Neovim's display cache database records instantly
+              vim.diagnostic.set(ns, current_buf, cleaned_diagnostics)
+            end
           end
         else
           vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
