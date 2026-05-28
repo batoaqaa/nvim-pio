@@ -252,7 +252,7 @@ function M.init(clangd_config)
   misc.notify('PIO Control: initialize', "info")
   require('nvimpio.pio.commands')
   require('nvimpio.pio.metadata') --.load_project_config()
-  require('nvimpio.pio.diagnostic')
+  -- require('nvimpio.pio.diagnostic')
 
   if clangd_config.support then clangd.init(clangd_config) end
 

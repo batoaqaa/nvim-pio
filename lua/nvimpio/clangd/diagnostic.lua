@@ -159,7 +159,7 @@ function M.manage_file_diagnostics_interactive()
   end
 
   local unique_items = {}
-  local seen_keys = {}
+  local seen_keys = {} --true
 
   for _, diag in ipairs(diagnostics) do
     local raw_code = diag.code
@@ -182,6 +182,7 @@ function M.manage_file_diagnostics_interactive()
     end
   end
 
+  print(vim.inspect(unique_items))
   vim.ui.select(unique_items, {
     prompt = '🔍 Microcontroller Diagnostic Mangler',
     format_item = function(item)
