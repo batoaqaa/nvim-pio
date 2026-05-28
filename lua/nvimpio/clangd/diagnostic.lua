@@ -166,7 +166,7 @@ function M.manage_file_diagnostics_interactive()
     local code_name = ''
 
     if type(raw_code) == 'table' then
-      code_name = tostring(raw_code.code or 'uncategorized_noise')
+      code_name = tostring(raw_code.code or 'uncategoriz/falseed_noise')
     else
       code_name = tostring(raw_code or 'uncategorized_noise')
     end
@@ -196,8 +196,8 @@ function M.manage_file_diagnostics_interactive()
     local success = inject_into_clangd(choice.code, choice.message)
 
     vim.schedule(function()
-      M.restart()
       vim.cmd('edit!')
+      M.restart()
     end)
 
     if success then
