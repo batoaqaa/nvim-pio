@@ -231,21 +231,27 @@ function M.manage_file_diagnostics_interactive()
           save_filter_database()
           vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 REFRESH THE DIAGNOSTIC RENDER LAYER INSTANTLY
-          local clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
+          -- 🚀 NATIVE CACHE MUTATION STRATEGY
+          -- Instead of talking to Clangd or relying on redraw hooks, we directly pull
+          -- Neovim's diagnostic storage array, strip out the newly blocked items,
+          -- and push the filtered array back into the namespace.
 
-          -- 🌟 FIXED: Pull the singular client out of the returned table array securely
+          -- 1. Grab all diagnostic targets currently known to Neovim for this buffer
+          local current_diagnostics = vim.diagnostic.get(current_buf)
+
+          -- 2. Pass them through your custom filtering loop logic
+          local filtered_diagnostics = M.clean_diagnostics_pipeline(current_diagnostics)
+
+          -- 3. Find the active client namespace to assign updates cleanly
+          local clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
           local client = clients and clients[1]
 
           if client and client.id then
-            -- 1. Explicitly pull the internal LSP diagnostic namespace id
             local ns = vim.lsp.diagnostic.get_namespace(client.id)
 
-            -- 2. Force-wipe the stale diagnostic signs/virtual text out of the current layout
-            vim.diagnostic.reset(ns, current_buf)
-
-            -- 3. Trigger Neovim to instantly re-query and re-run your active LspAttach filter hooks
-            vim.diagnostic.refresh({ bufnr = current_buf })
+            -- 4. Overwrite Neovim's internal storage cache directly
+            -- This instantly wipes signs, virtual text, and underlines for blocked items
+            vim.diagnostic.set(ns, current_buf, filtered_diagnostics)
           end
         else
           vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
