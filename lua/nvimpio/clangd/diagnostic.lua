@@ -62,7 +62,7 @@ load_filter_database()
 -- 3. UNIVERSAL INMEMORY REDIRECTION LAYER (ZERO LEAKS CATCHER)
 -- ====================================================================
 function M.clean_diagnostics_pipeline(diagnostics)
-  load_filter_database()
+  -- load_filter_database()
 
   local cleaned = {}
   for _, diag in ipairs(diagnostics) do
