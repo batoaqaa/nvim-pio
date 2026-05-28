@@ -231,16 +231,22 @@ function M.manage_file_diagnostics_interactive()
           save_filter_database()
           vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 FORCE CLANGD LIVE RE-EVALUATION
-          -- We fetch the exact row where the cursor is currently resting
-          local current_line = vim.api.nvim_win_get_cursor(0)[1] - 1
-          local line_content = vim.api.nvim_buf_get_lines(current_buf, current_line, current_line + 1, false)[1] or ''
+          -- 🚀 REFRESH THE DIAGNOSTIC RENDER LAYER INSTANTLY
+          local clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
 
-          -- Step 1: Inject a harmless trailing space to force a native document text delta
-          vim.api.nvim_buf_set_lines(current_buf, current_line, current_line + 1, false, { line_content .. ' ' })
+          -- 🌟 FIXED: Pull the singular client out of the returned table array securely
+          local client = clients and clients[1]
 
-          -- Step 2: Immediately strip it away in the same millisecond loop to restore absolute file parity
-          vim.api.nvim_buf_set_lines(current_buf, current_line, current_line + 1, false, { line_content })
+          if client and client.id then
+            -- 1. Explicitly pull the internal LSP diagnostic namespace id
+            local ns = vim.lsp.diagnostic.get_namespace(client.id)
+
+            -- 2. Force-wipe the stale diagnostic signs/virtual text out of the current layout
+            vim.diagnostic.reset(ns, current_buf)
+
+            -- 3. Trigger Neovim to instantly re-query and re-run your active LspAttach filter hooks
+            vim.diagnostic.refresh({ bufnr = current_buf })
+          end
         else
           vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
         end
