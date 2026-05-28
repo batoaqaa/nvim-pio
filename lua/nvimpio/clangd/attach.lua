@@ -1,3 +1,4 @@
+-- stylua: ignore
 -- local piolsp = require('nvimpio.piolsp') --.piolsp
 -- INFO: LspAttach autocommand start
 vim.api.nvim_create_autocmd('LspAttach', {
@@ -7,9 +8,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
     local bufnr = args.buf
 
     -- Fast exit: If this attached server isn't clangd, do absolutely nothing
-    if not client or client.name ~= 'clangd' then
-      return
-    end
+    if not client or client.name ~= 'clangd' then return end
 
     vim.api.nvim_echo({ { 'Attaching ' .. client.name .. ' to buffer ' .. bufnr, 'Info' } }, true, {})
 
@@ -108,18 +107,6 @@ vim.api.nvim_create_autocmd('LspAttach', {
       -- Call the default handler signature using the stripped down diagnostics list
       vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
     end
-
-    -- if client and client:supports_method("textDocument/publishDiagnostics") then
-    --   local filtered_diagnostics = {}
-    --   for _, diagnostic in ipairs(result.diagnostics) do
-    --     -- Skip the annoying macro argument warning completely
-    --     if not string.match(diagnostic.message, "too many arguments provided") then
-    --       table.insert(filtered_diagnostics, diagnostic)
-    --     end
-    --   end
-    --   result.diagnostics = filtered_diagnostics
-    --   vim.lsp.diagnostic.on_publish_diagnostics(_, result, ctx, config)
-    -- end
 
     ------------------------------------------------------------------
     local lspkeymaps = require('nvimpio.clangd.keymaps')

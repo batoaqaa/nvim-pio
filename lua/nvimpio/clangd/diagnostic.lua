@@ -56,6 +56,11 @@ load_filter_database()
 -- 3. UNIVERSAL INMEMORY REDIRECTION LAYER (ZERO LEAKS CATCHER)
 -- ====================================================================
 function M.clean_diagnostics_pipeline(diagnostics)
+  -- Bypass optimization for gigantic multi-error system includes
+  if #diagnostics > 300 then
+    return diagnostics
+  end
+
   local cleaned = {}
   for _, diag in ipairs(diagnostics) do
     local code = diag.code or ''
@@ -209,17 +214,46 @@ function M.manage_file_diagnostics_interactive()
           end
         end
 
+        -- if added > 0 then
+        --   save_filter_database()
+        --   vim.notify(
+        --     '💥 Group Cleansed! Blocked all ' .. added .. ' instances matching [' .. target_code .. ']',
+        --     vim.log.levels.WARN,
+        --     { title = 'Compiler Mangler' }
+        --   )
+        --   vim.cmd('edit!')
+        --   -- require('nvimpio.clangd.control').restart()
+        -- else
+        --   vim.notify('ℹ️ Global group constraints are already up to date.', vim.log.levels.INFO)
+        -- end
+
         if added > 0 then
           save_filter_database()
-          vim.notify(
-            '💥 Group Cleansed! Blocked all ' .. added .. ' instances matching [' .. target_code .. ']',
-            vim.log.levels.WARN,
-            { title = 'Compiler Mangler' }
-          )
-          vim.cmd('edit!')
-          -- require('nvimpio.clangd.control').restart()
+          vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
+
+          -- 🚀 INSTANT REDRAW: Manually route cached diagnostics back through the local filter pipeline
+          -- Grabs the raw diagnostics currently known to Neovim
+          local raw_diagnostics = vim.diagnostic.get(current_buf)
+          local clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
+
+          if clients and clients[1] then
+            local client = clients[1]
+            local local_handler = client.handlers['textDocument/publishDiagnostics']
+
+            if local_handler then
+              -- Manually trigger the local handler function with a fully populated context table
+              local_handler(nil, {
+                uri = vim.uri_from_bufnr(current_buf),
+                diagnostics = raw_diagnostics,
+              }, {
+                client_id = client.id,
+                bufnr = current_buf,
+                method = 'textDocument/publishDiagnostics',
+              })
+            end
+          end
         else
-          vim.notify('ℹ️ Global group constraints are already up to date.', vim.log.levels.INFO)
+          vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
         end
       end,
     },
