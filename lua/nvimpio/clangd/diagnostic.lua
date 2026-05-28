@@ -231,18 +231,21 @@ function M.manage_file_diagnostics_interactive()
           save_filter_database()
           vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 FOOLPROOF UPSTREAM RE-RENDER ENGINE
-          -- Loop through all active namespaces registered in Neovim to find clangd
+          -- 🚀 FOOLPROOF ARCHITECTURAL CACHE RESET
+          -- 1. Grab every single diagnostic currently known to Neovim across all namespaces for this file
+          local raw_diagnostics = vim.diagnostic.get(current_buf)
+
+          -- 2. Run the full list through your filtering pipeline to drop the newly blocked items
+          local cleaned_diagnostics = M.clean_diagnostics_pipeline(raw_diagnostics)
+
+          -- 3. Loop through Neovim's active runtime namespaces directly to find the clangd engine
           for ns_id, ns_meta in pairs(vim.diagnostic.get_namespaces()) do
             if ns_meta.name and ns_meta.name:find('clangd') then
-              -- 1. Extract the raw diagnostics currently saved inside Neovim's core cache
-              local cached_diagnostics = vim.diagnostic.get(current_buf, { namespace = ns_id })
+              -- 4. HARD RESET: Wipe the underlying backup registry entirely
+              vim.diagnostic.reset(ns_id, current_buf)
 
-              -- 2. Run the cache array through your pipeline loop to drop newly blocked items
-              local dynamic_filtered = M.clean_diagnostics_pipeline(cached_diagnostics)
-
-              -- 3. Hard-overwrite Neovim's baseline internal repository records
-              vim.diagnostic.set(ns_id, current_buf, dynamic_filtered)
+              -- 5. RE-POPULATE: Force-feed only our filtered entries into Neovim's baseline core
+              vim.diagnostic.set(ns_id, current_buf, cleaned_diagnostics)
             end
           end
         else
