@@ -338,19 +338,18 @@ function M.init(clangd)
 -- Save the core native LSP text handler
 local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
 vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-  -- Safety check: Ensure result and diagnostics structures are valid
+  -- 1. Ultra-fast boundary checks: exit immediately if it's not clangd data
+  local client_id = ctx and ctx.client_id
+  local client = client_id and vim.lsp.get_client_by_id(client_id)
+  if not client or client.name ~= "clangd" then
+    return original_diagnostic_handler(err, result, ctx, config)
+  end
+
+  -- 2. Clangd exclusive payload processing zone
   if not err and result and result.diagnostics then
-    local client = vim.lsp.get_client_by_id(ctx.client_id)
-
-    if client and client.name == "clangd" then
-      -- Safely reference your custom platformio diagnostic filtering module
-      local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
-
-      if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
-        -- Mutate and re-assign the diagnostic list directly 
-        local filtered = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
-        result.diagnostics = filtered or result.diagnostics
-      end
+    local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
+    if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
+      result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
     end
   end
   -- Hand off the validated and stripped data array down to the UI renderer
