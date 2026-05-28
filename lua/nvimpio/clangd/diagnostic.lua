@@ -232,18 +232,18 @@ function M.manage_file_diagnostics_interactive()
           vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
           -- 🚀 FOOLPROOF UPSTREAM RE-RENDER ENGINE
-          -- We fetch Neovim's global text namespace tied to the clangd service
-          local lsp_namespace = vim.api.nvim_get_namespaces()['vim.lsp.clangd.' .. current_buf] or vim.api.nvim_get_namespaces()['vim.lsp.clangd']
+          -- Loop through all active namespaces registered in Neovim to find clangd
+          for ns_id, ns_meta in pairs(vim.diagnostic.get_namespaces()) do
+            if ns_meta.name and ns_meta.name:find('clangd') then
+              -- 1. Extract the raw diagnostics currently saved inside Neovim's core cache
+              local cached_diagnostics = vim.diagnostic.get(current_buf, { namespace = ns_id })
 
-          if lsp_namespace then
-            -- 1. Extract the pristine diagnostic snapshot array currently stored inside Neovim's engine cache
-            local cached_diagnostics = vim.diagnostic.get(current_buf, { namespace = lsp_namespace })
+              -- 2. Run the cache array through your pipeline loop to drop newly blocked items
+              local dynamic_filtered = M.clean_diagnostics_pipeline(cached_diagnostics)
 
-            -- 2. Run the snapshot array through your pipeline loop to filter out the newly blocked items
-            local dynamic_filtered = M.clean_diagnostics_pipeline(cached_diagnostics)
-
-            -- 3. Force-write the newly filtered diagnostic table into Neovim's master namespace
-            vim.diagnostic.set(lsp_namespace, current_buf, dynamic_filtered)
+              -- 3. Hard-overwrite Neovim's baseline internal repository records
+              vim.diagnostic.set(ns_id, current_buf, dynamic_filtered)
+            end
           end
         else
           vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
