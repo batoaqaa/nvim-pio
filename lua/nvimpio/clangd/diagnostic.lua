@@ -231,25 +231,19 @@ function M.manage_file_diagnostics_interactive()
           save_filter_database()
           vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 SECURE HIGH-PERFORMANCE UPSTREAM MUTATION
-          -- Instead of messing with raw client indices or calling complex redraw hooks,
-          -- we pull Neovim's local buffer diagnostic storage array, run it through our
-          -- custom pipeline filter, and update Neovim's master namespace list.
+          -- 🚀 FOOLPROOF UPSTREAM RE-RENDER ENGINE
+          -- We fetch Neovim's global text namespace tied to the clangd service
+          local lsp_namespace = vim.api.nvim_get_namespaces()['vim.lsp.clangd.' .. current_buf] or vim.api.nvim_get_namespaces()['vim.lsp.clangd']
 
-          local active_diagnostics = vim.diagnostic.get(current_buf)
-          local cleaned_diagnostics = M.clean_diagnostics_pipeline(active_diagnostics)
+          if lsp_namespace then
+            -- 1. Extract the pristine diagnostic snapshot array currently stored inside Neovim's engine cache
+            local cached_diagnostics = vim.diagnostic.get(current_buf, { namespace = lsp_namespace })
 
-          -- Use a loop to dynamically extract and query active language client namespaces safely
-          local active_clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
+            -- 2. Run the snapshot array through your pipeline loop to filter out the newly blocked items
+            local dynamic_filtered = M.clean_diagnostics_pipeline(cached_diagnostics)
 
-          for _, target_client in ipairs(active_clients) do
-            if target_client.id then
-              -- 1. Grab the precise internal LSP diagnostic namespace matching clangd
-              local ns = vim.lsp.diagnostic.get_namespace(target_client.id)
-
-              -- 2. Force-overwrite Neovim's display cache database records instantly
-              vim.diagnostic.set(ns, current_buf, cleaned_diagnostics)
-            end
+            -- 3. Force-write the newly filtered diagnostic table into Neovim's master namespace
+            vim.diagnostic.set(lsp_namespace, current_buf, dynamic_filtered)
           end
         else
           vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
