@@ -179,33 +179,16 @@ function M.manage_file_diagnostics_interactive()
           save_filter_database()
           vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 FORCE AN INSTANT REDRAW BY FLUSHING THE CACHE
-          local raw_diagnostics = vim.diagnostic.get(current_buf)
-          local clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
+          -- 🚀 FORCE CLANGD LIVE RE-EVALUATION
+          -- We fetch the exact row where the cursor is currently resting
+          local current_line = vim.api.nvim_win_get_cursor(0)[1] - 1
+          local line_content = vim.api.nvim_buf_get_lines(current_buf, current_line, current_line + 1, false)[1] or ''
 
-          if clients and clients[1] then
-            local client = clients[1]
-            local local_handler = client.handlers['textDocument/publishDiagnostics']
+          -- Step 1: Inject a harmless trailing space to force a native document text delta
+          vim.api.nvim_buf_set_lines(current_buf, current_line, current_line + 1, false, { line_content .. ' ' })
 
-            if local_handler then
-              -- 1. Locate the exact internal LSP diagnostic namespace id
-              local ns = vim.lsp.diagnostic.get_namespace(client.id)
-
-              -- 2. Completely wipe Neovim's cache for this buffer/namespace
-              -- This ensures Neovim processes the incoming array as brand new data
-              vim.diagnostic.set(ns, current_buf, {})
-
-              -- 3. Execute the handler to re-run your clean pipeline and print clean items
-              local_handler(nil, {
-                uri = vim.uri_from_bufnr(current_buf),
-                diagnostics = raw_diagnostics,
-              }, {
-                client_id = client.id,
-                bufnr = current_buf,
-                method = 'textDocument/publishDiagnostics',
-              })
-            end
-          end
+          -- Step 2: Immediately strip it away in the same millisecond loop to restore absolute file parity
+          vim.api.nvim_buf_set_lines(current_buf, current_line, current_line + 1, false, { line_content })
         else
           vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
         end
@@ -252,33 +235,16 @@ function M.manage_file_diagnostics_interactive()
           save_filter_database()
           vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 FORCE AN INSTANT REDRAW BY FLUSHING THE CACHE
-          local raw_diagnostics = vim.diagnostic.get(current_buf)
-          local clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
+          -- 🚀 FORCE CLANGD LIVE RE-EVALUATION
+          -- We fetch the exact row where the cursor is currently resting
+          local current_line = vim.api.nvim_win_get_cursor(0)[1] - 1
+          local line_content = vim.api.nvim_buf_get_lines(current_buf, current_line, current_line + 1, false)[1] or ''
 
-          if clients and clients[1] then
-            local client = clients[1]
-            local local_handler = client.handlers['textDocument/publishDiagnostics']
+          -- Step 1: Inject a harmless trailing space to force a native document text delta
+          vim.api.nvim_buf_set_lines(current_buf, current_line, current_line + 1, false, { line_content .. ' ' })
 
-            if local_handler then
-              -- 1. Locate the exact internal LSP diagnostic namespace id
-              local ns = vim.lsp.diagnostic.get_namespace(client.id)
-
-              -- 2. Completely wipe Neovim's cache for this buffer/namespace
-              -- This ensures Neovim processes the incoming array as brand new data
-              vim.diagnostic.set(ns, current_buf, {})
-
-              -- 3. Execute the handler to re-run your clean pipeline and print clean items
-              local_handler(nil, {
-                uri = vim.uri_from_bufnr(current_buf),
-                diagnostics = raw_diagnostics,
-              }, {
-                client_id = client.id,
-                bufnr = current_buf,
-                method = 'textDocument/publishDiagnostics',
-              })
-            end
-          end
+          -- Step 2: Immediately strip it away in the same millisecond loop to restore absolute file parity
+          vim.api.nvim_buf_set_lines(current_buf, current_line, current_line + 1, false, { line_content })
         else
           vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
         end
