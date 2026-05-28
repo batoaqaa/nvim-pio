@@ -407,45 +407,21 @@ function M.init(clangd)
   OS.notify('Clangd Control: initialize', "info")
 
   -- working good snack
-  -- local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
-  -- vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-  --   local client = vim.lsp.get_client_by_id(ctx.client_id)
-  --
-  --   if client and client.name == "clangd" then
-  --     if result and result.diagnostics then
-  --       -- 🌟 THE NATIVE BRIDGE: Pass diagnostics through your plugin module's memory filter
-  --       local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
-  --       if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
-  --         result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
-  --       end
-  --     end
-  --   end
-  --   original_diagnostic_handler(err, result, ctx, config)
-  -- end
+  local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
+  vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+    local client = vim.lsp.get_client_by_id(ctx.client_id)
 
--- ====================================================================
--- GLOBAL DIAGNOSTIC HANDLERS PIPELINE OVERRIDE INTERCEPTOR
--- ====================================================================
--- Ensure we pull the true underlying handler container table safely
-local underlying_handler = vim.diagnostic.handlers.underline or vim.diagnostic.handlers.virtual_text
-
-if underlying_handler and underlying_handler.show then
-  local original_display_handler = underlying_handler.show
-
-  -- Override the nested show function method inside the valid container structure
-  underlying_handler.show = function(namespace, bufnr, diagnostics, opts)
-    -- Safely pull down your custom platformio diagnostic filtering module
-    local ok, filter_module = pcall(require, "nvimpio.clangd.diagnostic")
-
-    if ok and filter_module.clean_diagnostics_pipeline then
-      -- Run live stream arrays through the zero-leak suppression filter loop
-      diagnostics = filter_module.clean_diagnostics_pipeline(diagnostics)
+    if client and client.name == "clangd" then
+      if result and result.diagnostics then
+        -- 🌟 THE NATIVE BRIDGE: Pass diagnostics through your plugin module's memory filter
+        local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
+        if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
+          result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
+        end
+      end
     end
-
-    -- Pass the cleaned data array onto the core UI handler layout
-    original_display_handler(namespace, bufnr, diagnostics, opts)
+    original_diagnostic_handler(err, result, ctx, config)
   end
-end
 
 
 
