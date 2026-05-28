@@ -134,7 +134,7 @@ function M.manage_file_diagnostics_interactive()
   snacks_api.picker({
     source = 'Microcontroller Diagnostic Mangler',
     items = picker_items,
-    layout = 'float',
+    layout = 'vscode',
     win = {
       input = {
         keys = {
