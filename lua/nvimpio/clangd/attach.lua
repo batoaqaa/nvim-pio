@@ -92,21 +92,21 @@ vim.api.nvim_create_autocmd('LspAttach', {
     end
 
     -- Hook up an isolated pipeline overlay dedicated strictly to this active buffer
-    client.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
-      -- Exit early on heartbeat noise or completely clear diagnostics packets
-      if err or not result or not result.diagnostics or #result.diagnostics == 0 then
-        return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
-      end
-
-      -- Lazy load your customized microcontroller filtering table rules
-      local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-      if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
-        result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
-      end
-
-      -- Call the default handler signature using the stripped down diagnostics list
-      vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
-    end
+    -- client.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
+    --   -- Exit early on heartbeat noise or completely clear diagnostics packets
+    --   if err or not result or not result.diagnostics or #result.diagnostics == 0 then
+    --     return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
+    --   end
+    --
+    --   -- Lazy load your customized microcontroller filtering table rules
+    --   local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+    --   if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
+    --     result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
+    --   end
+    --
+    --   -- Call the default handler signature using the stripped down diagnostics list
+    --   vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
+    -- end
 
     ------------------------------------------------------------------
     local lspkeymaps = require('nvimpio.clangd.keymaps')
