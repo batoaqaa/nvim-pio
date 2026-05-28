@@ -231,8 +231,7 @@ function M.manage_file_diagnostics_interactive()
           save_filter_database()
           vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 INSTANT REDRAW: Manually route cached diagnostics back through the local filter pipeline
-          -- Grabs the raw diagnostics currently known to Neovim
+          -- 🚀 FORCE AN INSTANT REDRAW BY FLUSHING THE CACHE
           local raw_diagnostics = vim.diagnostic.get(current_buf)
           local clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
 
@@ -241,7 +240,14 @@ function M.manage_file_diagnostics_interactive()
             local local_handler = client.handlers['textDocument/publishDiagnostics']
 
             if local_handler then
-              -- Manually trigger the local handler function with a fully populated context table
+              -- 1. Locate the exact internal LSP diagnostic namespace id
+              local ns = vim.lsp.diagnostic.get_namespace(client.id)
+
+              -- 2. Completely wipe Neovim's cache for this buffer/namespace
+              -- This ensures Neovim processes the incoming array as brand new data
+              vim.diagnostic.set(ns, current_buf, {})
+
+              -- 3. Execute the handler to re-run your clean pipeline and print clean items
               local_handler(nil, {
                 uri = vim.uri_from_bufnr(current_buf),
                 diagnostics = raw_diagnostics,
