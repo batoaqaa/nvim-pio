@@ -231,27 +231,27 @@ function M.manage_file_diagnostics_interactive()
           save_filter_database()
           vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 NATIVE CACHE MUTATION STRATEGY
-          -- Instead of talking to Clangd or relying on redraw hooks, we directly pull
-          -- Neovim's diagnostic storage array, strip out the newly blocked items,
-          -- and push the filtered array back into the namespace.
-
-          -- 1. Grab all diagnostic targets currently known to Neovim for this buffer
-          local current_diagnostics = vim.diagnostic.get(current_buf)
-
-          -- 2. Pass them through your custom filtering loop logic
-          local filtered_diagnostics = M.clean_diagnostics_pipeline(current_diagnostics)
-
-          -- 3. Find the active client namespace to assign updates cleanly
+          -- 🚀 UNIVERSAL NATIVE RERENDER STRATEGY
           local clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
+
+          -- 🌟 CRITICAL FIX: Lua arrays are 1-indexed. Explicitly grab the first client wrapper element.
           local client = clients and clients[1]
 
           if client and client.id then
+            -- 1. Grab the precise global structural namespace id matching clangd
             local ns = vim.lsp.diagnostic.get_namespace(client.id)
 
-            -- 4. Overwrite Neovim's internal storage cache directly
-            -- This instantly wipes signs, virtual text, and underlines for blocked items
+            -- 2. Pull down the immutable database copy Neovim is caching in memory
+            local current_diagnostics = vim.diagnostic.get(current_buf)
+
+            -- 3. Scrub it clean directly inside the runtime memory table variables
+            local filtered_diagnostics = M.clean_diagnostics_pipeline(current_diagnostics)
+
+            -- 4. Overwrite Neovim's absolute cache namespace for this buffer
             vim.diagnostic.set(ns, current_buf, filtered_diagnostics)
+
+            -- 5. Force the underlying engine loop to perform a hard visual layout canvas re-render
+            vim.diagnostic.show(ns, current_buf, filtered_diagnostics)
           end
         else
           vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
