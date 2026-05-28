@@ -1,10 +1,11 @@
 local M = {}
 
 -- ====================================================================
--- 0. TELL THE LINTER TO EXPECT SNACKS GLOBALLY
+-- 0. TELL THE LINTER TO EXPECT SNACKS GLOBALLY AND ENFORCE TYPES
 -- ====================================================================
 ---@meta
 ---@diagnostic disable: undefined-global
+---@module 'snacks'
 
 -- ====================================================================
 -- 1. CONFIGURATION & STATE MANIFEST PATHS
@@ -14,7 +15,7 @@ local root_markers = { 'platformio.ini', '.git', '.clangd' }
 -- 🌟 FIXED: We fetch paths dynamically on boot, but do NOT grab static buffer IDs here anymore
 local initial_buf = vim.api.nvim_get_current_buf()
 local initial_file = vim.api.nvim_buf_get_name(initial_buf)
-local project_root = vim.fs.root(initial_file, root_markers) or vim.fn.getcwd()
+local project_root = vim.fs.root(initial_file, root_markers) or vim.uv.cwd()
 
 -- Isolated project JSON state database location
 local database_file = project_root .. '/.nvimpio_filters.json'
@@ -62,8 +63,6 @@ load_filter_database()
 -- 3. UNIVERSAL INMEMORY REDIRECTION LAYER (ZERO LEAKS CATCHER)
 -- ====================================================================
 function M.clean_diagnostics_pipeline(diagnostics)
-  -- load_filter_database()
-
   local cleaned = {}
   for _, diag in ipairs(diagnostics) do
     local code = diag.code or ''
@@ -132,9 +131,16 @@ function M.manage_file_diagnostics_interactive()
     return a.code < b.code
   end)
 
-  ---@diagnostic disable-next-line: undefined-field
-  local snacks_api = _G.snacks or pcall(require, 'snacks') and require('snacks')
-  if not snacks_api or not snacks_api.picker then
+  -- ---@diagnostic disable-next-line: undefined-field
+  -- local snacks_api = _G.snacks or pcall(require, 'snacks') and require('snacks')
+  -- if not snacks_api or not snacks_api.picker then
+  --   vim.notify('❌ snacks.nvim picker component is not fully loaded yet.', vim.log.levels.ERROR)
+  --   return
+  -- end
+
+  -- Force types via local fallback so lua_ls remains completely silent
+  local ok, snacks_api = pcall(require, 'snacks')
+  if not ok or not snacks_api.picker then
     vim.notify('❌ snacks.nvim picker component is not fully loaded yet.', vim.log.levels.ERROR)
     return
   end
