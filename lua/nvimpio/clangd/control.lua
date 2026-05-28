@@ -426,19 +426,25 @@ function M.init(clangd)
 -- ====================================================================
 -- GLOBAL DIAGNOSTIC HANDLERS PIPELINE OVERRIDE INTERCEPTOR
 -- ====================================================================
-local original_display_handler = vim.diagnostic.handlers.show
+-- Ensure we pull the true underlying handler container table safely
+local underlying_handler = vim.diagnostic.handlers.underline or vim.diagnostic.handlers.virtual_text
 
-vim.diagnostic.handlers.show = function(namespace, bufnr, diagnostics, opts)
-  -- Safely pull down your custom platformio diagnostic filtering module
-  local ok, filter_module = pcall(require, "nvimpio.clangd.diagnostic")
+if underlying_handler and underlying_handler.show then
+  local original_display_handler = underlying_handler.show
 
-  if ok and filter_module.clean_diagnostics_pipeline then
-    -- Run live stream arrays through the zero-leak suppression filter loop
-    diagnostics = filter_module.clean_diagnostics_pipeline(diagnostics)
+  -- Override the nested show function method inside the valid container structure
+  underlying_handler.show = function(namespace, bufnr, diagnostics, opts)
+    -- Safely pull down your custom platformio diagnostic filtering module
+    local ok, filter_module = pcall(require, "nvimpio.clangd.diagnostic")
+
+    if ok and filter_module.clean_diagnostics_pipeline then
+      -- Run live stream arrays through the zero-leak suppression filter loop
+      diagnostics = filter_module.clean_diagnostics_pipeline(diagnostics)
+    end
+
+    -- Pass the cleaned data array onto the core UI handler layout
+    original_display_handler(namespace, bufnr, diagnostics, opts)
   end
-
-  -- Pass the cleaned data array onto the core UI handler layout
-  original_display_handler(namespace, bufnr, diagnostics, opts)
 end
 
 
