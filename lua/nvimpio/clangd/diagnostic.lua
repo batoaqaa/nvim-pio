@@ -35,18 +35,19 @@ end
 
 --- Force-kills and re-spawns active compiler processes ONLY for clangd buffers
 function M.restart()
-  vim.schedule(function()
-    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
-      if vim.api.nvim_buf_is_loaded(bufnr) then
-        local active_clients = vim.lsp.get_clients({ bufnr = bufnr, name = 'clangd' })
-        if #active_clients > 0 then
-          vim.diagnostic.reset(nil, bufnr)
-        end
-      end
-    end
-    -- vim.cmd('LspRestart clangd')
-    require('nvimpio.clangd.control').restart()
-  end)
+  -- vim.schedule(function()
+  --   for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+  --     if vim.api.nvim_buf_is_loaded(bufnr) then
+  --       local active_clients = vim.lsp.get_clients({ bufnr = bufnr, name = 'clangd' })
+  --       if #active_clients > 0 then
+  --         vim.diagnostic.reset(nil, bufnr)
+  --       end
+  --     end
+  --   end
+  --   -- vim.cmd('LspRestart clangd')
+  --   require('nvimpio.clangd.control').restart()
+  -- end)
+  require('nvimpio.clangd.control').restart()
 end
 
 --- Parses and writes data directly into the active dynamic block scope arrays
@@ -196,8 +197,9 @@ function M.manage_file_diagnostics_interactive()
     local success = inject_into_clangd(choice.code, choice.message)
 
     vim.schedule(function()
+      -- M.restart()
+      require('nvimpio.clangd.control').restart()
       vim.cmd('edit!')
-      M.restart()
     end)
 
     if success then
