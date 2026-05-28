@@ -179,10 +179,23 @@ function M.manage_file_diagnostics_interactive()
           save_filter_database()
           vim.notify('🔒 Overrides Saved!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 INSTANT REDRAW ACTION: Force Neovim to push current items through the metatable hook
+          -- 🚀 CORRECTED INSTANT REDRAW ACTION
+          -- Find the specific active namespace ID for clangd and update only that cache entry
           local current_diags = vim.diagnostic.get(current_buf)
-          vim.diagnostic.set(vim.diagnostic.get_namespaces(), current_buf, current_diags)
+          for ns_id, ns_meta in pairs(vim.diagnostic.get_namespaces()) do
+            if ns_meta.name and ns_meta.name:find('clangd') then
+              vim.diagnostic.set(ns_id, current_buf, current_diags)
+            end
+          end
         end
+        -- if added > 0 then
+        --   save_filter_database()
+        --   vim.notify('🔒 Overrides Saved!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
+        --
+        --   -- 🚀 INSTANT REDRAW ACTION: Force Neovim to push current items through the metatable hook
+        --   local current_diags = vim.diagnostic.get(current_buf)
+        --   vim.diagnostic.set(vim.diagnostic.get_namespaces(), current_buf, current_diags)
+        -- end
       end,
 
       suppress_group_action = function(picker, item)
