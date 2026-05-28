@@ -107,94 +107,6 @@ function M.getClangdConfig()
   if clangd_config then return clangd_config end
 end
 
--- -- 1. DEFINE PATHS AND MEMORY BUFFERS
--- local blocklist_file = vim.uv.cwd() .. "/clangd_blocklist.txt"
--- M.runtime_blocklist = {
---   -- -- Preprocessor & Macro Overload Errors
---   -- ["macro_too_many_args"] = true,                   -- Silences ESPAsyncWebServer warnings
---   -- ["too_many_args_in_macro_invoc"] = true,          -- Silences fatal preprocessor macro spikes
---   -- ["pp_file_not_found"] = true,                     -- Silences nested SDK header routing gaps
---   --
---   -- -- GCC Toolchain Conflict Flags
---   -- ["drv_unknown_argument_with_suggestion"] = true,  -- Silences the -mlongcalls warning
---   -- ["drv_unknown_argument"] = true,                  -- Silences other architecture specific flags
---   --
---   -- -- Host Machine vs Microcontroller Architecture Clashes
---   -- ["redefinition_different_typedef"] = true,        -- Silences int vs ssize_t library overrides
---   -- ["err_target_unknown_arch"] = true,               -- Silences unmapped core parser targets
---   -- ["unused_macro_definition"] = true,               -- Mutes system config macro flooding
--- }
---
--- -- ====================================================================
--- -- 3. DYNAMIC INTERACTION LAYER
--- -- ====================================================================
--- -- Create the execution function to permanently ban a code on the fly
--- function M.block_diagnostic_under_cursor()
---   local line, col = unpack(vim.api.nvim_win_get_cursor(0))
---   local diagnostics = vim.diagnostic.get(0, { lnum = line - 1 })
---
---   local target_diag = nil
---   for _, diag in ipairs(diagnostics) do
---     if col >= diag.col and col <= diag.end_col then
---       target_diag = diag
---       break
---     end
---   end
---
---   if target_diag then
---     local code = target_diag.code
---     local msg = target_diag.message or ""
---     local target_code = ""
---
---     -- CASE A: If the error has a valid code handle, use it
---     if code and code ~= "" then
---       target_code = code
---     -- else
---     --   -- CASE B: Blank code -> Extract the first two words dynamically (e.g. "unknown argument")
---     --   local word1, word2 = string.match(msg:lower(), "([%w%-]+)%s+([%w%-]+)")
---     --   if word1 and word2 then
---     --     target_code = word1 .. " " .. word2
---     --   else
---     --     target_code = msg:lower():gsub("([^%w%s])", "%%%1")
---     --   end
---     end
---
---     -- Check if it's already blocked
---     if M.runtime_blocklist[target_code] then
---       vim.notify("ℹ️ '" .. target_code .. "' is already blocked.", vim.log.levels.INFO)
---       return
---     end
---
---     -- Inject into memory table instantly
---     M.runtime_blocklist[target_code] = true
---
---     -- Append to disk permanently
---     local f_append = io.open(blocklist_file, "ab")
---     if f_append then
---       f_append:write(target_code .. "\n")
---       f_append:close()
---     end
---
---     -- local current_buf = vim.api.nvim_get_current_buf()
---     -- local namespaces = vim.diagnostic.get_namespaces()
---     -- for ns_id, _ in pairs(namespaces) do
---     --   -- Passes an integer explicitly to avoid the type checking crash
---     --   vim.diagnostic.set(ns_id, current_buf, {})
---     -- end
---     -- Refresh active buffer layout right away without restarting Neovim
---     vim.cmd("edit!")
---     -- vim.cmd('checktime')
---     vim.schedule(function ()
---       M.restart()
---     end)
---     vim.notify("✅ Silenced '" .. target_code .. "' permanently!", vim.log.levels.WARN, { title = "LSP Blocklist Manager" })
---   else
---     vim.notify("❌ No valid LSP diagnostic error found under cursor.", vim.log.levels.ERROR)
---   end
--- end
-
-
-
 -- INFO: clangdRestart()
 --------------------------------------------------------------------------------
 --- stylua: ignore
@@ -407,77 +319,43 @@ function M.init(clangd)
   OS.notify('Clangd Control: initialize', "info")
 
   -- working good snack
-  local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
-  vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+  -- local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
+  -- vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+  --   local client = vim.lsp.get_client_by_id(ctx.client_id)
+  --
+  --   if client and client.name == "clangd" then
+  --     if result and result.diagnostics then
+  --       -- 🌟 THE NATIVE BRIDGE: Pass diagnostics through your plugin module's memory filter
+  --       local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
+  --       if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
+  --         result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
+  --       end
+  --     end
+  --   end
+  --   original_diagnostic_handler(err, result, ctx, config)
+  -- end
+
+-- Save the core native LSP text handler
+local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
+vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+  -- Safety check: Ensure result and diagnostics structures are valid
+  if not err and result and result.diagnostics then
     local client = vim.lsp.get_client_by_id(ctx.client_id)
 
     if client and client.name == "clangd" then
-      if result and result.diagnostics then
-        -- 🌟 THE NATIVE BRIDGE: Pass diagnostics through your plugin module's memory filter
-        local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
-        if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
-          result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
-        end
+      -- Safely reference your custom platformio diagnostic filtering module
+      local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
+
+      if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
+        -- Mutate and re-assign the diagnostic list directly 
+        local filtered = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
+        result.diagnostics = filtered or result.diagnostics
       end
     end
-    original_diagnostic_handler(err, result, ctx, config)
   end
-
-
-
-
-
-
-
-  -- -- ====================================================================
-  -- -- 1. LOAD PREVIOUSLY SAVED DYNAMIC CODES ON BOOT
-  -- local f_read = io.open(blocklist_file, "rb")
-  -- if f_read then
-  --   for line in f_read:lines() do
-  --     -- Strip hidden Windows carriage returns and whitespaces cleanly
-  --     local clean_code = line:gsub("\r", ""):gsub("^%s*(.-)%s*$", "%1")
-  --     if clean_code ~= "" then
-  --       M.runtime_blocklist[clean_code] = true
-  --     end
-  --   end
-  --   f_read:close()
-  -- end
-  -- -- ====================================================================
-  -- -- ================== working    ======================================
-  -- -- ====================================================================
-  -- -- 🌟 THE ISOLATED CLANGD HANDLER GATEWAY (ZERO PERFORMANCE LOSS FOR OTHER LSPs)
-  -- -- ====================================================================
-  -- local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
-  --
-  -- vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-  --   -- Get the active client object processing this exact message package
-  --   local client = vim.lsp.get_client_by_id(ctx.client_id)
-  --
-  --   -- 🛡️ CONDITIONAL GATEWAY: Only scrub data frames if they originate from clangd
-  --   if client and client.name == "clangd" then
-  --     if result and result.diagnostics then
-  --       local cleaned = {}
-  --
-  --       for _, diagnostic in ipairs(result.diagnostics) do
-  --         local code = diagnostic.code or ""
-  --         local msg = (diagnostic.message or ""):lower()
-  --
-  --         -- Simultaneously evaluate our dynamic blocklist dictionary and pattern text strings
-  --         local is_blocked = M.runtime_blocklist[code]
-  --                         -- or string.find(msg, "unknown argument", 1, true)
-  --                         -- or string.find(msg, "-mlongcalls", 1, true)
-  --                         -- or string.find(msg, "tweak:", 1, true)
-  --         if not is_blocked then
-  --           table.insert(cleaned, diagnostic)
-  --         end
-  --       end
-  --       result.diagnostics = cleaned
-  --     end
-  --   end
-  --   -- Safely pass the payload to the native engine, completely untouched for all other LSPs!
-  --   original_diagnostic_handler(err, result, ctx, config)
-  -- end
-  -- --==========================================================================
+  -- Hand off the validated and stripped data array down to the UI renderer
+  original_diagnostic_handler(err, result, ctx, config)
+end
 
   require('nvimpio.clangd.commands')
 
