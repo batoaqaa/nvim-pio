@@ -1,13 +1,6 @@
 local M = {}
 
 -- ====================================================================
--- 0. TELL THE LINTER TO EXPECT SNACKS GLOBALLY AND ENFORCE TYPES
--- ====================================================================
----@meta
----@diagnostic disable: undefined-global
----@module 'snacks'
-
--- ====================================================================
 -- 1. CONFIGURATION & STATE MANIFEST PATHS
 -- ====================================================================
 local root_markers = { 'platformio.ini', '.git', '.clangd' }
@@ -131,13 +124,6 @@ function M.manage_file_diagnostics_interactive()
     return a.code < b.code
   end)
 
-  -- ---@diagnostic disable-next-line: undefined-field
-  -- local snacks_api = _G.snacks or pcall(require, 'snacks') and require('snacks')
-  -- if not snacks_api or not snacks_api.picker then
-  --   vim.notify('❌ snacks.nvim picker component is not fully loaded yet.', vim.log.levels.ERROR)
-  --   return
-  -- end
-
   -- Force types via local fallback so lua_ls remains completely silent
   local ok, snacks_api = pcall(require, 'snacks')
   if not ok or not snacks_api.picker then
@@ -148,7 +134,7 @@ function M.manage_file_diagnostics_interactive()
   snacks_api.picker({
     source = 'Microcontroller Diagnostic Mangler',
     items = picker_items,
-    layout = 'vscode',
+    layout = 'float',
     win = {
       input = {
         keys = {
