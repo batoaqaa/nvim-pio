@@ -1,5 +1,6 @@
 local M = {}
 
+-- stylua: ignore start
 -- ====================================================================
 -- 1. CONFIGURATION & STATE MANIFEST PATHS
 -- ====================================================================
@@ -22,9 +23,7 @@ local blocked_phrases = {}
 -- ====================================================================
 local function load_filter_database()
   local f = io.open(database_file, 'rb')
-  if not f then
-    return
-  end
+  if not f then return end
   local raw_json = f:read('*all')
   f:close()
 
@@ -57,9 +56,7 @@ load_filter_database()
 -- ====================================================================
 function M.clean_diagnostics_pipeline(diagnostics)
   -- Bypass optimization for gigantic multi-error system includes
-  if #diagnostics > 300 then
-    return diagnostics
-  end
+  if #diagnostics > 300 then return diagnostics end
 
   local cleaned = {}
   for _, diag in ipairs(diagnostics) do
@@ -76,9 +73,7 @@ function M.clean_diagnostics_pipeline(diagnostics)
 
     local is_noise = blocked_codes[code] or matches_text_pattern
 
-    if not is_noise then
-      table.insert(cleaned, diag)
-    end
+    if not is_noise then table.insert(cleaned, diag) end
   end
   return cleaned
 end
@@ -125,9 +120,7 @@ function M.manage_file_diagnostics_interactive()
     })
   end
 
-  table.sort(picker_items, function(a, b)
-    return a.code < b.code
-  end)
+  table.sort(picker_items, function(a, b) return a.code < b.code end)
 
   -- Force types via local fallback so lua_ls remains completely silent
   local ok, snacks_api = pcall(require, 'snacks')
@@ -151,9 +144,7 @@ function M.manage_file_diagnostics_interactive()
     actions = {
       confirm = function(picker, item)
         picker:close()
-        if not item then
-          return
-        end
+        if not item then return end
 
         local selections = picker:selected({ fallback = true })
         local added = 0
@@ -237,9 +228,7 @@ function M.manage_file_diagnostics_interactive()
       end,
 
       suppress_group_action = function(picker, item)
-        if not item then
-          return
-        end
+        if not item then return end
         picker:close()
 
         local target_code = item.code
@@ -335,4 +324,5 @@ function M.manage_file_diagnostics_interactive()
   })
 end
 
+-- stylua: ignore end
 return M
