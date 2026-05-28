@@ -323,8 +323,11 @@ function M.init(clangd)
   -- local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
   -- vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
   --   -- 1. Ultra-fast boundary checks: exit immediately if it's not clangd data
-  --   local client_id = ctx and ctx.client_id
+  --   -- Cast ctx cleanly so the language server knows it contains protocol definitions
+  --   local target_ctx = ctx ---@as lsp.HandlerContext
+  --   local client_id = target_ctx and target_ctx.client_id
   --   local client = client_id and vim.lsp.get_client_by_id(client_id)
+  --
   --   if not client or client.name ~= "clangd" then
   --     return original_diagnostic_handler(err, result, ctx, config)
   --   end
