@@ -319,42 +319,26 @@ function M.init(clangd)
   OS.notify('Clangd Control: initialize', "info")
 
   -- working good snack
+  -- Save the core native LSP text handler
   -- local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
   -- vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-  --   local client = vim.lsp.get_client_by_id(ctx.client_id)
+  --   -- 1. Ultra-fast boundary checks: exit immediately if it's not clangd data
+  --   local client_id = ctx and ctx.client_id
+  --   local client = client_id and vim.lsp.get_client_by_id(client_id)
+  --   if not client or client.name ~= "clangd" then
+  --     return original_diagnostic_handler(err, result, ctx, config)
+  --   end
   --
-  --   if client and client.name == "clangd" then
-  --     if result and result.diagnostics then
-  --       -- 🌟 THE NATIVE BRIDGE: Pass diagnostics through your plugin module's memory filter
-  --       local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
-  --       if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
-  --         result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
-  --       end
+  --   -- 2. Clangd exclusive payload processing zone
+  --   if not err and result and result.diagnostics then
+  --     local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
+  --     if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
+  --       result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
   --     end
   --   end
+  --   -- Hand off the validated and stripped data array down to the UI renderer
   --   original_diagnostic_handler(err, result, ctx, config)
   -- end
-
--- Save the core native LSP text handler
-local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
-vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-  -- 1. Ultra-fast boundary checks: exit immediately if it's not clangd data
-  local client_id = ctx and ctx.client_id
-  local client = client_id and vim.lsp.get_client_by_id(client_id)
-  if not client or client.name ~= "clangd" then
-    return original_diagnostic_handler(err, result, ctx, config)
-  end
-
-  -- 2. Clangd exclusive payload processing zone
-  if not err and result and result.diagnostics then
-    local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
-    if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
-      result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
-    end
-  end
-  -- Hand off the validated and stripped data array down to the UI renderer
-  original_diagnostic_handler(err, result, ctx, config)
-end
 
   require('nvimpio.clangd.commands')
 
