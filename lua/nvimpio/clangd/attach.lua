@@ -1,8 +1,9 @@
 --- stylua: ignore
 -- local piolsp = require('nvimpio.piolsp') --.piolsp
 -- INFO: LspAttach autocommand start
+local pio_group = vim.api.nvim_create_augroup('platformio-lsp-attach', { clear = true })
 vim.api.nvim_create_autocmd('LspAttach', {
-  group = vim.api.nvim_create_augroup('platformio-lsp-attach', { clear = true }),
+  group = pio_group,
   callback = function(args)
     local client = assert(vim.lsp.get_client_by_id(args.data.client_id))
     local bufnr = args.buf
@@ -17,37 +18,48 @@ vim.api.nvim_create_autocmd('LspAttach', {
     -- Hook up an isolated pipeline overlay dedicated strictly to this active buffer
 
     -- 1. Hook up your isolated pipeline overlay for all future background events
-    client.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
-      if err or not result or not result.diagnostics or #result.diagnostics == 0 then
-        return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
-      end
 
-      local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-      if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
-        result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
-      end
-
-      vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
-    end
-
-    -- 🚀 2. THE FIX: Immediately scrub the initial payload that slipped through the race condition
-    -- We force-execute the cleanup pipeline manually right now so the first file load is instantly clean
-    local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-    if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
-      -- Pull down the raw items Neovim's cache engine saved a millisecond ago
-      local raw_diagnostics = vim.diagnostic.get(bufnr)
-      if #raw_diagnostics > 0 then
-        local cleaned_diagnostics = pio_diag.clean_diagnostics_pipeline(raw_diagnostics)
-
-        -- Locate the exact internal LSP diagnostic namespace matching this clangd instance
-        local ns = vim.lsp.diagnostic.get_namespace(client.id)
-        if ns then
-          -- Overwrite the initial un-filtered cache before it displays on screen
-          vim.diagnostic.set(ns, bufnr, cleaned_diagnostics)
+    -- 🚀 THE FIX: Intercept using a buffer-local Autocommand Event loop
+    -- This intercepts every diagnostic refresh lifecycle event on this buffer *only*
+    vim.api.nvim_create_autocmd('DiagnosticChanged', {
+      buffer = bufnr,
+      group = pio_group,
+      callback = function()
+        -- Safely load your customized microcontroller filtering table rules
+        local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+        if not (success and pio_diag and pio_diag.clean_diagnostics_pipeline) then
+          return
         end
-      end
-    end
 
+        -- 1. Grab the active internal LSP diagnostic namespace matching this clangd engine
+        local ns = vim.lsp.diagnostic.get_namespace(client.id)
+        if not ns then
+          return
+        end
+
+        -- 2. Pull down the diagnostics array currently stored in the namespace cache
+        -- We temporarily disable our own event callback tracking to avoid an infinite execution loop
+        vim.api.nvim_clear_autocmds({ group = pio_group, buffer = bufnr, event = 'DiagnosticChanged' })
+
+        local raw_diagnostics = vim.diagnostic.get(bufnr, { namespace = ns })
+        if #raw_diagnostics > 0 then
+          local cleaned = pio_diag.clean_diagnostics_pipeline(raw_diagnostics)
+
+          -- 3. Hard-overwrite Neovim's display table registry with your clean items list
+          vim.diagnostic.set(ns, bufnr, cleaned)
+        end
+
+        -- 4. Re-enable the buffer execution tracking hook for the next change event
+        vim.api.nvim_create_autocmd('DiagnosticChanged', {
+          buffer = bufnr,
+          group = pio_group,
+          callback = vim.api.nvim_get_autocmds({ group = pio_group, buffer = bufnr, event = 'DiagnosticChanged' })[1].callback,
+        })
+      end,
+    })
+
+    -- Execute a micro-evaluation right now to clean the canvas context upon initial open
+    vim.cmd('doautocmd DiagnosticChanged')
     -- client.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
     --   -- Exit early on heartbeat noise or completely clear diagnostics packets
     --   if err or not result or not result.diagnostics or #result.diagnostics == 0 then
