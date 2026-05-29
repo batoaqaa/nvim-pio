@@ -192,7 +192,8 @@ function M.manage_file_diagnostics_interactive()
           -- 🚀 FORCE AN INSTANT SCREEN RE-RENDER
           -- This triggers Neovim to push current items through the wrapper,
           -- dropping newly blocked items instantly without resetting the server link!
-          vim.diagnostic.show(nil, current_buf)
+          -- vim.diagnostic.show(nil, current_buf)
+          vim.cmd('edit!')
         end
       end,
 
@@ -230,7 +231,8 @@ function M.manage_file_diagnostics_interactive()
           vim.notify('💥 Group Cleansed!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
           -- 🚀 FORCE AN INSTANT SCREEN RE-RENDER
-          vim.diagnostic.show(nil, current_buf)
+          -- vim.diagnostic.show(nil, current_buf)
+          vim.cmd('edit!')
         end
       end,
     },
