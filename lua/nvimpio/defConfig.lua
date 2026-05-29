@@ -13,7 +13,7 @@ local defConfig = {
 
   menu_bindings = {
     { node = 'item', desc = '[B]lock diagnostic', shortcut = 'b', command = 'ClangdDiagnosticBlock' },
-    { node = 'item', desc = '[U]nblock diagnostic', shortcut = 'b', command = 'ClangdDiagnosticUnblock' },
+    { node = 'item', desc = '[U]nblock diagnostic', shortcut = 'u', command = 'ClangdDiagnosticUnblock' },
     { node = 'item', desc = 'Switch [E]nv', shortcut = 'e', command = 'PioPickEnv' },
     { node = 'item', desc = '[I]nitiate project', shortcut = 'i', command = 'Pioinit' },
     { node = 'item', desc = '[L]ist terminals', shortcut = 'l', command = 'PioTermList' },
