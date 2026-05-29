@@ -93,20 +93,20 @@ _G.metadata = setmetatable({}, {
       -- M.save_project_config(true)
       -------------------------------------------------------------------------------
       if key == 'toolchain_root' then
-        local from = 'Meta PATH env: '
-        local binPath = value .. '/bin'
-
-        local oldPath = oldValue .. '/bin'
-        local start_time = vim.loop.hrtime()
-        -- remove_nearby_front(oldPath)
-        removeFromPath(oldPath)
-        local end_time = vim.loop.hrtime()
-        local duration = (end_time - start_time) / 1e6
-        OS.notify(string.format('%s %s removed from path in %.2fms', from, oldPath, duration), 'info')
-
-        vim.env.PATH = binPath .. OS.path_sep .. vim.env.PATH
-        -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
-        OS.notify(string.format('%s %s added to path',from, binPath), 'info')
+        -- local from = 'Meta PATH env: '
+        -- local binPath = value .. '/bin'
+        --
+        -- local oldPath = oldValue .. '/bin'
+        -- local start_time = vim.loop.hrtime()
+        -- -- remove_nearby_front(oldPath)
+        -- removeFromPath(oldPath)
+        -- local end_time = vim.loop.hrtime()
+        -- local duration = (end_time - start_time) / 1e6
+        -- OS.notify(string.format('%s %s removed from path in %.2fms', from, oldPath, duration), 'info')
+        --
+        -- vim.env.PATH = binPath .. OS.path_sep .. vim.env.PATH
+        -- -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
+        -- OS.notify(string.format('%s %s added to path',from, binPath), 'info')
 
       -------------------------------------------------------------------------------
       elseif key == 'active_env' then
