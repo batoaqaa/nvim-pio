@@ -8,7 +8,10 @@ local initial_buf = vim.api.nvim_get_current_buf()
 local initial_file = vim.api.nvim_buf_get_name(initial_buf)
 local project_root = vim.fs.root(initial_file, root_markers) or vim.uv.cwd()
 
+-- Isolated project JSON state database location
 local database_file = project_root .. '/.nvimpio_filters.json'
+
+-- High-speed memory tracking dictionaries
 local blocked_codes = {}
 local blocked_phrases = {}
 
@@ -42,6 +45,7 @@ local function save_filter_database()
   end
 end
 
+-- Pre-load active database profiles directly into hot memory tracking states
 load_filter_database()
 
 -- ====================================================================
@@ -89,7 +93,6 @@ vim.lsp.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx,
   -- Clangd exclusive payload processing zone
   if not err and result and result.diagnostics then
     if M.clean_diagnostics_pipeline then
-      -- Strips out blocked compiler noise from the payload stream permanently
       result.diagnostics = M.clean_diagnostics_pipeline(result.diagnostics)
     end
   end
@@ -104,11 +107,8 @@ end
 function M.manage_file_diagnostics_interactive()
   local current_buf = vim.api.nvim_get_current_buf()
 
-  -- Define the core loop block locally so it can re-trigger itself
   local function open_picker_loop()
-    -- 🚀 THE CRITICAL ARCHITECTURAL REPAIR:
-    -- Instead of grabbing the shallow filtered view, loop through active namespaces
-    -- to extract the absolute raw, unfiltered snapshot stored by the LSP engine.
+    -- Query active namespaces to pull down the original raw background cache records
     local raw_diagnostics = {}
     for ns_id, ns_meta in pairs(vim.diagnostic.get_namespaces()) do
       if ns_meta.name and ns_meta.name:find('clangd') then
@@ -117,12 +117,11 @@ function M.manage_file_diagnostics_interactive()
       end
     end
 
-    -- If no server namespace was found, fall back to global gathering safely
     if #raw_diagnostics == 0 then
       raw_diagnostics = vim.diagnostic.get(current_buf)
     end
 
-    -- 1. Parse choices based on items NOT already written to the memory blocklist tables
+    -- Filter out options already stored in our active blocklist
     local unique_codes = {}
     local distinct_items = {}
 
@@ -130,7 +129,6 @@ function M.manage_file_diagnostics_interactive()
       local code_name = diag.code
 
       if code_name and code_name ~= '' then
-        -- Only offer the item if it isn't currently blocked in memory
         if not blocked_codes[code_name] and not unique_codes[code_name] then
           unique_codes[code_name] = true
           table.insert(distinct_items, {
@@ -140,7 +138,6 @@ function M.manage_file_diagnostics_interactive()
           })
         end
       else
-        -- Fallback to key-phrase calculation for uncategorized noise
         local word1, word2 = string.match(diag.message:lower(), '([%w%-]+)%s+([%w%-]+)')
         local key_phrase = (word1 and word2) and (word1 .. ' ' .. word2) or diag.message:lower()
 
@@ -154,7 +151,7 @@ function M.manage_file_diagnostics_interactive()
       end
     end
 
-    -- Base Escape Condition: If no unblocked items are left, save and finish up!
+    -- Base Condition: Save and exit if no errors remain unblocked
     if #distinct_items == 0 then
       save_filter_database()
       vim.notify('✅ Complete Parity: All compile items have been successfully filtered!', vim.log.levels.INFO, { title = 'Compiler Mangler' })
@@ -162,12 +159,10 @@ function M.manage_file_diagnostics_interactive()
       return
     end
 
-    -- Sort options alphabetically for streamlined scannability
     table.sort(distinct_items, function(a, b)
       return a.display < b.display
     end)
 
-    -- 2. Execute via Neovim's universal selector protocol
     vim.ui.select(distinct_items, {
       prompt = 'Microcontroller Diagnostic Mangler (Esc to Save & Apply)',
       kind = 'nvimpio_mangler',
@@ -175,7 +170,7 @@ function M.manage_file_diagnostics_interactive()
         return item.display
       end,
     }, function(choice)
-      -- 🌟 Escape/Cancel Route: Save memory tables to file storage upon deliberate exit
+      -- User pressed Esc to finish and save changes
       if not choice then
         save_filter_database()
         vim.notify('🔒 Filter Overrides Saved & Applied!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
@@ -197,16 +192,15 @@ function M.manage_file_diagnostics_interactive()
       end
 
       if added then
-        -- Save immediately on entry to prevent data loss if Neovim environment gets closed
         save_filter_database()
 
-        -- 🚀 FORCE AN INSTANT SCREEN RE-RENDER WITHOUT CLOSING THE PICKER CONTEXT
+        -- Force an instant inline visual screen redraw
         local filtered = M.clean_diagnostics_pipeline(raw_diagnostics)
         for ns_id, _ in pairs(vim.diagnostic.get_namespaces()) do
           vim.diagnostic.set(ns_id, current_buf, filtered)
         end
 
-        -- Cycle the picker menu on the next scheduling frame tick
+        -- Call the next picker loop iteration on the next frame schedule tick
         vim.schedule(function()
           open_picker_loop()
         end)
@@ -216,7 +210,6 @@ function M.manage_file_diagnostics_interactive()
     end)
   end
 
-  -- Initial trigger execution call
   open_picker_loop()
 end
 
