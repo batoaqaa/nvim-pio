@@ -97,7 +97,6 @@ function M.getClangdConfig()
   local _, count = json_config:gsub('%%s', '')
   -- Only use string.format if there is one or less %s
   if count <= 1 then merged_json = string.format(json_config or '', q_driver) end
-  -- local formatted_str = string.format(table_config or '', q_driver, f_flags, misc.normalizePath(new_root_dir))
 
   -- 'decode' converts JSON string -> Lua table
   local tok, clangd_config = pcall(vim.json.decode, merged_json)
@@ -114,23 +113,18 @@ function M.restart()
   vim.schedule(function()
     local name = 'clangd'
     OS.notify('LSP: Clangd restart.', 'warn')
-
-
-    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
-      if vim.api.nvim_buf_is_loaded(bufnr) then
-        -- Get all active LSP clients explicitly attached to this specific buffer
-        local active_clients = vim.lsp.get_clients({ bufnr = bufnr, name = name })
-
-        -- Only clear the diagnostics if clangd is actively running on this buffer
-        if #active_clients > 0 then
-          vim.diagnostic.reset(nil, bufnr)
-        end
-      end
-    end
-
-
-
-
+    --
+    -- for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+    --   if vim.api.nvim_buf_is_loaded(bufnr) then
+    --     -- Get all active LSP clients explicitly attached to this specific buffer
+    --     local active_clients = vim.lsp.get_clients({ bufnr = bufnr, name = name })
+    --
+    --     -- Only clear the diagnostics if clangd is actively running on this buffer
+    --     if #active_clients > 0 then
+    --       vim.diagnostic.reset(nil, bufnr)
+    --     end
+    --   end
+    -- end
 
     local clangConfig = M.getClangdConfig()
 
