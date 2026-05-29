@@ -97,8 +97,9 @@ vim.lsp.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx,
   -- Hand off the validated and stripped data array down to the UI renderer
   original_diagnostic_handler(err, result, ctx, config)
 end
+
 -- ====================================================================
--- 4. THE PREMIUM STATE-AWARE SNACKS.PICKER INTERFACE
+-- 4. UNIVERSAL INTERACTIVE DIAGNOSTIC SELECTION INTERFACE
 -- ====================================================================
 function M.manage_file_diagnostics_interactive()
   local current_buf = vim.api.nvim_get_current_buf()
@@ -109,129 +110,75 @@ function M.manage_file_diagnostics_interactive()
     return
   end
 
-  local code_counts = {}
-  for _, diag in ipairs(diagnostics) do
-    local c_name = diag.code or 'uncategorized_noise'
-    code_counts[c_name] = (code_counts[c_name] or 0) + 1
-  end
+  -- 1. Deduplicate codes and phrases into actionable choices
+  local unique_codes = {}
+  local distinct_items = {}
 
-  local picker_items = {}
   for _, diag in ipairs(diagnostics) do
-    local code_name = diag.code or 'uncategorized_noise'
-    local count = code_counts[code_name]
+    local code_name = diag.code
 
-    local sev_icon, sev_hl = '⚠️ ', 'DiagnosticWarn'
-    if diag.severity == 1 then
-      sev_icon, sev_hl = '❌', 'DiagnosticError'
+    if code_name and code_name ~= '' then
+      if not unique_codes[code_name] then
+        unique_codes[code_name] = true
+        table.insert(distinct_items, {
+          type = 'code',
+          id = code_name,
+          display = string.format('🔒 Block Code: [%s] (%s)', code_name, diag.message),
+        })
+      end
+    else
+      -- Fallback to key-phrase calculation for uncategorized noise
+      local word1, word2 = string.match(diag.message:lower(), '([%w%-]+)%s+([%w%-]+)')
+      local key_phrase = (word1 and word2) and (word1 .. ' ' .. word2) or diag.message:lower()
+
+      table.insert(distinct_items, {
+        type = 'phrase',
+        id = key_phrase,
+        display = string.format('📝 Block Phrase matching: "%s..."', key_phrase),
+      })
     end
-
-    table.insert(picker_items, {
-      text = string.format('📂 Group [%s] (%d items) • Line %d', code_name, count, diag.lnum + 1),
-      comment = diag.message,
-      idx = #picker_items + 1,
-      code = code_name,
-      message = diag.message,
-      icon = sev_icon,
-      icon_hl = sev_hl,
-    })
   end
 
-  table.sort(picker_items, function(a, b)
-    return a.code < b.code
+  -- Sort choices alphabetically
+  table.sort(distinct_items, function(a, b)
+    return a.display < b.display
   end)
 
-  local ok, snacks_api = pcall(require, 'snacks')
-  if not ok or not snacks_api.picker then
-    vim.notify('❌ snacks.nvim picker component is not fully loaded yet.', vim.log.levels.ERROR)
-    return
-  end
+  -- 2. Execute via Neovim's universal selector protocol
+  vim.ui.select(distinct_items, {
+    prompt = 'Microcontroller Diagnostic Mangler',
+    kind = 'nvimpio_mangler',
+    format_item = function(item)
+      return item.display
+    end,
+  }, function(choice)
+    -- Boundary guard: handle user cancellation/escape modal escape cleanly
+    if not choice then
+      return
+    end
 
-  snacks_api.picker({
-    source = 'Microcontroller Diagnostic Mangler',
-    items = picker_items,
-    layout = 'vertical', -- Stable, standard built-in layout configuration preset
-    win = {
-      input = {
-        keys = {
-          ['<Tab>'] = { 'toggle_select', mode = { 'n', 'i' } },
-          ['<C-g>'] = { 'suppress_group_action', mode = { 'n', 'i' } },
-        },
-      },
-    },
-    actions = {
-      confirm = function(picker, item)
-        picker:close()
-        if not item then
-          return
-        end
-        local selections = picker:selected({ fallback = true })
-        local added = 0
+    local added = 0
+    if choice.type == 'code' then
+      if not blocked_codes[choice.id] then
+        blocked_codes[choice.id] = true
+        added = added + 1
+      end
+    elseif choice.type == 'phrase' then
+      if not blocked_phrases[choice.id] then
+        blocked_phrases[choice.id] = true
+        added = added + 1
+      end
+    end
 
-        for _, selected_item in ipairs(selections) do
-          local target = selected_item.code
-          if target and target ~= '' and target ~= 'uncategorized_noise' then
-            if not blocked_codes[target] then
-              blocked_codes[target] = true
-              added = added + 1
-            end
-          else
-            local word1, word2 = string.match(selected_item.message:lower(), '([%w%-]+)%s+([%w%-]+)')
-            local key_phrase = (word1 and word2) and (word1 .. ' ' .. word2) or selected_item.message:lower()
-            if not blocked_phrases[key_phrase] then
-              blocked_phrases[key_phrase] = true
-              added = added + 1
-            end
-          end
-        end
+    if added > 0 then
+      save_filter_database()
+      vim.notify('🔒 Filter Overrides Saved & Applied!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-        if added > 0 then
-          save_filter_database()
-          vim.notify('🔒 Overrides Saved!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
-
-          -- 🚀 The cleanest way: Reload buffer to force a filtered network pass
-          vim.cmd('edit!')
-        end
-      end,
-
-      suppress_group_action = function(picker, item)
-        if not item then
-          return picker:close()
-        end
-        picker:close()
-
-        local target_code = item.code
-        local bulk_diags = vim.diagnostic.get(current_buf)
-        local added = 0
-
-        for _, diag in ipairs(bulk_diags) do
-          local cur_code = diag.code or 'uncategorized_noise'
-          if cur_code == target_code then
-            if cur_code ~= 'uncategorized_noise' then
-              if not blocked_codes[cur_code] then
-                blocked_codes[cur_code] = true
-                added = added + 1
-              end
-            else
-              local word1, word2 = string.match(diag.message:lower(), '([%w%-]+)%s+([%w%-]+)')
-              local phrase = (word1 and word2) and (word1 .. ' ' .. word2) or diag.message:lower()
-              if not blocked_phrases[phrase] then
-                blocked_phrases[phrase] = true
-                added = added + 1
-              end
-            end
-          end
-        end
-
-        if added > 0 then
-          save_filter_database()
-          vim.notify('💥 Group Cleansed!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
-
-          -- 🚀 The cleanest way: Reload buffer to force a filtered network pass
-          vim.cmd('edit!')
-        end
-      end,
-    },
-  })
+      -- Force upstream re-evaluation natively via clean buffer reload
+      vim.cmd('edit!')
+    else
+      vim.notify('ℹ️ Selected configuration item is already successfully blocked.', vim.log.levels.INFO)
+    end
+  end)
 end
-
 return M
