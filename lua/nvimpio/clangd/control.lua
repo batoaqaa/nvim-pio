@@ -338,14 +338,22 @@ function M.init(clangd)
   --   original_diagnostic_handler(err, result, ctx, config)
   -- end
 
-  require('nvimpio.clangd.commands')
+  if clangd.install then require('nvimpio.clangd.config') end
 
+  -- Apply and Enable
+  local getClangdConfig = require('nvimpio.clangd.control').getClangdConfig
+  if getClangdConfig then
+    vim.lsp.config('clangd', getClangdConfig())
+    vim.lsp.enable('clangd')
+  end
+
+  require('nvimpio.clangd.commands')
   require('nvimpio.clangd.diagnostic')
+
   vim.keymap.set('n', 'gll', function()
     vim.cmd.edit(vim.lsp.log.get_filename())
   end, { desc = 'open LSP [l]og' })
 
-  if clangd.install then require('nvimpio.clangd.config') end
 end
 
 -- stylua: ignore end
