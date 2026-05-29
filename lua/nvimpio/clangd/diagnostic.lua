@@ -89,6 +89,7 @@ vim.lsp.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx,
   -- Clangd exclusive payload processing zone
   if not err and result and result.diagnostics then
     if M.clean_diagnostics_pipeline then
+      -- Strips out blocked compiler noise from the payload stream permanently
       result.diagnostics = M.clean_diagnostics_pipeline(result.diagnostics)
     end
   end
@@ -96,7 +97,6 @@ vim.lsp.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx,
   -- Hand off the validated and stripped data array down to the UI renderer
   original_diagnostic_handler(err, result, ctx, config)
 end
-
 -- ====================================================================
 -- 4. THE PREMIUM STATE-AWARE SNACKS.PICKER INTERFACE
 -- ====================================================================
@@ -164,7 +164,6 @@ function M.manage_file_diagnostics_interactive()
         if not item then
           return
         end
-
         local selections = picker:selected({ fallback = true })
         local added = 0
 
@@ -189,10 +188,7 @@ function M.manage_file_diagnostics_interactive()
           save_filter_database()
           vim.notify('🔒 Overrides Saved!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 FORCE AN INSTANT SCREEN RE-RENDER
-          -- This triggers Neovim to push current items through the wrapper,
-          -- dropping newly blocked items instantly without resetting the server link!
-          -- vim.diagnostic.show(nil, current_buf)
+          -- 🚀 The cleanest way: Reload buffer to force a filtered network pass
           vim.cmd('edit!')
         end
       end,
@@ -230,8 +226,7 @@ function M.manage_file_diagnostics_interactive()
           save_filter_database()
           vim.notify('💥 Group Cleansed!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 FORCE AN INSTANT SCREEN RE-RENDER
-          -- vim.diagnostic.show(nil, current_buf)
+          -- 🚀 The cleanest way: Reload buffer to force a filtered network pass
           vim.cmd('edit!')
         end
       end,
