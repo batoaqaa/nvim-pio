@@ -102,14 +102,17 @@ end
 -- 4. UNIVERSAL RECURSIVE INTERACTIVE SELECTION INTERFACE
 -- ====================================================================
 function M.manage_file_diagnostics_interactive()
+  local current_buf = vim.api.nvim_get_current_buf()
+
   -- Define the core loop block locally so it can re-trigger itself
   local function open_picker_loop()
-    local current_buf = vim.api.nvim_get_current_buf()
     local diagnostics = vim.diagnostic.get(current_buf)
 
     -- Base Escape Condition: Exit cleanly if no errors remain
     if #diagnostics == 0 then
       vim.notify('✅ Complete Parity: No active workspace exceptions detected!', vim.log.levels.INFO)
+      -- Sync file modifications to the disk background workspace state once finished
+      vim.cmd('edit!')
       return
     end
 
@@ -142,51 +145,58 @@ function M.manage_file_diagnostics_interactive()
       end
     end
 
-    -- Sort remaining choices alphabetically for easier scanning
+    -- Sort choices alphabetically for easier scanning
     table.sort(distinct_items, function(a, b)
       return a.display < b.display
     end)
 
     -- 2. Execute via Neovim's universal selector protocol
     vim.ui.select(distinct_items, {
-      prompt = 'Microcontroller Diagnostic Mangler (Esc to Finish)',
+      prompt = 'Microcontroller Diagnostic Mangler (Esc to Save & Apply)',
       kind = 'nvimpio_mangler',
       format_item = function(item)
         return item.display
       end,
     }, function(choice)
-      -- If user hits Escape or cancels, break the loop and finish
+      -- 🌟 Escape/Cancel Route: User is done picking items!
       if not choice then
-        vim.notify('Done managing overrides.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
+        save_filter_database()
+        vim.notify('🔒 Filter Overrides Saved & Applied!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
+
+        -- Force a complete clean background buffer reload to apply the final updates
+        vim.cmd('edit!')
         return
       end
 
-      local added = 0
+      local added = false
       if choice.type == 'code' then
         if not blocked_codes[choice.id] then
           blocked_codes[choice.id] = true
-          added = added + 1
+          added = true
         end
       elseif choice.type == 'phrase' then
         if not blocked_phrases[choice.id] then
           blocked_phrases[choice.id] = true
-          added = added + 1
+          added = true
         end
       end
 
-      if added > 0 then
-        save_filter_database()
+      if added then
+        -- 🚀 FORCE AN INSTANT SCREEN RE-RENDER WITHOUT CLOSING THE PICKER CONTEXT
+        -- Instead of calling a slow async disk reload, we immediately pull
+        -- the current diagnostics list and push it back through our pipeline manually.
+        local filtered = M.clean_diagnostics_pipeline(diagnostics)
 
-        -- Force downstream re-evaluation via clean buffer reload
-        vim.cmd('edit!')
+        -- Find the active workspace client namespaces and override layout visibility
+        for ns_id, _ in pairs(vim.diagnostic.get_namespaces()) do
+          vim.diagnostic.set(ns_id, current_buf, filtered)
+        end
 
-        -- 🚀 RECURSIVE KICKSTART: Re-invoke the picker with updated diagnostics array
-        -- Wrapped in a short schedule deferment to allow the previous window UI to cycle
+        -- Wait exactly 1 frame step for the UI to update, then cycle the picker menu
         vim.schedule(function()
           open_picker_loop()
         end)
       else
-        -- If item was already blocked, just loop back instantly
         open_picker_loop()
       end
     end)
