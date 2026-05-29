@@ -103,7 +103,6 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
-  print(vim.inspect(clangd_config))
   if clangd_config then return clangd_config end
 end
 
