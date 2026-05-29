@@ -1,34 +1,29 @@
 local M = {}
 
--- stylua: ignore start
 -- ====================================================================
--- 1. CONFIGURATION & STATE MANIFEST PATHS
+-- 0. CONFIGURATION & STATE MANIFEST PATHS
 -- ====================================================================
 local root_markers = { 'platformio.ini', '.git', '.clangd' }
-
--- 🌟 FIXED: We fetch paths dynamically on boot, but do NOT grab static buffer IDs here anymore
 local initial_buf = vim.api.nvim_get_current_buf()
 local initial_file = vim.api.nvim_buf_get_name(initial_buf)
 local project_root = vim.fs.root(initial_file, root_markers) or vim.uv.cwd()
 
--- Isolated project JSON state database location
 local database_file = project_root .. '/.nvimpio_filters.json'
-
--- High-speed memory tracking dictionaries
 local blocked_codes = {}
 local blocked_phrases = {}
 
 -- ====================================================================
--- 2. DATABASE DESERIALIZATION LOOPS (READ / WRITE)
+-- 1. DATABASE DESERIALIZATION LOOPS (READ / WRITE)
 -- ====================================================================
 local function load_filter_database()
   local f = io.open(database_file, 'rb')
-  if not f then return end
+  if not f then
+    return
+  end
   local raw_json = f:read('*all')
   f:close()
 
   if raw_json and raw_json ~= '' then
-    -- Safely parse using Neovim's native ultra-fast JSON decoder
     local success, data = pcall(vim.json.decode, raw_json)
     if success and data then
       blocked_codes = data.codes or {}
@@ -43,21 +38,19 @@ local function save_filter_database()
     local payload = { codes = blocked_codes, phrases = blocked_phrases }
     local pretty = require('nvimpio.utils.misc').jsonFormat(payload)
     f:write(pretty)
-    -- f:write(vim.json.encode(payload))
     f:close()
   end
 end
 
--- Pre-load the active database directly into memory state variables
 load_filter_database()
 
 -- ====================================================================
--- 3. UNIVERSAL INMEMORY REDIRECTION LAYER (ZERO LEAKS CATCHER)
+-- 2. UNIVERSAL IN-MEMORY SUPPRESSION FILTER PIPELINE
 -- ====================================================================
 function M.clean_diagnostics_pipeline(diagnostics)
-  -- Bypass optimization for gigantic multi-error system includes
-  if #diagnostics > 300 then return diagnostics end
-
+  if not diagnostics or #diagnostics == 0 then
+    return {}
+  end
   local cleaned = {}
   for _, diag in ipairs(diagnostics) do
     local code = diag.code or ''
@@ -71,19 +64,60 @@ function M.clean_diagnostics_pipeline(diagnostics)
       end
     end
 
-    local is_noise = blocked_codes[code] or matches_text_pattern
-
-    if not is_noise then table.insert(cleaned, diag) end
+    if not (blocked_codes[code] or matches_text_pattern) then
+      table.insert(cleaned, diag)
+    end
   end
   return cleaned
 end
 
 -- ====================================================================
+-- 3. THE HIGH-PERFORMANCE RENDER OVERRIDE (0 LINTER WARNINGS!)
+-- ====================================================================
+-- Intercepting at the handler wrapper layer provides optimal performance.
+-- Neovim passes a numeric namespace handle directly to the function signature.
+-- if not _G.__nvimpio_handler_hooked then
+--   local original_show_handler = vim.diagnostic.handlers.show
+--
+--   vim.diagnostic.handlers.show = function(namespace, bufnr, diagnostics, opts)
+--     -- Fetch meta properties using the pure numeric handle provided by Neovim
+--     local ns_meta = vim.diagnostic.get_namespace(namespace)
+--
+--     -- 🚀 PERFORMANCE BOUNDARY GUARD: Only filter if the engine is clangd
+--     if ns_meta and ns_meta.name and ns_meta.name:find('clangd') then
+--       diagnostics = M.clean_diagnostics_pipeline(diagnostics)
+--     end
+--
+--     original_show_handler(namespace, bufnr, diagnostics, opts)
+--   end
+--   _G.__nvimpio_handler_hooked = true
+-- end
+
+local original_diagnostic_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
+vim.lsp.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
+  -- 1. Ultra-fast boundary checks: exit immediately if it's not clangd data
+  -- Cast ctx cleanly so the language server knows it contains protocol definitions
+  local target_ctx = ctx ---@as lsp.HandlerContext
+  local client_id = target_ctx and target_ctx.client_id
+  local client = client_id and vim.lsp.get_client_by_id(client_id)
+
+  if not client or client.name ~= 'clangd' then
+    return original_diagnostic_handler(err, result, ctx, config)
+  end
+
+  -- 2. Clangd exclusive payload processing zone
+  if not err and result and result.diagnostics then
+    if M.clean_diagnostics_pipeline then
+      result.diagnostics = M.clean_diagnostics_pipeline(result.diagnostics)
+    end
+  end
+  -- Hand off the validated and stripped data array down to the UI renderer
+  original_diagnostic_handler(err, result, ctx, config)
+end
+-- ====================================================================
 -- 4. THE PREMIUM STATE-AWARE SNACKS.PICKER INTERFACE
 -- ====================================================================
 function M.manage_file_diagnostics_interactive()
-  -- 🌟 CRITICAL REPAIR: Always grab the current active buffer ID dynamically
-  -- the exact millisecond the user executes this interactive function block!
   local current_buf = vim.api.nvim_get_current_buf()
   local diagnostics = vim.diagnostic.get(current_buf)
 
@@ -92,7 +126,6 @@ function M.manage_file_diagnostics_interactive()
     return
   end
 
-  -- Group instances to count occurrences dynamically
   local code_counts = {}
   for _, diag in ipairs(diagnostics) do
     local c_name = diag.code or 'uncategorized_noise'
@@ -120,9 +153,10 @@ function M.manage_file_diagnostics_interactive()
     })
   end
 
-  table.sort(picker_items, function(a, b) return a.code < b.code end)
+  table.sort(picker_items, function(a, b)
+    return a.code < b.code
+  end)
 
-  -- Force types via local fallback so lua_ls remains completely silent
   local ok, snacks_api = pcall(require, 'snacks')
   if not ok or not snacks_api.picker then
     vim.notify('❌ snacks.nvim picker component is not fully loaded yet.', vim.log.levels.ERROR)
@@ -132,7 +166,7 @@ function M.manage_file_diagnostics_interactive()
   snacks_api.picker({
     source = 'Microcontroller Diagnostic Mangler',
     items = picker_items,
-    layout = 'vscode',
+    layout = 'vertical', -- Stable, standard built-in layout configuration preset
     win = {
       input = {
         keys = {
@@ -144,7 +178,9 @@ function M.manage_file_diagnostics_interactive()
     actions = {
       confirm = function(picker, item)
         picker:close()
-        if not item then return end
+        if not item then
+          return
+        end
 
         local selections = picker:selected({ fallback = true })
         local added = 0
@@ -168,67 +204,19 @@ function M.manage_file_diagnostics_interactive()
 
         if added > 0 then
           save_filter_database()
-          vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
+          vim.notify('🔒 Overrides Saved!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 FOOLPROOF ARCHITECTURAL CACHE RESET
-          -- 1. Grab every single diagnostic currently known to Neovim across all namespaces for this file
-          local raw_diagnostics = vim.diagnostic.get(current_buf)
-
-          -- 2. Run the full list through your filtering pipeline to drop the newly blocked items
-          local cleaned_diagnostics = M.clean_diagnostics_pipeline(raw_diagnostics)
-
-          -- 3. Loop through Neovim's active runtime namespaces directly to find the clangd engine
-          for ns_id, ns_meta in pairs(vim.diagnostic.get_namespaces()) do
-            if ns_meta.name and ns_meta.name:find('clangd') then
-              -- 4. HARD RESET: Wipe the underlying backup registry entirely
-              vim.diagnostic.reset(ns_id, current_buf)
-
-              -- 5. RE-POPULATE: Force-feed only our filtered entries into Neovim's baseline core
-              vim.diagnostic.set(ns_id, current_buf, cleaned_diagnostics)
-            end
-          end
-        else
-          vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
+          -- 🚀 FORCE AN INSTANT SCREEN RE-RENDER
+          -- This triggers Neovim to push current items through the wrapper,
+          -- dropping newly blocked items instantly without resetting the server link!
+          vim.diagnostic.show(nil, current_buf)
         end
-        -- if added > 0 then
-        --   save_filter_database()
-        --   vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
-        --
-        --   -- 🚀 SECURE HIGH-PERFORMANCE UPSTREAM MUTATION
-        --   -- Instead of messing with raw client indices or calling complex redraw hooks,
-        --   -- we pull Neovim's local buffer diagnostic storage array, run it through our
-        --   -- custom pipeline filter, and update Neovim's master namespace list.
-        --
-        --   local active_diagnostics = vim.diagnostic.get(current_buf)
-        --   local cleaned_diagnostics = M.clean_diagnostics_pipeline(active_diagnostics)
-        --
-        --   -- Use a loop to dynamically extract and query active language client namespaces safely
-        --   local active_clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
-        --
-        --   for _, target_client in ipairs(active_clients) do
-        --     if target_client.id then
-        --       -- 1. Grab the precise internal LSP diagnostic namespace matching clangd
-        --       local ns = vim.lsp.diagnostic.get_namespace(target_client.id)
-        --
-        --       -- 2. Force-overwrite Neovim's display cache database records instantly
-        --       vim.diagnostic.set(ns, current_buf, cleaned_diagnostics)
-        --     end
-        --   end
-        -- else
-        --   vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
-        -- end
-        -- if added > 0 then
-        --   save_filter_database()
-        --   vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
-        --   vim.cmd('edit!')
-        --   -- require('nvimpio.clangd.control').restart()
-        -- else
-        --   vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
-        -- end
       end,
 
       suppress_group_action = function(picker, item)
-        if not item then return end
+        if not item then
+          return picker:close()
+        end
         picker:close()
 
         local target_code = item.code
@@ -256,73 +244,14 @@ function M.manage_file_diagnostics_interactive()
 
         if added > 0 then
           save_filter_database()
-          vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
+          vim.notify('💥 Group Cleansed!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
 
-          -- 🚀 FOOLPROOF ARCHITECTURAL CACHE RESET
-          -- 1. Grab every single diagnostic currently known to Neovim across all namespaces for this file
-          local raw_diagnostics = vim.diagnostic.get(current_buf)
-
-          -- 2. Run the full list through your filtering pipeline to drop the newly blocked items
-          local cleaned_diagnostics = M.clean_diagnostics_pipeline(raw_diagnostics)
-
-          -- 3. Loop through Neovim's active runtime namespaces directly to find the clangd engine
-          for ns_id, ns_meta in pairs(vim.diagnostic.get_namespaces()) do
-            if ns_meta.name and ns_meta.name:find('clangd') then
-              -- 4. HARD RESET: Wipe the underlying backup registry entirely
-              vim.diagnostic.reset(ns_id, current_buf)
-
-              -- 5. RE-POPULATE: Force-feed only our filtered entries into Neovim's baseline core
-              vim.diagnostic.set(ns_id, current_buf, cleaned_diagnostics)
-            end
-          end
-        else
-          vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
+          -- 🚀 FORCE AN INSTANT SCREEN RE-RENDER
+          vim.diagnostic.show(nil, current_buf)
         end
-        -- if added > 0 then
-        --   save_filter_database()
-        --   vim.notify('🔒 Overrides Saved! Filtered ' .. added .. ' new items.', vim.log.levels.WARN, { title = 'Compiler Mangler' })
-        --
-        --   -- 🚀 SECURE HIGH-PERFORMANCE UPSTREAM MUTATION
-        --   -- Instead of messing with raw client indices or calling complex redraw hooks,
-        --   -- we pull Neovim's local buffer diagnostic storage array, run it through our
-        --   -- custom pipeline filter, and update Neovim's master namespace list.
-        --
-        --   local active_diagnostics = vim.diagnostic.get(current_buf)
-        --   local cleaned_diagnostics = M.clean_diagnostics_pipeline(active_diagnostics)
-        --
-        --   -- Use a loop to dynamically extract and query active language client namespaces safely
-        --   local active_clients = vim.lsp.get_clients({ bufnr = current_buf, name = 'clangd' })
-        --
-        --   for _, target_client in ipairs(active_clients) do
-        --     if target_client.id then
-        --       -- 1. Grab the precise internal LSP diagnostic namespace matching clangd
-        --       local ns = vim.lsp.diagnostic.get_namespace(target_client.id)
-        --
-        --       -- 2. Force-overwrite Neovim's display cache database records instantly
-        --       vim.diagnostic.set(ns, current_buf, cleaned_diagnostics)
-        --     end
-        --   end
-        -- else
-        --   vim.notify('ℹ️ Selected items are already successfully blocked.', vim.log.levels.INFO)
-        -- end
-        --
-
-        -- if added > 0 then
-        --   save_filter_database()
-        --   vim.notify(
-        --     '💥 Group Cleansed! Blocked all ' .. added .. ' instances matching [' .. target_code .. ']',
-        --     vim.log.levels.WARN,
-        --     { title = 'Compiler Mangler' }
-        --   )
-        --   vim.cmd('edit!')
-        --   -- require('nvimpio.clangd.control').restart()
-        -- else
-        --   vim.notify('ℹ️ Global group constraints are already up to date.', vim.log.levels.INFO)
-        -- end
       end,
     },
   })
 end
 
--- stylua: ignore end
 return M
