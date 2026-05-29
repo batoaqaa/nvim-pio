@@ -76,44 +76,44 @@ end
 -- ====================================================================
 -- Intercepting at the handler wrapper layer provides optimal performance.
 -- Neovim passes a numeric namespace handle directly to the function signature.
--- if not _G.__nvimpio_handler_hooked then
---   local original_show_handler = vim.diagnostic.handlers.show
---
---   vim.diagnostic.handlers.show = function(namespace, bufnr, diagnostics, opts)
---     -- Fetch meta properties using the pure numeric handle provided by Neovim
---     local ns_meta = vim.diagnostic.get_namespace(namespace)
---
---     -- 🚀 PERFORMANCE BOUNDARY GUARD: Only filter if the engine is clangd
---     if ns_meta and ns_meta.name and ns_meta.name:find('clangd') then
---       diagnostics = M.clean_diagnostics_pipeline(diagnostics)
---     end
---
---     original_show_handler(namespace, bufnr, diagnostics, opts)
---   end
---   _G.__nvimpio_handler_hooked = true
--- end
+if not _G.__nvimpio_handler_hooked then
+  local original_show_handler = vim.diagnostic.handlers.show
 
-local original_diagnostic_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
-vim.lsp.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
-  -- 1. Ultra-fast boundary checks: exit immediately if it's not clangd data
-  -- Cast ctx cleanly so the language server knows it contains protocol definitions
-  local target_ctx = ctx ---@as lsp.HandlerContext
-  local client_id = target_ctx and target_ctx.client_id
-  local client = client_id and vim.lsp.get_client_by_id(client_id)
+  vim.diagnostic.handlers.show = function(namespace, bufnr, diagnostics, opts)
+    -- Fetch meta properties using the pure numeric handle provided by Neovim
+    local ns_meta = vim.diagnostic.get_namespace(namespace)
 
-  if not client or client.name ~= 'clangd' then
-    return original_diagnostic_handler(err, result, ctx, config)
-  end
-
-  -- 2. Clangd exclusive payload processing zone
-  if not err and result and result.diagnostics then
-    if M.clean_diagnostics_pipeline then
-      result.diagnostics = M.clean_diagnostics_pipeline(result.diagnostics)
+    -- 🚀 PERFORMANCE BOUNDARY GUARD: Only filter if the engine is clangd
+    if ns_meta and ns_meta.name and ns_meta.name:find('clangd') then
+      diagnostics = M.clean_diagnostics_pipeline(diagnostics)
     end
+
+    original_show_handler(namespace, bufnr, diagnostics, opts)
   end
-  -- Hand off the validated and stripped data array down to the UI renderer
-  original_diagnostic_handler(err, result, ctx, config)
+  _G.__nvimpio_handler_hooked = true
 end
+
+-- local original_diagnostic_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
+-- vim.lsp.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
+--   -- 1. Ultra-fast boundary checks: exit immediately if it's not clangd data
+--   -- Cast ctx cleanly so the language server knows it contains protocol definitions
+--   local target_ctx = ctx ---@as lsp.HandlerContext
+--   local client_id = target_ctx and target_ctx.client_id
+--   local client = client_id and vim.lsp.get_client_by_id(client_id)
+--
+--   if not client or client.name ~= 'clangd' then
+--     return original_diagnostic_handler(err, result, ctx, config)
+--   end
+--
+--   -- 2. Clangd exclusive payload processing zone
+--   if not err and result and result.diagnostics then
+--     if M.clean_diagnostics_pipeline then
+--       result.diagnostics = M.clean_diagnostics_pipeline(result.diagnostics)
+--     end
+--   end
+--   -- Hand off the validated and stripped data array down to the UI renderer
+--   original_diagnostic_handler(err, result, ctx, config)
+-- end
 -- ====================================================================
 -- 4. THE PREMIUM STATE-AWARE SNACKS.PICKER INTERFACE
 -- ====================================================================
