@@ -106,25 +106,32 @@ function M.manage_file_diagnostics_interactive()
 
   -- Define the core loop block locally so it can re-trigger itself
   local function open_picker_loop()
-    local diagnostics = vim.diagnostic.get(current_buf)
-
-    -- Base Escape Condition: Exit cleanly if no errors remain
-    if #diagnostics == 0 then
-      vim.notify('✅ Complete Parity: No active workspace exceptions detected!', vim.log.levels.INFO)
-      -- Sync file modifications to the disk background workspace state once finished
-      vim.cmd('edit!')
-      return
+    -- 🚀 THE CRITICAL ARCHITECTURAL REPAIR:
+    -- Instead of grabbing the shallow filtered view, loop through active namespaces
+    -- to extract the absolute raw, unfiltered snapshot stored by the LSP engine.
+    local raw_diagnostics = {}
+    for ns_id, ns_meta in pairs(vim.diagnostic.get_namespaces()) do
+      if ns_meta.name and ns_meta.name:find('clangd') then
+        raw_diagnostics = vim.diagnostic.get(current_buf, { namespace = ns_id })
+        break
+      end
     end
 
-    -- 1. Deduplicate remaining codes and phrases dynamically
+    -- If no server namespace was found, fall back to global gathering safely
+    if #raw_diagnostics == 0 then
+      raw_diagnostics = vim.diagnostic.get(current_buf)
+    end
+
+    -- 1. Parse choices based on items NOT already written to the memory blocklist tables
     local unique_codes = {}
     local distinct_items = {}
 
-    for _, diag in ipairs(diagnostics) do
+    for _, diag in ipairs(raw_diagnostics) do
       local code_name = diag.code
 
       if code_name and code_name ~= '' then
-        if not unique_codes[code_name] then
+        -- Only offer the item if it isn't currently blocked in memory
+        if not blocked_codes[code_name] and not unique_codes[code_name] then
           unique_codes[code_name] = true
           table.insert(distinct_items, {
             type = 'code',
@@ -137,15 +144,25 @@ function M.manage_file_diagnostics_interactive()
         local word1, word2 = string.match(diag.message:lower(), '([%w%-]+)%s+([%w%-]+)')
         local key_phrase = (word1 and word2) and (word1 .. ' ' .. word2) or diag.message:lower()
 
-        table.insert(distinct_items, {
-          type = 'phrase',
-          id = key_phrase,
-          display = string.format('📝 Block Phrase matching: "%s..."', key_phrase),
-        })
+        if not blocked_phrases[key_phrase] then
+          table.insert(distinct_items, {
+            type = 'phrase',
+            id = key_phrase,
+            display = string.format('📝 Block Phrase matching: "%s..."', key_phrase),
+          })
+        end
       end
     end
 
-    -- Sort choices alphabetically for easier scanning
+    -- Base Escape Condition: If no unblocked items are left, save and finish up!
+    if #distinct_items == 0 then
+      save_filter_database()
+      vim.notify('✅ Complete Parity: All compile items have been successfully filtered!', vim.log.levels.INFO, { title = 'Compiler Mangler' })
+      vim.cmd('edit!')
+      return
+    end
+
+    -- Sort options alphabetically for streamlined scannability
     table.sort(distinct_items, function(a, b)
       return a.display < b.display
     end)
@@ -158,12 +175,10 @@ function M.manage_file_diagnostics_interactive()
         return item.display
       end,
     }, function(choice)
-      -- 🌟 Escape/Cancel Route: User is done picking items!
+      -- 🌟 Escape/Cancel Route: Save memory tables to file storage upon deliberate exit
       if not choice then
         save_filter_database()
         vim.notify('🔒 Filter Overrides Saved & Applied!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
-
-        -- Force a complete clean background buffer reload to apply the final updates
         vim.cmd('edit!')
         return
       end
@@ -182,17 +197,16 @@ function M.manage_file_diagnostics_interactive()
       end
 
       if added then
-        -- 🚀 FORCE AN INSTANT SCREEN RE-RENDER WITHOUT CLOSING THE PICKER CONTEXT
-        -- Instead of calling a slow async disk reload, we immediately pull
-        -- the current diagnostics list and push it back through our pipeline manually.
-        local filtered = M.clean_diagnostics_pipeline(diagnostics)
+        -- Save immediately on entry to prevent data loss if Neovim environment gets closed
+        save_filter_database()
 
-        -- Find the active workspace client namespaces and override layout visibility
+        -- 🚀 FORCE AN INSTANT SCREEN RE-RENDER WITHOUT CLOSING THE PICKER CONTEXT
+        local filtered = M.clean_diagnostics_pipeline(raw_diagnostics)
         for ns_id, _ in pairs(vim.diagnostic.get_namespaces()) do
           vim.diagnostic.set(ns_id, current_buf, filtered)
         end
 
-        -- Wait exactly 1 frame step for the UI to update, then cycle the picker menu
+        -- Cycle the picker menu on the next scheduling frame tick
         vim.schedule(function()
           open_picker_loop()
         end)
