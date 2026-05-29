@@ -74,12 +74,12 @@ end
 -- ====================================================================
 -- 3. THE HIGH-PERFORMANCE RENDER OVERRIDE (0 LINTER WARNINGS!)
 -- ====================================================================
--- Intercepting at the handler wrapper layer provides optimal performance.
--- Neovim passes a numeric namespace handle directly to the function signature.
-if not _G.__nvimpio_handler_hooked then
-  local original_show_handler = vim.diagnostic.handlers.show
+-- We target the .show method inside the existing valid handler table
+-- to satisfy Neovim's strict internal layout type validators.
+if not _G.__nvimpio_handler_hooked and vim.diagnostic.handlers.show then
+  local original_show_handler = vim.diagnostic.handlers.show.show
 
-  vim.diagnostic.handlers.show = function(namespace, bufnr, diagnostics, opts)
+  vim.diagnostic.handlers.show.show = function(namespace, bufnr, diagnostics, opts)
     -- Fetch meta properties using the pure numeric handle provided by Neovim
     local ns_meta = vim.diagnostic.get_namespace(namespace)
 
@@ -88,11 +88,11 @@ if not _G.__nvimpio_handler_hooked then
       diagnostics = M.clean_diagnostics_pipeline(diagnostics)
     end
 
+    -- Pass the data down to the native display handler
     original_show_handler(namespace, bufnr, diagnostics, opts)
   end
   _G.__nvimpio_handler_hooked = true
 end
-
 -- local original_diagnostic_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
 -- vim.lsp.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
 --   -- 1. Ultra-fast boundary checks: exit immediately if it's not clangd data
