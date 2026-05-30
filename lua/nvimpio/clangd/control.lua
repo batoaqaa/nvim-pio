@@ -103,6 +103,20 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
+  clangd_config.handlers = {
+    ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+      -- Only filter if there are diagnostics present
+      if not err and result and result.diagnostics then
+        if M.clean_diagnostics_pipeline then
+          result.diagnostics = M.clean_diagnostics_pipeline(result.diagnostics)
+        end
+      end
+      -- Pass to Neovim's default handler
+      -- vim.lsp.diagnostic.on_publish_diagnostics(err, result, ctx, config)
+      vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
+    end
+  }
+
   if clangd_config then return clangd_config end
 end
 
