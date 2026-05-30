@@ -107,9 +107,17 @@ function M.getClangdConfig()
     ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
       -- Only filter if there are diagnostics present
       if not err and result and result.diagnostics then
-        if M.clean_diagnostics_pipeline then
-          result.diagnostics = M.clean_diagnostics_pipeline(result.diagnostics)
+        local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
+        if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
+          result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
         end
+
+
+
+
+        -- if M.clean_diagnostics_pipeline then
+        --   result.diagnostics = M.clean_diagnostics_pipeline(result.diagnostics)
+        -- end
       end
       -- Pass to Neovim's default handler
       -- vim.lsp.diagnostic.on_publish_diagnostics(err, result, ctx, config)
