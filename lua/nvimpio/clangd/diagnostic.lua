@@ -206,6 +206,7 @@ function M.manage_file_diagnostics_interactive()
       return
     end
 
+    local lspRestart = require('nvimpio.clangd.control').restart
     vim.ui.select(dashboard_items, {
       prompt = 'Unified Native .clangd Controller Dashboard',
       kind = 'nvimpio_clangd_mangler',
@@ -216,16 +217,17 @@ function M.manage_file_diagnostics_interactive()
       if not choice then
         save_clangd_config()
         -- 🚀 LSP RESTART TRIGGER: Force clangd to index the updated file changes instantly
-        vim.cmd('LspRestart clangd')
+        -- vim.cmd('LspRestart clangd')
+        lspRestart()
         return
       end
-
       if choice.action == 'reset' then
         blocked_codes = {}
         removed_flags = {}
         save_clangd_config()
         vim.notify('💥 Configuration file dropped.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
-        vim.cmd('LspRestart clangd')
+        -- vim.cmd('LspRestart clangd')
+        lspRestart()
         return
       elseif choice.action == 'block_flag' then
         removed_flags[choice.id] = true
