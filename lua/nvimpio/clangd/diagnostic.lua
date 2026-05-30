@@ -8,15 +8,15 @@ local initial_buf = vim.api.nvim_get_current_buf()
 local initial_file = vim.api.nvim_buf_get_name(initial_buf)
 local project_root = vim.fs.root(initial_file, root_markers) or vim.uv.cwd()
 
--- Target the native .clangd system configuration file directly
+-- Target files
 local clangd_config_file = project_root .. '/.clangd'
 
--- High-speed unified memory tracking states
+-- Memory caches
 local blocked_codes = {}
 local removed_flags = {}
 
 -- ====================================================================
--- 1. STABLE NATIVE .CLANGD YAML PARSER LOOPS
+-- 1. NATIVE .CLANGD CONFIGURATION PARSER
 -- ====================================================================
 local function load_clangd_config()
   blocked_codes = {}
@@ -29,16 +29,13 @@ local function load_clangd_config()
 
   local current_section = nil
   for line in f:lines() do
-    -- Trim whitespace
     local clean_line = line:gsub('^%s+', ''):gsub('%s+$', '')
 
-    -- Identify state boundary changes
     if clean_line:find('^CompileFlags:') then
       current_section = 'flags'
     elseif clean_line:find('^Diagnostics:') then
       current_section = 'diagnostics'
     elseif clean_line:find('^%-%s+') then
-      -- Parse exact sequence item elements
       local item = clean_line:gsub('^%-%s+', ''):gsub('^[\'"]', ''):gsub('[\'"]$', '')
       if current_section == 'flags' and item ~= '' then
         removed_flags[item] = true
@@ -53,7 +50,6 @@ end
 local function save_clangd_config()
   local lines = {}
 
-  -- 1. Construct the native compiler flag mutation block
   table.insert(lines, 'CompileFlags:')
   table.insert(lines, '  Remove:')
   local flag_list = {}
@@ -65,7 +61,6 @@ local function save_clangd_config()
     table.insert(lines, string.format('    - %s', flag))
   end
 
-  -- 2. Construct the native engine diagnostic suppression block
   table.insert(lines, 'Diagnostics:')
   table.insert(lines, '  Suppress:')
   local code_list = {}
@@ -84,20 +79,80 @@ local function save_clangd_config()
   end
 end
 
--- Initialize the parser cache state immediately on script loading lifecycle
 load_clangd_config()
 
 -- ====================================================================
--- 2. UNIFIED COMPILER MANGLER DASHBOARD (BLOCK / UNBLOCK / RESET)
+-- 2. THE CHAMELEON FALLBACK RENDER OVERRIDE PIPELINE
+-- ====================================================================
+-- This cleans any stubborn driver errors that clangd cannot suppress natively.
+function M.clean_diagnostics_pipeline(diagnostics)
+  if not diagnostics or #diagnostics == 0 then
+    return {}
+  end
+  local cleaned = {}
+
+  for _, diag in ipairs(diagnostics) do
+    local code = diag.code or ''
+    local msg = (diag.message or ''):lower()
+
+    local should_suppress = false
+    -- 1. Catch active code suppressions
+    if blocked_codes[code] then
+      should_suppress = true
+    end
+
+    -- 2. Catch native driver arguments or flags that bypassed .clangd filters
+    if not should_suppress then
+      for flag, _ in pairs(removed_flags) do
+        -- Escapes dashes safely to make them pattern-compatible
+        local clean_flag = flag:gsub('%-', '%%-')
+        if msg:find(clean_flag) or code:find(clean_flag) then
+          should_suppress = true
+          break
+        end
+      end
+    end
+
+    if not should_suppress then
+      table.insert(cleaned, diag)
+    end
+  end
+  return cleaned
+end
+
+-- ====================================================================
+-- 3. THE HIGH-PERFORMANCE UPSTREAM LSP INTERCEPTOR
+-- ====================================================================
+local original_diagnostic_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
+
+vim.lsp.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
+  local target_ctx = ctx ---@as lsp.HandlerContext
+  local client_id = target_ctx and target_ctx.client_id
+  local client = client_id and vim.lsp.get_client_by_id(client_id)
+
+  if not client or client.name ~= 'clangd' then
+    return original_diagnostic_handler(err, result, ctx, config)
+  end
+
+  if not err and result and result.diagnostics then
+    if M.clean_diagnostics_pipeline then
+      -- Scrub remaining compiler noise before the layout canvas renders them
+      result.diagnostics = M.clean_diagnostics_pipeline(result.diagnostics)
+    end
+  end
+
+  original_diagnostic_handler(err, result, ctx, config)
+end
+
+-- ====================================================================
+-- 4. UNIFIED COMPILER MANGLER DASHBOARD (BLOCK / UNBLOCK / RESET)
 -- ====================================================================
 function M.manage_file_diagnostics_interactive()
   local function open_dashboard_loop()
     local current_buf = vim.api.nvim_get_current_buf()
     local dashboard_items = {}
 
-    -- ----------------------------------------------------------------
     -- SECTION A: MASTER RESET OPTION
-    -- ----------------------------------------------------------------
     local has_active_filters = false
     for _, _ in pairs(blocked_codes) do
       has_active_filters = true
@@ -113,14 +168,11 @@ function M.manage_file_diagnostics_interactive()
     if has_active_filters then
       table.insert(dashboard_items, {
         action = 'reset',
-        display = '💥 WIPE ENTIRE .CLANGD CONFIGURATION (RESET ALL)',
+        display = '💥 WIPE ENTIRE OVERRIDES DATABASE (RESET EVERYTHING CLEAN)',
       })
     end
 
-    -- ----------------------------------------------------------------
-    -- SECTION B: LIVE ACTIVE COMPILER DIAGNOSTICS (THE BLOCK ZONE)
-    -- ----------------------------------------------------------------
-    -- Fetch raw backend diagnostics array natively
+    -- SECTION B: LIVE ACTIVE COMPILER DIAGNOSTICS
     local raw_diagnostics = {}
     for ns_id, ns_meta in pairs(vim.diagnostic.get_namespaces()) do
       if ns_meta.name and ns_meta.name:find('clangd') then
@@ -139,8 +191,10 @@ function M.manage_file_diagnostics_interactive()
       local code_name = diag.code
       local msg = diag.message or ''
 
-      -- Look for unknown argument compiler driver flags explicitly
-      local unknown_arg = msg:match("Unknown argument:%s*'([^']+)'") or msg:match("unknown argument:%s*'([^']+)'")
+      -- Regex targeting to extract arguments out of strings smoothly
+      local unknown_arg = msg:match("Unknown argument:%s*'([^']+)'")
+        or msg:match("unknown argument:%s*'([^']+)'")
+        or msg:match("unsupported option%s*'([^']+)'")
 
       if unknown_arg then
         if not removed_flags[unknown_arg] and not unique_active_entries[unknown_arg] then
@@ -148,7 +202,7 @@ function M.manage_file_diagnostics_interactive()
           table.insert(block_options, {
             action = 'block_flag',
             id = unknown_arg,
-            display = string.format('🔨 Remove: [%s]', unknown_arg),
+            display = string.format('🔨 Remove Flag from Compiler: [%s]', unknown_arg),
           })
         end
       elseif code_name and code_name ~= '' then
@@ -157,7 +211,7 @@ function M.manage_file_diagnostics_interactive()
           table.insert(block_options, {
             action = 'block_code',
             id = code_name,
-            display = string.format('🔒 Suppress: [%s] (%s)', code_name, msg),
+            display = string.format('🔒 Suppress Code via Dashboard: [%s] (%s)', code_name, msg),
           })
         end
       end
@@ -170,9 +224,7 @@ function M.manage_file_diagnostics_interactive()
       table.insert(dashboard_items, opt)
     end
 
-    -- ----------------------------------------------------------------
-    -- SECTION C: PERSISTENT OVERRIDES CURRENTLY SAVED (THE UNBLOCK ZONE)
-    -- ----------------------------------------------------------------
+    -- SECTION C: CURRENTLY SUPPRESSED ITEMS
     local unblock_options = {}
 
     for flag, _ in pairs(removed_flags) do
@@ -198,9 +250,6 @@ function M.manage_file_diagnostics_interactive()
       table.insert(dashboard_items, opt)
     end
 
-    -- ----------------------------------------------------------------
-    -- SECTION D: VIEW RENDERING & SELECTION DISPATCH
-    -- ----------------------------------------------------------------
     if #dashboard_items == 0 then
       vim.notify('✅ Complete Parity: No outstanding anomalies found.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
       return
@@ -216,16 +265,16 @@ function M.manage_file_diagnostics_interactive()
     }, function(choice)
       if not choice then
         save_clangd_config()
-        -- 🚀 LSP RESTART TRIGGER: Force clangd to index the updated file changes instantly
         -- vim.cmd('LspRestart clangd')
         lspRestart()
         return
       end
+
       if choice.action == 'reset' then
         blocked_codes = {}
         removed_flags = {}
         save_clangd_config()
-        vim.notify('💥 Configuration file dropped.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
+        vim.notify('💥 Configuration reset successfully.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
         -- vim.cmd('LspRestart clangd')
         lspRestart()
         return
@@ -241,7 +290,12 @@ function M.manage_file_diagnostics_interactive()
 
       save_clangd_config()
 
-      -- Cycle back dynamically with a quick schedule call
+      -- Instantly update screen diagnostics in hot-memory for visual feedback
+      local filtered = M.clean_diagnostics_pipeline(raw_diagnostics)
+      for ns_id, _ in pairs(vim.diagnostic.get_namespaces()) do
+        vim.diagnostic.set(ns_id, current_buf, filtered)
+      end
+
       vim.schedule(function()
         open_dashboard_loop()
       end)
