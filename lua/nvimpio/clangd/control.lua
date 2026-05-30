@@ -111,16 +111,8 @@ function M.getClangdConfig()
         if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
           result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
         end
-
-
-
-
-        -- if M.clean_diagnostics_pipeline then
-        --   result.diagnostics = M.clean_diagnostics_pipeline(result.diagnostics)
-        -- end
       end
       -- Pass to Neovim's default handler
-      -- vim.lsp.diagnostic.on_publish_diagnostics(err, result, ctx, config)
       vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
     end
   }
@@ -333,31 +325,6 @@ end
 --=============================================================================
 function M.init(clangd)
   OS.notify('Clangd Control: initialize', "info")
-
-  -- working good snack
-  -- Save the core native LSP text handler
-  -- local original_diagnostic_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
-  -- vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-  --   -- 1. Ultra-fast boundary checks: exit immediately if it's not clangd data
-  --   -- Cast ctx cleanly so the language server knows it contains protocol definitions
-  --   local target_ctx = ctx ---@as lsp.HandlerContext
-  --   local client_id = target_ctx and target_ctx.client_id
-  --   local client = client_id and vim.lsp.get_client_by_id(client_id)
-  --
-  --   if not client or client.name ~= "clangd" then
-  --     return original_diagnostic_handler(err, result, ctx, config)
-  --   end
-  --
-  --   -- 2. Clangd exclusive payload processing zone
-  --   if not err and result and result.diagnostics then
-  --     local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
-  --     if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
-  --       result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
-  --     end
-  --   end
-  --   -- Hand off the validated and stripped data array down to the UI renderer
-  --   original_diagnostic_handler(err, result, ctx, config)
-  -- end
 
   if clangd.install then require('nvimpio.clangd.config') end
 
