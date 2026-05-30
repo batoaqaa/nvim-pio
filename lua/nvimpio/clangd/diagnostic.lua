@@ -45,7 +45,7 @@ local function save_filter_database()
   end
 
   -- 🚀 SYNCHRONIZATION PIPELINE PIPING INTO BOILER.LUA
-  local boiler = require('nvimpio.clangd.boilerplate')
+  local boiler = require('nvimpio.boilerplate')
 
   -- Flatten our key dictionaries into sequential array strings
   boiler.remove = {}
