@@ -148,7 +148,7 @@ function M.manage_file_diagnostics_interactive()
           table.insert(block_options, {
             action = 'block_flag',
             id = unknown_arg,
-            display = string.format('🔨 Remove Flag from Compiler: [%s]', unknown_arg),
+            display = string.format('🔨 Remove: [%s]', unknown_arg),
           })
         end
       elseif code_name and code_name ~= '' then
@@ -157,7 +157,7 @@ function M.manage_file_diagnostics_interactive()
           table.insert(block_options, {
             action = 'block_code',
             id = code_name,
-            display = string.format('🔒 Suppress Code via .clangd: [%s] (%s)', code_name, msg),
+            display = string.format('🔒 Suppress: [%s] (%s)', code_name, msg),
           })
         end
       end
