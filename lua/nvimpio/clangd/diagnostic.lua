@@ -131,17 +131,17 @@ function M.manage_file_diagnostics_interactive()
       end
 
       -- 2. Extract string values safely using dedicated regex capturing groups
-      -- local unknown_arg = msg:match('argument%s*[\'"]?(%-[%w%-]+)[\'"]?')
-      -- or msg:match('option%s*[\'"]?(%-[%w%-]+)[\'"]?')
-      -- or msg:match('mean%s*[\'"]?(%-[%w%-]+)[\'"]?')
-      local unknown_arg = msg:match('argument%s*[\'"]?(%-.-)[\'"]?%s*')
-        or msg:match('option%s*[\'"]?(%-.-)[\'"]?%s*')
-        or msg:match('mean%s*[\'"]?(%-.-)[\'"]?%??$')
+      local unknown_arg = msg:match('argument%s*[\'"]?(%-[%w%-]+)[\'"]?')
+        or msg:match('option%s*[\'"]?(%-[%w%-]+)[\'"]?')
+        or msg:match('mean%s*[\'"]?(%-[%w%-]+)[\'"]?')
+      -- local unknown_arg = msg:match('argument%s*[\'"]?(%-.-)[\'"]?%s*')
+      --   or msg:match('option%s*[\'"]?(%-.-)[\'"]?%s*')
+      --   or msg:match('mean%s*[\'"]?(%-.-)[\'"]?%??$')
 
       -- Fallback route: if it is a driver flag error but text regex missed, fall back safely
       if is_driver_error and not unknown_arg then
-        -- unknown_arg = msg:match("'([%w%-]+)'") or msg:match("'(%-[%w%-]+)'") or '-mlongcalls'
-        unknown_arg = msg:match("'(%-.-)'") or '-mlongcalls'
+        unknown_arg = msg:match("'([%w%-]+)'") or msg:match("'(%-[%w%-]+)'") or '-mlongcalls'
+        -- unknown_arg = msg:match("'(%-.-)'") or '-mlongcalls'
       end
 
       -- 3. Run string sanitization steps ONLY if unknown_arg is guaranteed to be a valid string
