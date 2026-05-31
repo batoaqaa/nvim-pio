@@ -149,6 +149,7 @@ CompileFlags:
   Add:  [
     "-xc++",
     "-std=gnu++17",
+    "-ferror-limit=0",
     ]
 Diagnostics:
   Suppress:  [
