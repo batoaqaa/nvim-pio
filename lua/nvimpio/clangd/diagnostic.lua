@@ -196,6 +196,8 @@ function M.manage_file_diagnostics_interactive()
       end
 
       if choice.action == 'reset' then
+        pcall(vim.api.nvim_del_augroup_by_name, "NvimPioLiveSweepGroup")
+        pcall(vim.api.nvim_del_augroup_by_name, "NvimPioAutomationGroup")
         M.blocked_codes = {}
         M.removed_flags = {}
         save_filter_database()
