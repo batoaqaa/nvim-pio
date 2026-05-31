@@ -218,16 +218,13 @@ function M.manage_file_diagnostics_interactive()
       if not choice then
         save_filter_database()
         lspRestart()
-
-        -- 🚀 FORCE SYNCHRONOUS BUFFER RELOAD:
-        -- We wait a quick 100ms frame step for the LSP engine process to cycle,
-        -- then force a complete buffer reload to destroy clangd's in-memory cache.
-        vim.defer_fn(function()
-          if vim.api.nvim_buf_is_valid(current_buf) then
-            vim.cmd('checktime') -- Synch file modifications with the file system safely
-            vim.cmd('edit!') -- Forces a hard buffer refresh, clearing old errors instantly
-          end
-        end, 100)
+        -- force a complete buffer reload to destroy clangd's in-memory cache.
+        -- vim.defer_fn(function()
+        --   if vim.api.nvim_buf_is_valid(current_buf) then
+        --     vim.cmd('checktime') -- Synch file modifications with the file system safely
+        --     vim.cmd('edit!') -- Forces a hard buffer refresh, clearing old errors instantly
+        --   end
+        -- end, 100)
         return
       end
 
@@ -238,12 +235,12 @@ function M.manage_file_diagnostics_interactive()
         vim.notify('💥 Data wiped clean. Reverting back to original static settings.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
         lspRestart()
 
-        vim.defer_fn(function()
-          if vim.api.nvim_buf_is_valid(current_buf) then
-            vim.cmd('checktime')
-            vim.cmd('edit!')
-          end
-        end, 100)
+        -- vim.defer_fn(function()
+        --   if vim.api.nvim_buf_is_valid(current_buf) then
+        --     vim.cmd('checktime')
+        --     vim.cmd('edit!')
+        --   end
+        -- end, 100)
         return
       elseif choice.action == 'block_flag' then
         M.removed_flags[choice.id] = true
