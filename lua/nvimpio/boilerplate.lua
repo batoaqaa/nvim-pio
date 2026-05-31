@@ -140,6 +140,7 @@ boilerplate['.clangd_config.json'] = {
 }
 
 -- "-DCORE_MOCK", add
+-- "-ferror-limit=0", add
 -- "macro_too_many_args", suppress
 boilerplate['.clangd'] = {
   static = [[
@@ -151,7 +152,6 @@ CompileFlags:
   Add:  [
     "-xc++",
     "-std=gnu++17",
-    "-ferror-limit=0",
     ]
 Diagnostics:
   Suppress:  [
