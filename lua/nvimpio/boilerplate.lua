@@ -88,10 +88,11 @@ boilerplate['.clangd_config.json'] = {
   "cmd": [
     "clangd",
     "--enable-config",
-    "--limit-results=100",
+    "--limit-results=0",
     "--background-index=false",
     "--all-scopes-completion",
     "--clang-tidy",
+    "--clang-tidy-checks=-*",       -- OPTIONAL: If you want to disable Clang-Tidy entirely to isolate standard errors
     "--compile_args_from=filesystem",
     "--completion-parse=always",
     "--completion-style=detailed",

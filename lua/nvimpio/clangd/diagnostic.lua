@@ -62,6 +62,8 @@ M.save_from_cli = save_filter_database
 load_filter_database()
 
 function M.manage_file_diagnostics_interactive()
+  -- FORCE NEOVIM TO RE-PULL ALL DIAGNOSTICS FROM THE LSP REPOSITORY INSTANTLY
+  vim.diagnostic.show(nil, 0)
   local function open_dashboard_loop()
     local current_buf = vim.api.nvim_get_current_buf()
     local dashboard_items = {}
