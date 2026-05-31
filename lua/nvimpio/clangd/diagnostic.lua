@@ -128,6 +128,166 @@ load_filter_database()
 --   original_diagnostic_handler(err, result, ctx, config)
 -- end
 
+-- -- ====================================================================
+-- -- 4. UNIFIED COMPILER MANGLER DASHBOARD (BLOCK / UNBLOCK / RESET)
+-- -- ====================================================================
+-- function M.manage_file_diagnostics_interactive()
+--   local function open_dashboard_loop()
+--     local current_buf = vim.api.nvim_get_current_buf()
+--     local dashboard_items = {}
+--
+--     -- SECTION A: MASTER RESET OPTION
+--     local has_active_filters = false
+--     for _, _ in pairs(blocked_codes) do
+--       has_active_filters = true
+--       break
+--     end
+--     if not has_active_filters then
+--       for _, _ in pairs(removed_flags) do
+--         has_active_filters = true
+--         break
+--       end
+--     end
+--
+--     if has_active_filters then
+--       table.insert(dashboard_items, {
+--         action = 'reset',
+--         display = '💥 WIPE CURRENT DATA BACK TO FACTORY BOILER DEFAULTS',
+--       })
+--     end
+--
+--     -- SECTION B: LIVE ACTIVE COMPILER DIAGNOSTICS (THE BLOCK ZONE)
+--     local raw_diagnostics = {}
+--     for ns_id, ns_meta in pairs(vim.diagnostic.get_namespaces()) do
+--       if ns_meta.name and ns_meta.name:find('clangd') then
+--         raw_diagnostics = vim.diagnostic.get(current_buf, { namespace = ns_id })
+--         break
+--       end
+--     end
+--     if #raw_diagnostics == 0 then
+--       raw_diagnostics = vim.diagnostic.get(current_buf)
+--     end
+--
+--     local unique_active_entries = {}
+--     local block_options = {}
+--
+--     for _, diag in ipairs(raw_diagnostics) do
+--       local code_name = diag.code
+--       local msg = diag.message or ''
+--
+--       local unknown_arg = msg:match("Unknown argument:%s*'([^']+)'")
+--         or msg:match("unknown argument:%s*'([^']+)'")
+--         or msg:match("unsupported option%s*'([^']+)'")
+--
+--       if unknown_arg then
+--         if not removed_flags[unknown_arg] and not unique_active_entries[unknown_arg] then
+--           unique_active_entries[unknown_arg] = true
+--           table.insert(block_options, {
+--             action = 'block_flag',
+--             id = unknown_arg,
+--             display = string.format('🔨 Remove Flag from Compiler: [%s]', unknown_arg),
+--           })
+--         end
+--       elseif code_name and code_name ~= '' then
+--         if not blocked_codes[code_name] and not unique_active_entries[code_name] then
+--           unique_active_entries[code_name] = true
+--           table.insert(block_options, {
+--             action = 'block_code',
+--             id = code_name,
+--             display = string.format('🔒 Suppress Code via Dashboard: [%s] (%s)', code_name, msg),
+--           })
+--         end
+--       end
+--     end
+--
+--     table.sort(block_options, function(a, b)
+--       return a.display < b.display
+--     end)
+--     for _, opt in ipairs(block_options) do
+--       table.insert(dashboard_items, opt)
+--     end
+--
+--     -- SECTION C: CURRENTLY SUPPRESSED ITEMS (THE UNBLOCK ZONE)
+--     local unblock_options = {}
+--
+--     for flag, _ in pairs(removed_flags) do
+--       table.insert(unblock_options, {
+--         action = 'unblock_flag',
+--         id = flag,
+--         display = string.format('🔓 RESTORE Compiler Flag: [%s]', flag),
+--       })
+--     end
+--
+--     for code, _ in pairs(blocked_codes) do
+--       table.insert(unblock_options, {
+--         action = 'unblock_code',
+--         id = code,
+--         display = string.format('🔓 ACTIVATE Diagnostic Code: [%s]', code),
+--       })
+--     end
+--
+--     table.sort(unblock_options, function(a, b)
+--       return a.display < b.display
+--     end)
+--     for _, opt in ipairs(unblock_options) do
+--       table.insert(dashboard_items, opt)
+--     end
+--
+--     if #dashboard_items == 0 then
+--       vim.notify('✅ Complete Parity: No outstanding compilation exceptions found.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
+--       return
+--     end
+--
+--     local lspRestart = require('nvimpio.clangd.control').restart
+--     vim.ui.select(dashboard_items, {
+--       prompt = 'Unified Native .clangd Template Controller Dashboard',
+--       kind = 'nvimpio_clangd_mangler',
+--       format_item = function(item)
+--         return item.display
+--       end,
+--     }, function(choice)
+--       if not choice then
+--         save_filter_database()
+--         -- vim.cmd('LspRestart clangd')
+--         lspRestart()
+--         return
+--       end
+--
+--       if choice.action == 'reset' then
+--         blocked_codes = {}
+--         removed_flags = {}
+--         save_filter_database()
+--         vim.notify('💥 Data wiped clean. Reverting back to original static settings.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
+--         -- vim.cmd('LspRestart clangd')
+--         lspRestart()
+--         return
+--       elseif choice.action == 'block_flag' then
+--         removed_flags[choice.id] = true
+--       elseif choice.action == 'block_code' then
+--         blocked_codes[choice.id] = true
+--       elseif choice.action == 'unblock_flag' then
+--         removed_flags[choice.id] = nil
+--       elseif choice.action == 'unblock_code' then
+--         blocked_codes[choice.id] = nil
+--       end
+--
+--       save_filter_database()
+--
+--       -- Instantly refresh local cache elements for immediate feedback loop
+--      -- local filtered = M.clean_diagnostics_pipeline(raw_diagnostics)
+--       -- for ns_id, _ in pairs(vim.diagnostic.get_namespaces()) do
+--       --   vim.diagnostic.set(ns_id, current_buf, filtered)
+--       -- end
+--
+--       vim.schedule(function()
+--         open_dashboard_loop()
+--       end)
+--     end)
+--   end
+--
+--   open_dashboard_loop()
+-- end
+
 -- ====================================================================
 -- 4. UNIFIED COMPILER MANGLER DASHBOARD (BLOCK / UNBLOCK / RESET)
 -- ====================================================================
@@ -138,12 +298,12 @@ function M.manage_file_diagnostics_interactive()
 
     -- SECTION A: MASTER RESET OPTION
     local has_active_filters = false
-    for _, _ in pairs(blocked_codes) do
+    for _, _ in pairs(M.blocked_codes) do
       has_active_filters = true
       break
     end
     if not has_active_filters then
-      for _, _ in pairs(removed_flags) do
+      for _, _ in pairs(M.removed_flags) do
         has_active_filters = true
         break
       end
@@ -175,12 +335,11 @@ function M.manage_file_diagnostics_interactive()
       local code_name = diag.code
       local msg = diag.message or ''
 
-      local unknown_arg = msg:match("Unknown argument:%s*'([^']+)'")
-        or msg:match("unknown argument:%s*'([^']+)'")
-        or msg:match("unsupported option%s*'([^']+)'")
+      -- Robust extraction regex to cleanly pull bad driver argument flags
+      local unknown_arg = msg:match("Unknown argument%s*'([^']+)'") or msg:match("unknown argument%s*'([^']+)'") or msg:match("unsupported option%s*'([^']+)'")
 
       if unknown_arg then
-        if not removed_flags[unknown_arg] and not unique_active_entries[unknown_arg] then
+        if not M.removed_flags[unknown_arg] and not unique_active_entries[unknown_arg] then
           unique_active_entries[unknown_arg] = true
           table.insert(block_options, {
             action = 'block_flag',
@@ -189,7 +348,7 @@ function M.manage_file_diagnostics_interactive()
           })
         end
       elseif code_name and code_name ~= '' then
-        if not blocked_codes[code_name] and not unique_active_entries[code_name] then
+        if not M.blocked_codes[code_name] and not unique_active_entries[code_name] then
           unique_active_entries[code_name] = true
           table.insert(block_options, {
             action = 'block_code',
@@ -210,7 +369,7 @@ function M.manage_file_diagnostics_interactive()
     -- SECTION C: CURRENTLY SUPPRESSED ITEMS (THE UNBLOCK ZONE)
     local unblock_options = {}
 
-    for flag, _ in pairs(removed_flags) do
+    for flag, _ in pairs(M.removed_flags) do
       table.insert(unblock_options, {
         action = 'unblock_flag',
         id = flag,
@@ -218,7 +377,7 @@ function M.manage_file_diagnostics_interactive()
       })
     end
 
-    for code, _ in pairs(blocked_codes) do
+    for code, _ in pairs(M.blocked_codes) do
       table.insert(unblock_options, {
         action = 'unblock_code',
         id = code,
@@ -248,36 +407,33 @@ function M.manage_file_diagnostics_interactive()
     }, function(choice)
       if not choice then
         save_filter_database()
-        -- vim.cmd('LspRestart clangd')
         lspRestart()
         return
       end
 
       if choice.action == 'reset' then
-        blocked_codes = {}
-        removed_flags = {}
+        M.blocked_codes = {}
+        M.removed_flags = {}
         save_filter_database()
         vim.notify('💥 Data wiped clean. Reverting back to original static settings.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
-        -- vim.cmd('LspRestart clangd')
         lspRestart()
         return
       elseif choice.action == 'block_flag' then
-        removed_flags[choice.id] = true
+        M.removed_flags[choice.id] = true
       elseif choice.action == 'block_code' then
-        blocked_codes[choice.id] = true
+        M.blocked_codes[choice.id] = true
       elseif choice.action == 'unblock_flag' then
-        removed_flags[choice.id] = nil
+        M.removed_flags[choice.id] = nil
       elseif choice.action == 'unblock_code' then
-        blocked_codes[choice.id] = nil
+        M.blocked_codes[choice.id] = nil
       end
 
       save_filter_database()
 
-      -- Instantly refresh local cache elements for immediate feedback loop
-      -- local filtered = M.clean_diagnostics_pipeline(raw_diagnostics)
-      -- for ns_id, _ in pairs(vim.diagnostic.get_namespaces()) do
-      --   vim.diagnostic.set(ns_id, current_buf, filtered)
-      -- end
+      local filtered = M.clean_diagnostics_pipeline(raw_diagnostics)
+      for ns_id, _ in pairs(vim.diagnostic.get_namespaces()) do
+        vim.diagnostic.set(ns_id, current_buf, filtered)
+      end
 
       vim.schedule(function()
         open_dashboard_loop()
