@@ -226,7 +226,7 @@ function M.getUnknownArgsCli(from)
   -- Create a unique namespace container for our background event listener
   local au_group = vim.api.nvim_create_augroup('NvimPioAutomationGroup', { clear = true })
 
-  -- 3. Define the core processing payload
+  -- 3. Define the automated in-memory inspection loop targeting our explicit buffer ID
   local function run_memory_analysis_pass()
     local raw_nodes = vim.diagnostic.get(target_buf)
     local new_discoveries = false
@@ -235,20 +235,26 @@ function M.getUnknownArgsCli(from)
       local msg = diag.message or ''
       local code_name = diag.code
 
-      -- Pass A: Object-driven Unknown Flag Catching
-      local unknown_arg = msg:match('argument%s*[\'"]?(%-[%w%-]+)[\'"]?')
-        or msg:match('option%s*[\'"]?(%-[%w%-]+)[\'"]?')
-        or msg:match('mean%s*[\'"]?(%-[%w%-]+)[\'"]?')
-
-      if unknown_arg then
+      -- Pass A: Object-driven MULTI-FLAG Catching (Completely decoupled)
+      -- Using gmatch sweeps the entire text string to extract all matching compiler flags at once
+      for unknown_arg in string.gmatch(msg, 'argument%s*[\'"]?(%-[%w%-]+)[\'"]?') do
         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
         if not diagnostic.removed_flags[clean_flag] then
           diagnostic.removed_flags[clean_flag] = true
           new_discoveries = true
         end
+      end
 
-      -- Pass B: Object-driven Diagnostic Code Suppression
-      elseif code_name and type(code_name) == 'string' and code_name ~= '' then
+      for unknown_arg in string.gmatch(msg, 'option%s*[\'"]?(%-[%w%-]+)[\'"]?') do
+        local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
+        if not diagnostic.removed_flags[clean_flag] then
+          diagnostic.removed_flags[clean_flag] = true
+          new_discoveries = true
+        end
+      end
+
+      -- Pass B: Object-driven Diagnostic Code Suppression (Runs concurrently, no elseif blocking)
+      if code_name and type(code_name) == 'string' and code_name ~= '' then
         if not diagnostic.blocked_codes[code_name] then
           diagnostic.blocked_codes[code_name] = true
           new_discoveries = true
@@ -258,13 +264,9 @@ function M.getUnknownArgsCli(from)
 
     -- 4. Execution Flow Branching
     if new_discoveries then
-      -- Write current metrics out to your persistent files (.filter.json & .clangd)
       diagnostic.save_from_cli()
-
-      -- Restart the language server instance to inject our updated filters configuration
       M.restart()
 
-      -- Force an automated code buffer refresh to prompt the next compilation pass
       vim.defer_fn(function()
         if vim.api.nvim_buf_is_valid(target_buf) then
           vim.api.nvim_buf_call(target_buf, function()
@@ -274,13 +276,10 @@ function M.getUnknownArgsCli(from)
         end
       end, 150)
     else
-      -- Zero new errors returned across the current compilation run context.
-      -- Tear down our active listener group so we don't trigger infinite loops during normal editing.
       vim.api.nvim_del_augroup_by_id(au_group)
       OS.notify(from .. ' Clangd Automation ✅ Successfully generated and synchronized all files.')
     end
   end
-
   -- 5. EVENT HOOK TRIGGER: Bind our logic directly to Neovim's diagnostic publisher
   vim.api.nvim_create_autocmd('DiagnosticChanged', {
     group = au_group,
