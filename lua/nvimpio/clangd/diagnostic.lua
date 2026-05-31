@@ -101,7 +101,7 @@ function M.manage_file_diagnostics_interactive()
     if has_active_filters then
       table.insert(dashboard_items, {
         action = 'reset',
-        display = '💥 WIPE CURRENT DATA BACK TO FACTORY BOILER DEFAULTS',
+        display = '💥 Unblock all',
       })
     end
 
@@ -152,7 +152,7 @@ function M.manage_file_diagnostics_interactive()
           table.insert(block_options, {
             action = 'block_flag',
             id = unknown_arg,
-            display = string.format('🔨 Remove Flag from Compiler: [%s]', unknown_arg),
+            display = string.format('🔨 Remove compiler flag: [%s]', unknown_arg),
           })
         end
       elseif code_name ~= '' then
@@ -161,7 +161,7 @@ function M.manage_file_diagnostics_interactive()
           table.insert(block_options, {
             action = 'block_code',
             id = code_name,
-            display = string.format('🔒 Suppress Code via Dashboard: [%s] (%s)', code_name, msg),
+            display = string.format('🔒 Suppress Code: [%s] (%s)', code_name, msg),
           })
         end
       end
