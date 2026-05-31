@@ -4,7 +4,7 @@ local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 local diagnostic = require('nvimpio.clangd.diagnostic')
 
--- stylua: ignore start
+--- stylua: ignore start
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
 --stylua: ignore
@@ -204,14 +204,13 @@ function M.setFormatStyle()
   end)
 end
 
-
 -- pio/control 160
 -- pio/upkeep 170, 1001, 1178
 -- INFO: get_clangd_unknown_args
 --------------------------------------------------------------------------------
 ---@param from string
 function M.getUnknownArgsCli(from)
-  from = (type(from)=='string' and from ~= '') and from or 'PIO: '
+  from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
   -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
   boilerplate.args = {}
 
@@ -229,7 +228,6 @@ function M.getUnknownArgsCli(from)
     check_file = vim.uv.cwd() .. '/src/main.cpp'
   end
 
-
   -- 2. Define the recursive background parsing engine
   local function run_analysis_pass(clangdCmd)
     local cmd = {
@@ -244,9 +242,6 @@ function M.getUnknownArgsCli(from)
       local output = (obj.stdout or '') .. (obj.stderr or '')
       local new_discoveries = false
 
-      diagnostic.removed_flags = {}
-      diagnostic.blocked_codes = {}
-
       -- Pass A: Parse Unknown CLI Driver Arguments
       if not string.find(output, '%.clang%-format') then
         for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
@@ -257,17 +252,26 @@ function M.getUnknownArgsCli(from)
           end
         end
       end
-      -- Captures errors that look like: [error_code] "message" or similar diagnostic patterns
-      for code in string.gmatch(output, '%[([^%]]+)%]') do
-        -- Ensure we ignore generic logs and capture true compiler code keywords
-        if code ~= 'error' and code ~= 'warning' and code ~= 'info' then
-          if not diagnostic.blocked_codes[code] then
-            diagnostic.blocked_codes[code] = true
-            new_discoveries = true
+
+      -- Pass B: Parse Preprocessor / Cascading Structural Error Codes
+      -- Safely matches error/warning lines ending with the error code block: e.g. [pp_macro_not_found]
+      for diagnostic_line in string.gmatch(output, '([^\r\n]+)') do
+        -- 1. Ensure the line is actually an error or warning message block
+        if string.find(diagnostic_line, 'error:') or string.find(diagnostic_line, 'warning:') then
+          -- 2. Extract ONLY the error trailing bracket code right at the end of the line
+          local code = diagnostic_line:match('%[([^%]]+)%]$')
+
+          if code then
+            -- Clean out common generic tags or accidental leakage
+            if code ~= 'error' and code ~= 'warning' and not code:find('^%d%d:') then
+              if not diagnostic.blocked_codes[code] then
+                diagnostic.blocked_codes[code] = true
+                new_discoveries = true
+              end
+            end
           end
         end
       end
-
       -- 3. Loop Evaluation Layer
       if new_discoveries then
         -- Sync the newly discovered items out to .filter.json and write updated configuration files
@@ -289,15 +293,11 @@ function M.getUnknownArgsCli(from)
     end)
   end
 
--- Start the automated loop pipeline
-M.clangdIntall(function(clangdCmd)
-  OS.notify('Automating compiler discovery chain for: ' .. vim.fs.basename(check_file))
-  run_analysis_pass(clangdCmd)
-end, 'clangd')
-
-
-
-
+  -- Start the automated loop pipeline
+  M.clangdIntall(function(clangdCmd)
+    OS.notify('Automating compiler discovery chain for: ' .. vim.fs.basename(check_file))
+    run_analysis_pass(clangdCmd)
+  end, 'clangd')
 
   -- -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
   -- M.clangdIntall(function(clangdCmd)
@@ -359,8 +359,8 @@ end, 'clangd')
   --         end
   --       end
   --
-  --       -- Explicitly call your saving pipeline. 
-  --       -- This automatically maps diagnostic.removed_flags to boiler.remove, 
+  --       -- Explicitly call your saving pipeline.
+  --       -- This automatically maps diagnostic.removed_flags to boiler.remove,
   --       -- writes .filter.json, and generates a perfect .clangd file.
   --       if updated_count > 0 then
   --         -- Accessing the local helper via an internal function exposure (See Step 2)
@@ -382,12 +382,11 @@ end, 'clangd')
   -- end, 'clangd')
 end
 
-
 -- INFO: get_clangd_unknown_args
 --------------------------------------------------------------------------------
 ---@param from string
 function M.getUnknownArgsGui(from)
-  from = (type(from)=='string' and from ~= '') and from or 'PIO: '
+  from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
   -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
   boilerplate.args = {}
 
@@ -410,7 +409,12 @@ function M.getUnknownArgsGui(from)
     OS.notify('getting unknown arguments for file ' .. check_file)
     --------------------------------------------------------------------------------
     -- gui
-    local cmd_str = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error --enable-config --fallback-style=llvm --compile_args_from=filesystem', clangdCmd, check_file, _G.metadata.query_driver)
+    local cmd_str = string.format(
+      '%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error --enable-config --fallback-style=llvm --compile_args_from=filesystem',
+      clangdCmd,
+      check_file,
+      _G.metadata.query_driver
+    )
     local pio = require('nvimpio.pio.upkeep')
     local cb = function(status)
       pio.handleClangdCheck(status, function(success, args_table)
@@ -424,7 +428,7 @@ function M.getUnknownArgsGui(from)
         end
       end)
     end
-    pio.run_sequence({ cmnds = { cmd_str }, cb = cb, from = string.format('%s clangdCmd' , from) })
+    pio.run_sequence({ cmnds = { cmd_str }, cb = cb, from = string.format('%s clangdCmd', from) })
   end, 'clangd')
 end
 --------------------------------------------------------------------------------
