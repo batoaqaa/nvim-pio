@@ -210,13 +210,15 @@ function M.getUnknownArgsCli(from)
 
   -- 1. Ensure target buffer and file are active and tracking
   local current_buf = vim.api.nvim_get_current_buf()
-  local file_name = vim.api.nvim_buf_get_name(current_buf)
+  local raw_file_name = vim.api.nvim_buf_get_name(current_buf)
 
-  if file_name == '' or not (file_name:match('%.cpp$') or file_name:match('%.c$')) then
-    OS.notify('Automation aborted: Active buffer is not a valid C++ file.')
+  -- Normalize paths cleanly (fixes Windows slashes and drive letters)
+  local file_name = vim.fs.normalize(raw_file_name):gsub('%s+$', ''):lower()
+
+  if file_name == '' or not (file_name:match('%.cpp$') or file_name:match('%.c$') or file_name:match('%.hpp$') or file_name:match('%.h$')) then
+    OS.notify('Automation aborted: Active file (' .. vim.fs.basename(raw_file_name) .. ') is not a valid C/C++ source node.')
     return
   end
-
   -- 2. Define the automated in-memory inspection routine
   local function run_memory_analysis_pass()
     -- Pull structured data nodes generated natively by the LSP client session
