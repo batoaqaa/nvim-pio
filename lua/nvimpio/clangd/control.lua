@@ -204,8 +204,9 @@ function M.setFormatStyle()
   end)
 end
 
+local diagnosticClangd = require('nvimpio.clangd.diagnosticAutoClangd')
 ---@param from string
-function M.getUnknownArgsCli(from)
+function M.blockUnknownArgsCli(from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
   -- 1. TARGET ACTIVE BUFFER: Run the automation on the file you are currently looking at
@@ -235,24 +236,24 @@ function M.getUnknownArgsCli(from)
       -- Pass A: Multi-Flag Extractor (Decoupled & colon-immune via %p?)
       for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
-        if not diagnostic.removed_flags[clean_flag] then
-          diagnostic.removed_flags[clean_flag] = true
+        if not diagnosticClangd.removed_flags[clean_flag] then
+          diagnosticClangd.removed_flags[clean_flag] = true
           new_discoveries = true
         end
       end
 
       for unknown_arg in string.gmatch(msg, 'option%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
-        if not diagnostic.removed_flags[clean_flag] then
-          diagnostic.removed_flags[clean_flag] = true
+        if not diagnosticClangd.removed_flags[clean_flag] then
+          diagnosticClangd.removed_flags[clean_flag] = true
           new_discoveries = true
         end
       end
 
       -- Pass B: Code Suppression (Pulls codes like pp_file_not_found out of the active engine memory)
       if code_name and type(code_name) == 'string' and code_name ~= '' then
-        if not diagnostic.blocked_codes[code_name] then
-          diagnostic.blocked_codes[code_name] = true
+        if not diagnosticClangd.blocked_codes[code_name] then
+          diagnosticClangd.blocked_codes[code_name] = true
           new_discoveries = true
         end
       end
@@ -263,7 +264,7 @@ function M.getUnknownArgsCli(from)
       OS.notify('Layer discovered! Updating .clangd and cycling compiler targets...')
 
       -- Save accumulated states directly to .filter.json and rewrite the updated .clangd file
-      diagnostic.save_from_cli()
+      diagnosticClangd.save_from_cli()
 
       -- Kill and restart clangd
       M.restart()
@@ -328,232 +329,93 @@ function M.getUnknownArgsCli(from)
   run_live_analysis_pass()
 end
 
--- -- last
---
--- ---@param from string
--- function M.getUnknownArgsCli(from)
---   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
---
---   -- 1. FIND: Locate the source file on the hard drive
---   local check_file = vim.fs.find(function(name)
---     return name:match('%.cpp$') or name:match('%.c$')
---   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1] -- Fixed: Added trailing [1] to unpack the table array
---
---   if not check_file then
---     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
---     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
---     check_file = vim.uv.cwd() .. '/src/main.cpp'
---   end
---
---   -- 2. BRIDGE LAYER: Load the target file into a background memory register
---   local target_buf = vim.fn.bufadd(check_file)
---   vim.fn.bufload(target_buf)
---
---   -- Create a unique namespace container for our background event listener
---   local au_group = vim.api.nvim_create_augroup('NvimPioAutomationGroup', { clear = true })
---
---   -- 3. Define the automated in-memory inspection loop targeting our explicit buffer ID
---   local function run_memory_analysis_pass()
---     local raw_nodes = vim.diagnostic.get(target_buf)
---     local new_discoveries = false
---
---     for _, diag in ipairs(raw_nodes) do
---       local msg = diag.message or ''
---       local code_name = diag.code
---
---       -- Pass A: Object-driven MULTI-FLAG Catching (Completely decoupled & colon-immune)
---       -- Using '%p?' ensures that strings like 'argument: -flag' or 'argument -flag' match perfectly
---       for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
---         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
---         if not diagnostic.removed_flags[clean_flag] then
---           diagnostic.removed_flags[clean_flag] = true
---           new_discoveries = true
---         end
---       end
---
---       for unknown_arg in string.gmatch(msg, 'option%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
---         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
---         if not diagnostic.removed_flags[clean_flag] then
---           diagnostic.removed_flags[clean_flag] = true
---           new_discoveries = true
---         end
---       end
---       -- Pass B: Object-driven Diagnostic Code Suppression (Runs concurrently, no elseif blocking)
---       if code_name and type(code_name) == 'string' and code_name ~= '' then
---         if not diagnostic.blocked_codes[code_name] then
---           diagnostic.blocked_codes[code_name] = true
---           new_discoveries = true
---         end
---       end
---     end
---     -- 4. Execution Flow Branching
---     if new_discoveries then
---       diagnostic.save_from_cli()
---       M.restart()
---
---       -- Force a buffer sync so the fresh LSP instance reads the updated files on disk
---       vim.defer_fn(function()
---         if vim.api.nvim_buf_is_valid(target_buf) then
---           vim.api.nvim_buf_call(target_buf, function()
---             vim.cmd('checktime')
---             vim.cmd('edit!')
---           end)
---         end
---       end, 150)
---     else
---       -- Verify if the file is truly clean before killing the automation loop.
---       -- If there are still active errors/warnings, do NOT delete the group yet—
---       -- wait for the new server instance to finish publishing its diagnostic array.
---       local has_errors = false
---       for _, node in ipairs(raw_nodes) do
---         if node.severity == vim.diagnostic.severity.ERROR or node.severity == vim.diagnostic.severity.WARN then
---           has_errors = true
---           break
---         end
---       end
---
---       if not has_errors and #raw_nodes == 0 then
---         vim.api.nvim_del_augroup_by_id(au_group)
---         OS.notify(from .. ' Clangd Automation ✅ All compilation layers cleared completely!')
---       end
---     end
---   end
---
---   -- 5. EVENT HOOK TRIGGER: Debounce the publisher loop
---   --    Using a tiny timer ensures that rapid, empty diagnostic state shifts
---   --    caused by LSP restarts are ignored, allowing the real data pass to run.
---   local debounce_timer = nil
---   vim.api.nvim_create_autocmd('DiagnosticChanged', {
---     group = au_group,
---     buffer = target_buf,
---     callback = function()
---       if debounce_timer then
---         vim.uv.timer_stop(debounce_timer)
---       end
---       debounce_timer = vim.uv.new_timer()
---       if debounce_timer then
---         debounce_timer:start(
---           300,
---           0,
---           vim.schedule_wrap(function()
---             run_memory_analysis_pass()
---           end)
---         )
---       end
---     end,
---   })
---
---   -- Force-initialize an immediate workspace baseline file save
---   diagnostic.save_from_cli()
---   OS.notify('Background compiler automation session running for: ' .. vim.fs.basename(check_file))
--- end
+-- pio/control 160
+-- pio/upkeep 170, 1001, 1178
+-- INFO: get_clangd_unknown_args
+--------------------------------------------------------------------------------
+---@param from string
+function M.getUnknownArgsCli(from)
+  from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
+  -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
+  boilerplate.args = {}
 
--- -- pio/control 160
--- -- pio/upkeep 170, 1001, 1178
--- -- INFO: get_clangd_unknown_args
--- --------------------------------------------------------------------------------
--- ---@param from string
--- function M.getUnknownArgsCli(from)
---   from = (type(from)=='string' and from ~= '') and from or 'PIO: '
---   -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
---   boilerplate.args = {}
---
---   -- Strip out any previous dynamic blocks to prevent endless growing
---   boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
---
---   -- 2. FIND: Grab the first .cpp or .c file in /src
---   local check_file = vim.fs.find(function(name)
---     return name:match('%.cpp$') or name:match('%.c$')
---   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
---
---   if not check_file then
---     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
---     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
---     check_file = vim.uv.cwd() .. '/src/main.cpp'
---   end
---
---   -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
---   M.clangdIntall(function(clangdCmd)
---
---     -- local output_chunks = {}
---     -- local clangd_cmd = { "clangd", "--compile-commands-dir=.", "--check=" .. check_file, "--log=error" }
---     -- -- 3. Run in a completely isolated background thread pool
---     -- vim.system(clangd_cmd, {
---     --   text = true,
---     --   -- ⏳ THE BULLETPROOF TIMEOUT: Native OS process monitoring.
---     --   -- Sets a generous maximum hard cutoff time limit (e.g., 60 seconds)
---     --   -- to comfortably accommodate slow platform installations or library downloads.
---     --   timeout = 60000,
---     --   stdout = function(_, data) if data then table.insert(output_chunks, data) end end,
---     --   stderr = function(_, data) if data then table.insert(output_chunks, data) end end,
---     -- }, function(obj)
---     --   vim.schedule(function()
---     --   end)
---     -- end)
---
---     OS.notify('getting unknown arguments for file ' .. check_file)
---     --------------------------------------------------------------------------------
---     -- cli
---     local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--query-driver=**', '--log=error' }
---     -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
---     vim.system(cmd, { text = true }, function(obj)
---       vim.schedule(function()
---         local output = (obj.stdout or '') .. (obj.stderr or '')
---         local args_table = {}
---         local seen = {} -- 🌟 Look-up filter to prevent duplicate flags
---
---         -- Extract anything clangd reports as an 'unknown argument'
---         if not string.find(output, "%.clang%-format") then
---           for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
---             local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
---
---             -- ✅ Only save the flag if we haven't encountered it yet on this run
---             if not seen[clean_flag] then
---               seen[clean_flag] = true
---               table.insert(args_table, clean_flag)
---             end
---           end
---         end
---         --------------------------------------------------------------------------------
---         -- 4. UPDATE: Integrate into the persistence database layer
---
---         -- The diagnostic script tracks flags as keys to prevent array duplication:
---         -- e.g., diagnostic.removed_flags["-mlongcalls"] = true
---
---         diagnostic.removed_flags = {}
---         local updated_count = 0
---         for arg, _ in pairs(seen) do
---           -- Remove quotes if string.gmatch wrapped them, keeping the raw flag
---           local raw_flag = arg:gsub('^"', ''):gsub('"$', '')
---
---           if not diagnostic.removed_flags[raw_flag] then
---             diagnostic.removed_flags[raw_flag] = true
---             updated_count = updated_count + 1
---           end
---         end
---
---         -- Explicitly call your saving pipeline.
---         -- This automatically maps diagnostic.removed_flags to boiler.remove,
---         -- writes .filter.json, and generates a perfect .clangd file.
---         if updated_count > 0 then
---           -- Accessing the local helper via an internal function exposure (See Step 2)
---           diagnostic.save_from_cli()
---           OS.notify(from .. ' Clangd ✅Integrated ' .. updated_count .. ' new flags globally.')
---         else
---           OS.notify(from .. ' Clangd ✅No new unique flags detected.')
---         end
---
---         M.restart()
---         -- -- 4. UPDATE: Rebuild with the new discovered flags
---         -- boilerplate.args = args_table
---         -- boilerplate_gen('.clangd', vim.g.platformioRootDir)
---         --
---         -- OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
---         -- M.restart()
---       end)
---     end)
---   end, 'clangd')
--- end
+  -- Strip out any previous dynamic blocks to prevent endless growing
+  boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
+
+  -- 2. FIND: Grab the first .cpp or .c file in /src
+  local check_file = vim.fs.find(function(name)
+    return name:match('%.cpp$') or name:match('%.c$')
+  end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
+
+  if not check_file then
+    boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+    boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+    check_file = vim.uv.cwd() .. '/src/main.cpp'
+  end
+
+  -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
+  M.clangdIntall(function(clangdCmd)
+    OS.notify('getting unknown arguments for file ' .. check_file)
+    --------------------------------------------------------------------------------
+    -- cli
+    local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--query-driver=**', '--log=error' }
+    -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
+    vim.system(cmd, { text = true }, function(obj)
+      vim.schedule(function()
+        local output = (obj.stdout or '') .. (obj.stderr or '')
+        local args_table = {}
+        local seen = {} -- 🌟 Look-up filter to prevent duplicate flags
+
+        -- Extract anything clangd reports as an 'unknown argument'
+        if not string.find(output, '%.clang%-format') then
+          for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
+            local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
+
+            -- ✅ Only save the flag if we haven't encountered it yet on this run
+            if not seen[clean_flag] then
+              seen[clean_flag] = true
+              table.insert(args_table, clean_flag)
+            end
+          end
+        end
+        --------------------------------------------------------------------------------
+        -- 4. UPDATE: Integrate into the persistence database layer
+        -- The diagnostic script tracks flags as keys to prevent array duplication:
+        -- e.g., diagnostic.removed_flags["-mlongcalls"] = true
+        diagnostic.removed_flags = {}
+        local updated_count = 0
+        for arg, _ in pairs(seen) do
+          -- Remove quotes if string.gmatch wrapped them, keeping the raw flag
+          local raw_flag = arg:gsub('^"', ''):gsub('"$', '')
+
+          if not diagnostic.removed_flags[raw_flag] then
+            diagnostic.removed_flags[raw_flag] = true
+            updated_count = updated_count + 1
+          end
+        end
+
+        -- Explicitly call your saving pipeline.
+        -- This automatically maps diagnostic.removed_flags to boiler.remove,
+        -- writes .filter.json, and generates a perfect .clangd file.
+        if updated_count > 0 then
+          -- Accessing the local helper via an internal function exposure (See Step 2)
+          diagnostic.save_from_cli()
+          OS.notify(from .. ' Clangd ✅Integrated ' .. updated_count .. ' new flags globally.')
+        else
+          OS.notify(from .. ' Clangd ✅No new unique flags detected.')
+        end
+
+        M.restart()
+        -- -- 4. UPDATE: Rebuild with the new discovered flags
+        -- boilerplate.args = args_table
+        -- boilerplate_gen('.clangd', vim.g.platformioRootDir)
+        --
+        -- OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
+        -- M.restart()
+      end)
+    end)
+  end, 'clangd')
+end
 
 -- INFO: get_clangd_unknown_args
 --------------------------------------------------------------------------------
