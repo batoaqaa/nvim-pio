@@ -139,6 +139,8 @@ boilerplate['.clangd_config.json'] = {
 ]],
 }
 
+-- "-DCORE_MOCK", add
+-- "macro_too_many_args", suppress
 boilerplate['.clangd'] = {
   static = [[
 ---
@@ -150,11 +152,9 @@ CompileFlags:
     "-xc++",
     "-std=gnu++17",
     "-ferror-limit=0",
-    "-DCORE_MOCK",
     ]
 Diagnostics:
   Suppress:  [
-    "macro_too_many_args",
     ]
   ClangTidy:
     Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
