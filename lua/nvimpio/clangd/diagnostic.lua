@@ -214,9 +214,20 @@ function M.manage_file_diagnostics_interactive()
         return item.display
       end,
     }, function(choice)
+      -- 🌟 Escape/Cancel Route: User hits Esc to apply changes
       if not choice then
         save_filter_database()
         lspRestart()
+
+        -- 🚀 FORCE SYNCHRONOUS BUFFER RELOAD:
+        -- We wait a quick 100ms frame step for the LSP engine process to cycle,
+        -- then force a complete buffer reload to destroy clangd's in-memory cache.
+        vim.defer_fn(function()
+          if vim.api.nvim_buf_is_valid(current_buf) then
+            vim.cmd('checktime') -- Synch file modifications with the file system safely
+            vim.cmd('edit!') -- Forces a hard buffer refresh, clearing old errors instantly
+          end
+        end, 100)
         return
       end
 
@@ -226,6 +237,13 @@ function M.manage_file_diagnostics_interactive()
         save_filter_database()
         vim.notify('💥 Data wiped clean. Reverting back to original static settings.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
         lspRestart()
+
+        vim.defer_fn(function()
+          if vim.api.nvim_buf_is_valid(current_buf) then
+            vim.cmd('checktime')
+            vim.cmd('edit!')
+          end
+        end, 100)
         return
       elseif choice.action == 'block_flag' then
         M.removed_flags[choice.id] = true
@@ -243,6 +261,43 @@ function M.manage_file_diagnostics_interactive()
         open_dashboard_loop()
       end)
     end)
+    -- local lspRestart = require('nvimpio.clangd.control').restart
+    -- vim.ui.select(dashboard_items, {
+    --   prompt = 'Unified Native .clangd Template Controller Dashboard',
+    --   kind = 'nvimpio_clangd_mangler',
+    --   format_item = function(item)
+    --     return item.display
+    --   end,
+    -- }, function(choice)
+    --   if not choice then
+    --     save_filter_database()
+    --     lspRestart()
+    --     return
+    --   end
+    --
+    --   if choice.action == 'reset' then
+    --     M.blocked_codes = {}
+    --     M.removed_flags = {}
+    --     save_filter_database()
+    --     vim.notify('💥 Data wiped clean. Reverting back to original static settings.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
+    --     lspRestart()
+    --     return
+    --   elseif choice.action == 'block_flag' then
+    --     M.removed_flags[choice.id] = true
+    --   elseif choice.action == 'block_code' then
+    --     M.blocked_codes[choice.id] = true
+    --   elseif choice.action == 'unblock_flag' then
+    --     M.removed_flags[choice.id] = nil
+    --   elseif choice.action == 'unblock_code' then
+    --     M.blocked_codes[choice.id] = nil
+    --   end
+    --
+    --   save_filter_database()
+    --
+    --   vim.schedule(function()
+    --     open_dashboard_loop()
+    --   end)
+    -- end)
   end
 
   open_dashboard_loop()
