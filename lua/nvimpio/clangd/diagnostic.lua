@@ -274,10 +274,10 @@ function M.manage_file_diagnostics_interactive()
       save_filter_database()
 
       -- Instantly refresh local cache elements for immediate feedback loop
-      local filtered = M.clean_diagnostics_pipeline(raw_diagnostics)
-      for ns_id, _ in pairs(vim.diagnostic.get_namespaces()) do
-        vim.diagnostic.set(ns_id, current_buf, filtered)
-      end
+      -- local filtered = M.clean_diagnostics_pipeline(raw_diagnostics)
+      -- for ns_id, _ in pairs(vim.diagnostic.get_namespaces()) do
+      --   vim.diagnostic.set(ns_id, current_buf, filtered)
+      -- end
 
       vim.schedule(function()
         open_dashboard_loop()
