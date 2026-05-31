@@ -208,10 +208,10 @@ end
 function M.getUnknownArgsCli(from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
-  -- 1. FIND: Grab the first .cpp or .c file on the hard drive inside /src
+  -- 1. FIND: Locate the source file on the hard drive
   local check_file = vim.fs.find(function(name)
     return name:match('%.cpp$') or name:match('%.c$')
-  end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
+  end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1] -- Fixed: Added trailing [1] to unpack the table array
 
   if not check_file then
     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
@@ -219,14 +219,15 @@ function M.getUnknownArgsCli(from)
     check_file = vim.uv.cwd() .. '/src/main.cpp'
   end
 
-  -- 2. BRIDGE LAYER: Programmatically fetch or load the file into a background buffer
-  --    This converts your hard drive string path into a valid, addressable Neovim buffer ID node.
+  -- 2. BRIDGE LAYER: Load the target file into a background memory register
   local target_buf = vim.fn.bufadd(check_file)
-  vim.fn.bufload(target_buf) -- Forces Neovim to initialize the file payload in memory
+  vim.fn.bufload(target_buf)
 
-  -- 3. Define the automated in-memory inspection loop targeting our explicit buffer ID
+  -- Create a unique namespace container for our background event listener
+  local au_group = vim.api.nvim_create_augroup('NvimPioAutomationGroup', { clear = true })
+
+  -- 3. Define the core processing payload
   local function run_memory_analysis_pass()
-    -- Pull structured diagnostic data objects directly from the targeted file's memory cache
     local raw_nodes = vim.diagnostic.get(target_buf)
     local new_discoveries = false
 
@@ -247,7 +248,6 @@ function M.getUnknownArgsCli(from)
         end
 
       -- Pass B: Object-driven Diagnostic Code Suppression
-      -- Instantly captures real engine keywords like "pp_file_not_found" or "drv_unknown_argument"
       elseif code_name and type(code_name) == 'string' and code_name ~= '' then
         if not diagnostic.blocked_codes[code_name] then
           diagnostic.blocked_codes[code_name] = true
@@ -256,36 +256,45 @@ function M.getUnknownArgsCli(from)
       end
     end
 
-    -- 4. Recursive Execution and Sync Loop Control
+    -- 4. Execution Flow Branching
     if new_discoveries then
-      -- Write the accumulated discoveries directly out to your configuration files
+      -- Write current metrics out to your persistent files (.filter.json & .clangd)
       diagnostic.save_from_cli()
 
-      -- Cycle the underlying LSP server instance to ingest your fresh settings
+      -- Restart the language server instance to inject our updated filters configuration
       M.restart()
 
-      -- Wait a brief fraction of a second for the LSP to re-index the document, then repeat
+      -- Force an automated code buffer refresh to prompt the next compilation pass
       vim.defer_fn(function()
         if vim.api.nvim_buf_is_valid(target_buf) then
-          -- Run updates directly on our hidden background buffer index
           vim.api.nvim_buf_call(target_buf, function()
             vim.cmd('checktime')
-            vim.cmd('edit!') -- Re-runs compilation across the buffer cleanly
+            vim.cmd('edit!')
           end)
-          run_memory_analysis_pass() -- Recursive step to hunt down the next error layer
         end
-      end, 350) -- Marginally padded for massive source file nodes (e.g. mainClock.cpp)
+      end, 150)
     else
-      -- Complete Parity: Every structural error layer cleared successfully
-      OS.notify(from .. ' Clangd Automation ✅ Successfully cleared all cascading compiler barriers.')
+      -- Zero new errors returned across the current compilation run context.
+      -- Tear down our active listener group so we don't trigger infinite loops during normal editing.
+      vim.api.nvim_del_augroup_by_id(au_group)
+      OS.notify(from .. ' Clangd Automation ✅ Successfully generated and synchronized all files.')
     end
   end
 
-  -- Fire the initial automation pass directly in memory
-  OS.notify('Automating extraction loop for disk file: ' .. vim.fs.basename(check_file))
-  run_memory_analysis_pass()
-end
+  -- 5. EVENT HOOK TRIGGER: Bind our logic directly to Neovim's diagnostic publisher
+  vim.api.nvim_create_autocmd('DiagnosticChanged', {
+    group = au_group,
+    buffer = target_buf,
+    callback = function()
+      -- Fire the validation processing pass strictly when the buffer reports fresh diagnostics data
+      run_memory_analysis_pass()
+    end,
+  })
 
+  -- Force-initialize an immediate workspace baseline file save to write the initial template to disk
+  diagnostic.save_from_cli()
+  OS.notify('Background compiler automation session initialized for: ' .. vim.fs.basename(check_file))
+end
 -- -- pio/control 160
 -- -- pio/upkeep 170, 1001, 1178
 -- -- INFO: get_clangd_unknown_args
