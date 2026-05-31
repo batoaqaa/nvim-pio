@@ -75,36 +75,63 @@ function M.clean_diagnostics_pipeline(diagnostics)
   return cleaned
 end
 
+-- this function is done on clangd config setup in lua/nvimpio/control/getClangdConfig()
 -- ====================================================================
 -- 3. THE HIGH-PERFORMANCE UPSTREAM LSP INTERCEPTOR (0 LINTER WARNINGS!)
 -- ====================================================================
-local original_diagnostic_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
-
-vim.lsp.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
-  local target_ctx = ctx ---@as lsp.HandlerContext
-  local client_id = target_ctx and target_ctx.client_id
-  local client = client_id and vim.lsp.get_client_by_id(client_id)
-
-  if not client or client.name ~= 'clangd' then
-    return original_diagnostic_handler(err, result, ctx, config)
-  end
-
-  if not err and result and result.diagnostics then
-    if M.clean_diagnostics_pipeline then
-      result.diagnostics = M.clean_diagnostics_pipeline(result.diagnostics)
-    end
-  end
-
-  original_diagnostic_handler(err, result, ctx, config)
-end
+-- local original_diagnostic_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
+--
+-- vim.lsp.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
+--   local target_ctx = ctx ---@as lsp.HandlerContext
+--   local client_id = target_ctx and target_ctx.client_id
+--   local client = client_id and vim.lsp.get_client_by_id(client_id)
+--
+--   if not client or client.name ~= 'clangd' then
+--     return original_diagnostic_handler(err, result, ctx, config)
+--   end
+--
+--   if not err and result and result.diagnostics then
+--     if M.clean_diagnostics_pipeline then
+--       result.diagnostics = M.clean_diagnostics_pipeline(result.diagnostics)
+--     end
+--   end
+--
+--   original_diagnostic_handler(err, result, ctx, config)
+-- end
 
 -- ====================================================================
--- 4. UNIVERSAL RECURSIVE INTERACTIVE SELECTION INTERFACE
+-- 4. UNIFIED COMPILER MANGLER DASHBOARD (BLOCK / UNBLOCK / RESET)
 -- ====================================================================
 function M.manage_file_diagnostics_interactive()
-  local current_buf = vim.api.nvim_get_current_buf()
+  local function open_dashboard_loop()
+    local current_buf = vim.api.nvim_get_current_buf()
+    local dashboard_items = {}
 
-  local function open_picker_loop()
+    -- ----------------------------------------------------------------
+    -- SECTION A: MASTER RESET OPTION
+    -- ----------------------------------------------------------------
+    local has_active_filters = false
+    for _, _ in pairs(blocked_codes) do
+      has_active_filters = true
+      break
+    end
+    if not has_active_filters then
+      for _, _ in pairs(blocked_phrases) do
+        has_active_filters = true
+        break
+      end
+    end
+
+    if has_active_filters then
+      table.insert(dashboard_items, {
+        action = 'reset',
+        display = '💥 WIPE ALL BLOCKED OVERRIDES (RESET DATABASE CLEAN)',
+      })
+    end
+
+    -- ----------------------------------------------------------------
+    -- SECTION B: LIVE ACTIVE COMPILER DIAGNOSTICS (THE BLOCK ZONE)
+    -- ----------------------------------------------------------------
     local raw_diagnostics = {}
     for ns_id, ns_meta in pairs(vim.diagnostic.get_namespaces()) do
       if ns_meta.name and ns_meta.name:find('clangd') then
@@ -117,17 +144,17 @@ function M.manage_file_diagnostics_interactive()
       raw_diagnostics = vim.diagnostic.get(current_buf)
     end
 
-    local unique_codes = {}
-    local distinct_items = {}
+    local unique_active_codes = {}
+    local block_options = {}
 
     for _, diag in ipairs(raw_diagnostics) do
       local code_name = diag.code
 
       if code_name and code_name ~= '' then
-        if not blocked_codes[code_name] and not unique_codes[code_name] then
-          unique_codes[code_name] = true
-          table.insert(distinct_items, {
-            type = 'code',
+        if not blocked_codes[code_name] and not unique_active_codes[code_name] then
+          unique_active_codes[code_name] = true
+          table.insert(block_options, {
+            action = 'block_code',
             id = code_name,
             display = string.format('🔒 Block Code: [%s] (%s)', code_name, diag.message),
           })
@@ -137,8 +164,8 @@ function M.manage_file_diagnostics_interactive()
         local key_phrase = (word1 and word2) and (word1 .. ' ' .. word2) or diag.message:lower()
 
         if not blocked_phrases[key_phrase] then
-          table.insert(distinct_items, {
-            type = 'phrase',
+          table.insert(block_options, {
+            action = 'block_phrase',
             id = key_phrase,
             display = string.format('📝 Block Phrase matching: "%s..."', key_phrase),
           })
@@ -146,169 +173,102 @@ function M.manage_file_diagnostics_interactive()
       end
     end
 
-    if #distinct_items == 0 then
-      save_filter_database()
-      vim.notify('✅ Complete Parity: All compile items have been successfully filtered!', vim.log.levels.INFO, { title = 'Compiler Mangler' })
-      vim.cmd('edit!')
-      return
-    end
-
-    table.sort(distinct_items, function(a, b)
+    -- Sort the unblocked errors alphabetically and merge them into items
+    table.sort(block_options, function(a, b)
       return a.display < b.display
     end)
-
-    vim.ui.select(distinct_items, {
-      prompt = 'Microcontroller Diagnostic Mangler (Esc to Save & Apply)',
-      kind = 'nvimpio_mangler',
-      format_item = function(item)
-        return item.display
-      end,
-    }, function(choice)
-      if not choice then
-        save_filter_database()
-        vim.notify('🔒 Filter Overrides Saved & Applied!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
-        vim.cmd('edit!')
-        return
-      end
-
-      local added = false
-      if choice.type == 'code' then
-        if not blocked_codes[choice.id] then
-          blocked_codes[choice.id] = true
-          added = true
-        end
-      elseif choice.type == 'phrase' then
-        if not blocked_phrases[choice.id] then
-          blocked_phrases[choice.id] = true
-          added = true
-        end
-      end
-
-      if added then
-        save_filter_database()
-
-        local filtered = M.clean_diagnostics_pipeline(raw_diagnostics)
-        for ns_id, _ in pairs(vim.diagnostic.get_namespaces()) do
-          vim.diagnostic.set(ns_id, current_buf, filtered)
-        end
-
-        vim.schedule(function()
-          open_picker_loop()
-        end)
-      else
-        open_picker_loop()
-      end
-    end)
-  end
-
-  open_picker_loop()
-end
-
--- ====================================================================
--- 5. NEW: RECURSIVE REVIEW AND RESET ENGINE
--- ====================================================================
-function M.review_and_clear_filters_interactive()
-  local function open_review_loop()
-    local current_buf = vim.api.nvim_get_current_buf()
-    local distinct_items = {}
-
-    -- 1. Insert a global master option to wipe everything out completely
-    local has_filters = false
-    for _, _ in pairs(blocked_codes) do
-      has_filters = true
-      break
-    end
-    if not has_filters then
-      for _, _ in pairs(blocked_phrases) do
-        has_filters = true
-        break
-      end
+    for _, opt in ipairs(block_options) do
+      table.insert(dashboard_items, opt)
     end
 
-    if has_filters then
-      table.insert(distinct_items, {
-        type = 'action',
-        id = 'CLEAR_ALL_RESET_DATA',
-        display = '💥 WIPE ENTIRE BLOCKLIST DATABASE CLEAN (RESET EVERYTHING)',
-      })
-    end
+    -- ----------------------------------------------------------------
+    -- SECTION C: PERSISTENT OVERRIDES CURRENTLY SAVED (THE UNBLOCK ZONE)
+    -- ----------------------------------------------------------------
+    local unblock_options = {}
 
-    -- 2. Populate currently active blocked error codes
     for code, _ in pairs(blocked_codes) do
-      table.insert(distinct_items, {
-        type = 'code',
+      table.insert(unblock_options, {
+        action = 'unblock_code',
         id = code,
-        display = string.format('❌ UNBLOCK CODE: [%s]', code),
+        display = string.format('🔓 UNBLOCK Code: [%s]', code),
       })
     end
 
-    -- 3. Populate currently active blocked key phrases
     for phrase, _ in pairs(blocked_phrases) do
-      table.insert(distinct_items, {
-        type = 'phrase',
+      table.insert(unblock_options, {
+        action = 'unblock_phrase',
         id = phrase,
-        display = string.format('✏️  UNBLOCK PHRASE: "%s..."', phrase),
+        display = string.format('✏️  UNBLOCK Phrase: "%s..."', phrase),
       })
     end
 
-    -- Base Escape Condition: Exit cleanly if no active overrides exist
-    if #distinct_items == 0 then
-      vim.notify('ℹ️ Your diagnostic blocklist is currently empty.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
+    -- Sort the active blocked filters alphabetically and merge them at the bottom
+    table.sort(unblock_options, function(a, b)
+      return a.display < b.display
+    end)
+    for _, opt in ipairs(unblock_options) do
+      table.insert(dashboard_items, opt)
+    end
+
+    -- ----------------------------------------------------------------
+    -- SECTION D: ESCAPE CONDITIONS & VIEW RENDERING
+    -- ----------------------------------------------------------------
+    if #dashboard_items == 0 then
+      vim.notify('✅ Complete Parity: No active exceptions or active overrides detected.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
       vim.cmd('edit!')
       return
     end
 
-    -- Sort layout elements dynamically, making sure the master wipe stays on top
-    table.sort(distinct_items, function(a, b)
-      if a.type == 'action' then
-        return true
-      end
-      if b.type == 'action' then
-        return false
-      end
-      return a.display < b.display
-    end)
-
-    -- 4. Invoke via Neovim's universal selector protocol
-    vim.ui.select(distinct_items, {
-      prompt = 'Active Blocklist Review Panel (Esc to Finish & Apply Changes)',
-      kind = 'nvimpio_mangler_review',
+    vim.ui.select(dashboard_items, {
+      prompt = 'Compiler Mangler Control Panel (Esc to Save & Close)',
+      kind = 'nvimpio_unified_dashboard',
       format_item = function(item)
         return item.display
       end,
     }, function(choice)
+      -- User pressed Esc: Save everything to file and run a clean file reload
       if not choice then
         save_filter_database()
-        vim.notify('🔓 Adjustments Saved & Render Active!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
+        vim.notify('🔒 Overrides Saved & Applied!', vim.log.levels.WARN, { title = 'Compiler Mangler' })
         vim.cmd('edit!')
         return
       end
 
-      -- Execution Node: Process item removals cleanly
-      if choice.type == 'action' and choice.id == 'CLEAR_ALL_RESET_DATA' then
+      -- Process Selected Dashboard Command node
+      if choice.action == 'reset' then
         blocked_codes = {}
         blocked_phrases = {}
         save_filter_database()
-        vim.notify('💥 Complete Wipe Successful! Resetting workspace filters.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
+        vim.notify('💥 Blocklist database wiped completely clean!', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
         vim.cmd('edit!')
         return
-      elseif choice.type == 'code' then
+      elseif choice.action == 'block_code' then
+        blocked_codes[choice.id] = true
+      elseif choice.action == 'block_phrase' then
+        blocked_phrases[choice.id] = true
+      elseif choice.action == 'unblock_code' then
         blocked_codes[choice.id] = nil
-      elseif choice.type == 'phrase' then
+      elseif choice.action == 'unblock_phrase' then
         blocked_phrases[choice.id] = nil
       end
 
-      -- Commit changes to database instantly on update pass
+      -- Save updates immediately into the JSON schema file
       save_filter_database()
 
-      -- Cycle back dynamically with a fresh scheduling frame step
+      -- Instantly update screen diagnostics in hot-memory for visual feedback
+      local filtered = M.clean_diagnostics_pipeline(raw_diagnostics)
+      for ns_id, _ in pairs(vim.diagnostic.get_namespaces()) do
+        vim.diagnostic.set(ns_id, current_buf, filtered)
+      end
+
+      -- Re-open the loop smoothly on the next frame refresh tick
       vim.schedule(function()
-        open_review_loop()
+        open_dashboard_loop()
       end)
     end)
   end
 
-  open_review_loop()
+  open_dashboard_loop()
 end
 
 return M
