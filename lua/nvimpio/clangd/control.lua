@@ -208,26 +208,23 @@ end
 function M.getUnknownArgsCli(from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
-  -- 1. FIND: Locate the source file on the hard drive
-  local check_file = vim.fs.find(function(name)
-    return name:match('%.cpp$') or name:match('%.c$')
-  end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1] -- Fixed: Added trailing [1] to unpack the table array
+  -- 1. TARGET ACTIVE BUFFER: Run the automation on the file you are currently looking at
+  local target_buf = vim.api.nvim_get_current_buf()
+  local file_name = vim.api.nvim_buf_get_name(target_buf)
 
-  if not check_file then
-    boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
-    boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-    check_file = vim.uv.cwd() .. '/src/main.cpp'
+  -- Safety check to ensure we don't run on NvimTree or empty windows
+  local norm_name = vim.fs.normalize(file_name):gsub('%s+$', ''):lower()
+  if file_name == '' or not (norm_name:match('%.cpp$') or norm_name:match('%.c$') or norm_name:match('%.hpp$') or norm_name:match('%.h$')) then
+    OS.notify('Automation aborted: Focus a valid C/C++ source code file first.')
+    return
   end
 
-  -- 2. BRIDGE LAYER: Load the target file into a background memory register
-  local target_buf = vim.fn.bufadd(check_file)
-  vim.fn.bufload(target_buf)
+  -- Create a unique namespace for our active automated pipeline group
+  local au_group = vim.api.nvim_create_augroup('NvimPioLiveSweepGroup', { clear = true })
 
-  -- Create a unique namespace container for our background event listener
-  local au_group = vim.api.nvim_create_augroup('NvimPioAutomationGroup', { clear = true })
-
-  -- 3. Define the automated in-memory inspection loop targeting our explicit buffer ID
-  local function run_memory_analysis_pass()
+  -- 2. Define the structural loop data compiler scraper
+  local function run_live_analysis_pass()
+    -- Directly inspect the live diagnostics loaded onto your visible workspace screen
     local raw_nodes = vim.diagnostic.get(target_buf)
     local new_discoveries = false
 
@@ -235,8 +232,7 @@ function M.getUnknownArgsCli(from)
       local msg = diag.message or ''
       local code_name = diag.code
 
-      -- Pass A: Object-driven MULTI-FLAG Catching (Completely decoupled & colon-immune)
-      -- Using '%p?' ensures that strings like 'argument: -flag' or 'argument -flag' match perfectly
+      -- Pass A: Multi-Flag Extractor (Handles colon structures)
       for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
         if not diagnostic.removed_flags[clean_flag] then
@@ -252,7 +248,8 @@ function M.getUnknownArgsCli(from)
           new_discoveries = true
         end
       end
-      -- Pass B: Object-driven Diagnostic Code Suppression (Runs concurrently, no elseif blocking)
+
+      -- Pass B: Code Suppression (Pulls codes like pp_file_not_found out of the active engine memory)
       if code_name and type(code_name) == 'string' and code_name ~= '' then
         if not diagnostic.blocked_codes[code_name] then
           diagnostic.blocked_codes[code_name] = true
@@ -260,42 +257,34 @@ function M.getUnknownArgsCli(from)
         end
       end
     end
-    -- 4. Execution Flow Branching
+
+    -- 3. Loop Execution Flow
     if new_discoveries then
+      OS.notify('Layer cleared! Updating configurations and updating compiler...')
+
+      -- Save accumulated states directly to .filter.json and write the updated .clangd file
       diagnostic.save_from_cli()
+
+      -- Kill and restart clangd
       M.restart()
 
-      -- Force a buffer sync so the fresh LSP instance reads the updated files on disk
+      -- Force a hard buffer reload on screen to push the next layer of errors out
       vim.defer_fn(function()
         if vim.api.nvim_buf_is_valid(target_buf) then
-          vim.api.nvim_buf_call(target_buf, function()
-            vim.cmd('checktime')
-            vim.cmd('edit!')
-          end)
+          vim.cmd('checktime')
+          vim.cmd('edit!')
         end
       end, 150)
     else
-      -- Verify if the file is truly clean before killing the automation loop.
-      -- If there are still active errors/warnings, do NOT delete the group yet—
-      -- wait for the new server instance to finish publishing its diagnostic array.
-      local has_errors = false
-      for _, node in ipairs(raw_nodes) do
-        if node.severity == vim.diagnostic.severity.ERROR or node.severity == vim.diagnostic.severity.WARN then
-          has_errors = true
-          break
-        end
-      end
-
-      if not has_errors and #raw_nodes == 0 then
-        vim.api.nvim_del_augroup_by_id(au_group)
-        OS.notify(from .. ' Clangd Automation ✅ All compilation layers cleared completely!')
-      end
+      -- Check if any errors are still processing.
+      -- If raw_nodes has errors but no new things were added, it means we reached actual code errors
+      -- that shouldn't be hidden (like user syntax typos).
+      vim.api.nvim_del_augroup_by_id(au_group)
+      OS.notify(from .. ' Clangd Automation ✅ Complete baseline sync done! Remaining errors are raw code typos.')
     end
   end
 
-  -- 5. EVENT HOOK TRIGGER: Debounce the publisher loop
-  --    Using a tiny timer ensures that rapid, empty diagnostic state shifts
-  --    caused by LSP restarts are ignored, allowing the real data pass to run.
+  -- 4. THE DEBOUNCED AUTOMATION HOOK: Run automatically whenever fresh diagnostics land on your screen
   local debounce_timer = nil
   vim.api.nvim_create_autocmd('DiagnosticChanged', {
     group = au_group,
@@ -305,22 +294,139 @@ function M.getUnknownArgsCli(from)
         vim.uv.timer_stop(debounce_timer)
       end
       debounce_timer = vim.uv.new_timer()
-      if debounce_timer then
-        debounce_timer:start(
-          300,
-          0,
-          vim.schedule_wrap(function()
-            run_memory_analysis_pass()
-          end)
-        )
-      end
+      debounce_timer:start(
+        400,
+        0,
+        vim.schedule_wrap(function()
+          run_live_analysis_pass()
+        end)
+      )
     end,
   })
 
-  -- Force-initialize an immediate workspace baseline file save
-  diagnostic.save_from_cli()
-  OS.notify('Background compiler automation session running for: ' .. vim.fs.basename(check_file))
+  -- Kick off the very first automation loop pass instantly
+  OS.notify('Starting live cascading sweep for: ' .. vim.fs.basename(file_name))
+  run_live_analysis_pass()
 end
+-- -- last
+--
+-- ---@param from string
+-- function M.getUnknownArgsCli(from)
+--   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
+--
+--   -- 1. FIND: Locate the source file on the hard drive
+--   local check_file = vim.fs.find(function(name)
+--     return name:match('%.cpp$') or name:match('%.c$')
+--   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1] -- Fixed: Added trailing [1] to unpack the table array
+--
+--   if not check_file then
+--     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+--     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+--     check_file = vim.uv.cwd() .. '/src/main.cpp'
+--   end
+--
+--   -- 2. BRIDGE LAYER: Load the target file into a background memory register
+--   local target_buf = vim.fn.bufadd(check_file)
+--   vim.fn.bufload(target_buf)
+--
+--   -- Create a unique namespace container for our background event listener
+--   local au_group = vim.api.nvim_create_augroup('NvimPioAutomationGroup', { clear = true })
+--
+--   -- 3. Define the automated in-memory inspection loop targeting our explicit buffer ID
+--   local function run_memory_analysis_pass()
+--     local raw_nodes = vim.diagnostic.get(target_buf)
+--     local new_discoveries = false
+--
+--     for _, diag in ipairs(raw_nodes) do
+--       local msg = diag.message or ''
+--       local code_name = diag.code
+--
+--       -- Pass A: Object-driven MULTI-FLAG Catching (Completely decoupled & colon-immune)
+--       -- Using '%p?' ensures that strings like 'argument: -flag' or 'argument -flag' match perfectly
+--       for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
+--         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
+--         if not diagnostic.removed_flags[clean_flag] then
+--           diagnostic.removed_flags[clean_flag] = true
+--           new_discoveries = true
+--         end
+--       end
+--
+--       for unknown_arg in string.gmatch(msg, 'option%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
+--         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
+--         if not diagnostic.removed_flags[clean_flag] then
+--           diagnostic.removed_flags[clean_flag] = true
+--           new_discoveries = true
+--         end
+--       end
+--       -- Pass B: Object-driven Diagnostic Code Suppression (Runs concurrently, no elseif blocking)
+--       if code_name and type(code_name) == 'string' and code_name ~= '' then
+--         if not diagnostic.blocked_codes[code_name] then
+--           diagnostic.blocked_codes[code_name] = true
+--           new_discoveries = true
+--         end
+--       end
+--     end
+--     -- 4. Execution Flow Branching
+--     if new_discoveries then
+--       diagnostic.save_from_cli()
+--       M.restart()
+--
+--       -- Force a buffer sync so the fresh LSP instance reads the updated files on disk
+--       vim.defer_fn(function()
+--         if vim.api.nvim_buf_is_valid(target_buf) then
+--           vim.api.nvim_buf_call(target_buf, function()
+--             vim.cmd('checktime')
+--             vim.cmd('edit!')
+--           end)
+--         end
+--       end, 150)
+--     else
+--       -- Verify if the file is truly clean before killing the automation loop.
+--       -- If there are still active errors/warnings, do NOT delete the group yet—
+--       -- wait for the new server instance to finish publishing its diagnostic array.
+--       local has_errors = false
+--       for _, node in ipairs(raw_nodes) do
+--         if node.severity == vim.diagnostic.severity.ERROR or node.severity == vim.diagnostic.severity.WARN then
+--           has_errors = true
+--           break
+--         end
+--       end
+--
+--       if not has_errors and #raw_nodes == 0 then
+--         vim.api.nvim_del_augroup_by_id(au_group)
+--         OS.notify(from .. ' Clangd Automation ✅ All compilation layers cleared completely!')
+--       end
+--     end
+--   end
+--
+--   -- 5. EVENT HOOK TRIGGER: Debounce the publisher loop
+--   --    Using a tiny timer ensures that rapid, empty diagnostic state shifts
+--   --    caused by LSP restarts are ignored, allowing the real data pass to run.
+--   local debounce_timer = nil
+--   vim.api.nvim_create_autocmd('DiagnosticChanged', {
+--     group = au_group,
+--     buffer = target_buf,
+--     callback = function()
+--       if debounce_timer then
+--         vim.uv.timer_stop(debounce_timer)
+--       end
+--       debounce_timer = vim.uv.new_timer()
+--       if debounce_timer then
+--         debounce_timer:start(
+--           300,
+--           0,
+--           vim.schedule_wrap(function()
+--             run_memory_analysis_pass()
+--           end)
+--         )
+--       end
+--     end,
+--   })
+--
+--   -- Force-initialize an immediate workspace baseline file save
+--   diagnostic.save_from_cli()
+--   OS.notify('Background compiler automation session running for: ' .. vim.fs.basename(check_file))
+-- end
 
 -- -- pio/control 160
 -- -- pio/upkeep 170, 1001, 1178
