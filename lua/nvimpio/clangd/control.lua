@@ -277,6 +277,7 @@ function M.getUnknownArgsCli(from)
         -- The diagnostic script tracks flags as keys to prevent array duplication:
         -- e.g., diagnostic.removed_flags["-mlongcalls"] = true
 
+        diagnostic.removed_flags = {}
         local updated_count = 0
         for arg, _ in pairs(seen) do
           -- Remove quotes if string.gmatch wrapped them, keeping the raw flag
