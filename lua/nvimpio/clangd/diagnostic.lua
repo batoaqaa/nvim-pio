@@ -18,7 +18,28 @@ local removed_flags = {}
 -- ====================================================================
 -- 1. PERSISTENT JSON DISK STORAGE UTILITIES
 -- ====================================================================
+-- local function load_filter_database()
+--   local f = io.open(json_database_file, 'rb')
+--   if not f then
+--     return
+--   end
+--   local raw_json = f:read('*all')
+--   f:close()
+--
+--   if raw_json and raw_json ~= '' then
+--     local success, data = pcall(vim.json.decode, raw_json)
+--     if success and data then
+--       blocked_codes = data.codes or {}
+--       removed_flags = data.flags or {}
+--     end
+--   end
+-- end
+
 local function load_filter_database()
+  -- 🌟 ALWAYS guarantee baseline table initialization to prevent 'pairs' nil crashes
+  M.blocked_codes = {}
+  M.removed_flags = {}
+
   local f = io.open(json_database_file, 'rb')
   if not f then
     return
@@ -28,10 +49,18 @@ local function load_filter_database()
 
   if raw_json and raw_json ~= '' then
     local success, data = pcall(vim.json.decode, raw_json)
-    if success and data then
-      blocked_codes = data.codes or {}
-      removed_flags = data.flags or {}
+    if success and data and type(data) == 'table' then
+      M.blocked_codes = data.codes or {}
+      M.removed_flags = data.flags or {}
     end
+  end
+
+  -- 🌟 DOUBLE GUARD: If JSON structure lacked these fields, secure them anyway
+  if not M.blocked_codes then
+    M.blocked_codes = {}
+  end
+  if not M.removed_flags then
+    M.removed_flags = {}
   end
 end
 
