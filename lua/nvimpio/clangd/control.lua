@@ -103,19 +103,19 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
-  clangd_config.handlers = {
-    ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-      -- Only filter if there are diagnostics present
-      if not err and result and result.diagnostics then
-        local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
-        if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
-          result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
-        end
-      end
-      -- Pass to Neovim's default handler
-      vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
-    end
-  }
+  -- clangd_config.handlers = {
+  --   ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+  --     -- Only filter if there are diagnostics present
+  --     if not err and result and result.diagnostics then
+  --       local success, pio_diag = pcall(require, "nvimpio.clangd.diagnostic")
+  --       if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
+  --         result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics)
+  --       end
+  --     end
+  --     -- Pass to Neovim's default handler
+  --     vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
+  --   end
+  -- }
 
   if clangd_config then return clangd_config end
 end
@@ -145,13 +145,13 @@ function M.restart()
     vim.lsp.config(name, clangConfig)
     vim.lsp.enable(name, false)
     vim.lsp.enable(name, true)
-    vim.defer_fn(function()
-      local current_buf = vim.api.nvim_get_current_buf()
-      if vim.api.nvim_buf_is_valid(current_buf) then
-         vim.cmd('checktime') -- Synch file modifications with the file system safely
-         vim.cmd('edit!') -- Forces a hard buffer refresh, clearing old errors instantly
-      end
-    end, 100)
+    -- vim.defer_fn(function()
+    --   local current_buf = vim.api.nvim_get_current_buf()
+    --   if vim.api.nvim_buf_is_valid(current_buf) then
+    --      vim.cmd('checktime') -- Synch file modifications with the file system safely
+    --      vim.cmd('edit!') -- Forces a hard buffer refresh, clearing old errors instantly
+    --   end
+    -- end, 100)
     -- vim.cmd('checktime')
     _G.metadata.isBusy = false
   end)
