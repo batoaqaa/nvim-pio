@@ -62,7 +62,9 @@ local function save_filter_database()
   boiler.suppress = active_suppressions
 
   -- Execute generation scripts to populate both target config files
-  pcall(boiler.generate_clangd_config)
+  local boilerplate_gen = boiler.boilerplate_gen
+  boilerplate_gen('.clangd', vim.g.platformioRootDir)
+  -- pcall(boiler.generate_clangd_config)
 end
 
 -- Initialize workspace state instantly upon runtime plugin boot sequence
@@ -71,60 +73,60 @@ load_filter_database()
 -- ====================================================================
 -- 2. THE CHAMELEON FALLBACK RENDER OVERRIDE PIPELINE
 -- ====================================================================
-function M.clean_diagnostics_pipeline(diagnostics)
-  if not diagnostics or #diagnostics == 0 then
-    return {}
-  end
-  local cleaned = {}
-
-  for _, diag in ipairs(diagnostics) do
-    local code = diag.code or ''
-    local msg = (diag.message or ''):lower()
-
-    local should_suppress = false
-    if blocked_codes[code] then
-      should_suppress = true
-    end
-
-    if not should_suppress then
-      for flag, _ in pairs(removed_flags) do
-        local clean_flag = flag:gsub('%-', '%%-')
-        if msg:find(clean_flag) or code:find(clean_flag) then
-          should_suppress = true
-          break
-        end
-      end
-    end
-
-    if not should_suppress then
-      table.insert(cleaned, diag)
-    end
-  end
-  return cleaned
-end
+-- function M.clean_diagnostics_pipeline(diagnostics)
+--   if not diagnostics or #diagnostics == 0 then
+--     return {}
+--   end
+--   local cleaned = {}
+--
+--   for _, diag in ipairs(diagnostics) do
+--     local code = diag.code or ''
+--     local msg = (diag.message or ''):lower()
+--
+--     local should_suppress = false
+--     if blocked_codes[code] then
+--       should_suppress = true
+--     end
+--
+--     if not should_suppress then
+--       for flag, _ in pairs(removed_flags) do
+--         local clean_flag = flag:gsub('%-', '%%-')
+--         if msg:find(clean_flag) or code:find(clean_flag) then
+--           should_suppress = true
+--           break
+--         end
+--       end
+--     end
+--
+--     if not should_suppress then
+--       table.insert(cleaned, diag)
+--     end
+--   end
+--   return cleaned
+-- end
 
 -- ====================================================================
 -- 3. THE HIGH-PERFORMANCE UPSTREAM LSP INTERCEPTOR
 -- ====================================================================
-local original_diagnostic_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
-
-vim.lsp.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
-  local target_ctx = ctx ---@as lsp.HandlerContext
-  local client_id = target_ctx and target_ctx.client_id
-  local client = client_id and vim.lsp.get_client_by_id(client_id)
-
-  if not client or client.name ~= 'clangd' then
-    return original_diagnostic_handler(err, result, ctx, config)
-  end
-
-  if not err and result and result.diagnostics then
-    if M.clean_diagnostics_pipeline then
-      result.diagnostics = M.clean_diagnostics_pipeline(result.diagnostics)
-    end
-  end
-
-  original_diagnostic_handler(err, result, ctx, config)
-end
+-- local original_diagnostic_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
+--
+-- vim.lsp.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
+--   local target_ctx = ctx ---@as lsp.HandlerContext
+--   local client_id = target_ctx and target_ctx.client_id
+--   local client = client_id and vim.lsp.get_client_by_id(client_id)
+--
+--   if not client or client.name ~= 'clangd' then
+--     return original_diagnostic_handler(err, result, ctx, config)
+--   end
+--
+--   if not err and result and result.diagnostics then
+--     if M.clean_diagnostics_pipeline then
+--       result.diagnostics = M.clean_diagnostics_pipeline(result.diagnostics)
+--     end
+--   end
+--
+--   original_diagnostic_handler(err, result, ctx, config)
+-- end
 
 -- ====================================================================
 -- 4. UNIFIED COMPILER MANGLER DASHBOARD (BLOCK / UNBLOCK / RESET)
