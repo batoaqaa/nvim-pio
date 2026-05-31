@@ -148,7 +148,7 @@ function M.restart()
     vim.defer_fn(function()
       local current_buf = vim.api.nvim_get_current_buf()
       if vim.api.nvim_buf_is_valid(current_buf) then
-         -- vim.cmd('checktime') -- Synch file modifications with the file system safely
+         vim.cmd('checktime') -- Synch file modifications with the file system safely
          vim.cmd('edit!') -- Forces a hard buffer refresh, clearing old errors instantly
       end
     end, 100)
