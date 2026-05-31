@@ -235,9 +235,9 @@ function M.getUnknownArgsCli(from)
       local msg = diag.message or ''
       local code_name = diag.code
 
-      -- Pass A: Object-driven MULTI-FLAG Catching (Completely decoupled)
-      -- Using gmatch sweeps the entire text string to extract all matching compiler flags at once
-      for unknown_arg in string.gmatch(msg, 'argument%s*[\'"]?(%-[%w%-]+)[\'"]?') do
+      -- Pass A: Object-driven MULTI-FLAG Catching (Completely decoupled & colon-immune)
+      -- Using '%p?' ensures that strings like 'argument: -flag' or 'argument -flag' match perfectly
+      for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
         if not diagnostic.removed_flags[clean_flag] then
           diagnostic.removed_flags[clean_flag] = true
@@ -245,14 +245,13 @@ function M.getUnknownArgsCli(from)
         end
       end
 
-      for unknown_arg in string.gmatch(msg, 'option%s*[\'"]?(%-[%w%-]+)[\'"]?') do
+      for unknown_arg in string.gmatch(msg, 'option%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
         if not diagnostic.removed_flags[clean_flag] then
           diagnostic.removed_flags[clean_flag] = true
           new_discoveries = true
         end
       end
-
       -- Pass B: Object-driven Diagnostic Code Suppression (Runs concurrently, no elseif blocking)
       if code_name and type(code_name) == 'string' and code_name ~= '' then
         if not diagnostic.blocked_codes[code_name] then
