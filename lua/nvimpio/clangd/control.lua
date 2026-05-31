@@ -232,7 +232,7 @@ function M.getUnknownArgsCli(from)
       local msg = diag.message or ''
       local code_name = diag.code
 
-      -- Pass A: Multi-Flag Extractor (Handles colon structures)
+      -- Pass A: Multi-Flag Extractor (Decoupled & colon-immune via %p?)
       for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
         if not diagnostic.removed_flags[clean_flag] then
@@ -258,11 +258,11 @@ function M.getUnknownArgsCli(from)
       end
     end
 
-    -- 3. Loop Execution Flow
+    -- 3 & 4. Execution Flow Branching & Transition Shielding
     if new_discoveries then
-      OS.notify('Layer cleared! Updating configurations and updating compiler...')
+      OS.notify('Layer discovered! Updating .clangd and cycling compiler targets...')
 
-      -- Save accumulated states directly to .filter.json and write the updated .clangd file
+      -- Save accumulated states directly to .filter.json and rewrite the updated .clangd file
       diagnostic.save_from_cli()
 
       -- Kill and restart clangd
@@ -276,15 +276,32 @@ function M.getUnknownArgsCli(from)
         end
       end, 150)
     else
-      -- Check if any errors are still processing.
-      -- If raw_nodes has errors but no new things were added, it means we reached actual code errors
-      -- that shouldn't be hidden (like user syntax typos).
-      vim.api.nvim_del_augroup_by_id(au_group)
-      OS.notify(from .. ' Clangd Automation ✅ Complete baseline sync done! Remaining errors are raw code typos.')
+      -- Verify if raw_nodes is empty AND make sure we aren't caught in an LSP boot transition.
+      local has_active_errors = false
+      for _, node in ipairs(raw_nodes) do
+        if node.severity == vim.diagnostic.severity.ERROR or node.severity == vim.diagnostic.severity.WARN then
+          has_active_errors = true
+          break
+        end
+      end
+
+      -- Only self-destruct the automation group if the file has been processed
+      -- AND contains absolutely zero outstanding warnings or error objects.
+      if not has_active_errors and #raw_nodes > 0 then
+        vim.api.nvim_del_augroup_by_id(au_group)
+        OS.notify(from .. ' Clangd Automation ✅ Complete baseline sync done! Remaining errors are raw code typos.')
+      elseif #raw_nodes == 0 then
+        -- LSP Boot/Reset transition guard: Do nothing and preserve the group to catch incoming server data
+        return
+      else
+        -- Errors remain but no new filter targets extracted (valid user source typos)
+        vim.api.nvim_del_augroup_by_id(au_group)
+        OS.notify(from .. ' Clangd Automation ✅ Dynamic blocks synchronized. Remaining errors are valid source typos.')
+      end
     end
   end
 
-  -- 4. THE DEBOUNCED AUTOMATION HOOK: Run automatically whenever fresh diagnostics land on your screen
+  -- 5. THE DEBOUNCED AUTOMATION HOOK: Run automatically whenever fresh diagnostics land on your screen
   local debounce_timer = nil
   vim.api.nvim_create_autocmd('DiagnosticChanged', {
     group = au_group,
@@ -294,13 +311,15 @@ function M.getUnknownArgsCli(from)
         vim.uv.timer_stop(debounce_timer)
       end
       debounce_timer = vim.uv.new_timer()
-      debounce_timer:start(
-        400,
-        0,
-        vim.schedule_wrap(function()
-          run_live_analysis_pass()
-        end)
-      )
+      if debounce_timer then
+        debounce_timer:start(
+          400,
+          0,
+          vim.schedule_wrap(function()
+            run_live_analysis_pass()
+          end)
+        )
+      end
     end,
   })
 
@@ -308,6 +327,7 @@ function M.getUnknownArgsCli(from)
   OS.notify('Starting live cascading sweep for: ' .. vim.fs.basename(file_name))
   run_live_analysis_pass()
 end
+
 -- -- last
 --
 -- ---@param from string
