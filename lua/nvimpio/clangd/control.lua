@@ -270,12 +270,42 @@ function M.getUnknownArgsCli(from)
             end
           end
         end
-        -- 4. UPDATE: Rebuild with the new discovered flags
-        boilerplate.args = args_table
-        boilerplate_gen('.clangd', vim.g.platformioRootDir)
+        --------------------------------------------------------------------------------
+        -- 4. UPDATE: Integrate into the persistence database layer
+        local diagnostic = require('nvimpio.clangd.diagnostic')
 
-        OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
+        -- The diagnostic script tracks flags as keys to prevent array duplication:
+        -- e.g., diagnostic.removed_flags["-mlongcalls"] = true
+
+        local updated_count = 0
+        for arg, _ in pairs(seen) do
+          -- Remove quotes if string.gmatch wrapped them, keeping the raw flag
+          local raw_flag = arg:gsub('^"', ''):gsub('"$', '')
+
+          if not diagnostic.removed_flags[raw_flag] then
+            diagnostic.removed_flags[raw_flag] = true
+            updated_count = updated_count + 1
+          end
+        end
+
+        -- Explicitly call your saving pipeline. 
+        -- This automatically maps diagnostic.removed_flags to boiler.remove, 
+        -- writes .filter.json, and generates a perfect .clangd file.
+        if updated_count > 0 then
+          -- Accessing the local helper via an internal function exposure (See Step 2)
+          diagnostic.save_from_cli()
+          OS.notify(from .. ' Clangd ✅Integrated ' .. updated_count .. ' new flags globally.')
+        else
+          OS.notify(from .. ' Clangd ✅No new unique flags detected.')
+        end
+
         M.restart()
+        -- -- 4. UPDATE: Rebuild with the new discovered flags
+        -- boilerplate.args = args_table
+        -- boilerplate_gen('.clangd', vim.g.platformioRootDir)
+        --
+        -- OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
+        -- M.restart()
       end)
     end)
   end, 'clangd')

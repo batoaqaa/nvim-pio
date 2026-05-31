@@ -57,6 +57,7 @@ local function save_filter_database()
   -- if boilerplate_gen then pcall(boilerplate_gen, '.clangd', vim.g.platformioRootDir) end
   if boilerplate_gen then pcall(boilerplate_gen, '.clangd', project_root) end
 end
+M.save_from_cli = save_filter_database
 
 load_filter_database()
 
