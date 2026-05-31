@@ -357,6 +357,7 @@ function M.manage_file_diagnostics_interactive()
       raw_diagnostics = vim.diagnostic.get(current_buf)
     end
 
+    -- Extract and deduplicate live compiler issues dynamically
     local unique_active_entries = {}
     local block_options = {}
 
@@ -364,10 +365,15 @@ function M.manage_file_diagnostics_interactive()
       local code_name = diag.code
       local msg = diag.message or ''
 
-      -- Robust extraction regex to cleanly pull bad driver argument flags
-      local unknown_arg = msg:match("Unknown argument%s*'([^']+)'") or msg:match("unknown argument%s*'([^']+)'") or msg:match("unsupported option%s*'([^']+)'")
+      -- 🚀 SMART PATTERN PARSER: Extract raw bad flag arguments from driver warnings
+      local unknown_arg = msg:match('argument%s*[\'"]?(%-.-)[\'"]?%s*')
+        or msg:match('option%s*[\'"]?(%-.-)[\'"]?%s*')
+        or msg:match('mean%s*[\'"]?(%-.-)[\'"]?%??$')
 
       if unknown_arg then
+        -- Clean trailing punctuation/quotes if any slipped through the regex
+        unknown_arg = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
+
         if not M.removed_flags[unknown_arg] and not unique_active_entries[unknown_arg] then
           unique_active_entries[unknown_arg] = true
           table.insert(block_options, {
@@ -387,7 +393,6 @@ function M.manage_file_diagnostics_interactive()
         end
       end
     end
-
     table.sort(block_options, function(a, b)
       return a.display < b.display
     end)
