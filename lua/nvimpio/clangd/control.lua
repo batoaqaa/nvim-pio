@@ -208,7 +208,7 @@ end
 function M.getUnknownArgsCli(from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
-  -- 1. FIND: Grab the first .cpp or .c file in /src
+  -- 1. FIND: Grab the first .cpp or .c file on the hard drive inside /src
   local check_file = vim.fs.find(function(name)
     return name:match('%.cpp$') or name:match('%.c$')
   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
@@ -219,10 +219,15 @@ function M.getUnknownArgsCli(from)
     check_file = vim.uv.cwd() .. '/src/main.cpp'
   end
 
-  -- 2. Define the automated in-memory inspection routine
+  -- 2. BRIDGE LAYER: Programmatically fetch or load the file into a background buffer
+  --    This converts your hard drive string path into a valid, addressable Neovim buffer ID node.
+  local target_buf = vim.fn.bufadd(check_file)
+  vim.fn.bufload(target_buf) -- Forces Neovim to initialize the file payload in memory
+
+  -- 3. Define the automated in-memory inspection loop targeting our explicit buffer ID
   local function run_memory_analysis_pass()
-    -- Pull structured data nodes generated natively by the LSP client session
-    local raw_nodes = vim.diagnostic.get(current_buf)
+    -- Pull structured diagnostic data objects directly from the targeted file's memory cache
+    local raw_nodes = vim.diagnostic.get(target_buf)
     local new_discoveries = false
 
     for _, diag in ipairs(raw_nodes) do
@@ -230,7 +235,6 @@ function M.getUnknownArgsCli(from)
       local code_name = diag.code
 
       -- Pass A: Object-driven Unknown Flag Catching
-      -- Leverages structured string definitions inside the message block
       local unknown_arg = msg:match('argument%s*[\'"]?(%-[%w%-]+)[\'"]?')
         or msg:match('option%s*[\'"]?(%-[%w%-]+)[\'"]?')
         or msg:match('mean%s*[\'"]?(%-[%w%-]+)[\'"]?')
@@ -243,7 +247,7 @@ function M.getUnknownArgsCli(from)
         end
 
       -- Pass B: Object-driven Diagnostic Code Suppression
-      -- Read the true canonical code key extracted natively by the LSP protocol
+      -- Instantly captures real engine keywords like "pp_file_not_found" or "drv_unknown_argument"
       elseif code_name and type(code_name) == 'string' and code_name ~= '' then
         if not diagnostic.blocked_codes[code_name] then
           diagnostic.blocked_codes[code_name] = true
@@ -252,30 +256,33 @@ function M.getUnknownArgsCli(from)
       end
     end
 
-    -- 3. Execution Control Strategy Loop
+    -- 4. Recursive Execution and Sync Loop Control
     if new_discoveries then
-      -- Sync memory registers back to .filter.json and trigger a boilerplate update
+      -- Write the accumulated discoveries directly out to your configuration files
       diagnostic.save_from_cli()
 
-      -- Restart the language server instance to apply your fresh rules configuration
+      -- Cycle the underlying LSP server instance to ingest your fresh settings
       M.restart()
 
-      -- Recursively invoke the extraction processor loop after the LSP recreates the AST cache
+      -- Wait a brief fraction of a second for the LSP to re-index the document, then repeat
       vim.defer_fn(function()
-        if vim.api.nvim_buf_is_valid(current_buf) then
-          vim.cmd('checktime')
-          vim.cmd('edit!') -- Reloads file nodes to trigger the subsequent analysis pass
-          run_memory_analysis_pass()
+        if vim.api.nvim_buf_is_valid(target_buf) then
+          -- Run updates directly on our hidden background buffer index
+          vim.api.nvim_buf_call(target_buf, function()
+            vim.cmd('checktime')
+            vim.cmd('edit!') -- Re-runs compilation across the buffer cleanly
+          end)
+          run_memory_analysis_pass() -- Recursive step to hunt down the next error layer
         end
-      end, 300) -- Gives the backend language thread a moment to publish its updated diagnostic array
+      end, 350) -- Marginally padded for massive source file nodes (e.g. mainClock.cpp)
     else
-      -- Zero new errors detected across the file buffer object schema
-      OS.notify(from .. ' Clangd Automation ✅ All cascading diagnostic gates cleared successfully.')
+      -- Complete Parity: Every structural error layer cleared successfully
+      OS.notify(from .. ' Clangd Automation ✅ Successfully cleared all cascading compiler barriers.')
     end
   end
 
   -- Fire the initial automation pass directly in memory
-  OS.notify('Analyzing buffer diagnostics objects structure...')
+  OS.notify('Automating extraction loop for disk file: ' .. vim.fs.basename(check_file))
   run_memory_analysis_pass()
 end
 
