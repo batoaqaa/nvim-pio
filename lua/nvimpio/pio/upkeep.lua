@@ -174,7 +174,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
       require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
         if is_successful then
           -- OS.notify('Database is ready. Proceeding with analysis...')
-          clangd.getUnknownArgsCli(from)
+          -- clangd.getUnknownArgsCli(from)
         else
           OS.notify('Skipping next steps due to compilation database failure.', 'error')
         end
