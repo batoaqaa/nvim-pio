@@ -150,6 +150,8 @@ CompileFlags:
     "-xc++",
     "-std=gnu++17",
     "-ferror-limit=0",
+    "-DCORE_MOCK",
+    "--query-driver=**/*g++*",
     ]
 Diagnostics:
   Suppress:  [
