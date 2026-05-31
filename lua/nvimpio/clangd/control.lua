@@ -254,16 +254,26 @@ function M.getUnknownArgsCli(from)
       end
 
       -- Pass B: Parse Preprocessor / Cascading Structural Error Codes
-      -- Safely matches error/warning lines ending with the error code block: e.g. [pp_macro_not_found]
       for diagnostic_line in string.gmatch(output, '([^\r\n]+)') do
-        -- 1. Ensure the line is actually an error or warning message block
+        -- 1. Ensure the line actually marks a compiler exception or warning frame
         if string.find(diagnostic_line, 'error:') or string.find(diagnostic_line, 'warning:') then
-          -- 2. Extract ONLY the error trailing bracket code right at the end of the line
-          local code = diagnostic_line:match('%[([^%]]+)%]$')
+          -- 2. Extract potential code keys wrapped in brackets anywhere on the line
+          --    e.g., matching "[macro_too_many_args]" or "[unused-variable]"
+          for code in string.gmatch(diagnostic_line, '%[([^%]]+)%]') do
+            -- Ensure it is a raw alphabetic identifier code and not a timestamp log
+            if code ~= 'error' and code ~= 'warning' and not code:find(':') then
+              if not diagnostic.blocked_codes[code] then
+                diagnostic.blocked_codes[code] = true
+                new_discoveries = true
+              end
+            end
+          end
 
-          if code then
-            -- Clean out common generic tags or accidental leakage
-            if code ~= 'error' and code ~= 'warning' and not code:find('^%d%d:') then
+          -- 3. Fallback: Parse parenthesis structures if brackets aren't used
+          --    e.g., matching "(macro_too_many_args)"
+          for code in string.gmatch(diagnostic_line, '%(([^%)]+)%)') do
+            -- Ignore common messaging strings inside parentheses
+            if code ~= 'fix available' and not code:find(':') and not code:find('%s') then
               if not diagnostic.blocked_codes[code] then
                 diagnostic.blocked_codes[code] = true
                 new_discoveries = true
@@ -272,6 +282,25 @@ function M.getUnknownArgsCli(from)
           end
         end
       end
+      -- -- Pass B: Parse Preprocessor / Cascading Structural Error Codes
+      -- -- Safely matches error/warning lines ending with the error code block: e.g. [pp_macro_not_found]
+      -- for diagnostic_line in string.gmatch(output, '([^\r\n]+)') do
+      --   -- 1. Ensure the line is actually an error or warning message block
+      --   if string.find(diagnostic_line, 'error:') or string.find(diagnostic_line, 'warning:') then
+      --     -- 2. Extract ONLY the error trailing bracket code right at the end of the line
+      --     local code = diagnostic_line:match('%[([^%]]+)%]$')
+      --
+      --     if code then
+      --       -- Clean out common generic tags or accidental leakage
+      --       if code ~= 'error' and code ~= 'warning' and not code:find('^%d%d:') then
+      --         if not diagnostic.blocked_codes[code] then
+      --           diagnostic.blocked_codes[code] = true
+      --           new_discoveries = true
+      --         end
+      --       end
+      --     end
+      --   end
+      -- end
       -- 3. Loop Evaluation Layer
       if new_discoveries then
         -- Sync the newly discovered items out to .filter.json and write updated configuration files
