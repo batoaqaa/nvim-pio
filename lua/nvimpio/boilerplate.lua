@@ -142,7 +142,6 @@ boilerplate['.clangd_config.json'] = {
 boilerplate['.clangd'] = {
   static = [[
 ---
-Unknown argument: '--query-driver=**/*g++*'
 CompileFlags:
   Remove: [
     "-fipa-pta.*",
