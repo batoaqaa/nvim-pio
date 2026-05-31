@@ -126,22 +126,24 @@ function M.manage_file_diagnostics_interactive()
       local code_name = diag.code or ''
       local msg = diag.message or ''
 
-      -- 🚀 SMART CLANGD PARSER ROUTING:
-      -- Extract the bad option flag argument out of the error diagnostic text string.
-      -- If it has a suggestion or states "unknown argument", it must go to the
-      -- CompileFlags: Remove block because clangd cannot suppress driver errors via code names.
+      -- 1. Safely evaluate boolean state conditions first without changing types
+      local is_driver_error = false
+      if type(code_name) == 'string' and code_name:find('drv_unknown') then
+        is_driver_error = true
+      end
+
+      -- 2. Extract string values safely using dedicated regex capturing groups
       local unknown_arg = msg:match('argument%s*[\'"]?(%-.-)[\'"]?%s*')
         or msg:match('option%s*[\'"]?(%-.-)[\'"]?%s*')
         or msg:match('mean%s*[\'"]?(%-.-)[\'"]?%??$')
-        or code_name:find('drv_unknown')
 
-      -- Fallback backup catch: if the code says drv_unknown but message regex missed,
-      -- extract whatever flag text we can find or fallback to the specific invalid token.
-      if code_name:find('drv_unknown') and not unknown_arg then
-        unknown_arg = msg:match("'(%-.-)'") or '-mlongcalls' -- sensible defaults fallback
+      -- Fallback route: if it is a driver flag error but text regex missed, fall back safely
+      if is_driver_error and not unknown_arg then
+        unknown_arg = msg:match("'(%-.-)'") or '-mlongcalls'
       end
 
-      if unknown_arg then
+      -- 3. Run string sanitization steps ONLY if unknown_arg is guaranteed to be a valid string
+      if unknown_arg and type(unknown_arg) == 'string' then
         unknown_arg = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
         if not M.removed_flags[unknown_arg] and not unique_active_entries[unknown_arg] then
           unique_active_entries[unknown_arg] = true
@@ -162,7 +164,6 @@ function M.manage_file_diagnostics_interactive()
         end
       end
     end
-
     table.sort(block_options, function(a, b)
       return a.display < b.display
     end)
