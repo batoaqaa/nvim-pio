@@ -260,12 +260,12 @@ function M.getUnknownArgsCli(from)
         end
       end
     end
-
     -- 4. Execution Flow Branching
     if new_discoveries then
       diagnostic.save_from_cli()
       M.restart()
 
+      -- Force a buffer sync so the fresh LSP instance reads the updated files on disk
       vim.defer_fn(function()
         if vim.api.nvim_buf_is_valid(target_buf) then
           vim.api.nvim_buf_call(target_buf, function()
@@ -275,24 +275,53 @@ function M.getUnknownArgsCli(from)
         end
       end, 150)
     else
-      vim.api.nvim_del_augroup_by_id(au_group)
-      OS.notify(from .. ' Clangd Automation ✅ Successfully generated and synchronized all files.')
+      -- Verify if the file is truly clean before killing the automation loop.
+      -- If there are still active errors/warnings, do NOT delete the group yet—
+      -- wait for the new server instance to finish publishing its diagnostic array.
+      local has_errors = false
+      for _, node in ipairs(raw_nodes) do
+        if node.severity == vim.diagnostic.severity.ERROR or node.severity == vim.diagnostic.severity.WARN then
+          has_errors = true
+          break
+        end
+      end
+
+      if not has_errors and #raw_nodes == 0 then
+        vim.api.nvim_del_augroup_by_id(au_group)
+        OS.notify(from .. ' Clangd Automation ✅ All compilation layers cleared completely!')
+      end
     end
   end
-  -- 5. EVENT HOOK TRIGGER: Bind our logic directly to Neovim's diagnostic publisher
+
+  -- 5. EVENT HOOK TRIGGER: Debounce the publisher loop
+  --    Using a tiny timer ensures that rapid, empty diagnostic state shifts
+  --    caused by LSP restarts are ignored, allowing the real data pass to run.
+  local debounce_timer = nil
   vim.api.nvim_create_autocmd('DiagnosticChanged', {
     group = au_group,
     buffer = target_buf,
     callback = function()
-      -- Fire the validation processing pass strictly when the buffer reports fresh diagnostics data
-      run_memory_analysis_pass()
+      if debounce_timer then
+        vim.uv.timer_stop(debounce_timer)
+      end
+      debounce_timer = vim.uv.new_timer()
+      if debounce_timer then
+        debounce_timer:start(
+          300,
+          0,
+          vim.schedule_wrap(function()
+            run_memory_analysis_pass()
+          end)
+        )
+      end
     end,
   })
 
-  -- Force-initialize an immediate workspace baseline file save to write the initial template to disk
+  -- Force-initialize an immediate workspace baseline file save
   diagnostic.save_from_cli()
-  OS.notify('Background compiler automation session initialized for: ' .. vim.fs.basename(check_file))
+  OS.notify('Background compiler automation session running for: ' .. vim.fs.basename(check_file))
 end
+
 -- -- pio/control 160
 -- -- pio/upkeep 170, 1001, 1178
 -- -- INFO: get_clangd_unknown_args
