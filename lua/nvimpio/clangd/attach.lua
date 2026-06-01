@@ -15,80 +15,58 @@ vim.api.nvim_create_autocmd('LspAttach', {
 
     vim.api.nvim_echo({ { 'Attaching ' .. client.name .. ' to buffer ' .. bufnr, 'Info' } }, true, {})
     local nvim_pio_diag = require('nvimpio.clangd.diagnostic')
-
     if client and client.name == 'clangd' then
       local buf_path = vim.api.nvim_buf_get_name(bufnr)
 
       if buf_path ~= '' and (vim.fs.root(buf_path, { 'platformio.ini' }) or vim.uv.fs_stat(vim.uv.cwd() .. '/platformio.ini')) then
-        -- Manual shortcut safety toggle keymap
+        -- A. Mount manual toggle keymap
         vim.keymap.set('n', '<leader>\\b', function()
           nvim_pio_diag.manage_file_diagnostics_interactive()
         end, { buffer = bufnr, desc = 'Open Filter Panel' })
 
-        -- AUTOMATED FIRST SWEEP
-        local sweep_group = vim.api.nvim_create_augroup('NvimPioFirstSweepGroup_' .. bufnr, { clear = true })
-        -- AUTOMATED FIRST SWEEP
+        -- B. THE SELF-LEARNING MACHINE AUTOMATION
+        -- Set up a 2-second stability timer to isolate framework errors from typing typos
+        local stability_timer = vim.uv.new_timer()
+
         vim.api.nvim_create_autocmd('DiagnosticChanged', {
-          group = sweep_group,
+          group = vim.api.nvim_create_augroup('NvimPioAutoLearn_' .. bufnr, { clear = true }),
           buffer = bufnr,
           callback = function()
-            -- 🌟 FIXED: If a master reset is running, abandon the auto-sweep entirely!
-            if nvim_pio_diag.resetting then
-              vim.api.nvim_del_augroup_by_id(sweep_group)
+            if not stability_timer then
               return
             end
+            -- Reset the timer every time diagnostics shift (meaning you are actively typing code)
+            stability_timer:stop()
 
-            local raw_nodes = vim.diagnostic.get(bufnr)
+            stability_timer:start(
+              2000,
+              0,
+              vim.schedule_wrap(function()
+                -- If 2 seconds pass and the errors sit perfectly still, they are environment bottlenecks!
+                local current_errors = vim.diagnostic.get(bufnr)
+                local learned_new_filters = false
 
-            if #raw_nodes > 0 then
-              vim.api.nvim_del_augroup_by_id(sweep_group)
-
-              local automated_discoveries = false
-
-              for _, diag in ipairs(raw_nodes) do
-                local msg = diag.message or ''
-                local code_name = diag.code
-
-                -- Match unknown arguments with punctuation safety
-                for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
-                  local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
-                  if not nvim_pio_diag.removed_flags[clean_flag] then
-                    nvim_pio_diag.removed_flags[clean_flag] = true
-                    automated_discoveries = true
-                  end
-                end
-                for unknown_arg in string.gmatch(msg, 'option%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
-                  local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
-                  if not nvim_pio_diag.removed_flags[clean_flag] then
-                    nvim_pio_diag.removed_flags[clean_flag] = true
-                    automated_discoveries = true
+                for _, diag in ipairs(current_errors) do
+                  local code = diag.code
+                  -- Ensure it's a valid compiler error object and not a generic warning notice
+                  if code and type(code) == 'string' and code ~= '' then
+                    if not nvim_pio_diag.blocked_codes[code] then
+                      nvim_pio_diag.blocked_codes[code] = true
+                      learned_new_filters = true
+                    end
                   end
                 end
 
-                -- Match categorical codes (pp_file_not_found, etc.)
-                if code_name and type(code_name) == 'string' and code_name ~= '' then
-                  if not nvim_pio_diag.blocked_codes[code_name] then
-                    nvim_pio_diag.blocked_codes[code_name] = true
-                    automated_discoveries = true
-                  end
-                end
-              end
+                -- Commit the newly discovered static codes to your database and clear the viewport
+                if learned_new_filters then
+                  nvim_pio_diag.save_from_cli()
 
-              if automated_discoveries then
-                nvim_pio_diag.save_from_cli(bufnr)
-
-                -- Instantly apply the memory filtration adjustments down to the display screen
-                if vim.api.nvim_buf_is_valid(bufnr) then
-                  vim.api.nvim_buf_call(bufnr, function()
-                    local old_shortmess = vim.o.shortmess
-                    vim.o.shortmess = old_shortmess .. 'F'
-                    vim.cmd('silent! checktime')
-                    vim.cmd('silent! edit!')
-                    vim.o.shortmess = old_shortmess
-                  end)
+                  -- Instantly apply memory filtration maps quietly in the background
+                  vim.diagnostic.show(nil, bufnr)
+                  vim.notify('🤖 Clangd Automation: Automatically isolated and filtered framework setup barriers.')
                 end
-              end
-            end
+              end)
+            )
           end,
         })
       end
