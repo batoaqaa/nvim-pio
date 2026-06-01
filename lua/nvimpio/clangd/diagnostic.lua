@@ -37,7 +37,7 @@ end
 load_filter_database()
 
 -- =============================================================================
--- THE CORE INTERCEPTOR: Filters only what the user explicitly chooses
+-- THE PRESENTATION GATEWAY: Filters only what you explicitly choose
 -- =============================================================================
 function M.diagnostic_handler(err, result, ctx, config)
   if err or not result or not result.diagnostics then
@@ -50,7 +50,7 @@ function M.diagnostic_handler(err, result, ctx, config)
     local keep = true
     local code = diag.code
 
-    -- Filter out secondary warnings (like pp_file_not_found) selected by the user
+    -- Pure filter mapping for manual rules selected in the panel
     if code and M.manual_blocked_codes[code] then
       keep = false
     end
@@ -65,7 +65,7 @@ function M.diagnostic_handler(err, result, ctx, config)
 end
 
 -- =============================================================================
--- LIGHTWEIGHT CONTROL PANEL (Zero-Hardcode Table Matching)
+-- LIGHTWEIGHT CONTROL PANEL
 -- =============================================================================
 function M.manage_file_diagnostics_interactive()
   local current_buf = vim.api.nvim_get_current_buf()
@@ -86,7 +86,7 @@ function M.manage_file_diagnostics_interactive()
   end
 
   if #dashboard_items == 0 then
-    vim.notify('✅ Complete Parity: No active exceptions found.', vim.log.levels.INFO)
+    vim.notify('✅ Complete Parity: No customizable warnings found.', vim.log.levels.INFO)
     return
   end
 
