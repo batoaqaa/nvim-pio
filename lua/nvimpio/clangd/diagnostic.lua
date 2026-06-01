@@ -253,10 +253,10 @@ function M.manage_file_diagnostics_interactive()
 
   close_win()
 
-  local w = 70
-  local h = 18
-  local row = math.ceil((vim.o.lines - h) / 2) - 1
-  local col = math.ceil((vim.o.columns - w) / 2) - 1
+  local width = 70
+  local height = 18
+  local row = math.ceil((vim.o.lines - height) / 2) - 1
+  local col = math.ceil((vim.o.columns - width) / 2) - 1
 
   state.uibuf = vim.api.nvim_create_buf(false, true)
   state.uiwin = vim.api.nvim_open_win(state.uibuf, true, {
