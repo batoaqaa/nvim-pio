@@ -324,6 +324,17 @@ function M.manage_file_diagnostics_interactive()
       end)
     end,
   })
+  vim.api.nvim_create_autocmd('BufWipeout', {
+    group = lock_grp,
+    buffer = target_ui_buf,
+    callback = function()
+      -- Ensures that memory keys are reset even if the window is forced shut manually
+      M.on_diagnostics_updated = nil
+      pcall(vim.api.nvim_del_augroup_by_name, 'NvimPioModalLock')
+      ui_winnr = nil
+      ui_bufnr = nil
+    end,
+  })
 
   local opts = { silent = true, buffer = target_ui_buf }
   vim.keymap.set('n', '<CR>', function()
