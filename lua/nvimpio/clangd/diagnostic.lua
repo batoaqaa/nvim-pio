@@ -7,7 +7,10 @@ M.removed_flags = {}
 local root_markers = { 'platformio.ini', '.git' }
 local ui_bufnr = nil
 local ui_winnr = nil
-local original_bufnr = nil or 0
+local original_bufnr = nil
+
+-- 🌟 UI Refresh Callback Trigger Registry
+M.on_diagnostics_updated = nil
 
 local function get_db_path(bufnr)
   bufnr = (bufnr and bufnr ~= 0) and bufnr or vim.api.nvim_get_current_buf()
@@ -56,7 +59,7 @@ end
 load_filter_database(0)
 
 -- =============================================================================
--- 1. LSP HANDLER INTERCEPTOR
+-- 1. THE ROBUST DYNAMIC HANDLER INTERCEPTOR (VOLATILE IN-MEMORY EXTRACTION)
 -- =============================================================================
 function M.diagnostic_handler(err, result, ctx, config)
   if err or not result or not result.diagnostics then
@@ -68,6 +71,7 @@ function M.diagnostic_handler(err, result, ctx, config)
 
   local clean_diagnostics = {}
 
+  -- PASS 1: AUTOMATED IN-MEMORY CAPTURING ONLY (NO DISK POLLUTION)
   for _, diag in ipairs(result.diagnostics) do
     local code = diag.code
     local msg = diag.message or ''
@@ -82,6 +86,7 @@ function M.diagnostic_handler(err, result, ctx, config)
     end
   end
 
+  -- PASS 2: PRESENTATION SCREENING IN RAM
   for _, diag in ipairs(result.diagnostics) do
     local keep = true
     local code = diag.code
@@ -109,6 +114,13 @@ function M.diagnostic_handler(err, result, ctx, config)
 
   result.diagnostics = clean_diagnostics
   vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
+
+  -- 🌟 THE STREAM INTERCEPTOR HANDSHAKE:
+  -- The exact microsecond the filtered diagnostic payload completes compilation
+  -- and passes through this gateway, execute our UI redraw notification safely!
+  if type(M.on_diagnostics_updated) == 'function' then
+    M.on_diagnostics_updated()
+  end
 end
 
 -- =============================================================================
@@ -117,6 +129,7 @@ end
 local menu_mappings = {}
 
 local function close_filter_window()
+  M.on_diagnostics_updated = nil -- Dissolve callback lifecycle safely
   if ui_winnr and vim.api.nvim_win_is_valid(ui_winnr) then
     vim.api.nvim_win_close(ui_winnr, true)
   end
@@ -125,10 +138,11 @@ local function close_filter_window()
 end
 
 local function draw_filter_menu_contents()
-  if not ui_bufnr or not vim.api.nvim_buf_is_valid(ui_bufnr) then
+  local target_orig_buf = original_bufnr or 0
+  if not ui_bufnr or not vim.api.nvim_buf_is_valid(ui_bufnr) or target_orig_buf == 0 then
     return
   end
-  load_filter_database(original_bufnr)
+  load_filter_database(target_orig_buf)
 
   local lines = { ' 💥 Compiler Mangler Dashboard (Press [q] or [Esc] to Exit) ', string.rep('─', 65), '' }
   menu_mappings = {}
@@ -139,17 +153,17 @@ local function draw_filter_menu_contents()
     table.insert(menu_mappings, { action = 'reset' })
   end
 
-  -- Scan active diagnostics straight out of the background compilation buffer
+  -- Scan live diagnostics directly out of the active compiler namespaces
   local raw_diagnostics = {}
-  for _, client in pairs(vim.lsp.get_clients({ bufnr = original_bufnr })) do
+  for _, client in pairs(vim.lsp.get_clients({ bufnr = target_orig_buf })) do
     local namespace = vim.lsp.diagnostic.get_namespace(client.id)
-    local client_diags = vim.diagnostic.get(original_bufnr, { namespace = namespace })
+    local client_diags = vim.diagnostic.get(target_orig_buf, { namespace = namespace })
     for _, d in ipairs(client_diags) do
       table.insert(raw_diagnostics, d)
     end
   end
   if #raw_diagnostics == 0 then
-    raw_diagnostics = vim.diagnostic.get(original_bufnr)
+    raw_diagnostics = vim.diagnostic.get(target_orig_buf)
   end
 
   local seen = {}
@@ -199,31 +213,22 @@ local function draw_filter_menu_contents()
       table.insert(menu_mappings, { action = 'none' })
     end
   end
-  -- Ensure that ui_bufnr resolves to a safe fallback integer before setting options
+
   local target_ui_buf = ui_bufnr or 0
   if target_ui_buf ~= 0 and vim.api.nvim_buf_is_valid(target_ui_buf) then
-    -- Unlock the scratchpad buffer for editing natively in RAM space
     vim.bo[target_ui_buf].modifiable = true
-
-    -- Sync our formatted line options straight to the screen viewport layout
     vim.api.nvim_buf_set_lines(target_ui_buf, 0, -1, false, lines)
-
-    -- Freeze the buffer right back down to a clean, non-editable read-only status
     vim.bo[target_ui_buf].modifiable = false
   end
 end
 
--- Replace this function block inside lua/nvimpio/clangd/diagnostic.lua
-
 local function handle_menu_selection()
-  -- 1. Grab the raw text line string your cursor is physically sitting on
   local current_line = vim.api.nvim_get_current_line() or ''
+  local target_buf = original_bufnr or 0
 
   local action = nil
   local target_id = nil
 
-  -- 2. DYNAMIC CONTENT EVALUATION (ZERO OFFSET FRACTION):
-  -- We parse the explicit line contents to instantly extract the target action types
   if current_line:find('💥 Clear All Active User Filters') then
     action = 'reset'
   elseif current_line:find('🔒 Suppress Code:') then
@@ -234,54 +239,48 @@ local function handle_menu_selection()
     target_id = current_line:match('🔓 Remove Manual Filter:%s*%[([%w%-_]+)%]')
   end
 
-  -- If they hit Enter on a section title or a read-only log banner line, abort safely!
-  if not action or action == 'none' then
+  if not action or action == 'none' or target_buf == 0 then
     return
   end
 
-  -- 3. Execute our local volatile memory hash updates
   if action == 'reset' then
     M.manual_blocked_codes = {}
-    save_filter_database(original_bufnr)
-    vim.notify('💥 All custom selections wiped clean.', vim.log.levels.ERROR)
+    save_filter_database(target_buf)
+    vim.notify('💥 User selections wiped clean.', vim.log.levels.ERROR)
   elseif action == 'block_code' and target_id then
     M.manual_blocked_codes[target_id] = true
-    save_filter_database(original_bufnr)
+    save_filter_database(target_buf)
   elseif action == 'unblock_code' and target_id then
     M.manual_blocked_codes[target_id] = nil
-    save_filter_database(original_bufnr)
+    save_filter_database(target_buf)
   end
 
-  -- Trigger an instantaneous silent text context refresh on the background code layout
-  if vim.api.nvim_buf_is_valid(original_bufnr) then
-    vim.api.nvim_buf_call(original_bufnr, function()
-      local old_shortmess = vim.o.shortmess
-      vim.o.shortmess = old_shortmess .. 'F'
-      vim.cmd('silent! checktime')
-      vim.cmd('silent! edit!')
-      vim.o.shortmess = old_shortmess
+  -- Mount our explicit synchronous stream listener callback BEFORE refreshing the file context
+  M.on_diagnostics_updated = function()
+    vim.schedule(function()
+      draw_filter_menu_contents()
     end)
   end
 
-  -- Hook onto the incoming DiagnosticChanged framework pass to redraw the selection panel lines
-  local refresh_group = vim.api.nvim_create_augroup('NvimPioMenuRefreshGroup', { clear = true })
-  vim.api.nvim_create_autocmd('DiagnosticChanged', {
-    group = refresh_group,
-    buffer = original_bufnr,
-    callback = function()
-      vim.api.nvim_del_augroup_by_id(refresh_group)
-      vim.schedule(function()
-        draw_filter_menu_contents()
-      end)
-    end,
-  })
+  -- Trigger the whisper-quiet asynchronous buffer reload pass
+  vim.api.nvim_buf_call(target_buf, function()
+    local old_shortmess = vim.o.shortmess
+    vim.o.shortmess = old_shortmess .. 'F'
+    vim.cmd('silent! checktime')
+    vim.cmd('silent! edit!')
+    vim.o.shortmess = old_shortmess
+  end)
 end
 
 function M.manage_file_diagnostics_interactive()
   original_bufnr = vim.api.nvim_get_current_buf()
+  local target_orig_buf = original_bufnr or 0
+  if target_orig_buf == 0 then
+    return
+  end
+
   close_filter_window()
 
-  -- Calculate modern floating center coordinates
   local width = 70
   local height = 18
   local row = math.ceil((vim.o.lines - height) / 2) - 1
@@ -300,29 +299,24 @@ function M.manage_file_diagnostics_interactive()
     title_pos = 'center',
   })
 
-  -- Enforce scratch buffer UI safety parameters
   local target_ui_buf = ui_bufnr or 0
   if target_ui_buf ~= 0 then
     vim.bo[target_ui_buf].bufhidden = 'wipe'
     vim.bo[target_ui_buf].filetype = 'nvimpiomangler'
   end
 
-  -- Bind interactive core keymaps natively inside our custom scratch buffer window layer
-  local opts = { silent = true, buffer = ui_bufnr }
-  vim.keymap.set('n', '<CR>', function()
+  local opts = { silent = true, buffer = target_ui_buf }
+  vim.keymap.set('n', '', function()
     handle_menu_selection()
   end, opts)
   vim.keymap.set('n', 'q', function()
     close_filter_window()
   end, opts)
-  vim.keymap.set('n', '<Esc>', function()
+  vim.keymap.set('n', '', function()
     close_filter_window()
   end, opts)
-
-  -- Initial population pass drawing choices maps straight to screen
   draw_filter_menu_contents()
 end
-
 return M
 
 -- --- stylua: ignore start
