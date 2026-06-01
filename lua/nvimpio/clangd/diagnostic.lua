@@ -276,3 +276,4 @@ function M.manage_file_diagnostics_interactive()
 end
 
 -- stylua: ignore end
+return M
