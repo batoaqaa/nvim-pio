@@ -1,12 +1,19 @@
 --- stylua: ignore start
 local M = {}
 
-M.manual_blocked_codes = {}
-M.removed_flags = {}
+local state = {
+  codes = {},
+  flags = {},
+  uibuf = nil,
+  uiwin = nil,
+  origbuf = nil,
+}
+M.on_updated = nil
 
 local markers = { 'platformio.ini', '.git' }
+local ns = vim.api.nvim_create_namespace('Pio')
 
--- 1. Get absolute filter file path safely
+-- 1. Path resolver helper
 local function get_db_path(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   local f = vim.api.nvim_buf_get_name(bufnr)
@@ -14,9 +21,9 @@ local function get_db_path(bufnr)
   return root .. '/.filter.json'
 end
 
--- 2. Load persistent json suppression arrays
-local function load_filter_database(bufnr)
-  M.manual_blocked_codes = {}
+-- 2. Database loading engine
+local function load_db(bufnr)
+  state.codes = {}
   local path = get_db_path(bufnr)
   local f = io.open(path, 'rb')
   if not f then
@@ -30,22 +37,22 @@ local function load_filter_database(bufnr)
       for k, v in pairs(data.codes) do
         local s = (type(k) == 'string') and k or v
         if type(s) == 'string' and s ~= '' then
-          M.manual_blocked_codes[s] = true
+          state.codes[s] = true
         end
       end
     end
   end
 end
 
--- 3. Write active selections straight down to disk
-local function save_filter_database(bufnr)
+-- 3. Database saving engine
+local function save_db(bufnr)
   local path = get_db_path(bufnr)
   local f = io.open(path, 'wb')
   if f then
-    if next(M.manual_blocked_codes) == nil then
+    if next(state.codes) == nil then
       f:write('{"codes":null}')
     else
-      local payload = { codes = M.manual_blocked_codes }
+      local payload = { codes = state.codes }
       local pretty = require('nvimpio.utils.misc').jsonFormat(payload)
       f:write(pretty)
     end
@@ -53,7 +60,7 @@ local function save_filter_database(bufnr)
   end
 end
 
-load_filter_database(0)
+load_db(0)
 
 -- =====================================================
 -- 4. DYNAMIC STREAM INTERCEPTOR (VOLATILE RAM-ONLY)
@@ -64,7 +71,7 @@ function M.diagnostic_handler(err, result, ctx, config)
   end
 
   local current_buf = vim.uri_to_bufnr(result.uri)
-  load_filter_database(current_buf)
+  load_db(current_buf)
 
   local clean_diagnostics = {}
 
@@ -79,10 +86,19 @@ function M.diagnostic_handler(err, result, ctx, config)
       keep = false
       local f = msg:match('(%-[%w%-]+)')
       if f then
-        M.removed_flags[f] = true
+        state.flags[f] = true
       end
-    elseif code and M.manual_blocked_codes[code] then
+    elseif code and state.codes[code] then
       keep = false
+    end
+
+    if keep then
+      for flag, _ in pairs(state.flags) do
+        if msg:find(flag, 1, true) then
+          keep = false
+          break
+        end
+      end
     end
 
     if keep then
@@ -92,106 +108,209 @@ function M.diagnostic_handler(err, result, ctx, config)
 
   result.diagnostics = clean_diagnostics
   vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
+
+  if type(M.on_updated) == 'function' then
+    M.on_updated()
+  end
 end
 
 -- =====================================================
--- 5. PERSISTENT RECURSIVE DROPDOWN FILTER CONTROL PANEL
+-- 5. PERSISTENT FLOATING CANVAS CONTROL PANEL ENGINE
 -- =====================================================
-function M.manage_file_diagnostics_interactive()
-  local bufnr = vim.api.nvim_get_current_buf()
-  local items = {}
+local function close_win()
+  M.on_updated = nil
+  pcall(vim.api.nvim_del_augroup_by_name, 'PioLock')
+  if state.uiwin and vim.api.nvim_win_is_valid(state.uiwin) then
+    vim.api.nvim_win_close(state.uiwin, true)
+  end
+  state.uiwin = nil
+  state.uibuf = nil
+end
 
-  if next(M.manual_blocked_codes) then
-    table.insert(items, { action = 'reset', text = '💥 Clear All Active User Filters' })
+local function draw_menu()
+  local orig = state.original_bufnr or 0
+  if not state.uibuf or not vim.api.nvim_buf_is_valid(state.uibuf) or orig == 0 then
+    return
+  end
+  load_db(orig)
+
+  local lines = { ' 💥 PlatformIO Filter Dashboard (Press [q] / [Esc] to Exit) ', string.rep('─', 65), '' }
+  vim.api.nvim_buf_clear_namespace(state.uibuf, ns, 0, -1)
+
+  if next(state.codes) then
+    table.insert(lines, '  [x] 💥 Clear All Active User Filters')
   end
 
-  -- Scan active warnings out of current buffer namespaces
-  local raw_diagnostics = {}
-  for _, client in pairs(vim.lsp.get_clients({ bufnr = bufnr })) do
-    local namespace = vim.lsp.diagnostic.get_namespace(client.id)
-    local client_diags = vim.diagnostic.get(bufnr, { namespace = namespace })
-    for _, d in ipairs(client_diags) do
-      table.insert(raw_diagnostics, d)
-    end
-  end
-  if #raw_diagnostics == 0 then
-    raw_diagnostics = vim.diagnostic.get(bufnr)
-  end
-
+  local diags = vim.diagnostic.get(orig)
   local seen = {}
-  for _, d in ipairs(raw_diagnostics) do
+  local head1 = false
+  for _, d in ipairs(diags) do
     local c = d.code or ''
-    if c ~= '' and c ~= 'drv_unknown_argument' and c ~= 'drv_unknown_argument_with_suggestion' and c ~= 'fatal_too_many_errors' then
-      if not M.manual_blocked_codes[c] and not seen[c] then
+    if c ~= '' and c ~= 'drv_unknown_argument' and c ~= 'fatal_too_many_errors' then
+      if not state.codes[c] and not seen[c] then
+        if not head1 then
+          table.insert(lines, ' Outstanding Warnings (Select to Block):')
+          head1 = true
+        end
         seen[c] = true
-        table.insert(items, { action = 'block', id = c, text = '🔒 Suppress Code: [' .. c .. ']' })
+        table.insert(lines, '  [ ] 🔒 Suppress Code: [' .. c .. ']')
       end
     end
   end
 
-  -- Show active suppressed options for toggling back
-  for k, _ in pairs(M.manual_blocked_codes) do
-    table.insert(items, { action = 'unblock', id = k, text = '🔓 Remove Manual Filter: [' .. k .. ']' })
+  local head2 = false
+  for k, _ in pairs(state.codes) do
+    if type(k) == 'string' and k ~= '' then
+      if not head2 then
+        table.insert(lines, '')
+        table.insert(lines, ' Suppressed Codes (Select to Restore):')
+        head2 = true
+      end
+      table.insert(lines, '  [*] 🔓 Remove Manual Filter: [' .. k .. ']')
+    end
   end
 
-  -- Print read-only logs at the bottom
-  for f, _ in pairs(M.removed_flags) do
-    table.insert(items, { action = 'none', text = '⚙️ [AUTOMATED BLOCK]: ' .. f })
+  local head3 = false
+  for f, _ in pairs(state.flags) do
+    if not head3 then
+      table.insert(lines, '')
+      table.insert(lines, ' ⚙️ Automated Flag Protections (Read-Only):')
+      head3 = true
+    end
+    table.insert(lines, '  [-] 📋 [RECORDED FLAG]: ' .. f)
   end
 
-  -- 🌟 FIXED EARLY EXIT BOUNDARY:
-  -- We only terminate if the complete option array is fully empty.
-  -- If you have historical blocks active, the menu stays open!
-  if #items == 0 then
-    vim.notify('✅ Clean Slate: No active filters.', vim.log.levels.INFO)
+  vim.bo[state.uibuf].modifiable = true
+  vim.api.nvim_buf_set_lines(state.uibuf, 0, -1, false, lines)
+  vim.bo[state.uibuf].modifiable = false
+
+  -- Apply 0.11+ modern highlights smoothly
+  vim.api.nvim_buf_set_extmark(state.uibuf, ns, 0, 0, { end_line = 1, hl_group = 'Title' })
+  vim.api.nvim_buf_set_extmark(state.uibuf, ns, 1, 0, { end_line = 2, hl_group = 'Comment' })
+  for idx, txt in ipairs(lines) do
+    local line_pos = idx - 1
+    local opts = { end_line = idx }
+    if txt:find('^ Outstanding') then
+      opts.hl_group = 'DiagnosticWarn'
+      vim.api.nvim_buf_set_extmark(state.uibuf, ns, line_pos, 0, opts)
+    elseif txt:find('^ Suppressed') then
+      opts.hl_group = 'DiagnosticOk'
+      vim.api.nvim_buf_set_extmark(state.uibuf, ns, line_pos, 0, opts)
+    elseif txt:find('^ ⚙️') or txt:find('^  %[%-%]') then
+      opts.hl_group = 'Comment'
+      vim.api.nvim_buf_set_extmark(state.uibuf, ns, line_pos, 0, opts)
+    end
+  end
+end
+
+local function handle_select()
+  local line = vim.api.nvim_get_current_line() or ''
+  local orig = state.original_bufnr or 0
+  if orig == 0 then
     return
   end
 
-  -- Render via native modern Neovim picker loop
-  vim.ui.select(items, {
-    prompt = 'Filter Panel (Press Esc to finish)',
-    format_item = function(item)
-      return item.text
-    end,
-  }, function(choice)
-    if not choice or choice.action == 'none' then
-      return
+  if line:find('💥 Clear All Active User Filters') then
+    state.codes = {}
+    save_db(orig)
+  elseif line:find('🔒 Suppress Code:') then
+    local id = line:match('🔒 Suppress Code:%s*%[([%w%-_]+)%]')
+    if id then
+      state.codes[id] = true
+      save_db(orig)
     end
-
-    if choice.action == 'reset' then
-      M.manual_blocked_codes = {}
-    elseif choice.action == 'block' then
-      M.manual_blocked_codes[choice.id] = true
-    elseif choice.action == 'unblock' then
-      M.manual_blocked_codes[choice.id] = nil
+  elseif line:find('🔓 Remove Manual Filter:') then
+    local id = line:match('🔓 Remove Manual Filter:%s*%[([%w%-_]+)%]')
+    if id then
+      state.codes[id] = nil
+      save_db(orig)
     end
+  else
+    return
+  end
 
-    save_filter_database(bufnr)
-
-    -- Force reactive synchronization via the native event pipeline
+  M.on_updated = function()
     vim.schedule(function()
-      if vim.api.nvim_buf_is_valid(bufnr) then
-        local refresh_group = vim.api.nvim_create_augroup('NvimPioMenuRefreshGroup', { clear = true })
-        vim.api.nvim_create_autocmd('DiagnosticChanged', {
-          group = refresh_group,
-          buffer = bufnr,
-          callback = function()
-            vim.api.nvim_del_augroup_by_id(refresh_group)
-            M.manage_file_diagnostics_interactive()
-          end,
-        })
-
-        -- Execute the whisper-quiet asynchronous buffer reload pass
-        vim.api.nvim_buf_call(bufnr, function()
-          local old_shortmess = vim.o.shortmess
-          vim.o.shortmess = old_shortmess .. 'F'
-          vim.cmd('silent! checktime')
-          vim.cmd('silent! edit!')
-          vim.o.shortmess = old_shortmess
-        end)
-      end
+      draw_menu()
     end)
+  end
+
+  vim.api.nvim_buf_call(orig, function()
+    local old = vim.o.shortmess
+    vim.o.shortmess = old .. 'F'
+    vim.cmd('silent! checktime')
+    vim.cmd('silent! edit!')
+    vim.o.shortmess = old
   end)
+end
+
+function M.manage_file_diagnostics_interactive()
+  state.original_bufnr = vim.api.nvim_get_current_buf()
+  local orig = state.original_bufnr or 0
+  if orig == 0 then
+    return
+  end
+
+  close_win()
+
+  local w = 70
+  local h = 18
+  local row = math.ceil((vim.o.lines - h) / 2) - 1
+  local col = math.ceil((vim.o.columns - w) / 2) - 1
+
+  state.uibuf = vim.api.nvim_create_buf(false, true)
+  state.uiwin = vim.api.nvim_open_win(state.uibuf, true, {
+    relative = 'editor',
+    width = width,
+    height = height,
+    row = row,
+    col = col,
+    style = 'minimal',
+    border = 'rounded',
+    title = ' PlatformIO Exception Manager ',
+    title_pos = 'center',
+  })
+
+  if state.uibuf ~= 0 then
+    vim.bo[state.uibuf].bufhidden = 'wipe'
+    vim.bo[state.uibuf].filetype = 'nvimpiomangler'
+  end
+
+  local lock = vim.api.nvim_create_augroup('PioLock', { clear = true })
+  vim.api.nvim_create_autocmd('WinLeave', {
+    group = lock,
+    callback = function()
+      vim.schedule(function()
+        if state.uiwin and vim.api.nvim_win_is_valid(state.uiwin) then
+          vim.api.nvim_set_current_win(state.uiwin)
+        end
+      end)
+    end,
+  })
+
+  vim.api.nvim_create_autocmd('BufWipeout', {
+    group = lock,
+    buffer = state.uibuf,
+    callback = function()
+      M.on_updated = nil
+      pcall(vim.api.nvim_del_augroup_by_name, 'PioLock')
+      state.uiwin = nil
+      state.uibuf = nil
+    end,
+  })
+
+  local opts = { silent = true, buffer = state.uibuf }
+  vim.keymap.set('n', '<CR>', function()
+    handle_select()
+  end, opts)
+  vim.keymap.set('n', 'q', function()
+    close_win()
+  end, opts)
+  vim.keymap.set('n', '<Esc>', function()
+    close_win()
+  end, opts)
+
+  draw_menu()
 end
 
 -- stylua: ignore end
