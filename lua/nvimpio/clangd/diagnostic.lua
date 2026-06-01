@@ -130,13 +130,13 @@ function M.manage_file_diagnostics_interactive()
       return item.display
     end,
   }, function(choice)
-    -- 🌟 THE ESCAPE ROUTE: The menu only exits when the user explicitly hits Esc/Cancel
+    -- THE ESCAPE ROUTE: The menu only exits when the user explicitly hits Esc
     if not choice then
       OS.notify('Clangd Automation ✅ Interception matrix updated successfully.')
       return
     end
 
-    -- Process the current item selection without terminating the workspace session
+    -- Process the current item selection
     if choice.action == 'reset' then
       M.blocked_codes = {}
       M.removed_flags = {}
@@ -153,14 +153,20 @@ function M.manage_file_diagnostics_interactive()
     -- Sync to the persistent local project storage database map
     save_filter_database()
 
-    -- Instantly push the fresh filter rules across your active screen workspace
-    vim.diagnostic.show(nil, current_buf)
+    -- 🌟 AUTOMATED INSTANT RE-RENDER: Force a silent, non-disruptive buffer
+    -- reload to prompt clangd to refresh its internal cache immediately.
+    if vim.api.nvim_buf_is_valid(current_buf) then
+      vim.api.nvim_buf_call(current_buf, function()
+        vim.cmd('checktime')
+        vim.cmd('edit!')
+      end)
+    end
 
-    -- 🌟 RECURSIVE AUTOMATION LOOP: Instantly rebuilds the option list
-    -- and re-opens the selector window on the very next screen cycle frame!
-    vim.schedule(function()
+    -- Stagger the recursive menu loop slightly (100ms) to allow the new
+    -- incoming clean diagnostic payload to land inside Neovim's cache.
+    vim.defer_fn(function()
       M.manage_file_diagnostics_interactive()
-    end)
+    end, 100)
   end)
 end
 
