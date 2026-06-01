@@ -15,20 +15,24 @@ vim.api.nvim_create_autocmd('LspAttach', {
 
     vim.api.nvim_echo({ { 'Attaching ' .. client.name .. ' to buffer ' .. bufnr, 'Info' } }, true, {})
     local nvim_pio_diag = require('nvimpio.clangd.diagnostic')
-    if vim.fs.root(bufnr, { 'platformio.ini' }) then
+
+    local buf_path = vim.api.nvim_buf_get_name(bufnr)
+    -- Run the root marker scan using a valid string path structure
+    if buf_path ~= '' and vim.fs.root(buf_path, { 'platformio.ini' }) then
       -- A. Create a Buffer-Local User Command (:PioMangler)
-      vim.api.nvim_buf_create_user_command(bufnr, 'ClangdMangler', function()
+      vim.api.nvim_buf_create_user_command(bufnr, 'PioMangler', function()
         nvim_pio_diag.manage_file_diagnostics_interactive()
       end, { desc = 'Open LSP Handler Filter Panel' })
 
       -- B. Create a Buffer-Local Keyboard Shortcut (<leader>pc)
-      vim.keymap.set('n', '<leader>\\b', function()
+      vim.keymap.set('n', '<leader>pc', function()
         nvim_pio_diag.manage_file_diagnostics_interactive()
       end, {
         buffer = bufnr,
         desc = 'Open LSP Handler Filter Panel',
       })
     end
+
     -- Hook up an isolated pipeline overlay dedicated strictly to this active buffer
 
     -- 1. Hook up your isolated pipeline overlay for all future background events
