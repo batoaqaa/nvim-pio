@@ -42,26 +42,28 @@ function M.get_sysroot_triplet(cc_compiler)
   local sysroot = misc.normalizePath(toolchain_root .. '/' .. triplet)
 
   local query_driver = misc.normalizePath(bin_path .. '/*')
-  -- local query_driver = misc.normalizePath(bin_path .. '/' .. triplet .. '-*')
-  -- local query_driver = misc.normalizePath(bin_path .. '/*')
-  -- query_driver = OS.is_win and query_driver:gsub('/', '\\\\') or query_driver
 
+  _G.metadata = _G.metadata or {}
+  _G.metadata.triplet = triplet
+  _G.metadata.toolchain_root = toolchain_root
+  _G.metadata.query_driver = query_driver
 
-
-  -- Only return data if the sysroot folder actually exists on disk
+  -- Check if sysroot folder actually exists on disk (Optional fallback validation)
+  -- If it doesn't exist, we fall back to toolchain_root so your metadata never breaks!
   if vim.fn.isdirectory(sysroot) == 1 then
-    _G.metadata.triplet = triplet
     _G.metadata.sysroot = sysroot
-    _G.metadata.toolchain_root = toolchain_root
-    _G.metadata.query_driver = query_driver
-    return {
-      triplet = triplet,
-      sysroot = sysroot,
-      toolchain_root = toolchain_root,
-      query_driver = query_driver,
-    }
+  else
+    _G.metadata.sysroot = toolchain_root
   end
-  return nil
+
+  -- We ALWAYS return the compiled dataset table if a valid bin directory was verified.
+  -- This guarantees your plugin never returns 'nil' under new Espressif folder designs!
+  return {
+    triplet = triplet,
+    sysroot = _G.metadata.sysroot,
+    toolchain_root = toolchain_root,
+    query_driver = query_driver,
+  }
 end
 
 
