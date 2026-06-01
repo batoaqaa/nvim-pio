@@ -1,4 +1,4 @@
--- stylua: ignore start
+--- stylua: ignore start
 local M = {}
 
 -- High-speed hot-memory tracking maps
@@ -203,6 +203,7 @@ function M.manage_file_diagnostics_interactive()
   end
 
   -- Render selection interface window mapping options
+  --
   vim.ui.select(dashboard_items, {
     prompt = 'Filter Panel (Select item to toggle suppression state)',
     format_item = function(item)
@@ -214,37 +215,20 @@ function M.manage_file_diagnostics_interactive()
     end
 
     if choice.action == 'reset' then
-      -- 1. Engage the global stream lock to prevent auto-saving loops
-      M.resetting = true
-
-      -- 2. Clear out hot memory maps
+      -- 1. HARD RESET: Wipe out hot memory references immediately
       M.blocked_codes = {}
       M.removed_flags = {}
 
-      -- 3. Truncate the file payload data back to an empty schema on disk
+      -- 2. HARD REMOVAL: Physically erase the file context from your operating system hard drive
       local json_database_file = get_db_path(current_buf)
-      local f = io.open(json_database_file, 'wb')
-      if f then
-        f:write('{"codes":{},"flags":{}}')
-        f:close()
-      end
+      os.remove(json_database_file)
 
-      -- 4. Delete the initial attachment auto-sweep listener group
+      -- 3. TEARDOWN: Safeguard and kill any lingering background listener pipelines
       pcall(vim.api.nvim_del_augroup_by_name, 'NvimPioFirstSweepGroup_' .. current_buf)
+      pcall(vim.api.nvim_del_augroup_by_name, 'NvimPioResetRelease_' .. current_buf)
+      pcall(vim.api.nvim_del_augroup_by_name, 'NvimPioMenuRefreshGroup')
 
-      -- 5. THE REACTIVE HOOK: Wait for clangd's next payload frame before releasing lock
-      local reset_release_group = vim.api.nvim_create_augroup('NvimPioResetRelease_' .. current_buf, { clear = true })
-      vim.api.nvim_create_autocmd('DiagnosticChanged', {
-        group = reset_release_group,
-        buffer = current_buf,
-        callback = function()
-          -- The payload has cleared the handler pipe. Safe to unlock and clean up hook!
-          vim.api.nvim_del_augroup_by_id(reset_release_group)
-          M.resetting = false
-        end,
-      })
-
-      vim.notify('💥 Data wiped clean. Reverting back to original static settings.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
+      vim.notify('💥 Data wiped clean. Baseline compiler profiles restored.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
     elseif choice.action == 'block_flag' then
       M.removed_flags[choice.id] = true
     elseif choice.action == 'block_code' then
@@ -255,12 +239,12 @@ function M.manage_file_diagnostics_interactive()
       M.blocked_codes[choice.id] = nil
     end
 
-    -- Commit standard database modifications if choice isn't a master reset pass
+    -- Only write standard transactions to the database path if we are NOT resetting
     if choice.action ~= 'reset' then
       M.save_from_cli(current_buf)
     end
 
-    -- Perform an instantaneous silent buffer text cycle pass to prompt rendering adjustments
+    -- Force a silent, non-disruptive buffer reload to render the workspace state cleanly
     if vim.api.nvim_buf_is_valid(current_buf) then
       vim.api.nvim_buf_call(current_buf, function()
         local old_shortmess = vim.o.shortmess
