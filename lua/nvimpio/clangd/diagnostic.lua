@@ -4,6 +4,7 @@ local M = {}
 -- Explicit table instantiation at the absolute top prevents race-condition crashes
 M.manual_blocked_codes = {}
 M.removed_flags = {}
+M.is_wiping = false -- 🌟 ADD THIS: Dynamic state lock to shield resets from auto-saving loops
 
 local root_markers = { 'platformio.ini', '.git' }
 
@@ -76,6 +77,11 @@ function M.diagnostic_handler(err, result, ctx, config)
     return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
   end
 
+  -- 🌟 GUARD LAYER: If a master reset is currently active, bypass extraction completely
+  if M.is_wiping then
+    return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
+  end
+
   local current_buf = vim.uri_to_bufnr(result.uri)
   load_filter_database(current_buf)
 
@@ -144,7 +150,7 @@ function M.manage_file_diagnostics_interactive()
     table.insert(dashboard_items, { action = 'reset', display = '💥 Clear All Active Filters & Records' })
   end
 
-  -- SECTION B: LIST OUTSTANDING CODES SO YOU CAN CHOOSE WHAT TO BLOCK (e.g. pp_file_not_found)
+  -- SECTION B: LIST OUTSTANDING CODES SO YOU CAN CHOOSE WHAT TO BLOCK
   local raw_diagnostics = vim.diagnostic.get(current_buf)
   local seen = {}
   for _, diag in ipairs(raw_diagnostics) do
@@ -198,16 +204,24 @@ function M.manage_file_diagnostics_interactive()
       return (type(item) == 'table' and type(item.display) == 'string') and item.display or tostring(item)
     end,
   }, function(choice)
-    -- 🌟 User explicitly cancels or hits Esc: clean workspace break exit out of loop
     if not choice then
       return
     end
 
     if choice.action == 'reset' then
+      -- Engage the safety lock to freeze the automated data scraper loop
+      M.is_wiping = true
       M.manual_blocked_codes = {}
       M.removed_flags = {}
-      save_filter_database(current_buf)
-      vim.notify('💥 Filters wiped clean.', vim.log.levels.ERROR)
+
+      -- Force an absolute truncated empty dictionary dump straight onto the disk
+      local json_database_file = get_db_path(current_buf)
+      local f = io.open(json_database_file, 'wb')
+      if f then
+        f:write('{"codes":{},"flags":{}}')
+        f:close()
+      end
+      vim.notify('💥 Filters wiped clean and log history reset.', vim.log.levels.ERROR)
     elseif choice.action == 'block_code' then
       M.manual_blocked_codes[choice.id] = true
       save_filter_database(current_buf)
@@ -219,9 +233,7 @@ function M.manage_file_diagnostics_interactive()
       save_filter_database(current_buf)
     end
 
-    -- 🌟 THE RECURSIVE VEHICLE:
-    -- We schedule a buffer update and immediately call the menu function right back!
-    -- This recalculates outstanding diagnostics on the next frame and holds the window open.
+    -- Schedule the refresh pass safely to override async timing blocks
     vim.schedule(function()
       if vim.api.nvim_buf_is_valid(current_buf) then
         vim.api.nvim_buf_call(current_buf, function()
@@ -233,8 +245,15 @@ function M.manage_file_diagnostics_interactive()
         end)
       end
 
-      -- Loop back and re-open the updated menu panel seamlessly!
-      M.manage_file_diagnostics_interactive()
+      -- 🌟 RELEASE THE SHIELD: Wait for the next render step before releasing the lock
+      if choice.action == 'reset' then
+        vim.defer_fn(function()
+          M.is_wiping = false
+          M.manage_file_diagnostics_interactive()
+        end, 100)
+      else
+        M.manage_file_diagnostics_interactive()
+      end
     end)
   end)
 end
@@ -244,7 +263,7 @@ return M
 -- --- stylua: ignore start
 -- local M = {}
 --
--- -- Explicit table instantiation at the top prevents race-condition crashes
+-- -- Explicit table instantiation at the absolute top prevents race-condition crashes
 -- M.manual_blocked_codes = {}
 -- M.removed_flags = {}
 --
@@ -331,9 +350,7 @@ return M
 --     local msg = diag.message or ''
 --
 --     if code and type(code) == 'string' and code ~= '' then
---       -- If the diagnostic maps to a structural platform argument failure
 --       if code == 'drv_unknown_argument' or code == 'drv_unknown_argument_with_suggestion' or code == 'fatal_too_many_errors' then
---         -- Extract only the very first hyphenated flag keyword to dodge correction duplicates
 --         local clean_flag = msg:match('(%-[%w%-]+)')
 --         if clean_flag and not M.removed_flags[clean_flag] then
 --           M.removed_flags[clean_flag] = true
@@ -343,7 +360,6 @@ return M
 --     end
 --   end
 --
---   -- Record keeping: If new driver boundaries were unmasked, silently write them to disk!
 --   if automated_discoveries then
 --     save_filter_database(current_buf)
 --   end
@@ -354,15 +370,12 @@ return M
 --     local code = diag.code
 --     local msg = diag.message or ''
 --
---     -- Strip out generic driver error categories automatically
 --     if code == 'drv_unknown_argument' or code == 'drv_unknown_argument_with_suggestion' or code == 'fatal_too_many_errors' then
 --       keep = false
---     -- Strip out secondary custom warnings manually chosen by the user in the panel
 --     elseif code and M.manual_blocked_codes[code] then
 --       keep = false
 --     end
 --
---     -- Strip out items matching our learned record-keeping hardware flag strings
 --     if keep then
 --       for flag, _ in pairs(M.removed_flags) do
 --         if msg:find(flag, 1, true) then
@@ -382,7 +395,7 @@ return M
 -- end
 --
 -- -- =============================================================================
--- -- 5. TYPE-SAFE INTERACTIVE CONTROL PANEL
+-- -- 5. PERSISTENT RECURSIVE CONTROL PANEL (STAYS OPEN UNTIL ESC)
 -- -- =============================================================================
 -- function M.manage_file_diagnostics_interactive()
 --   local current_buf = vim.api.nvim_get_current_buf()
@@ -414,7 +427,7 @@ return M
 --     return a.display < b.display
 --   end)
 --
---   -- SECTION C: LIST ACTIVE BLOCKS FOR REVIEW AND UNBLOCKING (Strict Type String Validation)
+--   -- SECTION C: LIST ACTIVE BLOCKS FOR REVIEW AND UNBLOCKING
 --   local unblock_options = {}
 --   for key, value in pairs(M.manual_blocked_codes or {}) do
 --     local code_str = (type(key) == 'string') and key or value
@@ -422,15 +435,12 @@ return M
 --       table.insert(unblock_options, { action = 'unblock_code', id = code_str, display = '🔓 Remove Manual Filter: [' .. code_str .. ']' })
 --     end
 --   end
---
---   -- Display your recorded hardware flags right inside the panel for complete visibility!
 --   for key, value in pairs(M.removed_flags or {}) do
 --     local flag_str = (type(key) == 'string') and key or value
 --     if type(flag_str) == 'string' and flag_str ~= '' and not flag_str:match('^table:') then
 --       table.insert(unblock_options, { action = 'unblock_flag', id = flag_str, display = '📋 [RECORDED FLAG]: ' .. flag_str })
 --     end
 --   end
---
 --   table.sort(unblock_options, function(a, b)
 --     return a.display < b.display
 --   end)
@@ -439,17 +449,18 @@ return M
 --   end
 --
 --   if #dashboard_items == 0 then
---     vim.notify('✅ Clean Slate: No active framework filters found.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
+--     vim.notify('✅ Clean Slate: No customizable warnings active.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
 --     return
 --   end
 --
 --   -- Draw the core choice prompt container panel
 --   vim.ui.select(dashboard_items, {
---     prompt = 'Filter Control Panel (Select row item to modify suppression matrix)',
+--     prompt = 'Filter Panel (Press Esc when finished clearing layers)',
 --     format_item = function(item)
 --       return (type(item) == 'table' and type(item.display) == 'string') and item.display or tostring(item)
 --     end,
 --   }, function(choice)
+--     -- 🌟 User explicitly cancels or hits Esc: clean workspace break exit out of loop
 --     if not choice then
 --       return
 --     end
@@ -458,7 +469,7 @@ return M
 --       M.manual_blocked_codes = {}
 --       M.removed_flags = {}
 --       save_filter_database(current_buf)
---       vim.notify('💥 Filters wiped clean and log history reset.', vim.log.levels.ERROR)
+--       vim.notify('💥 Filters wiped clean.', vim.log.levels.ERROR)
 --     elseif choice.action == 'block_code' then
 --       M.manual_blocked_codes[choice.id] = true
 --       save_filter_database(current_buf)
@@ -470,19 +481,22 @@ return M
 --       save_filter_database(current_buf)
 --     end
 --
---     -- Defer the refresh pass until the floating UI thread has completely closed down
+--     -- 🌟 THE RECURSIVE VEHICLE:
+--     -- We schedule a buffer update and immediately call the menu function right back!
+--     -- This recalculates outstanding diagnostics on the next frame and holds the window open.
 --     vim.schedule(function()
 --       if vim.api.nvim_buf_is_valid(current_buf) then
 --         vim.api.nvim_buf_call(current_buf, function()
 --           local old_shortmess = vim.o.shortmess
 --           vim.o.shortmess = old_shortmess .. 'F'
---
 --           vim.cmd('silent! checktime')
 --           vim.cmd('silent! edit!')
---
 --           vim.o.shortmess = old_shortmess
 --         end)
 --       end
+--
+--       -- Loop back and re-open the updated menu panel seamlessly!
+--       M.manage_file_diagnostics_interactive()
 --     end)
 --   end)
 -- end
