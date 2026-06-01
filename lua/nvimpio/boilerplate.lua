@@ -117,7 +117,8 @@ boilerplate['.clangd_config.json'] = {
     "clangdFileStatus": true,
     "completeUnimported": true,
     "fallbackFlags": [
-      "-ferror-limit=0"
+      "-ferror-limit=0",
+      "-std=c++17"
     ],
     "usePlaceholders": true
   },

@@ -125,6 +125,7 @@ function M.getClangdConfig()
     config.init_options.completeUnimported = true
     config.init_options.usePlaceholders = true
     table.insert(config.init_options.fallbackFlags, '-ferror-limit=0')
+    table.insert(config.init_options.fallbackFlags, '-std=c++17')
 
     -- 🌟 FIXED TYPE AND ROUTING CONSTRAINT:
     -- We extract the absolute project folder root directly from the native LSP
