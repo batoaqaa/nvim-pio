@@ -49,7 +49,7 @@ end
 load_db(0)
 
 -- =====================================================
--- 4. DYNAMIC STREAM INTERCEPTOR (STABLE NATIVE FILTER)
+-- 4. DYNAMIC STREAM INTERCEPTOR (VOLATILE RAM-ONLY)
 -- =====================================================
 function M.diagnostic_handler(err, result, ctx, config)
   if err or not result or not result.diagnostics then
@@ -87,139 +87,137 @@ function M.diagnostic_handler(err, result, ctx, config)
 end
 
 -- =====================================================
--- 5. THE FAST UNIFIED SINGLE-KEYSTROKE RECURSIVE PANEL
+-- 5. UNBREAKABLE PERSISTENT COMMAND-LINE LOOP PANEL
 -- =====================================================
 function M.manage_file_diagnostics_interactive()
   local bufnr = vim.api.nvim_get_current_buf()
 
-  -- Gather all unique error codes currently on screen
-  local diags = vim.diagnostic.get(bufnr)
-  local unblocked_codes = {}
-  local seen = {}
+  -- 🌟 THE TRUE MODAL LOOP LAYER:
+  -- We wrap the interface generation inside a standard while loop statement.
+  -- This blocks Neovim's rendering engine from destroying the command bar layout,
+  -- keeping your options text locked open on screen continuously!
+  while true do
+    local diags = vim.diagnostic.get(bufnr)
+    local unblocked_codes = {}
+    local seen = {}
 
-  for _, d in ipairs(diags) do
-    local c = d.code or ''
-    if c ~= '' and c ~= 'drv_unknown_argument' and not M.manual_blocked_codes[c] and not seen[c] then
-      seen[c] = true
-      table.insert(unblocked_codes, c)
+    for _, d in ipairs(diags) do
+      local c = d.code or ''
+      if c ~= '' and c ~= 'drv_unknown_argument' and not M.manual_blocked_codes[c] and not seen[c] then
+        seen[c] = true
+        table.insert(unblocked_codes, c)
+      end
     end
-  end
 
-  -- Build chunks array for native multi-line print
-  local chunks = {
-    { '💥 COMPILER MANGLER DASHBOARD\n', 'Title' },
-    { string.rep('─', 50) .. '\n', 'Comment' },
-  }
+    -- Build chunks array for native multi-line print
+    local chunks = {
+      { '💥 COMPILER MANGLER DASHBOARD\n', 'Title' },
+      { string.rep('─', 50) .. '\n', 'Comment' },
+    }
 
-  local action_map = {}
-  local char_code = 97 -- ASCII for 'a'
+    local action_map = {}
+    local char_code = 97 -- ASCII for 'a'
 
-  -- Map outstanding codes to options list
-  for _, code in ipairs(unblocked_codes) do
-    local char = string.char(char_code)
-    table.insert(chunks, { string.format('  [%s] 🔒 Block: ', char), 'DiagnosticWarn' })
-    table.insert(chunks, { code .. '\n', 'Normal' })
-    action_map[char] = { action = 'block', id = code }
-    char_code = char_code + 1
-  end
-
-  -- Map suppressed codes for restoration
-  local active_unblocks = {}
-  for code, _ in pairs(M.manual_blocked_codes) do
-    table.insert(active_unblocks, code)
-  end
-  table.sort(active_unblocks)
-
-  for _, code in ipairs(active_unblocks) do
-    local char = string.char(char_code)
-    table.insert(chunks, { string.format('  [%s] 🔓 Restore: ', char), 'DiagnosticOk' })
-    table.insert(chunks, { code .. '\n', 'Normal' })
-    action_map[char] = { action = 'unblock', id = code }
-    char_code = char_code + 1
-  end
-
-  -- Map recorded flags logs for read-only history
-  local active_flags = {}
-  for f, _ in pairs(M.removed_flags) do
-    table.insert(active_flags, f)
-  end
-  table.sort(active_flags)
-
-  if #active_flags > 0 then
-    table.insert(chunks, { '\n ⚙️ Automated Protections:\n', 'Special' })
-    for _, f in ipairs(active_flags) do
-      table.insert(chunks, { '  [-] 📋 [RECORDED]: ' .. f .. '\n', 'Comment' })
+    -- Map outstanding codes to options list
+    for _, code in ipairs(unblocked_codes) do
+      local char = string.char(char_code)
+      table.insert(chunks, { string.format('  [%s] 🔒 Block: ', char), 'DiagnosticWarn' })
+      table.insert(chunks, { code .. '\n', 'Normal' })
+      action_map[char] = { action = 'block', id = code }
+      char_code = char_code + 1
     end
-  end
 
-  -- Add global reset option if rules exist
-  if next(M.manual_blocked_codes) then
-    table.insert(chunks, { '\n  [x] 💥 Clear All Filters\n', 'DiagnosticError' })
-    action_map['x'] = { action = 'reset' }
-  end
+    -- Map suppressed codes for restoration
+    local active_unblocks = {}
+    for code, _ in pairs(M.manual_blocked_codes) do
+      table.insert(active_unblocks, code)
+    end
+    table.sort(active_unblocks)
 
-  if #chunks == 2 then
-    vim.notify('✅ Clean Slate: No active filters.', vim.log.levels.INFO)
-    return
-  end
+    for _, code in ipairs(active_unblocks) do
+      local char = string.char(char_code)
+      table.insert(chunks, { string.format('  [%s] 🔓 Restore: ', char), 'DiagnosticOk' })
+      table.insert(chunks, { code .. '\n', 'Normal' })
+      action_map[char] = { action = 'unblock', id = code }
+      char_code = char_code + 1
+    end
 
-  -- Print a short instruction at the very bottom line
-  table.insert(chunks, { '\nSelect option letter prefix (or Esc to Exit): ', 'Title' })
+    -- Map recorded flags logs for read-only history
+    local active_flags = {}
+    for f, _ in pairs(M.removed_flags) do
+      table.insert(active_flags, f)
+    end
+    table.sort(active_flags)
 
-  -- Render the full multi-line list cleanly to the status message screen area
-  vim.cmd('redraw')
-  vim.api.nvim_echo(chunks, false, {})
+    if #active_flags > 0 then
+      table.insert(chunks, { '\n ⚙️ Automated Protections:\n', 'Special' })
+      for _, f in ipairs(active_flags) do
+        table.insert(chunks, { '  [-] 📋 [RECORDED]: ' .. f .. '\n', 'Comment' })
+      end
+    end
 
-  -- 🌟 THE ONE-KEYSTROKE ARCHITECTURE UPGRADE:
-  -- Intercept character taps instantly. Removes input prompts completely!
-  local input = vim.fn.getcharstr()
+    -- Add global reset option if rules exist
+    if next(M.manual_blocked_codes) then
+      table.insert(chunks, { '\n  [x] 💥 Clear All Filters\n', 'DiagnosticError' })
+      action_map['x'] = { action = 'reset' }
+    end
 
-  -- Escape paths: exit the loop cleanly if they tap Esc, q, or hit space
-  if input == '\27' or input == 'q' or input == ' ' then
+    if #chunks == 2 then
+      vim.notify('✅ Clean Slate: No active filters.', vim.log.levels.INFO)
+      break -- Break out of loop safely if list is empty
+    end
+
+    -- Print short prompt message
+    table.insert(chunks, { '\nSelect option prefix letter (or Esc/q to Exit): ', 'Title' })
+
+    -- Render the layout choices with syntax colors
     vim.cmd('redraw')
-    return
-  end
+    vim.api.nvim_echo(chunks, false, {})
 
-  local target = action_map[input:lower()]
-  if not target then
-    vim.notify('❌ Invalid selection option.', vim.log.levels.WARN)
-    M.manage_file_diagnostics_interactive()
-    return
-  end
+    -- Wait synchronously for a single keystroke character token
+    local input = vim.fn.getcharstr()
 
-  if target.action == 'reset' then
-    M.manual_blocked_codes = {}
-  elseif target.action == 'block' then
-    M.manual_blocked_codes[target.id] = true
-  elseif target.action == 'unblock' then
-    M.manual_blocked_codes[target.id] = nil
-  end
-
-  save_db(bufnr)
-
-  -- Hook onto the event listener so it redraws only when the data hits RAM cache
-  vim.schedule(function()
-    if vim.api.nvim_buf_is_valid(bufnr) then
-      local refresh_group = vim.api.nvim_create_augroup('PioRefresh', { clear = true })
-      vim.api.nvim_create_autocmd('DiagnosticChanged', {
-        group = refresh_group,
-        buffer = bufnr,
-        callback = function()
-          vim.api.nvim_del_augroup_by_id(refresh_group)
-          M.manage_file_diagnostics_interactive()
-        end,
-      })
-
-      -- Execute the whisper-quiet asynchronous buffer reload pass
-      vim.api.nvim_buf_call(bufnr, function()
-        local old_shortmess = vim.o.shortmess
-        vim.o.shortmess = old_shortmess .. 'F'
-        vim.cmd('silent! checktime')
-        vim.cmd('silent! edit!')
-        vim.o.shortmess = old_shortmess
-      end)
+    -- Escape statement loops: break out instantly if they hit Esc, q, or Space
+    if input == '\27' or input == 'q' or input == ' ' then
+      break
     end
-  end)
+
+    local target = action_map[input:lower()]
+    if target then
+      if target.action == 'reset' then
+        M.manual_blocked_codes = {}
+      elseif target.action == 'block' then
+        M.manual_blocked_codes[target.id] = true
+      elseif target.action == 'unblock' then
+        M.manual_blocked_codes[target.id] = nil
+      end
+
+      save_db(bufnr)
+
+      -- 🌟 THE 0MS UPDATE MIRACLE:
+      -- We completely bypass file reloading strings. We tell Neovim's core layout engine
+      -- to apply our manual filters straight down into RAM synchronously.
+      -- The errors vanish from your text lines, the choice list recalculates,
+      -- and the menu stays beautifully locked open on your screen without ever flashing!
+      if vim.api.nvim_buf_is_valid(bufnr) then
+        for _, client in pairs(vim.lsp.get_clients({ bufnr = bufnr })) do
+          if client.name == 'clangd' then
+            local ns = vim.lsp.diagnostic.get_namespace(client.id)
+            vim.diagnostic.show(ns, bufnr, nil, {
+              filter = function(d)
+                return not (d.code and M.manual_blocked_codes[d.code])
+              end,
+            })
+          end
+        end
+      end
+    else
+      vim.notify('❌ Invalid selection choice option.', vim.log.levels.WARN)
+    end
+  end
+
+  -- Clear cmdline logging space cleanly when user exits the panel context loop
+  vim.cmd('redraw')
 end
 
 -- stylua: ignore end
