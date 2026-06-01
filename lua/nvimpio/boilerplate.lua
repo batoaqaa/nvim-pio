@@ -119,7 +119,7 @@ boilerplate['.clangd_config.json'] = {
     "compilationDatabasePath": ".",
     "completeUnimported": true,
     "fallbackFlags": [
-
+      "-ferror-limit=0"
     ],
     "usePlaceholders": true
   },
