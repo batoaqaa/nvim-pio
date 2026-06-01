@@ -132,7 +132,7 @@ function M.manage_file_diagnostics_interactive()
     table.insert(dashboard_items, { action = 'reset', display = '💥 Clear All Active User Filters' })
   end
 
-  -- Query diagnostic fields directly out of active buffer namespaces (Bypasses stale cache)
+  -- Query diagnostic fields directly out of active buffer namespaces
   local raw_diagnostics = {}
   for _, client in pairs(vim.lsp.get_clients({ bufnr = current_buf })) do
     local namespace = vim.lsp.diagnostic.get_namespace(client.id)
@@ -146,12 +146,10 @@ function M.manage_file_diagnostics_interactive()
     raw_diagnostics = vim.diagnostic.get(current_buf)
   end
 
+  -- SECTION B: LIST ACTIVE OUTSTANDING ERRORS AVAILABLE FOR SUPPRESSION
   local seen = {}
   for _, diag in ipairs(raw_diagnostics) do
     local code_name = diag.code or ''
-    local line_num = diag.lnum or 0
-    local col_num = diag.col or 0
-
     if
       code_name ~= ''
       and code_name ~= 'drv_unknown_argument'
@@ -168,12 +166,12 @@ function M.manage_file_diagnostics_interactive()
     return a.display < b.display
   end)
 
-  -- SECTION C: LIST ACTIVE BLOCKS FOR REVIEW AND UNBLOCKING
+  -- SECTION C: LIST CURRENTLY SUPPRESSED BLOCKS SO YOU CAN ALWAYS UNBLOCK THEM
   local unblock_options = {}
   for key, value in pairs(M.manual_blocked_codes or {}) do
     local code_str = (type(key) == 'string') and key or value
     if type(code_str) == 'string' and code_str ~= '' and not code_str:match('^table:') then
-      table.insert(unblock_options, { action = 'unblock_code', id = code_str, display = '🔓 Remove Manual Filter: [' .. code_str .. ']' })
+      table.insert(unblock_options, { action = 'unblock_code', id = code_str, display = 'A• 🔓 Remove Manual Filter: [' .. code_str .. ']' })
     end
   end
   table.sort(unblock_options, function(a, b)
@@ -197,6 +195,9 @@ function M.manage_file_diagnostics_interactive()
     table.insert(dashboard_items, note)
   end
 
+  -- 🌟 FIXED EARLY EXIT GUARD:
+  -- We ONLY exit out if the total built options list is fully empty.
+  -- If you have historical blocks, the menu will stay open to let you unblock them!
   if #dashboard_items == 0 then
     vim.notify('✅ Clean Slate: No customizable warnings active.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
     return
@@ -230,15 +231,9 @@ function M.manage_file_diagnostics_interactive()
       save_filter_database(current_buf)
     end
 
-    -- 🌟 THE REACTIVE EVENT RE-SYNC LAYER:
-    -- Every time any user action modifies the suppression parameters, we trigger a hidden
-    -- background buffer reload pass, but we do NOT re-call the menu blindly on the next tick frame.
-    -- Instead, we set up a temporary, single-fire hook onto the 'DiagnosticChanged' lifecycle event.
-    -- The exact microsecond clangd finishes compilation and updates Neovim's memory cache registers,
-    -- this hook executes, destroys itself, and redraws your options window perfectly synchronized!
+    -- Reactive Event Sync: Wait for clangd framework updates before loop return
     vim.schedule(function()
       if vim.api.nvim_buf_is_valid(current_buf) then
-        -- Hook the event listener group BEFORE triggering the reload to prevent missing the frame
         local refresh_group = vim.api.nvim_create_augroup('NvimPioMenuRefreshGroup', { clear = true })
         vim.api.nvim_create_autocmd('DiagnosticChanged', {
           group = refresh_group,
