@@ -1,4 +1,4 @@
--- stylua: ignore start
+--- stylua: ignore start
 local M = {}
 
 M.blocked_codes = {}
@@ -58,21 +58,25 @@ function M.diagnostic_handler(err, result, ctx, config)
   local clean_diagnostics = {}
   local automated_discoveries = false
 
-  -- PASS 1: AUTOMATED DATA OBJECT CAPTURE (ZERO HARDCODED STRINGS)
+  -- PASS 1: AUTOMATED ZERO-HARDCODE COMPILER ARGUMENT CAPTURING
   for _, diag in ipairs(result.diagnostics) do
     local code = diag.code
+    local msg = diag.message or ''
 
     if code and type(code) == 'string' and code ~= '' then
-      -- Professionally target driver/compiler parameters using canonical LSP keys
+      -- If the diagnostic category represents ANY variation of an unknown compiler flag
       if code == 'drv_unknown_argument' or code == 'drv_unknown_argument_with_suggestion' or code == 'fatal_too_many_errors' then
-        if not M.blocked_codes[code] then
-          M.blocked_codes[code] = true
-          automated_discoveries = true
+        -- 🌟 FIXED: Simple, robust capture that grabs any word starting with a dash (-)
+        -- It perfectly extracts '-mlongcalls', '-fstrict-volatile-bitfields', etc.
+        for clean_flag in string.gmatch(msg, '(%-[%w%-]+)') do
+          if not M.removed_flags[clean_flag] then
+            M.removed_flags[clean_flag] = true
+            automated_discoveries = true
+          end
         end
       end
     end
   end
-
   -- If a new driver barrier was encountered, save it quietly to .filter.json
   if automated_discoveries then
     M.save_from_cli(bufnr)
