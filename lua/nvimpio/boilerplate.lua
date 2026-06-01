@@ -92,7 +92,6 @@ boilerplate['.clangd_config.json'] = {
     "--background-index=false",
     "--all-scopes-completion",
     "--clang-tidy",
-    "--clang-tidy-checks=-*",       -- OPTIONAL: If you want to disable Clang-Tidy entirely to isolate standard errors
     "--compile_args_from=filesystem",
     "--completion-parse=always",
     "--completion-style=detailed",
@@ -104,7 +103,6 @@ boilerplate['.clangd_config.json'] = {
     "--ranking-model=decision_forest",
     "--sync",
     "--offset-encoding=utf-16",
-    "--extra-arg=-Wno-unknown-argument",
     "--query-driver=%s"
   ],
   "filetypes": [

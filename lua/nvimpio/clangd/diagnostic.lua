@@ -1,15 +1,21 @@
 -- stylua: ignore start
 local M = {}
 
-M.manual_blocked_codes = {}
+M.blocked_codes = {}
 
 local root_markers = { 'platformio.ini', '.git' }
-local initial_file = vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())
-local project_root = vim.fs.root(initial_file, root_markers) or vim.uv.cwd()
-local json_database_file = project_root .. '/.filter.json'
 
-local function load_filter_database()
-  M.manual_blocked_codes = {}
+-- Dynamically resolve the path to ensure .filter.json saves in the true project folder
+local function get_db_path(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  local buf_file = vim.api.nvim_buf_get_name(bufnr)
+  local project_root = (buf_file ~= '') and vim.fs.root(buf_file, root_markers) or vim.uv.cwd()
+  return project_root .. '/.filter.json'
+end
+
+local function load_filter_database(bufnr)
+  M.blocked_codes = {}
+  local json_database_file = get_db_path(bufnr)
   local f = io.open(json_database_file, 'rb')
   if not f then
     return
@@ -19,43 +25,64 @@ local function load_filter_database()
   if raw_json and raw_json ~= '' then
     local success, data = pcall(vim.json.decode, raw_json)
     if success and data and type(data) == 'table' then
-      M.manual_blocked_codes = data.codes or {}
+      M.blocked_codes = data.codes or {}
     end
   end
 end
 
-local function save_filter_database()
+function M.save_from_cli(bufnr)
+  local json_database_file = get_db_path(bufnr)
   local f = io.open(json_database_file, 'wb')
   if f then
-    local payload = { codes = M.manual_blocked_codes }
+    local payload = { codes = M.blocked_codes }
     local pretty = require('nvimpio.utils.misc').jsonFormat(payload)
     f:write(pretty)
     f:close()
   end
 end
 
+-- Initialize database tables on load
 load_filter_database()
 
 -- =============================================================================
--- THE CORE INTERCEPTOR: Filters only what the user explicitly chooses
+-- THE ROBUST SELF-LEARNING LSP STREAM INTERCEPTOR (100% AUTOMATED)
 -- =============================================================================
 function M.diagnostic_handler(err, result, ctx, config)
   if err or not result or not result.diagnostics then
     return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
   end
 
-  local clean_diagnostics = {}
+  local bufnr = vim.uri_to_bufnr(result.uri)
+  load_filter_database(bufnr)
 
+  local clean_diagnostics = {}
+  local automated_discoveries = false
+
+  -- PASS 1: AUTOMATED DATA OBJECT CAPTURE (ZERO HARDCODED STRINGS)
   for _, diag in ipairs(result.diagnostics) do
-    local keep = true
     local code = diag.code
 
-    -- Filter out secondary warnings (like pp_file_not_found) selected by the user
-    if code and M.manual_blocked_codes[code] then
-      keep = false
+    if code and type(code) == 'string' and code ~= '' then
+      -- Professionally target driver/compiler parameters using canonical LSP keys
+      if code == 'drv_unknown_argument' or code == 'drv_unknown_argument_with_suggestion' or code == 'fatal_too_many_errors' then
+        if not M.blocked_codes[code] then
+          M.blocked_codes[code] = true
+          automated_discoveries = true
+        end
+      end
     end
+  end
 
-    if keep then
+  -- If a new driver barrier was encountered, save it quietly to .filter.json
+  if automated_discoveries then
+    M.save_from_cli(bufnr)
+  end
+
+  -- PASS 2: PRESENTATION SCREENING
+  for _, diag in ipairs(result.diagnostics) do
+    local code = diag.code
+    -- If the code is registered inside our automated block table, drop it instantly
+    if not (code and M.blocked_codes[code]) then
       table.insert(clean_diagnostics, diag)
     end
   end
@@ -65,44 +92,46 @@ function M.diagnostic_handler(err, result, ctx, config)
 end
 
 -- =============================================================================
--- LIGHTWEIGHT CONTROL PANEL (Zero-Hardcode Table Matching)
+-- AUTOMATION COMPATIBLE CONTROL PANEL
 -- =============================================================================
 function M.manage_file_diagnostics_interactive()
   local current_buf = vim.api.nvim_get_current_buf()
   local dashboard_items = {}
 
-  if next(M.manual_blocked_codes) ~= nil then
-    table.insert(dashboard_items, { action = 'reset', display = '💥 Unblock all manual filters' })
-  end
-
-  local raw_diagnostics = vim.diagnostic.get(current_buf)
-  local seen = {}
-  for _, diag in ipairs(raw_diagnostics) do
-    local code_name = diag.code or ''
-    if code_name ~= '' and not M.manual_blocked_codes[code_name] and not seen[code_name] then
-      seen[code_name] = true
-      table.insert(dashboard_items, { action = 'block_code', id = code_name, display = '🔒 Suppress Code: [' .. code_name .. ']' })
+  if next(M.blocked_codes) ~= nil then
+    table.insert(dashboard_items, { action = 'reset', display = '💥 Clear Automated Filter Database' })
+    for code, _ in pairs(M.blocked_codes) do
+      table.insert(dashboard_items, { action = 'unblock', id = code, display = 'A•🔓 Remove automated filter: [' .. code .. ']' })
     end
   end
 
   if #dashboard_items == 0 then
-    vim.notify('✅ Complete Parity: No active exceptions found.', vim.log.levels.INFO)
+    vim.notify('✅ Clean Slate: No active framework filters applied.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
     return
   end
 
-  vim.ui.select(dashboard_items, { prompt = 'Manual Filter Control Panel' }, function(choice)
+  table.sort(dashboard_items, function(a, b)
+    return a.display < b.display
+  end)
+
+  vim.ui.select(dashboard_items, { prompt = 'Automation Control Center' }, function(choice)
     if not choice then
       return
     end
+
     if choice.action == 'reset' then
-      M.manual_blocked_codes = {}
-    elseif choice.action == 'block_code' then
-      M.manual_blocked_codes[choice.id] = true
+      M.blocked_codes = {}
+      M.save_from_cli(current_buf)
+      vim.notify('💥 Filters wiped clean. File will re-parse on next edit.', vim.log.levels.ERROR)
+    elseif choice.action == 'unblock' then
+      M.blocked_codes[choice.id] = nil
+      M.save_from_cli(current_buf)
     end
 
-    save_filter_database()
+    -- Sync viewport instantly
     vim.diagnostic.show(nil, current_buf)
   end)
 end
 
+-- stylua: ignore end
 return M
