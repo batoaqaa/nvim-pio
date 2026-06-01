@@ -7,7 +7,7 @@ M.removed_flags = {}
 local root_markers = { 'platformio.ini', '.git' }
 local ui_bufnr = nil
 local ui_winnr = nil
-local original_bufnr = nil
+local original_bufnr = nil or 0
 
 local function get_db_path(bufnr)
   bufnr = (bufnr and bufnr ~= 0) and bufnr or vim.api.nvim_get_current_buf()
@@ -199,34 +199,56 @@ local function draw_filter_menu_contents()
       table.insert(menu_mappings, { action = 'none' })
     end
   end
+  -- Ensure that ui_bufnr resolves to a safe fallback integer before setting options
+  local target_ui_buf = ui_bufnr or 0
+  if target_ui_buf ~= 0 and vim.api.nvim_buf_is_valid(target_ui_buf) then
+    -- Unlock the scratchpad buffer for editing natively in RAM space
+    vim.bo[target_ui_buf].modifiable = true
 
-  -- Render line items inside scratchpad synchronously
-  vim.api.nvim_buf_set_option(ui_bufnr, 'modifiable', true)
-  vim.api.nvim_buf_set_lines(ui_bufnr, 0, -1, false, lines)
-  vim.api.nvim_buf_set_option(ui_bufnr, 'modifiable', false)
+    -- Sync our formatted line options straight to the screen viewport layout
+    vim.api.nvim_buf_set_lines(target_ui_buf, 0, -1, false, lines)
+
+    -- Freeze the buffer right back down to a clean, non-editable read-only status
+    vim.bo[target_ui_buf].modifiable = false
+  end
 end
 
+-- Replace this function block inside lua/nvimpio/clangd/diagnostic.lua
+
 local function handle_menu_selection()
-  local cursor = vim.api.nvim_win_get_cursor(ui_winnr)
-  local line_idx = cursor[1]
+  -- 1. Grab the raw text line string your cursor is physically sitting on
+  local current_line = vim.api.nvim_get_current_line() or ''
 
-  -- Account for our header decorations and titles offset layout rules
-  local offset = 4
-  local map_index = line_idx - offset + 1
-  local choice = menu_mappings[map_index]
+  local action = nil
+  local target_id = nil
 
-  if not choice or choice.action == 'none' then
+  -- 2. DYNAMIC CONTENT EVALUATION (ZERO OFFSET FRACTION):
+  -- We parse the explicit line contents to instantly extract the target action types
+  if current_line:find('💥 Clear All Active User Filters') then
+    action = 'reset'
+  elseif current_line:find('🔒 Suppress Code:') then
+    action = 'block_code'
+    target_id = current_line:match('🔒 Suppress Code:%s*%[([%w%-_]+)%]')
+  elseif current_line:find('🔓 Remove Manual Filter:') then
+    action = 'unblock_code'
+    target_id = current_line:match('🔓 Remove Manual Filter:%s*%[([%w%-_]+)%]')
+  end
+
+  -- If they hit Enter on a section title or a read-only log banner line, abort safely!
+  if not action or action == 'none' then
     return
   end
 
-  if choice.action == 'reset' then
+  -- 3. Execute our local volatile memory hash updates
+  if action == 'reset' then
     M.manual_blocked_codes = {}
     save_filter_database(original_bufnr)
-  elseif choice.action == 'block_code' then
-    M.manual_blocked_codes[choice.id] = true
+    vim.notify('💥 All custom selections wiped clean.', vim.log.levels.ERROR)
+  elseif action == 'block_code' and target_id then
+    M.manual_blocked_codes[target_id] = true
     save_filter_database(original_bufnr)
-  elseif choice.action == 'unblock_code' then
-    M.manual_blocked_codes[choice.id] = nil
+  elseif action == 'unblock_code' and target_id then
+    M.manual_blocked_codes[target_id] = nil
     save_filter_database(original_bufnr)
   end
 
@@ -241,7 +263,7 @@ local function handle_menu_selection()
     end)
   end
 
-  -- Hook onto the incoming DiagnosticChanged framework pass to redraw the list array dynamically
+  -- Hook onto the incoming DiagnosticChanged framework pass to redraw the selection panel lines
   local refresh_group = vim.api.nvim_create_augroup('NvimPioMenuRefreshGroup', { clear = true })
   vim.api.nvim_create_autocmd('DiagnosticChanged', {
     group = refresh_group,
@@ -279,8 +301,11 @@ function M.manage_file_diagnostics_interactive()
   })
 
   -- Enforce scratch buffer UI safety parameters
-  vim.api.nvim_buf_set_option(ui_bufnr, 'bufhidden', 'wipe')
-  vim.api.nvim_buf_set_option(ui_bufnr, 'filetype', 'nvimpiomangler')
+  local target_ui_buf = ui_bufnr or 0
+  if target_ui_buf ~= 0 then
+    vim.bo[target_ui_buf].bufhidden = 'wipe'
+    vim.bo[target_ui_buf].filetype = 'nvimpiomangler'
+  end
 
   -- Bind interactive core keymaps natively inside our custom scratch buffer window layer
   local opts = { silent = true, buffer = ui_bufnr }
