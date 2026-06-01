@@ -115,7 +115,6 @@ boilerplate['.clangd_config.json'] = {
   ],
   "init_options": {
     "clangdFileStatus": true,
-    "compilationDatabasePath": ".",
     "completeUnimported": true,
     "fallbackFlags": [
       "-ferror-limit=0"
@@ -138,6 +137,7 @@ boilerplate['.clangd_config.json'] = {
 }
 ]],
 }
+-- "compilationDatabasePath": ".",
 
 -- "-DCORE_MOCK", add
 -- "-ferror-limit=0", add
