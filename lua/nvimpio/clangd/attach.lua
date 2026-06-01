@@ -17,74 +17,82 @@ vim.api.nvim_create_autocmd('LspAttach', {
     local nvim_pio_diag = require('nvimpio.clangd.diagnostic')
     if client and client.name == 'clangd' then
       local buf_path = vim.api.nvim_buf_get_name(bufnr)
-
       if buf_path ~= '' and (vim.fs.root(buf_path, { 'platformio.ini' }) or vim.uv.fs_stat(vim.uv.cwd() .. '/platformio.ini')) then
-        -- Manual dashboard panel configuration mapping shortcut
         vim.keymap.set('n', '<leader>pc', function()
           nvim_pio_diag.manage_file_diagnostics_interactive()
         end, { buffer = bufnr, desc = 'Open Filter Panel' })
-
-        -- THE SELF-LEARNING AUTOMATION MATRIX
-        local stability_timer = vim.uv.new_timer()
-
-        vim.api.nvim_create_autocmd('DiagnosticChanged', {
-          group = vim.api.nvim_create_augroup('NvimPioAutoLearn_' .. bufnr, { clear = true }),
-          buffer = bufnr,
-          callback = function()
-            if not stability_timer then
-              return
-            end
-            stability_timer:stop()
-
-            stability_timer:start(
-              2000,
-              0,
-              vim.schedule_wrap(function()
-                local current_errors = vim.diagnostic.get(bufnr)
-                local learned_new_filters = false
-
-                for _, diag in ipairs(current_errors) do
-                  local msg = diag.message or ''
-                  local code = diag.code
-
-                  -- Pass A: DYNAMIC ZERO-HARDCODE FLAG AUTOMATION
-                  -- Sweeps the text string using punctuation wildcards to capture unknown flags safely
-                  for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
-                    local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
-                    if not nvim_pio_diag.removed_flags[clean_flag] then
-                      nvim_pio_diag.removed_flags[clean_flag] = true
-                      learned_new_filters = true
-                    end
-                  end
-                  for unknown_arg in string.gmatch(msg, 'option%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
-                    local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
-                    if not nvim_pio_diag.removed_flags[clean_flag] then
-                      nvim_pio_diag.removed_flags[clean_flag] = true
-                      learned_new_filters = true
-                    end
-                  end
-
-                  -- Pass B: DYNAMIC ZERO-HARDCODE CODE AUTOMATION
-                  if code and type(code) == 'string' and code ~= '' then
-                    if not nvim_pio_diag.blocked_codes[code] then
-                      nvim_pio_diag.blocked_codes[code] = true
-                      learned_new_filters = true
-                    end
-                  end
-                end
-
-                -- Commit learned parameters and refresh screen viewport layout
-                if learned_new_filters then
-                  nvim_pio_diag.save_from_cli()
-                  vim.diagnostic.show(nil, bufnr)
-                  vim.notify('🤖 Clangd Automation: Isolated stationary compiler driver flags & error codes.')
-                end
-              end)
-            )
-          end,
-        })
       end
     end
+    -- if client and client.name == 'clangd' then
+    --   local buf_path = vim.api.nvim_buf_get_name(bufnr)
+    --
+    --   if buf_path ~= '' and (vim.fs.root(buf_path, { 'platformio.ini' }) or vim.uv.fs_stat(vim.uv.cwd() .. '/platformio.ini')) then
+    --     -- Manual dashboard panel configuration mapping shortcut
+    --     vim.keymap.set('n', '<leader>pc', function()
+    --       nvim_pio_diag.manage_file_diagnostics_interactive()
+    --     end, { buffer = bufnr, desc = 'Open Filter Panel' })
+    --
+    --     -- THE SELF-LEARNING AUTOMATION MATRIX
+    --     local stability_timer = vim.uv.new_timer()
+    --
+    --     vim.api.nvim_create_autocmd('DiagnosticChanged', {
+    --       group = vim.api.nvim_create_augroup('NvimPioAutoLearn_' .. bufnr, { clear = true }),
+    --       buffer = bufnr,
+    --       callback = function()
+    --         if not stability_timer then
+    --           return
+    --         end
+    --         stability_timer:stop()
+    --
+    --         stability_timer:start(
+    --           2000,
+    --           0,
+    --           vim.schedule_wrap(function()
+    --             local current_errors = vim.diagnostic.get(bufnr)
+    --             local learned_new_filters = false
+    --
+    --             for _, diag in ipairs(current_errors) do
+    --               local msg = diag.message or ''
+    --               local code = diag.code
+    --
+    --               -- Pass A: DYNAMIC ZERO-HARDCODE FLAG AUTOMATION
+    --               -- Sweeps the text string using punctuation wildcards to capture unknown flags safely
+    --               for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
+    --                 local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
+    --                 if not nvim_pio_diag.removed_flags[clean_flag] then
+    --                   nvim_pio_diag.removed_flags[clean_flag] = true
+    --                   learned_new_filters = true
+    --                 end
+    --               end
+    --               for unknown_arg in string.gmatch(msg, 'option%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
+    --                 local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
+    --                 if not nvim_pio_diag.removed_flags[clean_flag] then
+    --                   nvim_pio_diag.removed_flags[clean_flag] = true
+    --                   learned_new_filters = true
+    --                 end
+    --               end
+    --
+    --               -- Pass B: DYNAMIC ZERO-HARDCODE CODE AUTOMATION
+    --               if code and type(code) == 'string' and code ~= '' then
+    --                 if not nvim_pio_diag.blocked_codes[code] then
+    --                   nvim_pio_diag.blocked_codes[code] = true
+    --                   learned_new_filters = true
+    --                 end
+    --               end
+    --             end
+    --
+    --             -- Commit learned parameters and refresh screen viewport layout
+    --             if learned_new_filters then
+    --               nvim_pio_diag.save_from_cli()
+    --               vim.diagnostic.show(nil, bufnr)
+    --               vim.notify('🤖 Clangd Automation: Isolated stationary compiler driver flags & error codes.')
+    --             end
+    --           end)
+    --         )
+    --       end,
+    --     })
+    --   end
+    -- end
 
     -- Hook up an isolated pipeline overlay dedicated strictly to this active buffer
 

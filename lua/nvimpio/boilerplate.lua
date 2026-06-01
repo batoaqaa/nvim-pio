@@ -104,6 +104,7 @@ boilerplate['.clangd_config.json'] = {
     "--ranking-model=decision_forest",
     "--sync",
     "--offset-encoding=utf-16",
+    "--extra-arg=-Wno-unknown-argument",
     "--query-driver=%s"
   ],
   "filetypes": [
