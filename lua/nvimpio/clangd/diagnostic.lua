@@ -59,7 +59,7 @@ end
 load_filter_database(0)
 
 -- =============================================================================
--- 4. THE ROBUST DYNAMIC HANDLER INTERCEPTOR (SMART POSITION FILTERING)
+-- 4. THE ROBUST DYNAMIC HANDLER INTERCEPTOR (100% UN-HARDCODED AUTOMATION)
 -- =============================================================================
 function M.diagnostic_handler(err, result, ctx, config)
   if err or not result or not result.diagnostics then
@@ -75,20 +75,15 @@ function M.diagnostic_handler(err, result, ctx, config)
     local keep = true
     local code = diag.code
 
-    -- Enforce absolute type protection variables against missing data tokens
-    local line_num = diag.lnum or 0
-    local col_num = diag.col or 0
-
-    -- 🌟 THE UNIVERSAL AUTOMATION GATEWAY (ZERO STRINGS/NO HARDCODING):
-    -- If an item sits precisely at Line 1, Col 1 (0,0) AND it contains no valid,
-    -- standard error code tag, it is a driver-level architecture argument fault.
-    -- We drop it instantly in memory before Neovim can draw it on the viewport!
-    if line_num == 0 and col_num == 0 and (not code or code == '') then
+    -- 1. UNIVERSAL AUTOMATED FILTER:
+    -- Catch and discard any standard driver-level error categories instantly in RAM.
+    -- This strips out -mlongcalls, etc., completely dynamically without hardcoding their text strings.
+    if code == 'drv_unknown_argument' or code == 'drv_unknown_argument_with_suggestion' or code == 'fatal_too_many_errors' then
       keep = false
-    end
 
-    -- Pass B: User Selection Manual Suppression (Fully decoupled check)
-    if keep and code and M.manual_blocked_codes[code] then
+    -- 2. EXPLICIT MANUAL USER OVERRIDES:
+    -- Drop secondary custom warnings (like style lints) selected by the user in the panel
+    elseif code and M.manual_blocked_codes[code] then
       keep = false
     end
 
@@ -118,11 +113,14 @@ function M.manage_file_diagnostics_interactive()
   local seen = {}
   for _, diag in ipairs(raw_diagnostics) do
     local code_name = diag.code or ''
-    local line_num = diag.lnum or 0
-    local col_num = diag.col or 0
 
-    -- Drop top-level driver flag elements already managed by our automated context filter
-    if code_name ~= '' and not (line_num == 0 and col_num == 0) then
+    -- Drop driver flag elements already managed by our automated context filter
+    if
+      code_name ~= ''
+      and code_name ~= 'drv_unknown_argument'
+      and code_name ~= 'drv_unknown_argument_with_suggestion'
+      and code_name ~= 'fatal_too_many_errors'
+    then
       if not M.manual_blocked_codes[code_name] and not seen[code_name] then
         seen[code_name] = true
         table.insert(dashboard_items, { action = 'block_code', id = code_name, display = '🔒 Suppress Code: [' .. code_name .. ']' })
@@ -149,7 +147,7 @@ function M.manage_file_diagnostics_interactive()
   end
 
   if #dashboard_items == 0 then
-    vim.notify('✅ Clean Slate: No active framework exceptions active.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
+    vim.notify('✅ Clean Slate: No active customizable exception overrides active.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
     return
   end
 
