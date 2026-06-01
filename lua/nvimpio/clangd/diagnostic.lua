@@ -132,10 +132,7 @@ function M.manage_file_diagnostics_interactive()
     table.insert(dashboard_items, { action = 'reset', display = '💥 Clear All Active User Filters' })
   end
 
-  -- 🌟 FIXED LIVE DATA SCANNER:
-  -- Instead of calling standard caching layers, we pull directly out of Neovim's
-  -- baseline active structural client map variables! This forces the dashboard
-  -- to recognize restored errors instantly the exact millisecond they hit memory space.
+  -- FIXED LIVE DATA SCANNER: Bypasses stale diagnostic caches
   local raw_diagnostics = {}
   for _, client in pairs(vim.lsp.get_clients({ bufnr = current_buf })) do
     local namespace = vim.lsp.diagnostic.get_namespace(client.id)
@@ -145,7 +142,6 @@ function M.manage_file_diagnostics_interactive()
     end
   end
 
-  -- Fallback layer if namespace extraction hasn't bonded yet
   if #raw_diagnostics == 0 then
     raw_diagnostics = vim.diagnostic.get(current_buf)
   end
@@ -197,7 +193,9 @@ function M.manage_file_diagnostics_interactive()
   table.sort(automated_notes, function(a, b)
     return a.display < b.display
   end)
-  for _, note in ipated_notes do
+
+  -- 🌟 FIXED: Variable name correctly references 'automated_notes' to prevent nil crashes
+  for _, note in ipairs(automated_notes) do
     table.insert(dashboard_items, note)
   end
 
@@ -246,11 +244,7 @@ function M.manage_file_diagnostics_interactive()
         end)
       end
 
-      -- 🌟 NATIVE SYNCHRONIZATION EVENT LOADER:
-      -- We bind the menu redraw loop directly to the incoming 'DiagnosticChanged' hook pass.
-      -- The exact microsecond the fresh diagnostics clear your stream interceptor handler,
-      -- this autocommand wakes up, destroys itself, and redraws your option windows with
-      -- the newly available '🔒 Suppress Code' lines visible on screen instantly!
+      -- Reactive Event Sync: Wait for clangd framework payload updates before loop return
       if choice.action == 'reset' then
         local refresh_group = vim.api.nvim_create_augroup('NvimPioMenuRefreshGroup', { clear = true })
         vim.api.nvim_create_autocmd('DiagnosticChanged', {
@@ -262,13 +256,13 @@ function M.manage_file_diagnostics_interactive()
           end,
         })
       else
-        -- Standard toggle actions redraw smoothly on the next tick pass
         M.manage_file_diagnostics_interactive()
       end
     end)
   end)
 end
 
+-- stylua: ignore end
 return M
 
 -- --- stylua: ignore start
