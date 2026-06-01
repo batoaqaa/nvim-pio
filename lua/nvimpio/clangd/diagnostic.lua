@@ -1,7 +1,7 @@
 --- stylua: ignore start
 local M = {}
 
--- Pure hot-memory registers for diagnostics and flags
+-- Explicit table instantiation at the absolute top prevents race-condition crashes
 M.manual_blocked_codes = {}
 M.removed_flags = {}
 
@@ -18,7 +18,6 @@ end
 -- 2. LOAD_FILTER_DATABASE: Safe hash-table hydration evaluated dynamically per buffer
 local function load_filter_database(bufnr)
   M.manual_blocked_codes = {}
-  M.removed_flags = {}
 
   local json_database_file = get_db_path(bufnr)
   local f = io.open(json_database_file, 'rb')
@@ -39,14 +38,6 @@ local function load_filter_database(bufnr)
           end
         end
       end
-      if type(data.flags) == 'table' then
-        for k, v in pairs(data.flags) do
-          local flag_str = (type(k) == 'string') and k or v
-          if type(flag_str) == 'string' and flag_str ~= '' and not flag_str:match('^table:') then
-            M.removed_flags[flag_str] = true
-          end
-        end
-      end
     end
   end
 end
@@ -56,10 +47,10 @@ local function save_filter_database(bufnr)
   local json_database_file = get_db_path(bufnr)
   local f = io.open(json_database_file, 'wb')
   if f then
-    if next(M.manual_blocked_codes) == nil and next(M.removed_flags) == nil then
-      f:write('{"codes":null,"flags":null}')
+    if next(M.manual_blocked_codes) == nil then
+      f:write('{"codes":null}')
     else
-      local payload = { codes = M.manual_blocked_codes, flags = M.removed_flags }
+      local payload = { codes = M.manual_blocked_codes }
       local pretty = require('nvimpio.utils.misc').jsonFormat(payload)
       f:write(pretty)
     end
@@ -83,8 +74,7 @@ function M.diagnostic_handler(err, result, ctx, config)
 
   local clean_diagnostics = {}
 
-  -- PASS 1: AUTOMATED IN-MEMORY CAPTURING ONLY (NO FILE WRITES)
-  -- This intercepts and mutes driver flags instantly in RAM without touching your disk!
+  -- PASS 1: AUTOMATED IN-MEMORY CAPTURING ONLY (NO DISK POLLUTION)
   for _, diag in ipairs(result.diagnostics) do
     local code = diag.code
     local msg = diag.message or ''
@@ -136,9 +126,10 @@ function M.manage_file_diagnostics_interactive()
   local current_buf = vim.api.nvim_get_current_buf()
   local dashboard_items = {}
 
-  local has_active_filters = next(M.manual_blocked_codes) ~= nil or next(M.removed_flags) ~= nil
+  -- Clear master action maps only to user-toggled manual error rules
+  local has_active_filters = next(M.manual_blocked_codes) ~= nil
   if has_active_filters then
-    table.insert(dashboard_items, { action = 'reset', display = '💥 Clear All Active Filters & Records' })
+    table.insert(dashboard_items, { action = 'reset', display = '💥 Clear All Active User Filters' })
   end
 
   -- SECTION B: LIST OUTSTANDING CODES SO YOU CAN CHOOSE WHAT TO BLOCK
@@ -170,17 +161,26 @@ function M.manage_file_diagnostics_interactive()
       table.insert(unblock_options, { action = 'unblock_code', id = code_str, display = '🔓 Remove Manual Filter: [' .. code_str .. ']' })
     end
   end
-  for key, value in pairs(M.removed_flags or {}) do
-    local flag_str = (type(key) == 'string') and key or value
-    if type(flag_str) == 'string' and flag_str ~= '' and not flag_str:match('^table:') then
-      table.insert(unblock_options, { action = 'unblock_flag', id = flag_str, display = '📋 [RECORDED FLAG]: ' .. flag_str })
-    end
-  end
   table.sort(unblock_options, function(a, b)
     return a.display < b.display
   end)
   for _, opt in ipairs(unblock_options) do
     table.insert(dashboard_items, opt)
+  end
+
+  -- 🌟 READ-ONLY SECTION: Print automatic driver flag protections explicitly as greyed notes
+  -- These items cannot be clicked or toggled, keeping your interactive list clean!
+  local automated_notes = {}
+  for flag, _ in pairs(M.removed_flags or {}) do
+    if type(flag) == 'string' and flag ~= '' then
+      table.insert(automated_notes, { action = 'none', display = '⚙️ [AUTOMATED BLOCK]: ' .. flag })
+    end
+  end
+  table.sort(automated_notes, function(a, b)
+    return a.display < b.display
+  end)
+  for _, note in ipairs(automated_notes) do
+    table.insert(dashboard_items, note)
   end
 
   if #dashboard_items == 0 then
@@ -199,20 +199,21 @@ function M.manage_file_diagnostics_interactive()
       return
     end
 
+    -- 🌟 BLOCK READ-ONLY TRAFFIC: If they click an automated banner info row, ignore it completely!
+    if choice.action == 'none' then
+      M.manage_file_diagnostics_interactive()
+      return
+    end
+
     if choice.action == 'reset' then
       M.manual_blocked_codes = {}
-      M.removed_flags = {}
-      -- Explicitly rewrite an absolute empty file layout to the hard drive on demand
       save_filter_database(current_buf)
-      vim.notify('💥 Filters wiped clean and log history reset.', vim.log.levels.ERROR)
+      vim.notify('💥 User selections wiped clean.', vim.log.levels.ERROR)
     elseif choice.action == 'block_code' then
       M.manual_blocked_codes[choice.id] = true
       save_filter_database(current_buf)
     elseif choice.action == 'unblock_code' then
       M.manual_blocked_codes[choice.id] = nil
-      save_filter_database(current_buf)
-    elseif choice.action == 'unblock_flag' then
-      M.removed_flags[choice.id] = nil
       save_filter_database(current_buf)
     end
 
