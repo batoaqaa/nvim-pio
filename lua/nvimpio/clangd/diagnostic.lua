@@ -132,8 +132,24 @@ function M.manage_file_diagnostics_interactive()
     table.insert(dashboard_items, { action = 'reset', display = '💥 Clear All Active User Filters' })
   end
 
-  -- SECTION B: LIST OUTSTANDING CODES SO YOU CAN CHOOSE WHAT TO BLOCK
-  local raw_diagnostics = vim.diagnostic.get(current_buf)
+  -- 🌟 FIXED LIVE DATA SCANNER:
+  -- Instead of calling standard caching layers, we pull directly out of Neovim's
+  -- baseline active structural client map variables! This forces the dashboard
+  -- to recognize restored errors instantly the exact millisecond they hit memory space.
+  local raw_diagnostics = {}
+  for _, client in pairs(vim.lsp.get_clients({ bufnr = current_buf })) do
+    local namespace = vim.lsp.diagnostic.get_namespace(client.id)
+    local client_diags = vim.diagnostic.get(current_buf, { namespace = namespace })
+    for _, d in ipairs(client_diags) do
+      table.insert(raw_diagnostics, d)
+    end
+  end
+
+  -- Fallback layer if namespace extraction hasn't bonded yet
+  if #raw_diagnostics == 0 then
+    raw_diagnostics = vim.diagnostic.get(current_buf)
+  end
+
   local seen = {}
   for _, diag in ipairs(raw_diagnostics) do
     local code_name = diag.code or ''
@@ -181,7 +197,7 @@ function M.manage_file_diagnostics_interactive()
   table.sort(automated_notes, function(a, b)
     return a.display < b.display
   end)
-  for _, note in ipairs(automated_notes) do
+  for _, note in ipated_notes do
     table.insert(dashboard_items, note)
   end
 
@@ -230,16 +246,23 @@ function M.manage_file_diagnostics_interactive()
         end)
       end
 
-      -- 🌟 THE LIFECYCLE RE-SYNC FILTER:
-      -- If the user triggered a complete reset, we add a brief 120ms execution stagger.
-      -- This gives clangd the time it needs to compile the file and populate Neovim's
-      -- diagnostic memory cache BEFORE the interactive panel loops back to redraw itself!
+      -- 🌟 NATIVE SYNCHRONIZATION EVENT LOADER:
+      -- We bind the menu redraw loop directly to the incoming 'DiagnosticChanged' hook pass.
+      -- The exact microsecond the fresh diagnostics clear your stream interceptor handler,
+      -- this autocommand wakes up, destroys itself, and redraws your option windows with
+      -- the newly available '🔒 Suppress Code' lines visible on screen instantly!
       if choice.action == 'reset' then
-        vim.defer_fn(function()
-          M.manage_file_diagnostics_interactive()
-        end, 120)
+        local refresh_group = vim.api.nvim_create_augroup('NvimPioMenuRefreshGroup', { clear = true })
+        vim.api.nvim_create_autocmd('DiagnosticChanged', {
+          group = refresh_group,
+          buffer = current_buf,
+          callback = function()
+            vim.api.nvim_del_augroup_by_id(refresh_group)
+            M.manage_file_diagnostics_interactive()
+          end,
+        })
       else
-        -- Standard selections apply instantly without needing stagger windows
+        -- Standard toggle actions redraw smoothly on the next tick pass
         M.manage_file_diagnostics_interactive()
       end
     end)
