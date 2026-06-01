@@ -175,7 +175,20 @@ function M.manage_file_diagnostics_interactive()
     end
 
     -- Sync viewport changes immediately inside RAM space bounds
-    vim.diagnostic.show(nil, current_buf)
+    -- vim.diagnostic.show(nil, current_buf)
+    vim.schedule(function()
+      if vim.api.nvim_buf_is_valid(current_buf) then
+        vim.api.nvim_buf_call(current_buf, function()
+          local old_shortmess = vim.o.shortmess
+          vim.o.shortmess = old_shortmess .. 'F'
+
+          vim.cmd('silent! checktime')
+          vim.cmd('silent! edit!')
+
+          vim.o.shortmess = old_shortmess
+        end)
+      end
+    end)
   end)
 end
 
