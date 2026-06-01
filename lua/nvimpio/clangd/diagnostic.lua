@@ -1,13 +1,14 @@
---- stylua: ignore start
+-- stylua: ignore start
 local M = {}
 
+-- High-speed hot-memory tracking maps
 M.blocked_codes = {}
 M.removed_flags = {}
-M.resetting = false
+M.resetting = false -- State lock to shield data overrides during a master reset
 
 local root_markers = { 'platformio.ini', '.git' }
 
--- FIXED: Convert path resolution into a dynamic function helper
+-- Dynamic project directory resolution helper to eliminate multi-root environment traps
 local function get_db_path(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   local buf_file = vim.api.nvim_buf_get_name(bufnr)
@@ -35,7 +36,7 @@ local function load_filter_database(bufnr)
   end
 end
 
--- FIXED: Expose database saving with a dynamic buffer path injection argument
+-- Expose database saving functionality globally for our automation hooks
 function M.save_from_cli(bufnr)
   local json_database_file = get_db_path(bufnr)
   local f = io.open(json_database_file, 'wb')
@@ -47,18 +48,19 @@ function M.save_from_cli(bufnr)
   end
 end
 
--- Initialize on default workspace path layout
+-- Initialize the database snapshot layout on core plugin load
 load_filter_database()
 
--- THE AUTOMATED STREAM INTERCEPTOR
+-- =============================================================================
+-- 1. THE AUTOMATED HANDLER INTERCEPTOR (Pure Hands-Free Automation)
+-- =============================================================================
 function M.diagnostic_handler(err, result, ctx, config)
   if err or not result or not result.diagnostics then
     return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
   end
 
-  -- 🌟 GUARD LAYER: If a master reset is currently active, bypass extraction completely
+  -- GUARD LAYER: If a master reset is processing, let raw data bypass filtration
   if M.resetting then
-    -- Let the raw, unfiltered diagnostics pass straight to the screen
     return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
   end
 
@@ -68,11 +70,12 @@ function M.diagnostic_handler(err, result, ctx, config)
   local clean_diagnostics = {}
   local automated_discoveries = false
 
-  -- [Your existing loop to parse and extract codes automatically...]
+  -- Pass A: In-Stream Automated Compiler Error Scraper
   for _, diag in ipairs(result.diagnostics) do
     local msg = diag.message or ''
     local code = diag.code
 
+    -- Extract unknown architecture flags with colon/punctuation safety guards (%p?)
     for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
       local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
       if not M.removed_flags[clean_flag] then
@@ -88,6 +91,7 @@ function M.diagnostic_handler(err, result, ctx, config)
       end
     end
 
+    -- Extract categorical diagnostic codes (pp_file_not_found, etc.)
     if code and type(code) == 'string' and code ~= '' then
       if not M.blocked_codes[code] then
         M.blocked_codes[code] = true
@@ -96,11 +100,12 @@ function M.diagnostic_handler(err, result, ctx, config)
     end
   end
 
+  -- Silently commit any automated discoveries down to disk immediately
   if automated_discoveries then
     M.save_from_cli(bufnr)
   end
 
-  -- Perform active item screening pass
+  -- Pass B: Dynamic Presentation Screening Pass
   for _, diag in ipairs(result.diagnostics) do
     local keep = true
     local msg = diag.message or ''
@@ -127,7 +132,9 @@ function M.diagnostic_handler(err, result, ctx, config)
   vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
 end
 
--- SIMPLE TOGGLE DASHBOARD PANEL
+-- =============================================================================
+-- 2. TYPE-SAFE INTERACTIVE SELECTION DASHBOARD
+-- =============================================================================
 function M.manage_file_diagnostics_interactive()
   local current_buf = vim.api.nvim_get_current_buf()
   local dashboard_items = {}
@@ -169,7 +176,6 @@ function M.manage_file_diagnostics_interactive()
   -- SECTION C: CURRENTLY BLOCKED ITEMS FOR UNBLOCKING (Type-Safe Evaluation)
   local unblock_options = {}
 
-  -- Handle removed_flags loop safely regardless of dictionary or array layout formats
   for key, value in pairs(M.removed_flags or {}) do
     local flag_str = (type(key) == 'string') and key or value
     if type(flag_str) == 'string' and flag_str ~= '' and not flag_str:match('^table:') then
@@ -177,14 +183,12 @@ function M.manage_file_diagnostics_interactive()
     end
   end
 
-  -- Handle blocked_codes loop safely
   for key, value in pairs(M.blocked_codes or {}) do
     local code_str = (type(key) == 'string') and key or value
     if type(code_str) == 'string' and code_str ~= '' and not code_str:match('^table:') then
       table.insert(unblock_options, { action = 'unblock_code', id = code_str, display = 'B•🔓 ACTIVATE Diagnostic Code: [' .. code_str .. ']' })
     end
   end
-
   table.sort(unblock_options, function(a, b)
     return a.display < b.display
   end)
@@ -192,11 +196,13 @@ function M.manage_file_diagnostics_interactive()
     table.insert(dashboard_items, opt)
   end
 
+  -- If no actionable nodes are found, notify the user and escape early
   if #dashboard_items == 0 then
     vim.notify('✅ Complete Parity: No outstanding compilation exceptions found.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
     return
   end
 
+  -- Render selection interface window mapping options
   vim.ui.select(dashboard_items, {
     prompt = 'Filter Panel (Select item to toggle suppression state)',
     format_item = function(item)
@@ -208,14 +214,14 @@ function M.manage_file_diagnostics_interactive()
     end
 
     if choice.action == 'reset' then
-      -- 1. Activate the global background lock
+      -- 1. Engage the global stream lock to prevent auto-saving loops
       M.resetting = true
 
-      -- 2. Clear memory arrays
+      -- 2. Clear out hot memory maps
       M.blocked_codes = {}
       M.removed_flags = {}
 
-      -- 3. Overwrite the file on disk completely
+      -- 3. Truncate the file payload data back to an empty schema on disk
       local json_database_file = get_db_path(current_buf)
       local f = io.open(json_database_file, 'wb')
       if f then
@@ -223,8 +229,21 @@ function M.manage_file_diagnostics_interactive()
         f:close()
       end
 
-      -- 4. Delete the buffer autocommand group safely
+      -- 4. Delete the initial attachment auto-sweep listener group
       pcall(vim.api.nvim_del_augroup_by_name, 'NvimPioFirstSweepGroup_' .. current_buf)
+
+      -- 5. THE REACTIVE HOOK: Wait for clangd's next payload frame before releasing lock
+      local reset_release_group = vim.api.nvim_create_augroup('NvimPioResetRelease_' .. current_buf, { clear = true })
+      vim.api.nvim_create_autocmd('DiagnosticChanged', {
+        group = reset_release_group,
+        buffer = current_buf,
+        callback = function()
+          -- The payload has cleared the handler pipe. Safe to unlock and clean up hook!
+          vim.api.nvim_del_augroup_by_id(reset_release_group)
+          M.resetting = false
+        end,
+      })
+
       vim.notify('💥 Data wiped clean. Reverting back to original static settings.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
     elseif choice.action == 'block_flag' then
       M.removed_flags[choice.id] = true
@@ -236,11 +255,12 @@ function M.manage_file_diagnostics_interactive()
       M.blocked_codes[choice.id] = nil
     end
 
+    -- Commit standard database modifications if choice isn't a master reset pass
     if choice.action ~= 'reset' then
       M.save_from_cli(current_buf)
     end
 
-    -- Force a buffer sync to push the layout update out to the viewport
+    -- Perform an instantaneous silent buffer text cycle pass to prompt rendering adjustments
     if vim.api.nvim_buf_is_valid(current_buf) then
       vim.api.nvim_buf_call(current_buf, function()
         local old_shortmess = vim.o.shortmess
@@ -252,15 +272,7 @@ function M.manage_file_diagnostics_interactive()
         vim.o.shortmess = old_shortmess
       end)
     end
-
-    -- 5. Release the background lock after the buffer update pass settles
-    if choice.action == 'reset' then
-      vim.defer_fn(function()
-        M.resetting = false
-      end, 200)
-    end
   end)
 end
--- stylua: ignore end
 
-return M
+-- stylua: ignore end
