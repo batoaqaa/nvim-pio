@@ -16,8 +16,6 @@ vim.api.nvim_create_autocmd('LspAttach', {
     vim.api.nvim_echo({ { 'Attaching ' .. client.name .. ' to buffer ' .. bufnr, 'Info' } }, true, {})
     local nvim_pio_diag = require('nvimpio.clangd.diagnostic')
 
-    -- 1. SERVER & PATH VALIDATION
-    local buf_path = vim.api.nvim_buf_get_name(bufnr)
     if client and client.name == 'clangd' then
       local buf_path = vim.api.nvim_buf_get_name(bufnr)
 
@@ -71,11 +69,23 @@ vim.api.nvim_create_autocmd('LspAttach', {
               end
 
               if automated_discoveries then
-                -- FIXED: Pass the active bufnr path explicitly to the save routine
+                -- 1. Write the newly discovered keys out to .filter.json
                 nvim_pio_diag.save_from_cli(bufnr)
 
-                -- Instantly apply the memory filtration adjustments down to the display screen
-                vim.diagnostic.show(nil, bufnr)
+                -- 2. 🌟 AUTOMATED SYNC: Force a whisper-quiet refresh pass
+                --    This makes Neovim feed the diagnostic array back through your
+                --    diagnostic_handler interceptor, stripping the items instantly.
+                if vim.api.nvim_buf_is_valid(bufnr) then
+                  vim.api.nvim_buf_call(bufnr, function()
+                    local old_shortmess = vim.o.shortmess
+                    vim.o.shortmess = old_shortmess .. 'F'
+
+                    vim.cmd('silent! checktime')
+                    vim.cmd('silent! edit!')
+
+                    vim.o.shortmess = old_shortmess
+                  end)
+                end
               end
             end
           end,
