@@ -132,7 +132,7 @@ function M.manage_file_diagnostics_interactive()
     table.insert(dashboard_items, { action = 'reset', display = '💥 Clear All Active User Filters' })
   end
 
-  -- Query diagnostic fields directly out of active buffer namespaces
+  -- Query diagnostic fields directly out of active buffer namespaces (Bypasses stale cache)
   local raw_diagnostics = {}
   for _, client in pairs(vim.lsp.get_clients({ bufnr = current_buf })) do
     local namespace = vim.lsp.diagnostic.get_namespace(client.id)
@@ -149,6 +149,9 @@ function M.manage_file_diagnostics_interactive()
   local seen = {}
   for _, diag in ipairs(raw_diagnostics) do
     local code_name = diag.code or ''
+    local line_num = diag.lnum or 0
+    local col_num = diag.col or 0
+
     if
       code_name ~= ''
       and code_name ~= 'drv_unknown_argument'
@@ -227,13 +230,26 @@ function M.manage_file_diagnostics_interactive()
       save_filter_database(current_buf)
     end
 
-    -- 🌟 THE SOLID USER EXP RESYNC:
-    -- Instead of looping the menu window endlessly during a complete user reset pass,
-    -- we fire a real, robust asynchronous file reload token pass (edit!).
-    -- Your screen highlights instantly pop back open natively, and the panel safely exits.
-    -- This mimics standard professional editor interfaces perfectly.
+    -- 🌟 THE REACTIVE EVENT RE-SYNC LAYER:
+    -- Every time any user action modifies the suppression parameters, we trigger a hidden
+    -- background buffer reload pass, but we do NOT re-call the menu blindly on the next tick frame.
+    -- Instead, we set up a temporary, single-fire hook onto the 'DiagnosticChanged' lifecycle event.
+    -- The exact microsecond clangd finishes compilation and updates Neovim's memory cache registers,
+    -- this hook executes, destroys itself, and redraws your options window perfectly synchronized!
     vim.schedule(function()
       if vim.api.nvim_buf_is_valid(current_buf) then
+        -- Hook the event listener group BEFORE triggering the reload to prevent missing the frame
+        local refresh_group = vim.api.nvim_create_augroup('NvimPioMenuRefreshGroup', { clear = true })
+        vim.api.nvim_create_autocmd('DiagnosticChanged', {
+          group = refresh_group,
+          buffer = current_buf,
+          callback = function()
+            vim.api.nvim_del_augroup_by_id(refresh_group)
+            M.manage_file_diagnostics_interactive()
+          end,
+        })
+
+        -- Execute the whisper-quiet asynchronous buffer reload pass
         vim.api.nvim_buf_call(current_buf, function()
           local old_shortmess = vim.o.shortmess
           vim.o.shortmess = old_shortmess .. 'F'
@@ -241,12 +257,6 @@ function M.manage_file_diagnostics_interactive()
           vim.cmd('silent! edit!')
           vim.o.shortmess = old_shortmess
         end)
-      end
-
-      -- If they cleared normal items one by one, hold the menu selection list open!
-      -- If they did a total reset wipe, exit cleanly so the text highlight can load.
-      if choice.action ~= 'reset' then
-        M.manage_file_diagnostics_interactive()
       end
     end)
   end)
