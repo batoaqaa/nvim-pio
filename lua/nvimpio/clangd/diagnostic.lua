@@ -12,6 +12,7 @@ M.on_updated = nil
 
 local markers = { 'platformio.ini', '.git' }
 local ns = vim.api.nvim_create_namespace('Pio')
+local menu_mappings = {} -- 🌟 FIXED: Data registry map
 
 -- 1. Path resolver helper
 local function get_db_path(bufnr)
@@ -63,7 +64,7 @@ end
 load_db(0)
 
 -- =====================================================
--- 4. DYNAMIC STREAM INTERCEPTOR (VOLATILE RAM-ONLY)
+-- 4. THE ROBUST DYNAMIC HANDLER INTERCEPTOR (RAM-ONLY)
 -- =====================================================
 function M.diagnostic_handler(err, result, ctx, config)
   if err or not result or not result.diagnostics then
@@ -145,11 +146,20 @@ local function draw_menu()
   end
   load_db(orig)
 
-  local lines = { ' 💥 PlatformIO Exception Dashboard ([q] / [Esc] to Exit) ', string.rep('─', 65), '' }
+  local border_ln = string.rep('─', 65)
+  local lines = {
+    ' 💥 PlatformIO Exception Dashboard ([q] / [Esc] to Exit) ',
+    border_ln,
+    '',
+  }
   vim.api.nvim_buf_clear_namespace(state.uibuf, ns, 0, -1)
+
+  -- Reset our context map registry on each redraw pass
+  menu_mappings = {}
 
   if next(state.codes) then
     table.insert(lines, '  [x] 💥 Clear All Active User Filters')
+    menu_mappings[#lines] = { action = 'reset' }
   end
 
   local diags = vim.diagnostic.get(orig)
@@ -164,9 +174,17 @@ local function draw_menu()
           head1 = true
         end
         seen[c] = true
-        local mark = state.codes[c] and '[*]' or '[ ]'
-        local status = state.codes[c] and '🔓 Restore' or '🔒 Suppress'
+
+        local is_blocked = state.codes[c]
+        local mark = is_blocked and '[*]' or '[ ]'
+        local status = is_blocked and '🔓 Restore' or '🔒 Suppress'
         table.insert(lines, string.format('  %s %s Code: [%s]', mark, status, c))
+
+        -- 🌟 MAP TARGET ACTION STRUCT DIRECTLY TO LINE ROW NUMBER
+        menu_mappings[#lines] = {
+          action = is_blocked and 'unblock' or 'block',
+          id = c,
+        }
       end
     end
   end
@@ -181,56 +199,60 @@ local function draw_menu()
     table.insert(lines, '  [-] 📋 [RECORDED FLAG]: ' .. f)
   end
 
-  vim.bo[state.uibuf].modifiable = true
-  vim.api.nvim_buf_set_lines(state.uibuf, 0, -1, false, lines)
-  vim.bo[state.uibuf].modifiable = false
+  local target_uibuf = state.uibuf or 0
+  if target_uibuf ~= 0 then
+    vim.bo[target_uibuf].modifiable = true
+    vim.api.nvim_buf_set_lines(target_uibuf, 0, -1, false, lines)
+    vim.bo[target_uibuf].modifiable = false
 
-  -- Apply 0.11+ modern highlights smoothly
-  vim.api.nvim_buf_set_extmark(state.uibuf, ns, 0, 0, { end_line = 1, hl_group = 'Title' })
-  vim.api.nvim_buf_set_extmark(state.uibuf, ns, 1, 0, { end_line = 2, hl_group = 'Comment' })
-  for idx, txt in ipairs(lines) do
-    local line_pos = idx - 1
-    local opts = { end_line = idx }
-    if txt:find('^ Outstanding') then
-      opts.hl_group = 'DiagnosticWarn'
-      vim.api.nvim_buf_set_extmark(state.uibuf, ns, line_pos, 0, opts)
-    elseif txt:find('%*') then
-      opts.hl_group = 'DiagnosticOk'
-      vim.api.nvim_buf_set_extmark(state.uibuf, ns, line_pos, 0, opts)
-    elseif txt:find('^ ⚙️') or txt:find('^  %[%-%]') then
-      opts.hl_group = 'Comment'
-      vim.api.nvim_buf_set_extmark(state.uibuf, ns, line_pos, 0, opts)
+    -- Apply highlights cleanly
+    vim.api.nvim_buf_set_extmark(target_uibuf, ns, 0, 0, { end_line = 1, hl_group = 'Title' })
+    vim.api.nvim_buf_set_extmark(target_uibuf, ns, 1, 0, { end_line = 2, hl_group = 'Comment' })
+    for idx, txt in ipairs(lines) do
+      local line_pos = idx - 1
+      local opts = { end_line = idx }
+      if txt:find('^ Outstanding') then
+        opts.hl_group = 'DiagnosticWarn'
+        vim.api.nvim_buf_set_extmark(target_uibuf, ns, line_pos, 0, opts)
+      elseif txt:find('%*') then
+        opts.hl_group = 'DiagnosticOk'
+        vim.api.nvim_buf_set_extmark(target_uibuf, ns, line_pos, 0, opts)
+      elseif txt:find('^ ⚙️') or txt:find('^  %[%-%]') then
+        opts.hl_group = 'Comment'
+        vim.api.nvim_buf_set_extmark(target_uibuf, ns, line_pos, 0, opts)
+      end
     end
   end
 end
 
 local function handle_select()
-  local line = vim.api.nvim_get_current_line() or ''
   local orig = state.original_bufnr or 0
-  if orig == 0 then
+  local target_uiwin = state.uiwin or 0
+  if orig == 0 or target_uiwin == 0 then
     return
   end
 
-  if line:find('💥 Clear All Active User Filters') then
+  -- 🌟 THE INDEX LOOKUP FIX: Grab the current cursor line row directly!
+  local cursor = vim.api.nvim_win_get_cursor(target_ui_win)
+  local row_idx = cursor[1]
+  local target = menu_mappings[row_idx]
+
+  if not target then
+    return
+  end
+
+  if target.action == 'reset' then
     state.codes = {}
     save_db(orig)
-  elseif line:find('🔒 Suppress Code:') then
-    local id = line:match('🔒 Suppress Code:%s*%[([%w%-_]+)%]')
-    if id then
-      state.codes[id] = true
-      save_db(orig)
-    end
-  elseif line:find('🔓 Restore Code:') then
-    local id = line:match('🔓 Restore Code:%s*%[([%w%-_]+)%]')
-    if id then
-      state.codes[id] = nil
-      save_db(orig)
-    end
-  else
-    return
+  elseif target.action == 'block' then
+    state.codes[target.id] = true
+    save_db(orig)
+  elseif target.action == 'unblock' then
+    state.codes[target.id] = nil
+    save_db(orig)
   end
 
-  -- Trigger our explicit stream handler callback
+  -- Stream trigger callback hook
   M.on_updated = function()
     vim.schedule(function()
       draw_menu()
@@ -251,7 +273,7 @@ local function handle_select()
     end
   end
 
-  -- Force list content update instantly
+  -- Redraw list elements instantly on the exact same frame!
   draw_menu()
 end
 
@@ -282,9 +304,10 @@ function M.manage_file_diagnostics_interactive()
     title_pos = 'center',
   })
 
-  if state.uibuf ~= 0 then
-    vim.bo[state.uibuf].bufhidden = 'wipe'
-    vim.bo[state.uibuf].filetype = 'nvimpiomangler'
+  local target_uibuf = state.uibuf or 0
+  if target_uibuf ~= 0 then
+    vim.bo[target_uibuf].bufhidden = 'wipe'
+    vim.bo[target_uibuf].filetype = 'nvimpiomangler'
   end
 
   local lock = vim.api.nvim_create_augroup('PioLock', { clear = true })
@@ -301,7 +324,7 @@ function M.manage_file_diagnostics_interactive()
 
   vim.api.nvim_create_autocmd('BufWipeout', {
     group = lock,
-    buffer = state.uibuf,
+    buffer = target_uibuf,
     callback = function()
       M.on_updated = nil
       pcall(vim.api.nvim_del_augroup_by_name, 'PioLock')
@@ -310,7 +333,7 @@ function M.manage_file_diagnostics_interactive()
     end,
   })
 
-  local opts = { silent = true, buffer = state.uibuf }
+  local opts = { silent = true, buffer = target_uibuf }
   vim.keymap.set('n', '<CR>', function()
     handle_select()
   end, opts)
