@@ -3,6 +3,8 @@ local M = {}
 
 M.manual_blocked_codes = {}
 M.removed_flags = {}
+-- 🌟 Session registry tracks codes across flips
+M.session_discovered_codes = {}
 
 local markers = { 'platformio.ini', '.git' }
 
@@ -30,6 +32,8 @@ local function load_db(bufnr)
         local s = (type(k) == 'string') and k or v
         if type(s) == 'string' and s ~= '' then
           M.manual_blocked_codes[s] = true
+          -- Seed persistent blocks to the register
+          M.session_discovered_codes[s] = true
         end
       end
     end
@@ -77,6 +81,11 @@ function M.diagnostic_handler(err, result, ctx, config)
       keep = false
     end
 
+    if code and type(code) == 'string' and c ~= '' and not is_drv then
+      -- Register every code discovered to the tracker
+      M.session_discovered_codes[code] = true
+    end
+
     if keep then
       table.insert(clean_diagnostics, diag)
     end
@@ -97,43 +106,35 @@ function M.manage_file_diagnostics_interactive()
     table.insert(items, { action = 'reset', text = '💥 Reset All Filters' })
   end
 
-  -- Scan active warnings out of current buffer namespaces
+  -- Hydrate active codes into session register
   local raw_diagnostics = vim.diagnostic.get(bufnr)
-  local seen = {}
   for _, d in ipairs(raw_diagnostics) do
     local c = d.code or ''
     if c ~= '' and c ~= 'drv_unknown_argument' and c ~= 'fatal_too_many_errors' then
-      if not seen[c] then
-        seen[c] = true
-        local is_blocked = M.manual_blocked_codes[c]
-        local mark = is_blocked and '[*]' or '[ ]'
-        local status = is_blocked and 'Restore' or 'Suppress'
-        table.insert(items, {
-          action = is_blocked and 'unblock' or 'block',
-          id = c,
-          text = string.format('  %s %s Code: [%s]', mark, status, c),
-        })
-      end
+      M.session_discovered_codes[c] = true
     end
   end
 
-  -- 🌟 THE INDEPENDENT RESTORATION GATEWAY UPGRADE:
-  -- We loop through your saved blocks map directly. If a code is currently hidden
-  -- on screen, we force it onto the choices list as an unblock option item!
-  local active_unblocks = {}
-  for code, _ in pairs(M.manual_blocked_codes) do
-    table.insert(active_unblocks, code)
+  -- Sort registered keys alphabetically
+  local registered_keys = {}
+  for k, _ in pairs(M.session_discovered_codes) do
+    table.insert(registered_keys, k)
   end
-  table.sort(active_unblocks)
+  table.sort(registered_keys)
 
-  for _, code in ipairs(active_unblocks) do
-    if not seen[code] then
-      table.insert(items, {
-        action = 'unblock',
-        id = code,
-        text = string.format('  [*] Restore Code: [%s]', code),
-      })
-    end
+  -- 🌟 THE ARCHITECTURE FIX (PERMANENT RENDER STABILITY):
+  -- Loop over the session registry. The menu line is fixed on screen!
+  -- We read the true data map state, switching the indicators cleanly.
+  -- This makes lines structurally incapable of vanishing from your picker!
+  for _, c in ipairs(registered_keys) do
+    local is_blocked = M.manual_blocked_codes[c]
+    local mark = is_blocked and '[*]' or '[ ]'
+    local status = is_blocked and 'Restore' or 'Suppress'
+    table.insert(items, {
+      action = is_blocked and 'unblock' or 'block',
+      id = c,
+      text = string.format('  %s %s Code: [%s]', mark, status, c),
+    })
   end
 
   -- Print read-only automated flag logs at the bottom
