@@ -1,12 +1,12 @@
 --- stylua: ignore start
 local M = {}
 
--- Explicit table instantiation at the top prevents race-condition crashes
+-- Explicit table instantiation at the absolute top prevents race-condition crashes
 M.manual_blocked_codes = {}
 
 local root_markers = { 'platformio.ini', '.git' }
 
--- 1. GET_DB_PATH: Dynamically resolves project workspace paths in memory space
+-- 1. GET_DB_PATH: Dynamically resolves project workspace paths in memory space safely
 local function get_db_path(bufnr)
   bufnr = (bufnr and bufnr ~= 0) and bufnr or vim.api.nvim_get_current_buf()
   local buf_file = vim.api.nvim_buf_get_name(bufnr)
@@ -14,7 +14,7 @@ local function get_db_path(bufnr)
   return project_root .. '/.filter.json'
 end
 
--- 2. LOAD_FILTER_DATABASE: Safe hash-table hydration from persistent disk parameters
+-- 2. LOAD_FILTER_DATABASE: Safe hash-table hydration evaluated dynamically per buffer
 local function load_filter_database(bufnr)
   M.manual_blocked_codes = {}
 
@@ -75,19 +75,21 @@ function M.diagnostic_handler(err, result, ctx, config)
     local keep = true
     local code = diag.code
 
-    -- Enforce absolute type protection variables against missing data tokens
+    -- Enforce runtime fallback values against uninitialized position properties
     local line_num = diag.lnum or 0
     local col_num = diag.col or 0
 
-    -- Smart Position Override:
-    -- If an item sits precisely at Line 1, Col 1 (0,0) AND it contains no valid,
-    -- standard error code tag, it is a driver-level architecture argument fault.
-    -- We drop it instantly in memory before Neovim can draw it on the viewport!
-    if line_num == 0 and col_num == 0 and (not code or code == '') then
+    -- 🌟 FIXED AUTOMATED STRUCTURE SHIELD:
+    -- Covers BOTH 0-indexed and 1-indexed tables coming out of the server binary.
+    -- If an item sits at line 1 col 1 (0,0 or 1,1) AND it lacks a standard compiler
+    -- code identifier tag, it is a driver flag layout constraint error.
+    -- We drop it instantly inside RAM before Neovim handles layout drawing tasks!
+    local is_start_boundary = (line_num == 0 and col_num == 0) or (line_num == 1 and col_num == 1)
+    if is_start_boundary and (not code or code == '') then
       keep = false
     end
 
-    -- User Selection Manual Suppression (Fully decoupled check)
+    -- Pass B: User Selection Manual Suppression (Fully decoupled check)
     if keep and code and M.manual_blocked_codes[code] then
       keep = false
     end
@@ -121,8 +123,10 @@ function M.manage_file_diagnostics_interactive()
     local line_num = diag.lnum or 0
     local col_num = diag.col or 0
 
+    local is_start_boundary = (line_num == 0 and col_num == 0) or (line_num == 1 and col_num == 1)
+
     -- Drop top-level driver flag elements already managed by our automated context filter
-    if code_name ~= '' and not (line_num == 0 and col_num == 0) then
+    if code_name ~= '' and not (is_start_boundary and (not code_name or code_name == '')) then
       if not M.manual_blocked_codes[code_name] and not seen[code_name] then
         seen[code_name] = true
         table.insert(dashboard_items, { action = 'block_code', id = code_name, display = '🔒 Suppress Code: [' .. code_name .. ']' })
