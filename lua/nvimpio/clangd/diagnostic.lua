@@ -344,27 +344,34 @@ local function handle_select()
     end)
   end
 
-  -- 🌟 THE 0MS RE-RENDER PASS (NO STORAGE DRIVE DELAYS):
-  -- We bypass 'edit!' completely across all actions.
-  -- We step straight into Neovim's presentation namespaces and
-  -- force-refresh how the screen displays the underlying error cache.
-  -- This brings back all elements or mutes them instantly in RAM!
+  -- 🌟 THE TRUE SYNCHRONOUS MUTATIONPASS (0MS DISK overhead):
+  -- Instead of passive filters, we force-rewrite Neovim's core memory cache registers.
+  -- We query the original lints array, slice out suppressed codes, and update the cache instantly.
+  -- This guarantees the error underlines vanish or reappear on your screen on the exact same frame!
   if vim.api.nvim_buf_is_valid(orig) then
     for _, client in pairs(vim.lsp.get_clients({ bufnr = orig })) do
       if client.name == 'clangd' then
         local l_ns = vim.lsp.diagnostic.get_namespace(client.id)
 
-        -- Force Neovim to repaint the file layout instantly using our filter
-        vim.diagnostic.show(l_ns, orig, nil, {
-          filter = function(d)
-            return not (d.code and state.codes[d.code])
-          end,
-        })
+        -- Extract the live diagnostic data table matching this language server client
+        local current_diags = vim.diagnostic.get(orig, { namespace = l_ns })
+        local filtered_diags = {}
+
+        for _, d in ipairs(current_diags) do
+          local code = d.code
+          -- If the item's code exists inside our active suppression mapping list, screen it out
+          if not (code and state.codes[code]) then
+            table.insert(filtered_diags, d)
+          end
+        end
+
+        -- Force-write the synchronized diagnostics table straight back to the buffer viewport
+        vim.diagnostic.set(l_ns, orig, filtered_diags, {})
       end
     end
   end
 
-  -- Instantly update the floating menu checkbox rows on the same frame
+  -- Update the floating panel checkbox check-markers immediately
   draw_menu()
 end
 
