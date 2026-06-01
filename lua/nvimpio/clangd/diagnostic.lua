@@ -306,19 +306,20 @@ function M.manage_file_diagnostics_interactive()
   end
 
   local opts = { silent = true, buffer = target_ui_buf }
-  vim.keymap.set('n', '', function()
+  vim.keymap.set('n', '<CR>', function()
     handle_menu_selection()
   end, opts)
   vim.keymap.set('n', 'q', function()
     close_filter_window()
   end, opts)
-  vim.keymap.set('n', '', function()
+  vim.keymap.set('n', '<Esc>', function()
     close_filter_window()
   end, opts)
+
   draw_filter_menu_contents()
 end
-return M
 
+return M
 -- --- stylua: ignore start
 -- local M = {}
 --
