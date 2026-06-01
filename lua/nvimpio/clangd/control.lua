@@ -478,6 +478,7 @@ function M.init(clangd)
   OS.notify('Clangd Control: initialize', "info")
 
   if clangd.install then require('nvimpio.clangd.config') end
+  require('nvimpio.clangd.attach')
 
   -- Apply and Enable
   local getClangdConfig = require('nvimpio.clangd.control').getClangdConfig
