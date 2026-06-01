@@ -333,18 +333,26 @@ function M.manage_file_diagnostics_interactive()
     end,
   })
 
-  local opts = { silent = true, buffer = target_uibuf }
+  local opts = {
+    silent = true,
+    buffer = target_uibuf,
+  }
+
   vim.keymap.set('n', '<CR>', function()
     handle_select()
   end, opts)
+
   vim.keymap.set('n', 'q', function()
     close_win()
   end, opts)
-  vim.keymap.set('n', '', function()
+
+  vim.keymap.set('n', '<Esc>', function()
     close_win()
   end, opts)
+
   draw_menu()
 end
+
 -- stylua: ignore end
 return M
 
