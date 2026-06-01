@@ -13,7 +13,9 @@ local function load_filter_database()
   M.blocked_codes = {}
   M.removed_flags = {}
   local f = io.open(json_database_file, 'rb')
-  if not f then return end
+  if not f then
+    return
+  end
   local raw_json = f:read('*all')
   f:close()
   if raw_json and raw_json ~= '' then
@@ -41,14 +43,14 @@ load_filter_database()
 -- This intercepts the native textDocument/publishDiagnostics payload from clangd
 function M.diagnostic_handler(err, result, ctx, config)
   if err or not result or not result.diagnostics then
-    return vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
+    return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
   end
 
   local clean_diagnostics = {}
 
   for _, diag in ipairs(result.diagnostics) do
     local keep = true
-    local msg = diag.message or ""
+    local msg = diag.message or ''
     local code = diag.code
 
     -- Rule A: Filter out short alphanumeric compiler codes
@@ -75,7 +77,7 @@ function M.diagnostic_handler(err, result, ctx, config)
   result.diagnostics = clean_diagnostics
 
   -- Forward the clean package to Neovim's default LSP handler to render
-  vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
+  vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
 end
 
 -- 2. THE INTERACTIVE SELECTION DASHBOARD
@@ -115,25 +117,50 @@ function M.manage_file_diagnostics_interactive()
     end
   end
 
-  table.sort(block_options, function(a, b) return a.display < b.display end)
-  for _, opt in ipairs(block_options) do table.insert(dashboard_items, opt) end
+  table.sort(block_options, function(a, b)
+    return a.display < b.display
+  end)
+  for _, opt in ipairs(block_options) do
+    table.insert(dashboard_items, opt)
+  end
 
   vim.ui.select(dashboard_items, {
-    prompt = 'LSP Handler Presentation Interceptor Dashboard',
-    format_item = function(item) return item.display end,
+    prompt = 'LSP Interceptor Dashboard (Press Esc when finished clearing layers)',
+    format_item = function(item)
+      return item.display
+    end,
   }, function(choice)
-    if not choice then return end
+    -- 🌟 THE ESCAPE ROUTE: The menu only exits when the user explicitly hits Esc/Cancel
+    if not choice then
+      OS.notify('Clangd Automation ✅ Interception matrix updated successfully.')
+      return
+    end
 
+    -- Process the current item selection without terminating the workspace session
     if choice.action == 'reset' then
       M.blocked_codes = {}
       M.removed_flags = {}
-    elseif choice.action == 'block_flag' then M.removed_flags[choice.id] = true
-    elseif choice.action == 'block_code' then M.blocked_codes[choice.id] = true end
+    elseif choice.action == 'block_flag' then
+      M.removed_flags[choice.id] = true
+    elseif choice.action == 'block_code' then
+      M.blocked_codes[choice.id] = true
+    elseif choice.action == 'unblock_flag' then
+      M.removed_flags[choice.id] = nil
+    elseif choice.action == 'unblock_code' then
+      M.blocked_codes[choice.id] = nil
+    end
 
+    -- Sync to the persistent local project storage database map
     save_filter_database()
 
-    -- Tell the active LSP client to re-request diagnostics cleanly
-    vim.cmd('edit!')
+    -- Instantly push the fresh filter rules across your active screen workspace
+    vim.diagnostic.show(nil, current_buf)
+
+    -- 🌟 RECURSIVE AUTOMATION LOOP: Instantly rebuilds the option list
+    -- and re-opens the selector window on the very next screen cycle frame!
+    vim.schedule(function()
+      M.manage_file_diagnostics_interactive()
+    end)
   end)
 end
 
