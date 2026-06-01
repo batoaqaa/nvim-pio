@@ -128,21 +128,50 @@ function M.manage_file_diagnostics_interactive()
     return
   end
 
-  vim.ui.select(dashboard_items, { prompt = 'Filter Control Panel' }, function(choice)
+  -- Mount the interactive UI selection dashboard picker
+  vim.ui.select(dashboard_items, {
+    prompt = 'Filter Control Panel (Select warning line to suppress)',
+    -- 🌟 THE CRITICAL INTERFACE FIX: Instruct Neovim to extract the display string
+    -- from our dictionary object structure instead of printing the raw memory reference!
+    format_item = function(item)
+      return (type(item) == 'table' and type(item.display) == 'string') and item.display or tostring(item)
+    end,
+  }, function(choice)
+    -- If the user hits Esc or explicitly exits the layout window block, abort safely
     if not choice then
       return
     end
+
     if choice.action == 'reset' then
       M.manual_blocked_codes = {}
+      save_filter_database()
+      vim.notify('💥 All custom filters wiped clean.', vim.log.levels.ERROR)
     elseif choice.action == 'block_code' then
       M.manual_blocked_codes[choice.id] = true
+      save_filter_database()
     elseif choice.action == 'unblock_code' then
       M.manual_blocked_codes[choice.id] = nil
+      save_filter_database()
     end
 
-    save_filter_database()
+    -- Instantly push our fresh RAM memory presentation configuration across the view screen
     vim.diagnostic.show(nil, current_buf)
   end)
+  -- vim.ui.select(dashboard_items, { prompt = 'Filter Control Panel' }, function(choice)
+  --   if not choice then
+  --     return
+  --   end
+  --   if choice.action == 'reset' then
+  --     M.manual_blocked_codes = {}
+  --   elseif choice.action == 'block_code' then
+  --     M.manual_blocked_codes[choice.id] = true
+  --   elseif choice.action == 'unblock_code' then
+  --     M.manual_blocked_codes[choice.id] = nil
+  --   end
+  --
+  --   save_filter_database()
+  --   vim.diagnostic.show(nil, current_buf)
+  -- end)
 end
 
 return M
