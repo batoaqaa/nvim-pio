@@ -27,11 +27,17 @@ vim.api.nvim_create_autocmd('LspAttach', {
 
         -- AUTOMATED FIRST SWEEP
         local sweep_group = vim.api.nvim_create_augroup('NvimPioFirstSweepGroup_' .. bufnr, { clear = true })
-
+        -- AUTOMATED FIRST SWEEP
         vim.api.nvim_create_autocmd('DiagnosticChanged', {
           group = sweep_group,
           buffer = bufnr,
           callback = function()
+            -- 🌟 FIXED: If a master reset is running, abandon the auto-sweep entirely!
+            if nvim_pio_diag.resetting then
+              vim.api.nvim_del_augroup_by_id(sweep_group)
+              return
+            end
+
             local raw_nodes = vim.diagnostic.get(bufnr)
 
             if #raw_nodes > 0 then
@@ -69,20 +75,15 @@ vim.api.nvim_create_autocmd('LspAttach', {
               end
 
               if automated_discoveries then
-                -- 1. Write the newly discovered keys out to .filter.json
                 nvim_pio_diag.save_from_cli(bufnr)
 
-                -- 2. 🌟 AUTOMATED SYNC: Force a whisper-quiet refresh pass
-                --    This makes Neovim feed the diagnostic array back through your
-                --    diagnostic_handler interceptor, stripping the items instantly.
+                -- Instantly apply the memory filtration adjustments down to the display screen
                 if vim.api.nvim_buf_is_valid(bufnr) then
                   vim.api.nvim_buf_call(bufnr, function()
                     local old_shortmess = vim.o.shortmess
                     vim.o.shortmess = old_shortmess .. 'F'
-
                     vim.cmd('silent! checktime')
                     vim.cmd('silent! edit!')
-
                     vim.o.shortmess = old_shortmess
                   end)
                 end
