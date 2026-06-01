@@ -104,6 +104,10 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
+  clangd_config.handlers = {
+    -- Override the default diagnostic publishing target route
+    ["textDocument/publishDiagnostics"] = diagnostic.diagnostic_handler
+  }
   -- clangd_config.handlers = {
   --   ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
   --     -- Only filter if there are diagnostics present
