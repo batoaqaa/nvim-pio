@@ -44,7 +44,8 @@ end
 local function save_db(bufnr)
   local f = io.open(get_db_path(bufnr), 'wb')
   if f then
-    local payload = { codes = M.manual_blocked_codes }
+    -- local payload = { codes = M.manual_blocked_codes }
+    local payload = { codes = M.manual_blocked_codes, flags = M.removed_flags }
     -- f:write(vim.json.encode(payload))
     -- f:close()
 
