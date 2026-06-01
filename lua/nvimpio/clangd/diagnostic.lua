@@ -1,10 +1,9 @@
 --- stylua: ignore start
 local M = {}
 
--- Explicit table instantiation at the absolute top prevents race-condition crashes
+-- Pure hot-memory registers for diagnostics and flags
 M.manual_blocked_codes = {}
 M.removed_flags = {}
-M.is_wiping = false
 
 local root_markers = { 'platformio.ini', '.git' }
 
@@ -32,7 +31,6 @@ local function load_filter_database(bufnr)
   if raw_json and raw_json ~= '' then
     local success, data = pcall(vim.json.decode, raw_json)
     if success and data and type(data) == 'table' then
-      -- Safely re-hydrate code structures verifying that elements are table maps
       if type(data.codes) == 'table' then
         for k, v in pairs(data.codes) do
           local code_str = (type(k) == 'string') and k or v
@@ -41,7 +39,6 @@ local function load_filter_database(bufnr)
           end
         end
       end
-      -- Safely re-hydrate compiler flag structures
       if type(data.flags) == 'table' then
         for k, v in pairs(data.flags) do
           local flag_str = (type(k) == 'string') and k or v
@@ -59,8 +56,6 @@ local function save_filter_database(bufnr)
   local json_database_file = get_db_path(bufnr)
   local f = io.open(json_database_file, 'wb')
   if f then
-    -- 🌟 CRITICAL FIX: If memory maps are fully empty, dump a clean null structural
-    -- block layout to disk. This stops Neovim from decoding it as an empty array list []!
     if next(M.manual_blocked_codes) == nil and next(M.removed_flags) == nil then
       f:write('{"codes":null,"flags":null}')
     else
@@ -76,15 +71,10 @@ end
 load_filter_database(0)
 
 -- =============================================================================
--- 4. THE ROBUST DYNAMIC HANDLER INTERCEPTOR (100% AUTOMATED DRIVER FLAG LOGGING)
+-- 4. THE ROBUST DYNAMIC HANDLER INTERCEPTOR (VOLATILE IN-MEMORY EXTRACTION)
 -- =============================================================================
 function M.diagnostic_handler(err, result, ctx, config)
   if err or not result or not result.diagnostics then
-    return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
-  end
-
-  -- GUARD LAYER: If a master reset is currently active, bypass extraction completely
-  if M.is_wiping then
     return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
   end
 
@@ -92,9 +82,9 @@ function M.diagnostic_handler(err, result, ctx, config)
   load_filter_database(current_buf)
 
   local clean_diagnostics = {}
-  local automated_discoveries = false
 
-  -- PASS 1: AUTOMATED ZERO-HARDCODE COMPILER DRIVER FLAG CAPTURING
+  -- PASS 1: AUTOMATED IN-MEMORY CAPTURING ONLY (NO FILE WRITES)
+  -- This intercepts and mutes driver flags instantly in RAM without touching your disk!
   for _, diag in ipairs(result.diagnostics) do
     local code = diag.code
     local msg = diag.message or ''
@@ -104,14 +94,9 @@ function M.diagnostic_handler(err, result, ctx, config)
         local clean_flag = msg:match('(%-[%w%-]+)')
         if clean_flag and not M.removed_flags[clean_flag] then
           M.removed_flags[clean_flag] = true
-          automated_discoveries = true
         end
       end
     end
-  end
-
-  if automated_discoveries then
-    save_filter_database(current_buf)
   end
 
   -- PASS 2: PRESENTATION SCREENING IN RAM
@@ -215,12 +200,9 @@ function M.manage_file_diagnostics_interactive()
     end
 
     if choice.action == 'reset' then
-      -- Engage the safety lock to freeze the automated data scraper loop
-      M.is_wiping = true
       M.manual_blocked_codes = {}
       M.removed_flags = {}
-
-      -- Commit the null data layout straight to disk parameters
+      -- Explicitly rewrite an absolute empty file layout to the hard drive on demand
       save_filter_database(current_buf)
       vim.notify('💥 Filters wiped clean and log history reset.', vim.log.levels.ERROR)
     elseif choice.action == 'block_code' then
@@ -246,20 +228,14 @@ function M.manage_file_diagnostics_interactive()
         end)
       end
 
-      -- Release the shield loop hook safely after the buffer updates completely
-      if choice.action == 'reset' then
-        vim.defer_fn(function()
-          M.is_wiping = false
-          M.manage_file_diagnostics_interactive()
-        end, 150)
-      else
-        M.manage_file_diagnostics_interactive()
-      end
+      -- Instantly re-open the panel layout loop smoothly
+      M.manage_file_diagnostics_interactive()
     end)
   end)
 end
 
 return M
+
 -- --- stylua: ignore start
 -- local M = {}
 --
