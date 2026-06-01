@@ -186,26 +186,32 @@ function M.manage_file_diagnostics_interactive()
 
     save_db(bufnr)
 
-    -- 🌟 THE LIFECYCLE RE-RENDER FIX:
-    -- We use vim.schedule to yield control back to Neovim's main engine.
-    -- This unblocks the thread, forcing Neovim to repaint the text lines and
-    -- instantly drop the suppressed errors off your screen inside RAM.
-    -- A microsecond later, it recurses seamlessly, keeping the menu open!
+    -- 🌟 THE LIFECYCLE RE-RENDER MUTATION FIX:
+    -- Instead of visibility filters, we directly mutate Neovim's active cache.
+    -- We loop through the LSP client namespaces, slice out blocked diagnostics,
+    -- and force-overwrite the registers synchronously inside RAM.
+    -- This guarantees the lines vanish instantly while keeping the menu open!
     vim.schedule(function()
       if vim.api.nvim_buf_is_valid(bufnr) then
         for _, client in pairs(vim.lsp.get_clients({ bufnr = bufnr })) do
           if client.name == 'clangd' then
             local ns = vim.lsp.diagnostic.get_namespace(client.id)
-            vim.diagnostic.show(ns, bufnr, nil, {
-              filter = function(d)
-                return not (d.code and M.manual_blocked_codes[d.code])
-              end,
-            })
+            local current_diags = vim.diagnostic.get(bufnr, { namespace = ns })
+            local filtered_diags = {}
+
+            for _, d in ipairs(current_diags) do
+              if not (d.code and M.manual_blocked_codes[d.code]) then
+                table.insert(filtered_diags, d)
+              end
+            end
+
+            -- Force a native memory override update pass instantly!
+            vim.diagnostic.set(ns, bufnr, filtered_diags, {})
           end
         end
       end
 
-      -- Recurse asynchronously: Zero screen flickering, absolute input effect!
+      -- Recurse asynchronously: Zero screen flickering, absolute effect!
       M.manage_file_diagnostics_interactive()
     end)
   else
