@@ -87,7 +87,7 @@ function M.diagnostic_handler(err, result, ctx, config)
 end
 
 -- =====================================================
--- 5. PROFESSIONAL ECHO MODAL ENGINE (STAYS SYNCED)
+-- 5. THE FAST UNIFIED SINGLE-KEYSTROKE RECURSIVE PANEL
 -- =====================================================
 function M.manage_file_diagnostics_interactive()
   local bufnr = vim.api.nvim_get_current_buf()
@@ -163,57 +163,62 @@ function M.manage_file_diagnostics_interactive()
     return
   end
 
-  -- 🌟 THE ARCHITECTURE UPGRADE:
-  -- 1. Clear cmdline area and pretty-print the options list with real color syntax!
+  -- Print a short instruction at the very bottom line
+  table.insert(chunks, { '\nSelect option letter prefix (or Esc to Exit): ', 'Title' })
+
+  -- Render the full multi-line list cleanly to the status message screen area
   vim.cmd('redraw')
-  vim.api.nvim_echo(chunks, true, {})
+  vim.api.nvim_echo(chunks, false, {})
 
-  -- 2. Draw a tight, single-line text input prompt box directly underneath
-  vim.ui.input({ prompt = 'Select option letter prefix: ' }, function(input)
-    if not input or input == '' then
-      return
+  -- 🌟 THE ONE-KEYSTROKE ARCHITECTURE UPGRADE:
+  -- Intercept character taps instantly. Removes input prompts completely!
+  local input = vim.fn.getcharstr()
+
+  -- Escape paths: exit the loop cleanly if they tap Esc, q, or hit space
+  if input == '\27' or input == 'q' or input == ' ' then
+    vim.cmd('redraw')
+    return
+  end
+
+  local target = action_map[input:lower()]
+  if not target then
+    vim.notify('❌ Invalid selection option.', vim.log.levels.WARN)
+    M.manage_file_diagnostics_interactive()
+    return
+  end
+
+  if target.action == 'reset' then
+    M.manual_blocked_codes = {}
+  elseif target.action == 'block' then
+    M.manual_blocked_codes[target.id] = true
+  elseif target.action == 'unblock' then
+    M.manual_blocked_codes[target.id] = nil
+  end
+
+  save_db(bufnr)
+
+  -- Hook onto the event listener so it redraws only when the data hits RAM cache
+  vim.schedule(function()
+    if vim.api.nvim_buf_is_valid(bufnr) then
+      local refresh_group = vim.api.nvim_create_augroup('PioRefresh', { clear = true })
+      vim.api.nvim_create_autocmd('DiagnosticChanged', {
+        group = refresh_group,
+        buffer = bufnr,
+        callback = function()
+          vim.api.nvim_del_augroup_by_id(refresh_group)
+          M.manage_file_diagnostics_interactive()
+        end,
+      })
+
+      -- Execute the whisper-quiet asynchronous buffer reload pass
+      vim.api.nvim_buf_call(bufnr, function()
+        local old_shortmess = vim.o.shortmess
+        vim.o.shortmess = old_shortmess .. 'F'
+        vim.cmd('silent! checktime')
+        vim.cmd('silent! edit!')
+        vim.o.shortmess = old_shortmess
+      end)
     end
-
-    local target = action_map[input:lower()]
-    if not target then
-      vim.notify('❌ Invalid selection option.', vim.log.levels.WARN)
-      M.manage_file_diagnostics_interactive()
-      return
-    end
-
-    if target.action == 'reset' then
-      M.manual_blocked_codes = {}
-    elseif target.action == 'block' then
-      M.manual_blocked_codes[target.id] = true
-    elseif target.action == 'unblock' then
-      M.manual_blocked_codes[target.id] = nil
-    end
-
-    save_db(bufnr)
-
-    -- Force reactive synchronization pass via the native event listener
-    vim.schedule(function()
-      if vim.api.nvim_buf_is_valid(bufnr) then
-        local refresh_group = vim.api.nvim_create_augroup('PioRefresh', { clear = true })
-        vim.api.nvim_create_autocmd('DiagnosticChanged', {
-          group = refresh_group,
-          buffer = bufnr,
-          callback = function()
-            vim.api.nvim_del_augroup_by_id(refresh_group)
-            M.manage_file_diagnostics_interactive()
-          end,
-        })
-
-        -- Execute the whisper-quiet asynchronous buffer reload pass
-        vim.api.nvim_buf_call(bufnr, function()
-          local old_shortmess = vim.o.shortmess
-          vim.o.shortmess = old_shortmess .. 'F'
-          vim.cmd('silent! checktime')
-          vim.cmd('silent! edit!')
-          vim.o.shortmess = old_shortmess
-        end)
-      end
-    end)
   end)
 end
 
