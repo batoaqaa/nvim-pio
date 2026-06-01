@@ -139,6 +139,9 @@ function M.manage_file_diagnostics_interactive()
     table.insert(items, { action = 'none', text = '⚙️ [AUTOMATED BLOCK]: ' .. f })
   end
 
+  -- 🌟 FIXED EARLY EXIT BOUNDARY:
+  -- We only terminate if the complete option array is fully empty.
+  -- If you have historical blocks active, the menu stays open!
   if #items == 0 then
     vim.notify('✅ Clean Slate: No active filters.', vim.log.levels.INFO)
     return
@@ -165,10 +168,7 @@ function M.manage_file_diagnostics_interactive()
 
     save_filter_database(bufnr)
 
-    -- 🌟 THE REACTIVE EVENT RE-SYNC LAYER:
-    -- Instead of looping blindly, we hook onto the DiagnosticChanged event.
-    -- The exact microsecond clangd finishes compilation and updates Neovim's cache,
-    -- this hook triggers, destroys itself, and cleanly re-opens the menu panel!
+    -- Force reactive synchronization via the native event pipeline
     vim.schedule(function()
       if vim.api.nvim_buf_is_valid(bufnr) then
         local refresh_group = vim.api.nvim_create_augroup('NvimPioMenuRefreshGroup', { clear = true })
