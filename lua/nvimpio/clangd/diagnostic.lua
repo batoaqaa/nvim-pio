@@ -12,7 +12,7 @@ M.on_updated = nil
 
 local markers = { 'platformio.ini', '.git' }
 local ns = vim.api.nvim_create_namespace('Pio')
-local menu_mappings = {} -- 🌟 FIXED: Data registry map
+local menu_mappings = {}
 
 -- 1. Path resolver helper
 local function get_db_path(bufnr)
@@ -154,7 +154,6 @@ local function draw_menu()
   }
   vim.api.nvim_buf_clear_namespace(state.uibuf, ns, 0, -1)
 
-  -- Reset our context map registry on each redraw pass
   menu_mappings = {}
 
   if next(state.codes) then
@@ -162,10 +161,22 @@ local function draw_menu()
     menu_mappings[#lines] = { action = 'reset' }
   end
 
-  local diags = vim.diagnostic.get(orig)
+  -- Query diagnostic fields directly out of active buffer namespaces
+  local raw_diagnostics = {}
+  for _, client in pairs(vim.lsp.get_clients({ bufnr = orig })) do
+    local l_ns = vim.lsp.diagnostic.get_namespace(client.id)
+    local client_diags = vim.diagnostic.get(orig, { namespace = l_ns })
+    for _, d in ipairs(client_diags) do
+      table.insert(raw_diagnostics, d)
+    end
+  end
+  if #raw_diagnostics == 0 then
+    raw_diagnostics = vim.diagnostic.get(orig)
+  end
+
   local seen = {}
   local head1 = false
-  for _, d in ipairs(diags) do
+  for _, d in ipairs(raw_diagnostics) do
     local c = d.code or ''
     if c ~= '' and c ~= 'drv_unknown_argument' and c ~= 'fatal_too_many_errors' then
       if not seen[c] then
@@ -180,12 +191,24 @@ local function draw_menu()
         local status = is_blocked and '🔓 Restore' or '🔒 Suppress'
         table.insert(lines, string.format('  %s %s Code: [%s]', mark, status, c))
 
-        -- 🌟 MAP TARGET ACTION STRUCT DIRECTLY TO LINE ROW NUMBER
         menu_mappings[#lines] = {
           action = is_blocked and 'unblock' or 'block',
           id = c,
         }
       end
+    end
+  end
+
+  -- Supplement menu rows with codes that are saved but not currently on screen
+  for k, _ in pairs(state.codes) do
+    if type(k) == 'string' and k ~= '' and not seen[k] then
+      if not head1 then
+        table.insert(lines, ' Outstanding Warnings (Select to Block):')
+        head1 = true
+      end
+      seen[k] = true
+      table.insert(lines, string.format('  [*] 🔓 Restore Code: [%s]', k))
+      menu_mappings[#lines] = { action = 'unblock', id = k }
     end
   end
 
@@ -205,7 +228,6 @@ local function draw_menu()
     vim.api.nvim_buf_set_lines(target_uibuf, 0, -1, false, lines)
     vim.bo[target_uibuf].modifiable = false
 
-    -- Apply highlights cleanly
     vim.api.nvim_buf_set_extmark(target_uibuf, ns, 0, 0, { end_line = 1, hl_group = 'Title' })
     vim.api.nvim_buf_set_extmark(target_uibuf, ns, 1, 0, { end_line = 2, hl_group = 'Comment' })
     for idx, txt in ipairs(lines) do
@@ -227,15 +249,11 @@ end
 
 local function handle_select()
   local orig = state.original_bufnr or 0
-
-  -- We extract and explicitly verify that the persistent window tracker exists.
-  -- This guarantees a valid handle is passed into nvim_win_get_cursor natively!
   local win_handle = state.uiwin or 0
   if orig == 0 or win_handle == 0 or not vim.api.nvim_win_is_valid(win_handle) then
     return
   end
 
-  -- Programmatically extract the current row line number matching your cursor
   local cursor = vim.api.nvim_win_get_cursor(win_handle)
   local row_idx = cursor[1]
   local target = menu_mappings[row_idx]
@@ -255,28 +273,36 @@ local function handle_select()
     save_db(orig)
   end
 
-  -- Stream trigger callback hook
   M.on_updated = function()
     vim.schedule(function()
       draw_menu()
     end)
   end
 
-  -- Force high-speed visibility repaint natively inside RAM
+  -- 🌟 THE ULTIMATE VISUAL OVERRIDE:
+  -- Directly rewrite Neovim's diagnostic storage registers inside RAM space.
+  -- This forces the highlights to vanish or reappear on the exact same frame!
   if vim.api.nvim_buf_is_valid(orig) then
     for _, client in pairs(vim.lsp.get_clients({ bufnr = orig })) do
       if client.name == 'clangd' then
         local l_ns = vim.lsp.diagnostic.get_namespace(client.id)
-        vim.diagnostic.show(l_ns, orig, nil, {
-          filter = function(d)
-            return not (d.code and state.codes[d.code])
-          end,
-        })
+
+        -- Pull out the raw unfiltered stream from Neovim's master namespace
+        local current_diags = vim.diagnostic.get(orig, { namespace = l_ns })
+        local filtered_diags = {}
+
+        for _, d in ipairs(current_diags) do
+          if not (d.code and state.codes[d.code]) then
+            table.insert(filtered_diags, d)
+          end
+        end
+
+        -- Force-write the synchronized table back into the active viewport
+        vim.diagnostic.set(l_ns, orig, filtered_diags, {})
       end
     end
   end
 
-  -- Redraw list elements instantly on the exact same frame!
   draw_menu()
 end
 
@@ -318,8 +344,9 @@ function M.manage_file_diagnostics_interactive()
     group = lock,
     callback = function()
       vim.schedule(function()
-        if state.uiwin and vim.api.nvim_win_is_valid(state.uiwin) then
-          vim.api.nvim_set_current_win(state.uiwin)
+        local win = state.uiwin
+        if win and vim.api.nvim_win_is_valid(win) then
+          vim.api.nvim_set_current_win(win)
         end
       end)
     end,
@@ -336,13 +363,19 @@ function M.manage_file_diagnostics_interactive()
     end,
   })
 
-  local opts = { silent = true, buffer = target_uibuf }
+  local opts = {
+    silent = true,
+    buffer = target_uibuf,
+  }
+
   vim.keymap.set('n', '<CR>', function()
     handle_select()
   end, opts)
+
   vim.keymap.set('n', 'q', function()
     close_win()
   end, opts)
+
   vim.keymap.set('n', '<Esc>', function()
     close_win()
   end, opts)
