@@ -13,7 +13,8 @@ vim.api.nvim_create_autocmd('LspAttach', {
       return
     end
 
-    vim.api.nvim_echo({ { 'Attaching ' .. client.name .. ' to buffer ' .. bufnr, 'Info' } }, true, {})
+    -- vim.api.nvim_echo({ { 'Attaching ' .. client.name .. ' to buffer ' .. bufnr, 'Info' } }, true, {})
+
     local nvim_pio_diag = require('nvimpio.clangd.diagnostic')
     if client and client.name == 'clangd' then
       local buf_path = vim.api.nvim_buf_get_name(bufnr)
