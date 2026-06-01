@@ -137,6 +137,9 @@ function M.manage_file_diagnostics_interactive()
   local seen = {}
   for _, diag in ipairs(raw_diagnostics) do
     local code_name = diag.code or ''
+    local line_num = diag.lnum or 0
+    local col_num = diag.col or 0
+
     if
       code_name ~= ''
       and code_name ~= 'drv_unknown_argument'
@@ -168,8 +171,7 @@ function M.manage_file_diagnostics_interactive()
     table.insert(dashboard_items, opt)
   end
 
-  -- 🌟 READ-ONLY SECTION: Print automatic driver flag protections explicitly as greyed notes
-  -- These items cannot be clicked or toggled, keeping your interactive list clean!
+  -- READ-ONLY SECTION: Print automatic driver flag protections explicitly as greyed notes
   local automated_notes = {}
   for flag, _ in pairs(M.removed_flags or {}) do
     if type(flag) == 'string' and flag ~= '' then
@@ -199,7 +201,6 @@ function M.manage_file_diagnostics_interactive()
       return
     end
 
-    -- 🌟 BLOCK READ-ONLY TRAFFIC: If they click an automated banner info row, ignore it completely!
     if choice.action == 'none' then
       M.manage_file_diagnostics_interactive()
       return
@@ -229,8 +230,18 @@ function M.manage_file_diagnostics_interactive()
         end)
       end
 
-      -- Instantly re-open the panel layout loop smoothly
-      M.manage_file_diagnostics_interactive()
+      -- 🌟 THE LIFECYCLE RE-SYNC FILTER:
+      -- If the user triggered a complete reset, we add a brief 120ms execution stagger.
+      -- This gives clangd the time it needs to compile the file and populate Neovim's
+      -- diagnostic memory cache BEFORE the interactive panel loops back to redraw itself!
+      if choice.action == 'reset' then
+        vim.defer_fn(function()
+          M.manage_file_diagnostics_interactive()
+        end, 120)
+      else
+        -- Standard selections apply instantly without needing stagger windows
+        M.manage_file_diagnostics_interactive()
+      end
     end)
   end)
 end
