@@ -73,8 +73,15 @@ function M.diagnostic_handler(err, result, ctx, config)
       if f then
         M.removed_flags[f] = true
       end
-    elseif code and M.manual_blocked_codes[code] then
-      keep = false
+    end
+
+    if keep then
+      for flag, _ in pairs(M.removed_flags) do
+        if msg:find(flag, 1, true) then
+          keep = false
+          break
+        end
+      end
     end
 
     if keep then
@@ -99,7 +106,7 @@ function M.manage_file_diagnostics_interactive()
 
   for _, d in ipairs(diags) do
     local c = d.code or ''
-    if c ~= '' and c ~= 'drv_unknown_argument' and not M.manual_blocked_codes[c] and not seen[c] then
+    if c ~= '' and c ~= 'drv_unknown_argument' and not seen[c] then
       seen[c] = true
       table.insert(unblocked_codes, c)
     end
@@ -116,11 +123,13 @@ function M.manage_file_diagnostics_interactive()
 
   -- Map outstanding codes to options list
   for _, code in ipairs(unblocked_codes) do
-    local char = string.char(char_code)
-    table.insert(chunks, { string.format('  [%s] 🔒 Block: ', char), 'DiagnosticWarn' })
-    table.insert(chunks, { code .. '\n', 'Normal' })
-    action_map[char] = { action = 'block', id = code }
-    char_code = char_code + 1
+    if not M.manual_blocked_codes[code] then
+      local char = string.char(char_code)
+      table.insert(chunks, { string.format('  [%s] 🔒 Block: ', char), 'DiagnosticWarn' })
+      table.insert(chunks, { code .. '\n', 'Normal' })
+      action_map[char] = { action = 'block', id = code }
+      char_code = char_code + 1
+    end
   end
 
   -- Map suppressed codes for restoration
@@ -186,32 +195,25 @@ function M.manage_file_diagnostics_interactive()
 
     save_db(bufnr)
 
-    -- 🌟 THE LIFECYCLE RE-RENDER MUTATION FIX:
-    -- Instead of visibility filters, we directly mutate Neovim's active cache.
-    -- We loop through the LSP client namespaces, slice out blocked diagnostics,
-    -- and force-overwrite the registers synchronously inside RAM.
-    -- This guarantees the lines vanish instantly while keeping the menu open!
+    -- 🌟 THE ULTIMATE NATIVE SYNC RE-RENDER (0ms CACHE CONVERSIONS):
+    -- We never destroy the diagnostic cache registry anymore.
+    -- We pass a custom visibility callback configuration straight into Neovim's
+    -- active namespaces display layer loop. It suppresses and brings back lines
+    -- instantly in RAM without losing the underlying objects, keeping the UI locked open!
     vim.schedule(function()
       if vim.api.nvim_buf_is_valid(bufnr) then
         for _, client in pairs(vim.lsp.get_clients({ bufnr = bufnr })) do
           if client.name == 'clangd' then
             local ns = vim.lsp.diagnostic.get_namespace(client.id)
-            local current_diags = vim.diagnostic.get(bufnr, { namespace = ns })
-            local filtered_diags = {}
-
-            for _, d in ipairs(current_diags) do
-              if not (d.code and M.manual_blocked_codes[d.code]) then
-                table.insert(filtered_diags, d)
-              end
-            end
-
-            -- Force a native memory override update pass instantly!
-            vim.diagnostic.set(ns, bufnr, filtered_diags, {})
+            vim.diagnostic.show(ns, bufnr, nil, {
+              filter = function(d)
+                return not (d.code and M.manual_blocked_codes[d.code])
+              end,
+            })
           end
         end
       end
 
-      -- Recurse asynchronously: Zero screen flickering, absolute effect!
       M.manage_file_diagnostics_interactive()
     end)
   else
