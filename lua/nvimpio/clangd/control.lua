@@ -104,6 +104,21 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
+  clangd_config.before_init = function(params, config)
+      -- Check if standard operating system variables table tracking maps exist securely
+      config.settings = config.settings or {}
+      config.init_options = config.init_options or {}
+
+      -- Ensure the fallback flags array container is cleanly assigned
+      config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
+
+      -- Dynamically extract client configuration adjustments directly out of the active 
+      -- compiler command structures natively via the LSP client setup context layout
+      if params.initializationOptions then
+        params.initializationOptions.clangdFileStatus = true
+      end
+  end
+
   clangd_config.handlers = {
     -- Override the default diagnostic publishing target route
     ["textDocument/publishDiagnostics"] = diagnostic.diagnostic_handler
