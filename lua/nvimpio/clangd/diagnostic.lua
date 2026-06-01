@@ -14,7 +14,6 @@ local markers = { 'platformio.ini', '.git' }
 local ns = vim.api.nvim_create_namespace('Pio')
 local menu_mappings = {}
 
--- 1. Path resolver helper
 local function get_db_path(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   local f = vim.api.nvim_buf_get_name(bufnr)
@@ -22,7 +21,6 @@ local function get_db_path(bufnr)
   return root .. '/.filter.json'
 end
 
--- 2. Database loading engine
 local function load_db(bufnr)
   state.codes = {}
   local path = get_db_path(bufnr)
@@ -45,7 +43,6 @@ local function load_db(bufnr)
   end
 end
 
--- 3. Database saving engine
 local function save_db(bufnr)
   local path = get_db_path(bufnr)
   local f = io.open(path, 'wb')
@@ -64,7 +61,7 @@ end
 load_db(0)
 
 -- =====================================================
--- 4. THE ROBUST DYNAMIC HANDLER INTERCEPTOR (RAM-ONLY)
+-- 4. THE ROBUST DYNAMIC HANDLER INTERCEPTOR
 -- =====================================================
 function M.diagnostic_handler(err, result, ctx, config)
   if err or not result or not result.diagnostics then
@@ -127,7 +124,7 @@ function M.diagnostic_handler(err, result, ctx, config)
 end
 
 -- =====================================================
--- 5. PERSISTENT FLOATING CANVAS CONTROL PANEL ENGINE
+-- 5. PERSISTENT FLOATING CANVAS MODULE
 -- =====================================================
 local function close_win()
   M.on_updated = nil
@@ -161,7 +158,6 @@ local function draw_menu()
     menu_mappings[#lines] = { action = 'reset' }
   end
 
-  -- Query diagnostic fields directly out of active buffer namespaces
   local raw_diagnostics = {}
   for _, client in pairs(vim.lsp.get_clients({ bufnr = orig })) do
     local l_ns = vim.lsp.diagnostic.get_namespace(client.id)
@@ -199,9 +195,9 @@ local function draw_menu()
     end
   end
 
-  -- Supplement menu rows with codes that are saved but not currently on screen
   for k, _ in pairs(state.codes) do
-    if type(k) == 'string' and k ~= '' and not seen[k] then
+    local is_valid_unseen = type(k) == 'string' and k ~= '' and not seen[k]
+    if is_valid_unseen then
       if not head1 then
         table.insert(lines, ' Outstanding Warnings (Select to Block):')
         head1 = true
@@ -255,7 +251,7 @@ local function handle_select()
   end
 
   local cursor = vim.api.nvim_win_get_cursor(win_handle)
-  local row_idx = cursor[1]
+  local row_idx = cursor
   local target = menu_mappings[row_idx]
 
   if not target then
@@ -265,6 +261,7 @@ local function handle_select()
   if target.action == 'reset' then
     state.codes = {}
     save_db(orig)
+    vim.notify('💥 User selections wiped clean.', vim.log.levels.ERROR)
   elseif target.action == 'block' then
     state.codes[target.id] = true
     save_db(orig)
@@ -279,31 +276,37 @@ local function handle_select()
     end)
   end
 
-  -- 🌟 THE ULTIMATE VISUAL OVERRIDE:
-  -- Directly rewrite Neovim's diagnostic storage registers inside RAM space.
-  -- This forces the highlights to vanish or reappear on the exact same frame!
-  if vim.api.nvim_buf_is_valid(orig) then
-    for _, client in pairs(vim.lsp.get_clients({ bufnr = orig })) do
-      if client.name == 'clangd' then
-        local l_ns = vim.lsp.diagnostic.get_namespace(client.id)
-
-        -- Pull out the raw unfiltered stream from Neovim's master namespace
-        local current_diags = vim.diagnostic.get(orig, { namespace = l_ns })
-        local filtered_diags = {}
-
-        for _, d in ipairs(current_diags) do
-          if not (d.code and state.codes[d.code]) then
-            table.insert(filtered_diags, d)
+  -- 🌟 ENTERPRISE PIPELINE RESET SYNCHRONIZATION:
+  if target.action == 'reset' then
+    -- When a total reset wipe fires, clear the active visual overlays
+    -- and execute a synchronous document text reload pass (edit!)
+    vim.diagnostic.reset(nil, orig)
+    vim.api.nvim_buf_call(orig, function()
+      local old = vim.o.shortmess
+      vim.o.shortmess = old .. 'F'
+      vim.cmd('silent! checktime')
+      vim.cmd('silent! edit!')
+      vim.o.shortmess = old
+    end)
+  else
+    -- Standard toggles use lightning-fast RAM cache mutations
+    if vim.api.nvim_buf_is_valid(orig) then
+      for _, client in pairs(vim.lsp.get_clients({ bufnr = orig })) do
+        if client.name == 'clangd' then
+          local l_ns = vim.lsp.diagnostic.get_namespace(client.id)
+          local current_diags = vim.diagnostic.get(orig, { namespace = l_ns })
+          local filtered_diags = {}
+          for _, d in ipairs(current_diags) do
+            if not (d.code and state.codes[d.code]) then
+              table.insert(filtered_diags, d)
+            end
           end
+          vim.diagnostic.set(l_ns, orig, filtered_diags, {})
         end
-
-        -- Force-write the synchronized table back into the active viewport
-        vim.diagnostic.set(l_ns, orig, filtered_diags, {})
       end
     end
+    draw_menu()
   end
-
-  draw_menu()
 end
 
 function M.manage_file_diagnostics_interactive()
@@ -340,6 +343,7 @@ function M.manage_file_diagnostics_interactive()
   end
 
   local lock = vim.api.nvim_create_augroup('PioLock', { clear = true })
+
   vim.api.nvim_create_autocmd('WinLeave', {
     group = lock,
     callback = function()
