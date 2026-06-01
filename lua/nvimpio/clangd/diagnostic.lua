@@ -68,6 +68,9 @@ function M.diagnostic_handler(err, result, ctx, config)
   local bufnr = vim.uri_to_bufnr(result.uri)
   load_db(bufnr)
 
+  local boiler = require('nvimpio.boilerplate')
+  boiler.remove = {}
+
   local clean_diagnostics = {}
   for _, diag in ipairs(result.diagnostics) do
     local keep = true
@@ -80,13 +83,14 @@ function M.diagnostic_handler(err, result, ctx, config)
       keep = false
       local f = msg:match('(%-[%w%-]+)')
       if f then
+        table.insert(boiler.remove, f)
         M.removed_flags[f] = true
       end
     elseif code and M.manual_blocked_codes[code] then
       keep = false
     end
 
-    if code and type(code) == 'string' and c ~= '' and not is_drv then
+    if code and type(code) == 'string' and code ~= '' and not is_drv then
       -- Register every code discovered to the tracker
       M.session_discovered_codes[code] = true
     end
@@ -94,6 +98,11 @@ function M.diagnostic_handler(err, result, ctx, config)
     if keep then
       table.insert(clean_diagnostics, diag)
     end
+  end
+
+  local boilerplate_gen = boiler.boilerplate_gen
+  if boilerplate_gen then
+    pcall(boilerplate_gen, '.clangd', vim.uv.cwd())
   end
 
   result.diagnostics = clean_diagnostics
