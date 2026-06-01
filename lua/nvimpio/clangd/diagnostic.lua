@@ -129,7 +129,11 @@ end
 local menu_mappings = {}
 
 local function close_filter_window()
-  M.on_diagnostics_updated = nil -- Dissolve callback lifecycle safely
+  M.on_diagnostics_updated = nil
+
+  -- Delete the temporary modal autocommand group safely
+  pcall(vim.api.nvim_del_augroup_by_name, 'NvimPioModalLock')
+
   if ui_winnr and vim.api.nvim_win_is_valid(ui_winnr) then
     vim.api.nvim_win_close(ui_winnr, true)
   end
@@ -300,10 +304,26 @@ function M.manage_file_diagnostics_interactive()
   })
 
   local target_ui_buf = ui_bufnr or 0
+  local target_ui_win = ui_winnr or 0
   if target_ui_buf ~= 0 then
     vim.bo[target_ui_buf].bufhidden = 'wipe'
     vim.bo[target_ui_buf].filetype = 'nvimpiomangler'
   end
+
+  -- 🌟 THE UNBREAKABLE MODAL AUTOCMAND LOCK:
+  -- If the user clicks into another split or another text window,
+  -- this loop intercepts the event and force-focuses your cursor right back!
+  local lock_grp = vim.api.nvim_create_augroup('NvimPioModalLock', { clear = true })
+  vim.api.nvim_create_autocmd('WinLeave', {
+    group = lock_grp,
+    callback = function()
+      vim.schedule(function()
+        if target_ui_win ~= 0 and vim.api.nvim_win_is_valid(target_ui_win) then
+          vim.api.nvim_set_current_win(target_ui_win)
+        end
+      end)
+    end,
+  })
 
   local opts = { silent = true, buffer = target_ui_buf }
   vim.keymap.set('n', '<CR>', function()
@@ -318,7 +338,6 @@ function M.manage_file_diagnostics_interactive()
 
   draw_filter_menu_contents()
 end
-
 return M
 -- --- stylua: ignore start
 -- local M = {}
