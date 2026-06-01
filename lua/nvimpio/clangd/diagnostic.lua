@@ -75,9 +75,13 @@ function M.diagnostic_handler(err, result, ctx, config)
     local keep = true
     local code = diag.code
 
+    -- 🌟 FIXED: Use fallback default values to ensure that if lnum or col are nil,
+    -- they resolve to 0 cleanly and get blocked from your screen viewport layout.
+    local line_num = diag.lnum or 0
+    local col_num = diag.col or 0
+
     -- Pass A: Structural Environment Filtering
-    -- Instantly flags down noise sitting at position 0,0 completely natively
-    if diag.lnum == 0 and diag.col == 0 then
+    if line_num == 0 and col_num == 0 then
       keep = false
     end
 
@@ -112,9 +116,11 @@ function M.manage_file_diagnostics_interactive()
   local seen = {}
   for _, diag in ipairs(raw_diagnostics) do
     local code_name = diag.code or ''
+    local line_num = diag.lnum or 0
+    local col_num = diag.col or 0
 
     -- Drop top-level driver flag elements already managed by our automated context filter
-    if code_name ~= '' and not (diag.lnum == 0 and diag.col == 0) then
+    if code_name ~= '' and not (line_num == 0 and col_num == 0) then
       if not M.manual_blocked_codes[code_name] and not seen[code_name] then
         seen[code_name] = true
         table.insert(dashboard_items, { action = 'block_code', id = code_name, display = '🔒 Suppress Code: [' .. code_name .. ']' })
