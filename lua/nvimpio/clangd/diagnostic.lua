@@ -246,12 +246,16 @@ end
 local function handle_select()
   local orig = state.original_bufnr or 0
   local win_handle = state.uiwin or 0
+
+  -- Early exit if active window structures are unassigned
   if orig == 0 or win_handle == 0 or not vim.api.nvim_win_is_valid(win_handle) then
     return
   end
 
+  -- 🌟 FIXED DIRECT DATA LOOKUP:
+  -- Read the exact line index integer matching your cursor row natively
   local cursor = vim.api.nvim_win_get_cursor(win_handle)
-  local row_idx = cursor
+  local row_idx = cursor[1]
   local target = menu_mappings[row_idx]
 
   if not target then
@@ -276,10 +280,8 @@ local function handle_select()
     end)
   end
 
-  -- 🌟 ENTERPRISE PIPELINE RESET SYNCHRONIZATION:
+  -- Force reactive memory mask conversions inside RAM registers
   if target.action == 'reset' then
-    -- When a total reset wipe fires, clear the active visual overlays
-    -- and execute a synchronous document text reload pass (edit!)
     vim.diagnostic.reset(nil, orig)
     vim.api.nvim_buf_call(orig, function()
       local old = vim.o.shortmess
@@ -289,7 +291,6 @@ local function handle_select()
       vim.o.shortmess = old
     end)
   else
-    -- Standard toggles use lightning-fast RAM cache mutations
     if vim.api.nvim_buf_is_valid(orig) then
       for _, client in pairs(vim.lsp.get_clients({ bufnr = orig })) do
         if client.name == 'clangd' then
@@ -308,7 +309,6 @@ local function handle_select()
     draw_menu()
   end
 end
-
 function M.manage_file_diagnostics_interactive()
   state.original_bufnr = vim.api.nvim_get_current_buf()
   local orig = state.original_bufnr or 0
