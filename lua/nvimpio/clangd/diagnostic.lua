@@ -45,8 +45,11 @@ local function save_db(bufnr)
   local f = io.open(get_db_path(bufnr), 'wb')
   if f then
     local payload = { codes = M.manual_blocked_codes }
+    -- f:write(vim.json.encode(payload))
+    -- f:close()
+
     local pretty = require('nvimpio.utils.misc').jsonFormat(payload)
-    f:write(vim.json.encode(pretty))
+    f:write(pretty)
     f:close()
   end
 end
