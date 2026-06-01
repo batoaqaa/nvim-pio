@@ -195,7 +195,8 @@ CompileFlags:
   content = function(self)
     local core = require('nvimpio')
     local cwdClangd = misc.joinPath(vim.uv.cwd(), '.clangd')
-    local coreClangd = misc.joinPath(core.config.pio_storage_dir, '.clangd')
+    -- local coreClangd = misc.joinPath(core.config.pio_storage_dir, '.clangd')
+    local coreClangd = misc.joinPath(_G.metadata.toolchain_root, '.clangd')
     local staticBlock, dynamicBlock = '', ''
 
     if vim.uv.fs_stat(cwdClangd) then
