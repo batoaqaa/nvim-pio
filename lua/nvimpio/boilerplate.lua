@@ -88,8 +88,8 @@ boilerplate['.clangd_config.json'] = {
   "cmd": [
     "clangd",
     "--enable-config",
-    "--limit-results=0",
-    "--background-index=false",
+    "--limit-results=100",
+    "--background-index",
     "--all-scopes-completion",
     "--clang-tidy",
     "--compile_args_from=filesystem",
@@ -101,8 +101,6 @@ boilerplate['.clangd_config.json'] = {
     "--pch-storage=memory",
     "--pretty",
     "--ranking-model=decision_forest",
-    "--sync",
-    "--offset-encoding=utf-16",
     "--query-driver=%s"
   ],
   "filetypes": [
@@ -149,35 +147,14 @@ boilerplate['.clangd'] = {
 ---
 CompileFlags:
   Remove: [
-    "-Wunknown-warning-option",
-    "-fno-tree-switch-conversion",
-    "-fno-fat-lto-objects",
-    "-fno-canonical-system-headers",
-    "-mtext-section-literals",
-    "-mlong-calls",
-    "-fstrict-volatile-bitfields",
-    "-march=.*",
-    "-mabi=.*",
-    "-mcpu=.*",
     "-fipa-pta.*",
     ]
   Add:  [
     "-xc++",
     "-std=gnu++17",
-    "-Wno-unknown-argument",
-    "-Wno-pragma-system-header-outside-header",
-    "-Wno-unknown-warning-option",
-    "-Wno-unused-includes",
     ]
 Diagnostics:
   Suppress:  [
-    "macro_too_many_args",
-    "pp_file_not_found",
-    "pp_file_not_found_angled_not_fatal",
-    "pp_included_file_not_found",
-    "pp_including_mainfile_in_preamble",
-    "unused-includes",
-    "misc-definitions-in-headers",
     ]
   ClangTidy:
     Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
@@ -195,8 +172,7 @@ CompileFlags:
   content = function(self)
     local core = require('nvimpio')
     local cwdClangd = misc.joinPath(vim.uv.cwd(), '.clangd')
-    -- local coreClangd = misc.joinPath(core.config.pio_storage_dir, '.clangd')
-    local coreClangd = misc.joinPath(_G.metadata.toolchain_root, '.clangd')
+    local coreClangd = misc.joinPath(core.config.pio_storage_dir, '.clangd')
     local staticBlock, dynamicBlock = '', ''
 
     if vim.uv.fs_stat(cwdClangd) then
