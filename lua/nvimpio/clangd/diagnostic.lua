@@ -1,4 +1,4 @@
--- stylua: ignore start
+--- stylua: ignore start
 local M = {}
 
 M.blocked_codes = {}
@@ -91,11 +91,17 @@ function M.manage_file_diagnostics_interactive()
   local current_buf = vim.api.nvim_get_current_buf()
   local dashboard_items = {}
 
-  if next(M.blocked_codes) ~= nil or next(M.removed_flags) ~= nil then
+  -- SECTION A: MASTER RESET OPTION
+  local has_active_filters = next(M.blocked_codes) ~= nil or next(M.removed_flags) ~= nil
+  if has_active_filters then
     table.insert(dashboard_items, { action = 'reset', display = '💥 Unblock all' })
   end
 
+  -- SECTION B: EXTRACT ACTIVE DIAGNOSTICS FOR MENU SELECTION
   local raw_diagnostics = vim.diagnostic.get(current_buf)
+  local unique_active_entries = {}
+  local block_options = {}
+
   for _, diag in ipairs(raw_diagnostics) do
     local code_name = diag.code or ''
     local msg = diag.message or ''
@@ -103,32 +109,89 @@ function M.manage_file_diagnostics_interactive()
 
     if unknown_arg then
       local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
-      if not M.removed_flags[clean_flag] then
-        table.insert(dashboard_items, { action = 'block_flag', id = clean_flag, display = '🔨 Filter flag: ' .. clean_flag })
+      if not M.removed_flags[clean_flag] and not unique_active_entries[clean_flag] then
+        unique_active_entries[clean_flag] = true
+        table.insert(block_options, { action = 'block_flag', id = clean_flag, display = '🔨 Filter flag: ' .. clean_flag })
       end
-    elseif code_name ~= '' and not M.blocked_codes[code_name] then
-      table.insert(dashboard_items, { action = 'block_code', id = code_name, display = '🔒 Suppress Code: ' .. code_name })
+    elseif code_name ~= '' and not M.blocked_codes[code_name] and not unique_active_entries[code_name] then
+      unique_active_entries[code_name] = true
+      table.insert(block_options, { action = 'block_code', id = code_name, display = '🔒 Suppress Code: ' .. code_name })
     end
+  end
+  table.sort(block_options, function(a, b)
+    return a.display < b.display
+  end)
+  for _, opt in ipairs(block_options) do
+    table.insert(dashboard_items, opt)
+  end
+
+  -- SECTION C: CURRENTLY BLOCKED ITEMS FOR UNBLOCKING (Type-Safe Evaluation)
+  local unblock_options = {}
+
+  -- Handle removed_flags loop safely regardless of dictionary or array layout formats
+  for key, value in pairs(M.removed_flags or {}) do
+    local flag_str = (type(key) == 'string') and key or value
+    if type(flag_str) == 'string' and flag_str ~= '' and not flag_str:match('^table:') then
+      table.insert(unblock_options, { action = 'unblock_flag', id = flag_str, display = 'A•🔓 RESTORE Flag: [' .. flag_str .. ']' })
+    end
+  end
+
+  -- Handle blocked_codes loop safely
+  for key, value in pairs(M.blocked_codes or {}) do
+    local code_str = (type(key) == 'string') and key or value
+    if type(code_str) == 'string' and code_str ~= '' and not code_str:match('^table:') then
+      table.insert(unblock_options, { action = 'unblock_code', id = code_str, display = 'B•激活 Diagnostic Code: [' .. code_str .. ']' })
+    end
+  end
+
+  table.sort(unblock_options, function(a, b)
+    return a.display < b.display
+  end)
+  for _, opt in ipairs(unblock_options) do
+    table.insert(dashboard_items, opt)
   end
 
   if #dashboard_items == 0 then
+    vim.notify('✅ Complete Parity: No outstanding compilation exceptions found.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
     return
   end
 
-  vim.ui.select(dashboard_items, { prompt = 'Filter Panel' }, function(choice)
+  vim.ui.select(dashboard_items, {
+    prompt = 'Filter Panel (Select item to toggle suppression state)',
+    format_item = function(item)
+      return item.display
+    end,
+  }, function(choice)
     if not choice then
       return
     end
+
     if choice.action == 'reset' then
       M.blocked_codes, M.removed_flags = {}, {}
     elseif choice.action == 'block_flag' then
       M.removed_flags[choice.id] = true
     elseif choice.action == 'block_code' then
       M.blocked_codes[choice.id] = true
+    elseif choice.action == 'unblock_flag' then
+      M.removed_flags[choice.id] = nil
+    elseif choice.action == 'unblock_code' then
+      M.blocked_codes[choice.id] = nil
     end
+
     M.save_from_cli(current_buf)
-    vim.cmd('edit!')
+
+    -- Force a silent re-indexing pass to push the change immediately down to your screen viewport
+    if vim.api.nvim_buf_is_valid(current_buf) then
+      vim.api.nvim_buf_call(current_buf, function()
+        local old_shortmess = vim.o.shortmess
+        vim.o.shortmess = old_shortmess .. 'F'
+        vim.cmd('silent! checktime')
+        vim.cmd('silent! edit!')
+        vim.o.shortmess = old_shortmess
+      end)
+    end
   end)
 end
+-- stylua: ignore end
 
 return M
