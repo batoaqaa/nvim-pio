@@ -126,6 +126,7 @@ function M.manage_file_diagnostics_interactive()
   local current_buf = vim.api.nvim_get_current_buf()
   local dashboard_items = {}
 
+  -- Clear master action maps only to user-toggled manual error rules
   local has_active_filters = next(M.manual_blocked_codes) ~= nil
   if has_active_filters then
     table.insert(dashboard_items, { action = 'reset', display = '💥 Clear All Active User Filters' })
@@ -226,43 +227,25 @@ function M.manage_file_diagnostics_interactive()
       save_filter_database(current_buf)
     end
 
-    -- 🌟 THE DETERMINISTIC SYNCHRONOUS HANDSHAKE:
-    -- Instead of relying on slow buffer reloads or arbitrary timers, we clear Neovim's
-    -- namespace cache instantly and programmatically poke the LSP engine client inside
-    -- memory to send a fresh data update payload packet. This causes your restored lines
-    -- to show up in the menu choices loop on the very next frame with absolute certainty!
+    -- 🌟 THE SOLID USER EXP RESYNC:
+    -- Instead of looping the menu window endlessly during a complete user reset pass,
+    -- we fire a real, robust asynchronous file reload token pass (edit!).
+    -- Your screen highlights instantly pop back open natively, and the panel safely exits.
+    -- This mimics standard professional editor interfaces perfectly.
     vim.schedule(function()
       if vim.api.nvim_buf_is_valid(current_buf) then
-        -- 1. Force-wipe Neovim's current visual diagnostic layers
-        vim.diagnostic.reset(nil, current_buf)
-
-        -- 2. Execute an in-memory client text synchronization notification event
-        -- This simulates a quick keystroke modification pass to force an immediate re-parse!
-        local lsp_clients = vim.lsp.get_clients({ bufnr = current_buf })
-        for _, client in pairs(lsp_clients) do
-          if client.name == 'clangd' then
-            local params = vim.lsp.util.make_text_document_params(current_buf)
-            client.notify('textDocument/didChange', {
-              textDocument = { uri = params.uri, version = vim.lsp.util.buf_versions[current_buf] or 1 },
-              contentChanges = {
-                {
-                  text = vim.api.nvim_buf_get_lines(current_buf, 0, -1, false)
-                      and table.concat(vim.api.nvim_buf_get_lines(current_buf, 0, -1, false), '\n') .. '\n'
-                    or '',
-                },
-              },
-            })
-          end
-        end
+        vim.api.nvim_buf_call(current_buf, function()
+          local old_shortmess = vim.o.shortmess
+          vim.o.shortmess = old_shortmess .. 'F'
+          vim.cmd('silent! checktime')
+          vim.cmd('silent! edit!')
+          vim.o.shortmess = old_shortmess
+        end)
       end
 
-      -- If they hit reset, pause exactly 50ms for the pipeline notification packet
-      -- to clear the engine wire before re-drawing the options list window!
-      if choice.action == 'reset' then
-        vim.defer_fn(function()
-          M.manage_file_diagnostics_interactive()
-        end, 50)
-      else
+      -- If they cleared normal items one by one, hold the menu selection list open!
+      -- If they did a total reset wipe, exit cleanly so the text highlight can load.
+      if choice.action ~= 'reset' then
         M.manage_file_diagnostics_interactive()
       end
     end)
