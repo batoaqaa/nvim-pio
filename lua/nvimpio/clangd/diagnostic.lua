@@ -140,7 +140,7 @@ function M.manage_file_diagnostics_interactive()
   for key, value in pairs(M.blocked_codes or {}) do
     local code_str = (type(key) == 'string') and key or value
     if type(code_str) == 'string' and code_str ~= '' and not code_str:match('^table:') then
-      table.insert(unblock_options, { action = 'unblock_code', id = code_str, display = 'B•激活 Diagnostic Code: [' .. code_str .. ']' })
+      table.insert(unblock_options, { action = 'unblock_code', id = code_str, display = 'B•🔓 ACTIVATE Diagnostic Code: [' .. code_str .. ']' })
     end
   end
 
