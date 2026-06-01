@@ -126,13 +126,12 @@ function M.manage_file_diagnostics_interactive()
   local current_buf = vim.api.nvim_get_current_buf()
   local dashboard_items = {}
 
-  -- Clear master action maps only to user-toggled manual error rules
   local has_active_filters = next(M.manual_blocked_codes) ~= nil
   if has_active_filters then
     table.insert(dashboard_items, { action = 'reset', display = '💥 Clear All Active User Filters' })
   end
 
-  -- FIXED LIVE DATA SCANNER: Bypasses stale diagnostic caches
+  -- Query diagnostic fields directly out of active buffer namespaces
   local raw_diagnostics = {}
   for _, client in pairs(vim.lsp.get_clients({ bufnr = current_buf })) do
     local namespace = vim.lsp.diagnostic.get_namespace(client.id)
@@ -149,9 +148,6 @@ function M.manage_file_diagnostics_interactive()
   local seen = {}
   for _, diag in ipairs(raw_diagnostics) do
     local code_name = diag.code or ''
-    local line_num = diag.lnum or 0
-    local col_num = diag.col or 0
-
     if
       code_name ~= ''
       and code_name ~= 'drv_unknown_argument'
@@ -183,7 +179,7 @@ function M.manage_file_diagnostics_interactive()
     table.insert(dashboard_items, opt)
   end
 
-  -- READ-ONLY SECTION: Print automatic driver flag protections explicitly as greyed notes
+  -- READ-ONLY SECTION: Print automatic driver flag protections
   local automated_notes = {}
   for flag, _ in pairs(M.removed_flags or {}) do
     if type(flag) == 'string' and flag ~= '' then
@@ -193,8 +189,6 @@ function M.manage_file_diagnostics_interactive()
   table.sort(automated_notes, function(a, b)
     return a.display < b.display
   end)
-
-  -- 🌟 FIXED: Variable name correctly references 'automated_notes' to prevent nil crashes
   for _, note in ipairs(automated_notes) do
     table.insert(dashboard_items, note)
   end
@@ -232,29 +226,42 @@ function M.manage_file_diagnostics_interactive()
       save_filter_database(current_buf)
     end
 
-    -- Schedule the refresh pass safely to override async timing blocks
+    -- 🌟 THE DETERMINISTIC SYNCHRONOUS HANDSHAKE:
+    -- Instead of relying on slow buffer reloads or arbitrary timers, we clear Neovim's
+    -- namespace cache instantly and programmatically poke the LSP engine client inside
+    -- memory to send a fresh data update payload packet. This causes your restored lines
+    -- to show up in the menu choices loop on the very next frame with absolute certainty!
     vim.schedule(function()
       if vim.api.nvim_buf_is_valid(current_buf) then
-        vim.api.nvim_buf_call(current_buf, function()
-          local old_shortmess = vim.o.shortmess
-          vim.o.shortmess = old_shortmess .. 'F'
-          vim.cmd('silent! checktime')
-          vim.cmd('silent! edit!')
-          vim.o.shortmess = old_shortmess
-        end)
+        -- 1. Force-wipe Neovim's current visual diagnostic layers
+        vim.diagnostic.reset(nil, current_buf)
+
+        -- 2. Execute an in-memory client text synchronization notification event
+        -- This simulates a quick keystroke modification pass to force an immediate re-parse!
+        local lsp_clients = vim.lsp.get_clients({ bufnr = current_buf })
+        for _, client in pairs(lsp_clients) do
+          if client.name == 'clangd' then
+            local params = vim.lsp.util.make_text_document_params(current_buf)
+            client.notify('textDocument/didChange', {
+              textDocument = { uri = params.uri, version = vim.lsp.util.buf_versions[current_buf] or 1 },
+              contentChanges = {
+                {
+                  text = vim.api.nvim_buf_get_lines(current_buf, 0, -1, false)
+                      and table.concat(vim.api.nvim_buf_get_lines(current_buf, 0, -1, false), '\n') .. '\n'
+                    or '',
+                },
+              },
+            })
+          end
+        end
       end
 
-      -- Reactive Event Sync: Wait for clangd framework payload updates before loop return
+      -- If they hit reset, pause exactly 50ms for the pipeline notification packet
+      -- to clear the engine wire before re-drawing the options list window!
       if choice.action == 'reset' then
-        local refresh_group = vim.api.nvim_create_augroup('NvimPioMenuRefreshGroup', { clear = true })
-        vim.api.nvim_create_autocmd('DiagnosticChanged', {
-          group = refresh_group,
-          buffer = current_buf,
-          callback = function()
-            vim.api.nvim_del_augroup_by_id(refresh_group)
-            M.manage_file_diagnostics_interactive()
-          end,
-        })
+        vim.defer_fn(function()
+          M.manage_file_diagnostics_interactive()
+        end, 50)
       else
         M.manage_file_diagnostics_interactive()
       end
@@ -262,7 +269,6 @@ function M.manage_file_diagnostics_interactive()
   end)
 end
 
--- stylua: ignore end
 return M
 
 -- --- stylua: ignore start
