@@ -19,6 +19,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
     local buf_path = vim.api.nvim_buf_get_name(bufnr)
     -- Run the root marker scan using a valid string path structure
     if buf_path ~= '' and vim.fs.root(buf_path, { 'platformio.ini' }) then
+      print('here')
       -- A. Create a Buffer-Local User Command (:PioMangler)
       vim.api.nvim_buf_create_user_command(bufnr, 'ClangdMangler', function()
         nvim_pio_diag.manage_file_diagnostics_interactive()
