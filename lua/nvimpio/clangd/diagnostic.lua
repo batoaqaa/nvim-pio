@@ -42,12 +42,18 @@ local function save_filter_database(bufnr)
   local path = get_db_path(bufnr)
   local f = io.open(path, 'wb')
   if f then
-    local payload = { codes = M.manual_blocked_codes }
-    local pretty = require('nvimpio.utils.misc').jsonFormat(payload)
-    f:write(pretty)
+    if next(M.manual_blocked_codes) == nil then
+      f:write('{"codes":null}')
+    else
+      local payload = { codes = M.manual_blocked_codes }
+      local pretty = require('nvimpio.utils.misc').jsonFormat(payload)
+      f:write(pretty)
+    end
     f:close()
   end
 end
+
+load_filter_database(0)
 
 -- =====================================================
 -- 4. DYNAMIC STREAM INTERCEPTOR (VOLATILE RAM-ONLY)
@@ -67,7 +73,6 @@ function M.diagnostic_handler(err, result, ctx, config)
     local code = diag.code
     local msg = diag.message or ''
 
-    -- Auto-capture driver flags seamlessly in RAM
     local is_drv = code == 'drv_unknown_argument' or code == 'drv_unknown_argument_with_suggestion' or code == 'fatal_too_many_errors'
 
     if is_drv then
@@ -100,14 +105,27 @@ function M.manage_file_diagnostics_interactive()
     table.insert(items, { action = 'reset', text = '💥 Clear All Active User Filters' })
   end
 
-  -- Scan active warnings out of current buffer
-  local diags = vim.diagnostic.get(bufnr)
+  -- Scan active warnings out of current buffer namespaces
+  local raw_diagnostics = {}
+  for _, client in pairs(vim.lsp.get_clients({ bufnr = bufnr })) do
+    local namespace = vim.lsp.diagnostic.get_namespace(client.id)
+    local client_diags = vim.diagnostic.get(bufnr, { namespace = namespace })
+    for _, d in ipairs(client_diags) do
+      table.insert(raw_diagnostics, d)
+    end
+  end
+  if #raw_diagnostics == 0 then
+    raw_diagnostics = vim.diagnostic.get(bufnr)
+  end
+
   local seen = {}
-  for _, d in ipairs(diags) do
+  for _, d in ipairs(raw_diagnostics) do
     local c = d.code or ''
-    if c ~= '' and not M.manual_blocked_codes[c] and not seen[c] then
-      seen[c] = true
-      table.insert(items, { action = 'block', id = c, text = '🔒 Suppress Code: [' .. c .. ']' })
+    if c ~= '' and c ~= 'drv_unknown_argument' and c ~= 'drv_unknown_argument_with_suggestion' and c ~= 'fatal_too_many_errors' then
+      if not M.manual_blocked_codes[c] and not seen[c] then
+        seen[c] = true
+        table.insert(items, { action = 'block', id = c, text = '🔒 Suppress Code: [' .. c .. ']' })
+      end
     end
   end
 
@@ -147,16 +165,31 @@ function M.manage_file_diagnostics_interactive()
 
     save_filter_database(bufnr)
 
-    -- Force instant synchronous buffer text updates
+    -- 🌟 THE REACTIVE EVENT RE-SYNC LAYER:
+    -- Instead of looping blindly, we hook onto the DiagnosticChanged event.
+    -- The exact microsecond clangd finishes compilation and updates Neovim's cache,
+    -- this hook triggers, destroys itself, and cleanly re-opens the menu panel!
     vim.schedule(function()
       if vim.api.nvim_buf_is_valid(bufnr) then
+        local refresh_group = vim.api.nvim_create_augroup('NvimPioMenuRefreshGroup', { clear = true })
+        vim.api.nvim_create_autocmd('DiagnosticChanged', {
+          group = refresh_group,
+          buffer = bufnr,
+          callback = function()
+            vim.api.nvim_del_augroup_by_id(refresh_group)
+            M.manage_file_diagnostics_interactive()
+          end,
+        })
+
+        -- Execute the whisper-quiet asynchronous buffer reload pass
         vim.api.nvim_buf_call(bufnr, function()
+          local old_shortmess = vim.o.shortmess
+          vim.o.shortmess = old_shortmess .. 'F'
           vim.cmd('silent! checktime')
           vim.cmd('silent! edit!')
+          vim.o.shortmess = old_shortmess
         end)
       end
-      -- Re-trigger function recursively to hold menu open!
-      M.manage_file_diagnostics_interactive()
     end)
   end)
 end
@@ -164,6 +197,7 @@ end
 -- stylua: ignore end
 return M
 
+-- -- long
 -- --- stylua: ignore start
 -- local M = {}
 --
