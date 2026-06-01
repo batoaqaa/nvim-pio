@@ -69,7 +69,7 @@ function M.diagnostic_handler(err, result, ctx, config)
   local bufnr = vim.uri_to_bufnr(result.uri)
   load_db(bufnr)
 
-  -- PASS 1: AUTOMATED IN-MEMORY FLAG CAPTURING
+  local clean_diagnostics = {}
   for _, diag in ipairs(result.diagnostics) do
     local code = diag.code
     local msg = diag.message or ''
@@ -85,8 +85,6 @@ function M.diagnostic_handler(err, result, ctx, config)
     end
   end
 
-  -- PASS 2: PRESENTATION SCREENING PASS
-  local clean_diagnostics = {}
   for _, diag in ipairs(result.diagnostics) do
     local keep = true
     local code = diag.code
@@ -95,6 +93,8 @@ function M.diagnostic_handler(err, result, ctx, config)
     local is_drv = code == 'drv_unknown_argument' or code == 'drv_unknown_argument_with_suggestion' or code == 'fatal_too_many_errors'
 
     if is_drv then
+      keep = false
+    elseif code and state.codes[code] then
       keep = false
     end
 
@@ -115,7 +115,6 @@ function M.diagnostic_handler(err, result, ctx, config)
   result.diagnostics = clean_diagnostics
   vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
 
-  -- 🌟 THE PRESENTATION MASK: Force instant display filtering
   vim.schedule(function()
     if vim.api.nvim_buf_is_valid(bufnr) then
       for _, client in pairs(vim.lsp.get_clients({ bufnr = bufnr })) do
@@ -167,7 +166,6 @@ local function draw_menu()
     menu_mappings[#lines] = { action = 'reset' }
   end
 
-  -- Scan diagnostics safely without missing hidden cache rows
   local raw_diagnostics = vim.diagnostic.get(orig)
   local seen = {}
   local head1 = false
@@ -252,15 +250,17 @@ local function handle_select()
     state.codes[target.id] = true
     save_db(orig)
   elseif target.action == 'unblock' then
+    state.codes[state.codes] = nil -- Type correction mapping layout fallback tracker
     state.codes[target.id] = nil
     save_db(orig)
   end
 
-  -- 🌟 THE ULTIMATE VISUAL PRESENTATION MASK:
-  -- We leave Neovim's cache completely safe and untouched! We simply invoke
-  -- a visibility filter repaint pass directly inside the active clangd namespace.
-  -- This makes lines disappear or return to your screen instantly with 0ms latency,
-  -- while keeping your dropdown records fully populated across all action types!
+  M.on_updated = function()
+    vim.schedule(function()
+      draw_menu()
+    end)
+  end
+
   if vim.api.nvim_buf_is_valid(orig) then
     for _, client in pairs(vim.lsp.get_clients({ bufnr = orig })) do
       if client.name == 'clangd' then
@@ -274,6 +274,10 @@ local function handle_select()
     end
   end
 
+  -- 🌟 THE INSTANT SCREEN REPAINT PASS:
+  -- Forces Neovim to immediately repaint the code viewport layout behind the menu.
+  -- This makes the error lines disappear or reappear synchronously on the exact same frame!
+  vim.cmd('redraw')
   draw_menu()
 end
 
@@ -333,19 +337,13 @@ function M.manage_file_diagnostics_interactive()
     end,
   })
 
-  local opts = {
-    silent = true,
-    buffer = target_uibuf,
-  }
-
+  local opts = { silent = true, buffer = target_uibuf }
   vim.keymap.set('n', '<CR>', function()
     handle_select()
   end, opts)
-
   vim.keymap.set('n', 'q', function()
     close_win()
   end, opts)
-
   vim.keymap.set('n', '<Esc>', function()
     close_win()
   end, opts)
