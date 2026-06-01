@@ -14,11 +14,10 @@ local function get_db_path(bufnr)
   return r .. '/.filter.json'
 end
 
--- 2. Load persistent suppression codes
+-- 2. Load persistent json arrays
 local function load_db(bufnr)
   M.manual_blocked_codes = {}
-  local path = get_db_path(bufnr)
-  local f = io.open(path, 'rb')
+  local f = io.open(get_db_path(bufnr), 'rb')
   if not f then
     return
   end
@@ -26,8 +25,7 @@ local function load_db(bufnr)
   f:close()
   if raw and raw ~= '' then
     local ok, data = pcall(vim.json.decode, raw)
-    local check = ok and data and type(data.codes) == 'table'
-    if check then
+    if ok and data and type(data.codes) == 'table' then
       for k, v in pairs(data.codes) do
         local s = (type(k) == 'string') and k or v
         if type(s) == 'string' and s ~= '' then
@@ -38,10 +36,9 @@ local function load_db(bufnr)
   end
 end
 
--- 3. Write user parameters to disk
+-- 3. Save selections straight down to disk
 local function save_db(bufnr)
-  local path = get_db_path(bufnr)
-  local f = io.open(path, 'wb')
+  local f = io.open(get_db_path(bufnr), 'wb')
   if f then
     local payload = { codes = M.manual_blocked_codes }
     f:write(vim.json.encode(payload))
@@ -52,7 +49,7 @@ end
 load_db(0)
 
 -- =====================================================
--- 4. DYNAMIC HANDLER INTERCEPTOR (STABLE NATIVE LAYER)
+-- 4. DYNAMIC STREAM INTERCEPTOR (STABLE NATIVE FILTER)
 -- =====================================================
 function M.diagnostic_handler(err, result, ctx, config)
   if err or not result or not result.diagnostics then
@@ -76,15 +73,8 @@ function M.diagnostic_handler(err, result, ctx, config)
       if f then
         M.removed_flags[f] = true
       end
-    end
-
-    if keep then
-      for flag, _ in pairs(M.removed_flags) do
-        if msg:find(flag, 1, true) then
-          keep = false
-          break
-        end
-      end
+    elseif code and M.manual_blocked_codes[code] then
+      keep = false
     end
 
     if keep then
@@ -94,99 +84,102 @@ function M.diagnostic_handler(err, result, ctx, config)
 
   result.diagnostics = clean_diagnostics
   vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
-
-  -- 🌟 FIXED LIVE PRESENTATION MASK:
-  -- Dynamically look up the clangd client namespace and force an update pass!
-  vim.schedule(function()
-    if vim.api.nvim_buf_is_valid(bufnr) then
-      for _, client in pairs(vim.lsp.get_clients({ bufnr = bufnr })) do
-        if client.name == 'clangd' then
-          local ns = vim.lsp.diagnostic.get_namespace(client.id)
-          vim.diagnostic.show(ns, bufnr, nil, {
-            filter = function(d)
-              return not (d.code and M.manual_blocked_codes[d.code])
-            end,
-          })
-        end
-      end
-    end
-  end)
 end
 
 -- =====================================================
--- 5. PERSISTENT RECURSIVE CONTROL PANEL ENGINE
+-- 5. PERSISTENT ALPHABETICAL MODAL MENU ENGINE
 -- =====================================================
 function M.manage_file_diagnostics_interactive()
   local bufnr = vim.api.nvim_get_current_buf()
-  local items = {}
 
-  if next(M.manual_blocked_codes) then
-    table.insert(items, { action = 'reset', text = '💥 Clear All Active User Filters' })
-  end
-
-  local raw_diagnostics = vim.diagnostic.get(bufnr)
+  -- Gather all unique error codes currently on screen
+  local diags = vim.diagnostic.get(bufnr)
+  local unblocked_codes = {}
   local seen = {}
-  for _, d in ipairs(raw_diagnostics) do
+
+  for _, d in ipairs(diags) do
     local c = d.code or ''
-    if c ~= '' and c ~= 'drv_unknown_argument' and c ~= 'fatal_too_many_errors' then
-      if not M.manual_blocked_codes[c] and not seen[c] then
-        seen[c] = true
-        table.insert(items, { action = 'block', id = c, text = '🔒 Suppress Code: [' .. c .. ']' })
-      end
+    if c ~= '' and c ~= 'drv_unknown_argument' and not M.manual_blocked_codes[c] and not seen[c] then
+      seen[c] = true
+      table.insert(unblocked_codes, c)
     end
   end
 
-  for k, _ in pairs(M.manual_blocked_codes) do
-    table.insert(items, { action = 'unblock', id = k, text = '🔓 Remove Manual Filter: [' .. k .. ']' })
+  -- Build a highly legible alphabetical mapping string
+  local prompt_lines = { '💥 COMPILER MANGLER:' }
+  local action_map = {}
+  local char_code = 97 -- ASCII for 'a'
+
+  -- Map outstanding error codes to letters [a, b, c...]
+  for _, code in ipairs(unblocked_codes) do
+    local char = string.char(char_code)
+    table.insert(prompt_lines, string.format('[%s] 🔒 Block: %s', char, code))
+    action_map[char] = { action = 'block', id = code }
+    char_code = char_code + 1
   end
 
-  for f, _ in pairs(M.removed_flags) do
-    table.insert(items, { action = 'none', text = '⚙️ [AUTOMATED BLOCK]: ' .. f })
+  -- Map active blocked filters to letters for unblocking
+  for code, _ in pairs(M.manual_blocked_codes) do
+    local char = string.char(char_code)
+    table.insert(prompt_lines, string.format('[%s] 🔓 Restore: %s', char, code))
+    action_map[char] = { action = 'unblock', id = code }
+    char_code = char_code + 1
   end
 
-  if #items == 0 then
-    vim.notify('✅ Clean Slate: No active filters.', vim.log.levels.INFO)
+  -- Add a master reset option if any filter is active
+  if next(M.manual_blocked_codes) then
+    table.insert(prompt_lines, '[x] 💥 Clear All Active Filters')
+    action_map['x'] = { action = 'reset' }
+  end
+
+  if #prompt_lines == 1 then
+    vim.notify('✅ Clean Slate: No warnings active.', vim.log.levels.INFO)
     return
   end
 
-  vim.ui.select(items, {
-    prompt = 'Filter Panel (Press Esc to finish)',
-    format_item = function(item)
-      return item.text
-    end,
-  }, function(choice)
-    if not choice or choice.action == 'none' then
+  table.insert(prompt_lines, 'Select action option prefix letter: ')
+  local complete_prompt = table.concat(prompt_lines, '\n')
+
+  -- Invoke native input hook. Stays open securely inside RAM!
+  vim.ui.input({ prompt = complete_prompt }, function(input)
+    if not input or input == '' then
       return
     end
 
-    if choice.action == 'reset' then
+    local target = action_map[input:lower()]
+    if not target then
+      vim.notify('❌ Invalid choice selection.', vim.log.levels.WARN)
+      M.manage_file_diagnostics_interactive()
+      return
+    end
+
+    if target.action == 'reset' then
       M.manual_blocked_codes = {}
-    elseif choice.action == 'block' then
-      M.manual_blocked_codes[choice.id] = true
-    elseif choice.action == 'unblock' then
-      M.manual_blocked_codes[choice.id] = nil
+    elseif target.action == 'block' then
+      M.manual_blocked_codes[target.id] = true
+    elseif target.action == 'unblock' then
+      M.manual_blocked_codes[target.id] = nil
     end
 
     save_db(bufnr)
 
-    -- 🌟 FIXED TIMING RE-SYNC:
-    -- Force-apply the presentation filters straight into the active clangd namespace.
-    -- This provides instantaneous 0ms frame updates on your screen layout!
+    -- Synchronous layout update without destructive file reloads
     vim.schedule(function()
       if vim.api.nvim_buf_is_valid(bufnr) then
         for _, client in pairs(vim.lsp.get_clients({ bufnr = bufnr })) do
           if client.name == 'clangd' then
             local ns = vim.lsp.diagnostic.get_namespace(client.id)
-            vim.diagnostic.show(ns, bufnr, nil, {
-              filter = function(d)
-                return not (d.code and M.manual_blocked_codes[d.code])
-              end,
-            })
+            vim.diagnostic.reset(ns, bufnr)
           end
         end
+        vim.cmd('silent! checktime')
+        vim.cmd('silent! edit!')
       end
 
-      M.manage_file_diagnostics_interactive()
+      -- Recurse instantly. Zero flickering, absolute stability!
+      vim.schedule(function()
+        M.manage_file_diagnostics_interactive()
+      end)
     end)
   end)
 end
