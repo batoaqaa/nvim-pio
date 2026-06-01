@@ -21,7 +21,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
 
       if buf_path ~= '' and (vim.fs.root(buf_path, { 'platformio.ini' }) or vim.uv.fs_stat(vim.uv.cwd() .. '/platformio.ini')) then
         -- Manual shortcut safety toggle keymap
-        vim.keymap.set('n', '<leader>pc', function()
+        vim.keymap.set('n', '<leader>\\b', function()
           nvim_pio_diag.manage_file_diagnostics_interactive()
         end, { buffer = bufnr, desc = 'Open Filter Panel' })
 
