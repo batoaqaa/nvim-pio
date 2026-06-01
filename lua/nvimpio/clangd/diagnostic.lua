@@ -167,7 +167,23 @@ function M.manage_file_diagnostics_interactive()
     end
 
     if choice.action == 'reset' then
-      M.blocked_codes, M.removed_flags = {}, {}
+      -- 1. STAGE A: Wipe all in-memory registers completely
+      M.blocked_codes = {}
+      M.removed_flags = {}
+
+      -- 2. STAGE B: Purely truncate the project configuration file back to an empty baseline on disk
+      local json_database_file = get_db_path(current_buf)
+      local f = io.open(json_database_file, 'wb')
+      if f then
+        f:write('{"codes":{},"flags":{}}')
+        f:close()
+      end
+
+      -- 3. STAGE C: Temporarily kill the automated background group listener for this buffer
+      --    This blocks the LspAttach autocmd from intercepting errors during the reset phase!
+      pcall(vim.api.nvim_del_augroup_by_name, 'NvimPioFirstSweepGroup_' .. current_buf)
+
+      vim.notify('💥 Framework settings wiped clean. original compiler profiles restored.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
     elseif choice.action == 'block_flag' then
       M.removed_flags[choice.id] = true
     elseif choice.action == 'block_code' then
@@ -178,9 +194,12 @@ function M.manage_file_diagnostics_interactive()
       M.blocked_codes[choice.id] = nil
     end
 
-    M.save_from_cli(current_buf)
+    -- Only run standard save transactions for non-reset choice flows
+    if choice.action ~= 'reset' then
+      M.save_from_cli(current_buf)
+    end
 
-    -- Force a silent re-indexing pass to push the change immediately down to your screen viewport
+    -- Force a silent buffer reload to pull your updated workspace settings visually
     if vim.api.nvim_buf_is_valid(current_buf) then
       vim.api.nvim_buf_call(current_buf, function()
         local old_shortmess = vim.o.shortmess
