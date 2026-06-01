@@ -41,7 +41,8 @@ function M.get_sysroot_triplet(cc_compiler)
   -- sysroot folder is expected to have the same name as the triplet
   local sysroot = misc.normalizePath(toolchain_root .. '/' .. triplet)
 
-  local query_driver = misc.normalizePath(bin_path .. '/' .. triplet .. '-*')
+  local query_driver = misc.normalizePath(bin_path .. '/*')
+  -- local query_driver = misc.normalizePath(bin_path .. '/' .. triplet .. '-*')
   -- local query_driver = misc.normalizePath(bin_path .. '/*')
   -- query_driver = OS.is_win and query_driver:gsub('/', '\\\\') or query_driver
 
