@@ -75,12 +75,14 @@ function M.diagnostic_handler(err, result, ctx, config)
     local keep = true
     local code = diag.code
 
+    -- Enforce absolute type protection variables against missing data tokens
     local line_num = diag.lnum or 0
     local col_num = diag.col or 0
 
-    -- Smart Position Override:
-    -- If an item sits at 0,0 BUT it contains an explicit compiler warning code index
-    -- (like a printf format validation lint), we do NOT drop it! We allow it to pass.
+    -- 🌟 THE UNIVERSAL AUTOMATION GATEWAY (ZERO STRINGS/NO HARDCODING):
+    -- If an item sits precisely at Line 1, Col 1 (0,0) AND it contains no valid,
+    -- standard error code tag, it is a driver-level architecture argument fault.
+    -- We drop it instantly in memory before Neovim can draw it on the viewport!
     if line_num == 0 and col_num == 0 and (not code or code == '') then
       keep = false
     end
