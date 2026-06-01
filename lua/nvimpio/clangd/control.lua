@@ -112,46 +112,6 @@ function M.getClangdConfig()
     return nil
   end
 
-  clangd_config.before_init = function(params, config)
-    config.init_options = config.init_options or {}
-    config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
-
-    -- 1. Locate the configured path to the clangd executable binary command
-    local clangd_bin = (type(config.cmd) == 'table' and config.cmd[1]) or 'clangd'
-
-    -- 2. Extract current compiler fallback configuration flags natively
-    local incoming_flags = config.init_options.fallbackFlags
-    local validated_flags = {}
-
-    -- 3. THE OS-LEVEL VALIDATION ENGINE LOOP:
-    -- Iterates over flags, executing them against the binary inside a hidden shell thread.
-    -- If the OS process aborts (non-zero status), the flag is automatically stripped!
-    for _, flag in ipairs(incoming_flags) do
-      if flag ~= '' then
-        -- Construct an object-oriented shell command query using standard dev/null silencers.
-        -- This suppresses stdout/stderr text completely across Windows and Linux.
-        local check_cmd = string.format('"%s" --extra-arg="%s" --check="" >nvimpio_null 2>&1', clangd_bin, flag)
-
-        -- os.execute returns a boolean success value directly based on the binary's process exit code
-        local exit_success, exit_type, exit_code = os.execute(check_cmd)
-
-        -- Clean up our temporary execution pipe shield file instantly
-        pcall(os.remove, 'nvimpio_null')
-
-        -- If the process exited perfectly with a status code of 0, the argument is native!
-        if exit_success then
-          table.insert(validated_flags, flag)
-        end
-      end
-    end
-
-    -- 4. Append clean limit parameters to unlock multi-layer code parsing natively
-    table.insert(validated_flags, '-ferror-limit=0')
-
-    -- Replace the old configuration array with our dynamically sanitized memory list
-    config.init_options.fallbackFlags = validated_flags
-  end
-
   clangd_config.handlers = {
     -- Override the default diagnostic publishing target route
     ['textDocument/publishDiagnostics'] = diagnostic.diagnostic_handler,
