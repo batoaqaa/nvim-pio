@@ -117,13 +117,32 @@ function M.manage_file_diagnostics_interactive()
     end
   end
 
+  -- 🌟 THE INDEPENDENT RESTORATION GATEWAY UPGRADE:
+  -- We loop through your saved blocks map directly. If a code is currently hidden
+  -- on screen, we force it onto the choices list as an unblock option item!
+  local active_unblocks = {}
+  for code, _ in pairs(M.manual_blocked_codes) do
+    table.insert(active_unblocks, code)
+  end
+  table.sort(active_unblocks)
+
+  for _, code in ipairs(active_unblocks) do
+    if not seen[code] then
+      table.insert(items, {
+        action = 'unblock',
+        id = code,
+        text = string.format('  [*] Restore Code: [%s]', code),
+      })
+    end
+  end
+
   -- Print read-only automated flag logs at the bottom
   for f, _ in pairs(M.removed_flags) do
     table.insert(items, { action = 'none', text = '  [-] ⚙️ [AUTOMATED]: ' .. f })
   end
 
   if #items == 0 then
-    vim.notify('✅ Clean Slate: No active filters.', vim.log.levels.INFO)
+    vim.notify('✅ Clean Slate: No active lints.', vim.log.levels.INFO)
     return
   end
 
@@ -134,9 +153,6 @@ function M.manage_file_diagnostics_interactive()
       return item.text
     end,
   }, function(choice)
-    -- 🌟 THE LIFECYCLE REFRESH TRIGGER:
-    -- When the user hits Esc to exit, we commit the data to disk and reload the buffer once.
-    -- This guarantees every underline clears perfectly on the exact same frame!
     if not choice then
       save_db(bufnr)
       vim.schedule(function()
@@ -158,7 +174,7 @@ function M.manage_file_diagnostics_interactive()
       return
     end
 
-    -- Toggle memory state instantly in RAM without hitting the hard drive
+    -- Toggle memory state instantly in RAM
     if choice.action == 'reset' then
       M.manual_blocked_codes = {}
     elseif choice.action == 'block' then
