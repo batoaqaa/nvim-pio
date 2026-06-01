@@ -6,7 +6,7 @@ M.removed_flags = {}
 
 local markers = { 'platformio.ini', '.git' }
 
--- 1. Resolve persistent project root paths
+-- 1. Get absolute filter file path safely
 local function get_db_path(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   local f = vim.api.nvim_buf_get_name(bufnr)
@@ -14,7 +14,7 @@ local function get_db_path(bufnr)
   return r .. '/.filter.json'
 end
 
--- 2. Hydrate memory filter mappings from file
+-- 2. Load persistent json suppression arrays
 local function load_db(bufnr)
   M.manual_blocked_codes = {}
   local f = io.open(get_db_path(bufnr), 'rb')
@@ -36,7 +36,7 @@ local function load_db(bufnr)
   end
 end
 
--- 3. Persist memory mapping arrays down to disk
+-- 3. Write active selections straight down to disk
 local function save_db(bufnr)
   local f = io.open(get_db_path(bufnr), 'wb')
   if f then
@@ -158,15 +158,38 @@ function M.manage_file_diagnostics_interactive()
 
     save_db(bufnr)
 
-    -- 🌟 THE ULTIMATE SPEED ENHANCEMENT (0ms TIME LAPSE):
-    -- We completely remove 'edit!' from the execution loop. We update Neovim's
-    -- structural diagnostics engine instantly inside RAM, completely bypassing
-    -- asynchronous network lag, and immediately recall the dropdown panel function.
-    -- The menu option flips between Blocked and Suppressed smoothly right before your eyes!
+    -- 🌟 THE DETERMINISTIC CACHE ENHANCEMENT:
+    -- Instead of guessing async compile timelines, we programmatically step inside
+    -- Neovim's active diagnostic storage registers right inside hot-RAM memory space.
+    -- We run a fast filter pass over the active objects array table, slice out any
+    -- suppressed keys, and force-overwrite the diagnostic layers instantly!
+    -- This guarantees the error lines vanish from your screen on the exact same frame,
+    -- while keeping your dropdown choice list locked perfectly open without any flickering!
     vim.schedule(function()
       if vim.api.nvim_buf_is_valid(bufnr) then
-        vim.diagnostic.show(nil, bufnr)
+        for _, client in pairs(vim.lsp.get_clients({ bufnr = bufnr })) do
+          if client.name == 'clangd' then
+            local namespace = vim.lsp.diagnostic.get_namespace(client.id)
+
+            -- Extract the active unfiltered records from Neovim's core namespace registry
+            local active_diags = vim.diagnostic.get(bufnr, { namespace = namespace })
+            local filtered_diags = {}
+
+            for _, d in ipairs(active_diags) do
+              local current_code = d.code
+              -- Screen out items if their matching codes exist inside your blocklist hashes
+              if not (current_code and M.manual_blocked_codes[current_code]) then
+                table.insert(filtered_diags, d)
+              end
+            end
+
+            -- Force a native memory override update pass instantly!
+            vim.diagnostic.set(namespace, bufnr, filtered_diags, {})
+          end
+        end
       end
+
+      -- Loop right back to re-draw the choices menu flawlessly
       M.manage_file_diagnostics_interactive()
     end)
   end)
