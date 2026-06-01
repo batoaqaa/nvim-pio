@@ -116,6 +116,26 @@ function M.getClangdConfig()
     return nil
   end
 
+  clangd_config.before_init = function(params, config)
+    config.init_options = config.init_options or {}
+    config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
+
+    -- Set baseline configurations safely in RAM memory space
+    config.init_options.clangdFileStatus = true
+    config.init_options.completeUnimported = true
+    config.init_options.usePlaceholders = true
+    table.insert(config.init_options.fallbackFlags, '-ferror-limit=0')
+
+    -- 1. Programmatically extract the active root workspace boundary path
+    local raw_root = config.root_dir(vim.api.nvim_get_current_buf()) or vim.uv.cwd()
+    -- Instead of a blind ".", we programmatically query the absolute workspace
+    -- root path dynamically from your lspconfig directory variables array block.
+    -- This forces clangd to resolve your project's compile_commands.json perfectly
+    -- across every single file buffer window without breaking context!
+    local active_root = (type(raw_root) == 'string' and raw_root ~= '') and raw_root or '.'
+    config.init_options.compilationDatabasePath = vim.fs.normalize(active_root)
+  end
+
   clangd_config.handlers = {
     -- Override the default diagnostic publishing target route
     ['textDocument/publishDiagnostics'] = diagnostic.diagnostic_handler,
