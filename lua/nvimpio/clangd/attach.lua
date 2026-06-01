@@ -18,72 +18,71 @@ vim.api.nvim_create_autocmd('LspAttach', {
 
     -- 1. SERVER & PATH VALIDATION
     local buf_path = vim.api.nvim_buf_get_name(bufnr)
+    if client and client.name == 'clangd' then
+      local buf_path = vim.api.nvim_buf_get_name(bufnr)
 
-    if buf_path ~= '' and (vim.fs.root(buf_path, { 'platformio.ini' }) or vim.uv.fs_stat(vim.uv.cwd() .. '/platformio.ini')) then
-      -- A. MANUAL SAFETY VALVE KEYMAP
-      -- The user can still press this if they want to manually unblock something later
-      vim.keymap.set('n', '<leader>pc', function()
-        nvim_pio_diag.manage_file_diagnostics_interactive()
-      end, { buffer = bufnr, desc = 'Open Filter Panel' })
+      if buf_path ~= '' and (vim.fs.root(buf_path, { 'platformio.ini' }) or vim.uv.fs_stat(vim.uv.cwd() .. '/platformio.ini')) then
+        -- Manual shortcut safety toggle keymap
+        vim.keymap.set('n', '<leader>pc', function()
+          nvim_pio_diag.manage_file_diagnostics_interactive()
+        end, { buffer = bufnr, desc = 'Open Filter Panel' })
 
-      -- B. THE HIDDEN AUTOMATION PASS
-      -- We bind a transient, one-time listener to the first diagnostic payload
-      -- that clangd sends to this buffer upon loading.
-      local sweep_group = vim.api.nvim_create_augroup('NvimPioFirstSweepGroup_' .. bufnr, { clear = true })
+        -- AUTOMATED FIRST SWEEP
+        local sweep_group = vim.api.nvim_create_augroup('NvimPioFirstSweepGroup_' .. bufnr, { clear = true })
 
-      vim.api.nvim_create_autocmd('DiagnosticChanged', {
-        group = sweep_group,
-        buffer = bufnr,
-        callback = function()
-          print('here')
-          local raw_nodes = vim.diagnostic.get(bufnr)
+        vim.api.nvim_create_autocmd('DiagnosticChanged', {
+          group = sweep_group,
+          buffer = bufnr,
+          callback = function()
+            local raw_nodes = vim.diagnostic.get(bufnr)
 
-          -- Wait until clangd actually populates the array cache data
-          if #raw_nodes > 0 then
-            -- Instantly self-destruct this hook so it never runs again during editing
-            vim.api.nvim_del_augroup_by_id(sweep_group)
+            if #raw_nodes > 0 then
+              vim.api.nvim_del_augroup_by_id(sweep_group)
 
-            local automated_discoveries = false
+              local automated_discoveries = false
 
-            -- Silently parse the inbound compiler nodes for core gatekeeper errors
-            for _, diag in ipairs(raw_nodes) do
-              local msg = diag.message or ''
-              local code_name = diag.code
+              for _, diag in ipairs(raw_nodes) do
+                local msg = diag.message or ''
+                local code_name = diag.code
 
-              -- Extract unknown architecture driver flags (-mlongcalls, etc.)
-              for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
-                local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
-                if not nvim_pio_diag.removed_flags[clean_flag] then
-                  nvim_pio_diag.removed_flags[clean_flag] = true
-                  automated_discoveries = true
+                -- Match unknown arguments with punctuation safety
+                for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
+                  local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
+                  if not nvim_pio_diag.removed_flags[clean_flag] then
+                    nvim_pio_diag.removed_flags[clean_flag] = true
+                    automated_discoveries = true
+                  end
+                end
+                for unknown_arg in string.gmatch(msg, 'option%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
+                  local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
+                  if not nvim_pio_diag.removed_flags[clean_flag] then
+                    nvim_pio_diag.removed_flags[clean_flag] = true
+                    automated_discoveries = true
+                  end
+                end
+
+                -- Match categorical codes (pp_file_not_found, etc.)
+                if code_name and type(code_name) == 'string' and code_name ~= '' then
+                  if not nvim_pio_diag.blocked_codes[code_name] then
+                    nvim_pio_diag.blocked_codes[code_name] = true
+                    automated_discoveries = true
+                  end
                 end
               end
 
-              -- Extract structural errors (pp_file_not_found, macro token halts, etc.)
-              if code_name and type(code_name) == 'string' and code_name ~= '' then
-                if not nvim_pio_diag.blocked_codes[code_name] then
-                  nvim_pio_diag.blocked_codes[code_name] = true
-                  automated_discoveries = true
-                end
+              if automated_discoveries then
+                -- FIXED: Pass the active bufnr path explicitly to the save routine
+                nvim_pio_diag.save_from_cli(bufnr)
+
+                -- Instantly apply the memory filtration adjustments down to the display screen
+                vim.diagnostic.show(nil, bufnr)
               end
             end
-
-            -- If new framework barriers were found, save them and sync the viewport
-            if automated_discoveries then
-              -- Accesses your save function to update your local .filter.json map
-              -- (Note: Ensure this function is exposed on your diagnostic module)
-              if nvim_pio_diag.save_from_cli then
-                nvim_pio_diag.save_from_cli()
-              end
-
-              -- Instantly apply our fresh presentation filter layer to clear the screen
-              -- without restarting the LSP server or causing menu flickers!
-              vim.diagnostic.show(nil, bufnr)
-            end
-          end
-        end,
-      })
+          end,
+        })
+      end
     end
+
     -- Hook up an isolated pipeline overlay dedicated strictly to this active buffer
 
     -- 1. Hook up your isolated pipeline overlay for all future background events

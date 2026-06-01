@@ -5,15 +5,24 @@ M.blocked_codes = {}
 M.removed_flags = {}
 
 local root_markers = { 'platformio.ini', '.git' }
-local initial_file = vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())
-local project_root = vim.fs.root(initial_file, root_markers) or vim.uv.cwd()
-local json_database_file = project_root .. '/.filter.json'
 
-local function load_filter_database()
+-- FIXED: Convert path resolution into a dynamic function helper
+local function get_db_path(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  local buf_file = vim.api.nvim_buf_get_name(bufnr)
+  local project_root = (buf_file ~= '') and vim.fs.root(buf_file, root_markers) or vim.uv.cwd()
+  return project_root .. '/.filter.json'
+end
+
+local function load_filter_database(bufnr)
   M.blocked_codes = {}
   M.removed_flags = {}
+
+  local json_database_file = get_db_path(bufnr)
   local f = io.open(json_database_file, 'rb')
-  if not f then return end
+  if not f then
+    return
+  end
   local raw_json = f:read('*all')
   f:close()
   if raw_json and raw_json ~= '' then
@@ -25,7 +34,9 @@ local function load_filter_database()
   end
 end
 
-local function save_filter_database()
+-- FIXED: Expose database saving with a dynamic buffer path injection argument
+function M.save_from_cli(bufnr)
+  local json_database_file = get_db_path(bufnr)
   local f = io.open(json_database_file, 'wb')
   if f then
     local payload = { codes = M.blocked_codes, flags = M.removed_flags }
@@ -35,27 +46,28 @@ local function save_filter_database()
   end
 end
 
+-- Initialize on default workspace path layout
 load_filter_database()
 
--- 1. THE AUTOMATED INTERCEPTOR: Runs silently inside the LSP stream on every pass
+-- THE AUTOMATED STREAM INTERCEPTOR
 function M.diagnostic_handler(err, result, ctx, config)
   if err or not result or not result.diagnostics then
-    return vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
+    return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
   end
 
-  local clean_diagnostics = {}
+  -- Ensure we dynamically read the database relative to this file stream before filtering
+  local bufnr = vim.uri_to_bufnr(result.uri)
+  load_filter_database(bufnr)
 
+  local clean_diagnostics = {}
   for _, diag in ipairs(result.diagnostics) do
     local keep = true
-    local msg = diag.message or ""
+    local msg = diag.message or ''
     local code = diag.code
 
-    -- Automatically drop if short alphanumeric compiler code matches
     if code and M.blocked_codes[code] then
       keep = false
     end
-
-    -- Automatically drop if message string contains blocked arguments
     if keep then
       for flag, _ in pairs(M.removed_flags) do
         if msg:find(flag, 1, true) then
@@ -71,10 +83,10 @@ function M.diagnostic_handler(err, result, ctx, config)
   end
 
   result.diagnostics = clean_diagnostics
-  vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
+  vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
 end
 
--- 2. SIMPLE TOGGLE MENU (No reloads, no loops, just updates the database)
+-- SIMPLE TOGGLE DASHBOARD PANEL
 function M.manage_file_diagnostics_interactive()
   local current_buf = vim.api.nvim_get_current_buf()
   local dashboard_items = {}
@@ -99,18 +111,24 @@ function M.manage_file_diagnostics_interactive()
     end
   end
 
-  if #dashboard_items == 0 then return end
+  if #dashboard_items == 0 then
+    return
+  end
 
   vim.ui.select(dashboard_items, { prompt = 'Filter Panel' }, function(choice)
-    if not choice then return end
+    if not choice then
+      return
+    end
     if choice.action == 'reset' then
       M.blocked_codes, M.removed_flags = {}, {}
-    elseif choice.action == 'block_flag' then M.removed_flags[choice.id] = true
-    elseif choice.action == 'block_code' then M.blocked_codes[choice.id] = true end
-    save_filter_database()
-    vim.cmd('edit!') -- Simple, standard reload to sync the file once
+    elseif choice.action == 'block_flag' then
+      M.removed_flags[choice.id] = true
+    elseif choice.action == 'block_code' then
+      M.blocked_codes[choice.id] = true
+    end
+    M.save_from_cli(current_buf)
+    vim.cmd('edit!')
   end)
 end
 
--- stylua: ignore end
 return M
