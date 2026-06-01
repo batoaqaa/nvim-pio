@@ -87,7 +87,7 @@ function M.diagnostic_handler(err, result, ctx, config)
 end
 
 -- =====================================================
--- 5. PERSISTENT ALPHABETICAL MODAL MENU ENGINE
+-- 5. PROFESSIONAL ECHO MODAL ENGINE (STAYS SYNCED)
 -- =====================================================
 function M.manage_file_diagnostics_interactive()
   local bufnr = vim.api.nvim_get_current_buf()
@@ -105,50 +105,78 @@ function M.manage_file_diagnostics_interactive()
     end
   end
 
-  -- Build a highly legible alphabetical mapping string
-  local prompt_lines = { '💥 COMPILER MANGLER:' }
+  -- Build chunks array for native multi-line print
+  local chunks = {
+    { '💥 COMPILER MANGLER DASHBOARD\n', 'Title' },
+    { string.rep('─', 50) .. '\n', 'Comment' },
+  }
+
   local action_map = {}
   local char_code = 97 -- ASCII for 'a'
 
-  -- Map outstanding error codes to letters [a, b, c...]
+  -- Map outstanding codes to options list
   for _, code in ipairs(unblocked_codes) do
     local char = string.char(char_code)
-    table.insert(prompt_lines, string.format('[%s] 🔒 Block: %s', char, code))
+    table.insert(chunks, { string.format('  [%s] 🔒 Block: ', char), 'DiagnosticWarn' })
+    table.insert(chunks, { code .. '\n', 'Normal' })
     action_map[char] = { action = 'block', id = code }
     char_code = char_code + 1
   end
 
-  -- Map active blocked filters to letters for unblocking
+  -- Map suppressed codes for restoration
+  local active_unblocks = {}
   for code, _ in pairs(M.manual_blocked_codes) do
+    table.insert(active_unblocks, code)
+  end
+  table.sort(active_unblocks)
+
+  for _, code in ipairs(active_unblocks) do
     local char = string.char(char_code)
-    table.insert(prompt_lines, string.format('[%s] 🔓 Restore: %s', char, code))
+    table.insert(chunks, { string.format('  [%s] 🔓 Restore: ', char), 'DiagnosticOk' })
+    table.insert(chunks, { code .. '\n', 'Normal' })
     action_map[char] = { action = 'unblock', id = code }
     char_code = char_code + 1
   end
 
-  -- Add a master reset option if any filter is active
+  -- Map recorded flags logs for read-only history
+  local active_flags = {}
+  for f, _ in pairs(M.removed_flags) do
+    table.insert(active_flags, f)
+  end
+  table.sort(active_flags)
+
+  if #active_flags > 0 then
+    table.insert(chunks, { '\n ⚙️ Automated Protections:\n', 'Special' })
+    for _, f in ipairs(active_flags) do
+      table.insert(chunks, { '  [-] 📋 [RECORDED]: ' .. f .. '\n', 'Comment' })
+    end
+  end
+
+  -- Add global reset option if rules exist
   if next(M.manual_blocked_codes) then
-    table.insert(prompt_lines, '[x] 💥 Clear All Active Filters')
+    table.insert(chunks, { '\n  [x] 💥 Clear All Filters\n', 'DiagnosticError' })
     action_map['x'] = { action = 'reset' }
   end
 
-  if #prompt_lines == 1 then
-    vim.notify('✅ Clean Slate: No warnings active.', vim.log.levels.INFO)
+  if #chunks == 2 then
+    vim.notify('✅ Clean Slate: No active filters.', vim.log.levels.INFO)
     return
   end
 
-  table.insert(prompt_lines, 'Select action option prefix letter: ')
-  local complete_prompt = table.concat(prompt_lines, '\n')
+  -- 🌟 THE ARCHITECTURE UPGRADE:
+  -- 1. Clear cmdline area and pretty-print the options list with real color syntax!
+  vim.cmd('redraw')
+  vim.api.nvim_echo(chunks, true, {})
 
-  -- Invoke native input hook. Stays open securely inside RAM!
-  vim.ui.input({ prompt = complete_prompt }, function(input)
+  -- 2. Draw a tight, single-line text input prompt box directly underneath
+  vim.ui.input({ prompt = 'Select option letter prefix: ' }, function(input)
     if not input or input == '' then
       return
     end
 
     local target = action_map[input:lower()]
     if not target then
-      vim.notify('❌ Invalid choice selection.', vim.log.levels.WARN)
+      vim.notify('❌ Invalid selection option.', vim.log.levels.WARN)
       M.manage_file_diagnostics_interactive()
       return
     end
@@ -163,23 +191,28 @@ function M.manage_file_diagnostics_interactive()
 
     save_db(bufnr)
 
-    -- Synchronous layout update without destructive file reloads
+    -- Force reactive synchronization pass via the native event listener
     vim.schedule(function()
       if vim.api.nvim_buf_is_valid(bufnr) then
-        for _, client in pairs(vim.lsp.get_clients({ bufnr = bufnr })) do
-          if client.name == 'clangd' then
-            local ns = vim.lsp.diagnostic.get_namespace(client.id)
-            vim.diagnostic.reset(ns, bufnr)
-          end
-        end
-        vim.cmd('silent! checktime')
-        vim.cmd('silent! edit!')
-      end
+        local refresh_group = vim.api.nvim_create_augroup('PioRefresh', { clear = true })
+        vim.api.nvim_create_autocmd('DiagnosticChanged', {
+          group = refresh_group,
+          buffer = bufnr,
+          callback = function()
+            vim.api.nvim_del_augroup_by_id(refresh_group)
+            M.manage_file_diagnostics_interactive()
+          end,
+        })
 
-      -- Recurse instantly. Zero flickering, absolute stability!
-      vim.schedule(function()
-        M.manage_file_diagnostics_interactive()
-      end)
+        -- Execute the whisper-quiet asynchronous buffer reload pass
+        vim.api.nvim_buf_call(bufnr, function()
+          local old_shortmess = vim.o.shortmess
+          vim.o.shortmess = old_shortmess .. 'F'
+          vim.cmd('silent! checktime')
+          vim.cmd('silent! edit!')
+          vim.o.shortmess = old_shortmess
+        end)
+      end
     end)
   end)
 end
