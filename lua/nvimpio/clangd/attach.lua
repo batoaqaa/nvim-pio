@@ -17,12 +17,12 @@ vim.api.nvim_create_autocmd('LspAttach', {
     local nvim_pio_diag = require('nvimpio.clangd.diagnostic')
     if vim.fs.root(bufnr, { 'platformio.ini' }) then
       -- A. Create a Buffer-Local User Command (:PioMangler)
-      vim.api.nvim_buf_create_user_command(bufnr, 'PioMangler', function()
+      vim.api.nvim_buf_create_user_command(bufnr, 'ClangdMangler', function()
         nvim_pio_diag.manage_file_diagnostics_interactive()
       end, { desc = 'Open LSP Handler Filter Panel' })
 
       -- B. Create a Buffer-Local Keyboard Shortcut (<leader>pc)
-      vim.keymap.set('n', '<leader>pc', function()
+      vim.keymap.set('n', '<leader>\\b', function()
         nvim_pio_diag.manage_file_diagnostics_interactive()
       end, {
         buffer = bufnr,
