@@ -1,14 +1,11 @@
---- stylua: ignore start
+-- stylua: ignore start
 local M = {}
 
--- High-speed hot-memory tracking maps
 M.blocked_codes = {}
 M.removed_flags = {}
-M.resetting = false -- State lock to shield data overrides during a master reset
 
 local root_markers = { 'platformio.ini', '.git' }
 
--- Dynamic project directory resolution helper to eliminate multi-root environment traps
 local function get_db_path(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   local buf_file = vim.api.nvim_buf_get_name(bufnr)
@@ -17,9 +14,6 @@ local function get_db_path(bufnr)
 end
 
 local function load_filter_database(bufnr)
-  M.blocked_codes = {}
-  M.removed_flags = {}
-
   local json_database_file = get_db_path(bufnr)
   local f = io.open(json_database_file, 'rb')
   if not f then
@@ -36,8 +30,18 @@ local function load_filter_database(bufnr)
   end
 end
 
--- Expose database saving functionality globally for our automation hooks
 function M.save_from_cli(bufnr)
+  -- 🌟 HARD RESET GUARD: If memory tables are empty, force an absolute empty layout array on disk
+  if next(M.blocked_codes) == nil and next(M.removed_flags) == nil then
+    local json_database_file = get_db_path(bufnr)
+    local f = io.open(json_database_file, 'wb')
+    if f then
+      f:write('{"codes":{},"flags":{}}')
+      f:close()
+    end
+    return
+  end
+
   local json_database_file = get_db_path(bufnr)
   local f = io.open(json_database_file, 'wb')
   if f then
@@ -48,34 +52,32 @@ function M.save_from_cli(bufnr)
   end
 end
 
--- Initialize the database snapshot layout on core plugin load
 load_filter_database()
 
 -- =============================================================================
--- 1. THE AUTOMATED HANDLER INTERCEPTOR (Pure Hands-Free Automation)
+-- 1. THE AUTOMATED HANDLER INTERCEPTOR
 -- =============================================================================
 function M.diagnostic_handler(err, result, ctx, config)
   if err or not result or not result.diagnostics then
     return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
   end
 
-  -- GUARD LAYER: If a master reset is processing, let raw data bypass filtration
-  if M.resetting then
-    return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
-  end
-
   local bufnr = vim.uri_to_bufnr(result.uri)
   load_filter_database(bufnr)
+
+  -- 🌟 HARD PASS EXTRACTION OVERRIDE: If the loaded layout is completely clean,
+  --    bypass automated parsing entirely so old parameters can't get re-saved!
+  if next(M.blocked_codes) == nil and next(M.removed_flags) == nil then
+    return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
+  end
 
   local clean_diagnostics = {}
   local automated_discoveries = false
 
-  -- Pass A: In-Stream Automated Compiler Error Scraper
   for _, diag in ipairs(result.diagnostics) do
     local msg = diag.message or ''
     local code = diag.code
 
-    -- Extract unknown architecture flags with colon/punctuation safety guards (%p?)
     for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
       local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
       if not M.removed_flags[clean_flag] then
@@ -91,7 +93,6 @@ function M.diagnostic_handler(err, result, ctx, config)
       end
     end
 
-    -- Extract categorical diagnostic codes (pp_file_not_found, etc.)
     if code and type(code) == 'string' and code ~= '' then
       if not M.blocked_codes[code] then
         M.blocked_codes[code] = true
@@ -100,12 +101,10 @@ function M.diagnostic_handler(err, result, ctx, config)
     end
   end
 
-  -- Silently commit any automated discoveries down to disk immediately
   if automated_discoveries then
     M.save_from_cli(bufnr)
   end
 
-  -- Pass B: Dynamic Presentation Screening Pass
   for _, diag in ipairs(result.diagnostics) do
     local keep = true
     local msg = diag.message or ''
@@ -139,13 +138,11 @@ function M.manage_file_diagnostics_interactive()
   local current_buf = vim.api.nvim_get_current_buf()
   local dashboard_items = {}
 
-  -- SECTION A: MASTER RESET OPTION
   local has_active_filters = next(M.blocked_codes) ~= nil or next(M.removed_flags) ~= nil
   if has_active_filters then
     table.insert(dashboard_items, { action = 'reset', display = '💥 Unblock all' })
   end
 
-  -- SECTION B: EXTRACT ACTIVE DIAGNOSTICS FOR MENU SELECTION
   local raw_diagnostics = vim.diagnostic.get(current_buf)
   local unique_active_entries = {}
   local block_options = {}
@@ -173,16 +170,13 @@ function M.manage_file_diagnostics_interactive()
     table.insert(dashboard_items, opt)
   end
 
-  -- SECTION C: CURRENTLY BLOCKED ITEMS FOR UNBLOCKING (Type-Safe Evaluation)
   local unblock_options = {}
-
   for key, value in pairs(M.removed_flags or {}) do
     local flag_str = (type(key) == 'string') and key or value
     if type(flag_str) == 'string' and flag_str ~= '' and not flag_str:match('^table:') then
       table.insert(unblock_options, { action = 'unblock_flag', id = flag_str, display = 'A•🔓 RESTORE Flag: [' .. flag_str .. ']' })
     end
   end
-
   for key, value in pairs(M.blocked_codes or {}) do
     local code_str = (type(key) == 'string') and key or value
     if type(code_str) == 'string' and code_str ~= '' and not code_str:match('^table:') then
@@ -196,14 +190,11 @@ function M.manage_file_diagnostics_interactive()
     table.insert(dashboard_items, opt)
   end
 
-  -- If no actionable nodes are found, notify the user and escape early
   if #dashboard_items == 0 then
     vim.notify('✅ Complete Parity: No outstanding compilation exceptions found.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
     return
   end
 
-  -- Render selection interface window mapping options
-  --
   vim.ui.select(dashboard_items, {
     prompt = 'Filter Panel (Select item to toggle suppression state)',
     format_item = function(item)
@@ -215,20 +206,17 @@ function M.manage_file_diagnostics_interactive()
     end
 
     if choice.action == 'reset' then
-      -- 1. HARD RESET: Wipe out hot memory references immediately
+      -- Clear all parameters from hot memory allocations instantly
       M.blocked_codes = {}
       M.removed_flags = {}
 
-      -- 2. HARD REMOVAL: Physically erase the file context from your operating system hard drive
-      local json_database_file = get_db_path(current_buf)
-      os.remove(json_database_file)
+      -- Force an instant empty structure dump directly down to disk parameters
+      M.save_from_cli(current_buf)
 
-      -- 3. TEARDOWN: Safeguard and kill any lingering background listener pipelines
+      -- Force-kill the automated first-sweep group listeners globally
       pcall(vim.api.nvim_del_augroup_by_name, 'NvimPioFirstSweepGroup_' .. current_buf)
-      pcall(vim.api.nvim_del_augroup_by_name, 'NvimPioResetRelease_' .. current_buf)
-      pcall(vim.api.nvim_del_augroup_by_name, 'NvimPioMenuRefreshGroup')
 
-      vim.notify('💥 Data wiped clean. Baseline compiler profiles restored.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
+      vim.notify('💥 Data wiped clean. Reverting back to original static settings.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
     elseif choice.action == 'block_flag' then
       M.removed_flags[choice.id] = true
     elseif choice.action == 'block_code' then
@@ -239,20 +227,17 @@ function M.manage_file_diagnostics_interactive()
       M.blocked_codes[choice.id] = nil
     end
 
-    -- Only write standard transactions to the database path if we are NOT resetting
     if choice.action ~= 'reset' then
       M.save_from_cli(current_buf)
     end
 
-    -- Force a silent, non-disruptive buffer reload to render the workspace state cleanly
+    -- Execute a silent buffer text pass to update your display values layout
     if vim.api.nvim_buf_is_valid(current_buf) then
       vim.api.nvim_buf_call(current_buf, function()
         local old_shortmess = vim.o.shortmess
         vim.o.shortmess = old_shortmess .. 'F'
-
         vim.cmd('silent! checktime')
         vim.cmd('silent! edit!')
-
         vim.o.shortmess = old_shortmess
       end)
     end
