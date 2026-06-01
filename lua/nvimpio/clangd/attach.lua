@@ -21,6 +21,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
       local buf_path = vim.api.nvim_buf_get_name(bufnr)
 
       if buf_path ~= '' and (vim.fs.root(buf_path, { 'platformio.ini' }) or vim.uv.fs_stat(vim.uv.cwd() .. '/platformio.ini')) then
+        print('here')
         -- A. MANUAL SAFETY VALVE KEYMAP
         -- The user can still press this if they want to manually unblock something later
         vim.keymap.set('n', '<leader>pc', function()
