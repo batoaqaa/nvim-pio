@@ -1,13 +1,14 @@
 --- stylua: ignore start
 local M = {}
 
--- Explicit table instantiation at the absolute top prevents race-condition crashes
 M.manual_blocked_codes = {}
 M.removed_flags = {}
 
 local root_markers = { 'platformio.ini', '.git' }
+local ui_bufnr = nil
+local ui_winnr = nil
+local original_bufnr = nil
 
--- 1. GET_DB_PATH: Dynamically resolves project workspace paths in memory space safely
 local function get_db_path(bufnr)
   bufnr = (bufnr and bufnr ~= 0) and bufnr or vim.api.nvim_get_current_buf()
   local buf_file = vim.api.nvim_buf_get_name(bufnr)
@@ -15,10 +16,8 @@ local function get_db_path(bufnr)
   return project_root .. '/.filter.json'
 end
 
--- 2. LOAD_FILTER_DATABASE: Safe hash-table hydration evaluated dynamically per buffer
 local function load_filter_database(bufnr)
   M.manual_blocked_codes = {}
-
   local json_database_file = get_db_path(bufnr)
   local f = io.open(json_database_file, 'rb')
   if not f then
@@ -26,23 +25,19 @@ local function load_filter_database(bufnr)
   end
   local raw_json = f:read('*all')
   f:close()
-
   if raw_json and raw_json ~= '' then
     local success, data = pcall(vim.json.decode, raw_json)
-    if success and data and type(data) == 'table' then
-      if type(data.codes) == 'table' then
-        for k, v in pairs(data.codes) do
-          local code_str = (type(k) == 'string') and k or v
-          if type(code_str) == 'string' and code_str ~= '' and not code_str:match('^table:') then
-            M.manual_blocked_codes[code_str] = true
-          end
+    if success and data and type(data) == 'table' and type(data.codes) == 'table' then
+      for k, v in pairs(data.codes) do
+        local code_str = (type(k) == 'string') and k or v
+        if type(code_str) == 'string' and code_str ~= '' and not code_str:match('^table:') then
+          M.manual_blocked_codes[code_str] = true
         end
       end
     end
   end
 end
 
--- 3. SAVE_FILTER_DATABASE: Writes explicit object hash-maps down to disk parameters
 local function save_filter_database(bufnr)
   local json_database_file = get_db_path(bufnr)
   local f = io.open(json_database_file, 'wb')
@@ -58,11 +53,10 @@ local function save_filter_database(bufnr)
   end
 end
 
--- Safely trigger an absolute baseline load transaction upon initial module loading
 load_filter_database(0)
 
 -- =============================================================================
--- 4. THE ROBUST DYNAMIC HANDLER INTERCEPTOR (VOLATILE IN-MEMORY EXTRACTION)
+-- 1. LSP HANDLER INTERCEPTOR
 -- =============================================================================
 function M.diagnostic_handler(err, result, ctx, config)
   if err or not result or not result.diagnostics then
@@ -74,7 +68,6 @@ function M.diagnostic_handler(err, result, ctx, config)
 
   local clean_diagnostics = {}
 
-  -- PASS 1: AUTOMATED IN-MEMORY CAPTURING ONLY (NO DISK POLLUTION)
   for _, diag in ipairs(result.diagnostics) do
     local code = diag.code
     local msg = diag.message or ''
@@ -89,7 +82,6 @@ function M.diagnostic_handler(err, result, ctx, config)
     end
   end
 
-  -- PASS 2: PRESENTATION SCREENING IN RAM
   for _, diag in ipairs(result.diagnostics) do
     local keep = true
     local code = diag.code
@@ -120,34 +112,48 @@ function M.diagnostic_handler(err, result, ctx, config)
 end
 
 -- =============================================================================
--- 5. PERSISTENT RECURSIVE CONTROL PANEL (STAYS OPEN UNTIL ESC)
+-- 2. PERSISTENT INTERACTIVE SCRATCHPAD UI LAYER (NEVER CLOSES ON SELECTION)
 -- =============================================================================
-function M.manage_file_diagnostics_interactive()
-  local current_buf = vim.api.nvim_get_current_buf()
-  local dashboard_items = {}
+local menu_mappings = {}
 
-  -- Clear master action maps only to user-toggled manual error rules
+local function close_filter_window()
+  if ui_winnr and vim.api.nvim_win_is_valid(ui_winnr) then
+    vim.api.nvim_win_close(ui_winnr, true)
+  end
+  ui_winnr = nil
+  ui_bufnr = nil
+end
+
+local function draw_filter_menu_contents()
+  if not ui_bufnr or not vim.api.nvim_buf_is_valid(ui_bufnr) then
+    return
+  end
+  load_filter_database(original_bufnr)
+
+  local lines = { ' 💥 Compiler Mangler Dashboard (Press [q] or [Esc] to Exit) ', string.rep('─', 65), '' }
+  menu_mappings = {}
+
   local has_active_filters = next(M.manual_blocked_codes) ~= nil
   if has_active_filters then
-    table.insert(dashboard_items, { action = 'reset', display = '💥 Clear All Active User Filters' })
+    table.insert(lines, '  [x] 💥 Clear All Active User Filters')
+    table.insert(menu_mappings, { action = 'reset' })
   end
 
-  -- Query diagnostic fields directly out of active buffer namespaces
+  -- Scan active diagnostics straight out of the background compilation buffer
   local raw_diagnostics = {}
-  for _, client in pairs(vim.lsp.get_clients({ bufnr = current_buf })) do
+  for _, client in pairs(vim.lsp.get_clients({ bufnr = original_bufnr })) do
     local namespace = vim.lsp.diagnostic.get_namespace(client.id)
-    local client_diags = vim.diagnostic.get(current_buf, { namespace = namespace })
+    local client_diags = vim.diagnostic.get(original_bufnr, { namespace = namespace })
     for _, d in ipairs(client_diags) do
       table.insert(raw_diagnostics, d)
     end
   end
-
   if #raw_diagnostics == 0 then
-    raw_diagnostics = vim.diagnostic.get(current_buf)
+    raw_diagnostics = vim.diagnostic.get(original_bufnr)
   end
 
-  -- SECTION B: LIST ACTIVE OUTSTANDING ERRORS AVAILABLE FOR SUPPRESSION
   local seen = {}
+  local header_added = false
   for _, diag in ipairs(raw_diagnostics) do
     local code_name = diag.code or ''
     if
@@ -157,104 +163,139 @@ function M.manage_file_diagnostics_interactive()
       and code_name ~= 'fatal_too_many_errors'
     then
       if not M.manual_blocked_codes[code_name] and not seen[code_name] then
+        if not header_added then
+          table.insert(lines, ' Outstanding Errors/Warnings (Select to Block):')
+          header_added = true
+        end
         seen[code_name] = true
-        table.insert(dashboard_items, { action = 'block_code', id = code_name, display = '🔒 Suppress Code: [' .. code_name .. ']' })
+        table.insert(lines, '  [ ] 🔒 Suppress Code: [' .. code_name .. ']')
+        table.insert(menu_mappings, { action = 'block_code', id = code_name })
       end
     end
   end
-  table.sort(dashboard_items, function(a, b)
-    return a.display < b.display
-  end)
 
-  -- SECTION C: LIST CURRENTLY SUPPRESSED BLOCKS SO YOU CAN ALWAYS UNBLOCK THEM
-  local unblock_options = {}
-  for key, value in pairs(M.manual_blocked_codes or {}) do
-    local code_str = (type(key) == 'string') and key or value
-    if type(code_str) == 'string' and code_str ~= '' and not code_str:match('^table:') then
-      table.insert(unblock_options, { action = 'unblock_code', id = code_str, display = 'A• 🔓 Remove Manual Filter: [' .. code_str .. ']' })
+  local unblock_header_added = false
+  for key, _ in pairs(M.manual_blocked_codes or {}) do
+    if type(key) == 'string' and key ~= '' and not key:match('^table:') then
+      if not unblock_header_added then
+        table.insert(lines, '')
+        table.insert(lines, ' Currently Suppressed Codes (Select to Restore):')
+        unblock_header_added = true
+      end
+      table.insert(lines, '  [*] 🔓 Remove Manual Filter: [' .. key .. ']')
+      table.insert(menu_mappings, { action = 'unblock_code', id = key })
     end
   end
-  table.sort(unblock_options, function(a, b)
-    return a.display < b.display
-  end)
-  for _, opt in ipairs(unblock_options) do
-    table.insert(dashboard_items, opt)
-  end
 
-  -- READ-ONLY SECTION: Print automatic driver flag protections
-  local automated_notes = {}
+  local flag_header_added = false
   for flag, _ in pairs(M.removed_flags or {}) do
     if type(flag) == 'string' and flag ~= '' then
-      table.insert(automated_notes, { action = 'none', display = '⚙️ [AUTOMATED BLOCK]: ' .. flag })
+      if not flag_header_added then
+        table.insert(lines, '')
+        table.insert(lines, ' ⚙️ Automated Driver Flag Protections (Read-Only Logs):')
+        flag_header_added = true
+      end
+      table.insert(lines, '  [-] 📋 [RECORDED FLAG]: ' .. flag)
+      table.insert(menu_mappings, { action = 'none' })
     end
   end
-  table.sort(automated_notes, function(a, b)
-    return a.display < b.display
-  end)
-  for _, note in ipairs(automated_notes) do
-    table.insert(dashboard_items, note)
-  end
 
-  -- 🌟 FIXED EARLY EXIT GUARD:
-  -- We ONLY exit out if the total built options list is fully empty.
-  -- If you have historical blocks, the menu will stay open to let you unblock them!
-  if #dashboard_items == 0 then
-    vim.notify('✅ Clean Slate: No customizable warnings active.', vim.log.levels.INFO, { title = 'Compiler Mangler' })
+  -- Render line items inside scratchpad synchronously
+  vim.api.nvim_buf_set_option(ui_bufnr, 'modifiable', true)
+  vim.api.nvim_buf_set_lines(ui_bufnr, 0, -1, false, lines)
+  vim.api.nvim_buf_set_option(ui_bufnr, 'modifiable', false)
+end
+
+local function handle_menu_selection()
+  local cursor = vim.api.nvim_win_get_cursor(ui_winnr)
+  local line_idx = cursor[1]
+
+  -- Account for our header decorations and titles offset layout rules
+  local offset = 4
+  local map_index = line_idx - offset + 1
+  local choice = menu_mappings[map_index]
+
+  if not choice or choice.action == 'none' then
     return
   end
 
-  -- Draw the core choice prompt container panel
-  vim.ui.select(dashboard_items, {
-    prompt = 'Filter Panel (Press Esc when finished clearing layers)',
-    format_item = function(item)
-      return (type(item) == 'table' and type(item.display) == 'string') and item.display or tostring(item)
-    end,
-  }, function(choice)
-    if not choice then
-      return
-    end
+  if choice.action == 'reset' then
+    M.manual_blocked_codes = {}
+    save_filter_database(original_bufnr)
+  elseif choice.action == 'block_code' then
+    M.manual_blocked_codes[choice.id] = true
+    save_filter_database(original_bufnr)
+  elseif choice.action == 'unblock_code' then
+    M.manual_blocked_codes[choice.id] = nil
+    save_filter_database(original_bufnr)
+  end
 
-    if choice.action == 'none' then
-      M.manage_file_diagnostics_interactive()
-      return
-    end
-
-    if choice.action == 'reset' then
-      M.manual_blocked_codes = {}
-      save_filter_database(current_buf)
-      vim.notify('💥 User selections wiped clean.', vim.log.levels.ERROR)
-    elseif choice.action == 'block_code' then
-      M.manual_blocked_codes[choice.id] = true
-      save_filter_database(current_buf)
-    elseif choice.action == 'unblock_code' then
-      M.manual_blocked_codes[choice.id] = nil
-      save_filter_database(current_buf)
-    end
-
-    -- Reactive Event Sync: Wait for clangd framework updates before loop return
-    vim.schedule(function()
-      if vim.api.nvim_buf_is_valid(current_buf) then
-        local refresh_group = vim.api.nvim_create_augroup('NvimPioMenuRefreshGroup', { clear = true })
-        vim.api.nvim_create_autocmd('DiagnosticChanged', {
-          group = refresh_group,
-          buffer = current_buf,
-          callback = function()
-            vim.api.nvim_del_augroup_by_id(refresh_group)
-            M.manage_file_diagnostics_interactive()
-          end,
-        })
-
-        -- Execute the whisper-quiet asynchronous buffer reload pass
-        vim.api.nvim_buf_call(current_buf, function()
-          local old_shortmess = vim.o.shortmess
-          vim.o.shortmess = old_shortmess .. 'F'
-          vim.cmd('silent! checktime')
-          vim.cmd('silent! edit!')
-          vim.o.shortmess = old_shortmess
-        end)
-      end
+  -- Trigger an instantaneous silent text context refresh on the background code layout
+  if vim.api.nvim_buf_is_valid(original_bufnr) then
+    vim.api.nvim_buf_call(original_bufnr, function()
+      local old_shortmess = vim.o.shortmess
+      vim.o.shortmess = old_shortmess .. 'F'
+      vim.cmd('silent! checktime')
+      vim.cmd('silent! edit!')
+      vim.o.shortmess = old_shortmess
     end)
-  end)
+  end
+
+  -- Hook onto the incoming DiagnosticChanged framework pass to redraw the list array dynamically
+  local refresh_group = vim.api.nvim_create_augroup('NvimPioMenuRefreshGroup', { clear = true })
+  vim.api.nvim_create_autocmd('DiagnosticChanged', {
+    group = refresh_group,
+    buffer = original_bufnr,
+    callback = function()
+      vim.api.nvim_del_augroup_by_id(refresh_group)
+      vim.schedule(function()
+        draw_filter_menu_contents()
+      end)
+    end,
+  })
+end
+
+function M.manage_file_diagnostics_interactive()
+  original_bufnr = vim.api.nvim_get_current_buf()
+  close_filter_window()
+
+  -- Calculate modern floating center coordinates
+  local width = 70
+  local height = 18
+  local row = math.ceil((vim.o.lines - height) / 2) - 1
+  local col = math.ceil((vim.o.columns - width) / 2) - 1
+
+  ui_bufnr = vim.api.nvim_create_buf(false, true)
+  ui_winnr = vim.api.nvim_open_win(ui_bufnr, true, {
+    relative = 'editor',
+    width = width,
+    height = height,
+    row = row,
+    col = col,
+    style = 'minimal',
+    border = 'rounded',
+    title = ' PlatformIO Exception Manager ',
+    title_pos = 'center',
+  })
+
+  -- Enforce scratch buffer UI safety parameters
+  vim.api.nvim_buf_set_option(ui_bufnr, 'bufhidden', 'wipe')
+  vim.api.nvim_buf_set_option(ui_bufnr, 'filetype', 'nvimpiomangler')
+
+  -- Bind interactive core keymaps natively inside our custom scratch buffer window layer
+  local opts = { silent = true, buffer = ui_bufnr }
+  vim.keymap.set('n', '<CR>', function()
+    handle_menu_selection()
+  end, opts)
+  vim.keymap.set('n', 'q', function()
+    close_filter_window()
+  end, opts)
+  vim.keymap.set('n', '<Esc>', function()
+    close_filter_window()
+  end, opts)
+
+  -- Initial population pass drawing choices maps straight to screen
+  draw_filter_menu_contents()
 end
 
 return M
