@@ -227,13 +227,16 @@ end
 
 local function handle_select()
   local orig = state.original_bufnr or 0
-  local target_uiwin = state.uiwin or 0
-  if orig == 0 or target_uiwin == 0 then
+
+  -- We extract and explicitly verify that the persistent window tracker exists.
+  -- This guarantees a valid handle is passed into nvim_win_get_cursor natively!
+  local win_handle = state.uiwin or 0
+  if orig == 0 or win_handle == 0 or not vim.api.nvim_win_is_valid(win_handle) then
     return
   end
 
-  -- 🌟 THE INDEX LOOKUP FIX: Grab the current cursor line row directly!
-  local cursor = vim.api.nvim_win_get_cursor(target_uiwin)
+  -- Programmatically extract the current row line number matching your cursor
+  local cursor = vim.api.nvim_win_get_cursor(win_handle)
   local row_idx = cursor[1]
   local target = menu_mappings[row_idx]
 
