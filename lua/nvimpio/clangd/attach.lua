@@ -13,43 +13,22 @@ vim.api.nvim_create_autocmd('LspAttach', {
       return
     end
 
-    vim.api.nvim_echo({ { 'Attaching hhhhhh' .. client.name .. ' to buffer ' .. bufnr, 'Info' } }, true, {})
+    vim.api.nvim_echo({ { 'Attaching ' .. client.name .. ' to buffer ' .. bufnr, 'Info' } }, true, {})
     local nvim_pio_diag = require('nvimpio.clangd.diagnostic')
-
-    local buf_path = vim.api.nvim_buf_get_name(bufnr)
-
-    print(buf_path)
-    -- Fallback check: Look for platformio.ini relative to the buffer file path
-    -- OR directly in your active editor current working directory (cwd)
-    local has_pio = false
-    if buf_path ~= '' then
-      local root_dir = vim.fs.root(buf_path, { 'platformio.ini' })
-      if root_dir then
-        has_pio = true
-      end
-    end
-
-    -- If the file path exploration misses it, check the active global editor workspace root
-    if not has_pio and vim.uv.fs_stat(vim.uv.cwd() .. '/platformio.ini') then
-      has_pio = true
-    end
-
-    -- If either validation path catches the marker, activate the buffer utilities
-    if has_pio then
+    if vim.fs.root(bufnr, { 'platformio.ini' }) then
       -- A. Create a Buffer-Local User Command (:PioMangler)
       vim.api.nvim_buf_create_user_command(bufnr, 'ClangdMangler', function()
         nvim_pio_diag.manage_file_diagnostics_interactive()
       end, { desc = 'Open LSP Handler Filter Panel' })
 
       -- B. Create a Buffer-Local Keyboard Shortcut (<leader>pc)
-      vim.keymap.set('n', '<leader>pc', function()
+      vim.keymap.set('n', '<leader>\\b', function()
         nvim_pio_diag.manage_file_diagnostics_interactive()
       end, {
         buffer = bufnr,
         desc = 'Open LSP Handler Filter Panel',
       })
     end
-
     -- Hook up an isolated pipeline overlay dedicated strictly to this active buffer
 
     -- 1. Hook up your isolated pipeline overlay for all future background events
