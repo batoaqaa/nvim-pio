@@ -4,7 +4,7 @@ local M = {}
 -- Explicit table instantiation at the absolute top prevents race-condition crashes
 M.manual_blocked_codes = {}
 M.removed_flags = {}
-M.is_wiping = false -- 🌟 ADD THIS: Dynamic state lock to shield resets from auto-saving loops
+M.is_wiping = false
 
 local root_markers = { 'platformio.ini', '.git' }
 
@@ -32,7 +32,7 @@ local function load_filter_database(bufnr)
   if raw_json and raw_json ~= '' then
     local success, data = pcall(vim.json.decode, raw_json)
     if success and data and type(data) == 'table' then
-      -- Safely re-hydrate code structures
+      -- Safely re-hydrate code structures verifying that elements are table maps
       if type(data.codes) == 'table' then
         for k, v in pairs(data.codes) do
           local code_str = (type(k) == 'string') and k or v
@@ -59,9 +59,15 @@ local function save_filter_database(bufnr)
   local json_database_file = get_db_path(bufnr)
   local f = io.open(json_database_file, 'wb')
   if f then
-    local payload = { codes = M.manual_blocked_codes, flags = M.removed_flags }
-    local pretty = require('nvimpio.utils.misc').jsonFormat(payload)
-    f:write(pretty)
+    -- 🌟 CRITICAL FIX: If memory maps are fully empty, dump a clean null structural
+    -- block layout to disk. This stops Neovim from decoding it as an empty array list []!
+    if next(M.manual_blocked_codes) == nil and next(M.removed_flags) == nil then
+      f:write('{"codes":null,"flags":null}')
+    else
+      local payload = { codes = M.manual_blocked_codes, flags = M.removed_flags }
+      local pretty = require('nvimpio.utils.misc').jsonFormat(payload)
+      f:write(pretty)
+    end
     f:close()
   end
 end
@@ -77,7 +83,7 @@ function M.diagnostic_handler(err, result, ctx, config)
     return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
   end
 
-  -- 🌟 GUARD LAYER: If a master reset is currently active, bypass extraction completely
+  -- GUARD LAYER: If a master reset is currently active, bypass extraction completely
   if M.is_wiping then
     return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
   end
@@ -214,13 +220,8 @@ function M.manage_file_diagnostics_interactive()
       M.manual_blocked_codes = {}
       M.removed_flags = {}
 
-      -- Force an absolute truncated empty dictionary dump straight onto the disk
-      local json_database_file = get_db_path(current_buf)
-      local f = io.open(json_database_file, 'wb')
-      if f then
-        f:write('{"codes":{},"flags":{}}')
-        f:close()
-      end
+      -- Commit the null data layout straight to disk parameters
+      save_filter_database(current_buf)
       vim.notify('💥 Filters wiped clean and log history reset.', vim.log.levels.ERROR)
     elseif choice.action == 'block_code' then
       M.manual_blocked_codes[choice.id] = true
@@ -245,12 +246,12 @@ function M.manage_file_diagnostics_interactive()
         end)
       end
 
-      -- 🌟 RELEASE THE SHIELD: Wait for the next render step before releasing the lock
+      -- Release the shield loop hook safely after the buffer updates completely
       if choice.action == 'reset' then
         vim.defer_fn(function()
           M.is_wiping = false
           M.manage_file_diagnostics_interactive()
-        end, 100)
+        end, 150)
       else
         M.manage_file_diagnostics_interactive()
       end
@@ -259,7 +260,6 @@ function M.manage_file_diagnostics_interactive()
 end
 
 return M
-
 -- --- stylua: ignore start
 -- local M = {}
 --
