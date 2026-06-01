@@ -153,12 +153,21 @@ function M.manage_file_diagnostics_interactive()
     -- Sync to the persistent local project storage database map
     save_filter_database()
 
-    -- 🌟 AUTOMATED INSTANT RE-RENDER: Force a silent, non-disruptive buffer
-    -- reload to prompt clangd to refresh its internal cache immediately.
+    -- 🌟 FIXED: Run the background reload in absolute silence to prevent "Press ENTER" traps
     if vim.api.nvim_buf_is_valid(current_buf) then
       vim.api.nvim_buf_call(current_buf, function()
-        vim.cmd('checktime')
-        vim.cmd('edit!')
+        -- 1. Backup the user's current messaging configuration flags
+        local old_shortmess = vim.o.shortmess
+
+        -- 2. Force Neovim to compress and swallow all command line logging output completely
+        vim.o.shortmess = old_shortmess .. 'F'
+
+        -- 3. Execute filesystem synchronization and reloads with absolute silent constraints
+        vim.cmd('silent! checktime')
+        vim.cmd('silent! edit!')
+
+        -- 4. Restore the user's original message settings right after execution
+        vim.o.shortmess = old_shortmess
       end)
     end
 
