@@ -18,6 +18,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
 
     local buf_path = vim.api.nvim_buf_get_name(bufnr)
 
+    print(buf_path)
     -- Fallback check: Look for platformio.ini relative to the buffer file path
     -- OR directly in your active editor current working directory (cwd)
     local has_pio = false
