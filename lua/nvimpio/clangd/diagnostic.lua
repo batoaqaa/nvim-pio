@@ -3,6 +3,7 @@ local M = {}
 
 M.blocked_codes = {}
 M.removed_flags = {}
+M.resetting = false
 
 local root_markers = { 'platformio.ini', '.git' }
 
@@ -55,11 +56,51 @@ function M.diagnostic_handler(err, result, ctx, config)
     return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
   end
 
-  -- Ensure we dynamically read the database relative to this file stream before filtering
+  -- 🌟 GUARD LAYER: If a master reset is currently active, bypass extraction completely
+  if M.resetting then
+    -- Let the raw, unfiltered diagnostics pass straight to the screen
+    return vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
+  end
+
   local bufnr = vim.uri_to_bufnr(result.uri)
   load_filter_database(bufnr)
 
   local clean_diagnostics = {}
+  local automated_discoveries = false
+
+  -- [Your existing loop to parse and extract codes automatically...]
+  for _, diag in ipairs(result.diagnostics) do
+    local msg = diag.message or ''
+    local code = diag.code
+
+    for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
+      local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
+      if not M.removed_flags[clean_flag] then
+        M.removed_flags[clean_flag] = true
+        automated_discoveries = true
+      end
+    end
+    for unknown_arg in string.gmatch(msg, 'option%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
+      local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
+      if not M.removed_flags[clean_flag] then
+        M.removed_flags[clean_flag] = true
+        automated_discoveries = true
+      end
+    end
+
+    if code and type(code) == 'string' and code ~= '' then
+      if not M.blocked_codes[code] then
+        M.blocked_codes[code] = true
+        automated_discoveries = true
+      end
+    end
+  end
+
+  if automated_discoveries then
+    M.save_from_cli(bufnr)
+  end
+
+  -- Perform active item screening pass
   for _, diag in ipairs(result.diagnostics) do
     local keep = true
     local msg = diag.message or ''
@@ -167,11 +208,14 @@ function M.manage_file_diagnostics_interactive()
     end
 
     if choice.action == 'reset' then
-      -- 1. STAGE A: Wipe all in-memory registers completely
+      -- 1. Activate the global background lock
+      M.resetting = true
+
+      -- 2. Clear memory arrays
       M.blocked_codes = {}
       M.removed_flags = {}
 
-      -- 2. STAGE B: Purely truncate the project configuration file back to an empty baseline on disk
+      -- 3. Overwrite the file on disk completely
       local json_database_file = get_db_path(current_buf)
       local f = io.open(json_database_file, 'wb')
       if f then
@@ -179,11 +223,9 @@ function M.manage_file_diagnostics_interactive()
         f:close()
       end
 
-      -- 3. STAGE C: Temporarily kill the automated background group listener for this buffer
-      --    This blocks the LspAttach autocmd from intercepting errors during the reset phase!
+      -- 4. Delete the buffer autocommand group safely
       pcall(vim.api.nvim_del_augroup_by_name, 'NvimPioFirstSweepGroup_' .. current_buf)
-
-      vim.notify('💥 Framework settings wiped clean. original compiler profiles restored.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
+      vim.notify('💥 Data wiped clean. Reverting back to original static settings.', vim.log.levels.ERROR, { title = 'Compiler Mangler' })
     elseif choice.action == 'block_flag' then
       M.removed_flags[choice.id] = true
     elseif choice.action == 'block_code' then
@@ -194,20 +236,28 @@ function M.manage_file_diagnostics_interactive()
       M.blocked_codes[choice.id] = nil
     end
 
-    -- Only run standard save transactions for non-reset choice flows
     if choice.action ~= 'reset' then
       M.save_from_cli(current_buf)
     end
 
-    -- Force a silent buffer reload to pull your updated workspace settings visually
+    -- Force a buffer sync to push the layout update out to the viewport
     if vim.api.nvim_buf_is_valid(current_buf) then
       vim.api.nvim_buf_call(current_buf, function()
         local old_shortmess = vim.o.shortmess
         vim.o.shortmess = old_shortmess .. 'F'
+
         vim.cmd('silent! checktime')
         vim.cmd('silent! edit!')
+
         vim.o.shortmess = old_shortmess
       end)
+    end
+
+    -- 5. Release the background lock after the buffer update pass settles
+    if choice.action == 'reset' then
+      vim.defer_fn(function()
+        M.resetting = false
+      end, 200)
     end
   end)
 end
