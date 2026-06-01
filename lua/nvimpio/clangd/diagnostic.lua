@@ -233,7 +233,7 @@ local function handle_select()
   end
 
   -- 🌟 THE INDEX LOOKUP FIX: Grab the current cursor line row directly!
-  local cursor = vim.api.nvim_win_get_cursor(target_ui_win)
+  local cursor = vim.api.nvim_win_get_cursor(target_uiwin)
   local row_idx = cursor[1]
   local target = menu_mappings[row_idx]
 
