@@ -77,19 +77,19 @@ function M.getClangdConfig()
   -- local f_flags = [["-std=c++17", "-xc++"]]
 
   -- Run your toolchain detection
-  if _G.metadata and _G.metadata.cc_path and _G.metadata.cc_path ~= '' then
-    -- if _G.metadata.triplet and _G.metadata.triplet ~= '' then
-    --   -- local include_flags = table.concat(vim.tbl_map(function(item)
-    --   --   return '"' .. item .. '"'
-    --   -- end, _G.metadata.fallbackFlags), ", ")
-    --
-    --   -- local includes_toolchain = table.concat(vim.tbl_map(function(item)
-    --   --   return '"' .. item .. '"'
-    --   -- end, _G.metadata.includes_toolchain), ", ")
-    --
-    --   -- f_flags = string.format([["-std=gnu++17", "-xc++", "-D__cplusplus=201703L", "--target=%s", "--sysroot=%s", %s, %s]], _G.metadata.triplet, _G.metadata.sysroot, includes_toolchain, include_flags)
-    -- end
-  end
+  -- if _G.metadata and _G.metadata.cc_path and _G.metadata.cc_path ~= '' then
+  --   if _G.metadata.triplet and _G.metadata.triplet ~= '' then
+  --     -- local include_flags = table.concat(vim.tbl_map(function(item)
+  --     --   return '"' .. item .. '"'
+  --     -- end, _G.metadata.fallbackFlags), ", ")
+  --
+  --     -- local includes_toolchain = table.concat(vim.tbl_map(function(item)
+  --     --   return '"' .. item .. '"'
+  --     -- end, _G.metadata.includes_toolchain), ", ")
+  --
+  --     -- f_flags = string.format([["-std=gnu++17", "-xc++", "-D__cplusplus=201703L", "--target=%s", "--sysroot=%s", %s, %s]], _G.metadata.triplet, _G.metadata.sysroot, includes_toolchain, include_flags)
+  --   end
+  -- end
   if _G.metadata.query_driver and _G.metadata.query_driver ~= '' then
     q_driver = _G.metadata.query_driver
   else
@@ -126,13 +126,14 @@ function M.getClangdConfig()
     config.init_options.usePlaceholders = true
     table.insert(config.init_options.fallbackFlags, '-ferror-limit=0')
 
-    -- 1. Programmatically extract the active root workspace boundary path
-    local raw_root = config.root_dir(vim.api.nvim_get_current_buf()) or vim.uv.cwd()
-    -- Instead of a blind ".", we programmatically query the absolute workspace
-    -- root path dynamically from your lspconfig directory variables array block.
-    -- This forces clangd to resolve your project's compile_commands.json perfectly
-    -- across every single file buffer window without breaking context!
+    -- 🌟 FIXED TYPE AND ROUTING CONSTRAINT:
+    -- We extract the absolute project folder root directly from the native LSP
+    -- initialization parameters package. This completely removes the need to call
+    -- 'config.root_dir' as a function, resolving your startup crash forever!
+    local raw_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
     local active_root = (type(raw_root) == 'string' and raw_root ~= '') and raw_root or '.'
+
+    -- Assign the absolute, normalized path to your project compilation database
     config.init_options.compilationDatabasePath = vim.fs.normalize(active_root)
   end
 
