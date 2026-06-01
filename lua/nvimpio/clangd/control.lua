@@ -78,19 +78,23 @@ function M.getClangdConfig()
 
   -- Run your toolchain detection
   if _G.metadata and _G.metadata.cc_path and _G.metadata.cc_path ~= '' then
-    if _G.metadata.triplet and _G.metadata.triplet ~= '' then
-      -- local include_flags = table.concat(vim.tbl_map(function(item)
-      --   return '"' .. item .. '"'
-      -- end, _G.metadata.fallbackFlags), ", ")
-
-      -- local includes_toolchain = table.concat(vim.tbl_map(function(item)
-      --   return '"' .. item .. '"'
-      -- end, _G.metadata.includes_toolchain), ", ")
-
-      -- f_flags = string.format([["-std=gnu++17", "-xc++", "-D__cplusplus=201703L", "--target=%s", "--sysroot=%s", %s, %s]], _G.metadata.triplet, _G.metadata.sysroot, includes_toolchain, include_flags)
-
-      q_driver = _G.metadata.query_driver --.. ',C:/PROGRA~1/LLVM/bin/*'          -- use with "--query-driver=%s"
-    end
+    -- if _G.metadata.triplet and _G.metadata.triplet ~= '' then
+    --   -- local include_flags = table.concat(vim.tbl_map(function(item)
+    --   --   return '"' .. item .. '"'
+    --   -- end, _G.metadata.fallbackFlags), ", ")
+    --
+    --   -- local includes_toolchain = table.concat(vim.tbl_map(function(item)
+    --   --   return '"' .. item .. '"'
+    --   -- end, _G.metadata.includes_toolchain), ", ")
+    --
+    --   -- f_flags = string.format([["-std=gnu++17", "-xc++", "-D__cplusplus=201703L", "--target=%s", "--sysroot=%s", %s, %s]], _G.metadata.triplet, _G.metadata.sysroot, includes_toolchain, include_flags)
+    -- end
+  end
+  if _G.metadata.query_driver and _G.metadata.query_driver ~= '' then
+    q_driver = _G.metadata.query_driver
+  else
+    -- Standard global default sandbox path fallback option if initialization variables are blank
+    q_driver = vim.fs.normalize(_G.metadata.core_dir .. '/*/packages/toolchain-*/bin/*')
   end
 
   -- Format your template string
