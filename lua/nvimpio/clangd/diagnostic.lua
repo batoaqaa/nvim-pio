@@ -243,81 +243,17 @@ local function draw_menu()
   end
 end
 
--- local function handle_select()
---   local orig = state.original_bufnr or 0
---   local win_handle = state.uiwin or 0
---
---   -- Early exit if active window structures are unassigned
---   if orig == 0 or win_handle == 0 or not vim.api.nvim_win_is_valid(win_handle) then
---     return
---   end
---
---   -- 🌟 FIXED DIRECT DATA LOOKUP:
---   -- Read the exact line index integer matching your cursor row natively
---   local cursor = vim.api.nvim_win_get_cursor(win_handle)
---   local row_idx = cursor[1]
---   local target = menu_mappings[row_idx]
---
---   if not target then
---     return
---   end
---
---   if target.action == 'reset' then
---     state.codes = {}
---     save_db(orig)
---     vim.notify('💥 User selections wiped clean.', vim.log.levels.ERROR)
---   elseif target.action == 'block' then
---     state.codes[target.id] = true
---     save_db(orig)
---   elseif target.action == 'unblock' then
---     state.codes[target.id] = nil
---     save_db(orig)
---   end
---
---   M.on_updated = function()
---     vim.schedule(function()
---       draw_menu()
---     end)
---   end
---
---   -- Force reactive memory mask conversions inside RAM registers
---   if target.action == 'reset' then
---     vim.diagnostic.reset(nil, orig)
---     vim.api.nvim_buf_call(orig, function()
---       local old = vim.o.shortmess
---       vim.o.shortmess = old .. 'F'
---       vim.cmd('silent! checktime')
---       vim.cmd('silent! edit!')
---       vim.o.shortmess = old
---     end)
---   else
---     if vim.api.nvim_buf_is_valid(orig) then
---       for _, client in pairs(vim.lsp.get_clients({ bufnr = orig })) do
---         if client.name == 'clangd' then
---           local l_ns = vim.lsp.diagnostic.get_namespace(client.id)
---           local current_diags = vim.diagnostic.get(orig, { namespace = l_ns })
---           local filtered_diags = {}
---           for _, d in ipairs(current_diags) do
---             if not (d.code and state.codes[d.code]) then
---               table.insert(filtered_diags, d)
---             end
---           end
---           vim.diagnostic.set(l_ns, orig, filtered_diags, {})
---         end
---       end
---     end
---     draw_menu()
---   end
--- end
-
 local function handle_select()
   local orig = state.original_bufnr or 0
   local win_handle = state.uiwin or 0
 
+  -- Early exit if active window structures are unassigned
   if orig == 0 or win_handle == 0 or not vim.api.nvim_win_is_valid(win_handle) then
     return
   end
 
+  -- 🌟 FIXED DIRECT DATA LOOKUP:
+  -- Read the exact line index integer matching your cursor row natively
   local cursor = vim.api.nvim_win_get_cursor(win_handle)
   local row_idx = cursor[1]
   local target = menu_mappings[row_idx]
@@ -329,7 +265,7 @@ local function handle_select()
   if target.action == 'reset' then
     state.codes = {}
     save_db(orig)
-    vim.notify('💥 All filters wiped clean.', vim.log.levels.ERROR)
+    vim.notify('💥 User selections wiped clean.', vim.log.levels.ERROR)
   elseif target.action == 'block' then
     state.codes[target.id] = true
     save_db(orig)
@@ -344,35 +280,34 @@ local function handle_select()
     end)
   end
 
-  -- 🌟 THE TRUE SYNCHRONOUS MUTATIONPASS (0MS DISK overhead):
-  -- Instead of passive filters, we force-rewrite Neovim's core memory cache registers.
-  -- We query the original lints array, slice out suppressed codes, and update the cache instantly.
-  -- This guarantees the error underlines vanish or reappear on your screen on the exact same frame!
-  if vim.api.nvim_buf_is_valid(orig) then
-    for _, client in pairs(vim.lsp.get_clients({ bufnr = orig })) do
-      if client.name == 'clangd' then
-        local l_ns = vim.lsp.diagnostic.get_namespace(client.id)
-
-        -- Extract the live diagnostic data table matching this language server client
-        local current_diags = vim.diagnostic.get(orig, { namespace = l_ns })
-        local filtered_diags = {}
-
-        for _, d in ipairs(current_diags) do
-          local code = d.code
-          -- If the item's code exists inside our active suppression mapping list, screen it out
-          if not (code and state.codes[code]) then
-            table.insert(filtered_diags, d)
+  -- Force reactive memory mask conversions inside RAM registers
+  if target.action == 'reset' then
+    vim.diagnostic.reset(nil, orig)
+    vim.api.nvim_buf_call(orig, function()
+      local old = vim.o.shortmess
+      vim.o.shortmess = old .. 'F'
+      vim.cmd('silent! checktime')
+      vim.cmd('silent! edit!')
+      vim.o.shortmess = old
+    end)
+  else
+    if vim.api.nvim_buf_is_valid(orig) then
+      for _, client in pairs(vim.lsp.get_clients({ bufnr = orig })) do
+        if client.name == 'clangd' then
+          local l_ns = vim.lsp.diagnostic.get_namespace(client.id)
+          local current_diags = vim.diagnostic.get(orig, { namespace = l_ns })
+          local filtered_diags = {}
+          for _, d in ipairs(current_diags) do
+            if not (d.code and state.codes[d.code]) then
+              table.insert(filtered_diags, d)
+            end
           end
+          vim.diagnostic.set(l_ns, orig, filtered_diags, {})
         end
-
-        -- Force-write the synchronized diagnostics table straight back to the buffer viewport
-        vim.diagnostic.set(l_ns, orig, filtered_diags, {})
       end
     end
+    draw_menu()
   end
-
-  -- Update the floating panel checkbox check-markers immediately
-  draw_menu()
 end
 
 function M.manage_file_diagnostics_interactive()
