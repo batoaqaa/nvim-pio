@@ -62,25 +62,6 @@ function M.diagnostic_handler(err, result, ctx, config)
   local bufnr = vim.uri_to_bufnr(result.uri)
   load_db(bufnr)
 
-  -- PASS 1: AUTOMATED IN-MEMORY DRIVER FLAG CAPTURING
-  for _, diag in ipairs(result.diagnostics) do
-    local code = diag.code
-    local msg = diag.message or ''
-
-    if code and type(code) == 'string' and code ~= '' then
-      local is_drv = code == 'drv_unknown_argument' or code == 'drv_unknown_argument_with_suggestion' or code == 'fatal_too_many_errors'
-      if is_drv then
-        local f = msg:match('(%-[%w%-]+)')
-        if f then
-          M.removed_flags[f] = true
-        end
-      end
-    end
-  end
-
-  -- PASS 2: PRESENTATION SCREENING PASS
-  -- We filter out driver flags natively, but pass application warnings
-  -- directly to Neovim's cache so the picker records are never lost!
   local clean_diagnostics = {}
   for _, diag in ipairs(result.diagnostics) do
     local keep = true
@@ -91,6 +72,10 @@ function M.diagnostic_handler(err, result, ctx, config)
 
     if is_drv then
       keep = false
+      local f = msg:match('(%-[%w%-]+)')
+      if f then
+        M.removed_flags[f] = true
+      end
     end
 
     if keep then
@@ -110,15 +95,20 @@ function M.diagnostic_handler(err, result, ctx, config)
   result.diagnostics = clean_diagnostics
   vim.lsp.handlers['textDocument/publishDiagnostics'](err, result, ctx, config)
 
-  -- 🌟 THE PRESENTATION MASK: Force an instant filter redraw on screen
+  -- 🌟 FIXED LIVE PRESENTATION MASK:
+  -- Dynamically look up the clangd client namespace and force an update pass!
   vim.schedule(function()
     if vim.api.nvim_buf_is_valid(bufnr) then
-      -- Filter out items matching your block list from the visual screen array
-      vim.diagnostic.show(nil, bufnr, nil, {
-        filter = function(d)
-          return not (d.code and M.manual_blocked_codes[d.code])
-        end,
-      })
+      for _, client in pairs(vim.lsp.get_clients({ bufnr = bufnr })) do
+        if client.name == 'clangd' then
+          local ns = vim.lsp.diagnostic.get_namespace(client.id)
+          vim.diagnostic.show(ns, bufnr, nil, {
+            filter = function(d)
+              return not (d.code and M.manual_blocked_codes[d.code])
+            end,
+          })
+        end
+      end
     end
   end)
 end
@@ -134,7 +124,6 @@ function M.manage_file_diagnostics_interactive()
     table.insert(items, { action = 'reset', text = '💥 Clear All Active User Filters' })
   end
 
-  -- Scan active warnings out of current buffer namespaces
   local raw_diagnostics = vim.diagnostic.get(bufnr)
   local seen = {}
   for _, d in ipairs(raw_diagnostics) do
@@ -147,12 +136,10 @@ function M.manage_file_diagnostics_interactive()
     end
   end
 
-  -- Show active suppressed options for toggling back
   for k, _ in pairs(M.manual_blocked_codes) do
     table.insert(items, { action = 'unblock', id = k, text = '🔓 Remove Manual Filter: [' .. k .. ']' })
   end
 
-  -- Print read-only logs at the bottom
   for f, _ in pairs(M.removed_flags) do
     table.insert(items, { action = 'none', text = '⚙️ [AUTOMATED BLOCK]: ' .. f })
   end
@@ -162,7 +149,6 @@ function M.manage_file_diagnostics_interactive()
     return
   end
 
-  -- Render via native modern Neovim picker loop
   vim.ui.select(items, {
     prompt = 'Filter Panel (Press Esc to finish)',
     format_item = function(item)
@@ -183,22 +169,23 @@ function M.manage_file_diagnostics_interactive()
 
     save_db(bufnr)
 
-    -- 🌟 THE ZERO-LAG LIVE RE-SYNC FILTER:
-    -- We force Neovim to immediately update its active visual screen layout
-    -- based on our updated manual_blocked_codes table, then instantly loop
-    -- right back to re-draw the choices menu list array.
-    -- Everything updates inside RAM with 0ms latency, zero flickering,
-    -- and zero async timing traps!
+    -- 🌟 FIXED TIMING RE-SYNC:
+    -- Force-apply the presentation filters straight into the active clangd namespace.
+    -- This provides instantaneous 0ms frame updates on your screen layout!
     vim.schedule(function()
       if vim.api.nvim_buf_is_valid(bufnr) then
-        vim.diagnostic.show(nil, bufnr, nil, {
-          filter = function(d)
-            return not (d.code and M.manual_blocked_codes[d.code])
-          end,
-        })
+        for _, client in pairs(vim.lsp.get_clients({ bufnr = bufnr })) do
+          if client.name == 'clangd' then
+            local ns = vim.lsp.diagnostic.get_namespace(client.id)
+            vim.diagnostic.show(ns, bufnr, nil, {
+              filter = function(d)
+                return not (d.code and M.manual_blocked_codes[d.code])
+              end,
+            })
+          end
+        end
       end
 
-      -- Re-trigger function recursively to hold menu open!
       M.manage_file_diagnostics_interactive()
     end)
   end)
