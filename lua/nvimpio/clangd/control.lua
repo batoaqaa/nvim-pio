@@ -123,7 +123,7 @@ function M.getClangdConfig()
     for _, define in ipairs(auto_defines) do
       print(define)
       -- table.insert(config.init_options.fallbackFlags, define)
-      table.insert(config.init_options.fallbackFlags, string.format("%q", define))
+      table.insert(config.init_options.fallbackFlags, define)
     end
 
     -- Assign the absolute, normalized path to your project compilation database
@@ -143,7 +143,7 @@ function M.getClangdConfig()
     --             pio_diag.removed_flags[flag] = true
     --           end
     --           -- table.insert(config.init_options.fallbackFlags, flag)
-    --           table.insert(config.init_options.fallbackFlags, string.format('%q', flag))
+    --           table.insert(config.init_options.fallbackFlags, flag)
     --         end
     --       end
     --     end
