@@ -243,9 +243,11 @@ function M.manage_file_diagnostics_interactive()
   for _ in pairs(active_file_blocked) do
     block_count = block_count + 1
   end
+  local short_db_name = vim.fs.basename(filter_db_path) or '.filter.json'
   vim.ui.select(items, {
     -- prompt = 'Filter Panel (Toggle items, press Esc to Save & Apply)',
-    prompt = string.format('DB Path: %s (Loaded keys: %d)', filter_db_path, block_count),
+    -- prompt = string.format('DB Path: %s (Loaded keys: %d)', filter_db_path, block_count),
+    prompt = string.format('📁 %s | 🔑 Blocked: %d', short_db_name, block_count),
     format_item = function(item)
       return item.text
     end,
