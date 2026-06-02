@@ -83,6 +83,13 @@ function M.clean_project_wide_flags(project_root, diagnostics)
     local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
 
     if is_drv then
+      -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
+      -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
+      -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
+      -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
+      -- O: Optimization Levels (e.g., -Os, -O2)
+      -- d / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
+      -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
       -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
       local flag = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
       if flag and not M.removed_flags[flag] then
@@ -116,6 +123,7 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
     return diagnostics
   end
   local filter_db_path = get_db_path(absolute_file_path)
+  local project_root = vim.fs.dirname(filter_db_path)
 
   local manual_blocked = {}
   local db_file = io.open(filter_db_path, 'rb')
@@ -137,12 +145,39 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
 
   local clean_diagnostics = {}
   for _, diag in ipairs(diagnostics) do
+    local keep = true
     local code = diag.code
-    if not (code and manual_blocked[code]) then
-      table.insert(clean_diagnostics, diag)
-      if code and type(code) == 'string' and code ~= '' then
-        M.session_discovered_codes[code] = true
+    local msg = diag.message or ''
+
+    -- 1. CROSSOVER SAFETY CHECK: Catch driver errors even if they slip into Route B
+    local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
+
+    if is_drv then
+      keep = false
+      -- Extract the true compiler flag (e.g. -mlongcalls) using our generic regex pattern
+      local flag = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
+      if flag and not M.removed_flags[flag] then
+        local boiler = require('nvimpio.boilerplate')
+        boiler.remove = boiler.remove or {}
+        table.insert(boiler.remove, flag)
+        M.removed_flags[flag] = true
+
+        -- Force save the flags back down to disk instantly
+        save_db(vim.api.nvim_get_current_buf())
+        if boiler.boilerplate_gen then
+          pcall(boiler.boilerplate_gen, '.clangd', project_root)
+        end
       end
+    elseif code and manual_blocked[code] then
+      keep = false
+    end
+
+    if code and type(code) == 'string' and code ~= '' and not is_drv then
+      M.session_discovered_codes[code] = true
+    end
+
+    if keep then
+      table.insert(clean_diagnostics, diag)
     end
   end
   return clean_diagnostics
