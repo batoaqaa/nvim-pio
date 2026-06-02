@@ -271,6 +271,7 @@ if target_file then
   -- 2. Query Neovim's diagnostic tracking pool for this specific buffer
   local raw_diagnostics = vim.diagnostic.get(target_bufnr)
   -- 3. Feed the results straight into your clean file pipeline core
+  print('here')
   M.clean_file_path_pipeline(target_file, raw_diagnostics)
 end
 
