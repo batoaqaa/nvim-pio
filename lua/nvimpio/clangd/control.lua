@@ -117,8 +117,10 @@ function M.getClangdConfig()
     return nil
   end
 
+  local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
   clangd_config.before_init = function(params, config)
-    local project_root = config.root_dir or vim.uv.cwd()
+    local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
+    project_root = (type(project_root) == 'string' and project_root ~= '') and project_root or '.'
     print(project_root)
 
     config.init_options = config.init_options or {}
@@ -136,15 +138,29 @@ function M.getClangdConfig()
     for _, define in ipairs(auto_defines) do
       table.insert(config.init_options.fallbackFlags, define)
     end
-    -- 🌟 FIXED TYPE AND ROUTING CONSTRAINT:
-    -- We extract the absolute project folder root directly from the native LSP
-    -- initialization parameters package. This completely removes the need to call
-    -- 'config.root_dir' as a function, resolving your startup crash forever!
-    local raw_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
-    local active_root = (type(raw_root) == 'string' and raw_root ~= '') and raw_root or '.'
 
     -- Assign the absolute, normalized path to your project compilation database
-    config.init_options.compilationDatabasePath = vim.fs.normalize(active_root)
+    config.init_options.compilationDatabasePath = vim.fs.normalize(project_root)
+
+    local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
+    local f = io.open(filter_db_path, 'r')
+    if f then
+      local raw = f:read('*a')
+      f:close()
+      if raw and raw ~= '' then
+        local ok, data = pcall(vim.json.decode, raw)
+        if ok and data and type(data.flags) == 'table' then
+          for flag, blocked in pairs(data.flags) do
+            if blocked then
+              if success and pio_diag then
+                pio_diag.removed_flags[flag] = true
+              end
+              table.insert(config.init_options.fallbackFlags, flag)
+            end
+          end
+        end
+      end
+    end
   end
 
   -- clangd_config.handlers = {
@@ -152,7 +168,6 @@ function M.getClangdConfig()
   --   ['textDocument/publishDiagnostics'] = diagnostic.diagnostic_handler,
   -- }
   -- 1. Pass parameters through the clean file pipeline safely using the true path target
-  local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
   clangd_config.handlers = {
     ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
       if err or not result or not result.diagnostics then
@@ -571,7 +586,15 @@ function M.init(clangd)
   end
 
   require('nvimpio.clangd.commands')
-  require('nvimpio.clangd.diagnostic')
+  vim.api.nvim_create_user_command('PioFilter', function()
+    local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+    if success and pio_diag and pio_diag.manage_file_diagnostics_interactive then
+      pio_diag.manage_file_diagnostics_interactive()
+    else
+      vim.notify('nvimpio: Failed to initialize the diagnostics UI panel.', vim.log.levels.ERROR)
+    end
+  end, { desc = 'Open PlatformIO lint suppression checkbox manager' })
+  -- require('nvimpio.clangd.diagnostic')
 
   vim.keymap.set('n', 'gll', function()
     vim.cmd.edit(vim.lsp.log.get_filename())
