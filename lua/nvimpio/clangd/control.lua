@@ -117,15 +117,6 @@ function M.getClangdConfig()
     return nil
   end
 
-  local auto_defines = _G.metadata.auto_defines
-  -- 4. Inject all discovered macros straight into memory via --compile-flags
-  if #auto_defines > 0 then
-    -- This creates a single string: "-D__XTENSA__=1 -D__GNUC__=8 ..."
-    local combined_macros = table.concat(auto_defines, ' ')
-    -- Pass it to clangd as a single combined extension flag
-    table.insert(clangd_config.cmd, '--compile-flags-extension=' .. combined_macros)
-  end
-
   clangd_config.before_init = function(params, config)
     config.init_options = config.init_options or {}
     config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
@@ -137,6 +128,11 @@ function M.getClangdConfig()
     table.insert(config.init_options.fallbackFlags, '-ferror-limit=0')
     table.insert(config.init_options.fallbackFlags, '-std=c++17')
 
+    local auto_defines = _G.metadata.auto_defines
+    -- 4. Inject all discovered macros straight into memory via --compile-flags
+    for _, define in ipairs(auto_defines) do
+      table.insert(config.init_options.fallbackFlags, define)
+    end
     -- 🌟 FIXED TYPE AND ROUTING CONSTRAINT:
     -- We extract the absolute project folder root directly from the native LSP
     -- initialization parameters package. This completely removes the need to call
