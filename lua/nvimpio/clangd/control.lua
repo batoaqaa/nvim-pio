@@ -161,7 +161,6 @@ function M.getClangdConfig()
         )
       )
 
-      -- 2. Fail fast if there is an error or no diagnostics data present
       if err or not result or not result.diagnostics then
         local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
         if default_handler then
@@ -170,26 +169,31 @@ function M.getClangdConfig()
         return
       end
 
-      -- 3. Convert the incoming URI to an absolute file path deterministically
-      local target_path = vim.uri_to_fname(result.uri)
-
-      -- 4. Extract the active LSP client project root workspace directory
+      -- 1. Extract true workspace properties using the native LSP Client ID
       local client = vim.lsp.get_client_by_id(ctx.client_id)
       local project_root = client and client.config.root_dir or vim.uv.cwd()
 
-      -- 5. PROFESSIONAL GUARD: Handle global configuration files safely
-      -- If the error targets a global config file outside your source code tree,
-      -- route it to the project root directory instead of blindly hijacking a random code buffer.
-      if target_path:match('%.clangd$') or target_path:match('%.json$') then
-        -- Map it to a dummy virtual path inside the project root so it saves to the correct .filter.json
-        target_path = vim.fs.joinpath(project_root, 'project_config_anchor')
+      local target_path = vim.uri_to_fname(result.uri)
+      local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
+
+      -- 2. RIGID ROUTING ENGINE
+      if success and pio_diag then
+        if is_config then
+          -- 🟢 ROUTE A: Process global toolchain configuration flags using the project root folder
+          if pio_diag.clean_project_wide_flags then
+            pio_diag.clean_project_wide_flags(project_root, result.diagnostics)
+          end
+          -- Block config diagnostics from polluting the visible text viewport
+          return
+        else
+          -- 🟢 ROUTE B: Process local source code files natively using their true disk paths
+          if pio_diag.clean_file_path_pipeline then
+            result.diagnostics = pio_diag.clean_file_path_pipeline(target_path, result.diagnostics)
+          end
+        end
       end
 
-      if success and pio_diag and pio_diag.clean_file_path_pipeline then
-        result.diagnostics = pio_diag.clean_file_path_pipeline(target_path, result.diagnostics)
-      end
-
-      -- 6. Forward down to Neovim's active core rendering system
+      -- 3. Forward clean, true source code diagnostics down to Neovim
       local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
       if default_handler then
         default_handler(err, result, ctx, config)

@@ -72,19 +72,151 @@ local function save_db(bufnr)
 end
 
 -- ===================================================================
--- 4. CORE HEADLESS ENGINE (Runs via absolute path strings)
+-- 4. 🟢 ENGINE PATH A: Clean Project-Wide Toolchain Flags (Rigid Root)
+-- ===================================================================
+function M.clean_project_wide_flags(project_root, diagnostics)
+  if not diagnostics or #diagnostics == 0 then
+    return
+  end
+
+  local boiler = require('nvimpio.boilerplate')
+  boiler.remove = boiler.remove or {}
+
+  local flags_updated = false
+  for _, diag in ipairs(diagnostics) do
+    local code = diag.code
+    local msg = diag.message or ''
+
+    -- Identify toolchain driver errors using generic syntax rules
+    local is_drv = false
+    if type(code) == 'string' then
+      is_drv = code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument')
+    end
+
+    if is_drv then
+      local flag = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
+      if flag and not M.removed_flags[flag] then
+        table.insert(boiler.remove, flag)
+        M.removed_flags[flag] = true
+        flags_updated = true
+      end
+    end
+  end
+
+  -- Write updates straight to disk if a new bad compiler argument was caught
+  if flags_updated then
+    local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
+    local f = io.open(filter_db_path, 'wb')
+    if f then
+      local payload = { codes = M.manual_blocked_codes, flags = M.removed_flags }
+      f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+      f:close()
+    end
+
+    local boilerplate_gen = boiler.boilerplate_gen
+    if boilerplate_gen then
+      pcall(boilerplate_gen, '.clangd', project_root)
+    end
+  end
+end
+-- function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
+--   -- print(absolute_file_path)
+--   if not absolute_file_path or absolute_file_path == '' then
+--     return {}
+--   end
+--   diagnostics = diagnostics or {}
+--
+--   local filter_db_path = get_db_path(absolute_file_path)
+--   local project_root = vim.fs.dirname(filter_db_path) -- Derive root folder directly from db location
+--
+--   -- Isolated disk lookup matching standard JSON loader
+--   local manual_blocked = {}
+--   local db_file = io.open(filter_db_path, 'rb')
+--   if db_file then
+--     local raw = db_file:read('*all')
+--     db_file:close()
+--     if raw and raw ~= '' then
+--       local ok, data = pcall(vim.json.decode, raw)
+--       if ok and data and type(data.codes) == 'table' then
+--         for k, v in pairs(data.codes) do
+--           local s = (type(k) == 'string') and k or v
+--           if type(s) == 'string' and s ~= '' then
+--             manual_blocked[s] = true
+--           end
+--         end
+--       end
+--     end
+--   end
+--
+--   local boiler = require('nvimpio.boilerplate')
+--   boiler.remove = {}
+--
+--   local clean_diagnostics = {}
+--   for _, diag in ipairs(diagnostics) do
+--     local keep = true
+--     local code = diag.code
+--     local msg = diag.message or ''
+--
+--     local is_drv = false
+--     if type(code) == 'string' then
+--       local lower_code = code:lower()
+--       local lower_msg = msg:lower()
+--       local has_driver_prefix = lower_code:match('^drv_') or lower_code:match('^fatal_')
+--       local has_flag_keywords = lower_msg:match('argument') or lower_msg:match('unknown flag') or lower_msg:match('command line option')
+--
+--       if has_driver_prefix or has_flag_keywords then
+--         is_drv = true
+--       end
+--     end
+--
+--     if is_drv then
+--       keep = false
+--       -- local f = msg:match('(%-[%w%-%.%*]+)')
+--       -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
+--       -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
+--       -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
+--       -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
+--       -- O: Optimization Levels (e.g., -Os, -O2)
+--       -- d / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
+--       -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
+--       local f = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
+--       if f then
+--         table.insert(boiler.remove, f)
+--         M.removed_flags[f] = true
+--       end
+--     elseif code and manual_blocked[code] then
+--       keep = false
+--     end
+--
+--     if code and type(code) == 'string' and code ~= '' and not is_drv then
+--       M.session_discovered_codes[code] = true
+--     end
+--
+--     if keep then
+--       table.insert(clean_diagnostics, diag)
+--     end
+--   end
+--
+--   local boilerplate_gen = boiler.boilerplate_gen
+--   if boilerplate_gen then
+--     pcall(boilerplate_gen, '.clangd', project_root)
+--   end
+--
+--   return clean_diagnostics
+-- end
+
+-- ===================================================================
+-- 5. 🟢 ENGINE PATH B: Clean Source Code File Diagnostics (Pure Files)
 -- ===================================================================
 function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
-  -- print(absolute_file_path)
-  if not absolute_file_path or absolute_file_path == '' then
-    return {}
+  if not diagnostics or #diagnostics == 0 then
+    return diagnostics
   end
-  diagnostics = diagnostics or {}
 
-  local filter_db_path = get_db_path(absolute_file_path)
-  local project_root = vim.fs.dirname(filter_db_path) -- Derive root folder directly from db location
+  local project_root = vim.fs.root(absolute_file_path, { 'platformio.ini', '.git' }) or vim.uv.cwd()
+  local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
 
-  -- Isolated disk lookup matching standard JSON loader
+  -- Read the project-specific blocked codes dictionary map
   local manual_blocked = {}
   local db_file = io.open(filter_db_path, 'rb')
   if db_file then
@@ -103,72 +235,25 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
     end
   end
 
-  local boiler = require('nvimpio.boilerplate')
-  boiler.remove = {}
-
   local clean_diagnostics = {}
   for _, diag in ipairs(diagnostics) do
-    local keep = true
     local code = diag.code
-    local msg = diag.message or ''
-
-    local is_drv = false
-    if type(code) == 'string' then
-      local lower_code = code:lower()
-      local lower_msg = msg:lower()
-      local has_driver_prefix = lower_code:match('^drv_') or lower_code:match('^fatal_')
-      local has_flag_keywords = lower_msg:match('argument') or lower_msg:match('unknown flag') or lower_msg:match('command line option')
-
-      if has_driver_prefix or has_flag_keywords then
-        is_drv = true
-      end
-    end
-
-    if is_drv then
-      keep = false
-      -- local f = msg:match('(%-[%w%-%.%*]+)')
-      -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
-      -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
-      -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
-      -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
-      -- O: Optimization Levels (e.g., -Os, -O2)
-      -- d / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
-      -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
-      local f = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
-      if f then
-        table.insert(boiler.remove, f)
-        M.removed_flags[f] = true
-      end
-    elseif code and manual_blocked[code] then
-      keep = false
-    end
-
-    if code and type(code) == 'string' and code ~= '' and not is_drv then
-      M.session_discovered_codes[code] = true
-    end
-
-    if keep then
+    if not (code and manual_blocked[code]) then
       table.insert(clean_diagnostics, diag)
+      if code and type(code) == 'string' and code ~= '' then
+        M.session_discovered_codes[code] = true
+      end
     end
-  end
-
-  local boilerplate_gen = boiler.boilerplate_gen
-  if boilerplate_gen then
-    pcall(boilerplate_gen, '.clangd', project_root)
   end
 
   return clean_diagnostics
 end
-
--- ===================================================================
--- 5. LIVE LIGHTWEIGHT BUFFER WRAPPER (Feeds the headless core)
--- ===================================================================
-function M.clean_diagnostics_pipeline(diagnostics, bufnr)
-  bufnr = bufnr or vim.api.nvim_get_current_buf()
-  local absolute_file_path = vim.api.nvim_buf_get_name(bufnr)
-  print(absolute_file_path)
-  return M.clean_file_path_pipeline(absolute_file_path, diagnostics)
-end
+-- function M.clean_diagnostics_pipeline(diagnostics, bufnr)
+--   bufnr = bufnr or vim.api.nvim_get_current_buf()
+--   local absolute_file_path = vim.api.nvim_buf_get_name(bufnr)
+--   print(absolute_file_path)
+--   return M.clean_file_path_pipeline(absolute_file_path, diagnostics)
+-- end
 
 -- ===================================================================
 -- 6. INTERACTIVE DYNAMIC CHECKBOX PICKER
