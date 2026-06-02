@@ -117,6 +117,12 @@ function M.getClangdConfig()
     return nil
   end
 
+  local auto_defines = _G.metadata.auto_defines
+  -- 4. Inject all discovered macros straight into memory via --compile-flags
+  for _, define in ipairs(auto_defines) do
+    table.insert(clangd_config.cmd, '--compile-flags=' .. define)
+  end
+
   clangd_config.before_init = function(params, config)
     config.init_options = config.init_options or {}
     config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
