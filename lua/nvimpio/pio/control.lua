@@ -173,7 +173,7 @@ function M.start_watchers()
     { -- watcher for ./.pio/build/projct.checksum
       name = 'checksum',
       isBusy = false,
-      path = vim.fs.joinPath(project_root, '.pio', 'build', 'project.checksum'), --checksum_path
+      path = vim.fs.joinpath(project_root, '.pio', 'build', 'project.checksum'), --checksum_path
       cb = function(self)
         local ok, current_checksum = misc.readFile(self.path)
         -- Check if we should exit early

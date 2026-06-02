@@ -116,10 +116,10 @@ fetch_metadata = function(callback, active_env, from, attempts)
   local meta = _G.metadata
 
   -- Set up file paths
-  local build_dir = vim.fs.joinPath(vim.uv.cwd(), '.pio', 'build')
-  local build_env_dir = vim.fs.joinPath(build_dir, active_env)
-  local checksum_file = vim.fs.joinPath(build_dir, 'project.checksum')
-  local idedata_file = vim.fs.joinPath(build_env_dir, 'idedata.json')
+  local build_dir = vim.fs.joinpath(vim.uv.cwd(), '.pio', 'build')
+  local build_env_dir = vim.fs.joinpath(build_dir, active_env)
+  local checksum_file = vim.fs.joinpath(build_dir, 'project.checksum')
+  local idedata_file = vim.fs.joinpath(build_env_dir, 'idedata.json')
 
   local function fire_callback(status)
     refreshBusy = false

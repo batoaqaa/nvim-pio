@@ -66,8 +66,8 @@ Diagnostics:
     --"drv_unknown_argument",
   content = function(self)
     local core = require('nvimpio')
-    local cwdClangd = misc.joinPath(vim.uv.cwd(), '.clangd')
-    local coreClangd = misc.joinPath(core.config.pio_storage_dir, '.clangd')
+    local cwdClangd = vim.fs.joinpath(vim.uv.cwd(), '.clangd')
+    local coreClangd = vim.fs.joinpath(core.config.pio_storage_dir, '.clangd')
     local staticBlock, dynamicBlock = '', ''
 
     if vim.uv.fs_stat(cwdClangd) then
