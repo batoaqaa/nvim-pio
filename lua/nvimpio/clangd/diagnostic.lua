@@ -1,7 +1,7 @@
 --- stylua: ignore start
 local M = {}
 
-M.manual_blocked_codes = {}
+-- Module scopes track cross-file automated session states safely
 M.removed_flags = {}
 M.session_discovered_codes = {}
 
@@ -21,22 +21,21 @@ local function get_db_path(source)
   if not root_dir and (type(source) == 'number' or source == nil) then
     local bufnr = source or vim.api.nvim_get_current_buf()
     local clients = vim.lsp.get_clients({ bufnr = bufnr, name = 'clangd' })
-
-    if #clients > 0 then
-      local active_client = clients[1]
-      root_dir = active_client.config and active_client.config.root_dir or nil
+    if #clients > 0 and clients[1] then
+      root_dir = clients[1].root_dir
     end
   end
 
   root_dir = root_dir or vim.uv.cwd()
   return vim.fs.joinpath(root_dir, '.filter.json')
 end
--- 2. Load persistent json records reliably (Handles both array and dict JSON targets safely)
-local function load_db(bufnr)
-  M.manual_blocked_codes = {}
-  local f = io.open(get_db_path(bufnr), 'rb')
+
+-- 2. Pure local JSON reading loop (Bypasses shared state memory pollution)
+local function parse_db_file_pure(db_path)
+  local blocked_codes = {}
+  local f = io.open(db_path, 'rb')
   if not f then
-    return
+    return blocked_codes
   end
   local raw = f:read('*all')
   f:close()
@@ -54,30 +53,14 @@ local function load_db(bufnr)
           code_str = v
         end
 
-        if code_str then
-          M.manual_blocked_codes[code_str] = true
-        end
-      end
-    end
-
-    if ok and data and type(data.flags) == 'table' then
-      for k, v in pairs(data.flags) do
-        if type(k) == 'string' and k ~= '' then
-          M.removed_flags[k] = true
+        -- Map values strictly as explicit boolean markers
+        if code_str and data.codes[k] == true then
+          blocked_codes[code_str] = true
         end
       end
     end
   end
-end
-
--- 3. Save checkbox changes back to the project folder
-local function save_db(bufnr)
-  local f = io.open(get_db_path(bufnr), 'wb')
-  if f then
-    local payload = { codes = M.manual_blocked_codes, flags = M.removed_flags }
-    f:write(require('nvimpio.utils.misc').jsonFormat(payload))
-    f:close()
-  end
+  return blocked_codes
 end
 
 -- ===================================================================
@@ -97,14 +80,6 @@ function M.clean_project_wide_flags(project_root, diagnostics)
     local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
 
     if is_drv then
-      -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
-      -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
-      -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
-      -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
-      -- O: Optimization Levels (e.g., -Os, -O2)
-      -- d / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
-      -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
-      -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
       local flag = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
       if flag and not M.removed_flags[flag] then
         table.insert(boiler.remove, flag)
@@ -116,9 +91,12 @@ function M.clean_project_wide_flags(project_root, diagnostics)
 
   if flags_updated then
     local filter_db_path = get_db_path(project_root)
+    -- Load what is explicitly written to file right now, ignoring dirty RAM states
+    local current_blocked = parse_db_file_pure(filter_db_path)
+
     local f = io.open(filter_db_path, 'wb')
     if f then
-      local payload = { codes = M.manual_blocked_codes, flags = M.removed_flags }
+      local payload = { codes = current_blocked, flags = M.removed_flags }
       f:write(require('nvimpio.utils.misc').jsonFormat(payload))
       f:close()
     end
@@ -138,23 +116,8 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
   local filter_db_path = get_db_path(absolute_file_path)
   local project_root = vim.fs.dirname(filter_db_path)
 
-  local manual_blocked = {}
-  local db_file = io.open(filter_db_path, 'rb')
-  if db_file then
-    local raw = db_file:read('*all')
-    db_file:close()
-    if raw and raw ~= '' then
-      local ok, data = pcall(vim.json.decode, raw)
-      if ok and data and type(data.codes) == 'table' then
-        for k, v in pairs(data.codes) do
-          local code_str = type(k) == 'string' and k or v
-          if type(code_str) == 'string' and code_str ~= '' then
-            manual_blocked[code_str] = true
-          end
-        end
-      end
-    end
-  end
+  -- Pure localized read ensures we only check blocks configured for THIS project folder
+  local manual_blocked = parse_db_file_pure(filter_db_path)
 
   local clean_diagnostics = {}
   for _, diag in ipairs(diagnostics) do
@@ -165,13 +128,27 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
 
     if is_drv then
       keep = false
+      -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
+      -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
+      -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
+      -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
+      -- O: Optimization Levels (e.g., -Os, -O2)
+      -- d / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
+      -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
+      -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
       local flag = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
       if flag and not M.removed_flags[flag] then
         local boiler = require('nvimpio.boilerplate')
         boiler.remove = boiler.remove or {}
         table.insert(boiler.remove, flag)
         M.removed_flags[flag] = true
-        save_db(vim.api.nvim_get_current_buf())
+
+        local f = io.open(filter_db_path, 'wb')
+        if f then
+          local payload = { codes = manual_blocked, flags = M.removed_flags }
+          f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+          f:close()
+        end
         if boiler.boilerplate_gen then
           pcall(boiler.boilerplate_gen, '.clangd', project_root)
         end
@@ -197,20 +174,22 @@ end
 -- ===================================================================
 function M.manage_file_diagnostics_interactive()
   local bufnr = vim.api.nvim_get_current_buf()
+  local filter_db_path = get_db_path(bufnr)
 
-  -- Hard-sync the local table states with what is explicitly saved to disk
-  load_db(bufnr)
+  -- 🟢 RIGID MEMORY ISOLATION: Read active configuration state strictly from disk file
+  local active_file_blocked = parse_db_file_pure(filter_db_path)
 
-  -- 🟢 FIX: Clear the volatile session registry map entirely on every call layout step.
-  -- This ensures stale error keys from previously loaded files are dropped instantly!
+  -- Rebuild the session mapping tracking database fresh from empty allocations
   M.session_discovered_codes = {}
 
-  -- Seed the sorted menu array with whatever codes are currently blocked in your JSON database
-  for code_key, _ in pairs(M.manual_blocked_codes) do
-    M.session_discovered_codes[code_key] = true
+  -- Populate menu indexing fields only with items currently active on disk
+  for code_key, is_true in pairs(active_file_blocked) do
+    if is_true then
+      M.session_discovered_codes[code_key] = true
+    end
   end
 
-  -- Seed the current active on-screen compiler errors into the tracker list
+  -- Harvest and populate current screen error diagnostics text codes
   local raw_diagnostics = vim.diagnostic.get(bufnr)
   for _, d in ipairs(raw_diagnostics) do
     local c = d.code or ''
@@ -230,16 +209,16 @@ function M.manage_file_diagnostics_interactive()
   table.sort(registered_keys)
 
   local items = {}
-  if next(M.manual_blocked_codes) then
+  if next(active_file_blocked) then
     table.insert(items, { action = 'reset', text = '💥 Reset All Filters' })
   end
 
-  -- Build the checkbox items layout
+  -- Re-build selection interface arrays cleanly
   for _, c in ipairs(registered_keys) do
-    local is_blocked = M.manual_blocked_codes[c] == true
-
-    -- 🟢 RESOLUTION: An item shows [*] Restore ONLY if it exists inside M.manual_blocked_codes.
-    -- Otherwise, it renders safely as an empty box [ ] Suppress.
+    -- 🟢 INDUSTRY-STANDARD STABILITY VERIFICATION:
+    -- An item is rendering as a checked box [*] and "Restore" ONLY if it passes
+    -- verification inside your active_file_blocked database file state.
+    local is_blocked = active_file_blocked[c] == true
     local mark = is_blocked and '[*]' or '[ ]'
     local status = is_blocked and 'Restore' or 'Suppress'
 
@@ -266,7 +245,14 @@ function M.manage_file_diagnostics_interactive()
     end,
   }, function(choice)
     if not choice then
-      save_db(bufnr)
+      -- User exits: Flush the current session modifications to file cleanly
+      local f = io.open(filter_db_path, 'wb')
+      if f then
+        local payload = { codes = active_file_blocked, flags = M.removed_flags }
+        f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+        f:close()
+      end
+
       vim.schedule(function()
         if vim.api.nvim_buf_is_valid(bufnr) then
           vim.api.nvim_buf_call(bufnr, function()
@@ -282,13 +268,20 @@ function M.manage_file_diagnostics_interactive()
 
     if choice.action ~= 'none' then
       if choice.action == 'reset' then
-        M.manual_blocked_codes = {}
+        active_file_blocked = {}
       elseif choice.action == 'block' then
-        M.manual_blocked_codes[choice.id] = true
+        active_file_blocked[choice.id] = true
       elseif choice.action == 'unblock' then
-        M.manual_blocked_codes[choice.id] = nil
+        active_file_blocked[choice.id] = nil
       end
-      save_db(bufnr)
+
+      -- Instantly save state down to disk so recursive panel loops pull the true context maps
+      local f = io.open(filter_db_path, 'wb')
+      if f then
+        local payload = { codes = active_file_blocked, flags = M.removed_flags }
+        f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+        f:close()
+      end
     end
 
     M.manage_file_diagnostics_interactive()
