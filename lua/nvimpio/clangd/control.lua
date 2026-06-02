@@ -66,7 +66,7 @@ end
 
 -----------------------------------------------------------------------------------------
 -- stylua: ignore
-function M.getklangdConfig()
+function M.getClangdConfig()
   -- Safe defaults (Standard clangd behavior)
   local q_driver, merged_json = '**', ''
   -- local f_flags = [["-std=c++17", "-xc++"]]
@@ -554,7 +554,8 @@ function M.init(clangd)
   -- Apply and Enable
   -- local getClangdConfig = require('nvimpio.clangd.control').getClangdConfig
   -- if getClangdConfig then
-    vim.lsp.config('clangd', M.getClangdConfig())
+    local clangConfig = M.getClangdConfig()
+    vim.lsp.config('clangd', clangConfig)
     vim.lsp.enable('clangd')
   -- end
 
