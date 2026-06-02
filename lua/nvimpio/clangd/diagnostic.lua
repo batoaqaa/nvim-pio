@@ -231,6 +231,21 @@ function M.manage_file_diagnostics_interactive()
     return
   end
 
+  -- 🔍 THE CODES & FLAGS MEMORY INVENTORY TRACER
+  print('--- [PIO DEEP TRACE START] ---')
+  print('1. Contents of active_file_blocked:')
+  for k, v in pairs(active_file_blocked) do
+    print(string.format('   Key: [%s] -> Value: %s (Type: %s)', k, tostring(v), type(k)))
+  end
+
+  print('2. Total count in active_file_blocked loop:')
+  local test_count = 0
+  for _ in pairs(active_file_blocked) do
+    test_count = test_count + 1
+  end
+  print('   Count is: ' .. test_count)
+  print('--- [PIO DEEP TRACE END] ---')
+
   -- Calculate how many codes are actually loaded in memory right now
   local block_count = 0
   for _ in pairs(active_file_blocked) do
