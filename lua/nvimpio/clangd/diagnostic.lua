@@ -137,6 +137,7 @@ function M.clean_diagnostics_pipeline(diagnostics, bufnr)
   --   end
   -- end
 
+  print(vim.inspect(boiler.remove))
   local boilerplate_gen = boiler.boilerplate_gen
   if boilerplate_gen then
     pcall(boilerplate_gen, '.clangd', vim.uv.cwd())
