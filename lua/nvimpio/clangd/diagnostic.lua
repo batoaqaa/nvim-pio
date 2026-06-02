@@ -173,20 +173,19 @@ function M.manage_file_diagnostics_interactive(state_override)
   local bufnr = vim.api.nvim_get_current_buf()
   local filter_db_path = get_db_path(bufnr)
 
-  -- Initialize memory state: Use the provided state override or fall back to a fresh disk read
+  -- Initialize memory state tracking layer from disk or incoming RAM state
   local active_file_blocked = state_override or parse_db_file_pure(filter_db_path)
 
-  -- Rebuild the volatile workspace menu tracker fresh from empty allocations
-  local local_discovered_codes = {}
+  M.session_discovered_codes = M.session_discovered_codes or {}
 
-  -- Seed the menu tracking list with keys currently tracked in memory
+  -- Seed tracking lists with keys currently active in memory
   for code_key, is_true in pairs(active_file_blocked) do
     if is_true then
-      local_discovered_codes[code_key] = true
+      M.session_discovered_codes[code_key] = true
     end
   end
 
-  -- Seed the menu tracking list with active on-screen compiler errors
+  -- Seed tracking lists with active on-screen errors
   local raw_diagnostics = vim.diagnostic.get(bufnr)
   for _, d in ipairs(raw_diagnostics) do
     local c = d.code or ''
@@ -195,13 +194,13 @@ function M.manage_file_diagnostics_interactive(state_override)
     local is_flag_err = msg:lower():match('argument') or msg:lower():match('unknown flag')
 
     if c ~= '' and not is_automated_arg and not is_flag_err then
-      local_discovered_codes[c] = true
+      M.session_discovered_codes[c] = true
     end
   end
 
   -- Sort keys alphabetically
   local registered_keys = {}
-  for k, _ in pairs(local_discovered_codes) do
+  for k, _ in pairs(M.session_discovered_codes) do
     table.insert(registered_keys, k)
   end
   table.sort(registered_keys)
@@ -244,8 +243,9 @@ function M.manage_file_diagnostics_interactive(state_override)
       return item.text
     end,
   }, function(choice)
+    -- 🟢 GATE 1: User pressed Escape to close the panel menu
     if not choice then
-      -- 🟢 EXPLICIT SAVE POINT: User exits via Esc. Commit the final memory data down to disk!
+      -- Open file descriptors and perform the single-point disk write operation
       local f = io.open(filter_db_path, 'wb')
       if f then
         local payload = { codes = active_file_blocked, flags = M.removed_flags }
@@ -253,7 +253,10 @@ function M.manage_file_diagnostics_interactive(state_override)
         f:close()
       end
 
-      -- Instantly re-trigger a buffer lint update on your viewport screen
+      -- Flush session cache arrays entirely out of RAM memory on exit
+      M.session_discovered_codes = nil
+
+      -- Refresh buffer lints viewport tracking maps
       vim.schedule(function()
         if vim.api.nvim_buf_is_valid(bufnr) then
           vim.api.nvim_buf_call(bufnr, function()
@@ -264,25 +267,147 @@ function M.manage_file_diagnostics_interactive(state_override)
           end)
         end
       end)
+
+      return -- Halts execution completely. No loop recursion triggers!
+    end
+
+    -- 🟢 GATE 2: User clicked an automated read-only logger flag row item
+    if choice.action == 'none' then
+      -- Loop back into memory view state without changing pointer assignments
+      M.manage_file_diagnostics_interactive(active_file_blocked)
       return
     end
 
-    if choice.action ~= 'none' then
-      -- Modify the memory state pointers array
-      if choice.action == 'reset' then
-        active_file_blocked = {}
-      elseif choice.action == 'block' then
-        active_file_blocked[choice.id] = true
-      elseif choice.action == 'unblock' then
-        active_file_blocked[choice.id] = nil
-      end
+    -- 🟢 GATE 3: User selected a valid row checkbox item to toggle
+    if choice.action == 'reset' then
+      active_file_blocked = {}
+    elseif choice.action == 'block' then
+      active_file_blocked[choice.id] = true
+    elseif choice.action == 'unblock' then
+      active_file_blocked[choice.id] = nil
     end
 
-    -- 🟢 RECURSION FIX: Pass the modified memory tracking table directly into
-    -- the next window state block loop, preventing the hard drive re-reads from wiping changes!
+    -- 🟢 RECURSION LINE MOVED INSIDE THE ACTIVE SELECTION FLOW LAYER:
+    -- This guarantees that changes toggle smoothly in RAM while typing/clicking around,
+    -- and stops the loops from breaking or escaping when hitting Esc.
     M.manage_file_diagnostics_interactive(active_file_blocked)
   end)
 end
+
+-- function M.manage_file_diagnostics_interactive(state_override)
+--   local bufnr = vim.api.nvim_get_current_buf()
+--   local filter_db_path = get_db_path(bufnr)
+--
+--   -- Initialize memory state: Use the provided state override or fall back to a fresh disk read
+--   local active_file_blocked = state_override or parse_db_file_pure(filter_db_path)
+--
+--   -- Rebuild the volatile workspace menu tracker fresh from empty allocations
+--   local local_discovered_codes = {}
+--
+--   -- Seed the menu tracking list with keys currently tracked in memory
+--   for code_key, is_true in pairs(active_file_blocked) do
+--     if is_true then
+--       local_discovered_codes[code_key] = true
+--     end
+--   end
+--
+--   -- Seed the menu tracking list with active on-screen compiler errors
+--   local raw_diagnostics = vim.diagnostic.get(bufnr)
+--   for _, d in ipairs(raw_diagnostics) do
+--     local c = d.code or ''
+--     local msg = d.message or ''
+--     local is_automated_arg = c:match('^drv_') or c:match('^fatal_')
+--     local is_flag_err = msg:lower():match('argument') or msg:lower():match('unknown flag')
+--
+--     if c ~= '' and not is_automated_arg and not is_flag_err then
+--       local_discovered_codes[c] = true
+--     end
+--   end
+--
+--   -- Sort keys alphabetically
+--   local registered_keys = {}
+--   for k, _ in pairs(local_discovered_codes) do
+--     table.insert(registered_keys, k)
+--   end
+--   table.sort(registered_keys)
+--
+--   local items = {}
+--   if next(active_file_blocked) then
+--     table.insert(items, { action = 'reset', text = '💥 Reset All Filters' })
+--   end
+--
+--   -- Build the checkbox items layout
+--   for _, c in ipairs(registered_keys) do
+--     local is_blocked = active_file_blocked[c] == true
+--     local mark = is_blocked and '[*]' or '[ ]'
+--     local status = is_blocked and 'Restore' or 'Suppress'
+--
+--     table.insert(items, {
+--       action = is_blocked and 'unblock' or 'block',
+--       id = c,
+--       text = string.format('  %s %s Code: [%s]', mark, status, c),
+--     })
+--   end
+--
+--   for f, _ in pairs(M.removed_flags) do
+--     table.insert(items, { action = 'none', text = '  [-] ⚙️ [AUTOMATED]: ' .. f })
+--   end
+--
+--   if #items == 0 then
+--     vim.notify('✅ Clean Slate: No active lints.', vim.log.levels.INFO)
+--     return
+--   end
+--
+--   local block_count = 0
+--   for _ in pairs(active_file_blocked) do
+--     block_count = block_count + 1
+--   end
+--
+--   vim.ui.select(items, {
+--     prompt = string.format('📁 %s | Blocked: %d', vim.fs.basename(filter_db_path), block_count),
+--     format_item = function(item)
+--       return item.text
+--     end,
+--   }, function(choice)
+--     if not choice then
+--       -- 🟢 EXPLICIT SAVE POINT: User exits via Esc. Commit the final memory data down to disk!
+--       local f = io.open(filter_db_path, 'wb')
+--       if f then
+--         local payload = { codes = active_file_blocked, flags = M.removed_flags }
+--         f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+--         f:close()
+--       end
+--
+--       -- Instantly re-trigger a buffer lint update on your viewport screen
+--       vim.schedule(function()
+--         if vim.api.nvim_buf_is_valid(bufnr) then
+--           vim.api.nvim_buf_call(bufnr, function()
+--             local old = vim.o.shortmess
+--             vim.o.shortmess = old .. 'F'
+--             vim.cmd('silent! checktime | silent! edit!')
+--             vim.o.shortmess = old
+--           end)
+--         end
+--       end)
+--       return
+--     end
+--
+--     if choice.action ~= 'none' then
+--       -- Modify the memory state pointers array
+--       if choice.action == 'reset' then
+--         active_file_blocked = {}
+--       elseif choice.action == 'block' then
+--         active_file_blocked[choice.id] = true
+--       elseif choice.action == 'unblock' then
+--         active_file_blocked[choice.id] = nil
+--       end
+--     end
+--
+--     -- 🟢 RECURSION FIX: Pass the modified memory tracking table directly into
+--     -- the next window state block loop, preventing the hard drive re-reads from wiping changes!
+--     M.manage_file_diagnostics_interactive(active_file_blocked)
+--   end)
+-- end
 -- function M.manage_file_diagnostics_interactive()
 --   local bufnr = vim.api.nvim_get_current_buf()
 --   local filter_db_path = get_db_path(bufnr)
