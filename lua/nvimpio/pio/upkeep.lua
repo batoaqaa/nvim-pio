@@ -66,22 +66,35 @@ function M.get_sysroot_triplet(cc_compiler)
 
   if handle then
     for line in handle:lines() do
-      -- Captures any architecture architecture tags (XTENSA, AVR, ARM, RISCV, STM32, etc.)
-      local macro, value = line:match("#define%s+([%w_]+)%s+(%d+)")
-      if macro and (macro:match("XTENSA") or macro:match("ESP32") or macro:match("ARM") or macro:match("MPC") or macro:match("AVR")) then
-        table.insert(auto_defines, "-D" .. macro .. "=" .. value)
+      -- Capture the macro name and its assigned value
+      local macro, value = line:match("#define%s+([%w_]+)%s+(.*)")
+      if macro and value ~= "" then
+        -- CONDITION 1: It is an architecture guard (starts with double underscores like __XTENSA__)
+        -- CONDITION 2: It defines a GCC compiler property (starts with __GNUC__)
+        -- CONDITION 3: It is a target chip configuration flag (starts with __ESP or matching board layouts)
+        if macro:match("^__") or macro:match("^%a+_") then
+          -- Filter out volatile/dynamic environment noise that breaks caching
+          if not (macro:match("TIME") or macro:match("DATE") or macro:match("FILE") or macro:match("LINE")) then
+            table.insert(auto_defines, "-D" .. macro .. "=" .. value)
+          end
+        end
       end
     end
     handle:close()
   end
+  -- if handle then
+  --   for line in handle:lines() do
+  --     -- Captures any architecture architecture tags (XTENSA, AVR, ARM, RISCV, STM32, etc.)
+  --     local macro, value = line:match("#define%s+([%w_]+)%s+(%d+)")
+  --     if macro and (macro:match("XTENSA") or macro:match("ESP32") or macro:match("ARM") or macro:match("MPC") or macro:match("AVR")) then
+  --       table.insert(auto_defines, "-D" .. macro .. "=" .. value)
+  --     end
+  --   end
+  --   handle:close()
+  -- end
 
-  -- Calculate the clean driver string prefix rule required for clangd query-driver
-  -- Stips the final executable filename down to a generic prefix matching string
-  local driver_prefix = cc_compiler:gsub("g%Update+$", "*"):gsub("gcc$", "*")
-  driver_prefix = vim.fs.normalize(driver_prefix)
 
   _G.metadata.auto_defines = auto_defines
-  _G.metadata.driver_prefix = driver_prefix
 
   -- We ALWAYS return the compiled dataset table if a valid bin directory was verified.
   -- This guarantees your plugin never returns 'nil' under new Espressif folder designs!
@@ -91,7 +104,6 @@ function M.get_sysroot_triplet(cc_compiler)
     toolchain_root = toolchain_root,
     query_driver = query_driver,
     auto_defines = auto_defines,
-    driver_prefix = driver_prefix,
   }
 end
 
