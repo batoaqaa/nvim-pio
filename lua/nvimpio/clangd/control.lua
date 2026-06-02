@@ -154,14 +154,14 @@ function M.getClangdConfig()
       -- 1. Intercept stream and pass it through the custom filtering pipeline
       -- Only filter if there are diagnostics present
 
-      print(
-        string.format(
-          '[LSP Tracer] URI: %s | ctx.bufnr: %s | Current Window Buf: %s',
-          result and result.uri or 'nil',
-          ctx and ctx.bufnr or 'nil',
-          vim.api.nvim_get_current_buf()
-        )
-      )
+      -- print(
+      --   string.format(
+      --     '[LSP Tracer] URI: %s | ctx.bufnr: %s | Current Window Buf: %s',
+      --     result and result.uri or 'nil',
+      --     ctx and ctx.bufnr or 'nil',
+      --     vim.api.nvim_get_current_buf()
+      --   )
+      -- )
 
       if not err and result and result.diagnostics then
         -- 1. Grab the real, physical buffer the user is currently editing
@@ -179,6 +179,7 @@ function M.getClangdConfig()
 
         -- 3. Safely pass the parameters into your clean diagnostics pipeline
         if success and pio_diag and pio_diag.clean_file_path_pipeline then
+          print(target_uri_path)
           -- Use the pure path engine to decouple completely from background URI quirks!
           result.diagnostics = pio_diag.clean_file_path_pipeline(target_uri_path, result.diagnostics)
         end
