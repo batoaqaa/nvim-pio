@@ -200,23 +200,33 @@ fetch_metadata = function(callback, active_env, from, attempts)
       return misc.normalizePath(p) or ''
     end
 
+    -- Helper for flags/defines to keep order and formatting
+    local quote_map = function(list, prefix)
+      local res = {}
+      for _, v in ipairs(list or {}) do
+        local val = prefix and (prefix .. norm(v)) or v
+        table.insert(res, string.format('%s', val))
+      end
+      return res
+    end
+
     -- 1. Base Paths & Compilers
     meta.cc_path = norm(data.cc_path)
     meta.cxx_path = norm(data.cxx_path)
     meta.gdb_path = norm(data.gdb_path)
     pcall(M.get_sysroot_triplet, meta.cxx_path)
-    -- pcall(M.get_sysroot_triplet, meta.cc_path)
 
-    -- local activeEnv, metadata = M.get_active_env(from)
-    -- if activeEnv and activeEnv ~= '' then
-    --   metadata = metadata or {}
-    --   _G.metadata.core_dir = metadata.core_dir
-    --   _G.metadata.packages_dir = metadata.packages_dir
-    --   _G.metadata.platforms_dir = metadata.platforms_dir
-    --   _G.metadata.default_envs = metadata.default_envs
-    --   _G.metadata.envs = metadata.envs
-    --   _G.metadata.active_env = activeEnv
-    -- end
+
+    -- 2. Flags & Defines
+    meta.cc_flags = quote_map(data.cc_flags)
+    meta.cxx_flags = quote_map(data.cxx_flags)
+    meta.defines = quote_map(data.defines)
+
+    -- 3. Includes (Build, Toolchain, Compatlib)
+    local inc = data.includes or {}
+    meta.includes_build = quote_map(inc.build, '-I')
+    meta.includes_toolchain = quote_map(inc.toolchain, '-isystem')
+    meta.includes_compatlib = quote_map(inc.compatlib, '-isystem')
 
     -- Secure the validation signature token right after creation succeeds
     local read_ok, fresh_checksum = misc.readFile(checksum_file)
