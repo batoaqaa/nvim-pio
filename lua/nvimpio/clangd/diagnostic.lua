@@ -65,7 +65,7 @@ local function save_db(bufnr)
 end
 
 -- ===================================================================
--- 🛠️ ENGINE PATH A: Clean Project-Wide Toolchain Flags (The Extractor)
+-- 4. 🛠️ ENGINE PATH A: Clean Project-Wide Toolchain Flags (The Extractor)
 -- ===================================================================
 function M.clean_project_wide_flags(project_root, diagnostics)
   if not diagnostics or #diagnostics == 0 then
@@ -116,7 +116,7 @@ function M.clean_project_wide_flags(project_root, diagnostics)
 end
 
 -- ===================================================================
--- 🛠️ ENGINE PATH B: Clean Source Code File Diagnostics (Pure Files)
+-- 5. 🛠️ ENGINE PATH B: Clean Source Code File Diagnostics (Pure Files)
 -- ===================================================================
 function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
   if not diagnostics or #diagnostics == 0 then
@@ -189,43 +189,56 @@ function M.clean_diagnostics_pipeline(diagnostics, bufnr)
 end
 
 -- ===================================================================
--- 💻 THE INTERACTIVE DYNAMIC CHECKBOX PICKER PANEL
+-- 6. INTERACTIVE DYNAMIC CHECKBOX PICKER (AUDITED FIXED ROUTING)
 -- ===================================================================
 function M.manage_file_diagnostics_interactive()
   local bufnr = vim.api.nvim_get_current_buf()
+
+  -- Hard-sync the local session state arrays with disk data before drawing
   load_db(bufnr)
+
   local items = {}
 
   if next(M.manual_blocked_codes) then
     table.insert(items, { action = 'reset', text = '💥 Reset All Filters' })
   end
 
-  -- Safely extract and filter active lints using generic code-structure definitions
-  for _, d in ipairs(vim.diagnostic.get(bufnr)) do
+  -- Populate and register ONLY true active lint errors from current workspace screen
+  local raw_diagnostics = vim.diagnostic.get(bufnr)
+  for _, d in ipairs(raw_diagnostics) do
     local c = d.code or ''
     local msg = d.message or ''
-    if c ~= '' and not (c:match('^drv_') or c:match('^fatal_') or msg:match('argument')) then
+    local is_automated_arg = c:match('^drv_') or c:match('^fatal_')
+    local is_flag_err = msg:lower():match('argument') or msg:lower():match('unknown flag')
+
+    if c ~= '' and not is_automated_arg and not is_flag_err then
       M.session_discovered_codes[c] = true
     end
   end
 
+  -- Sort registered keys alphabetically
   local registered_keys = {}
   for k, _ in pairs(M.session_discovered_codes) do
     table.insert(registered_keys, k)
   end
   table.sort(registered_keys)
 
-  -- Render the active lines with permanent position tracking anchors
   for _, c in ipairs(registered_keys) do
-    local is_blocked = M.manual_blocked_codes[c]
+    local is_blocked = M.manual_blocked_codes[c] == true
+
+    -- An item should show [*] Restore ONLY if it is truly inside your saved database (.filter.json)
+    -- If it is an active error on screen, it should render as [ ] Suppress
+    local mark = is_blocked and '[*]' or '[ ]'
+    local status = is_blocked and 'Restore' or 'Suppress'
+
     table.insert(items, {
       action = is_blocked and 'unblock' or 'block',
       id = c,
-      text = string.format('  %s %s Code: [%s]', is_blocked and '[*]' or '[ ]', is_blocked and 'Restore' or 'Suppress', c),
+      text = string.format('  %s %s Code: [%s]', mark, status, c),
     })
   end
 
-  -- Display automated macro removals quietly at the bottom
+  -- Print read-only automated flag logs at the bottom
   for f, _ in pairs(M.removed_flags) do
     table.insert(items, { action = 'none', text = '  [-] ⚙️ [AUTOMATED]: ' .. f })
   end
@@ -235,6 +248,7 @@ function M.manage_file_diagnostics_interactive()
     return
   end
 
+  -- Render via native modern Neovim picker loop
   vim.ui.select(items, {
     prompt = 'Filter Panel (Toggle items, press Esc to Save & Apply)',
     format_item = function(item)
@@ -242,6 +256,7 @@ function M.manage_file_diagnostics_interactive()
     end,
   }, function(choice)
     if not choice then
+      -- User pressed Esc: Hard save configurations down to the hard drive
       save_db(bufnr)
       vim.schedule(function()
         if vim.api.nvim_buf_is_valid(bufnr) then
@@ -256,21 +271,107 @@ function M.manage_file_diagnostics_interactive()
       return
     end
 
-    if choice.action ~= 'none' then
-      if choice.action == 'reset' then
-        M.manual_blocked_codes = {}
-      elseif choice.action == 'block' then
-        M.manual_blocked_codes[choice.id] = true
-      elseif choice.action == 'unblock' then
-        M.manual_blocked_codes[choice.id] = nil
-      end
-      save_db(bufnr)
+    if choice.action == 'none' then
+      M.manage_file_diagnostics_interactive()
+      return
     end
 
-    -- Recurse smoothly inside RAM, pulling the accurate newly-written disk states instantly
+    -- Toggle local memory arrays instantly
+    if choice.action == 'reset' then
+      M.manual_blocked_codes = {}
+    elseif choice.action == 'block' then
+      M.manual_blocked_codes[choice.id] = true
+    elseif choice.action == 'unblock' then
+      M.manual_blocked_codes[choice.id] = nil
+    end
+
+    -- Sync state down to file right away so the next recursion loop maps accurately
+    save_db(bufnr)
+
+    -- Recurse smoothly inside memory
     M.manage_file_diagnostics_interactive()
   end)
 end
+-- function M.manage_file_diagnostics_interactive()
+--   local bufnr = vim.api.nvim_get_current_buf()
+--   load_db(bufnr)
+--   local items = {}
+--
+--   if next(M.manual_blocked_codes) then
+--     table.insert(items, { action = 'reset', text = '💥 Reset All Filters' })
+--   end
+--
+--   -- Safely extract and filter active lints using generic code-structure definitions
+--   for _, d in ipairs(vim.diagnostic.get(bufnr)) do
+--     local c = d.code or ''
+--     local msg = d.message or ''
+--     if c ~= '' and not (c:match('^drv_') or c:match('^fatal_') or msg:match('argument')) then
+--       M.session_discovered_codes[c] = true
+--     end
+--   end
+--
+--   local registered_keys = {}
+--   for k, _ in pairs(M.session_discovered_codes) do
+--     table.insert(registered_keys, k)
+--   end
+--   table.sort(registered_keys)
+--
+--   -- Render the active lines with permanent position tracking anchors
+--   for _, c in ipairs(registered_keys) do
+--     local is_blocked = M.manual_blocked_codes[c]
+--     table.insert(items, {
+--       action = is_blocked and 'unblock' or 'block',
+--       id = c,
+--       text = string.format('  %s %s Code: [%s]', is_blocked and '[*]' or '[ ]', is_blocked and 'Restore' or 'Suppress', c),
+--     })
+--   end
+--
+--   -- Display automated macro removals quietly at the bottom
+--   for f, _ in pairs(M.removed_flags) do
+--     table.insert(items, { action = 'none', text = '  [-] ⚙️ [AUTOMATED]: ' .. f })
+--   end
+--
+--   if #items == 0 then
+--     vim.notify('✅ Clean Slate: No active lints.', vim.log.levels.INFO)
+--     return
+--   end
+--
+--   vim.ui.select(items, {
+--     prompt = 'Filter Panel (Toggle items, press Esc to Save & Apply)',
+--     format_item = function(item)
+--       return item.text
+--     end,
+--   }, function(choice)
+--     if not choice then
+--       save_db(bufnr)
+--       vim.schedule(function()
+--         if vim.api.nvim_buf_is_valid(bufnr) then
+--           vim.api.nvim_buf_call(bufnr, function()
+--             local old = vim.o.shortmess
+--             vim.o.shortmess = old .. 'F'
+--             vim.cmd('silent! checktime | silent! edit!')
+--             vim.o.shortmess = old
+--           end)
+--         end
+--       end)
+--       return
+--     end
+--
+--     if choice.action ~= 'none' then
+--       if choice.action == 'reset' then
+--         M.manual_blocked_codes = {}
+--       elseif choice.action == 'block' then
+--         M.manual_blocked_codes[choice.id] = true
+--       elseif choice.action == 'unblock' then
+--         M.manual_blocked_codes[choice.id] = nil
+--       end
+--       save_db(bufnr)
+--     end
+--
+--     -- Recurse smoothly inside RAM, pulling the accurate newly-written disk states instantly
+--     M.manage_file_diagnostics_interactive()
+--   end)
+-- end
 
 -- stylua: ignore end
 return M
