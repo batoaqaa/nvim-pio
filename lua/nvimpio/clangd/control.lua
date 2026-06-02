@@ -108,24 +108,24 @@ function M.getClangdConfig()
     local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
     project_root = (type(project_root) == 'string' and project_root ~= '') and project_root or '.'
 
-    config.init_options = config.init_options or {}
-    config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
+    config.initializationOptions = config.initializationOptions or {}
+    config.initializationOptions.fallbackFlags = config.initializationOptions.fallbackFlags or {}
 
     -- Set baseline configurations safely in RAM memory space
-    config.init_options.clangdFileStatus = true
-    config.init_options.completeUnimported = true
-    config.init_options.usePlaceholders = true
-    table.insert(config.init_options.fallbackFlags, string.format('%q', '-ferror-limit=0'))
-    -- table.insert(config.init_options.fallbackFlags, '-std=c++17')
+    config.initializationOptions.clangdFileStatus = true
+    config.initializationOptions.completeUnimported = true
+    config.initializationOptions.usePlaceholders = true
+    table.insert(config.initializationOptions.fallbackFlags, string.format('%q', '-ferror-limit=0'))
+    -- table.insert(config.initializationOptions.fallbackFlags, '-std=c++17')
 
     local auto_defines = _G.metadata.auto_defines
     -- 4. Inject all discovered macros straight into memory via --compile-flags
     for _, define in ipairs(auto_defines) do
-      table.insert(config.init_options.fallbackFlags, define)
+      table.insert(config.initializationOptions.fallbackFlags, define)
     end
 
     -- Assign the absolute, normalized path to your project compilation database
-    config.init_options.compilationDatabasePath = vim.fs.normalize(project_root)
+    config.initializationOptions.compilationDatabasePath = vim.fs.normalize(project_root)
 
     local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
     local f = io.open(filter_db_path, 'r')
@@ -140,8 +140,8 @@ function M.getClangdConfig()
               if success and pio_diag then
                 pio_diag.removed_flags[flag] = true
               end
-              -- table.insert(config.init_options.fallbackFlags, flag)
-              table.insert(config.init_options.fallbackFlags, string.format('%q', flag))
+              -- table.insert(config.initializationOptions.fallbackFlags, flag)
+              table.insert(config.initializationOptions.fallbackFlags, string.format('%q', flag))
             end
           end
         end
