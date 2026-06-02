@@ -7,7 +7,8 @@ function M.clean(raw_path)
     return nil
   end
   local normalized = vim.fs.normalize(vim.fn.expand(raw_path))
-  return OS.is_win and normalized:gsub('/', '\\') or normalized
+  -- return OS.is_win and normalized:gsub('/', '\\') or normalized
+  return normalized
 end
 
 local core_dir = os.getenv('PLATFORMIO_CORE_DIR')

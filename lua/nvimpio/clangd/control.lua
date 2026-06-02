@@ -90,11 +90,17 @@ function M.getClangdConfig()
   --     -- f_flags = string.format([["-std=gnu++17", "-xc++", "-D__cplusplus=201703L", "--target=%s", "--sysroot=%s", %s, %s]], _G.metadata.triplet, _G.metadata.sysroot, includes_toolchain, include_flags)
   --   end
   -- end
-  if _G.metadata.query_driver and _G.metadata.query_driver ~= '' then
-    q_driver = _G.metadata.query_driver
+  --
+
+  -- 1. Use glob to find the actual paths matching your wildcards
+  local matches = vim.fn.glob(_G.metadata.query_driver .. OS.is_win and '.exe' or '', true, true)
+
+  if #matches > 0 then
+    -- 2. Take the first valid match and normalize it
+    q_driver = vim.fs.normalize(matches[1])
   else
-    -- Standard global default sandbox path fallback option if initialization variables are blank
-    q_driver = vim.fs.normalize(_G.metadata.core_dir .. '/*/packages/toolchain-*/bin/*')
+    -- Fallback if no matching compiler path is found
+    q_driver = _G.metadata.core_dir .. '/*/packages/toolchain-*/bin/*' .. OS.is_win and '.exe' or ''
   end
 
   -- Format your template string

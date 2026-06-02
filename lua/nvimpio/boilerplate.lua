@@ -329,7 +329,7 @@ function M.boilerplate_gen(framework, src_path, filename)
     return entry:content()
   end
 
-  local file_path = vim.fs.normalize(src_path .. '/' .. filename)
+  local file_path = vim.fs.joinpath(src_path, filename)
 
   if vim.uv.fs_stat(file_path) then
     if not entry.rewrite then

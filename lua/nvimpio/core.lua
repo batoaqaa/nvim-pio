@@ -32,16 +32,16 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
 
   -- Execute fallback checks only if options parameters are missing or completely blank strings
   if not raw_runtime_dir or raw_runtime_dir == "" then
-    raw_runtime_dir = OS.is_win and vim.fs.normalize(vim.env.USERPROFILE .. '/.platformio')
-      or vim.fs.normalize(vim.uv.os_homedir() .. '/.platformio')
+    raw_runtime_dir = OS.is_win and vim.fs.joinpath(vim.env.USERPROFILE, '.platformio')
+      or vim.fs.joinpath(vim.uv.os_homedir(), '.platformio')
   end
 
   local base_runtime = raw_runtime_dir
   local bin_subfolder = OS.is_win and 'Scripts' or 'bin'
-  local target_bin = vim.fs.normalize(base_runtime .. '/penv/' .. bin_subfolder)
+  local target_bin = vim.fs.joinpath(base_runtime, 'penv', bin_subfolder)
   local verified = false
 
-  local local_pio_executable = vim.fs.normalize(target_bin .. '/' .. (OS.is_win and 'pio.exe' or 'pio'))
+  local local_pio_executable = vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio'))
   if vim.fn.executable(local_pio_executable) == 1 then
     main.config.pio_runtime_dir = target_bin
     verified = true
