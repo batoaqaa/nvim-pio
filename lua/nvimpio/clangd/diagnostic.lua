@@ -238,8 +238,14 @@ function M.manage_file_diagnostics_interactive()
     return
   end
 
+  -- Calculate how many codes are actually loaded in memory right now
+  local block_count = 0
+  for _ in pairs(active_file_blocked) do
+    block_count = block_count + 1
+  end
   vim.ui.select(items, {
-    prompt = 'Filter Panel (Toggle items, press Esc to Save & Apply)',
+    -- prompt = 'Filter Panel (Toggle items, press Esc to Save & Apply)',
+    prompt = string.format('DB Path: %s (Loaded keys: %d)', filter_db_path, block_count),
     format_item = function(item)
       return item.text
     end,
