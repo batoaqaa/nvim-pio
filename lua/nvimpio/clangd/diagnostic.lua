@@ -167,26 +167,26 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
 end
 
 -- ===================================================================
--- 💻 THE INTERACTIVE DYNAMIC CHECKBOX PICKER PANEL
+-- 💻 THE INTERACTIVE DYNAMIC CHECKBOX PICKER PANEL (ISOLATED RUNTIME)
 -- ===================================================================
 function M.manage_file_diagnostics_interactive()
   local bufnr = vim.api.nvim_get_current_buf()
   local filter_db_path = get_db_path(bufnr)
 
-  -- 🟢 RIGID MEMORY ISOLATION: Read active configuration state strictly from disk file
+  -- 1. Read configuration state strictly from disk file exactly once on initial draw
   local active_file_blocked = parse_db_file_pure(filter_db_path)
 
-  -- Rebuild the session mapping tracking database fresh from empty allocations
-  M.session_discovered_codes = {}
+  -- Rebuild the workspace menu tracker registry fresh from empty scopes
+  local local_discovered_codes = {}
 
-  -- Populate menu indexing fields only with items currently active on disk
+  -- Seed the tracker table with keys currently saved on disk
   for code_key, is_true in pairs(active_file_blocked) do
     if is_true then
-      M.session_discovered_codes[code_key] = true
+      local_discovered_codes[code_key] = true
     end
   end
 
-  -- Harvest and populate current screen error diagnostics text codes
+  -- Seed the tracker table with active on-screen compiler errors
   local raw_diagnostics = vim.diagnostic.get(bufnr)
   for _, d in ipairs(raw_diagnostics) do
     local c = d.code or ''
@@ -195,12 +195,13 @@ function M.manage_file_diagnostics_interactive()
     local is_flag_err = msg:lower():match('argument') or msg:lower():match('unknown flag')
 
     if c ~= '' and not is_automated_arg and not is_flag_err then
-      M.session_discovered_codes[c] = true
+      local_discovered_codes[c] = true
     end
   end
 
+  -- Sort keys alphabetically
   local registered_keys = {}
-  for k, _ in pairs(M.session_discovered_codes) do
+  for k, _ in pairs(local_discovered_codes) do
     table.insert(registered_keys, k)
   end
   table.sort(registered_keys)
@@ -210,11 +211,8 @@ function M.manage_file_diagnostics_interactive()
     table.insert(items, { action = 'reset', text = '💥 Reset All Filters' })
   end
 
-  -- Re-build selection interface arrays cleanly
+  -- Build the checkbox items layout
   for _, c in ipairs(registered_keys) do
-    -- 🟢 INDUSTRY-STANDARD STABILITY VERIFICATION:
-    -- An item is rendering as a checked box [*] and "Restore" ONLY if it passes
-    -- verification inside your active_file_blocked database file state.
     local is_blocked = active_file_blocked[c] == true
     local mark = is_blocked and '[*]' or '[ ]'
     local status = is_blocked and 'Restore' or 'Suppress'
@@ -235,37 +233,21 @@ function M.manage_file_diagnostics_interactive()
     return
   end
 
-  -- 🔍 THE CODES & FLAGS MEMORY INVENTORY TRACER
-  print('--- [PIO DEEP TRACE START] ---')
-  print('1. Contents of active_file_blocked:')
-  for k, v in pairs(active_file_blocked) do
-    print(string.format('   Key: [%s] -> Value: %s (Type: %s)', k, tostring(v), type(k)))
-  end
-
-  print('2. Total count in active_file_blocked loop:')
-  local test_count = 0
-  for _ in pairs(active_file_blocked) do
-    test_count = test_count + 1
-  end
-  print('   Count is: ' .. test_count)
-  print('--- [PIO DEEP TRACE END] ---')
-
-  -- Calculate how many codes are actually loaded in memory right now
   local block_count = 0
   for _ in pairs(active_file_blocked) do
     block_count = block_count + 1
   end
-  local short_db_name = vim.fs.basename(filter_db_path) or '.filter.json'
+
   vim.ui.select(items, {
-    -- prompt = 'Filter Panel (Toggle items, press Esc to Save & Apply)',
-    -- prompt = string.format('DB Path: %s (Loaded keys: %d)', filter_db_path, block_count),
-    prompt = string.format('📁 %s | 🔑 Blocked: %d', short_db_name, block_count),
+    prompt = string.format('📁 %s | Blocked: %d', vim.fs.basename(filter_db_path), block_count),
     format_item = function(item)
       return item.text
     end,
   }, function(choice)
     if not choice then
-      -- User exits: Flush the current session modifications to file cleanly
+      -- 🟢 CRITICAL ARCHITECTURE FIX: User exits via Esc.
+      -- Now, and ONLY NOW, do we write the finalized selections down to your disk database!
+      -- This isolates intermediate menu redraw checks from polluting your .filter.json file.
       local f = io.open(filter_db_path, 'wb')
       if f then
         local payload = { codes = active_file_blocked, flags = M.removed_flags }
@@ -287,6 +269,8 @@ function M.manage_file_diagnostics_interactive()
     end
 
     if choice.action ~= 'none' then
+      -- Modify the memory state array pointer target variable ONLY
+      -- Do NOT execute 'io.open' file mutations here inside intermediate steps!
       if choice.action == 'reset' then
         active_file_blocked = {}
       elseif choice.action == 'block' then
@@ -294,19 +278,152 @@ function M.manage_file_diagnostics_interactive()
       elseif choice.action == 'unblock' then
         active_file_blocked[choice.id] = nil
       end
-
-      -- Instantly save state down to disk so recursive panel loops pull the true context maps
-      local f = io.open(filter_db_path, 'wb')
-      if f then
-        local payload = { codes = active_file_blocked, flags = M.removed_flags }
-        f:write(require('nvimpio.utils.misc').jsonFormat(payload))
-        f:close()
-      end
     end
 
+    -- 🔄 Recursive redraw: Passes modified memory tracking blocks straight back down
+    -- to the entrance gate, completely bypassing intermediate file I/O operations.
     M.manage_file_diagnostics_interactive()
   end)
 end
+
+-- function M.manage_file_diagnostics_interactive()
+--   local bufnr = vim.api.nvim_get_current_buf()
+--   local filter_db_path = get_db_path(bufnr)
+--
+--   -- 🟢 RIGID MEMORY ISOLATION: Read active configuration state strictly from disk file
+--   local active_file_blocked = parse_db_file_pure(filter_db_path)
+--
+--   -- Rebuild the session mapping tracking database fresh from empty allocations
+--   M.session_discovered_codes = {}
+--
+--   -- Populate menu indexing fields only with items currently active on disk
+--   for code_key, is_true in pairs(active_file_blocked) do
+--     if is_true then
+--       M.session_discovered_codes[code_key] = true
+--     end
+--   end
+--
+--   -- Harvest and populate current screen error diagnostics text codes
+--   local raw_diagnostics = vim.diagnostic.get(bufnr)
+--   for _, d in ipairs(raw_diagnostics) do
+--     local c = d.code or ''
+--     local msg = d.message or ''
+--     local is_automated_arg = c:match('^drv_') or c:match('^fatal_')
+--     local is_flag_err = msg:lower():match('argument') or msg:lower():match('unknown flag')
+--
+--     if c ~= '' and not is_automated_arg and not is_flag_err then
+--       M.session_discovered_codes[c] = true
+--     end
+--   end
+--
+--   local registered_keys = {}
+--   for k, _ in pairs(M.session_discovered_codes) do
+--     table.insert(registered_keys, k)
+--   end
+--   table.sort(registered_keys)
+--
+--   local items = {}
+--   if next(active_file_blocked) then
+--     table.insert(items, { action = 'reset', text = '💥 Reset All Filters' })
+--   end
+--
+--   -- Re-build selection interface arrays cleanly
+--   for _, c in ipairs(registered_keys) do
+--     -- 🟢 INDUSTRY-STANDARD STABILITY VERIFICATION:
+--     -- An item is rendering as a checked box [*] and "Restore" ONLY if it passes
+--     -- verification inside your active_file_blocked database file state.
+--     local is_blocked = active_file_blocked[c] == true
+--     local mark = is_blocked and '[*]' or '[ ]'
+--     local status = is_blocked and 'Restore' or 'Suppress'
+--
+--     table.insert(items, {
+--       action = is_blocked and 'unblock' or 'block',
+--       id = c,
+--       text = string.format('  %s %s Code: [%s]', mark, status, c),
+--     })
+--   end
+--
+--   for f, _ in pairs(M.removed_flags) do
+--     table.insert(items, { action = 'none', text = '  [-] ⚙️ [AUTOMATED]: ' .. f })
+--   end
+--
+--   if #items == 0 then
+--     vim.notify('✅ Clean Slate: No active lints.', vim.log.levels.INFO)
+--     return
+--   end
+--
+--   -- 🔍 THE CODES & FLAGS MEMORY INVENTORY TRACER
+--   print('--- [PIO DEEP TRACE START] ---')
+--   print('1. Contents of active_file_blocked:')
+--   for k, v in pairs(active_file_blocked) do
+--     print(string.format('   Key: [%s] -> Value: %s (Type: %s)', k, tostring(v), type(k)))
+--   end
+--
+--   print('2. Total count in active_file_blocked loop:')
+--   local test_count = 0
+--   for _ in pairs(active_file_blocked) do
+--     test_count = test_count + 1
+--   end
+--   print('   Count is: ' .. test_count)
+--   print('--- [PIO DEEP TRACE END] ---')
+--
+--   -- Calculate how many codes are actually loaded in memory right now
+--   local block_count = 0
+--   for _ in pairs(active_file_blocked) do
+--     block_count = block_count + 1
+--   end
+--   local short_db_name = vim.fs.basename(filter_db_path) or '.filter.json'
+--   vim.ui.select(items, {
+--     -- prompt = 'Filter Panel (Toggle items, press Esc to Save & Apply)',
+--     -- prompt = string.format('DB Path: %s (Loaded keys: %d)', filter_db_path, block_count),
+--     prompt = string.format('📁 %s | 🔑 Blocked: %d', short_db_name, block_count),
+--     format_item = function(item)
+--       return item.text
+--     end,
+--   }, function(choice)
+--     if not choice then
+--       -- User exits: Flush the current session modifications to file cleanly
+--       local f = io.open(filter_db_path, 'wb')
+--       if f then
+--         local payload = { codes = active_file_blocked, flags = M.removed_flags }
+--         f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+--         f:close()
+--       end
+--
+--       vim.schedule(function()
+--         if vim.api.nvim_buf_is_valid(bufnr) then
+--           vim.api.nvim_buf_call(bufnr, function()
+--             local old = vim.o.shortmess
+--             vim.o.shortmess = old .. 'F'
+--             vim.cmd('silent! checktime | silent! edit!')
+--             vim.o.shortmess = old
+--           end)
+--         end
+--       end)
+--       return
+--     end
+--
+--     if choice.action ~= 'none' then
+--       if choice.action == 'reset' then
+--         active_file_blocked = {}
+--       elseif choice.action == 'block' then
+--         active_file_blocked[choice.id] = true
+--       elseif choice.action == 'unblock' then
+--         active_file_blocked[choice.id] = nil
+--       end
+--
+--       -- Instantly save state down to disk so recursive panel loops pull the true context maps
+--       local f = io.open(filter_db_path, 'wb')
+--       if f then
+--         local payload = { codes = active_file_blocked, flags = M.removed_flags }
+--         f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+--         f:close()
+--       end
+--     end
+--
+--     M.manage_file_diagnostics_interactive()
+--   end)
+-- end
 
 -- stylua: ignore end
 return M
