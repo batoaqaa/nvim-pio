@@ -148,13 +148,15 @@ function M.getClangdConfig()
   --   -- Override the default diagnostic publishing target route
   --   ['textDocument/publishDiagnostics'] = diagnostic.diagnostic_handler,
   -- }
+  local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
   clangd_config.handlers = {
     ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
       -- 1. Intercept stream and pass it through the custom filtering pipeline
       -- Only filter if there are diagnostics present
+
       if not err and result and result.diagnostics then
-        local bufnr = vim.uri_to_bufnr(result.uri)
-        local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+        local bufnr = ctx.bufnr or vim.uri_to_bufnr(result.uri)
+        -- local bufnr = vim.uri_to_bufnr(result.uri)
         if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
           result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics, bufnr)
         end
