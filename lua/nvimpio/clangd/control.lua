@@ -116,13 +116,13 @@ function M.getClangdConfig()
     config.init_options.completeUnimported = true
     config.init_options.usePlaceholders = true
     table.insert(config.init_options.fallbackFlags, "-ferror-limit=0")
-    table.insert(config.init_options.fallbackFlags, "-std=c++17")
     -- table.insert(config.init_options.fallbackFlags, '-std=c++17')
 
     local auto_defines = _G.metadata.auto_defines
     -- 4. Inject all discovered macros straight into memory via --compile-flags
     for _, define in ipairs(auto_defines) do
-      table.insert(config.init_options.fallbackFlags, define)
+      -- table.insert(config.init_options.fallbackFlags, define)
+      table.insert(config.init_options.fallbackFlags, string.format("%q", define))
     end
 
     -- Assign the absolute, normalized path to your project compilation database
