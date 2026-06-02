@@ -72,11 +72,26 @@ function M.clean_diagnostics_pipeline(diagnostics, bufnr)
     local code = diag.code
     local msg = diag.message or ''
 
-    local is_drv = code == 'drv_unknown_argument' or code == 'drv_unknown_argument_with_suggestion' or code == 'fatal_too_many_errors'
+    local is_drv = false
+    if type(code) == 'string' then
+      local lower_code = code:lower()
+      local lower_msg = msg:lower()
+
+      -- Rule A: Matches standard language server driver prefixes (e.g., drv_unknown_argument, fatal_too_many_errors)
+      local has_driver_prefix = lower_code:match('^drv_') or lower_code:match('^fatal_')
+
+      -- Rule B: Matches fallback messages dealing explicitly with terminal command options
+      local has_flag_keywords = lower_msg:match('argument') or lower_msg:match('unknown flag') or lower_msg:match('command line option')
+
+      if has_driver_prefix or has_flag_keywords then
+        is_drv = true
+      end
+    end
 
     if is_drv then
       keep = false
-      local f = msg:match('(%-[%w%-]+)')
+      -- Safely extract the raw compiler flag from the message (e.g., "-mlongcalls")
+      local f = msg:match('(%-[%w%-%.%*]+)')
       if f then
         table.insert(boiler.remove, f)
         M.removed_flags[f] = true
@@ -86,7 +101,7 @@ function M.clean_diagnostics_pipeline(diagnostics, bufnr)
     end
 
     if code and type(code) == 'string' and code ~= '' and not is_drv then
-      -- Register every code discovered to the tracker
+      -- Register every true code discovered to the tracker
       M.session_discovered_codes[code] = true
     end
 
@@ -94,6 +109,33 @@ function M.clean_diagnostics_pipeline(diagnostics, bufnr)
       table.insert(clean_diagnostics, diag)
     end
   end
+  -- for _, diag in ipairs(diagnostics) do
+  --   local keep = true
+  --   local code = diag.code
+  --   local msg = diag.message or ''
+  --
+  --   local is_drv = code == 'drv_unknown_argument' or code == 'drv_unknown_argument_with_suggestion' or code == 'fatal_too_many_errors'
+  --
+  --   if is_drv then
+  --     keep = false
+  --     local f = msg:match('(%-[%w%-]+)')
+  --     if f then
+  --       table.insert(boiler.remove, f)
+  --       M.removed_flags[f] = true
+  --     end
+  --   elseif code and M.manual_blocked_codes[code] then
+  --     keep = false
+  --   end
+  --
+  --   if code and type(code) == 'string' and code ~= '' and not is_drv then
+  --     -- Register every code discovered to the tracker
+  --     M.session_discovered_codes[code] = true
+  --   end
+  --
+  --   if keep then
+  --     table.insert(clean_diagnostics, diag)
+  --   end
+  -- end
 
   local boilerplate_gen = boiler.boilerplate_gen
   if boilerplate_gen then
@@ -138,10 +180,25 @@ function M.manage_file_diagnostics_interactive()
   local raw_diagnostics = vim.diagnostic.get(bufnr)
   for _, d in ipairs(raw_diagnostics) do
     local c = d.code or ''
-    if c ~= '' and c ~= 'drv_unknown_argument' and c ~= 'fatal_too_many_errors' then
+    local msg = d.message or ''
+
+    -- GENERIC RULE 1: Skip if the code name matches a known dynamic compiler-argument layout
+    local is_automated_arg = c:match('^drv_') or c:match('^fatal_')
+
+    -- GENERIC RULE 2: Skip if the diagnostic message relates straight to command-line flag errors
+    local is_flag_err = msg:match('command line argument') or msg:match('unknown argument')
+
+    if c ~= '' and not is_automated_arg and not is_flag_err then
       M.session_discovered_codes[c] = true
     end
   end
+  -- local raw_diagnostics = vim.diagnostic.get(bufnr)
+  -- for _, d in ipairs(raw_diagnostics) do
+  --   local c = d.code or ''
+  --   if c ~= '' and c ~= 'drv_unknown_argument' and c ~= 'fatal_too_many_errors' then
+  --     M.session_discovered_codes[c] = true
+  --   end
+  -- end
 
   -- Sort registered keys alphabetically
   local registered_keys = {}
