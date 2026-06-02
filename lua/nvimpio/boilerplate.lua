@@ -153,6 +153,8 @@ CompileFlags:
   Add:  [
     "-xc++",
     "-std=gnu++17",
+    "-IC:/Users/batoaqaa/.platformio/esp32s3/packages/framework-arduinoespressif32/tools/sdk/esp32s3/include/freertos/include",
+    "-IC:/Users/batoaqaa/.platformio/esp32s3/packages/framework-arduinoespressif32/tools/sdk/esp32s3/include/freertos/include/esp_additions/freertos"
     ]
 Diagnostics:
   Suppress:  [
