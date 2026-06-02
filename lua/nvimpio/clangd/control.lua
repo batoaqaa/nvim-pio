@@ -148,44 +148,48 @@ function M.getClangdConfig()
   --   -- Override the default diagnostic publishing target route
   --   ['textDocument/publishDiagnostics'] = diagnostic.diagnostic_handler,
   -- }
+  -- 1. Pass parameters through the clean file pipeline safely using the true path target
   local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
   clangd_config.handlers = {
     ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
-      -- 1. Intercept stream and pass it through the custom filtering pipeline
-      -- Only filter if there are diagnostics present
+      print(
+        string.format(
+          '[LSP Tracer] URI: %s | ctx.bufnr: %s | Current Window Buf: %s',
+          result and result.uri or 'nil',
+          ctx and ctx.bufnr or 'nil',
+          vim.api.nvim_get_current_buf()
+        )
+      )
 
-      -- print(
-      --   string.format(
-      --     '[LSP Tracer] URI: %s | ctx.bufnr: %s | Current Window Buf: %s',
-      --     result and result.uri or 'nil',
-      --     ctx and ctx.bufnr or 'nil',
-      --     vim.api.nvim_get_current_buf()
-      --   )
-      -- )
-
-      if not err and result and result.diagnostics then
-        -- 1. Grab the real, physical buffer the user is currently editing
-        local bufnr = vim.api.nvim_get_current_buf()
-        local active_file = vim.api.nvim_buf_get_name(bufnr)
-
-        -- 2. Determine if the incoming notification is targeting a source file
-        local target_uri_path = vim.uri_to_fname(result.uri)
-
-        -- If the server sends an error assigned to a configuration file (.clangd),
-        -- re-route the target path to the active code file so your project database updates.
-        if target_uri_path:match('%.clangd$') or target_uri_path:match('%.json$') then
-          target_uri_path = active_file
+      -- 2. Fail fast if there is an error or no diagnostics data present
+      if err or not result or not result.diagnostics then
+        local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
+        if default_handler then
+          default_handler(err, result, ctx, config)
         end
-
-        -- 3. Safely pass the parameters into your clean diagnostics pipeline
-        if success and pio_diag and pio_diag.clean_file_path_pipeline then
-          print(target_uri_path)
-          -- Use the pure path engine to decouple completely from background URI quirks!
-          result.diagnostics = pio_diag.clean_file_path_pipeline(target_uri_path, result.diagnostics)
-        end
+        return
       end
 
-      -- 4. Forward down to Neovim's active core rendering system
+      -- 3. Convert the incoming URI to an absolute file path deterministically
+      local target_path = vim.uri_to_fname(result.uri)
+
+      -- 4. Extract the active LSP client project root workspace directory
+      local client = vim.lsp.get_client_by_id(ctx.client_id)
+      local project_root = client and client.config.root_dir or vim.uv.cwd()
+
+      -- 5. PROFESSIONAL GUARD: Handle global configuration files safely
+      -- If the error targets a global config file outside your source code tree,
+      -- route it to the project root directory instead of blindly hijacking a random code buffer.
+      if target_path:match('%.clangd$') or target_path:match('%.json$') then
+        -- Map it to a dummy virtual path inside the project root so it saves to the correct .filter.json
+        target_path = vim.fs.joinpath(project_root, 'project_config_anchor')
+      end
+
+      if success and pio_diag and pio_diag.clean_file_path_pipeline then
+        result.diagnostics = pio_diag.clean_file_path_pipeline(target_path, result.diagnostics)
+      end
+
+      -- 6. Forward down to Neovim's active core rendering system
       local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
       if default_handler then
         default_handler(err, result, ctx, config)
