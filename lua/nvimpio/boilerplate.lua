@@ -77,6 +77,7 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
   end,
 }
 
+-- "--log=verbose",
 -- Note: %q is used for paths to handle escaping and spaces automatically.
 -- INFO: .clangd_config
 ----------------------------------------------------------------------------------------
@@ -97,7 +98,7 @@ boilerplate['.clangd_config.json'] = {
     "--completion-style=detailed",
     "--header-insertion=iwyu",
     "--fallback-style=llvm",
-    "--log=verbose",
+    "--log=error",
     "--pch-storage=memory",
     "--pretty",
     "--ranking-model=decision_forest",
