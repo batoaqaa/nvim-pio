@@ -75,7 +75,7 @@ end
 -- 4. CORE HEADLESS ENGINE (Runs via absolute path strings)
 -- ===================================================================
 function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
-  print(absolute_file_path)
+  -- print(absolute_file_path)
   if not absolute_file_path or absolute_file_path == '' then
     return {}
   end
@@ -158,6 +158,7 @@ end
 function M.clean_diagnostics_pipeline(diagnostics, bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   local absolute_file_path = vim.api.nvim_buf_get_name(bufnr)
+  print(absolute_file_path)
   return M.clean_file_path_pipeline(absolute_file_path, diagnostics)
 end
 
@@ -272,7 +273,7 @@ if target_file then
   -- 2. Query Neovim's diagnostic tracking pool for this specific buffer
   local raw_diagnostics = vim.diagnostic.get(target_bufnr)
   -- 3. Feed the results straight into your clean file pipeline core
-  print(vim.inspect(raw_diagnostics))
+  -- print(vim.inspect(raw_diagnostics))
   M.clean_file_path_pipeline(target_file, raw_diagnostics)
 end
 
