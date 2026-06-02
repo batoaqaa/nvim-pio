@@ -30,7 +30,7 @@ local function get_db_path(source)
   return vim.fs.joinpath(root_dir, '.filter.json')
 end
 
--- 2. Pure local JSON reading loop (Bypasses shared state memory pollution)
+-- 2. Pure local JSON reading loop (Strictly separates codes from compiler flags)
 local function parse_db_file_pure(db_path)
   local blocked_codes = {}
   local f = io.open(db_path, 'rb')
@@ -49,11 +49,9 @@ local function parse_db_file_pure(db_path)
           code_str = k
         elseif type(v) == 'string' and v ~= '' then
           code_str = v
-        elseif type(k) == 'number' and type(v) == 'string' and v ~= '' then
-          code_str = v
         end
 
-        -- Map values strictly as explicit boolean markers
+        -- Ensure we only load it if it was explicitly marked as true inside the codes sub-section
         if code_str and data.codes[k] == true then
           blocked_codes[code_str] = true
         end
@@ -162,11 +160,6 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
     end
   end
   return clean_diagnostics
-end
-
-function M.clean_diagnostics_pipeline(diagnostics, bufnr)
-  bufnr = bufnr or vim.api.nvim_get_current_buf()
-  return M.clean_file_path_pipeline(vim.api.nvim_buf_get_name(bufnr), diagnostics)
 end
 
 -- ===================================================================
