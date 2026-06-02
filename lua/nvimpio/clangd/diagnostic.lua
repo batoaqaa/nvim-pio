@@ -75,6 +75,7 @@ end
 -- 4. CORE HEADLESS ENGINE (Runs via absolute path strings)
 -- ===================================================================
 function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
+  print(absolute_file_path)
   if not absolute_file_path or absolute_file_path == '' then
     return {}
   end
