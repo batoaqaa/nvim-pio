@@ -93,6 +93,8 @@ function M.getClangdConfig()
   --
 
   -- 1. Use glob to find the actual paths matching your wildcards
+  local path = _G.metadata.query_driver .. OS.is_win and '.exe' or ''
+  print(path)
   local matches = vim.fn.glob(_G.metadata.query_driver .. OS.is_win and '.exe' or '', true, true)
 
   if #matches > 0 then
