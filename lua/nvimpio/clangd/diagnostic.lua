@@ -167,26 +167,26 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
 end
 
 -- ===================================================================
--- 💻 THE INTERACTIVE DYNAMIC CHECKBOX PICKER PANEL (ISOLATED RUNTIME)
+-- 💻 THE INTERACTIVE DYNAMIC CHECKBOX PICKER PANEL (STATE MACHINE)
 -- ===================================================================
-function M.manage_file_diagnostics_interactive()
+function M.manage_file_diagnostics_interactive(state_override)
   local bufnr = vim.api.nvim_get_current_buf()
   local filter_db_path = get_db_path(bufnr)
 
-  -- 1. Read configuration state strictly from disk file exactly once on initial draw
-  local active_file_blocked = parse_db_file_pure(filter_db_path)
+  -- Initialize memory state: Use the provided state override or fall back to a fresh disk read
+  local active_file_blocked = state_override or parse_db_file_pure(filter_db_path)
 
-  -- Rebuild the workspace menu tracker registry fresh from empty scopes
+  -- Rebuild the volatile workspace menu tracker fresh from empty allocations
   local local_discovered_codes = {}
 
-  -- Seed the tracker table with keys currently saved on disk
+  -- Seed the menu tracking list with keys currently tracked in memory
   for code_key, is_true in pairs(active_file_blocked) do
     if is_true then
       local_discovered_codes[code_key] = true
     end
   end
 
-  -- Seed the tracker table with active on-screen compiler errors
+  -- Seed the menu tracking list with active on-screen compiler errors
   local raw_diagnostics = vim.diagnostic.get(bufnr)
   for _, d in ipairs(raw_diagnostics) do
     local c = d.code or ''
@@ -245,9 +245,7 @@ function M.manage_file_diagnostics_interactive()
     end,
   }, function(choice)
     if not choice then
-      -- 🟢 CRITICAL ARCHITECTURE FIX: User exits via Esc.
-      -- Now, and ONLY NOW, do we write the finalized selections down to your disk database!
-      -- This isolates intermediate menu redraw checks from polluting your .filter.json file.
+      -- 🟢 EXPLICIT SAVE POINT: User exits via Esc. Commit the final memory data down to disk!
       local f = io.open(filter_db_path, 'wb')
       if f then
         local payload = { codes = active_file_blocked, flags = M.removed_flags }
@@ -255,6 +253,7 @@ function M.manage_file_diagnostics_interactive()
         f:close()
       end
 
+      -- Instantly re-trigger a buffer lint update on your viewport screen
       vim.schedule(function()
         if vim.api.nvim_buf_is_valid(bufnr) then
           vim.api.nvim_buf_call(bufnr, function()
@@ -269,8 +268,7 @@ function M.manage_file_diagnostics_interactive()
     end
 
     if choice.action ~= 'none' then
-      -- Modify the memory state array pointer target variable ONLY
-      -- Do NOT execute 'io.open' file mutations here inside intermediate steps!
+      -- Modify the memory state pointers array
       if choice.action == 'reset' then
         active_file_blocked = {}
       elseif choice.action == 'block' then
@@ -280,12 +278,11 @@ function M.manage_file_diagnostics_interactive()
       end
     end
 
-    -- 🔄 Recursive redraw: Passes modified memory tracking blocks straight back down
-    -- to the entrance gate, completely bypassing intermediate file I/O operations.
-    M.manage_file_diagnostics_interactive()
+    -- 🟢 RECURSION FIX: Pass the modified memory tracking table directly into
+    -- the next window state block loop, preventing the hard drive re-reads from wiping changes!
+    M.manage_file_diagnostics_interactive(active_file_blocked)
   end)
 end
-
 -- function M.manage_file_diagnostics_interactive()
 --   local bufnr = vim.api.nvim_get_current_buf()
 --   local filter_db_path = get_db_path(bufnr)
