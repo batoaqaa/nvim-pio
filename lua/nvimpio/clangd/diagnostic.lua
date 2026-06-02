@@ -124,6 +124,10 @@ end
 -- =====================================================
 function M.manage_file_diagnostics_interactive()
   local bufnr = vim.api.nvim_get_current_buf()
+
+  -- FIX 1: Force sync the RAM arrays with disk state before drawing
+  load_db(bufnr)
+
   local items = {}
 
   if next(M.manual_blocked_codes) then
@@ -176,6 +180,7 @@ function M.manage_file_diagnostics_interactive()
     end,
   }, function(choice)
     if not choice then
+      -- User pressed Esc: Save everything cleanly to disk
       save_db(bufnr)
       vim.schedule(function()
         if vim.api.nvim_buf_is_valid(bufnr) then
@@ -205,10 +210,104 @@ function M.manage_file_diagnostics_interactive()
       M.manual_blocked_codes[choice.id] = nil
     end
 
+    -- FIX 2: Write temporary updates to disk state right away so
+    -- subsequent recursive menu loops pull a unified array profile
+    save_db(bufnr)
+
     -- Recurse instantly. Stays open continuously inside RAM!
     M.manage_file_diagnostics_interactive()
   end)
 end
+-- =====================================================
+-- 5. THE UNBREAKABLE VOLATILE MULTI-SELECT PICKER
+-- =====================================================
+-- function M.manage_file_diagnostics_interactive()
+--   local bufnr = vim.api.nvim_get_current_buf()
+--   local items = {}
+--
+--   if next(M.manual_blocked_codes) then
+--     table.insert(items, { action = 'reset', text = '💥 Reset All Filters' })
+--   end
+--
+--   -- Hydrate active codes into session register
+--   local raw_diagnostics = vim.diagnostic.get(bufnr)
+--   for _, d in ipairs(raw_diagnostics) do
+--     local c = d.code or ''
+--     if c ~= '' and c ~= 'drv_unknown_argument' and c ~= 'fatal_too_many_errors' then
+--       M.session_discovered_codes[c] = true
+--     end
+--   end
+--
+--   -- Sort registered keys alphabetically
+--   local registered_keys = {}
+--   for k, _ in pairs(M.session_discovered_codes) do
+--     table.insert(registered_keys, k)
+--   end
+--   table.sort(registered_keys)
+--
+--   -- Loop over the session registry to keep menu layout stable on refresh toggles
+--   for _, c in ipairs(registered_keys) do
+--     local is_blocked = M.manual_blocked_codes[c]
+--     local mark = is_blocked and '[*]' or '[ ]'
+--     local status = is_blocked and 'Restore' or 'Suppress'
+--     table.insert(items, {
+--       action = is_blocked and 'unblock' or 'block',
+--       id = c,
+--       text = string.format('  %s %s Code: [%s]', mark, status, c),
+--     })
+--   end
+--
+--   -- Print read-only automated flag logs at the bottom
+--   for f, _ in pairs(M.removed_flags) do
+--     table.insert(items, { action = 'none', text = '  [-] ⚙️ [AUTOMATED]: ' .. f })
+--   end
+--
+--   if #items == 0 then
+--     vim.notify('✅ Clean Slate: No active lints.', vim.log.levels.INFO)
+--     return
+--   end
+--
+--   -- Render via native modern Neovim picker loop
+--   vim.ui.select(items, {
+--     prompt = 'Filter Panel (Toggle items, press Esc to Save & Apply)',
+--     format_item = function(item)
+--       return item.text
+--     end,
+--   }, function(choice)
+--     if not choice then
+--       save_db(bufnr)
+--       vim.schedule(function()
+--         if vim.api.nvim_buf_is_valid(bufnr) then
+--           vim.api.nvim_buf_call(bufnr, function()
+--             local old = vim.o.shortmess
+--             vim.o.shortmess = old .. 'F'
+--             vim.cmd('silent! checktime')
+--             vim.cmd('silent! edit!')
+--             vim.o.shortmess = old
+--           end)
+--         end
+--       end)
+--       return
+--     end
+--
+--     if choice.action == 'none' then
+--       M.manage_file_diagnostics_interactive()
+--       return
+--     end
+--
+--     -- Toggle memory state instantly in RAM
+--     if choice.action == 'reset' then
+--       M.manual_blocked_codes = {}
+--     elseif choice.action == 'block' then
+--       M.manual_blocked_codes[choice.id] = true
+--     elseif choice.action == 'unblock' then
+--       M.manual_blocked_codes[choice.id] = nil
+--     end
+--
+--     -- Recurse instantly. Stays open continuously inside RAM!
+--     M.manage_file_diagnostics_interactive()
+--   end)
+-- end
 
 -- stylua: ignore end
 return M
