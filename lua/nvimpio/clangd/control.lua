@@ -154,6 +154,14 @@ function M.getClangdConfig()
       -- 1. Intercept stream and pass it through the custom filtering pipeline
       -- Only filter if there are diagnostics present
 
+      print(
+        string.format(
+          '[LSP Tracer] URI: %s | ctx.bufnr: %s | Current Window Buf: %s',
+          result and result.uri or 'nil',
+          ctx and ctx.bufnr or 'nil',
+          vim.api.nvim_get_current_buf()
+        )
+      )
       if not err and result and result.diagnostics then
         local bufnr = ctx.bufnr or vim.uri_to_bufnr(result.uri)
         -- local bufnr = vim.uri_to_bufnr(result.uri)
