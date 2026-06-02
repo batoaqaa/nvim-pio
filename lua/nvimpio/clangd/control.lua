@@ -115,7 +115,7 @@ function M.getClangdConfig()
     config.init_options.clangdFileStatus = true
     config.init_options.completeUnimported = true
     config.init_options.usePlaceholders = true
-    table.insert(config.init_options.fallbackFlags, '-ferror-limit=0')
+    table.insert(config.init_options.fallbackFlags, string.format('%q', '-ferror-limit=0'))
     -- table.insert(config.init_options.fallbackFlags, '-std=c++17')
 
     local auto_defines = _G.metadata.auto_defines
@@ -140,7 +140,8 @@ function M.getClangdConfig()
               if success and pio_diag then
                 pio_diag.removed_flags[flag] = true
               end
-              table.insert(config.init_options.fallbackFlags, flag)
+              -- table.insert(config.init_options.fallbackFlags, flag)
+              table.insert(config.init_options.fallbackFlags, string.format('%q', flag))
             end
           end
         end

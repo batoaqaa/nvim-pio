@@ -77,6 +77,8 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
   end,
 }
 
+-- "-ferror-limit=0",
+-- "-std=c++17"
 -- "--log=verbose",
 -- Note: %q is used for paths to handle escaping and spaces automatically.
 -- INFO: .clangd_config
@@ -116,8 +118,6 @@ boilerplate['.clangd_config.json'] = {
     "clangdFileStatus": true,
     "completeUnimported": true,
     "fallbackFlags": [
-      "-ferror-limit=0",
-      "-std=c++17"
     ],
     "usePlaceholders": true
   },
