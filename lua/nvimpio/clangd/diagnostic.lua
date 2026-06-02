@@ -17,16 +17,20 @@ local function get_db_path(source)
     f = vim.api.nvim_buf_get_name(bufnr)
   end
 
+  -- Search upwards for your local project markers ('platformio.ini' or '.git')
   local root_dir = (f ~= '') and vim.fs.root(f, markers) or nil
-  if not root_dir and (type(source) == 'number' or source == nil) then
-    local bufnr = source or vim.api.nvim_get_current_buf()
-    local clients = vim.lsp.get_clients({ bufnr = bufnr, name = 'clangd' })
-    if #clients > 0 and clients[1] then
-      root_dir = clients[1].root_dir
+
+  -- 🟢 THE BULLETPROOF WORKSPACE ANCHOR WITH ABSOLUTE TYPE SAFETY:
+  if not root_dir or root_dir:match('%.platformio') then
+    local cwd_path = vim.uv.cwd()
+    -- Explicitly verify that cwd_path is a valid, non-empty string type before using it
+    if type(cwd_path) == 'string' and cwd_path ~= '' then
+      root_dir = vim.fs.root(cwd_path, markers) or cwd_path
+    else
+      root_dir = '.'
     end
   end
 
-  root_dir = root_dir or vim.uv.cwd()
   return vim.fs.joinpath(root_dir, '.filter.json')
 end
 
