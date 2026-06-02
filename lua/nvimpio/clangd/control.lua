@@ -121,6 +121,7 @@ function M.getClangdConfig()
     local auto_defines = _G.metadata.auto_defines
     -- 4. Inject all discovered macros straight into memory via --compile-flags
     for _, define in ipairs(auto_defines) do
+      print(define)
       -- table.insert(config.init_options.fallbackFlags, define)
       table.insert(config.init_options.fallbackFlags, string.format("%q", define))
     end

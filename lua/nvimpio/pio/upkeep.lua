@@ -114,7 +114,6 @@ function M.get_sysroot_triplet(cc_compiler)
   --   handle:close()
   -- end
 
-  print(vim.inspect(auto_defines))
   _G.metadata.auto_defines = auto_defines
 
   -- We ALWAYS return the compiled dataset table if a valid bin directory was verified.
