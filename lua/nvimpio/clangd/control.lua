@@ -108,45 +108,46 @@ function M.getClangdConfig()
     local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
     project_root = (type(project_root) == 'string' and project_root ~= '') and project_root or '.'
 
-    config.initializationOptions = config.initializationOptions or {}
-    config.initializationOptions.fallbackFlags = config.initializationOptions.fallbackFlags or {}
+    config.init_options = config.init_options or {}
+    config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
 
     -- Set baseline configurations safely in RAM memory space
-    config.initializationOptions.clangdFileStatus = true
-    config.initializationOptions.completeUnimported = true
-    config.initializationOptions.usePlaceholders = true
-    table.insert(config.initializationOptions.fallbackFlags, string.format('%q', '-ferror-limit=0'))
-    -- table.insert(config.initializationOptions.fallbackFlags, '-std=c++17')
+    config.init_options.clangdFileStatus = true
+    config.init_options.completeUnimported = true
+    config.init_options.usePlaceholders = true
+    table.insert(config.init_options.fallbackFlags, "-ferror-limit=0")
+    table.insert(config.init_options.fallbackFlags, "-std=c++17")
+    -- table.insert(config.init_options.fallbackFlags, '-std=c++17')
 
     local auto_defines = _G.metadata.auto_defines
     -- 4. Inject all discovered macros straight into memory via --compile-flags
     for _, define in ipairs(auto_defines) do
-      table.insert(config.initializationOptions.fallbackFlags, define)
+      table.insert(config.init_options.fallbackFlags, define)
     end
 
     -- Assign the absolute, normalized path to your project compilation database
-    config.initializationOptions.compilationDatabasePath = vim.fs.normalize(project_root)
+    config.init_options.compilationDatabasePath = vim.fs.normalize(project_root)
 
-    local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
-    local f = io.open(filter_db_path, 'r')
-    if f then
-      local raw = f:read('*a')
-      f:close()
-      if raw and raw ~= '' then
-        local ok, data = pcall(vim.json.decode, raw)
-        if ok and data and type(data.flags) == 'table' then
-          for flag, blocked in pairs(data.flags) do
-            if blocked then
-              if success and pio_diag then
-                pio_diag.removed_flags[flag] = true
-              end
-              -- table.insert(config.initializationOptions.fallbackFlags, flag)
-              table.insert(config.initializationOptions.fallbackFlags, string.format('%q', flag))
-            end
-          end
-        end
-      end
-    end
+    -- local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
+    -- local f = io.open(filter_db_path, 'r')
+    -- if f then
+    --   local raw = f:read('*a')
+    --   f:close()
+    --   if raw and raw ~= '' then
+    --     local ok, data = pcall(vim.json.decode, raw)
+    --     if ok and data and type(data.flags) == 'table' then
+    --       for flag, blocked in pairs(data.flags) do
+    --         if blocked then
+    --           if success and pio_diag then
+    --             pio_diag.removed_flags[flag] = true
+    --           end
+    --           -- table.insert(config.init_options.fallbackFlags, flag)
+    --           table.insert(config.init_options.fallbackFlags, string.format('%q', flag))
+    --         end
+    --       end
+    --     end
+    --   end
+    -- end
   end
 
   -- 1. Pass parameters through the clean file pipeline safely using the true path target
