@@ -65,13 +65,8 @@ end
 -----------------------------------------------------------------------------------------
 
 -----------------------------------------------------------------------------------------
---- stylua: ignore
+-- stylua: ignore
 function M.getClangdConfig()
-  local new_root_dir = vim.uv.cwd() or '.'
-  if not new_root_dir then
-    return
-  end
-
   -- Safe defaults (Standard clangd behavior)
   local q_driver, merged_json = '**', ''
   -- local f_flags = [["-std=c++17", "-xc++"]]
@@ -91,31 +86,22 @@ function M.getClangdConfig()
   --   end
   -- end
   --
-  if _G.metadata.query_driver and _G.metadata.query_driver ~= '' then
+  if _G.metadata and _G.metadata.query_driver and _G.metadata.query_driver ~= '' then
     q_driver = _G.metadata.query_driver
-  else
-    -- Standard global default sandbox path fallback option if initialization variables are blank
-    q_driver = _G.metadata.core_dir .. '/*/packages/toolchain-*/bin/*'
   end
 
   -- Format your template string
   local json_config = boilerplate_gen([[.clangd_config.json]], vim.g.platformioRootDir)
-  if not json_config then
-    return nil
-  end
+  if not json_config then return nil end
 
   local _, count = json_config:gsub('%%s', '')
   -- Only use string.format if there is one or less %s
-  if count <= 1 then
-    merged_json = string.format(json_config or '', q_driver)
-  end
+  if count <= 1 then merged_json = string.format(json_config or '', q_driver) end
 
   -- 'decode' converts JSON string -> Lua table
   local tok, clangd_config = pcall(vim.json.decode, merged_json)
 
-  if not tok then
-    return nil
-  end
+  if not tok then return nil end
 
   local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
   clangd_config.before_init = function(params, config)
@@ -130,7 +116,7 @@ function M.getClangdConfig()
     config.init_options.completeUnimported = true
     config.init_options.usePlaceholders = true
     table.insert(config.init_options.fallbackFlags, '-ferror-limit=0')
-    table.insert(config.init_options.fallbackFlags, '-std=c++17')
+    -- table.insert(config.init_options.fallbackFlags, '-std=c++17')
 
     local auto_defines = _G.metadata.auto_defines
     -- 4. Inject all discovered macros straight into memory via --compile-flags
