@@ -162,15 +162,29 @@ function M.getClangdConfig()
           vim.api.nvim_get_current_buf()
         )
       )
+
       if not err and result and result.diagnostics then
-        local bufnr = ctx.bufnr or vim.uri_to_bufnr(result.uri)
-        -- local bufnr = vim.uri_to_bufnr(result.uri)
-        if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
-          result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics, bufnr)
+        -- 1. Grab the real, physical buffer the user is currently editing
+        local bufnr = vim.api.nvim_get_current_buf()
+        local active_file = vim.api.nvim_buf_get_name(bufnr)
+
+        -- 2. Determine if the incoming notification is targeting a source file
+        local target_uri_path = vim.uri_to_fname(result.uri)
+
+        -- If the server sends an error assigned to a configuration file (.clangd),
+        -- re-route the target path to the active code file so your project database updates.
+        if target_uri_path:match('%.clangd$') or target_uri_path:match('%.json$') then
+          target_uri_path = active_file
+        end
+
+        -- 3. Safely pass the parameters into your clean diagnostics pipeline
+        if success and pio_diag and pio_diag.clean_file_path_pipeline then
+          -- Use the pure path engine to decouple completely from background URI quirks!
+          result.diagnostics = pio_diag.clean_file_path_pipeline(target_uri_path, result.diagnostics)
         end
       end
 
-      -- 2. Securely forward down to Neovim's active core rendering system
+      -- 4. Forward down to Neovim's active core rendering system
       local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
       if default_handler then
         default_handler(err, result, ctx, config)
