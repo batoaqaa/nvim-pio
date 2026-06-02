@@ -118,6 +118,7 @@ function M.getClangdConfig()
   end
 
   clangd_config.before_init = function(params, config)
+    local project_root = config.root_dir or vim.uv.cwd()
     config.init_options = config.init_options or {}
     config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
 

@@ -346,29 +346,29 @@ function M.manage_file_diagnostics_interactive()
 end
 
 -------------------------------------------------------------
-local boilerplate = require('nvimpio.boilerplate')
-local boilerplate_gen = boilerplate.boilerplate_gen
-
-local target_file = vim.fs.find(function(name)
-  return name:match('%.cpp$') or name:match('%.c$')
-end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
-
-if not target_file then
-  boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
-  boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-  target_file = vim.uv.cwd() .. '/src/main.cpp'
-end
-
-if target_file then
-  -- 1. Use Neovim's URI converter to locate the hidden memory buffer for the path
-  local target_uri = vim.uri_from_fname(target_file)
-  local target_bufnr = vim.uri_to_bufnr(target_uri)
-  -- 2. Query Neovim's diagnostic tracking pool for this specific buffer
-  local raw_diagnostics = vim.diagnostic.get(target_bufnr)
-  -- 3. Feed the results straight into your clean file pipeline core
-  print(vim.inspect(raw_diagnostics))
-  M.clean_file_path_pipeline(target_file, raw_diagnostics)
-end
+-- local boilerplate = require('nvimpio.boilerplate')
+-- local boilerplate_gen = boilerplate.boilerplate_gen
+--
+-- local target_file = vim.fs.find(function(name)
+--   return name:match('%.cpp$') or name:match('%.c$')
+-- end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
+--
+-- if not target_file then
+--   boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+--   boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+--   target_file = vim.uv.cwd() .. '/src/main.cpp'
+-- end
+--
+-- if target_file then
+--   -- 1. Use Neovim's URI converter to locate the hidden memory buffer for the path
+--   local target_uri = vim.uri_from_fname(target_file)
+--   local target_bufnr = vim.uri_to_bufnr(target_uri)
+--   -- 2. Query Neovim's diagnostic tracking pool for this specific buffer
+--   local raw_diagnostics = vim.diagnostic.get(target_bufnr)
+--   -- 3. Feed the results straight into your clean file pipeline core
+--   print(vim.inspect(raw_diagnostics))
+--   M.clean_file_path_pipeline(target_file, raw_diagnostics)
+-- end
 
 -- stylua: ignore end
 return M
