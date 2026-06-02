@@ -119,8 +119,11 @@ function M.getClangdConfig()
 
   local auto_defines = _G.metadata.auto_defines
   -- 4. Inject all discovered macros straight into memory via --compile-flags
-  for _, define in ipairs(auto_defines) do
-    table.insert(clangd_config.cmd, define)
+  if #auto_defines > 0 then
+    -- This creates a single string: "-D__XTENSA__=1 -D__GNUC__=8 ..."
+    local combined_macros = table.concat(auto_defines, ' ')
+    -- Pass it to clangd as a single combined extension flag
+    table.insert(clangd_config.cmd, '--compile-flags-extension=' .. combined_macros)
   end
 
   clangd_config.before_init = function(params, config)
