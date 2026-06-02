@@ -121,7 +121,6 @@ function M.getClangdConfig()
   clangd_config.before_init = function(params, config)
     local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
     project_root = (type(project_root) == 'string' and project_root ~= '') and project_root or '.'
-    print(project_root)
 
     config.init_options = config.init_options or {}
     config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
@@ -163,10 +162,6 @@ function M.getClangdConfig()
     end
   end
 
-  -- clangd_config.handlers = {
-  --   -- Override the default diagnostic publishing target route
-  --   ['textDocument/publishDiagnostics'] = diagnostic.diagnostic_handler,
-  -- }
   -- 1. Pass parameters through the clean file pipeline safely using the true path target
   clangd_config.handlers = {
     ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
@@ -195,14 +190,6 @@ function M.getClangdConfig()
           -- Block config diagnostics from polluting the visible text viewport
           return
         else
-          -- print(
-          --   string.format(
-          --     '[LSP Tracer] URI: %s | ctx.bufnr: %s | Current Window Buf: %s',
-          --     result and result.uri or 'nil',
-          --     ctx and ctx.bufnr or 'nil',
-          --     vim.api.nvim_get_current_buf()
-          --   )
-          -- )
           -- 🟢 ROUTE B: Process local source code files natively using their true disk paths
           if pio_diag.clean_file_path_pipeline then
             result.diagnostics = pio_diag.clean_file_path_pipeline(target_path, result.diagnostics)

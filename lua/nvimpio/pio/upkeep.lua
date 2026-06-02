@@ -41,9 +41,9 @@ function M.get_sysroot_triplet(cc_compiler)
   -- sysroot folder is expected to have the same name as the triplet
   local sysroot = vim.fs.joinpath(toolchain_root, triplet)
 
-  local query_driver = vim.fs.joinpath(bin_path, triplet) .. '-*'
+  -- local query_driver = vim.fs.joinpath(bin_path, triplet) .. '-*'
   -- local query_driver = misc.normalizePath(bin_path .. '/' .. triplet .. '-*')
-  -- local query_driver = misc.normalizePath(bin_path .. '/*')
+  local query_driver = misc.normalizePath(bin_path .. '/*')
 
   _G.metadata = _G.metadata or {}
   _G.metadata.triplet = triplet
