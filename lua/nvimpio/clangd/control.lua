@@ -153,9 +153,9 @@ function M.getClangdConfig()
       -- 1. Intercept stream and pass it through the custom filtering pipeline
       -- Only filter if there are diagnostics present
       if not err and result and result.diagnostics then
+        local bufnr = vim.uri_to_bufnr(result.uri)
         local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
         if success and pio_diag and pio_diag.clean_diagnostics_pipeline then
-          local bufnr = vim.uri_to_bufnr(result.uri)
           result.diagnostics = pio_diag.clean_diagnostics_pipeline(result.diagnostics, bufnr)
         end
       end
@@ -165,9 +165,6 @@ function M.getClangdConfig()
       if default_handler then
         default_handler(err, result, ctx, config)
       end
-
-      -- -- Pass to Neovim's default handler
-      -- vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
     end,
   }
 
