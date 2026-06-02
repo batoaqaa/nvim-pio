@@ -95,7 +95,7 @@ function M.getClangdConfig()
     q_driver = _G.metadata.query_driver
   else
     -- Standard global default sandbox path fallback option if initialization variables are blank
-    q_driver = vim.fs.normalize(_G.metadata.core_dir .. '/*/packages/toolchain-*/bin/*' .. (OS.is_win and '.exe' or ''))
+    q_driver = _G.metadata.core_dir .. '/*/packages/toolchain-*/bin/*'
   end
 
   -- Format your template string

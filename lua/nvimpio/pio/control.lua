@@ -125,7 +125,7 @@ function M.start_watchers()
       name = 'ini',
       isBusy = false,
       last_hash = '',
-      path = misc.joinPath(project_root, 'platformio.ini'),
+      path = vim.fs.joinpath(project_root, 'platformio.ini'),
       cb = function(self)
         -- If no real change, unlock immediately and exit
         local new_hash = get_hash(self.path) or ''
@@ -173,7 +173,7 @@ function M.start_watchers()
     { -- watcher for ./.pio/build/projct.checksum
       name = 'checksum',
       isBusy = false,
-      path = misc.joinPath(project_root, '.pio', 'build', 'project.checksum'), --checksum_path
+      path = vim.fs.joinPath(project_root, '.pio', 'build', 'project.checksum'), --checksum_path
       cb = function(self)
         local ok, current_checksum = misc.readFile(self.path)
         -- Check if we should exit early

@@ -41,7 +41,7 @@ function M.get_sysroot_triplet(cc_compiler)
   -- sysroot folder is expected to have the same name as the triplet
   local sysroot = vim.fs.joinpath(toolchain_root, triplet)
 
-  local query_driver = vim.fs.joinpath(bin_path, triplet) .. (OS.is_win and '-g*.exe' or '-g*')
+  local query_driver = vim.fs.joinpath(bin_path, triplet) .. '*'
   -- local query_driver = misc.normalizePath(bin_path .. '/' .. triplet .. '-*')
   -- local query_driver = misc.normalizePath(bin_path .. '/*')
 
@@ -116,10 +116,10 @@ fetch_metadata = function(callback, active_env, from, attempts)
   local meta = _G.metadata
 
   -- Set up file paths
-  local build_dir = misc.joinPath(vim.uv.cwd(), '.pio', 'build')
-  local build_env_dir = misc.joinPath(build_dir, active_env)
-  local checksum_file = misc.joinPath(build_dir, 'project.checksum')
-  local idedata_file = misc.joinPath(build_env_dir, 'idedata.json')
+  local build_dir = vim.fs.joinPath(vim.uv.cwd(), '.pio', 'build')
+  local build_env_dir = vim.fs.joinPath(build_dir, active_env)
+  local checksum_file = vim.fs.joinPath(build_dir, 'project.checksum')
+  local idedata_file = vim.fs.joinPath(build_env_dir, 'idedata.json')
 
   local function fire_callback(status)
     refreshBusy = false
