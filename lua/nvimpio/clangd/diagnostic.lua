@@ -8,13 +8,25 @@ M.session_discovered_codes = {}
 -- Defined exactly once to fix the 'redefined-local' linter warning
 local markers = { 'platformio.ini', '.git' }
 
--- 1. Get filter file path safely using absolute project roots
-local function get_db_path(bufnr)
-  bufnr = bufnr or vim.api.nvim_get_current_buf()
-  local f = vim.api.nvim_buf_get_name(bufnr)
+-- 1. Unified database path resolver (Accepts bufnr OR raw absolute path string)
+local function get_db_path(source)
+  local f = ''
+
+  if type(source) == 'string' then
+    -- It's a raw file path string (Headless route)
+    f = source
+  elseif type(source) == 'number' or source == nil then
+    -- It's a buffer ID or nil (Live UI route)
+    local bufnr = source or vim.api.nvim_get_current_buf()
+    f = vim.api.nvim_buf_get_name(bufnr)
+  end
+
+  -- Resolve workspace root based on the discovered file path
   local root_dir = (f ~= '') and vim.fs.root(f, markers) or nil
 
-  if not root_dir then
+  -- Fallback logic to protect loose files
+  if not root_dir and (type(source) == 'number' or source == nil) then
+    local bufnr = source or vim.api.nvim_get_current_buf()
     local clients = vim.lsp.get_clients({ bufnr = bufnr })
     if #clients > 0 then
       root_dir = clients[1].config.root_dir
@@ -68,8 +80,8 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
   end
   diagnostics = diagnostics or {}
 
-  local project_root = vim.fs.root(absolute_file_path, markers) or vim.uv.cwd()
-  local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
+  local filter_db_path = get_db_path(absolute_file_path)
+  local project_root = vim.fs.dirname(filter_db_path) -- Derive root folder directly from db location
 
   -- Isolated disk lookup matching standard JSON loader
   local manual_blocked = {}
