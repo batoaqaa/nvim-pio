@@ -64,24 +64,45 @@ function M.get_sysroot_triplet(cc_compiler)
   local cmd = string.format('"%s" -E -dM -xc++ %s', cc_compiler, OS.devNul)
   local handle = io.popen(cmd)
 
+
   if handle then
     for line in handle:lines() do
-      -- Capture the macro name and its assigned value
       local macro, value = line:match("#define%s+([%w_]+)%s+(.*)")
       if macro and value ~= "" then
-        -- CONDITION 1: It is an architecture guard (starts with double underscores like __XTENSA__)
-        -- CONDITION 2: It defines a GCC compiler property (starts with __GNUC__)
-        -- CONDITION 3: It is a target chip configuration flag (starts with __ESP or matching board layouts)
-        if macro:match("^__") or macro:match("^%a+_") then
-          -- Filter out volatile/dynamic environment noise that breaks caching
-          if not (macro:match("TIME") or macro:match("DATE") or macro:match("FILE") or macro:match("LINE")) then
-            table.insert(auto_defines, "-D" .. macro .. "=" .. value)
-          end
+        local lower_macro = macro:lower()
+        -- Generic pattern matchers that capture all major embedded ecosystems
+        local is_arch    = lower_macro:match("xtensa") or lower_macro:match("arm") or lower_macro:match("riscv") or lower_macro:match("avr")
+        local is_vendor  = lower_macro:match("esp") or lower_macro:match("stm") or lower_macro:match("nrf") or lower_macro:match("samd") or lower_macro:match("rp20")
+        local is_version = macro == "__GNUC__" or macro == "__cplusplus" or macro == "__GNUC_MINOR__"
+        if is_arch or is_vendor or is_version then
+          -- Clean up trailing comments or whitespace from the compiler value
+          value = value:gsub("%s*//.*$", ""):gsub("%s*$", "")
+          table.insert(auto_defines, "-D" .. macro .. "=" .. value)
         end
       end
     end
     handle:close()
   end
+
+
+  -- if handle then
+  --   for line in handle:lines() do
+  --     -- Capture the macro name and its assigned value
+  --     local macro, value = line:match("#define%s+([%w_]+)%s+(.*)")
+  --     if macro and value ~= "" then
+  --       -- CONDITION 1: It is an architecture guard (starts with double underscores like __XTENSA__)
+  --       -- CONDITION 2: It defines a GCC compiler property (starts with __GNUC__)
+  --       -- CONDITION 3: It is a target chip configuration flag (starts with __ESP or matching board layouts)
+  --       if macro:match("^__") or macro:match("^%a+_") then
+  --         -- Filter out volatile/dynamic environment noise that breaks caching
+  --         if not (macro:match("TIME") or macro:match("DATE") or macro:match("FILE") or macro:match("LINE")) then
+  --           table.insert(auto_defines, "-D" .. macro .. "=" .. value)
+  --         end
+  --       end
+  --     end
+  --   end
+  --   handle:close()
+  -- end
   -- if handle then
   --   for line in handle:lines() do
   --     -- Captures any architecture architecture tags (XTENSA, AVR, ARM, RISCV, STM32, etc.)
