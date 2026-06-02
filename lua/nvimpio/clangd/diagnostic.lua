@@ -126,7 +126,15 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
 
     if is_drv then
       keep = false
-      local f = msg:match('(%-[%w%-%.%*]+)')
+      -- local f = msg:match('(%-[%w%-%.%*]+)')
+      -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
+      -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
+      -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
+      -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
+      -- O: Optimization Levels (e.g., -Os, -O2)
+      -- d / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
+      -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
+      local f = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
       if f then
         table.insert(boiler.remove, f)
         M.removed_flags[f] = true
