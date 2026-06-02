@@ -152,15 +152,6 @@ function M.getClangdConfig()
   local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
   clangd_config.handlers = {
     ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
-      print(
-        string.format(
-          '[LSP Tracer] URI: %s | ctx.bufnr: %s | Current Window Buf: %s',
-          result and result.uri or 'nil',
-          ctx and ctx.bufnr or 'nil',
-          vim.api.nvim_get_current_buf()
-        )
-      )
-
       if err or not result or not result.diagnostics then
         local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
         if default_handler then
@@ -186,6 +177,14 @@ function M.getClangdConfig()
           -- Block config diagnostics from polluting the visible text viewport
           return
         else
+          print(
+            string.format(
+              '[LSP Tracer] URI: %s | ctx.bufnr: %s | Current Window Buf: %s',
+              result and result.uri or 'nil',
+              ctx and ctx.bufnr or 'nil',
+              vim.api.nvim_get_current_buf()
+            )
+          )
           -- 🟢 ROUTE B: Process local source code files natively using their true disk paths
           if pio_diag.clean_file_path_pipeline then
             result.diagnostics = pio_diag.clean_file_path_pipeline(target_path, result.diagnostics)
