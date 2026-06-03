@@ -191,54 +191,13 @@ fetch_metadata = function(callback, active_env, from, attempts)
   --INFO:INTERNAL PROCESSOR: Applies parsed data to _G.metadata
   ---------------------------------------------------------
   local function apply_metadata(data)
-    -- -- local function apply_metadata(data, checksum)
-    -- if not data then
-    --   return false
-    -- end
-    --
-    -- local norm = function(p)
-    --   return misc.normalizePath(p) or ''
-    -- end
-    --
-    -- -- Helper for flags/defines to keep order and formatting
-    -- local quote_map = function(list, prefix)
-    --   local res = {}
-    --   for _, v in ipairs(list or {}) do
-    --     local val = prefix and (prefix .. norm(v)) or v
-    --     table.insert(res, string.format('%s', val))
-    --   end
-    --   return res
-    -- end
-    --
-    -- -- 1. Base Paths & Compilers
-    -- meta.cc_path = norm(data.cc_path)
-    -- meta.cxx_path = norm(data.cxx_path)
-    -- meta.gdb_path = norm(data.gdb_path)
-    -- pcall(M.get_sysroot_triplet, meta.cxx_path)
-    --
-    --
-    -- -- 2. Flags & Defines
-    -- meta.cc_flags = quote_map(data.cc_flags)
-    -- meta.cxx_flags = quote_map(data.cxx_flags)
-    -- meta.defines = quote_map(data.defines)
-    --
-    -- -- 3. Includes (Build, Toolchain, Compatlib)
-    -- local inc = data.includes or {}
-    -- meta.includes_build = quote_map(inc.build, '-isystem')
-    -- meta.includes_toolchain = quote_map(inc.toolchain, '-isystem')
-    -- meta.includes_compatlib = quote_map(inc.compatlib, '-isystem')
-
-    if not data then
-      return false
-    end
+    if not data then return false end
 
     -- Cache the project workspace root path cleanly
     local project_root = vim.g.platformioRootDir or vim.uv.cwd() or '.'
     local norm_project_root = misc.normalizePath(project_root) or ''
 
-    local norm = function(p)
-      return misc.normalizePath(p) or ''
-    end
+    local norm = function(p) return misc.normalizePath(p) or '' end
 
     -- 1. HIGH-PERFORMANCE LIST MAPPER: Optimized for raw strings (Flags & Defines)
     local map_list = function(list)
@@ -249,8 +208,18 @@ fetch_metadata = function(callback, active_env, from, attempts)
       end
       return res
     end
+    --
+    -- -- 2. lib PATH SORTER (Zero Naming Assumptions)
+    -- local map_libsources = function(list)
+    --   local res = {}
+    --   for _, v in ipairs(list or {}) do
+    --     local clean_path = norm(v)
+    --     if clean_path ~= "" then table.insert(res, clean_path) end
+    --   end
+    --   return res
+    -- end
 
-    -- 2. RIGID WORKSPACE INCLUDE PATH SORTER (Zero Naming Assumptions)
+    -- 3. RIGID WORKSPACE INCLUDE PATH SORTER (Zero Naming Assumptions)
     local map_includes = function(list)
       local res = {}
       for _, v in ipairs(list or {}) do
@@ -274,72 +243,68 @@ fetch_metadata = function(callback, active_env, from, attempts)
       return res
     end
 
-    -- 3. Base Paths & Compilers
+    -- 4. Base Paths & Compilers
     meta.cc_path = norm(data.cc_path)
     meta.cxx_path = norm(data.cxx_path)
     meta.gdb_path = norm(data.gdb_path)
     pcall(M.get_sysroot_triplet, meta.cxx_path)
 
-    -- 4. Flags & Defines
+    -- 5. Flags & Defines
     meta.cc_flags = map_list(data.cc_flags)
     meta.cxx_flags = map_list(data.cxx_flags)
     meta.defines = map_list(data.defines)
 
-    -- 5. Includes (Completely automated and isolated)
+    -- 6. Includes (Completely automated and isolated)
+    for i, v in ipairs(data.libsource_dirs or {}) do
+      local clean_path = norm(v)
+      _G.metadata.libsource_dirs["libpath" .. i] = clean_path
+    end
+    -- meta.libsource_dirs = map_libsources(data.libsource_dirs)
+
+    -- 7. Includes (Completely automated and isolated)
     local inc = data.includes or {}
     meta.includes_build = map_includes(inc.build)
     meta.includes_toolchain = map_includes(inc.toolchain)
     meta.includes_compatlib = map_includes(inc.compatlib)
 
-
-    if _G.metadata and type(_G.metadata.cxx_flags) == 'table' then
-      local boiler = require('nvimpio.boilerplate')
-      local pio_diag = require('nvimpio.clangd.diagnostic')
-
-      local flags_updated = false
-
-      -- Loop through every compiler flag supplied by idedata.json
-      for _, flag in ipairs(_G.metadata.cxx_flags) do
-        if type(flag) == 'string' then
-          -- -- Rule A: It's an architecture machine directive flag (e.g., -mlongcalls)
-          -- local is_machine_directive = flag:match('^%-m[%w%-]+')
-          --
-          -- -- Rule B: It's a heavy compiler loop/optimization tweak (e.g., -fno-tree-switch-conversion)
-          -- local is_problematic_opt = flag:match('^%-fno%-tree%-') or flag:match('^%-fno%-jump%-')
-
-          -- if (is_machine_directive or is_problematic_opt) and not pio_diag.removed_flags[flag] then
-
-          -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
-          -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
-          -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
-          -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
-          -- O: Optimization Levels (e.g., -Os, -O2)
-          -- d / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
-          -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
-          -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
-          local isMatch = flag:match('(%-[fmWOdsx][%w%-%.%*]+)')
-          if isMatch and not pio_diag.removed_flags[flag] then
-            -- Permanently register the flag inside your plugin's dynamic databases
-            pio_diag.removed_flags[flag] = true
-            flags_updated = true
-          end
-        end
-      end
-
-      -- Trigger your boilerplate writer to output the updated .clangd file to disk instantly
-      if flags_updated and boiler.boilerplate_gen then
-        pcall(boiler.boilerplate_gen, '.clangd', project_root)
-
-        -- Save the newly tracked flags down to your .filter.json file
-        local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
-        local f = io.open(filter_db_path, 'wb')
-        if f then
-          local payload = { codes = pio_diag.manual_blocked_codes, flags = pio_diag.removed_flags }
-          f:write(require('nvimpio.utils.misc').jsonFormat(payload))
-          f:close()
-        end
-      end
-    end
+    -- --🟢  keep for later
+    -- if _G.metadata and type(_G.metadata.cxx_flags) == 'table' then
+    --   local boiler = require('nvimpio.boilerplate')
+    --   local pio_diag = require('nvimpio.clangd.diagnostic')
+    --
+    --   local flags_updated = false
+    --
+    --   -- Loop through every compiler flag supplied by idedata.json
+    --   for _, flag in ipairs(_G.metadata.cxx_flags) do
+    --     if type(flag) == 'string' then
+    --       -- Rule A: It's an architecture machine directive flag (e.g., -mlongcalls)
+    --       local is_machine_directive = flag:match('^%-m[%w%-]+')
+    --
+    --       -- Rule B: It's a heavy compiler loop/optimization tweak (e.g., -fno-tree-switch-conversion)
+    --       local is_problematic_opt = flag:match('^%-fno%-tree%-') or flag:match('^%-fno%-jump%-')
+    --
+    --       if (is_machine_directive or is_problematic_opt) and not pio_diag.removed_flags[flag] then
+    --         -- Permanently register the flag inside your plugin's dynamic databases
+    --         pio_diag.removed_flags[flag] = true
+    --         flags_updated = true
+    --       end
+    --     end
+    --   end
+    --
+    --   -- Trigger your boilerplate writer to output the updated .clangd file to disk instantly
+    --   if flags_updated and boiler.boilerplate_gen then
+    --     pcall(boiler.boilerplate_gen, '.clangd', project_root)
+    --
+    --     -- Save the newly tracked flags down to your .filter.json file
+    --     local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
+    --     local f = io.open(filter_db_path, 'wb')
+    --     if f then
+    --       local payload = { codes = pio_diag.manual_blocked_codes, flags = pio_diag.removed_flags }
+    --       f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+    --       f:close()
+    --     end
+    --   end
+    -- end
 
     -- Secure the validation signature token right after creation succeeds
     local read_ok, fresh_checksum = misc.readFile(checksum_file)

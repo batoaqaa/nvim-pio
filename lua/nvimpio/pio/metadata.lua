@@ -61,6 +61,7 @@ local _pio_metadata = {
   platforms_dir = '',
   query_driver = '**',
   -- cc_compiler = '',
+  libsource_dirs = {},
   includes_build = {},
   includes_compatlib = {},
   includes_toolchain = {},
