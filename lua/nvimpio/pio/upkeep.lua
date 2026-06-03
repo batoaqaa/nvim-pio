@@ -162,13 +162,83 @@ end
 --   return paths
 -- end
 
+
+-- ===================================================================
+-- 🧠 TRIE-JUNCTION ENGINE: Finds the absolute deepest shared node split point
+-- ===================================================================
+local function discover_optimal_include_roots(all_paths)
+  if #all_paths == 0 then return {} end
+
+  -- 1. Build a recursive Trie (Prefix Tree) structure in memory
+  local trie = { count = 0, children = {} }
+  for i = 1, #all_paths do
+    local path = all_paths[i]
+    local segments = vim.split(path, "/", { trimempty = true })
+
+    local current_node = trie
+    for j = 1, #segments do
+      local seg = segments[j]
+      if not current_node.children[seg] then
+        current_node.children[seg] = { count = 0, children = {} }
+      end
+      current_node = current_node.children[seg]
+      current_node.count = current_node.count + 1
+    end
+  end
+
+  -- 2. Traverse down the tree to find the absolute deepest branching junctions
+  local discovered_roots = {}
+  local function traverse(node, current_path)
+    -- Count how many unique child branches split off from this node
+    local branch_count = 0
+    for _ in pairs(node.children) do branch_count = branch_count + 1 end
+
+    -- 🟢 JUNCTION DETECTED: If the path splits here, or if this is a leaf node 
+    -- that holds a massive portion of your include lines, this is a target root!
+    if branch_count > 1 or (branch_count == 0 and node.count > 0) then
+      local depth = #vim.split(current_path, "/", { trimempty = true })
+      -- Skip generic low-level system folders (like C:/ or C:/Users/)
+      if depth >= 4 then
+        table.insert(discovered_roots, { path = current_path, count = node.count, depth = depth })
+      end
+    end
+
+    -- Continue cascading down into the child nodes recursively
+    for seg_name, child_node in pairs(node.children) do
+      local next_path = current_path .. seg_name .. "/"
+      traverse(child_node, next_path)
+    end
+  end
+
+  -- Start traversing from the drive root anchor
+  local root_prefix = (all_paths[1]:sub(1, 1) == "/") and "/" or ""
+  traverse(trie, root_prefix)
+
+  -- 3. Sort junctions: Deepest folder depth with the highest tracking count wins!
+  table.sort(discovered_roots, function(a, b)
+    if a.depth == b.depth then return a.count > b.count end
+    return a.depth > b.depth
+  end)
+
+  -- Extract the top optimal framework base directories found on your system drive
+  local final_stems = {}
+  for i = 1, math.min(2, #discovered_roots) do
+    table.insert(final_stems, discovered_roots[i].path)
+  end
+  return final_stems
+end
+
 -- =
 -- ==================================================================
 -- 🧠 ALGORITHMIC LCP ENGINE: Finds the absolute largest shared parent folder
 -- ===================================================================
 local function find_longest_common_prefix(paths)
-  if not paths or #paths == 0 then return "" end
-  if #paths == 1 then return vim.fs.dirname(paths[1]) .. "/" end
+  if not paths or #paths == 0 then
+    return ''
+  end
+  if #paths == 1 then
+    return vim.fs.dirname(paths[1]) .. '/'
+  end
 
   -- Sort paths alphabetically to put the most different paths at the two extremes
   table.sort(paths)
@@ -185,12 +255,12 @@ local function find_longest_common_prefix(paths)
   local prefix = first:sub(1, i - 1)
 
   -- Ensure we cut the path cleanly at the last slash boundary token
-  local last_slash = prefix:match("^.*()/")
+  local last_slash = prefix:match('^.*()/')
   if last_slash then
-    return prefix:sub(1, last_slash -1)
+    return prefix:sub(1, last_slash - 1)
   end
 
-  return ""
+  return ''
 end
 
 --=============================================================================
@@ -255,33 +325,47 @@ fetch_metadata = function(callback, active_env, from, attempts)
     local includes_build = normPaths(inc.build)
     local includes_toolchain = normPaths(inc.toolchain)
     local includes_compatlib = normPaths(inc.compatlib)
-    local project_root
 
-    -- 2. lib PATH SORTER (Zero Naming Assumptions)
-    local map_libsources = function(list)
-      local res = normPaths(list)
+    local include_pools = {
+      includes_build,
+      includes_toolchain,
+     includes_compatlib
+    }
 
-      local system_lcp = find_longest_common_prefix(includes_build)
-      if system_lcp ~= "" then table.insert(res, system_lcp) end
+    local discovered_roots = discover_optimal_include_roots(include_pools)
+    -- Sort final mapping tokens by path length descending to guarantee longest match branches slice first
+    table.sort(discovered_roots, function(a, b)
+      if type(a) == "string" and type(b) == "string" then
+        return #a > #b
+      end
+      return false
+    end)
 
-      system_lcp = find_longest_common_prefix(includes_toolchain)
-      if system_lcp ~= "" then table.insert(res, system_lcp) end
-
-      system_lcp = find_longest_common_prefix(includes_compatlib)
-      if system_lcp ~= "" then table.insert(res, system_lcp) end
-
-      table.insert(res, norm_project_root)
-
-      -- Sort final mapping tokens by path length descending to guarantee longest match branches slice first
-      table.sort(res, function(a, b)
-        if type(a) == "string" and type(b) == "string" then
-          return #a > #b
-        end
-        return false
-      end)
-      -- table.sort(res, function(a, b) return #a.path > #b.path end)
-      return res
-    end
+    -- -- 2. lib PATH SORTER (Zero Naming Assumptions)
+    -- local map_libsources = function(list)
+    --   local res = normPaths(list)
+    --
+    --   local system_lcp = find_longest_common_prefix(includes_build)
+    --   if system_lcp ~= "" then table.insert(res, system_lcp) end
+    --
+    --   system_lcp = find_longest_common_prefix(includes_toolchain)
+    --   if system_lcp ~= "" then table.insert(res, system_lcp) end
+    --
+    --   system_lcp = find_longest_common_prefix(includes_compatlib)
+    --   if system_lcp ~= "" then table.insert(res, system_lcp) end
+    --
+    --   table.insert(res, norm_project_root)
+    --
+    --   -- Sort final mapping tokens by path length descending to guarantee longest match branches slice first
+    --   table.sort(res, function(a, b)
+    --     if type(a) == "string" and type(b) == "string" then
+    --       return #a > #b
+    --     end
+    --     return false
+    --   end)
+    --   -- table.sort(res, function(a, b) return #a.path > #b.path end)
+    --   return res
+    -- end
 
     -- 3. RIGID WORKSPACE INCLUDE PATH SORTER (Zero Naming Assumptions)
     -- local map_includes = function(list)
@@ -346,7 +430,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     --   local clean_path = norm(v)
     --   _G.metadata.libsource_dirs["libpath" .. i] = clean_path
     -- end
-    meta.libsource_dirs = map_libsources(data.libsource_dirs)
+    meta.libsource_dirs = discovered_roots -- :wmap_libsources(data.libsource_dirs)
 
     -- 7. Includes (Completely automated and isolated)
     meta.includes_build = map_includes(includes_build)
