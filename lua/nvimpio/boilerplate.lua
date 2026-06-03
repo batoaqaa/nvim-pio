@@ -265,7 +265,7 @@ CompileFlags:
     end
 
     -- Assemble the dynamic block using native string.format insertions
-    dynamicBlock = string.format(self.dynamic, table.concat(libpaths, ',\n  '), table.concat(removed_args, ',\n    '), table.concat(added_flags, ',\n    '))
+    dynamicBlock = string.format(self.dynamic, table.concat(libpaths, '\n  '), table.concat(removed_args, ',\n    '), table.concat(added_flags, ',\n    '))
 
     local final_content = staticBlock .. '\n' .. dynamicBlock
 
