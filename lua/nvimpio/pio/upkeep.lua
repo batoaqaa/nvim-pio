@@ -225,7 +225,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
     -- Cache the project workspace root path cleanly
     local project_root = vim.g.platformioRootDir or vim.uv.cwd() or '.'
-    local norm_project_root = misc.normalizePath(project_root) or ''
+    local norm_project_root = vim.fs.normalize(project_root) or ''
 
     local norm = function(p) return vim.fs.normalize(p) or '' end
 
@@ -255,6 +255,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     local includes_build = normPaths(inc.build)
     local includes_toolchain = normPaths(inc.toolchain)
     local includes_compatlib = normPaths(inc.compatlib)
+    local project_root
 
     -- 2. lib PATH SORTER (Zero Naming Assumptions)
     local map_libsources = function(list)
@@ -268,6 +269,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
       system_lcp = find_longest_common_prefix(includes_compatlib)
       if system_lcp ~= "" then table.insert(res, system_lcp) end
+
+      table.insert(res, norm_project_root)
 
       -- Sort final mapping tokens by path length descending to guarantee longest match branches slice first
       table.sort(res, function(a, b)
