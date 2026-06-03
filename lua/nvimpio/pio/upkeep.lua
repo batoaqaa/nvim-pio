@@ -164,15 +164,14 @@ end
 
 
 -- ===================================================================
--- 🧠 TRIE-JUNCTION ENGINE: Fully Type-Safe & Cutoff-Free Branch Finder
+-- 🧠 TRIE-JUNCTION ENGINE: Fully Type-Safe & Cross-Platform Branch Finder
 -- ===================================================================
 local function discover_optimal_include_roots(all_paths)
   if not all_paths or type(all_paths) ~= "table" or #all_paths == 0 then
     return {}
   end
 
-    print(vim.inspect(all_paths))
-  -- 1. Rebuild the prefix tree (Trie)
+  -- 1. Build a recursive Trie (Prefix Tree) structure in memory
   local trie = { count = 0, children = {} }
   local total_valid_strings = 0
 
@@ -196,34 +195,7 @@ local function discover_optimal_include_roots(all_paths)
 
   if total_valid_strings == 0 then return {} end
 
-  -- 2. Traverse tree nodes and extract natural splitting hubs
-  local discovered_roots = {}
-  local function traverse(node, current_path)
-    local branch_count = 0
-    for _ in pairs(node.children) do branch_count = branch_count + 1 end
-
-    -- Determine how deeply nested this directory string token currently is
-    local segments_count = #vim.split(current_path, "/", { trimempty = true })
-
-    -- 🟢 FIX: Natural Junction Logic (No hardcoded layer filters!)
-    -- We save a directory if it splits into multiple children (like /cores and /tools)
-    -- AND is deep enough to skip plain drive roots (like C:/ or C:/Users/)
-    if segments_count >= 2 then
-      if branch_count > 1 or (branch_count == 0 and node.count > 0) then
-        -- Only target clusters that hold a real weight of your project paths (at least 15%)
-        if node.count >= (total_valid_strings * 0.15) then
-          table.insert(discovered_roots, { path = current_path, count = node.count, depth = segments_count })
-        end
-      end
-    end
-
-    for seg_name, child_node in pairs(node.children) do
-      local next_path = current_path .. seg_name .. "/"
-      traverse(child_node, next_path)
-    end
-  end
-
-  -- Safely seed the system drive prefix root
+  -- 2. Extract the base drive prefix token cleanly (Handles Windows C:/ and Unix / safely)
   local first_path = ""
   for i = 1, #all_paths do
     if type(all_paths[i]) == "string" and all_paths[i] ~= "" then
@@ -233,13 +205,44 @@ local function discover_optimal_include_roots(all_paths)
   end
 
   local root_prefix = ""
-  if first_path ~= "" and first_path:sub(1, 1) == "/" then
+  if first_path:sub(1, 1) == "/" then
     root_prefix = "/"
+  elseif first_path:match("^%a+:") then
+    root_prefix = first_path:match("^%a+:") .. "/"
+  end
+
+  -- 3. Traverse down tree nodes and extract natural splitting hubs
+  local discovered_roots = {}
+  local function traverse(node, current_path)
+    local branch_count = 0
+    for _ in pairs(node.children) do branch_count = branch_count + 1 end
+
+    local segments_count = #vim.split(current_path, "/", { trimempty = true })
+
+    -- 🟢 JUNCTION BLOCK RULE: 
+    -- Save a directory if it splits into multiple child branches (e.g. /cores and /tools)
+    if segments_count >= 2 then
+      if branch_count > 1 or (branch_count == 0 and node.count > 0) then
+        -- Only target structural folders holding at least 15% of your include pool
+        if node.count >= (total_valid_strings * 0.15) then
+          table.insert(discovered_roots, { path = current_path, count = node.count, depth = segments_count })
+        end
+      end
+    end
+
+    for seg_name, child_node in pairs(node.children) do
+      -- Avoid duplicating the drive letter key inside the traversal string assembly
+      local next_path = current_path
+      if seg_name .. "/" ~= root_prefix then
+        next_path = current_path .. seg_name .. "/"
+      end
+      traverse(child_node, next_path)
+    end
   end
 
   traverse(trie, root_prefix)
 
-  -- 3. Sort discovered entries: Deepest folder depth wins!
+  -- 4. Sort discovered entries: Deepest folder depth wins!
   table.sort(discovered_roots, function(a, b)
     if a.depth == b.depth then return a.count > b.count end
     return a.depth > b.depth
