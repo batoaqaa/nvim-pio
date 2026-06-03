@@ -333,6 +333,12 @@ fetch_metadata = function(callback, active_env, from, attempts)
     if read_ok and fresh_checksum ~= '' and fresh_checksum ~= meta.last_projectChecksum then OS.notify('checksum change ', 'info') end
     if read_ok and fresh_checksum ~= '' then meta.last_projectChecksum = fresh_checksum end
 
+    vim.schedule(function()
+      local boiler = require('nvimpio.boilerplate')
+        if boiler and boiler.boilerplate_gen then
+          pcall(boiler.boilerplate_gen, '.clangd', project_root)
+        end
+      end)
     return true
   end
 
