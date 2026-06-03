@@ -162,6 +162,36 @@ end
 --   return paths
 -- end
 
+-- =
+-- ==================================================================
+-- 🧠 ALGORITHMIC LCP ENGINE: Finds the absolute largest shared parent folder
+-- ===================================================================
+local function find_longest_common_prefix(paths)
+  if not paths or #paths == 0 then return "" end
+  if #paths == 1 then return vim.fs.dirname(paths[1]) .. "/" end
+
+  -- Sort paths alphabetically to put the most different paths at the two extremes
+  table.sort(paths)
+  local first = paths[1]
+  local last = paths[#paths]
+  local min_len = math.min(#first, #last)
+
+  local i = 1
+  while i <= min_len and first:sub(i, i) == last:sub(i, i) do
+    i = i + 1
+  end
+
+  -- Extract the matched prefix substring block
+  local prefix = first:sub(1, i - 1)
+
+  -- Ensure we cut the path cleanly at the last slash boundary token
+  local last_slash = prefix:match("^.*()/")
+  if last_slash then
+    return prefix:sub(1, last_slash)
+  end
+
+  return ""
+end
 
 --=============================================================================
 --INFO:get pio project metadata info
@@ -199,6 +229,18 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
     local norm = function(p) return misc.normalizePath(p) or '' end
 
+    local normPaths = function (list)
+      local res = {}
+      for _, v in ipairs(list or {}) do
+        local clean_path = norm(v)
+        if clean_path ~= "" then table.insert(res, clean_path) end
+      end
+      return res
+    end
+
+
+      -- -- PHASE C: Compute LCP on the leftover residual paths to extract framework_base dynamically
+
     -- 1. HIGH-PERFORMANCE LIST MAPPER: Optimized for raw strings (Flags & Defines)
     local map_list = function(list)
       local res = {}
@@ -209,13 +251,25 @@ fetch_metadata = function(callback, active_env, from, attempts)
       return res
     end
     --
+    local inc = data.includes or {}
+    local includes_build = normPaths(inc.build)
+    local includes_toolchain = normPaths(inc.toolchain)
+    local includes_compatlib = normPaths(inc.compatlib)
     -- 2. lib PATH SORTER (Zero Naming Assumptions)
     local map_libsources = function(list)
-      local res = {}
-      for _, v in ipairs(list or {}) do
-        local clean_path = norm(v)
-        if clean_path ~= "" then table.insert(res, clean_path) end
-      end
+      local res = normPaths(list)
+
+      local system_lcp = find_longest_common_prefix(includes_build)
+      if system_lcp ~= "" then table.insert(res, system_lcp) end
+
+      system_lcp = find_longest_common_prefix(includes_toolchain)
+      if system_lcp ~= "" then table.insert(res, system_lcp) end
+
+      system_lcp = find_longest_common_prefix(includes_compatlib)
+      if system_lcp ~= "" then table.insert(res, system_lcp) end
+
+      -- Sort final mapping tokens by path length descending to guarantee longest match branches slice first
+      table.sort(res, function(a, b) return #a.path > #b.path end)
       return res
     end
 
@@ -285,10 +339,9 @@ fetch_metadata = function(callback, active_env, from, attempts)
     meta.libsource_dirs = map_libsources(data.libsource_dirs)
 
     -- 7. Includes (Completely automated and isolated)
-    local inc = data.includes or {}
-    meta.includes_build = map_includes(inc.build)
-    meta.includes_toolchain = map_includes(inc.toolchain)
-    meta.includes_compatlib = map_includes(inc.compatlib)
+    meta.includes_build = map_includes(includes_build)
+    meta.includes_toolchain = map_includes(includes_toolchain)
+    meta.includes_compatlib = map_includes(includes_compatlib)
 
     -- --🟢  keep for later deals with cxx_flags
     -- if _G.metadata and type(_G.metadata.cxx_flags) == 'table' then
