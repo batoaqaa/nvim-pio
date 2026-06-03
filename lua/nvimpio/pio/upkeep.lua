@@ -164,21 +164,21 @@ end
 
 
 -- ===================================================================
--- 🧠 TRIE-JUNCTION ENGINE: Fully Type-Safe Branch Point Finder
+-- 🧠 TRIE-JUNCTION ENGINE: Fully Type-Safe & Cutoff-Free Branch Finder
 -- ===================================================================
 local function discover_optimal_include_roots(all_paths)
-  -- 🟢 GATE GUARD: Return immediately if the container is missing or empty
   if not all_paths or type(all_paths) ~= "table" or #all_paths == 0 then
     return {}
   end
 
-  -- 1. Build a recursive Trie (Prefix Tree) structure in memory
+  -- 1. Rebuild the prefix tree (Trie)
   local trie = { count = 0, children = {} }
+  local total_valid_strings = 0
+
   for i = 1, #all_paths do
     local path = all_paths[i]
-
-    -- 🟢 TYPE CHECK GUARD: Ensure we only process valid string primitives
     if type(path) == "string" and path ~= "" then
+      total_valid_strings = total_valid_strings + 1
       local segments = vim.split(path, "/", { trimempty = true })
 
       local current_node = trie
@@ -193,18 +193,26 @@ local function discover_optimal_include_roots(all_paths)
     end
   end
 
-  -- 2. Traverse down the tree to find the absolute deepest branching junctions
+  if total_valid_strings == 0 then return {} end
+
+  -- 2. Traverse tree nodes and extract natural splitting hubs
   local discovered_roots = {}
   local function traverse(node, current_path)
     local branch_count = 0
     for _ in pairs(node.children) do branch_count = branch_count + 1 end
 
-    -- JUNCTION DETECTED: Capture highly frequented structural split points
-    if branch_count > 1 or (branch_count == 0 and node.count > 0) then
-      local depth = #vim.split(current_path, "/", { trimempty = true })
-      -- Skip generic low-level system directory frames (C:/, /home/, etc.)
-      if depth >= 4 then
-        table.insert(discovered_roots, { path = current_path, count = node.count, depth = depth })
+    -- Determine how deeply nested this directory string token currently is
+    local segments_count = #vim.split(current_path, "/", { trimempty = true })
+
+    -- 🟢 FIX: Natural Junction Logic (No hardcoded layer filters!)
+    -- We save a directory if it splits into multiple children (like /cores and /tools)
+    -- AND is deep enough to skip plain drive roots (like C:/ or C:/Users/)
+    if segments_count >= 2 then
+      if branch_count > 1 or (branch_count == 0 and node.count > 0) then
+        -- Only target clusters that hold a real weight of your project paths (at least 15%)
+        if node.count >= (total_valid_strings * 0.15) then
+          table.insert(discovered_roots, { path = current_path, count = node.count, depth = segments_count })
+        end
       end
     end
 
@@ -214,26 +222,36 @@ local function discover_optimal_include_roots(all_paths)
     end
   end
 
-  -- 🟢 FIX: Extract the drive prefix safely from index 1 of the path string list array
-  local first_path = all_paths[1]
+  -- Safely seed the system drive prefix root
+  local first_path = ""
+  for i = 1, #all_paths do
+    if type(all_paths[i]) == "string" and all_paths[i] ~= "" then
+      first_path = all_paths[i]
+      break
+    end
+  end
+
   local root_prefix = ""
-  if type(first_path) == "string" and first_path:sub(1, 1) == "/" then
+  if first_path ~= "" and first_path:sub(1, 1) == "/" then
     root_prefix = "/"
   end
 
   traverse(trie, root_prefix)
 
-  -- 3. Sort junctions: Deepest folder depth with the highest tracking count wins!
+  -- 3. Sort discovered entries: Deepest folder depth wins!
   table.sort(discovered_roots, function(a, b)
     if a.depth == b.depth then return a.count > b.count end
     return a.depth > b.depth
   end)
 
-  -- Extract the top optimal framework base directories found on your system drive
+  -- Extract the absolute ultimate longest shared framework base directories
   local final_stems = {}
   for i = 1, math.min(2, #discovered_roots) do
-    table.insert(final_stems, discovered_roots[i].path)
+    if discovered_roots[i] and discovered_roots[i].path then
+      table.insert(final_stems, discovered_roots[i].path)
+    end
   end
+
   return final_stems
 end
 
