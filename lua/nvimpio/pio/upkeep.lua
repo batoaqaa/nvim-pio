@@ -162,12 +162,14 @@ end
 --   return paths
 -- end
 
+
+
 -- ===================================================================
 -- 🧠 HIGH-PERFORMANCE LAYERED PREFIX FINDER (FLAT ARRAY MATCHING)
 -- ===================================================================
 local function discover_optimal_include_roots(all_paths)
   if not all_paths or type(all_paths) ~= "table" or #all_paths == 0 then
-    return {} 
+    return {}
   end
 
   -- 1. Isolate and filter a clean list of unique include paths strings
@@ -185,7 +187,7 @@ local function discover_optimal_include_roots(all_paths)
     return { vim.fs.dirname(unique_path) .. "/" } 
   end
 
-  -- 2. 🟢 FIX: Extract the raw string from index 1 to satisfy the string contract
+  -- 2. Convert the first path into a baseline lookup array component matrix
   local base_segments = vim.split(clean_paths[1], "/", { trimempty = true })
   local common_segments = {}
 
@@ -196,7 +198,9 @@ local function discover_optimal_include_roots(all_paths)
 
     for j = 2, #clean_paths do
       local compare_segments = vim.split(clean_paths[j], "/", { trimempty = true })
-      if compare_segments[i] ~= current_seg then
+
+      -- 🟢 BOUNDS CHECK GUARD: Prevent crash if another path is shorter than base_segments
+      if i > #compare_segments or compare_segments[i] ~= current_seg then
         match_failed = true
         break
       end
@@ -218,7 +222,8 @@ local function discover_optimal_include_roots(all_paths)
 
   -- Prevent returning dangerous generic system roots (like "C:/" or "/")
   local final_depth = #common_segments
-  if is_windows and common_segments[1]:match(":") then
+  -- 🟢 FIX: Access index 1 of the string array directly instead of matching the table object!
+  if is_windows and common_segments[1] and common_segments[1]:match(":") then
     final_depth = final_depth - 1
   end
 
