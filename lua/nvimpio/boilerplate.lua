@@ -4,8 +4,8 @@ local misc = require('nvimpio.utils.misc')
 M.core_dir = ''
 -- M.args = {}
 -- Initialize the communication arrays globally inside the module container
-M.remove = {}
-M.suppress = {}
+-- M.remove = {}
+-- M.suppress = {}
 
 local boilerplate = {}
 
@@ -194,9 +194,23 @@ CompileFlags:
     end
 
     -- 1. Format the removed compiler flags
+    -- local removed_args = {}
+    -- for _, flag in ipairs(M.remove or {}) do
+    --   table.insert(removed_args, string.format('%q', flag))
+    -- end
+    -- 1. 🟢 SINGLE-SOURCE HYDRODYNAMIC SYNC:
+    -- Dynamically generate the removals list straight out of your master dictionary map!
     local removed_args = {}
-    for _, flag in ipairs(M.remove or {}) do
-      table.insert(removed_args, string.format('%q', flag))
+    local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+
+    if success and pio_diag and pio_diag.removed_flags then
+      for flag, is_blocked in pairs(pio_diag.removed_flags) do
+        if is_blocked and type(flag) == 'string' and flag ~= '' then
+          table.insert(removed_args, string.format('%q', flag))
+        end
+      end
+      -- Sort the flags so your physical .clangd file remains beautifully clean and alphabetical
+      table.sort(removed_args)
     end
 
     -- 2. 🟢 UNIFIED ADD MODULE: Collects both compiler macros and include paths

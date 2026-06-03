@@ -113,8 +113,6 @@ function M.clean_project_wide_flags(project_root, diagnostics)
   if not diagnostics or #diagnostics == 0 then
     return
   end
-  local boiler = require('nvimpio.boilerplate')
-  boiler.remove = boiler.remove or {}
   local flags_updated = false
 
   for _, diag in ipairs(diagnostics) do
@@ -123,9 +121,17 @@ function M.clean_project_wide_flags(project_root, diagnostics)
     local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
 
     if is_drv then
+      -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
+      -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
+      -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
+      -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
+      -- O: Optimization Levels (e.g., -Os, -O2)
+      -- d / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
+      -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
+      -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
       local flag = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
+      -- 🟢 SINGLE SEED: Only modify your private master module dictionary map!
       if flag and not M.removed_flags[flag] then
-        table.insert(boiler.remove, flag)
         M.removed_flags[flag] = true
         flags_updated = true
       end
@@ -134,7 +140,6 @@ function M.clean_project_wide_flags(project_root, diagnostics)
 
   if flags_updated then
     local filter_db_path = get_db_path(project_root)
-    -- Load what is explicitly written to file right now, ignoring dirty RAM states
     local current_blocked = parse_db_file_pure(filter_db_path)
 
     local f = io.open(filter_db_path, 'wb')
@@ -143,11 +148,53 @@ function M.clean_project_wide_flags(project_root, diagnostics)
       f:write(require('nvimpio.utils.misc').jsonFormat(payload))
       f:close()
     end
-    if boiler.boilerplate_gen then
+
+    -- Trigger the boilerplate generation process
+    local boiler = require('nvimpio.boilerplate')
+    if boiler and boiler.boilerplate_gen then
       pcall(boiler.boilerplate_gen, '.clangd', project_root)
     end
   end
 end
+-- function M.clean_project_wide_flags(project_root, diagnostics)
+--   if not diagnostics or #diagnostics == 0 then
+--     return
+--   end
+--   local boiler = require('nvimpio.boilerplate')
+--   boiler.remove = boiler.remove or {}
+--   local flags_updated = false
+--
+--   for _, diag in ipairs(diagnostics) do
+--     local code = diag.code
+--     local msg = diag.message or ''
+--     local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
+--
+--     if is_drv then
+--       local flag = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
+--       if flag and not M.removed_flags[flag] then
+--         table.insert(boiler.remove, flag)
+--         M.removed_flags[flag] = true
+--         flags_updated = true
+--       end
+--     end
+--   end
+--
+--   if flags_updated then
+--     local filter_db_path = get_db_path(project_root)
+--     -- Load what is explicitly written to file right now, ignoring dirty RAM states
+--     local current_blocked = parse_db_file_pure(filter_db_path)
+--
+--     local f = io.open(filter_db_path, 'wb')
+--     if f then
+--       local payload = { codes = current_blocked, flags = M.removed_flags }
+--       f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+--       f:close()
+--     end
+--     if boiler.boilerplate_gen then
+--       pcall(boiler.boilerplate_gen, '.clangd', project_root)
+--     end
+--   end
+-- end
 
 -- ===================================================================
 -- 🛠️ ENGINE PATH B: Clean Source Code File Diagnostics (Pure Files)
@@ -163,6 +210,8 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
   local manual_blocked = parse_db_file_pure(filter_db_path)
 
   local clean_diagnostics = {}
+  local flags_updated = false
+
   for _, diag in ipairs(diagnostics) do
     local keep = true
     local code = diag.code
@@ -180,21 +229,11 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
       -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
       -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
       local flag = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
-      if flag and not M.removed_flags[flag] then
-        local boiler = require('nvimpio.boilerplate')
-        boiler.remove = boiler.remove or {}
-        table.insert(boiler.remove, flag)
-        M.removed_flags[flag] = true
 
-        local f = io.open(filter_db_path, 'wb')
-        if f then
-          local payload = { codes = manual_blocked, flags = M.removed_flags }
-          f:write(require('nvimpio.utils.misc').jsonFormat(payload))
-          f:close()
-        end
-        if boiler.boilerplate_gen then
-          pcall(boiler.boilerplate_gen, '.clangd', project_root)
-        end
+      -- 🟢 SINGLE SOURCE SEED: Update only your master memory dictionary map!
+      if flag and not M.removed_flags[flag] then
+        M.removed_flags[flag] = true
+        flags_updated = true
       end
     elseif code and manual_blocked[code] then
       keep = false
@@ -204,8 +243,79 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
       table.insert(clean_diagnostics, diag)
     end
   end
+
+  -- 🟢 SINGLE-POINT FLUSH POINT: Trigger only if a brand-new unknown flag was caught mid-flight
+  if flags_updated then
+    local f = io.open(filter_db_path, 'wb')
+    if f then
+      local payload = { codes = manual_blocked, flags = M.removed_flags }
+      f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+      f:close()
+    end
+
+    -- Let the dynamic boilerplate loop read pio_diag.removed_flags directly on disk generation!
+    local boiler = require('nvimpio.boilerplate')
+    if boiler and boiler.boilerplate_gen then
+      pcall(boiler.boilerplate_gen, '.clangd', project_root)
+    end
+  end
+
   return clean_diagnostics
 end
+-- function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
+--   if not diagnostics or #diagnostics == 0 then
+--     return diagnostics
+--   end
+--   local filter_db_path = get_db_path(absolute_file_path)
+--   local project_root = vim.fs.dirname(filter_db_path)
+--
+--   -- Pure localized read ensures we only check blocks configured for THIS project folder
+--   local manual_blocked = parse_db_file_pure(filter_db_path)
+--
+--   local clean_diagnostics = {}
+--   for _, diag in ipairs(diagnostics) do
+--     local keep = true
+--     local code = diag.code
+--     local msg = diag.message or ''
+--     local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
+--
+--     if is_drv then
+--       keep = false
+--       -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
+--       -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
+--       -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
+--       -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
+--       -- O: Optimization Levels (e.g., -Os, -O2)
+--       -- d / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
+--       -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
+--       -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
+--       local flag = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
+--       if flag and not M.removed_flags[flag] then
+--         local boiler = require('nvimpio.boilerplate')
+--         boiler.remove = boiler.remove or {}
+--         table.insert(boiler.remove, flag)
+--         M.removed_flags[flag] = true
+--
+--         local f = io.open(filter_db_path, 'wb')
+--         if f then
+--           local payload = { codes = manual_blocked, flags = M.removed_flags }
+--           f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+--           f:close()
+--         end
+--         if boiler.boilerplate_gen then
+--           pcall(boiler.boilerplate_gen, '.clangd', project_root)
+--         end
+--       end
+--     elseif code and manual_blocked[code] then
+--       keep = false
+--     end
+--
+--     if keep then
+--       table.insert(clean_diagnostics, diag)
+--     end
+--   end
+--   return clean_diagnostics
+-- end
 
 -- ===================================================================
 -- 💻 THE INTERACTIVE DYNAMIC CHECKBOX PICKER PANEL (STATE MACHINE)
