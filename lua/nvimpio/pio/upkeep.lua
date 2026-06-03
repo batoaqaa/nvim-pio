@@ -247,19 +247,17 @@ fetch_metadata = function(callback, active_env, from, attempts)
       for _, v in ipairs(list or {}) do
         local clean_path = norm(v)
         if clean_path ~= "" then
-
-          -- DETERMINISTIC RULE LAYER:
-          -- Check if the include path physically initiates inside your active project directory tree
-          local is_under_project = clean_path:sub(1, #norm_project_root) == norm_project_root
-
-          -- Check if it belongs to the temporary downloaded vendor packages registry folder
-          local is_managed_lib = clean_path:match("%.pio/libdeps")
-
-          -- If it's outside your project repo, or inside the downloaded library cache, it's third-party!
-          local prefix = (not is_under_project or is_managed_lib) and "-isystem" or "-I"
-
-          -- Direct concatenation optimization
-          table.insert(res, prefix .. clean_path)
+          local is_managed_lib =  false
+          for i, libpath in ipairs(_G.metadata.libsource_dirs or {}) do
+            if (clean_path:sub(1, #libpath) == libpath) then
+              is_managed_lib = true
+              table.insert(res, string.format("-isystem${path%s}%s", i, clean_path:sub(#libpath)))
+              break
+            end
+          end
+          if not is_managed_lib then
+              table.insert(res, string.format("-isystem%s", clean_path))
+          end
         end
       end
       return res
@@ -289,7 +287,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     meta.includes_toolchain = map_includes(inc.toolchain)
     meta.includes_compatlib = map_includes(inc.compatlib)
 
-    -- --🟢  keep for later
+    -- --🟢  keep for later deals with cxx_flags
     -- if _G.metadata and type(_G.metadata.cxx_flags) == 'table' then
     --   local boiler = require('nvimpio.boilerplate')
     --   local pio_diag = require('nvimpio.clangd.diagnostic')
