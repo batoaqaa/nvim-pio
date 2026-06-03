@@ -73,7 +73,9 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
 
 ]],
   content = function(self)
-    return string.format(self.template, M.core_dir)
+    local core_dir = require('nvimpio').config.pio_storage_dir
+
+    return string.format(self.template, core_dir)
   end,
 }
 
