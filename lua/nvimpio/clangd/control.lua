@@ -153,7 +153,7 @@ function M.getClangdConfig()
     --   end
     -- end
 
-    -- Load your project's local checkbox filters (.filter.json)
+    -- 1. Sync memory registries to (.filter.json)
     local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
     local f = io.open(filter_db_path, 'r')
     if f then
@@ -172,6 +172,13 @@ function M.getClangdConfig()
           end
         end
       end
+    end
+    -- 2. THEN/LAST: Refresh your physical .clangd file using the fully loaded memory arrays
+    -- This guarantees that the final written .clangd file contains all your historically blocked options
+    -- right as clangd initializes, ensuring a 100% silent, stable editor boot!
+    local boiler = require('nvimpio.boilerplate')
+    if boiler and boiler.boilerplate_gen then
+      pcall(boiler.boilerplate_gen, '.clangd', project_root)
     end
   end
 

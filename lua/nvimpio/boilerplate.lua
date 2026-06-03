@@ -237,8 +237,44 @@ CompileFlags:
 
     local final_content = staticBlock .. '\n' .. dynamicBlock
 
-    misc.writeFile(cwdClangd, final_content, {})
-    misc.writeFile(coreClangd, final_content, {})
+
+    -- 1. Read the old content from disk to check if an update actually happened
+    local has_changed = true
+    local read_ok, old_content = misc.readFile(cwdClangd)
+    if read_ok and old_content == final_content then
+      has_changed = false -- Content is identical, skip writing and restarting!
+    end
+
+    if has_changed then
+      misc.writeFile(cwdClangd, final_content, {})
+      misc.writeFile(coreClangd, final_content, {})
+
+      -- 🟢 RIGID TYPE-SAFE RELOAD ROUTINE:
+      vim.schedule(function()
+        local active_clients = vim.lsp.get_clients({ name = "clangd" })
+        local should_restart = false
+
+        for _, client in ipairs(active_clients) do
+          -- Verify client is valid and the notify method exists natively
+          if client and type(client.notify) == "function" then
+
+            -- It takes exactly 2 arguments (method, params). It is structurally 
+            -- simpler and completely satisfies lua-ls's strict type verification checks!
+            client:notify("workspace/didChangeConfiguration", { settings = {} })
+            should_restart = true
+          end
+        end
+
+        -- Execute the restart cleanly outside the iterator loop block
+        if should_restart then
+          vim.notify("nvimpio: Toolchain configurations updated. Reloading workspace...", vim.log.levels.INFO)
+          require('nvimpio.clangd.control').restart()
+          -- vim.cmd("silent! LspRestart clangd")
+        end
+      end)
+    end
+
+
     return final_content
   end,
 }
