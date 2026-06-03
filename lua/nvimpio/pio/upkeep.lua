@@ -301,13 +301,24 @@ fetch_metadata = function(callback, active_env, from, attempts)
       -- Loop through every compiler flag supplied by idedata.json
       for _, flag in ipairs(_G.metadata.cxx_flags) do
         if type(flag) == 'string' then
-          -- Rule A: It's an architecture machine directive flag (e.g., -mlongcalls)
-          local is_machine_directive = flag:match('^%-m[%w%-]+')
+          -- -- Rule A: It's an architecture machine directive flag (e.g., -mlongcalls)
+          -- local is_machine_directive = flag:match('^%-m[%w%-]+')
+          --
+          -- -- Rule B: It's a heavy compiler loop/optimization tweak (e.g., -fno-tree-switch-conversion)
+          -- local is_problematic_opt = flag:match('^%-fno%-tree%-') or flag:match('^%-fno%-jump%-')
 
-          -- Rule B: It's a heavy compiler loop/optimization tweak (e.g., -fno-tree-switch-conversion)
-          local is_problematic_opt = flag:match('^%-fno%-tree%-') or flag:match('^%-fno%-jump%-')
+          -- if (is_machine_directive or is_problematic_opt) and not pio_diag.removed_flags[flag] then
 
-          if (is_machine_directive or is_problematic_opt) and not pio_diag.removed_flags[flag] then
+          -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
+          -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
+          -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
+          -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
+          -- O: Optimization Levels (e.g., -Os, -O2)
+          -- d / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
+          -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
+          -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
+          local isMatch = flag:match('(%-[fmWOdsx][%w%-%.%*]+)')
+          if isMatch and not pio_diag.removed_flags[flag] then
             -- Permanently register the flag inside your plugin's dynamic databases
             pio_diag.removed_flags[flag] = true
             flags_updated = true
