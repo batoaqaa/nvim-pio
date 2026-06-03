@@ -205,7 +205,7 @@ CompileFlags:
     local core = require('nvimpio')
     local cwdClangd = vim.fs.joinpath(vim.uv.cwd(), '.clangd')
     local coreClangd = vim.fs.joinpath(core.config.pio_storage_dir, '.clangd')
-    local flagsFile = vim.fs.joinpath(project_root, '.pio', 'build', 'clangd_flags.txt')
+    local flagsFile = vim.fs.joinpath(vim.uv.cwd(), '.pio', 'build', 'clangd_flags.txt')
     local staticBlock, dynamicBlock = '', ''
 
     if vim.uv.fs_stat(cwdClangd) then
