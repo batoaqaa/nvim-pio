@@ -164,54 +164,63 @@ end
 
 
 -- ===================================================================
--- 🧠 TRIE-JUNCTION ENGINE: Finds the absolute deepest shared node split point
+-- 🧠 TRIE-JUNCTION ENGINE: Fully Type-Safe Branch Point Finder
 -- ===================================================================
 local function discover_optimal_include_roots(all_paths)
-  if #all_paths == 0 then return {} end
+  -- 🟢 GATE GUARD: Return immediately if the container is missing or empty
+  if not all_paths or type(all_paths) ~= "table" or #all_paths == 0 then
+    return {}
+  end
 
   -- 1. Build a recursive Trie (Prefix Tree) structure in memory
   local trie = { count = 0, children = {} }
   for i = 1, #all_paths do
     local path = all_paths[i]
-    local segments = vim.split(path, "/", { trimempty = true })
 
-    local current_node = trie
-    for j = 1, #segments do
-      local seg = segments[j]
-      if not current_node.children[seg] then
-        current_node.children[seg] = { count = 0, children = {} }
+    -- 🟢 TYPE CHECK GUARD: Ensure we only process valid string primitives
+    if type(path) == "string" and path ~= "" then
+      local segments = vim.split(path, "/", { trimempty = true })
+
+      local current_node = trie
+      for j = 1, #segments do
+        local seg = segments[j]
+        if not current_node.children[seg] then
+          current_node.children[seg] = { count = 0, children = {} }
+        end
+        current_node = current_node.children[seg]
+        current_node.count = current_node.count + 1
       end
-      current_node = current_node.children[seg]
-      current_node.count = current_node.count + 1
     end
   end
 
   -- 2. Traverse down the tree to find the absolute deepest branching junctions
   local discovered_roots = {}
   local function traverse(node, current_path)
-    -- Count how many unique child branches split off from this node
     local branch_count = 0
     for _ in pairs(node.children) do branch_count = branch_count + 1 end
 
-    -- 🟢 JUNCTION DETECTED: If the path splits here, or if this is a leaf node 
-    -- that holds a massive portion of your include lines, this is a target root!
+    -- JUNCTION DETECTED: Capture highly frequented structural split points
     if branch_count > 1 or (branch_count == 0 and node.count > 0) then
       local depth = #vim.split(current_path, "/", { trimempty = true })
-      -- Skip generic low-level system folders (like C:/ or C:/Users/)
+      -- Skip generic low-level system directory frames (C:/, /home/, etc.)
       if depth >= 4 then
         table.insert(discovered_roots, { path = current_path, count = node.count, depth = depth })
       end
     end
 
-    -- Continue cascading down into the child nodes recursively
     for seg_name, child_node in pairs(node.children) do
       local next_path = current_path .. seg_name .. "/"
       traverse(child_node, next_path)
     end
   end
 
-  -- Start traversing from the drive root anchor
-  local root_prefix = (all_paths[1]:sub(1, 1) == "/") and "/" or ""
+  -- 🟢 FIX: Extract the drive prefix safely from index 1 of the path string list array
+  local first_path = all_paths[1]
+  local root_prefix = ""
+  if type(first_path) == "string" and first_path:sub(1, 1) == "/" then
+    root_prefix = "/"
+  end
+
   traverse(trie, root_prefix)
 
   -- 3. Sort junctions: Deepest folder depth with the highest tracking count wins!
@@ -228,40 +237,105 @@ local function discover_optimal_include_roots(all_paths)
   return final_stems
 end
 
--- =
--- ==================================================================
--- 🧠 ALGORITHMIC LCP ENGINE: Finds the absolute largest shared parent folder
 -- ===================================================================
-local function find_longest_common_prefix(paths)
-  if not paths or #paths == 0 then
-    return ''
-  end
-  if #paths == 1 then
-    return vim.fs.dirname(paths[1]) .. '/'
-  end
-
-  -- Sort paths alphabetically to put the most different paths at the two extremes
-  table.sort(paths)
-  local first = paths[1]
-  local last = paths[#paths]
-  local min_len = math.min(#first, #last)
-
-  local i = 1
-  while i <= min_len and first:sub(i, i) == last:sub(i, i) do
-    i = i + 1
-  end
-
-  -- Extract the matched prefix substring block
-  local prefix = first:sub(1, i - 1)
-
-  -- Ensure we cut the path cleanly at the last slash boundary token
-  local last_slash = prefix:match('^.*()/')
-  if last_slash then
-    return prefix:sub(1, last_slash - 1)
-  end
-
-  return ''
-end
+-- 🧠 TRIE-JUNCTION ENGINE: Finds the absolute deepest shared node split point
+-- ===================================================================
+-- local function discover_optimal_include_roots(all_paths)
+--   if #all_paths == 0 then return {} end
+--
+--   -- 1. Build a recursive Trie (Prefix Tree) structure in memory
+--   local trie = { count = 0, children = {} }
+--   for i = 1, #all_paths do
+--     local path = all_paths[i]
+--     local segments = vim.split(path, "/", { trimempty = true })
+--
+--     local current_node = trie
+--     for j = 1, #segments do
+--       local seg = segments[j]
+--       if not current_node.children[seg] then
+--         current_node.children[seg] = { count = 0, children = {} }
+--       end
+--       current_node = current_node.children[seg]
+--       current_node.count = current_node.count + 1
+--     end
+--   end
+--
+--   -- 2. Traverse down the tree to find the absolute deepest branching junctions
+--   local discovered_roots = {}
+--   local function traverse(node, current_path)
+--     -- Count how many unique child branches split off from this node
+--     local branch_count = 0
+--     for _ in pairs(node.children) do branch_count = branch_count + 1 end
+--
+--     -- 🟢 JUNCTION DETECTED: If the path splits here, or if this is a leaf node
+--     -- that holds a massive portion of your include lines, this is a target root!
+--     if branch_count > 1 or (branch_count == 0 and node.count > 0) then
+--       local depth = #vim.split(current_path, "/", { trimempty = true })
+--       -- Skip generic low-level system folders (like C:/ or C:/Users/)
+--       if depth >= 4 then
+--         table.insert(discovered_roots, { path = current_path, count = node.count, depth = depth })
+--       end
+--     end
+--
+--     -- Continue cascading down into the child nodes recursively
+--     for seg_name, child_node in pairs(node.children) do
+--       local next_path = current_path .. seg_name .. "/"
+--       traverse(child_node, next_path)
+--     end
+--   end
+--
+--   -- Start traversing from the drive root anchor
+--   local root_prefix = (all_paths[1]:sub(1, 1) == "/") and "/" or ""
+--   traverse(trie, root_prefix)
+--
+--   -- 3. Sort junctions: Deepest folder depth with the highest tracking count wins!
+--   table.sort(discovered_roots, function(a, b)
+--     if a.depth == b.depth then return a.count > b.count end
+--     return a.depth > b.depth
+--   end)
+--
+--   -- Extract the top optimal framework base directories found on your system drive
+--   local final_stems = {}
+--   for i = 1, math.min(2, #discovered_roots) do
+--     table.insert(final_stems, discovered_roots[i].path)
+--   end
+--   return final_stems
+-- end
+--
+-- -- =
+-- -- ==================================================================
+-- -- 🧠 ALGORITHMIC LCP ENGINE: Finds the absolute largest shared parent folder
+-- -- ===================================================================
+-- local function find_longest_common_prefix(paths)
+--   if not paths or #paths == 0 then
+--     return ''
+--   end
+--   if #paths == 1 then
+--     return vim.fs.dirname(paths[1]) .. '/'
+--   end
+--
+--   -- Sort paths alphabetically to put the most different paths at the two extremes
+--   table.sort(paths)
+--   local first = paths[1]
+--   local last = paths[#paths]
+--   local min_len = math.min(#first, #last)
+--
+--   local i = 1
+--   while i <= min_len and first:sub(i, i) == last:sub(i, i) do
+--     i = i + 1
+--   end
+--
+--   -- Extract the matched prefix substring block
+--   local prefix = first:sub(1, i - 1)
+--
+--   -- Ensure we cut the path cleanly at the last slash boundary token
+--   local last_slash = prefix:match('^.*()/')
+--   if last_slash then
+--     return prefix:sub(1, last_slash - 1)
+--   end
+--
+--   return ''
+-- end
 
 --=============================================================================
 --INFO:get pio project metadata info
