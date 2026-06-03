@@ -209,17 +209,39 @@ fetch_metadata = function(callback, active_env, from, attempts)
       return res
     end
     --
-    -- -- 2. lib PATH SORTER (Zero Naming Assumptions)
-    -- local map_libsources = function(list)
+    -- 2. lib PATH SORTER (Zero Naming Assumptions)
+    local map_libsources = function(list)
+      local res = {}
+      for _, v in ipairs(list or {}) do
+        local clean_path = norm(v)
+        if clean_path ~= "" then table.insert(res, clean_path) end
+      end
+      return res
+    end
+
+    -- 3. RIGID WORKSPACE INCLUDE PATH SORTER (Zero Naming Assumptions)
+    -- local map_includes = function(list)
     --   local res = {}
     --   for _, v in ipairs(list or {}) do
     --     local clean_path = norm(v)
-    --     if clean_path ~= "" then table.insert(res, clean_path) end
+    --     if clean_path ~= "" then
+    --
+    --       -- DETERMINISTIC RULE LAYER:
+    --       -- Check if the include path physically initiates inside your active project directory tree
+    --       local is_under_project = clean_path:sub(1, #norm_project_root) == norm_project_root
+    --
+    --       -- Check if it belongs to the temporary downloaded vendor packages registry folder
+    --       local is_managed_lib = clean_path:match("%.pio/libdeps")
+    --
+    --       -- If it's outside your project repo, or inside the downloaded library cache, it's third-party!
+    --       local prefix = (not is_under_project or is_managed_lib) and "-isystem" or "-I"
+    --
+    --       -- Direct concatenation optimization
+    --       table.insert(res, prefix .. clean_path)
+    --     end
     --   end
     --   return res
     -- end
-
-    -- 3. RIGID WORKSPACE INCLUDE PATH SORTER (Zero Naming Assumptions)
     local map_includes = function(list)
       local res = {}
       for _, v in ipairs(list or {}) do
@@ -255,11 +277,11 @@ fetch_metadata = function(callback, active_env, from, attempts)
     meta.defines = map_list(data.defines)
 
     -- 6. Includes (Completely automated and isolated)
-    for i, v in ipairs(data.libsource_dirs or {}) do
-      local clean_path = norm(v)
-      _G.metadata.libsource_dirs["libpath" .. i] = clean_path
-    end
-    -- meta.libsource_dirs = map_libsources(data.libsource_dirs)
+    -- for i, v in ipairs(data.libsource_dirs or {}) do
+    --   local clean_path = norm(v)
+    --   _G.metadata.libsource_dirs["libpath" .. i] = clean_path
+    -- end
+    meta.libsource_dirs = map_libsources(data.libsource_dirs)
 
     -- 7. Includes (Completely automated and isolated)
     local inc = data.includes or {}
