@@ -224,7 +224,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
     -- 3. Includes (Build, Toolchain, Compatlib)
     local inc = data.includes or {}
-    meta.includes_build = quote_map(inc.build, '-I')
+    meta.includes_build = quote_map(inc.build, '-isystem')
     meta.includes_toolchain = quote_map(inc.toolchain, '-isystem')
     meta.includes_compatlib = quote_map(inc.compatlib, '-isystem')
 
