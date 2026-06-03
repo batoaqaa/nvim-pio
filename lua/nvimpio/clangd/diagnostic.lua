@@ -74,6 +74,9 @@ end
 
 -- 2. Pure local JSON reading loop (Strictly separates codes from compiler flags)
 local function parse_db_file_pure(db_path)
+  -- 🟢 SELF-HEALING INTERCEPTION: Guarantee a pristine file template exists on disk
+  ensure_default_db_exists(db_path)
+
   local blocked_codes = {}
   local f = io.open(db_path, 'rb')
   if not f then
@@ -210,6 +213,9 @@ end
 function M.manage_file_diagnostics_interactive(state_override)
   local bufnr = vim.api.nvim_get_current_buf()
   local filter_db_path = get_db_path(bufnr)
+
+  -- 🟢 SELF-HEALING INTERCEPTION: Guarantee the database file is active before memory tracking maps populate
+  ensure_default_db_exists(filter_db_path)
 
   -- Initialize memory state tracking layer from disk or incoming RAM state
   local active_file_blocked = state_override or parse_db_file_pure(filter_db_path)
