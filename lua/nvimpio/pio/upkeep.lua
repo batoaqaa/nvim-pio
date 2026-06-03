@@ -269,7 +269,13 @@ fetch_metadata = function(callback, active_env, from, attempts)
       if system_lcp ~= "" then table.insert(res, system_lcp) end
 
       -- Sort final mapping tokens by path length descending to guarantee longest match branches slice first
-      table.sort(res, function(a, b) return #a.path > #b.path end)
+      table.sort(res, function(a, b)
+        if type(a) == "string" and type(b) == "string" then
+          return #a > #b
+        end
+        return false
+      end)
+      -- table.sort(res, function(a, b) return #a.path > #b.path end)
       return res
     end
 
