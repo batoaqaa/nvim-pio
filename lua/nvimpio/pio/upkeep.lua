@@ -407,6 +407,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     }
 
     local discovered_roots = discover_optimal_include_roots(include_pools)
+    print(vim.inspect(discovered_roots))
     -- Sort final mapping tokens by path length descending to guarantee longest match branches slice first
     table.sort(discovered_roots, function(a, b)
       if type(a) == "string" and type(b) == "string" then
