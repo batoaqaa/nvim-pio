@@ -133,26 +133,18 @@ function M.getClangdConfig()
     -- 🟢 DATA-DRIVEN INCLUDE INJECTION MATRIX (NO DISK FILTERS OR IO POPENS)
     if _G.metadata then
       -- Combine both include groups into one sweep sequence
-      local include_pools = { _G.metadata.includes_build, _G.metadata.includes_toolchain }
+
+      local include_pools = {
+        _G.metadata.includes_build,
+        _G.metadata.includes_toolchain,
+        _G.metadata.includes_compatlib,
+      }
 
       for _, pool in ipairs(include_pools) do
-        if type(pool) == 'table' then
-          for _, raw_flag in ipairs(pool) do
-            if type(raw_flag) == 'string' and raw_flag ~= '' then
-              local clean_flag = vim.fs.normalize(raw_flag)
-
-              -- Check if this flag targets the user's active local development space
-              local is_local_src = clean_flag:match('/include$') or clean_flag:match('/src$') or clean_flag:match('data/Projects')
-
-              if is_local_src and not clean_flag:match('%.platformio') and not clean_flag:match('%.pio') then
-                -- 🟢 SAFETY CONVERSION: Strip -isystem and demote local code to standard user -I includes
-                local path_stripped = clean_flag:gsub('^%-isystem', ''):gsub('^%-I', '')
-                inject_flag('-I' .. path_stripped)
-              else
-                -- Leave external framework dependencies as strict -isystem parameters
-                inject_flag(clean_flag)
-              end
-            end
+        for _, raw_flag in ipairs(pool or {}) do
+          if type(raw_flag) == 'string' and raw_flag ~= '' then
+            local clean_flag = vim.fs.normalize(raw_flag)
+            inject_flag(clean_flag)
           end
         end
       end
@@ -165,26 +157,26 @@ function M.getClangdConfig()
       end
     end
 
-    -- -- Load your project's local checkbox filters (.filter.json)
-    -- local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
-    -- local f = io.open(filter_db_path, 'r')
-    -- if f then
-    --   local raw = f:read('*a')
-    --   f:close()
-    --   if raw and raw ~= '' then
-    --     local ok, data = pcall(vim.json.decode, raw)
-    --     if ok and data and type(data.flags) == 'table' then
-    --       for flag, blocked in pairs(data.flags) do
-    --         if blocked then
-    --           if success and pio_diag then
-    --             pio_diag.removed_flags[flag] = true
-    --           end
-    --           inject_flag(flag)
-    --         end
-    --       end
-    --     end
-    --   end
-    -- end
+    -- Load your project's local checkbox filters (.filter.json)
+    local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
+    local f = io.open(filter_db_path, 'r')
+    if f then
+      local raw = f:read('*a')
+      f:close()
+      if raw and raw ~= '' then
+        local ok, data = pcall(vim.json.decode, raw)
+        if ok and data and type(data.flags) == 'table' then
+          for flag, blocked in pairs(data.flags) do
+            if blocked then
+              if success and pio_diag then
+                pio_diag.removed_flags[flag] = true
+              end
+              -- inject_flag(flag)
+            end
+          end
+        end
+      end
+    end
   end
 
   -- 3. SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
