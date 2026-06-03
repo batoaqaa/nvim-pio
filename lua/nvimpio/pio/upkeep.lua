@@ -187,7 +187,7 @@ local function find_longest_common_prefix(paths)
   -- Ensure we cut the path cleanly at the last slash boundary token
   local last_slash = prefix:match("^.*()/")
   if last_slash then
-    return prefix:sub(1, last_slash)
+    return prefix:sub(1, last_slash -1)
   end
 
   return ""
@@ -227,7 +227,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     local project_root = vim.g.platformioRootDir or vim.uv.cwd() or '.'
     local norm_project_root = misc.normalizePath(project_root) or ''
 
-    local norm = function(p) return misc.normalizePath(p) or '' end
+    local norm = function(p) return vim.fs.normalize(p) or '' end
 
     local normPaths = function (list)
       local res = {}
@@ -255,6 +255,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     local includes_build = normPaths(inc.build)
     local includes_toolchain = normPaths(inc.toolchain)
     local includes_compatlib = normPaths(inc.compatlib)
+
     -- 2. lib PATH SORTER (Zero Naming Assumptions)
     local map_libsources = function(list)
       local res = normPaths(list)
