@@ -251,12 +251,14 @@ fetch_metadata = function(callback, active_env, from, attempts)
           for i, libpath in ipairs(_G.metadata.libsource_dirs or {}) do
             if (clean_path:sub(1, #libpath) == libpath) then
               is_managed_lib = true
-              table.insert(res, string.format("-isystem${path%s}%s", i, clean_path:sub(#libpath)))
+              table.insert(res, string.format("-isystem${path%s}%s", i, clean_path:sub(#libpath + 1)))
               break
             end
           end
           if not is_managed_lib then
-              table.insert(res, string.format("-isystem%s", clean_path))
+            local is_under_project = clean_path:sub(1, #norm_project_root) == norm_project_root
+            local prefix = (not is_under_project) and "-isystem" or "-I"
+            table.insert(res, prefix .. clean_path)
           end
         end
       end
