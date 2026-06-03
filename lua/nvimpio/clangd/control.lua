@@ -65,7 +65,7 @@ end
 -----------------------------------------------------------------------------------------
 
 -----------------------------------------------------------------------------------------
--- stylua: ignore
+--- stylua: ignore
 function M.getClangdConfig()
   -- Safe defaults (Standard clangd behavior)
   local q_driver, merged_json = '**', ''
@@ -92,17 +92,24 @@ function M.getClangdConfig()
 
   -- Format your template string
   local json_config = boilerplate_gen([[.clangd_config.json]], vim.g.platformioRootDir)
-  if not json_config then return nil end
+  if not json_config then
+    return nil
+  end
 
   local _, count = json_config:gsub('%%s', '')
   -- Only use string.format if there is one or less %s
-  if count <= 1 then merged_json = string.format(json_config or '', q_driver) end
+  if count <= 1 then
+    merged_json = string.format(json_config or '', q_driver)
+  end
 
   -- 'decode' converts JSON string -> Lua table
   local tok, clangd_config = pcall(vim.json.decode, merged_json)
 
-  if not tok then return nil end
+  if not tok then
+    return nil
+  end
 
+  -- 2. THE HIGH-PERFORMANCE MEMORY INJECTION ENGINE
   local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
   clangd_config.before_init = function(params, config)
     local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
@@ -111,22 +118,54 @@ function M.getClangdConfig()
     config.init_options = config.init_options or {}
     config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
 
+    local function inject_flag(flag_str)
+      table.insert(config.init_options.fallbackFlags, flag_str)
+    end
+
     -- Set baseline configurations safely in RAM memory space
     config.init_options.clangdFileStatus = true
     config.init_options.completeUnimported = true
     config.init_options.usePlaceholders = true
-    table.insert(config.init_options.fallbackFlags, "-ferror-limit=0")
-    -- table.insert(config.init_options.fallbackFlags, '-std=c++17')
-
-    local auto_defines = _G.metadata.auto_defines
-    -- 4. Inject all discovered macros straight into memory via --compile-flags
-    for _, define in ipairs(auto_defines) do
-      table.insert(config.init_options.fallbackFlags, define)
-    end
-
     -- Assign the absolute, normalized path to your project compilation database
     config.init_options.compilationDatabasePath = vim.fs.normalize(project_root)
+    inject_flag('-ferror-limit=0')
 
+    -- 🟢 DATA-DRIVEN INCLUDE INJECTION MATRIX (NO DISK FILTERS OR IO POPENS)
+    if _G.metadata then
+      -- Combine both include groups into one sweep sequence
+      local include_pools = { _G.metadata.includes_build, _G.metadata.includes_toolchain }
+
+      for _, pool in ipairs(include_pools) do
+        if type(pool) == 'table' then
+          for _, raw_flag in ipairs(pool) do
+            if type(raw_flag) == 'string' and raw_flag ~= '' then
+              local clean_flag = vim.fs.normalize(raw_flag)
+
+              -- Check if this flag targets the user's active local development space
+              local is_local_src = clean_flag:match('/include$') or clean_flag:match('/src$') or clean_flag:match('data/Projects')
+
+              if is_local_src and not clean_flag:match('%.platformio') and not clean_flag:match('%.pio') then
+                -- 🟢 SAFETY CONVERSION: Strip -isystem and demote local code to standard user -I includes
+                local path_stripped = clean_flag:gsub('^%-isystem', ''):gsub('^%-I', '')
+                inject_flag('-I' .. path_stripped)
+              else
+                -- Leave external framework dependencies as strict -isystem parameters
+                inject_flag(clean_flag)
+              end
+            end
+          end
+        end
+      end
+
+      -- Inject pre-parsed macro definitions safely from memory
+      if type(_G.metadata.auto_defines) == 'table' then
+        for _, define in ipairs(_G.metadata.auto_defines) do
+          inject_flag(define)
+        end
+      end
+    end
+
+    -- -- Load your project's local checkbox filters (.filter.json)
     -- local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
     -- local f = io.open(filter_db_path, 'r')
     -- if f then
@@ -140,8 +179,7 @@ function M.getClangdConfig()
     --           if success and pio_diag then
     --             pio_diag.removed_flags[flag] = true
     --           end
-    --           -- table.insert(config.init_options.fallbackFlags, flag)
-    --           table.insert(config.init_options.fallbackFlags, flag)
+    --           inject_flag(flag)
     --         end
     --       end
     --     end
@@ -149,7 +187,7 @@ function M.getClangdConfig()
     -- end
   end
 
-  -- 1. Pass parameters through the clean file pipeline safely using the true path target
+  -- 3. SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
   clangd_config.handlers = {
     ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
       if err or not result or not result.diagnostics then
