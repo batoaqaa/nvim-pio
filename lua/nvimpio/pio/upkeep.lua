@@ -162,101 +162,71 @@ end
 --   return paths
 -- end
 
-
 -- ===================================================================
--- 🧠 TRIE-JUNCTION ENGINE: Fully Type-Safe & Cross-Platform Branch Finder
+-- 🧠 HIGH-PERFORMANCE LAYERED PREFIX FINDER (FLAT ARRAY MATCHING)
 -- ===================================================================
 local function discover_optimal_include_roots(all_paths)
   if not all_paths or type(all_paths) ~= "table" or #all_paths == 0 then
-    return {}
+    return {} 
   end
 
-  -- 1. Build a recursive Trie (Prefix Tree) structure in memory
-  local trie = { count = 0, children = {} }
-  local total_valid_strings = 0
-
+  -- 1. Isolate and filter a clean list of unique include paths strings
+  local clean_paths = {}
   for i = 1, #all_paths do
-    local path = all_paths[i]
-    if type(path) == "string" and path ~= "" then
-      total_valid_strings = total_valid_strings + 1
-      local segments = vim.split(path, "/", { trimempty = true })
-
-      local current_node = trie
-      for j = 1, #segments do
-        local seg = segments[j]
-        if not current_node.children[seg] then
-          current_node.children[seg] = { count = 0, children = {} }
-        end
-        current_node = current_node.children[seg]
-        current_node.count = current_node.count + 1
-      end
+    local p = all_paths[i]
+    if type(p) == "string" and p ~= "" then
+      table.insert(clean_paths, p)
     end
   end
 
-  if total_valid_strings == 0 then return {} end
+  if #clean_paths == 0 then return {} end
+  if #clean_paths == 1 then 
+    local unique_path = clean_paths[1]
+    return { vim.fs.dirname(unique_path) .. "/" } 
+  end
 
-  -- 2. Extract the base drive prefix token cleanly (Handles Windows C:/ and Unix / safely)
-  local first_path = ""
-  for i = 1, #all_paths do
-    if type(all_paths[i]) == "string" and all_paths[i] ~= "" then
-      first_path = all_paths[i]
+  -- 2. 🟢 FIX: Extract the raw string from index 1 to satisfy the string contract
+  local base_segments = vim.split(clean_paths[1], "/", { trimempty = true })
+  local common_segments = {}
+
+  -- 3. Loop through columns and verify directory matches across all elements
+  for i = 1, #base_segments do
+    local current_seg = base_segments[i]
+    local match_failed = false
+
+    for j = 2, #clean_paths do
+      local compare_segments = vim.split(clean_paths[j], "/", { trimempty = true })
+      if compare_segments[i] ~= current_seg then
+        match_failed = true
+        break
+      end
+    end
+
+    if match_failed then
       break
     end
+    table.insert(common_segments, current_seg)
   end
 
-  local root_prefix = ""
-  if first_path:sub(1, 1) == "/" then
-    root_prefix = "/"
-  elseif first_path:match("^%a+:") then
-    root_prefix = first_path:match("^%a+:") .. "/"
+  -- 4. Reconstruct the finalized longest matching parent folder string natively
+  if #common_segments == 0 then return {} end
+
+  local is_windows = clean_paths[1]:match("^%a+:") ~= nil
+  local final_prefix = is_windows and "" or "/"
+
+  local shared_parent_path = final_prefix .. table.concat(common_segments, "/") .. "/"
+
+  -- Prevent returning dangerous generic system roots (like "C:/" or "/")
+  local final_depth = #common_segments
+  if is_windows and common_segments[1]:match(":") then
+    final_depth = final_depth - 1
   end
 
-  -- 3. Traverse down tree nodes and extract natural splitting hubs
-  local discovered_roots = {}
-  local function traverse(node, current_path)
-    local branch_count = 0
-    for _ in pairs(node.children) do branch_count = branch_count + 1 end
-
-    local segments_count = #vim.split(current_path, "/", { trimempty = true })
-
-    -- 🟢 JUNCTION BLOCK RULE: 
-    -- Save a directory if it splits into multiple child branches (e.g. /cores and /tools)
-    if segments_count >= 2 then
-      if branch_count > 1 or (branch_count == 0 and node.count > 0) then
-        -- Only target structural folders holding at least 15% of your include pool
-        if node.count >= (total_valid_strings * 0.15) then
-          table.insert(discovered_roots, { path = current_path, count = node.count, depth = segments_count })
-        end
-      end
-    end
-
-    for seg_name, child_node in pairs(node.children) do
-      -- Avoid duplicating the drive letter key inside the traversal string assembly
-      local next_path = current_path
-      if seg_name .. "/" ~= root_prefix then
-        next_path = current_path .. seg_name .. "/"
-      end
-      traverse(child_node, next_path)
-    end
+  if final_depth >= 2 then
+    return { shared_parent_path }
   end
 
-  traverse(trie, root_prefix)
-
-  -- 4. Sort discovered entries: Deepest folder depth wins!
-  table.sort(discovered_roots, function(a, b)
-    if a.depth == b.depth then return a.count > b.count end
-    return a.depth > b.depth
-  end)
-
-  -- Extract the absolute ultimate longest shared framework base directories
-  local final_stems = {}
-  for i = 1, math.min(2, #discovered_roots) do
-    if discovered_roots[i] and discovered_roots[i].path then
-      table.insert(final_stems, discovered_roots[i].path)
-    end
-  end
-
-  return final_stems
+  return {}
 end
 
 -- ===================================================================
