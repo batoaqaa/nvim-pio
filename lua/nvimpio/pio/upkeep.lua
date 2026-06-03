@@ -162,178 +162,6 @@ end
 --   return paths
 -- end
 
-
-
--- ===================================================================
--- 🧠 HIGH-PERFORMANCE LAYERED PREFIX FINDER (FLAT ARRAY MATCHING)
--- ===================================================================
-local function discover_optimal_include_roots(all_paths)
-  if not all_paths or type(all_paths) ~= "table" or #all_paths == 0 then
-    return {}
-  end
-
-  -- 1. Isolate and filter a clean list of unique include paths strings
-  local clean_paths = {}
-  for i = 1, #all_paths do
-    local p = all_paths[i]
-    if type(p) == "string" and p ~= "" then
-      table.insert(clean_paths, p)
-    end
-  end
-
-  if #clean_paths == 0 then return {} end
-  if #clean_paths == 1 then 
-    local unique_path = clean_paths[1]
-    return { vim.fs.dirname(unique_path) .. "/" } 
-  end
-
-  -- 2. Convert the first path into a baseline lookup array component matrix
-  local base_segments = vim.split(clean_paths[1], "/", { trimempty = true })
-  local common_segments = {}
-
-  -- 3. Loop through columns and verify directory matches across all elements
-  for i = 1, #base_segments do
-    local current_seg = base_segments[i]
-    local match_failed = false
-
-    for j = 2, #clean_paths do
-      local compare_segments = vim.split(clean_paths[j], "/", { trimempty = true })
-
-      -- 🟢 BOUNDS CHECK GUARD: Prevent crash if another path is shorter than base_segments
-      if i > #compare_segments or compare_segments[i] ~= current_seg then
-        match_failed = true
-        break
-      end
-    end
-
-    if match_failed then
-      break
-    end
-    table.insert(common_segments, current_seg)
-  end
-
-  -- 4. Reconstruct the finalized longest matching parent folder string natively
-  if #common_segments == 0 then return {} end
-
-  local is_windows = clean_paths[1]:match("^%a+:") ~= nil
-  local final_prefix = is_windows and "" or "/"
-
-  local shared_parent_path = final_prefix .. table.concat(common_segments, "/") .. "/"
-
-  -- Prevent returning dangerous generic system roots (like "C:/" or "/")
-  local final_depth = #common_segments
-  -- 🟢 FIX: Access index 1 of the string array directly instead of matching the table object!
-  if is_windows and common_segments[1] and common_segments[1]:match(":") then
-    final_depth = final_depth - 1
-  end
-
-  if final_depth >= 2 then
-    return { shared_parent_path }
-  end
-
-  return {}
-end
-
--- ===================================================================
--- 🧠 TRIE-JUNCTION ENGINE: Finds the absolute deepest shared node split point
--- ===================================================================
--- local function discover_optimal_include_roots(all_paths)
---   if #all_paths == 0 then return {} end
---
---   -- 1. Build a recursive Trie (Prefix Tree) structure in memory
---   local trie = { count = 0, children = {} }
---   for i = 1, #all_paths do
---     local path = all_paths[i]
---     local segments = vim.split(path, "/", { trimempty = true })
---
---     local current_node = trie
---     for j = 1, #segments do
---       local seg = segments[j]
---       if not current_node.children[seg] then
---         current_node.children[seg] = { count = 0, children = {} }
---       end
---       current_node = current_node.children[seg]
---       current_node.count = current_node.count + 1
---     end
---   end
---
---   -- 2. Traverse down the tree to find the absolute deepest branching junctions
---   local discovered_roots = {}
---   local function traverse(node, current_path)
---     -- Count how many unique child branches split off from this node
---     local branch_count = 0
---     for _ in pairs(node.children) do branch_count = branch_count + 1 end
---
---     -- 🟢 JUNCTION DETECTED: If the path splits here, or if this is a leaf node
---     -- that holds a massive portion of your include lines, this is a target root!
---     if branch_count > 1 or (branch_count == 0 and node.count > 0) then
---       local depth = #vim.split(current_path, "/", { trimempty = true })
---       -- Skip generic low-level system folders (like C:/ or C:/Users/)
---       if depth >= 4 then
---         table.insert(discovered_roots, { path = current_path, count = node.count, depth = depth })
---       end
---     end
---
---     -- Continue cascading down into the child nodes recursively
---     for seg_name, child_node in pairs(node.children) do
---       local next_path = current_path .. seg_name .. "/"
---       traverse(child_node, next_path)
---     end
---   end
---
---   -- Start traversing from the drive root anchor
---   local root_prefix = (all_paths[1]:sub(1, 1) == "/") and "/" or ""
---   traverse(trie, root_prefix)
---
---   -- 3. Sort junctions: Deepest folder depth with the highest tracking count wins!
---   table.sort(discovered_roots, function(a, b)
---     if a.depth == b.depth then return a.count > b.count end
---     return a.depth > b.depth
---   end)
---
---   -- Extract the top optimal framework base directories found on your system drive
---   local final_stems = {}
---   for i = 1, math.min(2, #discovered_roots) do
---     table.insert(final_stems, discovered_roots[i].path)
---   end
---   return final_stems
--- end
---
--- -- =
--- -- ==================================================================
--- -- 🧠 ALGORITHMIC LCP ENGINE: Finds the absolute largest shared parent folder
--- -- ===================================================================
--- local function find_longest_common_prefix(paths)
---   if not paths or #paths == 0 then
---     return ''
---   end
---   if #paths == 1 then
---     return vim.fs.dirname(paths[1]) .. '/'
---   end
---
---   -- Sort paths alphabetically to put the most different paths at the two extremes
---   table.sort(paths)
---   local first = paths[1]
---   local last = paths[#paths]
---   local min_len = math.min(#first, #last)
---
---   local i = 1
---   while i <= min_len and first:sub(i, i) == last:sub(i, i) do
---     i = i + 1
---   end
---
---   -- Extract the matched prefix substring block
---   local prefix = first:sub(1, i - 1)
---
---   -- Ensure we cut the path cleanly at the last slash boundary token
---   local last_slash = prefix:match('^.*()/')
---   if last_slash then
---     return prefix:sub(1, last_slash - 1)
---   end
---
---   return ''
--- end
-
 --=============================================================================
 --INFO:get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
@@ -370,18 +198,6 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
     local norm = function(p) return vim.fs.normalize(p) or '' end
 
-    local normPaths = function (list)
-      local res = {}
-      for _, v in ipairs(list or {}) do
-        local clean_path = norm(v)
-        if clean_path ~= "" then table.insert(res, clean_path) end
-      end
-      return res
-    end
-
-
-      -- -- PHASE C: Compute LCP on the leftover residual paths to extract framework_base dynamically
-
     -- 1. HIGH-PERFORMANCE LIST MAPPER: Optimized for raw strings (Flags & Defines)
     local map_list = function(list)
       local res = {}
@@ -391,123 +207,57 @@ fetch_metadata = function(callback, active_env, from, attempts)
       end
       return res
     end
-    --
-    local inc = data.includes or {}
-    local includes_build = normPaths(inc.build)
-    local includes_toolchain = normPaths(inc.toolchain)
-    local includes_compatlib = normPaths(inc.compatlib)
 
-    local include_pools = {
-      includes_build,
-      includes_toolchain,
-     includes_compatlib
-    }
-
-    local discovered_roots = discover_optimal_include_roots(includes_build)
-    print(vim.inspect(discovered_roots))
     -- Sort final mapping tokens by path length descending to guarantee longest match branches slice first
-    table.sort(discovered_roots, function(a, b)
-      if type(a) == "string" and type(b) == "string" then
-        return #a > #b
-      end
-      return false
-    end)
-
-    -- -- 2. lib PATH SORTER (Zero Naming Assumptions)
-    -- local map_libsources = function(list)
-    --   local res = normPaths(list)
-    --
-    --   local system_lcp = find_longest_common_prefix(includes_build)
-    --   if system_lcp ~= "" then table.insert(res, system_lcp) end
-    --
-    --   system_lcp = find_longest_common_prefix(includes_toolchain)
-    --   if system_lcp ~= "" then table.insert(res, system_lcp) end
-    --
-    --   system_lcp = find_longest_common_prefix(includes_compatlib)
-    --   if system_lcp ~= "" then table.insert(res, system_lcp) end
-    --
-    --   table.insert(res, norm_project_root)
-    --
-    --   -- Sort final mapping tokens by path length descending to guarantee longest match branches slice first
-    --   table.sort(res, function(a, b)
-    --     if type(a) == "string" and type(b) == "string" then
-    --       return #a > #b
-    --     end
-    --     return false
-    --   end)
-    --   -- table.sort(res, function(a, b) return #a.path > #b.path end)
-    --   return res
-    -- end
-
-    -- 3. RIGID WORKSPACE INCLUDE PATH SORTER (Zero Naming Assumptions)
-    -- local map_includes = function(list)
-    --   local res = {}
-    --   for _, v in ipairs(list or {}) do
-    --     local clean_path = norm(v)
-    --     if clean_path ~= "" then
-    --
-    --       -- DETERMINISTIC RULE LAYER:
-    --       -- Check if the include path physically initiates inside your active project directory tree
-    --       local is_under_project = clean_path:sub(1, #norm_project_root) == norm_project_root
-    --
-    --       -- Check if it belongs to the temporary downloaded vendor packages registry folder
-    --       local is_managed_lib = clean_path:match("%.pio/libdeps")
-    --
-    --       -- If it's outside your project repo, or inside the downloaded library cache, it's third-party!
-    --       local prefix = (not is_under_project or is_managed_lib) and "-isystem" or "-I"
-    --
-    --       -- Direct concatenation optimization
-    --       table.insert(res, prefix .. clean_path)
-    --     end
+    -- table.sort(discovered_roots, function(a, b)
+    --   if type(a) == "string" and type(b) == "string" then
+    --     return #a > #b
     --   end
-    --   return res
-    -- end
+    --   return false
+    -- end)
+
+
+    -- 2. RIGID WORKSPACE INCLUDE PATH SORTER (Zero Naming Assumptions)
     local map_includes = function(list)
       local res = {}
       for _, v in ipairs(list or {}) do
         local clean_path = norm(v)
         if clean_path ~= "" then
-          local is_managed_lib =  false
-          for i, libpath in ipairs(_G.metadata.libsource_dirs or {}) do
-            if (clean_path:sub(1, #libpath) == libpath) then
-              is_managed_lib = true
-              -- table.insert(res, string.format("-isystem${path%s}%s", i, clean_path:sub(#libpath + 1)))
-              table.insert(res, string.format("-isystempath%s%s", i, clean_path:sub(#libpath + 1)))
-              break
-            end
-          end
-          if not is_managed_lib then
-            local is_under_project = clean_path:sub(1, #norm_project_root) == norm_project_root
-            local prefix = (not is_under_project) and "-isystem" or "-I"
-            table.insert(res, prefix .. clean_path)
-          end
+
+          -- DETERMINISTIC RULE LAYER:
+          -- Check if the include path physically initiates inside your active project directory tree
+          local is_under_project = clean_path:sub(1, #norm_project_root) == norm_project_root
+
+          -- Check if it belongs to the temporary downloaded vendor packages registry folder
+          local is_managed_lib = clean_path:match("%.pio/libdeps")
+
+          -- If it's outside your project repo, or inside the downloaded library cache, it's third-party!
+          local prefix = (not is_under_project or is_managed_lib) and "-isystem" or "-I"
+
+          -- Direct concatenation optimization
+          table.insert(res, prefix .. clean_path)
         end
       end
       return res
     end
 
-    -- 4. Base Paths & Compilers
+    -- 3. Base Paths & Compilers
     meta.cc_path = norm(data.cc_path)
     meta.cxx_path = norm(data.cxx_path)
     meta.gdb_path = norm(data.gdb_path)
     pcall(M.get_sysroot_triplet, meta.cxx_path)
 
-    -- 5. Flags & Defines
+    -- 4. Flags & Defines
     meta.cc_flags = map_list(data.cc_flags)
     meta.cxx_flags = map_list(data.cxx_flags)
     meta.defines = map_list(data.defines)
 
-    -- 6. Includes (Completely automated and isolated)
-    -- for i, v in ipairs(data.libsource_dirs or {}) do
-    --   local clean_path = norm(v)
-    --   _G.metadata.libsource_dirs["libpath" .. i] = clean_path
-    -- end
-    meta.libsource_dirs = discovered_roots -- :wmap_libsources(data.libsource_dirs)
-
-    -- 7. Includes (Completely automated and isolated)
-    meta.includes_build = map_includes(includes_build)
-    meta.includes_toolchain = map_includes(includes_toolchain)
-    meta.includes_compatlib = map_includes(includes_compatlib)
+    -- 5. Includes (Completely automated and isolated)
+    local inc = data.includes or {}
+    meta.includes_build = map_includes(inc.build)
+    meta.includes_toolchain = map_includes(inc.toolchain)
+    meta.includes_compatlib = map_includes(inc.compatlib)
+    --
 
     -- --🟢  keep for later deals with cxx_flags
     -- if _G.metadata and type(_G.metadata.cxx_flags) == 'table' then
