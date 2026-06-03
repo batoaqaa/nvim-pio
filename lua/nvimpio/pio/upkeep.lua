@@ -191,42 +191,106 @@ fetch_metadata = function(callback, active_env, from, attempts)
   --INFO:INTERNAL PROCESSOR: Applies parsed data to _G.metadata
   ---------------------------------------------------------
   local function apply_metadata(data)
-    -- local function apply_metadata(data, checksum)
+    -- -- local function apply_metadata(data, checksum)
+    -- if not data then
+    --   return false
+    -- end
+    --
+    -- local norm = function(p)
+    --   return misc.normalizePath(p) or ''
+    -- end
+    --
+    -- -- Helper for flags/defines to keep order and formatting
+    -- local quote_map = function(list, prefix)
+    --   local res = {}
+    --   for _, v in ipairs(list or {}) do
+    --     local val = prefix and (prefix .. norm(v)) or v
+    --     table.insert(res, string.format('%s', val))
+    --   end
+    --   return res
+    -- end
+    --
+    -- -- 1. Base Paths & Compilers
+    -- meta.cc_path = norm(data.cc_path)
+    -- meta.cxx_path = norm(data.cxx_path)
+    -- meta.gdb_path = norm(data.gdb_path)
+    -- pcall(M.get_sysroot_triplet, meta.cxx_path)
+    --
+    --
+    -- -- 2. Flags & Defines
+    -- meta.cc_flags = quote_map(data.cc_flags)
+    -- meta.cxx_flags = quote_map(data.cxx_flags)
+    -- meta.defines = quote_map(data.defines)
+    --
+    -- -- 3. Includes (Build, Toolchain, Compatlib)
+    -- local inc = data.includes or {}
+    -- meta.includes_build = quote_map(inc.build, '-isystem')
+    -- meta.includes_toolchain = quote_map(inc.toolchain, '-isystem')
+    -- meta.includes_compatlib = quote_map(inc.compatlib, '-isystem')
+
     if not data then
       return false
     end
+
+    -- Cache the project workspace root path cleanly
+    local project_root = vim.g.platformioRootDir or vim.uv.cwd() or '.'
+    local norm_project_root = misc.normalizePath(project_root) or ''
 
     local norm = function(p)
       return misc.normalizePath(p) or ''
     end
 
-    -- Helper for flags/defines to keep order and formatting
-    local quote_map = function(list, prefix)
+    -- 1. HIGH-PERFORMANCE LIST MAPPER: Optimized for raw strings (Flags & Defines)
+    local map_list = function(list)
       local res = {}
       for _, v in ipairs(list or {}) do
-        local val = prefix and (prefix .. norm(v)) or v
-        table.insert(res, string.format('%s', val))
+        -- Direct assignment is faster than string.format('%s', v) in LuaJIT
+        table.insert(res, v)
       end
       return res
     end
 
-    -- 1. Base Paths & Compilers
+    -- 2. RIGID WORKSPACE INCLUDE PATH SORTER (Zero Naming Assumptions)
+    local map_includes = function(list)
+      local res = {}
+      for _, v in ipairs(list or {}) do
+        local clean_path = norm(v)
+        if clean_path ~= "" then
+
+          -- DETERMINISTIC RULE LAYER:
+          -- Check if the include path physically initiates inside your active project directory tree
+          local is_under_project = clean_path:sub(1, #norm_project_root) == norm_project_root
+
+          -- Check if it belongs to the temporary downloaded vendor packages registry folder
+          local is_managed_lib = clean_path:match("%.pio/libdeps")
+
+          -- If it's outside your project repo, or inside the downloaded library cache, it's third-party!
+          local prefix = (not is_under_project or is_managed_lib) and "-isystem" or "-I"
+
+          -- Direct concatenation optimization
+          table.insert(res, prefix .. clean_path)
+        end
+      end
+      return res
+    end
+
+    -- 3. Base Paths & Compilers
     meta.cc_path = norm(data.cc_path)
     meta.cxx_path = norm(data.cxx_path)
     meta.gdb_path = norm(data.gdb_path)
     pcall(M.get_sysroot_triplet, meta.cxx_path)
 
+    -- 4. Flags & Defines
+    meta.cc_flags = map_list(data.cc_flags)
+    meta.cxx_flags = map_list(data.cxx_flags)
+    meta.defines = map_list(data.defines)
 
-    -- 2. Flags & Defines
-    meta.cc_flags = quote_map(data.cc_flags)
-    meta.cxx_flags = quote_map(data.cxx_flags)
-    meta.defines = quote_map(data.defines)
-
-    -- 3. Includes (Build, Toolchain, Compatlib)
+    -- 5. Includes (Completely automated and isolated)
     local inc = data.includes or {}
-    meta.includes_build = quote_map(inc.build, '-isystem')
-    meta.includes_toolchain = quote_map(inc.toolchain, '-isystem')
-    meta.includes_compatlib = quote_map(inc.compatlib, '-isystem')
+    meta.includes_build = map_includes(inc.build)
+    meta.includes_toolchain = map_includes(inc.toolchain)
+    meta.includes_compatlib = map_includes(inc.compatlib)
+
 
     -- Secure the validation signature token right after creation succeeds
     local read_ok, fresh_checksum = misc.readFile(checksum_file)
