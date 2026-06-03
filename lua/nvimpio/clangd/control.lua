@@ -464,10 +464,27 @@ function M.getUnknownArgsCli(from)
 
   -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
   M.clangdIntall(function(clangdCmd)
+    -- local output_chunks = {}
+    -- local clangd_cmd = { "clangd", "--compile-commands-dir=.", "--check=" .. check_file, "--log=error" }
+    -- -- 3. Run in a completely isolated background thread pool
+    -- vim.system(clangd_cmd, {
+    --   text = true,
+    --   -- ⏳ THE BULLETPROOF TIMEOUT: Native OS process monitoring.
+    --   -- Sets a generous maximum hard cutoff time limit (e.g., 60 seconds)
+    --   -- to comfortably accommodate slow platform installations or library downloads.
+    --   timeout = 60000,
+    --   stdout = function(_, data) if data then table.insert(output_chunks, data) end end,
+    --   stderr = function(_, data) if data then table.insert(output_chunks, data) end end,
+    -- }, function(obj)
+    --   vim.schedule(function()
+    --   end)
+    -- end)
+
     OS.notify('getting unknown arguments for file ' .. check_file)
     --------------------------------------------------------------------------------
     -- cli
-    local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--query-driver=**', '--log=error' }
+    -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--query-driver=**', '--log=error' }
+    local cmd = { { _G.metadata.cxx_path, '-E', '-dM', '-xc++' }, _G.metadata.cxx_flags, OS.devNul }
     -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
     vim.system(cmd, { text = true }, function(obj)
       vim.schedule(function()
@@ -487,45 +504,16 @@ function M.getUnknownArgsCli(from)
             end
           end
         end
-        --------------------------------------------------------------------------------
-        -- 4. UPDATE: Integrate into the persistence database layer
-        -- The diagnostic script tracks flags as keys to prevent array duplication:
-        -- e.g., diagnostic.removed_flags["-mlongcalls"] = true
-        diagnostic.removed_flags = {}
-        local updated_count = 0
-        for arg, _ in pairs(seen) do
-          -- Remove quotes if string.gmatch wrapped them, keeping the raw flag
-          local raw_flag = arg:gsub('^"', ''):gsub('"$', '')
+        -- 4. UPDATE: Rebuild with the new discovered flags
+        boilerplate.args = args_table
+        boilerplate_gen('.clangd', vim.g.platformioRootDir)
 
-          if not diagnostic.removed_flags[raw_flag] then
-            diagnostic.removed_flags[raw_flag] = true
-            updated_count = updated_count + 1
-          end
-        end
-
-        -- Explicitly call your saving pipeline.
-        -- This automatically maps diagnostic.removed_flags to boiler.remove,
-        -- writes .filter.json, and generates a perfect .clangd file.
-        if updated_count > 0 then
-          -- Accessing the local helper via an internal function exposure (See Step 2)
-          diagnostic.save_from_cli()
-          OS.notify(from .. ' Clangd ✅Integrated ' .. updated_count .. ' new flags globally.')
-        else
-          OS.notify(from .. ' Clangd ✅No new unique flags detected.')
-        end
-
+        OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
         M.restart()
-        -- -- 4. UPDATE: Rebuild with the new discovered flags
-        -- boilerplate.args = args_table
-        -- boilerplate_gen('.clangd', vim.g.platformioRootDir)
-        --
-        -- OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
-        -- M.restart()
       end)
     end)
   end, 'clangd')
 end
-
 -- INFO: get_clangd_unknown_args
 --------------------------------------------------------------------------------
 ---@param from string
@@ -553,12 +541,13 @@ function M.getUnknownArgsGui(from)
     OS.notify('getting unknown arguments for file ' .. check_file)
     --------------------------------------------------------------------------------
     -- gui
-    local cmd_str = string.format(
-      '%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error --enable-config --fallback-style=llvm --compile_args_from=filesystem',
-      clangdCmd,
-      check_file,
-      _G.metadata.query_driver
-    )
+    local cmd_str = string.format('%s -E -dM -xc++ %s', _G.metadata.cxx_path, table.concat(_G.metadata.cxx_flags, ' '))
+    -- local cmd_str = string.format(
+    --   '%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error --enable-config --fallback-style=llvm --compile_args_from=filesystem',
+    --   clangdCmd,
+    --   check_file,
+    --   _G.metadata.query_driver
+    -- )
     local pio = require('nvimpio.pio.upkeep')
     local cb = function(status)
       pio.handleClangdCheck(status, function(success, args_table)
