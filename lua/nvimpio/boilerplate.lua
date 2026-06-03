@@ -256,7 +256,8 @@ CompileFlags:
         if type(_G.metadata.libsource_dirs) == 'table' then
           for i, path in ipairs(_G.metadata.libsource_dirs) do
             if type(path) == 'string' and path ~= '' then
-              table.insert(libpaths, string.format('%q: %q', path, '${path' .. i .. '}'))
+              -- table.insert(libpaths, string.format('%q: %q', path, '${path' .. i .. '}'))
+              table.insert(libpaths, string.format('%q: %q', 'path' .. i, path))
             end
           end
         end

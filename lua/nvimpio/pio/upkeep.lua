@@ -251,7 +251,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
           for i, libpath in ipairs(_G.metadata.libsource_dirs or {}) do
             if (clean_path:sub(1, #libpath) == libpath) then
               is_managed_lib = true
-              table.insert(res, string.format("-isystem${path%s}%s", i, clean_path:sub(#libpath + 1)))
+              -- table.insert(res, string.format("-isystem${path%s}%s", i, clean_path:sub(#libpath + 1)))
+              table.insert(res, string.format("-isystempath%s%s", i, clean_path:sub(#libpath + 1)))
               break
             end
           end
