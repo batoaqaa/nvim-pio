@@ -139,7 +139,7 @@ boilerplate['.clangd_config.json'] = {
 }
 
 --  INFO: ['.clangd']
--- stylua: ignore
+--- stylua: ignore
 ----------------------------------------------------------------------------------------
 boilerplate['.clangd'] = {
   -- content = [[
@@ -201,42 +201,39 @@ CompileFlags:
 
     -- 2. 🟢 UNIFIED ADD MODULE: Collects both compiler macros and include paths
     local added_flags = {}
-    if _G.metadata then
-      -- First, append your auto-discovered board macro defines cleanly (-D__XTENSA__=1, etc.)
-      if type(_G.metadata.auto_defines) == 'table' then
-        for _, define in ipairs(_G.metadata.auto_defines) do
-          if type(define) == "string" and define ~= "" then
-            table.insert(added_flags, string.format('%q', define))
+    do
+      if _G.metadata then
+        -- First, append your auto-discovered board macro defines cleanly (-D__XTENSA__=1, etc.)
+        if type(_G.metadata.auto_defines) == 'table' then
+          for _, define in ipairs(_G.metadata.auto_defines) do
+            if type(define) == 'string' and define ~= '' then
+              table.insert(added_flags, string.format('%q', define))
+            end
           end
         end
-      end
 
-      -- Second, append all pre-sorted include path flags (-I and -isystem)
-      local include_pools = {
-        _G.metadata.includes_build,
-        _G.metadata.includes_toolchain,
-        _G.metadata.includes_compatlib,
-      }
+        -- Second, append all pre-sorted include path flags (-I and -isystem)
+        local include_pools = {
+          _G.metadata.includes_build,
+          _G.metadata.includes_toolchain,
+          _G.metadata.includes_compatlib,
+        }
 
-      for _, pool in ipairs(include_pools) do
-        for _, raw_flag in ipairs(pool or {}) do
-          if type(raw_flag) == 'string' and raw_flag ~= '' then
-            -- Safely normalize trailing splay slashes and wrap as YAML literal strings
-            table.insert(added_flags, string.format('%q', vim.fs.normalize(raw_flag)))
+        for _, pool in ipairs(include_pools) do
+          for _, raw_flag in ipairs(pool or {}) do
+            if type(raw_flag) == 'string' and raw_flag ~= '' then
+              -- Safely normalize trailing splay slashes and wrap as YAML literal strings
+              table.insert(added_flags, string.format('%q', vim.fs.normalize(raw_flag)))
+            end
           end
         end
       end
     end
 
     -- Assemble the dynamic block using native string.format insertions
-    dynamicBlock = string.format(
-      self.dynamic,
-      table.concat(removed_args, ',\n    '),
-      table.concat(added_flags, ',\n    ')
-    )
+    dynamicBlock = string.format(self.dynamic, table.concat(removed_args, ',\n    '), table.concat(added_flags, ',\n    '))
 
     local final_content = staticBlock .. '\n' .. dynamicBlock
-
 
     -- 1. Read the old content from disk to check if an update actually happened
     local has_changed = true
@@ -251,29 +248,27 @@ CompileFlags:
 
       -- 🟢 RIGID TYPE-SAFE RELOAD ROUTINE:
       vim.schedule(function()
-        local active_clients = vim.lsp.get_clients({ name = "clangd" })
+        local active_clients = vim.lsp.get_clients({ name = 'clangd' })
         local should_restart = false
 
         for _, client in ipairs(active_clients) do
           -- Verify client is valid and the notify method exists natively
-          if client and type(client.notify) == "function" then
-
-            -- It takes exactly 2 arguments (method, params). It is structurally 
+          if client and type(client.notify) == 'function' then
+            -- It takes exactly 2 arguments (method, params). It is structurally
             -- simpler and completely satisfies lua-ls's strict type verification checks!
-            client:notify("workspace/didChangeConfiguration", { settings = {} })
+            client:notify('workspace/didChangeConfiguration', { settings = {} })
             should_restart = true
           end
         end
 
         -- Execute the restart cleanly outside the iterator loop block
         if should_restart then
-          vim.notify("nvimpio: Toolchain configurations updated. Reloading workspace...", vim.log.levels.INFO)
+          vim.notify('nvimpio: Toolchain configurations updated. Reloading workspace...', vim.log.levels.INFO)
           require('nvimpio.clangd.control').restart()
           -- vim.cmd("silent! LspRestart clangd")
         end
       end)
     end
-
 
     return final_content
   end,
