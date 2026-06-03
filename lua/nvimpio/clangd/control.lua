@@ -118,44 +118,40 @@ function M.getClangdConfig()
     config.init_options = config.init_options or {}
     config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
 
-    local function inject_flag(flag_str)
-      table.insert(config.init_options.fallbackFlags, flag_str)
-    end
-
     -- Set baseline configurations safely in RAM memory space
     config.init_options.clangdFileStatus = true
     config.init_options.completeUnimported = true
     config.init_options.usePlaceholders = true
     -- Assign the absolute, normalized path to your project compilation database
     config.init_options.compilationDatabasePath = vim.fs.normalize(project_root)
-    inject_flag('-ferror-limit=0')
+    table.insert(config.init_options.fallbackFlags, '-ferror-limit=0')
 
-    -- 🟢 DATA-DRIVEN INCLUDE INJECTION MATRIX (NO DISK FILTERS OR IO POPENS)
-    if _G.metadata then
-      -- Combine both include groups into one sweep sequence
-
-      local include_pools = {
-        _G.metadata.includes_build,
-        _G.metadata.includes_toolchain,
-        _G.metadata.includes_compatlib,
-      }
-
-      for _, pool in ipairs(include_pools) do
-        for _, raw_flag in ipairs(pool or {}) do
-          if type(raw_flag) == 'string' and raw_flag ~= '' then
-            local clean_flag = vim.fs.normalize(raw_flag)
-            inject_flag(clean_flag)
-          end
-        end
-      end
-
-      -- Inject pre-parsed macro definitions safely from memory
-      if type(_G.metadata.auto_defines) == 'table' then
-        for _, define in ipairs(_G.metadata.auto_defines) do
-          inject_flag(define)
-        end
-      end
-    end
+    -- -- 🟢 DATA-DRIVEN INCLUDE INJECTION MATRIX (NO DISK FILTERS OR IO POPENS)
+    -- if _G.metadata then
+    --   -- Combine both include groups into one sweep sequence
+    --
+    --   local include_pools = {
+    --     _G.metadata.includes_build,
+    --     _G.metadata.includes_toolchain,
+    --     _G.metadata.includes_compatlib,
+    --   }
+    --
+    --   for _, pool in ipairs(include_pools) do
+    --     for _, raw_flag in ipairs(pool or {}) do
+    --       if type(raw_flag) == 'string' and raw_flag ~= '' then
+    --         local clean_flag = vim.fs.normalize(raw_flag)
+    --         table.insert(config.init_options.fallbackFlags, clean_flag)
+    --       end
+    --     end
+    --   end
+    --   --
+    --   -- Inject pre-parsed macro definitions safely from memory
+    --   if type(_G.metadata.auto_defines) == 'table' then
+    --     for _, define in ipairs(_G.metadata.auto_defines) do
+    --       table.insert(config.init_options.fallbackFlags, define)
+    --     end
+    --   end
+    -- end
 
     -- Load your project's local checkbox filters (.filter.json)
     local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
@@ -171,7 +167,7 @@ function M.getClangdConfig()
               if success and pio_diag then
                 pio_diag.removed_flags[flag] = true
               end
-              -- inject_flag(flag)
+              -- table.insert(config.init_options.fallbackFlags, flag)
             end
           end
         end
