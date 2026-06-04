@@ -153,7 +153,7 @@ function M.clean_project_wide_flags(project_root, diagnostics)
     -- Trigger the boilerplate generation process
     local boiler = require('nvimpio.boilerplate')
     if boiler and boiler.boilerplate_gen then
-      pcall(boiler.boilerplate_gen, '.clangd', project_root)
+      pcall(boiler.boilerplate_gen, '.clangd', project_root, 'diagnostics wipe flags')
     end
   end
 end
@@ -257,7 +257,7 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
     -- Let the dynamic boilerplate loop read pio_diag.removed_flags directly on disk generation!
     local boiler = require('nvimpio.boilerplate')
     if boiler and boiler.boilerplate_gen then
-      pcall(boiler.boilerplate_gen, '.clangd', project_root)
+      pcall(boiler.boilerplate_gen, '.clangd', project_root, 'diagnostics clean_file_path_pipeline')
     end
   end
 

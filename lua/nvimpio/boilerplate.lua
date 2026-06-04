@@ -347,8 +347,9 @@ PackConstructorInitializers: Never
 -- INFO: boilerplate_gen
 --- stylua: ignore
 ----------------------------------------------------------------------------------------
-function M.boilerplate_gen(framework, src_path, filename)
+function M.boilerplate_gen(framework, src_path, filename, from)
   filename = filename or framework
+  from = from or 'here'
   local entry = boilerplate[framework]
   if not entry then
     return ''

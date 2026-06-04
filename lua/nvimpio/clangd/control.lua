@@ -187,7 +187,7 @@ function M.getClangdConfig()
     vim.schedule(function()
       local boiler = require('nvimpio.boilerplate')
       if boiler and boiler.boilerplate_gen then
-        pcall(boiler.boilerplate_gen, '.clangd', project_root)
+        pcall(boiler.boilerplate_gen, '.clangd', project_root, 'before_init')
       end
     end)
   end
