@@ -60,19 +60,39 @@ Add this declarative setup block to your plugin initialization files:
 
 ```lua
 return {
-  "your-username/nvim-pio",
-  dependencies = { "neovim/nvim-lspconfig" },
-  ft = { "c", "cpp", "objc", "objcpp" },
+  'batoaqaa/nvim-pio',
+  -- lazy = true,
+  lazy = false,
+  -- init = function(self)
+  --   if vim.fn.filereadable('platformio.ini') == 1 then
+  --     require('lazy').load({ plugins = { self.name } })
+  --   else
+  --     vim.api.nvim_create_user_command('Pioinit', function()
+  --       require('lazy').load({ plugins = { self.name } })
+  --       vim.cmd('Pioinit')
+  --     end, { nargs = '*' })
+  --   end
+  -- end,
+  dependencies = {
+    { 'akinsho/toggleterm.nvim' },
+    { 'nvim-telescope/telescope.nvim' },
+    { 'nvim-telescope/telescope-ui-select.nvim' },
+    { 'nvim-lua/plenary.nvim' },
+    { 'folke/which-key.nvim' },
+  },
   config = function()
-    -- 🟢 Initialize the core plugin setup pipeline
-    require("nvimpio").setup()
-
-    -- 🟢 Optional User Keymaps for the Interactive Checklist Panel
-    -- Opens the real-time checkbox menu to toggle warnings on demand
-    vim.keymap.set("n", "<leader>pf", function()
-      require("nvimpio.clangd.diagnostic").manage_file_diagnostics_interactive()
-    end, { silent = true, desc = "PlatformIO: Manage Code Filters" })
-  end
+    local nvimpio = require('nvimpio')
+    nvimpio.setup({
+      pio = {
+        pio_runtime_dir = '~/.platformio',
+        pio_storage_dir = '~/.platformio',
+      },
+      clangd = {
+        support = true,
+        install = false,
+      },
+    })
+  end,
 }
 ```
 

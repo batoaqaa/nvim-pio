@@ -336,54 +336,24 @@ local plugins = {
 
   {
     'batoaqaa/nvim-pio',
-    -- cmd = { 'Pioinit' },
-    lazy = true,
-    init = function(self)
-      -- if require('lazy.core.config').plugins[self.name]._.loaded then
-      --   return
-      -- end
-      if vim.fn.filereadable('platformio.ini') == 1 then
-        require('lazy').load({ plugins = { self.name } })
-      else
-        vim.api.nvim_create_user_command('Pioinit', function()
-          require('lazy').load({ plugins = { self.name } })
-          -- require('nvimpio.pioInit').pioInit()
-        end, { nargs = '*' })
-      end
-    end,
-
+    -- lazy = true,
+    lazy = false,
+    -- init = function(self)
+    --   if vim.fn.filereadable('platformio.ini') == 1 then
+    --     require('lazy').load({ plugins = { self.name } })
+    --   else
+    --     vim.api.nvim_create_user_command('Pioinit', function()
+    --       require('lazy').load({ plugins = { self.name } })
+    --       vim.cmd('Pioinit')
+    --     end, { nargs = '*' })
+    --   end
+    -- end,
     dependencies = {
       { 'akinsho/toggleterm.nvim' },
       { 'nvim-telescope/telescope.nvim' },
-      -- {
-      --   'nvim-telescope/telescope.nvim',
-      --   tag = '0.1.8',
-      --   dependencies = { 'nvim-lua/plenary.nvim' },
-      -- },
       { 'nvim-telescope/telescope-ui-select.nvim' },
       { 'nvim-lua/plenary.nvim' },
       { 'folke/which-key.nvim' },
-      {
-        'mason-org/mason-lspconfig.nvim',
-        dependencies = {
-          { 'mason-org/mason.nvim' },
-          { 'folke/trouble.nvim' },
-          { 'j-hui/fidget.nvim' }, -- status bottom right
-        },
-      },
-      -- lazy.nvim
-      -- {
-      --   'folke/snacks.nvim',
-      --   priority = 1000,
-      --   lazy = false,
-      --   opts = {
-      --     notifier = {
-      --       enabled = true,
-      --       timeout = 3000, -- 3 seconds
-      --       style = 'compact', -- Options: "default", "compact", "minimal"
-      --     },
-      --   },
-      -- },
     },
   },
 }
@@ -577,12 +547,12 @@ end
 -- }
 local pioConfig = {
   pio = {
-    auto_update_path = true,
-    notify_on_missing = true,
+    pio_runtime_dir = '~/.platformio',
+    pio_storage_dir = '~/.platformio',
   },
   clangd = {
     support = true,
-    install = true,
+    install = false,
   },
   -- menu_key = "<leader>\\", -- replace this menu key  to your convenience
   -- menu_name = "PlatformIO", -- replace this menu name to your convenience
