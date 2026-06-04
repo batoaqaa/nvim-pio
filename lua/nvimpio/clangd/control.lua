@@ -110,7 +110,6 @@ function M.getClangdConfig()
   end
 
   -- 2. THE HIGH-PERFORMANCE MEMORY INJECTION ENGINE
-  local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
   clangd_config.before_init = function(params, config)
     local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
     project_root = (type(project_root) == 'string' and project_root ~= '') and project_root or '.'
@@ -153,7 +152,9 @@ function M.getClangdConfig()
     --   end
     -- end
 
-    -- 1. Sync memory registries to (.filter.json)
+    -- 🟢 STEP 1: Parse database into an isolated local table variable first.
+    -- This guarantees we never lose your historical flags even if the require loop is slow!
+    local local_flags_cache = {}
     local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
     local f = io.open(filter_db_path, 'r')
     if f then
@@ -164,18 +165,20 @@ function M.getClangdConfig()
         if ok and data and type(data.flags) == 'table' then
           for flag, blocked in pairs(data.flags) do
             if blocked then
-              if success and pio_diag then
-                pio_diag.removed_flags[flag] = true
-              end
-              -- table.insert(config.init_options.fallbackFlags, flag)
+              local_flags_cache[flag] = true
             end
           end
         end
       end
     end
-    -- 2. THEN/LAST: Refresh your physical .clangd file using the fully loaded memory arrays
-    -- This guarantees that the final written .clangd file contains all your historically blocked options
-    -- right as clangd initializes, ensuring a 100% silent, stable editor boot!
+
+    -- 🟢 STEP 2: Runtime Lazy-Load of the diagnostic module
+    local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+    if success and pio_diag then
+      pio_diag.removed_flags = local_flags_cache
+    end
+
+    -- 🟢 STEP 3: Generate your boilerplate configuration profiles last
     local boiler = require('nvimpio.boilerplate')
     if boiler and boiler.boilerplate_gen then
       pcall(boiler.boilerplate_gen, '.clangd', project_root)
@@ -589,16 +592,16 @@ function M.init(clangd)
     vim.lsp.enable('clangd')
   -- end
 
-  require('nvimpio.clangd.commands')
-  vim.api.nvim_create_user_command('PioFilter', function()
-    local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-    if success and pio_diag and pio_diag.manage_file_diagnostics_interactive then
-      pio_diag.manage_file_diagnostics_interactive()
-    else
-      vim.notify('nvimpio: Failed to initialize the diagnostics UI panel.', vim.log.levels.ERROR)
-    end
-  end, { desc = 'Open PlatformIO lint suppression checkbox manager' })
-  -- require('nvimpio.clangd.diagnostic')
+  -- require('nvimpio.clangd.commands')
+  -- vim.api.nvim_create_user_command('PioFilter', function()
+  --   local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+  --   if success and pio_diag and pio_diag.manage_file_diagnostics_interactive then
+  --     pio_diag.manage_file_diagnostics_interactive()
+  --   else
+  --     vim.notify('nvimpio: Failed to initialize the diagnostics UI panel.', vim.log.levels.ERROR)
+  --   end
+  -- end, { desc = 'Open PlatformIO lint suppression checkbox manager' })
+  require('nvimpio.clangd.diagnostic')
 
   vim.keymap.set('n', 'gll', function()
     vim.cmd.edit(vim.lsp.log.get_filename())
