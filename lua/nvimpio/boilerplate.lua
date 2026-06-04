@@ -166,7 +166,6 @@ CompileFlags:
     "@.pio/build/clangd_flags.txt"
     ]
 ]],
-
   content = function(self, project_root_param)
     local core = require('nvimpio')
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
@@ -175,6 +174,7 @@ CompileFlags:
     local cwdClangd = vim.fs.joinpath(project_root, '.clangd')
     local coreClangd = vim.fs.joinpath(core.config.pio_storage_dir, '.clangd')
     local flagsFile = vim.fs.joinpath(project_root, '.pio', 'build', 'clangd_flags.txt')
+    local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
     local staticBlock, dynamicBlock = '', ''
 
     if vim.uv.fs_stat(cwdClangd) then
@@ -186,7 +186,18 @@ CompileFlags:
       staticBlock = self.static
     end
 
-    -- 1. 🟢 SINGLE-SOURCE HYDRODYNAMIC SYNC (WITH DIRECT DISK FALLBACK GATING):
+    -- 🟢 SELF-HEALING ENGINE: Force-create an empty default database if it's a brand new project!
+    local db_exist = vim.uv.fs_stat(filter_db_path)
+    if not db_exist then
+      local default_db = { codes = {}, flags = {} }
+      local f_init = io.open(filter_db_path, 'wb')
+      if f_init then
+        f_init.write(f_init, misc.jsonFormat and misc.jsonFormat(default_db) or '{\n  "codes": {},\n  "flags": {}\n}')
+        f_init.close(f_init)
+      end
+    end
+
+    -- 1. SINGLE-SOURCE HYDRODYNAMIC SYNC (WITH DIRECT DISK FALLBACK GATING):
     local removed_args = {}
     local flags_dictionary = {}
 
@@ -197,8 +208,7 @@ CompileFlags:
         flags_dictionary[flag] = is_blocked
       end
     else
-      -- B. 🛡️ COLD-BOOT BACKFILL: If RAM is empty on restart, read straight from .filter.json!
-      local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
+      -- B. 🛡️ COLD-BOOT BACKFILL: Read straight from the newly seeded/existing .filter.json file
       local f = io.open(filter_db_path, 'r')
       if f then
         local raw = f:read('*a')
@@ -224,8 +234,9 @@ CompileFlags:
     end
     table.sort(removed_args)
 
-    -- 2. 🟢 UNIFIED ADD MODULE (WITH COLD-BOOT PROTECTION LOGIC)
+    -- 2. UNIFIED ADD MODULE (WITH COLD-BOOT PROTECTION LOGIC)
     local options_file_lines = {}
+    local is_new_project_initialization = false
 
     if _G.metadata and next(_G.metadata) then
       -- Phase A: Append board macro defines cleanly
@@ -255,7 +266,7 @@ CompileFlags:
         end
       end
 
-      -- Phase C: 🟢 COLD-BOOT PROTECTION GATEWAY
+      -- Phase C: Flush the fresh calculated lines down to disk
       local final_flags_content = table.concat(options_file_lines, '\n')
       local pio_build_dir = vim.fs.dirname(flagsFile)
       if not vim.uv.fs_stat(pio_build_dir) then
@@ -267,13 +278,16 @@ CompileFlags:
         misc.writeFile(flagsFile, final_flags_content, {})
       end
     else
-      -- 🟢 COLD-BOOT FALLBACK: Verify history cache exists to protect against blank resets
       local flags_exist = vim.uv.fs_stat(flagsFile)
       if flags_exist then
         local read_ok, current_flags = misc.readFile(flagsFile)
         if read_ok and current_flags and current_flags ~= '' then
           options_file_lines = { 'historical_cache_active' }
         end
+      else
+        -- 🟢 BRAND-NEW PROJECT HOOK: If no metadata exists and no options file exists,
+        -- toggle this safety flag to force-write the initial .clangd blueprint anyway!
+        is_new_project_initialization = true
       end
     end
 
@@ -282,7 +296,8 @@ CompileFlags:
     local final_content = staticBlock .. '\n' .. dynamicBlock
 
     -- 4. SINGLE-POINT DISK COMMIT MATRIX
-    if #options_file_lines > 0 then
+    -- 🟢 FIX: Writes files if a cache is active, OR if it's an initial new project run!
+    if #options_file_lines > 0 or is_new_project_initialization then
       local read_ok, old_content = misc.readFile(cwdClangd)
       if not read_ok or old_content ~= final_content then
         misc.writeFile(cwdClangd, final_content, {})
