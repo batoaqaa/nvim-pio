@@ -140,7 +140,7 @@ _G.metadata = setmetatable({}, {
 
 local project_root = vim.g.platformioRootDir or vim.uv.cwd() or '.'
 project_root = vim.fs.normalize(project_root)
-local config_path = vim.fs.joinpath(project_root, '.nvimpio', '.project_config.json')
+local config_path = OS.clangd_config  --vim.fs.joinpath(project_root, '.nvimpio', '.project_config.json')
 
 --INFO:
 -- 2. Save Logic (Uses sha256 for stability)

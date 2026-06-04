@@ -13,9 +13,11 @@ if is_linux and vim.fn.filereadable('/proc/version') == 1 then
   local version = (lines and lines[1]) or ''
   if version:lower():find('microsoft') then is_wsl = true end
 end
-local  winHome = os.getenv("USERPROFILE") or "C:\\"
-local  nixHome = vim.uv.os_homedir() or "/root"
-local  defaultHome = is_win and winHome or nixHome
+local winHome = os.getenv("USERPROFILE") or "C:\\"
+local nixHome = vim.uv.os_homedir() or "/root"
+local defaultHome = is_win and winHome or nixHome
+local projectDir = vim.uv.cwd() or '.'
+local nvimConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
 
 ---@class OS
 ---@field name "windows"|"macos"|"linux"
@@ -37,7 +39,12 @@ local  defaultHome = is_win and winHome or nixHome
 ---@field data_dir string
 ---@field cache_dir string
 ---@field bin_dir string
----@field platformio_dir string
+---@field project_dir string
+---@field clangd_filter string
+---@field clangd_config string
+---@field clangd_flags string
+---@field project_config string
+---@field nvim_config_dir string
 ---@field notify fun(msg: string, level?: string|integer)
 ---@field pioReady fun(): boolean
 
@@ -67,7 +74,12 @@ local os_info = {
   data_dir = vim.fn.stdpath('data'),
   cache_dir = vim.fn.stdpath('cache'),
   bin_dir = is_win and "Scripts" or "bin",
-  platformio_dir = vim.fs.joinpath( vim.uv.os_homedir(), ".platformio"),
+  project_dir = projectDir,
+  clangd_filter = vim.fs.joinpath(nvimConfigDir, '.clangdFilter.json'),
+  clangd_config = vim.fs.joinpath(nvimConfigDir, '.clangdConfig.json'),
+  clangd_flags = vim.fs.joinpath(nvimConfigDir, '.clangdFlags.txt'),
+  project_config = vim.fs.joinpath(nvimConfigDir, '.projectConfig.json'),
+  nvim_config_dir = nvimConfigDir,
 
   ---@param msg string The message to display
   ---@param level string|integer|nil

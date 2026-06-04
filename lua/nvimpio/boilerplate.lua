@@ -85,7 +85,7 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
 -- Note: %q is used for paths to handle escaping and spaces automatically.
 -- INFO: .clangd_config
 ----------------------------------------------------------------------------------------
-boilerplate['.clangd_config.json'] = {
+boilerplate['.clangdConfig.json'] = {
   rewrite = false,
   read = true,
   content = [[
@@ -164,7 +164,7 @@ CompileFlags:
     %s
     ]
   Add: [
-    "@.pio/build/clangd_flags.txt"
+    "@.nvimpio/.clangdFlags.txt"
     ]
 ]],
   content = function(self, project_root_param)
@@ -172,10 +172,10 @@ CompileFlags:
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
     project_root = vim.fs.normalize(project_root)
 
-    local cwdClangd = vim.fs.joinpath(project_root, '.clangd')
+    local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
     local coreClangd = vim.fs.joinpath(core.config.pio_storage_dir, '.clangd')
-    local flagsFile = vim.fs.joinpath(project_root, '.nvimpio', 'clangd_flags.txt')
-    local filter_db_path = vim.fs.joinpath(project_root, 'nvimpio', '.filter.json')
+    local flagsFile = OS.clangd_flags
+    local filter_db_path = OS.clangd_filter
     local staticBlock, dynamicBlock = '', ''
 
     if vim.uv.fs_stat(cwdClangd) then
@@ -399,7 +399,9 @@ PackConstructorInitializers: Never
 ----------------------------------------------------------------------------------------
 function M.boilerplate_gen(framework, src_path, filename, from)
   filename = filename or framework
+  src_path = src_path or ''
   from = from or 'here'
+
   local entry = boilerplate[framework]
   if not entry then
     return ''

@@ -91,7 +91,7 @@ function M.getClangdConfig()
   end
 
   -- Format your template string
-  local json_config = boilerplate_gen([[.clangd_config.json]], vim.g.platformioRootDir)
+  local json_config = boilerplate_gen([[.clangdConfig.json]], OS.nvim_config_dir)
   if not json_config then
     return nil
   end
@@ -153,7 +153,7 @@ function M.getClangdConfig()
 
     -- Step 1: Parse database into an isolated local table variable first
     local local_flags_cache = {}
-    local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
+    local filter_db_path = OS.clangd_filter
     local f = io.open(filter_db_path, 'r')
     if f then
       local raw = f:read('*a')
@@ -181,7 +181,7 @@ function M.getClangdConfig()
     -- Step 3: Refresh your physical configuration files natively last
     local boiler = require('nvimpio.boilerplate')
     if boiler and boiler.boilerplate_gen then
-      pcall(boiler.boilerplate_gen, '.clangd', project_root)
+      pcall(boiler.boilerplate_gen, '.clangd', OS.project_dir)
     end
   end
 

@@ -47,31 +47,31 @@ local function ensure_default_db_exists(db_path)
 end
 
 -- 1. Get filter database path safely using absolute project roots
-local function get_db_path(source)
-  local f = ''
-  if type(source) == 'string' then
-    f = source
-  elseif type(source) == 'number' or source == nil then
-    local bufnr = source or vim.api.nvim_get_current_buf()
-    f = vim.api.nvim_buf_get_name(bufnr)
-  end
-
-  -- Search upwards for your local project markers ('platformio.ini' or '.git')
-  local root_dir = (f ~= '') and vim.fs.root(f, markers) or nil
-
-  -- 🟢 THE BULLETPROOF WORKSPACE ANCHOR WITH ABSOLUTE TYPE SAFETY:
-  if not root_dir or root_dir:match('%.platformio') then
-    local cwd_path = vim.uv.cwd()
-    -- Explicitly verify that cwd_path is a valid, non-empty string type before using it
-    if type(cwd_path) == 'string' and cwd_path ~= '' then
-      root_dir = vim.fs.root(cwd_path, markers) or cwd_path
-    else
-      root_dir = '.'
-    end
-  end
-
-  return vim.fs.joinpath(root_dir, '.filter.json')
-end
+-- local function get_db_path(source)
+--   local f = ''
+--   if type(source) == 'string' then
+--     f = source
+--   elseif type(source) == 'number' or source == nil then
+--     local bufnr = source or vim.api.nvim_get_current_buf()
+--     f = vim.api.nvim_buf_get_name(bufnr)
+--   end
+--
+--   -- Search upwards for your local project markers ('platformio.ini' or '.git')
+--   local root_dir = (f ~= '') and vim.fs.root(f, markers) or nil
+--
+--   -- 🟢 THE BULLETPROOF WORKSPACE ANCHOR WITH ABSOLUTE TYPE SAFETY:
+--   if not root_dir or root_dir:match('%.platformio') then
+--     local cwd_path = vim.uv.cwd()
+--     -- Explicitly verify that cwd_path is a valid, non-empty string type before using it
+--     if type(cwd_path) == 'string' and cwd_path ~= '' then
+--       root_dir = vim.fs.root(cwd_path, markers) or cwd_path
+--     else
+--       root_dir = '.'
+--     end
+--   end
+--
+--   return vim.fs.joinpath(root_dir, '.filter.json')
+-- end
 
 -- 2. Pure local JSON reading loop (Strictly separates codes from compiler flags)
 local function parse_db_file_pure(db_path)
@@ -140,7 +140,7 @@ function M.clean_project_wide_flags(project_root, diagnostics)
   end
 
   if flags_updated then
-    local filter_db_path = get_db_path(project_root)
+    local filter_db_path = OS.clangd_filter --get_db_path(project_root)
     local current_blocked = parse_db_file_pure(filter_db_path)
 
     local f = io.open(filter_db_path, 'wb')
@@ -204,8 +204,8 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
   if not diagnostics or #diagnostics == 0 then
     return diagnostics
   end
-  local filter_db_path = get_db_path(absolute_file_path)
-  local project_root = vim.fs.dirname(filter_db_path)
+  local filter_db_path = OS.clangd_filter --get_db_path(absolute_file_path)
+  local project_root = OS.project_dir --vim.fs.dirname(filter_db_path)
 
   -- Pure localized read ensures we only check blocks configured for THIS project folder
   local manual_blocked = parse_db_file_pure(filter_db_path)
@@ -323,7 +323,7 @@ end
 -- ===================================================================
 function M.manage_file_diagnostics_interactive(state_override)
   local bufnr = vim.api.nvim_get_current_buf()
-  local filter_db_path = get_db_path(bufnr)
+  local filter_db_path = OS.clangd_filter --get_db_path(bufnr)
 
   -- 🟢 SELF-HEALING INTERCEPTION: Guarantee the database file is active before memory tracking maps populate
   ensure_default_db_exists(filter_db_path)

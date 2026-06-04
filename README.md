@@ -7,7 +7,7 @@ A high-performance, lightweight Neovim plugin that seamlessly bridges **Platform
 ## ✨ Features
 
 - **Zero-Configuration Includes:** Automatically maps all core toolchain, build framework, and local project library paths to your language server.
-- **Dynamic Argument Bridging:** Moves massive compiler search path pools out of sight into a hidden response file (`clangd_flags.txt`) to maximize editing viewport space.
+- **Dynamic Argument Bridging:** Moves massive compiler search path pools out of sight into a hidden response file (`clangdFlags.txt`) to maximize editing viewport space.
 - **Automatic Flag Stripping:** Real-time interceptor gateway catches and neutralizes non-standard microcontroller compiler options (like `-mlongcalls`) that crash standard desktop `clangd`.
 - **Interactive Warning Filtering:** Provides an on-demand dropdown menu selection panel (`:ClangdFilter`) to easily toggle specific code diagnostics and alerts.
 - **Self-Healing Persistence:** State settings are anchored entirely to your local workspace, ensuring your choices never vanish across cold editor reboots.
@@ -210,7 +210,7 @@ vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_stri
 Run **`:ClangdFilter`** (or press your custom user `<leader>\b` shortcut shortcut key mapping) inside any active C++ source file buffer to launch your filter options dropdown picker window panel.
 
 ```text
- 📁 .filter.json | Blocked: 2
+ 📁 .clangdFilter.json | Blocked: 2
  ──────────────────────────────────────────────────────────
  💥 Reset All Filters
  [ ] Suppress Code: [unused-includes]
@@ -225,7 +225,7 @@ Run **`:ClangdFilter`** (or press your custom user `<leader>\b` shortcut shortcu
 
 ## 📋 File Layout Specifications
 
-### `.filter.json`
+### `.clangdFilter.json`
 
 Your single-source-of-truth database record file. It sits securely inside your active microcontroller project root directory folder path so your workspace settings travel with your repository code.
 
