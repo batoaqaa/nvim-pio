@@ -200,6 +200,7 @@ CompileFlags:
     if success and pio_diag and pio_diag.removed_flags and next(pio_diag.removed_flags) then
       for flag, is_blocked in pairs(pio_diag.removed_flags) do
         flags_dictionary[flag] = is_blocked
+        print('aaa')
       end
     else
       -- B. 🛡️ COLD-BOOT BACKFILL: If RAM is empty on restart, read straight from .filter.json!
@@ -215,6 +216,7 @@ CompileFlags:
             for flag, blocked in pairs(data.flags) do
               if blocked then
                 flags_dictionary[flag] = true
+                print('bbb')
               end
             end
           end
