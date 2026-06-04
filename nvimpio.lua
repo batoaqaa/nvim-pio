@@ -560,7 +560,7 @@ local pioConfig = {
   },
   clangd = {
     support = true,
-    install = false,
+    install = true,
   },
   -- menu_key = "<leader>\\", -- replace this menu key  to your convenience
   -- menu_name = "PlatformIO", -- replace this menu name to your convenience
