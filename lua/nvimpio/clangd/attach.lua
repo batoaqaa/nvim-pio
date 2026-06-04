@@ -24,7 +24,9 @@ vim.api.nvim_create_autocmd('LspAttach', {
     --     end, { buffer = bufnr, desc = 'Open Filter Panel' })
     --   end
     -- end
+    --
     -- INFO: ClangdDiagnosticBlock
+    -- 🟢 THE CORRECT CRASH-PROOF WAY (Drops Neovim's table entirely!)
     vim.api.nvim_create_user_command('ClangdFilter', function()
       require('nvimpio.clangd.diagnostic').manage_file_diagnostics_interactive()
     end, {})
