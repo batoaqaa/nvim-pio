@@ -105,22 +105,23 @@ These are the default keybindings, which you can override in your configuration.
     if pok then
       nvimpio.setup({
         pio = {
-          pio_runtime_dir = '~/.platformio',
-          pio_storage_dir = '~/.platformio',
+          pio_runtime_dir = vim.fs.joinpath(OS.defaultHome, '.platformio'),
+          pio_storage_dir = vim.fs.joinpath(OS.defaultHome, '.platformio'),
         },
         clangd = {
           support = false,
-          install = false
+          install = false,
         },
+        debug = false,
         menu_key = '<leader>\\', -- replace this menu key  to your convenience
         menu_name = 'PlatformIO', -- replace this menu name to your convenience
-        debug = false,
 
         menu_bindings = {
+          { node = 'item', desc = '[B]lock diagnostic', shortcut = 'b', command = 'ClangdDiagnosticBlock' },
           { node = 'item', desc = 'Switch [E]nv', shortcut = 'e', command = 'PioPickEnv' },
           { node = 'item', desc = '[I]nitiate project', shortcut = 'i', command = 'Pioinit' },
           { node = 'item', desc = '[L]ist terminals', shortcut = 'l', command = 'PioTermList' },
-          { node = 'item', desc = 're[S]art clangd', shortcut = 's', command = 'Pioclangdrestart' },
+          { node = 'item', desc = 're[S]art clangd', shortcut = 's', command = 'Clangdrestart' },
           { node = 'item', desc = '[T]erminal Core CLI', shortcut = 't', command = 'Piocmdf' },
           {
             node = 'menu',
@@ -201,7 +202,6 @@ These are the default keybindings, which you can override in your configuration.
             },
           },
         },
-
       })
     end
 ```
