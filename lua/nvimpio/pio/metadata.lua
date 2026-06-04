@@ -66,7 +66,6 @@ local _pio_metadata = {
   includes_compatlib = {},
   includes_toolchain = {},
   auto_defines = {},
-  driver_prefix = {},
   cc_path = '',
   cc_flags = {},
   cxx_path = '',

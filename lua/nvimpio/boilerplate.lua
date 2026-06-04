@@ -175,7 +175,7 @@ CompileFlags:
     local cwdClangd = vim.fs.joinpath(project_root, '.clangd')
     local coreClangd = vim.fs.joinpath(core.config.pio_storage_dir, '.clangd')
     local flagsFile = vim.fs.joinpath(project_root, '.nvimpio', 'clangd_flags.txt')
-    local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
+    local filter_db_path = vim.fs.joinpath(project_root, 'nvimpio', '.filter.json')
     local staticBlock, dynamicBlock = '', ''
 
     if vim.uv.fs_stat(cwdClangd) then
