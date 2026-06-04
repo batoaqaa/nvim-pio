@@ -167,7 +167,6 @@ CompileFlags:
     "@.pio/build/clangd_flags.txt"
     ]
 ]],
-
   content = function(self, project_root_param)
     local core = require('nvimpio')
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
@@ -217,7 +216,9 @@ CompileFlags:
           local ok, data = pcall(vim.json.decode, raw)
           if ok and data and type(data.flags) == 'table' then
             for flag, blocked in pairs(data.flags) do
-              if blocked then flags_dictionary[flag] = true end
+              if blocked then
+                flags_dictionary[flag] = true
+              end
             end
           end
         end
@@ -247,7 +248,7 @@ CompileFlags:
       else
         -- Target B: Dynamic deep scan loop. Extract data from the first active nested sub-table env block
         for _, sub_table in pairs(_G.metadata) do
-          if type(sub_table) == "table" and (sub_table.includes_build or sub_table.auto_defines) then
+          if type(sub_table) == 'table' and (sub_table.includes_build or sub_table.auto_defines) then
             target_meta = sub_table
             break
           end
@@ -255,14 +256,14 @@ CompileFlags:
       end
     end
 
-    local log_file = vim.fs.joinpath(project_root, "nvim_pio_boot_trace.log")
-    local f_log = io.open(log_file, "a")
+    local log_file = vim.fs.joinpath(project_root, 'nvim_pio_boot_trace.log')
+    local f_log = io.open(log_file, 'a')
 
     if target_meta then
       -- 🔍 TRACE LOGGING: Record successful dynamic extraction parameters
       if f_log then
-        local timestamp = os.date("%Y-%m-%d %H:%M:%S")
-        f_log:write(string.format("[%s] 🟢 NESTED DATA FOUND! Unpacking include pools...\n", timestamp))
+        local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+        f_log:write(string.format('[%s] 🟢 NESTED DATA FOUND! Unpacking include pools...\n', timestamp))
         f_log:close()
         f_log = nil
       end
@@ -297,7 +298,9 @@ CompileFlags:
       -- Phase C: Write fresh data lines out to disk
       local final_flags_content = table.concat(options_file_lines, '\n')
       local pio_build_dir = vim.fs.dirname(flagsFile)
-      if not vim.uv.fs_stat(pio_build_dir) then vim.fn.mkdir(pio_build_dir, 'p') end
+      if not vim.uv.fs_stat(pio_build_dir) then
+        vim.fn.mkdir(pio_build_dir, 'p')
+      end
 
       local f_ok, old_flags = misc.readFile(flagsFile)
       if not f_ok or old_flags ~= final_flags_content then
@@ -306,16 +309,18 @@ CompileFlags:
     else
       -- 🔍 TRACE LOGGING: Record if lookup continues failing across all levels
       if f_log then
-        local timestamp = os.date("%Y-%m-%d %H:%M:%S")
-        f_log:write(string.format("[%s] ⚠️  Structural scan failed. Metadata properties unreachable.\n", timestamp))
+        local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+        f_log:write(string.format('[%s] ⚠️  Structural scan failed. Metadata properties unreachable.\n', timestamp))
         f_log:close()
       end
 
       local flags_exist = vim.uv.fs_stat(flagsFile)
       if not flags_exist then
         local pio_build_dir = vim.fs.dirname(flagsFile)
-        if not vim.uv.fs_stat(pio_build_dir) then vim.fn.mkdir(pio_build_dir, 'p') end
-        misc.writeFile(flagsFile, "", {})
+        if not vim.uv.fs_stat(pio_build_dir) then
+          vim.fn.mkdir(pio_build_dir, 'p')
+        end
+        misc.writeFile(flagsFile, '', {})
       end
     end
 
@@ -340,7 +345,6 @@ CompileFlags:
 
     return final_content
   end,
-
 
   -- content = function(self, project_root_param)
   --   local core = require('nvimpio')
@@ -479,77 +483,77 @@ CompileFlags:
   --       misc.writeFile(flagsFile, '', {})
   --     end
   --   end
-
-    -- -- 2. UNIFIED ADD OPTION DRIVER FILE BUILDER
-    -- -- 🟢 FIX: We check 'next(_G.metadata)' to properly identify when the table contains real keys!
-    -- if _G.metadata and next(_G.metadata) then
-    --   local options_file_lines = {}
-    --   if type(_G.metadata.auto_defines) == 'table' then
-    --     for _, define in ipairs(_G.metadata.auto_defines) do
-    --       if type(define) == 'string' and define ~= '' then
-    --         table.insert(options_file_lines, string.format('%q', define))
-    --       end
-    --     end
-    --   end
-    --
-    --   local include_pools = {
-    --     _G.metadata.includes_build,
-    --     _G.metadata.includes_toolchain,
-    --     _G.metadata.includes_compatlib,
-    --   }
-    --   for pool_idx = 1, #include_pools do
-    --     local pool = include_pools[pool_idx]
-    --     for flag_idx = 1, #(pool or {}) do
-    --       local raw_flag = pool[flag_idx]
-    --       if type(raw_flag) == 'string' and raw_flag ~= '' then
-    --         table.insert(options_file_lines, vim.fs.normalize(raw_flag))
-    --       end
-    --     end
-    --   end
-    --
-    --   local final_flags_content = table.concat(options_file_lines, '\n')
-    --   local pio_build_dir = vim.fs.dirname(flagsFile)
-    --   if not vim.uv.fs_stat(pio_build_dir) then
-    --     vim.fn.mkdir(pio_build_dir, 'p')
-    --   end
-    --
-    --   local f_ok, old_flags = misc.readFile(flagsFile)
-    --   if not f_ok or old_flags ~= final_flags_content then
-    --     misc.writeFile(flagsFile, final_flags_content, {})
-    --   end
-    -- else
-    --   -- 🟢 COLD-BOOT FALLBACK ENGINE B: Seeds placeholder file if completely empty or missing
-    --   local flags_exist = vim.uv.fs_stat(flagsFile)
-    --   if not flags_exist then
-    --     local pio_build_dir = vim.fs.dirname(flagsFile)
-    --     if not vim.uv.fs_stat(pio_build_dir) then
-    --       vim.fn.mkdir(pio_build_dir, 'p')
-    --     end
-    --     misc.writeFile(flagsFile, '', {})
-    --   end
-    -- end
-
-    -- 3. ASSEMBLE CLEAN MAIN .CLANGD STRINGS PROFILE
-    dynamicBlock = string.format(self.dynamic, table.concat(removed_args, ',\n    '))
-    local final_content = staticBlock .. '\n' .. dynamicBlock
-
-    -- 4. 🟢 UNCONDITIONAL DISK WRITER MATRIX: Powered purely by text changes!
-    local read_ok, old_content = misc.readFile(cwdClangd)
-    if not read_ok or old_content ~= final_content then
-      misc.writeFile(cwdClangd, final_content, {})
-      misc.writeFile(coreClangd, final_content, {})
-
-      vim.schedule(function()
-        for _, client in ipairs(vim.lsp.get_clients({ name = 'clangd' })) do
-          if client and type(client.notify) == 'function' then
-            client:notify('workspace/didChangeConfiguration', { settings = {} })
-          end
-        end
-      end)
-    end
-
-    return final_content
-  end,
+  --
+  --   -- -- 2. UNIFIED ADD OPTION DRIVER FILE BUILDER
+  --   -- -- 🟢 FIX: We check 'next(_G.metadata)' to properly identify when the table contains real keys!
+  --   -- if _G.metadata and next(_G.metadata) then
+  --   --   local options_file_lines = {}
+  --   --   if type(_G.metadata.auto_defines) == 'table' then
+  --   --     for _, define in ipairs(_G.metadata.auto_defines) do
+  --   --       if type(define) == 'string' and define ~= '' then
+  --   --         table.insert(options_file_lines, string.format('%q', define))
+  --   --       end
+  --   --     end
+  --   --   end
+  --   --
+  --   --   local include_pools = {
+  --   --     _G.metadata.includes_build,
+  --   --     _G.metadata.includes_toolchain,
+  --   --     _G.metadata.includes_compatlib,
+  --   --   }
+  --   --   for pool_idx = 1, #include_pools do
+  --   --     local pool = include_pools[pool_idx]
+  --   --     for flag_idx = 1, #(pool or {}) do
+  --   --       local raw_flag = pool[flag_idx]
+  --   --       if type(raw_flag) == 'string' and raw_flag ~= '' then
+  --   --         table.insert(options_file_lines, vim.fs.normalize(raw_flag))
+  --   --       end
+  --   --     end
+  --   --   end
+  --   --
+  --   --   local final_flags_content = table.concat(options_file_lines, '\n')
+  --   --   local pio_build_dir = vim.fs.dirname(flagsFile)
+  --   --   if not vim.uv.fs_stat(pio_build_dir) then
+  --   --     vim.fn.mkdir(pio_build_dir, 'p')
+  --   --   end
+  --   --
+  --   --   local f_ok, old_flags = misc.readFile(flagsFile)
+  --   --   if not f_ok or old_flags ~= final_flags_content then
+  --   --     misc.writeFile(flagsFile, final_flags_content, {})
+  --   --   end
+  --   -- else
+  --   --   -- 🟢 COLD-BOOT FALLBACK ENGINE B: Seeds placeholder file if completely empty or missing
+  --   --   local flags_exist = vim.uv.fs_stat(flagsFile)
+  --   --   if not flags_exist then
+  --   --     local pio_build_dir = vim.fs.dirname(flagsFile)
+  --   --     if not vim.uv.fs_stat(pio_build_dir) then
+  --   --       vim.fn.mkdir(pio_build_dir, 'p')
+  --   --     end
+  --   --     misc.writeFile(flagsFile, '', {})
+  --   --   end
+  --   -- end
+  --
+  --   -- 3. ASSEMBLE CLEAN MAIN .CLANGD STRINGS PROFILE
+  --   dynamicBlock = string.format(self.dynamic, table.concat(removed_args, ',\n    '))
+  --   local final_content = staticBlock .. '\n' .. dynamicBlock
+  --
+  --   -- 4. 🟢 UNCONDITIONAL DISK WRITER MATRIX: Powered purely by text changes!
+  --   local read_ok, old_content = misc.readFile(cwdClangd)
+  --   if not read_ok or old_content ~= final_content then
+  --     misc.writeFile(cwdClangd, final_content, {})
+  --     misc.writeFile(coreClangd, final_content, {})
+  --
+  --     vim.schedule(function()
+  --       for _, client in ipairs(vim.lsp.get_clients({ name = 'clangd' })) do
+  --         if client and type(client.notify) == 'function' then
+  --           client:notify('workspace/didChangeConfiguration', { settings = {} })
+  --         end
+  --       end
+  --     end)
+  --   end
+  --
+  --   return final_content
+  -- end,
 }
 -- INFO: .clang-format
 ----------------------------------------------------------------------------------------
