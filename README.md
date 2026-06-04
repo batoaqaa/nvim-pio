@@ -64,7 +64,7 @@ These are the default keybindings, which you can override in your configuration.
           pio_storage_dir = vim.fs.joinpath(OS.defaultHome, '.platformio'),
         },
         clangd = {
-          support = false,
+          support = true,
           install = false,
         },
         debug = false,

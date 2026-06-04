@@ -4,7 +4,7 @@ local defConfig = {
     pio_storage_dir = vim.fs.joinpath(OS.defaultHome, '.platformio'),
   },
   clangd = {
-    support = false,
+    support = true,
     install = false,
   },
   debug = false,
