@@ -2,9 +2,9 @@
 local M = {}
 
 -- Module scopes track cross-file automated session states safely
-M.manual_blocked_codes = {}
-M.removed_flags = {}
-M.session_discovered_codes = {}
+M.manual_blocked_codes = M.manual_blocked_codes or {}
+M.removed_flags = M.removed_flags or {}
+M.session_discovered_codes = M.session_discovered_codes or {}
 
 local markers = { 'platformio.ini', '.git' }
 
