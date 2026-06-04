@@ -15,17 +15,17 @@ vim.api.nvim_create_autocmd('LspAttach', {
 
     -- vim.api.nvim_echo({ { 'Attaching ' .. client.name .. ' to buffer ' .. bufnr, 'Info' } }, true, {})
 
-    local nvim_pio_diag = require('nvimpio.clangd.diagnostic')
-    if client and client.name == 'clangd' then
-      local buf_path = vim.api.nvim_buf_get_name(bufnr)
-      if buf_path ~= '' and (vim.fs.root(buf_path, { 'platformio.ini' }) or vim.uv.fs_stat(vim.uv.cwd() .. '/platformio.ini')) then
-        vim.keymap.set('n', '<leader>\\b', function()
-          nvim_pio_diag.manage_file_diagnostics_interactive()
-        end, { buffer = bufnr, desc = 'Open Filter Panel' })
-      end
-    end
+    -- local nvim_pio_diag = require('nvimpio.clangd.diagnostic')
+    -- if client and client.name == 'clangd' then
+    --   local buf_path = vim.api.nvim_buf_get_name(bufnr)
+    --   if buf_path ~= '' and (vim.fs.root(buf_path, { 'platformio.ini' }) or vim.uv.fs_stat(vim.uv.cwd() .. '/platformio.ini')) then
+    --     vim.keymap.set('n', '<leader>\\b', function()
+    --       nvim_pio_diag.manage_file_diagnostics_interactive()
+    --     end, { buffer = bufnr, desc = 'Open Filter Panel' })
+    --   end
+    -- end
     -- INFO: ClangdDiagnosticBlock
-    vim.api.nvim_create_user_command('ClangdDiagnosticBlock', require('nvimpio.clangd.diagnostic').manage_file_diagnostics_interactive, {})
+    vim.api.nvim_create_user_command('ClangdFilter', require('nvimpio.clangd.diagnostic').manage_file_diagnostics_interactive, {})
 
     -- if client and client.name == 'clangd' then
     --   local buf_path = vim.api.nvim_buf_get_name(bufnr)
