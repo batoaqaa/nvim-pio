@@ -233,9 +233,26 @@ CompileFlags:
     table.sort(removed_args)
 
     -- 2. UNIFIED ADD OPTION DRIVER FILE BUILDER
-    -- 🟢 FIX: We check 'next(_G.metadata)' to properly identify when the table contains real keys!
+    local log_file = vim.fs.joinpath(project_root, 'nvim_pio_boot_trace.log')
+    local f_log = io.open(log_file, 'a')
+
     if _G.metadata and next(_G.metadata) then
       local options_file_lines = {}
+
+      -- 🔍 TELEMETRY TRACE: Log exactly when metadata arrives!
+      if f_log then
+        local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+        f_log:write(string.format('[%s] 🟢 METADATA DETECTED! Populating clangd_flags.txt...\n', timestamp))
+        if type(_G.metadata.auto_defines) == 'table' then
+          f_log:write(string.format('   -> Found %d Auto-Defines\n', #_G.metadata.auto_defines))
+        end
+        if type(_G.metadata.includes_build) == 'table' then
+          f_log:write(string.format('   -> Found %d Build Includes\n', #_G.metadata.includes_build))
+        end
+        f_log:close()
+        f_log = nil -- prevent double close down below
+      end
+
       if type(_G.metadata.auto_defines) == 'table' then
         for _, define in ipairs(_G.metadata.auto_defines) do
           if type(define) == 'string' and define ~= '' then
@@ -249,6 +266,7 @@ CompileFlags:
         _G.metadata.includes_toolchain,
         _G.metadata.includes_compatlib,
       }
+
       for pool_idx = 1, #include_pools do
         local pool = include_pools[pool_idx]
         for flag_idx = 1, #(pool or {}) do
@@ -270,7 +288,13 @@ CompileFlags:
         misc.writeFile(flagsFile, final_flags_content, {})
       end
     else
-      -- 🟢 COLD-BOOT FALLBACK ENGINE B: Seeds placeholder file if completely empty or missing
+      -- 🔍 TELEMETRY TRACE: Log when it hits the fallback bypass gate
+      if f_log then
+        local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+        f_log:write(string.format('[%s] ⚠️  Metadata empty/absent. Protecting cache.\n', timestamp))
+        f_log:close()
+      end
+
       local flags_exist = vim.uv.fs_stat(flagsFile)
       if not flags_exist then
         local pio_build_dir = vim.fs.dirname(flagsFile)
@@ -280,6 +304,55 @@ CompileFlags:
         misc.writeFile(flagsFile, '', {})
       end
     end
+
+    -- -- 2. UNIFIED ADD OPTION DRIVER FILE BUILDER
+    -- -- 🟢 FIX: We check 'next(_G.metadata)' to properly identify when the table contains real keys!
+    -- if _G.metadata and next(_G.metadata) then
+    --   local options_file_lines = {}
+    --   if type(_G.metadata.auto_defines) == 'table' then
+    --     for _, define in ipairs(_G.metadata.auto_defines) do
+    --       if type(define) == 'string' and define ~= '' then
+    --         table.insert(options_file_lines, string.format('%q', define))
+    --       end
+    --     end
+    --   end
+    --
+    --   local include_pools = {
+    --     _G.metadata.includes_build,
+    --     _G.metadata.includes_toolchain,
+    --     _G.metadata.includes_compatlib,
+    --   }
+    --   for pool_idx = 1, #include_pools do
+    --     local pool = include_pools[pool_idx]
+    --     for flag_idx = 1, #(pool or {}) do
+    --       local raw_flag = pool[flag_idx]
+    --       if type(raw_flag) == 'string' and raw_flag ~= '' then
+    --         table.insert(options_file_lines, vim.fs.normalize(raw_flag))
+    --       end
+    --     end
+    --   end
+    --
+    --   local final_flags_content = table.concat(options_file_lines, '\n')
+    --   local pio_build_dir = vim.fs.dirname(flagsFile)
+    --   if not vim.uv.fs_stat(pio_build_dir) then
+    --     vim.fn.mkdir(pio_build_dir, 'p')
+    --   end
+    --
+    --   local f_ok, old_flags = misc.readFile(flagsFile)
+    --   if not f_ok or old_flags ~= final_flags_content then
+    --     misc.writeFile(flagsFile, final_flags_content, {})
+    --   end
+    -- else
+    --   -- 🟢 COLD-BOOT FALLBACK ENGINE B: Seeds placeholder file if completely empty or missing
+    --   local flags_exist = vim.uv.fs_stat(flagsFile)
+    --   if not flags_exist then
+    --     local pio_build_dir = vim.fs.dirname(flagsFile)
+    --     if not vim.uv.fs_stat(pio_build_dir) then
+    --       vim.fn.mkdir(pio_build_dir, 'p')
+    --     end
+    --     misc.writeFile(flagsFile, '', {})
+    --   end
+    -- end
 
     -- 3. ASSEMBLE CLEAN MAIN .CLANGD STRINGS PROFILE
     dynamicBlock = string.format(self.dynamic, table.concat(removed_args, ',\n    '))
