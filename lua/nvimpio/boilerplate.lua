@@ -173,10 +173,10 @@ CompileFlags:
     ]
 ]],
   content = function(self, project_root_param)
-    print('you')
     local core = require('nvimpio')
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
     project_root = vim.fs.normalize(project_root)
+    print(project_root)
 
     local cwdClangd = vim.fs.joinpath(project_root, '.clangd')
     local coreClangd = vim.fs.joinpath(core.config.pio_storage_dir, '.clangd')
