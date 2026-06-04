@@ -1,6 +1,6 @@
 # 🚀 nvim-pio (Neovim PlatformIO Language Server Optimizer)
 
-A high-performance, cross-platform Neovim plugin designed to bridge **PlatformIO toolchains** with **`clangd`** smoothly [INDEX]. It intercepts and corrects project-wide cross-compiler flag diagnostics asynchronously, ensuring a lightweight, zero-lag editing environment on both Windows and Linux [INDEX].
+A high-performance, cross-platform Neovim plugin designed to bridge **PlatformIO toolchains** with **`clangd`** smoothly. It intercepts and corrects project-wide cross-compiler flag diagnostics asynchronously, ensuring a lightweight, zero-lag editing environment on both Windows and Linux.
 
 ---
 
@@ -76,6 +76,11 @@ return {
         install = false,
       },
     })
+
+    -- 🟢 Interactive Checker Checklist User Keymap Configuration
+    vim.keymap.set('n', '<leader>pf', function()
+      require('nvimpio.clangd.diagnostic').manage_file_diagnostics_interactive()
+    end, { silent = true, desc = 'PlatformIO: Manage Code Filters' })
   end,
 }
 ```
@@ -285,20 +290,23 @@ Houses your extensive architecture macro directives and search directory lists l
 
 ## 🔍 Understanding the Macro Injection Pipeline (`clangd_flags.txt`)
 
-Embedded hardware environments make heavy use of conditional compilation directives (`#ifdef`, `#if`). Because `clangd` acts as a real-time front-end compiler inside your editor, it requires the exact same preprocessor macro blueprint as your hardware toolchain to parse your code structures accurately [INDEX]. 
+Embedded hardware environments make heavy use of conditional compilation directives (`#ifdef`, `#if`). Because `clangd` acts as a real-time front-end compiler inside your editor, it requires the exact same preprocessor macro blueprint as your hardware toolchain to parse your code structures accurately. 
 
-`nvim-pio` automatically reads these variables from your project metadata and feeds them line-by-line to your language server [INDEX].
+`nvim-pio` automatically reads these variables from your project metadata and feeds them line-by-line to your language server.
 
 ### ⚡ Critical Framework Toggle Safeguards
-Without this automatic macro injection layer, `clangd` defaults to standard desktop configurations, graying out your hardware blocks and filling your panel with false error squiggles [INDEX]:
+Without this automatic macro injection layer, `clangd` defaults to standard desktop configurations, graying out your hardware blocks and filling your panel with false error squiggles:
 
 #### 1. Hardware Feature Mapping (`-DBOARD_HAS_PSRAM`)
-* **Why it matters:** Espressif framework headers gate extended RAM functions (like `psram_malloc()`) behind explicit `#ifdef BOARD_HAS_PSRAM` guards [INDEX].
-* **LSP Impact:** If this macro is missing from your options file, `clangd` treats your allocation code as dead space, throwing a bright red `Use of undeclared identifier` exception while you are typing [INDEX].
+* **Why it matters:** Espressif framework headers gate extended RAM functions (like `psram_malloc()`) behind explicit `#ifdef BOARD_HAS_PSRAM` guards.
+* **LSP Impact:** If this macro is missing from your options file, `clangd` treats your allocation code as dead space, throwing a bright red `Use of undeclared identifier` exception while you are typing.
 
 #### 2. Autocomplete Tree Synchronization (`-DARDUINO_USB_CDC_ON_BOOT=1`)
-* **Why it matters:** Microcontrollers change their serial communication subroutines dynamically depending on whether direct USB logging is active on start [INDEX].
-* **LSP Impact:** This macro instructs `clangd` that the global `Serial` object is an instance of the `HWCDC` driver class rather than a basic hardware UART line [INDEX]. This ensures your code auto-completion dropdown menus display the correct USB-CDC methods natively [INDEX].
+* **Why it matters:** Microcontrollers change their serial communication subroutines dynamically depending on whether direct USB logging is active on start.
+* **LSP Impact:** This macro instructs `clangd` that the global `Serial` object is an instance of the `HWCDC` driver class rather than a basic hardware UART line. This ensures your code auto-completion dropdown menus display the correct USB-CDC methods natively.
 
 #### 3. Static Assertion Safety (`-DF_CPU=240000000L`)
-* **Why it matters:** Timing macros, hardware baud rate scaling calculations, and accurate delay loops (`delayMicroseconds()`) evaluate expressions mathematically using your chip's absolute clock frequency (e.g., **240 MHz**) [INDEX].
+* **Why it matters:** Timing macros, hardware baud rate scaling calculations, and accurate delay loops (`delayMicroseconds()`) evaluate expressions mathematically using your chip's absolute clock frequency (e.g., **240 MHz**).
+* **LSP Impact:** If omitted, `F_CPU` evaluates to zero. Your header file validation rules fail their internal mathematical assertions, causing `clangd` to trigger compiler panic `#error` blocks across your workspace viewport.
+
+---
