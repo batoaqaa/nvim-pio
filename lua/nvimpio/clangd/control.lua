@@ -589,16 +589,16 @@ function M.init(clangd)
     vim.lsp.enable('clangd')
   -- end
 
-  require('nvimpio.clangd.commands')
-  vim.api.nvim_create_user_command('PioFilter', function()
-    local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-    if success and pio_diag and pio_diag.manage_file_diagnostics_interactive then
-      pio_diag.manage_file_diagnostics_interactive()
-    else
-      vim.notify('nvimpio: Failed to initialize the diagnostics UI panel.', vim.log.levels.ERROR)
-    end
-  end, { desc = 'Open PlatformIO lint suppression checkbox manager' })
-  -- require('nvimpio.clangd.diagnostic')
+  -- require('nvimpio.clangd.commands')
+  -- vim.api.nvim_create_user_command('PioFilter', function()
+  --   local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+  --   if success and pio_diag and pio_diag.manage_file_diagnostics_interactive then
+  --     pio_diag.manage_file_diagnostics_interactive()
+  --   else
+  --     vim.notify('nvimpio: Failed to initialize the diagnostics UI panel.', vim.log.levels.ERROR)
+  --   end
+  -- end, { desc = 'Open PlatformIO lint suppression checkbox manager' })
+  require('nvimpio.clangd.diagnostic')
 
   vim.keymap.set('n', 'gll', function()
     vim.cmd.edit(vim.lsp.log.get_filename())
