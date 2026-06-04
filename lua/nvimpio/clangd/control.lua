@@ -438,6 +438,7 @@ function M.blockUnknownArgsCli(from)
   run_live_analysis_pass()
 end
 
+local diagnosticClangd = require('nvimpio.clangd.diagnostic')
 -- pio/control 160
 -- pio/upkeep 170, 1001, 1178
 -- INFO: get_clangd_unknown_args
@@ -446,10 +447,10 @@ end
 function M.getUnknownArgsCli(from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
   -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
-  boilerplate.args = {}
+  -- boilerplate.args = {}
 
   -- Strip out any previous dynamic blocks to prevent endless growing
-  boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
+  -- boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
 
   -- 2. FIND: Grab the first .cpp or .c file in /src
   local check_file = vim.fs.find(function(name)
@@ -501,11 +502,15 @@ function M.getUnknownArgsCli(from)
             if not seen[clean_flag] then
               seen[clean_flag] = true
               table.insert(args_table, clean_flag)
+
+              if not diagnosticClangd.removed_flags[clean_flag] then
+                diagnosticClangd.removed_flags[clean_flag] = true
+              end
             end
           end
         end
         -- 4. UPDATE: Rebuild with the new discovered flags
-        boilerplate.args = args_table
+        -- boilerplate.args = args_table
         boilerplate_gen('.clangd', vim.g.platformioRootDir)
 
         OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
@@ -514,6 +519,7 @@ function M.getUnknownArgsCli(from)
     end)
   end, 'clangd')
 end
+
 -- INFO: get_clangd_unknown_args
 --------------------------------------------------------------------------------
 ---@param from string
