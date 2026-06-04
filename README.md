@@ -166,8 +166,8 @@ These are the default keybindings, which you can override in your configuration.
 Try the plugin with this minimal standalone config without modifying your existing nvim setup. **This is especially useful if you're encountering errors during installation or usage**.
 
 ```sh
-wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/mini_nvimpio.lua
-nvim -u mini_nvimpio.lua
+wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/nvimpio.lua
+nvim -u nvimpio.lua .
 
 # Now run :Pioinit
 ```
