@@ -161,6 +161,17 @@ These are the default keybindings, which you can override in your configuration.
     end
 ```
 
+<br>
+
+Try the plugin with this minimal standalone config without modifying your existing nvim setup. **This is especially useful if you're encountering errors during installation or usage**.
+
+```sh
+wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/mini_nvimpio.lua
+nvim -u mini_nvimpio.lua
+
+# Now run :Pioinit
+```
+
 ---
 
 ## 📊 Statusline Integrations
