@@ -175,11 +175,7 @@ function M.getClangdConfig()
     -- 🟢 STEP 2: Runtime Lazy-Load of the diagnostic module
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
     if success and pio_diag then
-      pio_diag.removed_flags = pio_diag.removed_flags or {}
-      for flag, is_blocked in pairs(local_flags_cache) do
-        pio_diag.removed_flags[flag] = is_blocked
-      end
-      -- pio_diag.removed_flags = local_flags_cache
+      pio_diag.removed_flags = local_flags_cache
     end
 
     -- 🟢 STEP 3: Generate your boilerplate configuration profiles last
@@ -208,7 +204,6 @@ function M.getClangdConfig()
       local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
 
       -- 2. RIGID ROUTING ENGINE
-      local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
       if success and pio_diag then
         if is_config then
           -- 🟢 ROUTE A: Process global toolchain configuration flags using the project root folder
