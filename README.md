@@ -33,6 +33,14 @@ return {
     { 'nvim-telescope/telescope-ui-select.nvim' },
     { 'nvim-lua/plenary.nvim' },
     { 'folke/which-key.nvim' },
+      {
+        'mason-org/mason-lspconfig.nvim',
+        dependencies = {
+          { 'mason-org/mason.nvim' },
+          { 'folke/trouble.nvim' },
+          { 'j-hui/fidget.nvim' }, -- status bottom right
+        },
+      },
   },
   config = function()
     -- Initialize the core plugin setup layer
