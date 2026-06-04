@@ -57,11 +57,9 @@ local is_mason_lsp_loaded = package.loaded['mason-lspconfig'] ~= nil
 
 -- 2. Safely capture the module references
 local mason_ok, mason = pcall(require, 'mason')
-local mason_lsp_ok, mason_lspconfig = pcall(require, 'mason-lspconfig')
 
 -- by default Mason binaries are prepended to the path
 if mason_ok then
-  print('mason')
   if not is_mason_loaded then
     mason.setup({})
   end
@@ -104,6 +102,7 @@ end
 ----------------------------------------------------------------------------------------
 -- INFO: install clangd using mason-lspconfig
 -----------------------------------------------------------------------------------------
+local mason_lsp_ok, mason_lspconfig = pcall(require, 'mason-lspconfig')
 local lspconfig_config = {
   -- Add any servers you want to guarantee exist in your environment
   ensure_installed = { 'clangd', 'lua_ls', 'pyrefly', 'yamlls', 'jsonls' },
