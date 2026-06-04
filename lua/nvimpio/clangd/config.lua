@@ -61,6 +61,7 @@ local mason_lsp_ok, mason_lspconfig = pcall(require, 'mason-lspconfig')
 
 -- by default Mason binaries are prepended to the path
 if mason_ok then
+  print('mason')
   if not is_mason_loaded then
     mason.setup({})
   end
