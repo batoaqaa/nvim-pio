@@ -95,6 +95,7 @@ boilerplate['.clangd_config.json'] = {
     "--enable-config",
     "--limit-results=100",
     "--background-index",
+    "--background-index-priority=low",
     "--all-scopes-completion",
     "--clang-tidy",
     "--compile_args_from=filesystem",

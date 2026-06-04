@@ -113,48 +113,38 @@ function M.getClangdConfig()
   clangd_config.before_init = function(params, config)
     local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
     project_root = (type(project_root) == 'string' and project_root ~= '') and project_root or '.'
+    project_root = vim.fs.normalize(project_root)
+
+    -- 🔍 TRACE CONTROLLER LOGGER
+    local log_file = vim.fs.joinpath(project_root, 'nvim_pio_boot_trace.log')
+    local f_log = io.open(log_file, 'a')
+    if f_log then
+      local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+      f_log:write(string.format('\n=== 🛠️ BOOT TRACE START: %s ===\n', timestamp))
+
+      -- Check if global metadata exists or is completely nil
+      if _G.metadata == nil then
+        f_log:write('⚠️ _G.metadata is: NIL\n')
+      else
+        f_log:write('📊 _G.metadata exists! Checking internal structures:\n')
+        local keys_count = 0
+        for k, v in pairs(_G.metadata) do
+          keys_count = keys_count + 1
+          f_log:write(string.format('   Key: [%s] -> Type: (%s)\n', k, type(v)))
+        end
+        f_log:write(string.format('   Total child keys found inside _G.metadata: %d\n', keys_count))
+      end
+      f_log:close()
+    end
 
     config.init_options = config.init_options or {}
     config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
-
-    -- Set baseline configurations safely in RAM memory space
     config.init_options.clangdFileStatus = true
     config.init_options.completeUnimported = true
     config.init_options.usePlaceholders = true
-    -- Assign the absolute, normalized path to your project compilation database
-    config.init_options.compilationDatabasePath = vim.fs.normalize(project_root)
+    config.init_options.compilationDatabasePath = project_root
     table.insert(config.init_options.fallbackFlags, '-ferror-limit=0')
 
-    -- -- 🟢 DATA-DRIVEN INCLUDE INJECTION MATRIX (NO DISK FILTERS OR IO POPENS)
-    -- --  to write inclued path to fallbackFlags
-    -- if _G.metadata then
-    --   -- Combine both include groups into one sweep sequence
-    --
-    --   local include_pools = {
-    --     _G.metadata.includes_build,
-    --     _G.metadata.includes_toolchain,
-    --     _G.metadata.includes_compatlib,
-    --   }
-    --
-    --   for _, pool in ipairs(include_pools) do
-    --     for _, raw_flag in ipairs(pool or {}) do
-    --       if type(raw_flag) == 'string' and raw_flag ~= '' then
-    --         local clean_flag = vim.fs.normalize(raw_flag)
-    --         table.insert(config.init_options.fallbackFlags, clean_flag)
-    --       end
-    --     end
-    --   end
-    --   --
-    --   -- Inject pre-parsed macro definitions safely from memory
-    --   if type(_G.metadata.auto_defines) == 'table' then
-    --     for _, define in ipairs(_G.metadata.auto_defines) do
-    --       table.insert(config.init_options.fallbackFlags, define)
-    --     end
-    --   end
-    -- end
-
-    -- 🟢 STEP 1: Parse database into an isolated local table variable first.
-    -- This guarantees we never lose your historical flags even if the require loop is slow!
     local local_flags_cache = {}
     local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
     local f = io.open(filter_db_path, 'r')
@@ -173,24 +163,100 @@ function M.getClangdConfig()
       end
     end
 
-    -- 🟢 STEP 2: Runtime Lazy-Load of the diagnostic module
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
     if success and pio_diag then
       pio_diag.removed_flags = pio_diag.removed_flags or {}
       for flag, is_blocked in pairs(local_flags_cache) do
         pio_diag.removed_flags[flag] = is_blocked
       end
-      -- pio_diag.removed_flags = local_flags_cache
     end
 
-    -- 🟢 STEP 3: Generate your boilerplate configuration profiles last
-    vim.schedule(function()
-      local boiler = require('nvimpio.boilerplate')
-      if boiler and boiler.boilerplate_gen then
-        pcall(boiler.boilerplate_gen, '.clangd', project_root, 'before_init')
-      end
-    end)
+    local boiler = require('nvimpio.boilerplate')
+    if boiler and boiler.boilerplate_gen then
+      pcall(boiler.boilerplate_gen, '.clangd', project_root)
+    end
   end
+  -- clangd_config.before_init = function(params, config)
+  --   local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
+  --   project_root = (type(project_root) == 'string' and project_root ~= '') and project_root or '.'
+  --
+  --   config.init_options = config.init_options or {}
+  --   config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
+  --
+  --   -- Set baseline configurations safely in RAM memory space
+  --   config.init_options.clangdFileStatus = true
+  --   config.init_options.completeUnimported = true
+  --   config.init_options.usePlaceholders = true
+  --   -- Assign the absolute, normalized path to your project compilation database
+  --   config.init_options.compilationDatabasePath = vim.fs.normalize(project_root)
+  --   table.insert(config.init_options.fallbackFlags, '-ferror-limit=0')
+  --
+  --   -- -- 🟢 DATA-DRIVEN INCLUDE INJECTION MATRIX (NO DISK FILTERS OR IO POPENS)
+  --   -- --  to write inclued path to fallbackFlags
+  --   -- if _G.metadata then
+  --   --   -- Combine both include groups into one sweep sequence
+  --   --
+  --   --   local include_pools = {
+  --   --     _G.metadata.includes_build,
+  --   --     _G.metadata.includes_toolchain,
+  --   --     _G.metadata.includes_compatlib,
+  --   --   }
+  --   --
+  --   --   for _, pool in ipairs(include_pools) do
+  --   --     for _, raw_flag in ipairs(pool or {}) do
+  --   --       if type(raw_flag) == 'string' and raw_flag ~= '' then
+  --   --         local clean_flag = vim.fs.normalize(raw_flag)
+  --   --         table.insert(config.init_options.fallbackFlags, clean_flag)
+  --   --       end
+  --   --     end
+  --   --   end
+  --   --   --
+  --   --   -- Inject pre-parsed macro definitions safely from memory
+  --   --   if type(_G.metadata.auto_defines) == 'table' then
+  --   --     for _, define in ipairs(_G.metadata.auto_defines) do
+  --   --       table.insert(config.init_options.fallbackFlags, define)
+  --   --     end
+  --   --   end
+  --   -- end
+  --
+  --   -- 🟢 STEP 1: Parse database into an isolated local table variable first.
+  --   -- This guarantees we never lose your historical flags even if the require loop is slow!
+  --   local local_flags_cache = {}
+  --   local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
+  --   local f = io.open(filter_db_path, 'r')
+  --   if f then
+  --     local raw = f:read('*a')
+  --     f:close()
+  --     if raw and raw ~= '' then
+  --       local ok, data = pcall(vim.json.decode, raw)
+  --       if ok and data and type(data.flags) == 'table' then
+  --         for flag, blocked in pairs(data.flags) do
+  --           if blocked then
+  --             local_flags_cache[flag] = true
+  --           end
+  --         end
+  --       end
+  --     end
+  --   end
+  --
+  --   -- 🟢 STEP 2: Runtime Lazy-Load of the diagnostic module
+  --   local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+  --   if success and pio_diag then
+  --     pio_diag.removed_flags = pio_diag.removed_flags or {}
+  --     for flag, is_blocked in pairs(local_flags_cache) do
+  --       pio_diag.removed_flags[flag] = is_blocked
+  --     end
+  --     -- pio_diag.removed_flags = local_flags_cache
+  --   end
+  --
+  --   -- 🟢 STEP 3: Generate your boilerplate configuration profiles last
+  --   vim.schedule(function()
+  --     local boiler = require('nvimpio.boilerplate')
+  --     if boiler and boiler.boilerplate_gen then
+  --       pcall(boiler.boilerplate_gen, '.clangd', project_root, 'before_init')
+  --     end
+  --   end)
+  -- end
 
   -- 3. SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
   clangd_config.handlers = {
@@ -213,6 +279,8 @@ function M.getClangdConfig()
       -- 2. RIGID ROUTING ENGINE
       local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
       if success and pio_diag then
+        -- 🟢 HEADLESS ROUTING GATE: If clangd pushes a project-wide compiler error
+        -- while indexing a background file out of sight, catch it and filter it instantly!
         if is_config then
           -- 🟢 ROUTE A: Process global toolchain configuration flags using the project root folder
           if pio_diag.clean_project_wide_flags then
