@@ -485,8 +485,8 @@ function M.getUnknownArgsCli(from)
     --------------------------------------------------------------------------------
     -- cli
     -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--query-driver=**', '--log=error' }
-    local cmd = { { _G.metadata.cxx_path, '-E', '-dM', '-xc++' }, _G.metadata.cxx_flags, OS.devNul }
-    -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
+    -- local cmd = { { _G.metadata.cxx_path, '-E', '-dM', '-xc++' }, _G.metadata.cxx_flags, OS.devNul }
+    local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
     vim.system(cmd, { text = true }, function(obj)
       vim.schedule(function()
         local output = (obj.stdout or '') .. (obj.stderr or '')
