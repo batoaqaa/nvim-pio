@@ -187,7 +187,7 @@ CompileFlags:
       staticBlock = self.static
     end
 
-    -- 🟢 SELF-HEALING ENGINE A: Force-create an empty default database if missing
+    -- 🟢 SELF-HEALING ENGINE A: Seeding an empty database structure if missing
     local db_exist = vim.uv.fs_stat(filter_db_path)
     if not db_exist then
       local default_db = { codes = {}, flags = {} }
@@ -198,7 +198,7 @@ CompileFlags:
       end
     end
 
-    -- 1. SINGLE-SOURCE HYDRODYNAMIC SYNC (WITH DIRECT DISK FALLBACK GATING):
+    -- 1. HYDRODYNAMIC SYNC (WITH DIRECT DISK FALLBACK RECOVERY):
     local removed_args = {}
     local flags_dictionary = {}
 
@@ -232,11 +232,10 @@ CompileFlags:
     end
     table.sort(removed_args)
 
-    -- 2. UNIFIED ADD MODULE (WITH COLD-BOOT PROTECTION LOGIC)
-    local options_file_lines = {}
-    local is_new_project_initialization = false
-
+    -- 2. UNIFIED ADD OPTION DRIVER FILE BUILDER
+    -- 🟢 FIX: We check 'next(_G.metadata)' to properly identify when the table contains real keys!
     if _G.metadata and next(_G.metadata) then
+      local options_file_lines = {}
       if type(_G.metadata.auto_defines) == 'table' then
         for _, define in ipairs(_G.metadata.auto_defines) do
           if type(define) == 'string' and define ~= '' then
@@ -250,7 +249,6 @@ CompileFlags:
         _G.metadata.includes_toolchain,
         _G.metadata.includes_compatlib,
       }
-
       for pool_idx = 1, #include_pools do
         local pool = include_pools[pool_idx]
         for flag_idx = 1, #(pool or {}) do
@@ -272,23 +270,14 @@ CompileFlags:
         misc.writeFile(flagsFile, final_flags_content, {})
       end
     else
+      -- 🟢 COLD-BOOT FALLBACK ENGINE B: Seeds placeholder file if completely empty or missing
       local flags_exist = vim.uv.fs_stat(flagsFile)
-      if flags_exist then
-        local read_ok, current_flags = misc.readFile(flagsFile)
-        if read_ok and current_flags and current_flags ~= '' then
-          options_file_lines = { 'historical_cache_active' }
-        end
-      else
-        -- 🟢 SELF-HEALING ENGINE B: Force-create a clean, empty placeholder file on boot!
-        -- This guarantees that the file physically exists before clangd ever opens it.
+      if not flags_exist then
         local pio_build_dir = vim.fs.dirname(flagsFile)
         if not vim.uv.fs_stat(pio_build_dir) then
           vim.fn.mkdir(pio_build_dir, 'p')
         end
-
-        misc.writeFile(flagsFile, '', {}) -- Seeds clean empty line parameters file
-        is_new_project_initialization = true
-        options_file_lines = { 'initial_project_seeded' } -- Fills array to unblock Part 4
+        misc.writeFile(flagsFile, '', {})
       end
     end
 
@@ -296,22 +285,19 @@ CompileFlags:
     dynamicBlock = string.format(self.dynamic, table.concat(removed_args, ',\n    '))
     local final_content = staticBlock .. '\n' .. dynamicBlock
 
-    -- 4. SINGLE-POINT DISK COMMIT MATRIX
-    if #options_file_lines > 0 or is_new_project_initialization then
-      local read_ok, old_content = misc.readFile(cwdClangd)
-      if not read_ok or old_content ~= final_content then
-        misc.writeFile(cwdClangd, final_content, {})
-        misc.writeFile(coreClangd, final_content, {})
+    -- 4. 🟢 UNCONDITIONAL DISK WRITER MATRIX: Powered purely by text changes!
+    local read_ok, old_content = misc.readFile(cwdClangd)
+    if not read_ok or old_content ~= final_content then
+      misc.writeFile(cwdClangd, final_content, {})
+      misc.writeFile(coreClangd, final_content, {})
 
-        vim.schedule(function()
-          local active_clients = vim.lsp.get_clients({ name = 'clangd' })
-          for _, client in ipairs(active_clients) do
-            if client and type(client.notify) == 'function' then
-              client:notify('workspace/didChangeConfiguration', { settings = {} })
-            end
+      vim.schedule(function()
+        for _, client in ipairs(vim.lsp.get_clients({ name = 'clangd' })) do
+          if client and type(client.notify) == 'function' then
+            client:notify('workspace/didChangeConfiguration', { settings = {} })
           end
-        end)
-      end
+        end
+      end)
     end
 
     return final_content

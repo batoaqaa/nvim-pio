@@ -108,43 +108,22 @@ function M.getClangdConfig()
   if not tok then
     return nil
   end
-
-  -- 2. THE HIGH-PERFORMANCE MEMORY INJECTION ENGINE
+  -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
   clangd_config.before_init = function(params, config)
     local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
     project_root = (type(project_root) == 'string' and project_root ~= '') and project_root or '.'
     project_root = vim.fs.normalize(project_root)
 
-    -- 🔍 TRACE CONTROLLER LOGGER
-    local log_file = vim.fs.joinpath(project_root, 'nvim_pio_boot_trace.log')
-    local f_log = io.open(log_file, 'a')
-    if f_log then
-      local timestamp = os.date('%Y-%m-%d %H:%M:%S')
-      f_log:write(string.format('\n=== 🛠️ BOOT TRACE START: %s ===\n', timestamp))
+    -- Assign pristine native configuration options inside memory
+    config.init_options = {
+      clangdFileStatus = true,
+      completeUnimported = true,
+      usePlaceholders = true,
+      compilationDatabasePath = project_root,
+      fallbackFlags = { '-ferror-limit=0' },
+    }
 
-      -- Check if global metadata exists or is completely nil
-      if _G.metadata == nil then
-        f_log:write('⚠️ _G.metadata is: NIL\n')
-      else
-        f_log:write('📊 _G.metadata exists! Checking internal structures:\n')
-        local keys_count = 0
-        for k, v in pairs(_G.metadata) do
-          keys_count = keys_count + 1
-          f_log:write(string.format('   Key: [%s] -> Type: (%s)\n', k, type(v)))
-        end
-        f_log:write(string.format('   Total child keys found inside _G.metadata: %d\n', keys_count))
-      end
-      f_log:close()
-    end
-
-    config.init_options = config.init_options or {}
-    config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
-    config.init_options.clangdFileStatus = true
-    config.init_options.completeUnimported = true
-    config.init_options.usePlaceholders = true
-    config.init_options.compilationDatabasePath = project_root
-    table.insert(config.init_options.fallbackFlags, '-ferror-limit=0')
-
+    -- Step 1: Parse database into an isolated local table variable first
     local local_flags_cache = {}
     local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
     local f = io.open(filter_db_path, 'r')
@@ -163,19 +142,59 @@ function M.getClangdConfig()
       end
     end
 
+    -- Step 2: Runtime Lazy-Load of the diagnostic module RAM maps
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
     if success and pio_diag then
-      pio_diag.removed_flags = pio_diag.removed_flags or {}
       for flag, is_blocked in pairs(local_flags_cache) do
         pio_diag.removed_flags[flag] = is_blocked
       end
     end
 
+    -- Step 3: Refresh your physical configuration files natively last
     local boiler = require('nvimpio.boilerplate')
     if boiler and boiler.boilerplate_gen then
       pcall(boiler.boilerplate_gen, '.clangd', project_root)
     end
   end
+
+  -- 3. SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
+  clangd_config.handlers = {
+    ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
+      if err or not result or not result.diagnostics then
+        local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
+        if default_handler then
+          default_handler(err, result, ctx, config)
+        end
+        return
+      end
+
+      local client = vim.lsp.get_client_by_id(ctx.client_id)
+      local project_root_dir = client and client.config.root_dir or vim.uv.cwd()
+      local target_path = vim.uri_to_fname(result.uri)
+      local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
+
+      local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+      if success and pio_diag then
+        if is_config then
+          if pio_diag.clean_project_wide_flags then
+            pio_diag.clean_project_wide_flags(project_root_dir, result.diagnostics)
+          end
+          return -- Block configuration diagnostics from polluting user view
+        else
+          if pio_diag.clean_file_path_pipeline then
+            result.diagnostics = pio_diag.clean_file_path_pipeline(target_path, result.diagnostics)
+          end
+        end
+      end
+
+      local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
+      if default_handler then
+        default_handler(err, result, ctx, config)
+      end
+    end,
+  }
+
+  -- 2. THE HIGH-PERFORMANCE MEMORY INJECTION ENGINE
   -- clangd_config.before_init = function(params, config)
   --   local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
   --   project_root = (type(project_root) == 'string' and project_root ~= '') and project_root or '.'
@@ -257,52 +276,52 @@ function M.getClangdConfig()
   --     end
   --   end)
   -- end
-
-  -- 3. SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
-  clangd_config.handlers = {
-    ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
-      if err or not result or not result.diagnostics then
-        local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
-        if default_handler then
-          default_handler(err, result, ctx, config)
-        end
-        return
-      end
-
-      -- 1. Extract true workspace properties using the native LSP Client ID
-      local client = vim.lsp.get_client_by_id(ctx.client_id)
-      local project_root = client and client.config.root_dir or vim.uv.cwd()
-
-      local target_path = vim.uri_to_fname(result.uri)
-      local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
-
-      -- 2. RIGID ROUTING ENGINE
-      local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-      if success and pio_diag then
-        -- 🟢 HEADLESS ROUTING GATE: If clangd pushes a project-wide compiler error
-        -- while indexing a background file out of sight, catch it and filter it instantly!
-        if is_config then
-          -- 🟢 ROUTE A: Process global toolchain configuration flags using the project root folder
-          if pio_diag.clean_project_wide_flags then
-            pio_diag.clean_project_wide_flags(project_root, result.diagnostics)
-          end
-          -- Block config diagnostics from polluting the visible text viewport
-          return
-        else
-          -- 🟢 ROUTE B: Process local source code files natively using their true disk paths
-          if pio_diag.clean_file_path_pipeline then
-            result.diagnostics = pio_diag.clean_file_path_pipeline(target_path, result.diagnostics)
-          end
-        end
-      end
-
-      -- 3. Forward clean, true source code diagnostics down to Neovim
-      local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
-      if default_handler then
-        default_handler(err, result, ctx, config)
-      end
-    end,
-  }
+  --
+  -- -- 3. SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
+  -- clangd_config.handlers = {
+  --   ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
+  --     if err or not result or not result.diagnostics then
+  --       local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
+  --       if default_handler then
+  --         default_handler(err, result, ctx, config)
+  --       end
+  --       return
+  --     end
+  --
+  --     -- 1. Extract true workspace properties using the native LSP Client ID
+  --     local client = vim.lsp.get_client_by_id(ctx.client_id)
+  --     local project_root = client and client.config.root_dir or vim.uv.cwd()
+  --
+  --     local target_path = vim.uri_to_fname(result.uri)
+  --     local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
+  --
+  --     -- 2. RIGID ROUTING ENGINE
+  --     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+  --     if success and pio_diag then
+  --       -- 🟢 HEADLESS ROUTING GATE: If clangd pushes a project-wide compiler error
+  --       -- while indexing a background file out of sight, catch it and filter it instantly!
+  --       if is_config then
+  --         -- 🟢 ROUTE A: Process global toolchain configuration flags using the project root folder
+  --         if pio_diag.clean_project_wide_flags then
+  --           pio_diag.clean_project_wide_flags(project_root, result.diagnostics)
+  --         end
+  --         -- Block config diagnostics from polluting the visible text viewport
+  --         return
+  --       else
+  --         -- 🟢 ROUTE B: Process local source code files natively using their true disk paths
+  --         if pio_diag.clean_file_path_pipeline then
+  --           result.diagnostics = pio_diag.clean_file_path_pipeline(target_path, result.diagnostics)
+  --         end
+  --       end
+  --     end
+  --
+  --     -- 3. Forward clean, true source code diagnostics down to Neovim
+  --     local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
+  --     if default_handler then
+  --       default_handler(err, result, ctx, config)
+  --     end
+  --   end,
+  -- }
 
   if clangd_config then
     return clangd_config
