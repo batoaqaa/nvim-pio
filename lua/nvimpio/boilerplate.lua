@@ -191,17 +191,55 @@ CompileFlags:
       staticBlock = self.static
     end
 
-    -- 1. SINGLE-SOURCE HYDRODYNAMIC SYNC:
+    -- 1. 🟢 SINGLE-SOURCE HYDRODYNAMIC SYNC (WITH DIRECT DISK FALLBACK GATING):
     local removed_args = {}
+    local flags_dictionary = {}
+
+    -- A. Attempt to read from the live RAM memory state cache
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-    if success and pio_diag and pio_diag.removed_flags then
+    if success and pio_diag and pio_diag.removed_flags and next(pio_diag.removed_flags) then
       for flag, is_blocked in pairs(pio_diag.removed_flags) do
-        if is_blocked and type(flag) == 'string' and flag ~= '' then
-          table.insert(removed_args, string.format('%q', flag))
+        flags_dictionary[flag] = is_blocked
+      end
+    else
+      -- B. 🛡️ COLD-BOOT BACKFILL: If RAM is empty on restart, read straight from .filter.json!
+      -- This bypasses any initialization order lag or module timing race conditions.
+      local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
+      local f = io.open(filter_db_path, 'r')
+      if f then
+        local raw = f:read('*a')
+        f:close()
+        if raw and raw ~= '' then
+          local ok, data = pcall(vim.json.decode, raw)
+          if ok and data and type(data.flags) == 'table' then
+            for flag, blocked in pairs(data.flags) do
+              if blocked then
+                flags_dictionary[flag] = true
+              end
+            end
+          end
         end
       end
-      table.sort(removed_args)
     end
+
+    -- Flatten out the dictionary map into our text array formatter
+    for flag, is_blocked in pairs(flags_dictionary) do
+      if is_blocked and type(flag) == 'string' and flag ~= '' then
+        table.insert(removed_args, string.format('%q', flag))
+      end
+    end
+    table.sort(removed_args)
+    -- -- 1. SINGLE-SOURCE HYDRODYNAMIC SYNC:
+    -- local removed_args = {}
+    -- local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+    -- if success and pio_diag and pio_diag.removed_flags then
+    --   for flag, is_blocked in pairs(pio_diag.removed_flags) do
+    --     if is_blocked and type(flag) == 'string' and flag ~= '' then
+    --       table.insert(removed_args, string.format('%q', flag))
+    --     end
+    --   end
+    --   table.sort(removed_args)
+    -- end
 
     -- 2. 🟢 UNIFIED ADD MODULE (WITH COLD-BOOT PROTECTION LOGIC)
     local options_file_lines = {}
