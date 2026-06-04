@@ -1,10 +1,10 @@
-# 🚀 nvim-pio (Neovim PlatformIO Language Server Optimizer)
+## 🚀 nvim-pio (Neovim PlatformIO Language Server Optimizer)
 
 A high-performance, cross-platform Neovim plugin designed to bridge **PlatformIO toolchains** with **`clangd`** smoothly. It intercepts and corrects project-wide cross-compiler flag diagnostics asynchronously, ensuring a lightweight, zero-lag editing environment on both Windows and Linux.
 
 ---
 
-## ⚡ Core Architecture Blueprints
+### ⚡ Core Architecture Blueprints
 
 `nvim-pio` replaces heavy, error-prone runtime path manipulations with an elite three-tiered compilation network layer.
 
@@ -29,31 +29,31 @@ A high-performance, cross-platform Neovim plugin designed to bridge **PlatformIO
 └──────────────────────────────────┘     └──────────────────────────────────┘
 ```
 
-### 🧠 1. Self-Healing Database Layer
+#### 🧠 1. Self-Healing Database Layer
 
 - **The Problem:** Brand-new microcontroller workspaces lack configuration trees on boot. Early lifecycle race conditions often force `clangd` to overwrite local definitions, causing the server to initialize with blank parameters.
 - **The Solution:** The engine runs a defensive background file check on boot. If `.filter.json` is missing, it seeds a clean default layout instantly. It decouples the memory cache from the file writer using local tracking tokens, guaranteeing that your historical blocks never vanish on a cold restart.
 
-### 💾 2. Split Response File Architecture
+#### 💾 2. Split Response File Architecture
 
 - **The Problem:** Embedding over 60 absolute vendor include path directories directly into a standard `.clangd` file causes massive document clutter. Some `clangd` binary distributions choke on complex YAML configurations, throwing string parsing crashes inside system log traces.
 - **The Solution:** The plugin moves all compiler defines and search folders into a hidden external compiler response file (`.pio/build/clangd_flags.txt`). It references this file using the native compiler `@` prefix command flag. Your visible project `.clangd` config stays at a lightweight, fixed 4-line block, completely eliminating configuration noise.
 
-### 📡 3. Real-Time Diagnostic Interceptor Gateways
+#### 📡 3. Real-Time Diagnostic Interceptor Gateways
 
 - **The Problem:** Cross-compiling for embedded targets like ESP32 or STM32 injects unrecognized flags (e.g., `-mlongcalls`, `-fstrict-volatile-bitfields`) into the compilation stream. Because these arguments are incompatible with standard desktop `clangd`, the server throws a row 0/column 0 crash error that breaks completion engines.
 - **The Solution:** A dual-route network traffic loop monitors incoming LSP diagnostic event payloads. If a global driver argument mismatch is caught, it strips it out, appends it to your disk history, and alerts the server to reload its configurations silently. True C++ code warnings are securely forwarded to your text buffer window layout.
 
 ---
 
-## 🛠️ Installation & Setup
+### 🛠️ Installation & Setup
 
-### Requirements
+#### Requirements
 
 - **Neovim** ≥ 0.11.0
 - **PlatformIO Core CLI** (`pio`) verified in system environment paths
 
-### 📦 Lazy.nvim Package Manager Configuration
+#### 📦 Lazy.nvim Package Manager Configuration
 
 Add this declarative setup block to your plugin initialization files:
 
@@ -89,7 +89,7 @@ return {
 }
 ```
 
-### Keybinds
+#### Keybinds
 
 These are the default keybindings, which you can override in your configuration.
 
@@ -199,7 +199,7 @@ These are the default keybindings, which you can override in your configuration.
     end
 ```
 
-### 📊 Lualine.nvim Statusline Integration
+#### 📊 Lualine.nvim Statusline Integration
 
 ```lua
 require('lualine').setup({
@@ -212,7 +212,7 @@ require('lualine').setup({
 })
 ```
 
-### 💻 Native Statusline Integration
+#### 💻 Native Statusline Integration
 
 ```lua
 vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_string()}")
@@ -220,7 +220,7 @@ vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_stri
 
 ---
 
-## 🎮 Interactive Menu Control Profile
+### 🎮 Interactive Menu Control Profile
 
 Run **`:ClangdFilter`** (or your custom user `<leader>\b` shortcut mapping) inside an active C++ code buffer to launch the interactive dropdown picker panel.
 
@@ -238,9 +238,9 @@ Run **`:ClangdFilter`** (or your custom user `<leader>\b` shortcut mapping) insi
 
 ---
 
-## 📋 File Schema Layout Manifests
+### 📋 File Schema Layout Manifests
 
-### `.filter.json` (Your Single Source of Truth database)
+#### `.filter.json` (Your Single Source of Truth database)
 
 Stored inside the project folder root directory path to ensure workspace settings move with your repository.
 
@@ -257,7 +257,7 @@ Stored inside the project folder root directory path to ensure workspace setting
 }
 ```
 
-### `.clangd` (The Lightweight Compiler Controller Layout)
+#### `.clangd` (The Lightweight Compiler Controller Layout)
 
 Automatically updated using unconditional content comparisons to block duplicate write loops.
 
@@ -283,7 +283,7 @@ CompileFlags:
   Add: ["@.pio/build/clangd_flags.txt"]
 ```
 
-### `.pio/build/clangd_flags.txt` (The Hidden Option Flags Pool)
+#### `.pio/build/clangd_flags.txt` (The Hidden Option Flags Pool)
 
 Houses your extensive architecture macro directives and search directory lists line-by-line without outer quote symbols, fulfilling native compiler parameters contracts perfectly.
 
@@ -297,27 +297,27 @@ Houses your extensive architecture macro directives and search directory lists l
 
 ---
 
-## 🔍 Understanding the Macro Injection Pipeline (`clangd_flags.txt`)
+### 🔍 Understanding the Macro Injection Pipeline (`clangd_flags.txt`)
 
 Embedded hardware environments make heavy use of conditional compilation directives (`#ifdef`, `#if`). Because `clangd` acts as a real-time front-end compiler inside your editor, it requires the exact same preprocessor macro blueprint as your hardware toolchain to parse your code structures accurately.
 
 `nvim-pio` automatically reads these variables from your project metadata and feeds them line-by-line to your language server.
 
-### ⚡ Critical Framework Toggle Safeguards
+#### ⚡ Critical Framework Toggle Safeguards
 
 Without this automatic macro injection layer, `clangd` defaults to standard desktop configurations, graying out your hardware blocks and filling your panel with false error squiggles:
 
-#### 1. Hardware Feature Mapping (`-DBOARD_HAS_PSRAM`)
+##### 1. Hardware Feature Mapping (`-DBOARD_HAS_PSRAM`)
 
 - **Why it matters:** Espressif framework headers gate extended RAM functions (like `psram_malloc()`) behind explicit `#ifdef BOARD_HAS_PSRAM` guards.
 - **LSP Impact:** If this macro is missing from your options file, `clangd` treats your allocation code as dead space, throwing a bright red `Use of undeclared identifier` exception while you are typing.
 
-#### 2. Autocomplete Tree Synchronization (`-DARDUINO_USB_CDC_ON_BOOT=1`)
+##### 2. Autocomplete Tree Synchronization (`-DARDUINO_USB_CDC_ON_BOOT=1`)
 
 - **Why it matters:** Microcontrollers change their serial communication subroutines dynamically depending on whether direct USB logging is active on start.
 - **LSP Impact:** This macro instructs `clangd` that the global `Serial` object is an instance of the `HWCDC` driver class rather than a basic hardware UART line. This ensures your code auto-completion dropdown menus display the correct USB-CDC methods natively.
 
-#### 3. Static Assertion Safety (`-DF_CPU=240000000L`)
+##### 3. Static Assertion Safety (`-DF_CPU=240000000L`)
 
 - **Why it matters:** Timing macros, hardware baud rate scaling calculations, and accurate delay loops (`delayMicroseconds()`) evaluate expressions mathematically using your chip's absolute clock frequency (e.g., **240 MHz**).
 - **LSP Impact:** If omitted, `F_CPU` evaluates to zero. Your header file validation rules fail their internal mathematical assertions, causing `clangd` to trigger compiler panic `#error` blocks across your workspace viewport.
