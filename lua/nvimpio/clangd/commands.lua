@@ -6,7 +6,7 @@ vim.api.nvim_create_user_command('ClangFormatterPick', control.setFormatStyle, {
 -- INFO: ClangdCheckArgs
 vim.api.nvim_create_user_command('ClangdCheckArgs', function(_)
   -- control.getUnknownArgsGui('userCommand: ')
-  control.blockUnknownArgsCli('userCommand: ')
+  control.getUnknownArgsCli('userCommand: ')
 end, {})
 
 -- INFO: Clangdrestart
