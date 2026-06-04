@@ -109,26 +109,87 @@ function M.getClangdConfig()
     return nil
   end
 
+  -- 2. THE HIGH-PERFORMANCE MEMORY INJECTION ENGINE
   clangd_config.before_init = function(params, config)
-    local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd() or '.'
-    project_root = vim.fs.normalize(project_root)
+    local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
+    project_root = (type(project_root) == 'string' and project_root ~= '') and project_root or '.'
 
-    -- Native clean baseline options
-    config.init_options = {
-      clangdFileStatus = true,
-      completeUnimported = true,
-      usePlaceholders = true,
-      compilationDatabasePath = project_root,
-      fallbackFlags = { '-ferror-limit=0' },
-    }
+    config.init_options = config.init_options or {}
+    config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
 
-    -- 🟢 FORCE DISK GENERATION ON BOOT: Ensures everything is built instantly
+    -- Set baseline configurations safely in RAM memory space
+    config.init_options.clangdFileStatus = true
+    config.init_options.completeUnimported = true
+    config.init_options.usePlaceholders = true
+    -- Assign the absolute, normalized path to your project compilation database
+    config.init_options.compilationDatabasePath = vim.fs.normalize(project_root)
+    table.insert(config.init_options.fallbackFlags, '-ferror-limit=0')
+
+    -- -- 🟢 DATA-DRIVEN INCLUDE INJECTION MATRIX (NO DISK FILTERS OR IO POPENS)
+    -- if _G.metadata then
+    --   -- Combine both include groups into one sweep sequence
+    --
+    --   local include_pools = {
+    --     _G.metadata.includes_build,
+    --     _G.metadata.includes_toolchain,
+    --     _G.metadata.includes_compatlib,
+    --   }
+    --
+    --   for _, pool in ipairs(include_pools) do
+    --     for _, raw_flag in ipairs(pool or {}) do
+    --       if type(raw_flag) == 'string' and raw_flag ~= '' then
+    --         local clean_flag = vim.fs.normalize(raw_flag)
+    --         table.insert(config.init_options.fallbackFlags, clean_flag)
+    --       end
+    --     end
+    --   end
+    --   --
+    --   -- Inject pre-parsed macro definitions safely from memory
+    --   if type(_G.metadata.auto_defines) == 'table' then
+    --     for _, define in ipairs(_G.metadata.auto_defines) do
+    --       table.insert(config.init_options.fallbackFlags, define)
+    --     end
+    --   end
+    -- end
+
+    -- 🟢 STEP 1: Parse database into an isolated local table variable first.
+    -- This guarantees we never lose your historical flags even if the require loop is slow!
+    local local_flags_cache = {}
+    local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
+    local f = io.open(filter_db_path, 'r')
+    if f then
+      local raw = f:read('*a')
+      f:close()
+      if raw and raw ~= '' then
+        local ok, data = pcall(vim.json.decode, raw)
+        if ok and data and type(data.flags) == 'table' then
+          for flag, blocked in pairs(data.flags) do
+            if blocked then
+              local_flags_cache[flag] = true
+            end
+          end
+        end
+      end
+    end
+
+    -- 🟢 STEP 2: Runtime Lazy-Load of the diagnostic module
+    local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+    if success and pio_diag then
+      pio_diag.removed_flags = pio_diag.removed_flags or {}
+      for flag, is_blocked in pairs(local_flags_cache) do
+        pio_diag.removed_flags[flag] = is_blocked
+      end
+      -- pio_diag.removed_flags = local_flags_cache
+    end
+
+    -- 🟢 STEP 3: Generate your boilerplate configuration profiles last
     local boiler = require('nvimpio.boilerplate')
     if boiler and boiler.boilerplate_gen then
       pcall(boiler.boilerplate_gen, '.clangd', project_root)
     end
   end
 
+  -- 3. SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
   clangd_config.handlers = {
     ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
       if err or not result or not result.diagnostics then
@@ -139,148 +200,38 @@ function M.getClangdConfig()
         return
       end
 
+      -- 1. Extract true workspace properties using the native LSP Client ID
       local client = vim.lsp.get_client_by_id(ctx.client_id)
       local project_root = client and client.config.root_dir or vim.uv.cwd()
+
       local target_path = vim.uri_to_fname(result.uri)
       local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
 
-      local pio_diag = require('nvimpio.clangd.diagnostic')
-      if is_config then
-        pio_diag.clean_project_wide_flags(project_root, result.diagnostics)
-        return -- Block row 0/col 0 config noise
-      else
-        result.diagnostics = pio_diag.clean_file_path_pipeline(target_path, result.diagnostics)
+      -- 2. RIGID ROUTING ENGINE
+      local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+      if success and pio_diag then
+        if is_config then
+          -- 🟢 ROUTE A: Process global toolchain configuration flags using the project root folder
+          if pio_diag.clean_project_wide_flags then
+            pio_diag.clean_project_wide_flags(project_root, result.diagnostics)
+          end
+          -- Block config diagnostics from polluting the visible text viewport
+          return
+        else
+          -- 🟢 ROUTE B: Process local source code files natively using their true disk paths
+          if pio_diag.clean_file_path_pipeline then
+            result.diagnostics = pio_diag.clean_file_path_pipeline(target_path, result.diagnostics)
+          end
+        end
       end
 
+      -- 3. Forward clean, true source code diagnostics down to Neovim
       local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
       if default_handler then
         default_handler(err, result, ctx, config)
       end
     end,
   }
-  -- -- 2. THE HIGH-PERFORMANCE MEMORY INJECTION ENGINE
-  -- clangd_config.before_init = function(params, config)
-  --   local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
-  --   project_root = (type(project_root) == 'string' and project_root ~= '') and project_root or '.'
-  --
-  --   config.init_options = config.init_options or {}
-  --   config.init_options.fallbackFlags = config.init_options.fallbackFlags or {}
-  --
-  --   -- Set baseline configurations safely in RAM memory space
-  --   config.init_options.clangdFileStatus = true
-  --   config.init_options.completeUnimported = true
-  --   config.init_options.usePlaceholders = true
-  --   -- Assign the absolute, normalized path to your project compilation database
-  --   config.init_options.compilationDatabasePath = vim.fs.normalize(project_root)
-  --   table.insert(config.init_options.fallbackFlags, '-ferror-limit=0')
-  --
-  --   -- -- 🟢 DATA-DRIVEN INCLUDE INJECTION MATRIX (NO DISK FILTERS OR IO POPENS)
-  --   -- if _G.metadata then
-  --   --   -- Combine both include groups into one sweep sequence
-  --   --
-  --   --   local include_pools = {
-  --   --     _G.metadata.includes_build,
-  --   --     _G.metadata.includes_toolchain,
-  --   --     _G.metadata.includes_compatlib,
-  --   --   }
-  --   --
-  --   --   for _, pool in ipairs(include_pools) do
-  --   --     for _, raw_flag in ipairs(pool or {}) do
-  --   --       if type(raw_flag) == 'string' and raw_flag ~= '' then
-  --   --         local clean_flag = vim.fs.normalize(raw_flag)
-  --   --         table.insert(config.init_options.fallbackFlags, clean_flag)
-  --   --       end
-  --   --     end
-  --   --   end
-  --   --   --
-  --   --   -- Inject pre-parsed macro definitions safely from memory
-  --   --   if type(_G.metadata.auto_defines) == 'table' then
-  --   --     for _, define in ipairs(_G.metadata.auto_defines) do
-  --   --       table.insert(config.init_options.fallbackFlags, define)
-  --   --     end
-  --   --   end
-  --   -- end
-  --
-  --   -- 🟢 STEP 1: Parse database into an isolated local table variable first.
-  --   -- This guarantees we never lose your historical flags even if the require loop is slow!
-  --   local local_flags_cache = {}
-  --   local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
-  --   local f = io.open(filter_db_path, 'r')
-  --   if f then
-  --     local raw = f:read('*a')
-  --     f:close()
-  --     if raw and raw ~= '' then
-  --       local ok, data = pcall(vim.json.decode, raw)
-  --       if ok and data and type(data.flags) == 'table' then
-  --         for flag, blocked in pairs(data.flags) do
-  --           if blocked then
-  --             local_flags_cache[flag] = true
-  --           end
-  --         end
-  --       end
-  --     end
-  --   end
-  --
-  --   -- 🟢 STEP 2: Runtime Lazy-Load of the diagnostic module
-  --   local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-  --   if success and pio_diag then
-  --     pio_diag.removed_flags = pio_diag.removed_flags or {}
-  --     for flag, is_blocked in pairs(local_flags_cache) do
-  --       pio_diag.removed_flags[flag] = is_blocked
-  --     end
-  --     -- pio_diag.removed_flags = local_flags_cache
-  --   end
-  --
-  --   -- 🟢 STEP 3: Generate your boilerplate configuration profiles last
-  --   local boiler = require('nvimpio.boilerplate')
-  --   if boiler and boiler.boilerplate_gen then
-  --     pcall(boiler.boilerplate_gen, '.clangd', project_root)
-  --   end
-  -- end
-  --
-  -- -- 3. SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
-  -- clangd_config.handlers = {
-  --   ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
-  --     if err or not result or not result.diagnostics then
-  --       local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
-  --       if default_handler then
-  --         default_handler(err, result, ctx, config)
-  --       end
-  --       return
-  --     end
-  --
-  --     -- 1. Extract true workspace properties using the native LSP Client ID
-  --     local client = vim.lsp.get_client_by_id(ctx.client_id)
-  --     local project_root = client and client.config.root_dir or vim.uv.cwd()
-  --
-  --     local target_path = vim.uri_to_fname(result.uri)
-  --     local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
-  --
-  --     -- 2. RIGID ROUTING ENGINE
-  --     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-  --     if success and pio_diag then
-  --       if is_config then
-  --         -- 🟢 ROUTE A: Process global toolchain configuration flags using the project root folder
-  --         if pio_diag.clean_project_wide_flags then
-  --           pio_diag.clean_project_wide_flags(project_root, result.diagnostics)
-  --         end
-  --         -- Block config diagnostics from polluting the visible text viewport
-  --         return
-  --       else
-  --         -- 🟢 ROUTE B: Process local source code files natively using their true disk paths
-  --         if pio_diag.clean_file_path_pipeline then
-  --           result.diagnostics = pio_diag.clean_file_path_pipeline(target_path, result.diagnostics)
-  --         end
-  --       end
-  --     end
-  --
-  --     -- 3. Forward clean, true source code diagnostics down to Neovim
-  --     local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
-  --     if default_handler then
-  --       default_handler(err, result, ctx, config)
-  --     end
-  --   end,
-  -- }
 
   if clangd_config then
     return clangd_config
