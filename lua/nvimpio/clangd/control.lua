@@ -126,6 +126,7 @@ function M.getClangdConfig()
     table.insert(config.init_options.fallbackFlags, '-ferror-limit=0')
 
     -- -- 🟢 DATA-DRIVEN INCLUDE INJECTION MATRIX (NO DISK FILTERS OR IO POPENS)
+    -- --  to write inclued path to fallbackFlags
     -- if _G.metadata then
     --   -- Combine both include groups into one sweep sequence
     --
@@ -183,10 +184,12 @@ function M.getClangdConfig()
     end
 
     -- 🟢 STEP 3: Generate your boilerplate configuration profiles last
-    local boiler = require('nvimpio.boilerplate')
-    if boiler and boiler.boilerplate_gen then
-      pcall(boiler.boilerplate_gen, '.clangd', project_root)
-    end
+    vim.schedule(function()
+      local boiler = require('nvimpio.boilerplate')
+      if boiler and boiler.boilerplate_gen then
+        pcall(boiler.boilerplate_gen, '.clangd', project_root)
+      end
+    end)
   end
 
   -- 3. SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
