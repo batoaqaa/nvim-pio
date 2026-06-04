@@ -24,6 +24,9 @@ vim.api.nvim_create_autocmd('LspAttach', {
         end, { buffer = bufnr, desc = 'Open Filter Panel' })
       end
     end
+    -- INFO: ClangdDiagnosticBlock
+    vim.api.nvim_create_user_command('ClangdDiagnosticBlock', require('nvimpio.clangd.diagnostic').manage_file_diagnostics_interactive, {})
+
     -- if client and client.name == 'clangd' then
     --   local buf_path = vim.api.nvim_buf_get_name(bufnr)
     --
