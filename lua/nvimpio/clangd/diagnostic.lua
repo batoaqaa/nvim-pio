@@ -328,6 +328,14 @@ function M.manage_file_diagnostics_interactive(state_override)
   -- 🟢 SELF-HEALING INTERCEPTION: Guarantee the database file is active before memory tracking maps populate
   ensure_default_db_exists(filter_db_path)
 
+  -- 🟢 THE NEOVIIM COMMAND PROTECTION SHIELD:
+  -- If state_override contains a 'name' field, it is a Neovim command metadata block object!
+  -- Discard it instantly and force it back to a clean disk load via parse_db_file_pure()
+  local is_command_object = type(state_override) == 'table' and state_override.name ~= nil
+  if is_command_object then
+    state_override = nil
+  end
+
   -- Initialize memory state tracking layer from disk or incoming RAM state
   local active_file_blocked = state_override or parse_db_file_pure(filter_db_path)
 
