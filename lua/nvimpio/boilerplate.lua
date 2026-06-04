@@ -268,17 +268,38 @@ CompileFlags:
       --   f_log = nil
       -- end
 
-      -- Phase A: Extract board macro defines safely
-      if type(target_meta.auto_defines) == 'table' then
-        for i = 1, #target_meta.auto_defines do
-          local define = target_meta.auto_defines[i]
-          if type(define) == 'string' and define ~= '' then
-            table.insert(options_file_lines, define)
+      -- -- Phase A: Extract board macro defines safely
+      -- if type(target_meta.auto_defines) == 'table' then
+      --   for i = 1, #target_meta.auto_defines do
+      --     local define = target_meta.auto_defines[i]
+      --     if type(define) == 'string' and define ~= '' then
+      --       table.insert(options_file_lines, define)
+      --     end
+      --   end
+      -- end
+
+      -- 🟢  phase A: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL
+      local define_pools = {
+        target_meta.auto_defines,
+        target_meta.defines,
+      }
+
+      -- High-performance JIT-optimized loop for all definitions pools
+      for pool_idx = 1, #define_pools do
+        local pool = define_pools[pool_idx]
+        if type(pool) == 'table' then
+          for flag_idx = 1, #pool do
+            local define = pool[flag_idx]
+            if type(define) == 'string' and define ~= '' then
+              -- Safely check if it already starts with "-D". If not, prepend it.
+              local formatted_define = define:match('^%-D') and define or ('-D' .. define)
+              table.insert(options_file_lines, formatted_define)
+            end
           end
         end
       end
 
-      -- Phase B: Extract all pre-sorted path flags using JIT sequential loops
+      -- 🟢  Phase B: Extract all pre-sorted path flags using JIT sequential loops
       local include_pools = {
         target_meta.includes_build,
         target_meta.includes_toolchain,
@@ -295,7 +316,7 @@ CompileFlags:
         end
       end
 
-      -- Phase C: Write fresh data lines out to disk
+      -- 🟢  Phase C: Write fresh data lines out to disk
       local final_flags_content = table.concat(options_file_lines, '\n')
       local pio_build_dir = vim.fs.dirname(flagsFile)
       if not vim.uv.fs_stat(pio_build_dir) then

@@ -229,7 +229,7 @@ vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_stri
 
 ## 🎮 Interactive Menu Control Profile
 
-Run **`:ClangdFilter`** (or your custom `<leader>pf` shortcut mapping) inside an active C++ code buffer to launch the interactive dropdown picker panel.
+Run **`:ClangdFilter`** (or your custom `<leader>\b` shortcut mapping) inside an active C++ code buffer to launch the interactive dropdown picker panel.
 
 ```text
  📁 .filter.json | Blocked: 2
