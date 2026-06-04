@@ -25,7 +25,9 @@ vim.api.nvim_create_autocmd('LspAttach', {
     --   end
     -- end
     -- INFO: ClangdDiagnosticBlock
-    vim.api.nvim_create_user_command('ClangdFilter', require('nvimpio.clangd.diagnostic').manage_file_diagnostics_interactive, {})
+    vim.api.nvim_create_user_command('ClangdFilter', function()
+      require('nvimpio.clangd.diagnostic').manage_file_diagnostics_interactive()
+    end, {})
 
     -- if client and client.name == 'clangd' then
     --   local buf_path = vim.api.nvim_buf_get_name(bufnr)
