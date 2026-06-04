@@ -627,6 +627,7 @@ function M.boilerplate_gen(framework, src_path, filename)
   end
 
   if framework == '.clangd' then
+    print('you')
     return entry:content()
   end
 
