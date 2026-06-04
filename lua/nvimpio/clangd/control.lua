@@ -496,7 +496,8 @@ function M.getUnknownArgsCli(from)
         -- Extract anything clangd reports as an 'unknown argument'
         if not string.find(output, '%.clang%-format') then
           for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
-            local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
+            -- local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
+            local clean_flag = string.format('%s', arg:gsub('[;%.]$', ''))
 
             -- ✅ Only save the flag if we haven't encountered it yet on this run
             if not seen[clean_flag] then
