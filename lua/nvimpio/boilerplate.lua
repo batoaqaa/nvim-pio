@@ -173,6 +173,7 @@ CompileFlags:
     ]
 ]],
   content = function(self, project_root_param)
+    print('you')
     local core = require('nvimpio')
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
     project_root = vim.fs.normalize(project_root)
@@ -627,7 +628,6 @@ function M.boilerplate_gen(framework, src_path, filename)
   end
 
   if framework == '.clangd' then
-    print('you')
     return entry:content()
   end
 
