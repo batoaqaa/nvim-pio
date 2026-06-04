@@ -305,10 +305,11 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
     vim.schedule(function()
       local boiler = require('nvimpio.boilerplate')
-        if boiler and boiler.boilerplate_gen then
-          pcall(boiler.boilerplate_gen, '.clangd', project_root)
-        end
-      end)
+      if boiler and boiler.boilerplate_gen then
+        pcall(boiler.boilerplate_gen, '.clangd', project_root)
+        print('here')
+      end
+    end)
     return true
   end
 
