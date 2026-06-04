@@ -53,7 +53,6 @@ end
 -----------------------------------------------------------------------------------------
 -- 1. Snapshot the memory footprint BEFORE forcing any file reloads
 local is_mason_loaded = package.loaded['mason'] ~= nil
-local is_mason_lsp_loaded = package.loaded['mason-lspconfig'] ~= nil
 
 -- 2. Safely capture the module references
 local mason_ok, mason = pcall(require, 'mason')
@@ -102,6 +101,7 @@ end
 ----------------------------------------------------------------------------------------
 -- INFO: install clangd using mason-lspconfig
 -----------------------------------------------------------------------------------------
+local is_mason_lsp_loaded = package.loaded['mason-lspconfig'] ~= nil
 local mason_lsp_ok, mason_lspconfig = pcall(require, 'mason-lspconfig')
 local lspconfig_config = {
   -- Add any servers you want to guarantee exist in your environment
@@ -112,7 +112,7 @@ local lspconfig_config = {
 if mason_lsp_ok then
   if not is_mason_lsp_loaded then
     -- CASE 1: True first-time load. Trigger core bridging system and automatic installs.
-    mason_lspconfig.setup({ lspconfig_config })
+    mason_lspconfig.setup(lspconfig_config)
   else
     -- CASE 2: Already active in runtime memory.
     -- Mutate the active configuration table to dynamically register new settings/servers.

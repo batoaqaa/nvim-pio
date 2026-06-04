@@ -307,7 +307,6 @@ fetch_metadata = function(callback, active_env, from, attempts)
       local boiler = require('nvimpio.boilerplate')
       if boiler and boiler.boilerplate_gen then
         pcall(boiler.boilerplate_gen, '.clangd', project_root, 'upkeep')
-        print('here')
       end
     end)
     return true
