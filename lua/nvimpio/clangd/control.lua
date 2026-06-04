@@ -313,130 +313,130 @@ function M.setFormatStyle()
   end)
 end
 
-local diagnosticClangd = require('nvimpio.clangd.diagnosticAutoClangd')
----@param from string
-function M.blockUnknownArgsCli(from)
-  from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
-
-  -- 1. TARGET ACTIVE BUFFER: Run the automation on the file you are currently looking at
-  local target_buf = vim.api.nvim_get_current_buf()
-  local file_name = vim.api.nvim_buf_get_name(target_buf)
-
-  -- Safety check to ensure we don't run on NvimTree or empty windows
-  local norm_name = vim.fs.normalize(file_name):gsub('%s+$', ''):lower()
-  if file_name == '' or not (norm_name:match('%.cpp$') or norm_name:match('%.c$') or norm_name:match('%.hpp$') or norm_name:match('%.h$')) then
-    OS.notify('Automation aborted: Focus a valid C/C++ source code file first.')
-    return
-  end
-
-  -- Create a unique namespace for our active automated pipeline group
-  local au_group = vim.api.nvim_create_augroup('NvimPioLiveSweepGroup', { clear = true })
-
-  -- 2. Define the structural loop data compiler scraper
-  local function run_live_analysis_pass()
-    -- Directly inspect the live diagnostics loaded onto your visible workspace screen
-    local raw_nodes = vim.diagnostic.get(target_buf)
-    local new_discoveries = false
-
-    for _, diag in ipairs(raw_nodes) do
-      local msg = diag.message or ''
-      local code_name = diag.code
-
-      -- Pass A: Multi-Flag Extractor (Decoupled & colon-immune via %p?)
-      for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
-        local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
-        if not diagnosticClangd.removed_flags[clean_flag] then
-          diagnosticClangd.removed_flags[clean_flag] = true
-          new_discoveries = true
-        end
-      end
-
-      for unknown_arg in string.gmatch(msg, 'option%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
-        local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
-        if not diagnosticClangd.removed_flags[clean_flag] then
-          diagnosticClangd.removed_flags[clean_flag] = true
-          new_discoveries = true
-        end
-      end
-
-      -- Pass B: Code Suppression (Pulls codes like pp_file_not_found out of the active engine memory)
-      if code_name and type(code_name) == 'string' and code_name ~= '' then
-        if not diagnosticClangd.blocked_codes[code_name] then
-          diagnosticClangd.blocked_codes[code_name] = true
-          new_discoveries = true
-        end
-      end
-    end
-
-    -- 3 & 4. Execution Flow Branching & Transition Shielding
-    if new_discoveries then
-      OS.notify('Layer discovered! Updating .clangd and cycling compiler targets...')
-
-      -- Save accumulated states directly to .filter.json and rewrite the updated .clangd file
-      diagnosticClangd.save_from_cli()
-
-      -- Kill and restart clangd
-      M.restart()
-
-      -- Force a hard buffer reload on screen to push the next layer of errors out
-      vim.defer_fn(function()
-        if vim.api.nvim_buf_is_valid(target_buf) then
-          vim.cmd('checktime')
-          vim.cmd('edit!')
-        end
-      end, 150)
-    else
-      -- Verify if raw_nodes is empty AND make sure we aren't caught in an LSP boot transition.
-      local has_active_errors = false
-      for _, node in ipairs(raw_nodes) do
-        if node.severity == vim.diagnostic.severity.ERROR or node.severity == vim.diagnostic.severity.WARN then
-          has_active_errors = true
-          break
-        end
-      end
-
-      -- Only self-destruct the automation group if the file has been processed
-      -- AND contains absolutely zero outstanding warnings or error objects.
-      if not has_active_errors and #raw_nodes > 0 then
-        vim.api.nvim_del_augroup_by_id(au_group)
-        OS.notify(from .. ' Clangd Automation ✅ Complete baseline sync done! Remaining errors are raw code typos.')
-      elseif #raw_nodes == 0 then
-        -- LSP Boot/Reset transition guard: Do nothing and preserve the group to catch incoming server data
-        return
-      else
-        -- Errors remain but no new filter targets extracted (valid user source typos)
-        vim.api.nvim_del_augroup_by_id(au_group)
-        OS.notify(from .. ' Clangd Automation ✅ Dynamic blocks synchronized. Remaining errors are valid source typos.')
-      end
-    end
-  end
-
-  -- 5. THE DEBOUNCED AUTOMATION HOOK: Run automatically whenever fresh diagnostics land on your screen
-  local debounce_timer = nil
-  vim.api.nvim_create_autocmd('DiagnosticChanged', {
-    group = au_group,
-    buffer = target_buf,
-    callback = function()
-      if debounce_timer then
-        vim.uv.timer_stop(debounce_timer)
-      end
-      debounce_timer = vim.uv.new_timer()
-      if debounce_timer then
-        debounce_timer:start(
-          400,
-          0,
-          vim.schedule_wrap(function()
-            run_live_analysis_pass()
-          end)
-        )
-      end
-    end,
-  })
-
-  -- Kick off the very first automation loop pass instantly
-  OS.notify('Starting live cascading sweep for: ' .. vim.fs.basename(file_name))
-  run_live_analysis_pass()
-end
+-- local diagnosticClangd = require('nvimpio.clangd.diagnosticAutoClangd')
+-- ---@param from string
+-- function M.blockUnknownArgsCli(from)
+--   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
+--
+--   -- 1. TARGET ACTIVE BUFFER: Run the automation on the file you are currently looking at
+--   local target_buf = vim.api.nvim_get_current_buf()
+--   local file_name = vim.api.nvim_buf_get_name(target_buf)
+--
+--   -- Safety check to ensure we don't run on NvimTree or empty windows
+--   local norm_name = vim.fs.normalize(file_name):gsub('%s+$', ''):lower()
+--   if file_name == '' or not (norm_name:match('%.cpp$') or norm_name:match('%.c$') or norm_name:match('%.hpp$') or norm_name:match('%.h$')) then
+--     OS.notify('Automation aborted: Focus a valid C/C++ source code file first.')
+--     return
+--   end
+--
+--   -- Create a unique namespace for our active automated pipeline group
+--   local au_group = vim.api.nvim_create_augroup('NvimPioLiveSweepGroup', { clear = true })
+--
+--   -- 2. Define the structural loop data compiler scraper
+--   local function run_live_analysis_pass()
+--     -- Directly inspect the live diagnostics loaded onto your visible workspace screen
+--     local raw_nodes = vim.diagnostic.get(target_buf)
+--     local new_discoveries = false
+--
+--     for _, diag in ipairs(raw_nodes) do
+--       local msg = diag.message or ''
+--       local code_name = diag.code
+--
+--       -- Pass A: Multi-Flag Extractor (Decoupled & colon-immune via %p?)
+--       for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
+--         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
+--         if not diagnosticClangd.removed_flags[clean_flag] then
+--           diagnosticClangd.removed_flags[clean_flag] = true
+--           new_discoveries = true
+--         end
+--       end
+--
+--       for unknown_arg in string.gmatch(msg, 'option%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
+--         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
+--         if not diagnosticClangd.removed_flags[clean_flag] then
+--           diagnosticClangd.removed_flags[clean_flag] = true
+--           new_discoveries = true
+--         end
+--       end
+--
+--       -- Pass B: Code Suppression (Pulls codes like pp_file_not_found out of the active engine memory)
+--       if code_name and type(code_name) == 'string' and code_name ~= '' then
+--         if not diagnosticClangd.blocked_codes[code_name] then
+--           diagnosticClangd.blocked_codes[code_name] = true
+--           new_discoveries = true
+--         end
+--       end
+--     end
+--
+--     -- 3 & 4. Execution Flow Branching & Transition Shielding
+--     if new_discoveries then
+--       OS.notify('Layer discovered! Updating .clangd and cycling compiler targets...')
+--
+--       -- Save accumulated states directly to .filter.json and rewrite the updated .clangd file
+--       diagnosticClangd.save_from_cli()
+--
+--       -- Kill and restart clangd
+--       M.restart()
+--
+--       -- Force a hard buffer reload on screen to push the next layer of errors out
+--       vim.defer_fn(function()
+--         if vim.api.nvim_buf_is_valid(target_buf) then
+--           vim.cmd('checktime')
+--           vim.cmd('edit!')
+--         end
+--       end, 150)
+--     else
+--       -- Verify if raw_nodes is empty AND make sure we aren't caught in an LSP boot transition.
+--       local has_active_errors = false
+--       for _, node in ipairs(raw_nodes) do
+--         if node.severity == vim.diagnostic.severity.ERROR or node.severity == vim.diagnostic.severity.WARN then
+--           has_active_errors = true
+--           break
+--         end
+--       end
+--
+--       -- Only self-destruct the automation group if the file has been processed
+--       -- AND contains absolutely zero outstanding warnings or error objects.
+--       if not has_active_errors and #raw_nodes > 0 then
+--         vim.api.nvim_del_augroup_by_id(au_group)
+--         OS.notify(from .. ' Clangd Automation ✅ Complete baseline sync done! Remaining errors are raw code typos.')
+--       elseif #raw_nodes == 0 then
+--         -- LSP Boot/Reset transition guard: Do nothing and preserve the group to catch incoming server data
+--         return
+--       else
+--         -- Errors remain but no new filter targets extracted (valid user source typos)
+--         vim.api.nvim_del_augroup_by_id(au_group)
+--         OS.notify(from .. ' Clangd Automation ✅ Dynamic blocks synchronized. Remaining errors are valid source typos.')
+--       end
+--     end
+--   end
+--
+--   -- 5. THE DEBOUNCED AUTOMATION HOOK: Run automatically whenever fresh diagnostics land on your screen
+--   local debounce_timer = nil
+--   vim.api.nvim_create_autocmd('DiagnosticChanged', {
+--     group = au_group,
+--     buffer = target_buf,
+--     callback = function()
+--       if debounce_timer then
+--         vim.uv.timer_stop(debounce_timer)
+--       end
+--       debounce_timer = vim.uv.new_timer()
+--       if debounce_timer then
+--         debounce_timer:start(
+--           400,
+--           0,
+--           vim.schedule_wrap(function()
+--             run_live_analysis_pass()
+--           end)
+--         )
+--       end
+--     end,
+--   })
+--
+--   -- Kick off the very first automation loop pass instantly
+--   OS.notify('Starting live cascading sweep for: ' .. vim.fs.basename(file_name))
+--   run_live_analysis_pass()
+-- end
 
 local diagnosticClangd = require('nvimpio.clangd.diagnostic')
 -- pio/control 160
