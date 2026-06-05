@@ -131,7 +131,7 @@ end
 -- configure_hardware_parameters
 -- get_connected_ports
 function M.configure_hardware_parameters()
-  local p_state = require('nvimpio').runtime_parameters or {}
+  local p_state = _G.metadata.port_parameters
   if vim.fn.executable('pio') ~= 1 then return end
 
   -- 1. Scan Ports with robust property fallbacks
@@ -149,7 +149,7 @@ function M.configure_hardware_parameters()
   -- 2. Declarative Step Definition Setup
   local b = { '9600', '19200', '38400', '57600', '115200', '230400', '460800', '921600' }
   local steps = {
-    { p = ' Select Upload Port ', c = ports, s = function(x) p_state.selected_port = x; vim.g.platformio_selected_port = x end },
+    { p = ' Select Upload Port ', c = ports, s = function(x) p_state.port = x end },
     { p = ' Select Upload Speed ', c = b,     s = function(x) p_state.upload_speed = x end },
     { p = ' Select Monitor Speed ', c = b,    s = function(x) p_state.monitor_speed = x end },
     { p = ' Set Monitor RTS State ', c = {'0','1'}, s = function(x) p_state.monitor_rts = x end },
@@ -159,7 +159,7 @@ function M.configure_hardware_parameters()
   -- 3. High-Performance Linear Wizard Runner
   local function run(i)
     if not steps[i] then
-      local msg = string.format("Config Locked: Port: %s | Upload: %s | Monitor: %s", p_state.selected_port or "Auto", p_state.upload_speed or "Ini", p_state.monitor_speed or "Ini")
+      local msg = string.format("Config Locked: Port: %s | Upload: %s | Monitor: %s", p_state.port or "Auto", p_state.upload_speed or "Ini", p_state.monitor_speed or "Ini")
       return _G.OS and type(_G.OS.notify) == 'function' and _G.OS.notify(msg, 'info') or vim.notify(msg, 2)
     end
     vim.ui.select(steps[i].c, { prompt = steps[i].p }, function(sel)
