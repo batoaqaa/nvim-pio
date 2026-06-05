@@ -65,53 +65,67 @@ function M.buildUserMenu(config)
   -- =========================================================================
   -- LEADER EXPANSION LAYER: Resolves string compilation conflicts
   -- =========================================================================
-  -- If map starts with '<leader>', replace it with the user's actual active mapping key token
   local base_key = config.menu_key
   if base_key:sub(1, 8):lower() == '<leader>' then
     local map_leader = vim.g.mapleader or ' '
     base_key = map_leader .. base_key:sub(9)
   end
 
-  -- Flat traversal parser building absolute sequential string paths smoothly
+  -- 1. Scan the tree first to compute the max description layout width
+  local max_desc_len = 0
+  local function calculateWidth(menu)
+    for _, child in ipairs(menu or {}) do
+      local label = child.node == 'menu' and ('+' .. child.desc) or child.desc
+      if #label > max_desc_len then
+        max_desc_len = #label
+      end
+      if child.node == 'menu' then
+        calculateWidth(child.items)
+      end
+    end
+  end
+  calculateWidth(config.menu_bindings)
+
+  -- 2. Build explicit mappings padding descriptions to replicate the Helix preset layout
   local function traverseMenu(menu, wkey)
     for _, child_node in ipairs(menu or {}) do
       local current_key = wkey .. child_node.shortcut
+      local clean_label = child_node.node == 'menu' and ('+' .. child_node.desc) or child_node.desc
+
+      -- Calculate structural trailing spaces to right-align the hotkey markers manually
+      local pad_count = (max_desc_len - #clean_label) + 6
+      local padding_str = string.rep(' ', pad_count)
+      local simulated_helix_desc = clean_label .. padding_str .. '[' .. child_node.shortcut .. ']'
+
       if child_node.node == 'menu' then
-        table.insert(wk_table, { current_key, group = child_node.desc, icon = icon })
+        table.insert(wk_table, { current_key, group = simulated_helix_desc, icon = icon })
         traverseMenu(child_node.items, current_key)
       elseif child_node.node == 'item' then
         table.insert(wk_table, {
           current_key,
-          '<cmd>' .. child_node.command .. '<CR>', -- Pristine syntax space-free command execution string
-          desc = child_node.desc,
+          '<cmd>' .. child_node.command .. '<CR>', -- Fixed the space bug after <cmd>
+          desc = simulated_helix_desc,
           icon = icon,
         })
       end
     end
   end
 
-  -- Safely assert Which-Key access without crashing Neovim profiles lacking it
+  -- Safely require which-key without crashing if the user doesn't have it installed
   local ok, wk = pcall(require, 'which-key')
   if not ok then
     return
   end
 
-  -- 1. Register the base category title layout inside the table
+  -- 3. Statically register the root category title mapping with your title icon text appended
   table.insert(wk_table, { base_key, group = config.menu_name, icon = icon })
 
-  -- 2. Expand your menu tree selections using the cleaned base key
+  -- 4. Expand your menu tree selections using the cleaned base key paths
   traverseMenu(config.menu_bindings, base_key)
 
-  -- 3. Send everything directly to the Which-Key mapping registry
+  -- 5. Send everything directly to the Which-Key mapping registry
   wk.add(wk_table, {
     sort = { 'order', 'group', 'manual', 'mod' },
-
-    -- GITHUB SAFE LOCALIZED HELIX OVERRIDES:
-    -- Applies layout metrics exclusively to your plugin branch without touching the user's setup
-    layout = {
-      align = 'right', -- Right-aligns all shortcut hotkey labels
-      spacing = 3,
-    },
     win = {
       position = 'bottom',
       border = 'single',
