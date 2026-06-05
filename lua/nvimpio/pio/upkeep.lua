@@ -132,6 +132,7 @@ end
 -- get_connected_ports
 
 function M.configure_hardware_parameters()
+  _G.metadata.isBusy = true
   local p_state = _G.metadata.port_parameters
   if vim.fn.executable('pio') ~= 1 then
     return
@@ -294,6 +295,7 @@ function M.configure_hardware_parameters()
     end)
   end
   run(1)
+  _G.metadata.isBusy = false
 end
 
 -- good
