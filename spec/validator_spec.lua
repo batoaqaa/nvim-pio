@@ -1,6 +1,11 @@
 ---@diagnostic disable: undefined-global, undefined-field
 -- Save this file as: spec/validator_spec.lua
 
+-- Automatically find the current project's /lua directory and append it to Neovim's runtime path
+local current_file = debug.getinfo(1, 'S').source:sub(2) -- Gets the absolute path of this test file
+local project_root = vim.fs.dirname(vim.fs.dirname(current_file))
+vim.opt.rtp:append(vim.fs.joinpath(project_root, 'lua'))
+
 -- 1. Initialize the global environment natively by importing your OS module layout
 -- Adjust the path context below to point directly to your system info setup file
 require('nvimpio.os')
