@@ -99,7 +99,7 @@ end, {
 -- Add this command registry string helper directly to your setup hooks
 vim.api.nvim_create_user_command('PioSelectPort', function()
   -- Adjust path string reference below to point to wherever you saved the wrapper function
-  require('nvimpio.pio.upkeep').select_active_port()
+  require('nvimpio.pio.upkeep').configure_hardware_parameters()
 end, { force = true })
 
 
