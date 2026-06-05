@@ -130,78 +130,38 @@ end
 
 -- configure_hardware_parameters
 -- get_connected_ports
-
+-- stylua: ignore
 function M.configure_hardware_parameters()
   _G.metadata.isBusy = true
   local p_state = _G.metadata.port_parameters
-  if vim.fn.executable('pio') ~= 1 then
-    return
-  end
+  if vim.fn.executable('pio') ~= 1 then return end
 
   -- 1. Scan Ports with robust property fallbacks
-  local ok, obj = pcall(function()
-    return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait()
-  end)
+  local ok, obj = pcall(function() return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait() end)
   local ports = {}
   if ok and obj and obj.code == 0 and obj.stdout then
     for _, d in ipairs(vim.json.decode(obj.stdout) or {}) do
       local p = d.port or d.device
-      if p and p ~= '' then
-        table.insert(ports, p)
-      end
+      if p and p ~= '' then table.insert(ports, p) end
     end
   end
-  if #ports == 0 then
-    return vim.notify('NVIM-PIO: No serial devices detected.', 3)
-  end
+  if #ports == 0 then return vim.notify('NVIM-PIO: No serial devices detected.', 3) end
   table.sort(ports)
 
   -- 2. Declarative Step Definition Setup
   local b = { '9600', '19200', '38400', '57600', '115200', '230400', '460800', '921600' }
   local steps = {
-    {
-      p = ' Select Upload Port ',
-      c = ports,
-      s = function(x)
-        p_state.selected_port = x
-      end,
-    },
-    {
-      p = ' Select Upload Speed ',
-      c = b,
-      s = function(x)
-        p_state.upload_speed = x
-      end,
-    },
-    {
-      p = ' Select Monitor Speed ',
-      c = b,
-      s = function(x)
-        p_state.monitor_speed = x
-      end,
-    },
-    {
-      p = ' Set Monitor RTS State ',
-      c = { '0', '1' },
-      s = function(x)
-        p_state.monitor_rts = x
-      end,
-    },
-    {
-      p = ' Set Monitor DTR State ',
-      c = { '0', '1' },
-      s = function(x)
-        p_state.monitor_dtr = x
-      end,
-    },
+    { p = ' Select Upload Port ', c = ports, s = function(x) p_state.selected_port = x end, },
+    { p = ' Select Upload Speed ', c = b, s = function(x) p_state.upload_speed = x end, },
+    { p = ' Select Monitor Speed ', c = b, s = function(x) p_state.monitor_speed = x end, },
+    { p = ' Set Monitor RTS State ', c = { '0', '1' }, s = function(x) p_state.monitor_rts = x end, },
+    { p = ' Set Monitor DTR State ', c = { '0', '1' }, s = function(x) p_state.monitor_dtr = x end, },
   }
 
   -- 3. File System Injector Engine (Safely mutates platformio.ini)
   local function inject_into_ini()
     local ini_path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
-    if vim.fn.filereadable(ini_path) ~= 1 then
-      return
-    end
+    if vim.fn.filereadable(ini_path) ~= 1 then return end
 
     -- Read the file content safely lines by lines
     local lines = {}
@@ -270,6 +230,9 @@ function M.configure_hardware_parameters()
       f_out:write(table.concat(lines, '\n') .. '\n')
       f_out:close()
     end
+    vim.defer_fn(function()
+      _G.metadata.isBusy = false
+    end, 500)
   end
 
   -- 4. High-Performance Linear Wizard Runner
@@ -295,9 +258,6 @@ function M.configure_hardware_parameters()
     end)
   end
   run(1)
-  vim.defer_fn(function()
-    _G.metadata.isBusy = false
-  end, 500)
 end
 
 -- good
