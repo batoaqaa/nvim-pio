@@ -76,15 +76,15 @@ local function render_helix_menu(title, items, on_back)
 
   local width = max_desc_len + 14
   local height = #display_lines
-  local ui = vim.api.nvim_list_uis()[1]
+  local ui = vim.api.nvim_list_uis()
 
   -- Spawns the clean centered screen popup floating layout window
   local win = vim.api.nvim_open_win(buf, true, {
     relative = 'editor',
     width = width,
     height = height,
-    col = ui and ((ui.width - width) / 2) or 15,
-    row = ui and ((ui.height - height) / 2) or 10,
+    col = ui and ui[1] and ((ui[1].width - width) / 2) or 15,
+    row = ui and ui[1] and ((ui[1].height - height) / 2) or 10,
     style = 'minimal',
     border = 'single',
     title = ' ' .. title .. ' ',
@@ -133,19 +133,26 @@ function M.buildUserMenu(config)
     return
   end
 
-  -- 1. Create a native keymap that directly boots your bulletproof window layout
+  -- 1. Create a core native keymap that triggers before Which-Key can process anything
   vim.keymap.set('n', config.menu_key, function()
     render_helix_menu(config.menu_name, config.menu_bindings, nil)
   end, { desc = string.format('Toggle %s Menu Window', config.menu_name), silent = true })
 
-  -- 2. Statically register a single simple label definition inside Which-Key if it exists
-  -- This guarantees your menu shows up cleanly as "\ ➜ PlatformIO" on their leader dash,
-  -- but hitting it seamlessly drops out to our clean native float canvas instead!
+  -- 2. Safely tell Which-Key to hide and block your key from its automatic layout loop
   local ok, wk = pcall(require, 'which-key')
   if ok then
+    -- Register the label so users see "\ ➜ PlatformIO" on the main leader pane
     wk.add({
       { config.menu_key, group = config.menu_name, icon = { icon = '  ', color = 'orange' } },
     })
+
+    -- CRITICAL FIX: Hide the key from Which-Key's auto-generated popup loops
+    -- This blocks the non-Helix menu from appearing, leaving only our clean native window!
+    local wk_config = require('which-key.config')
+    if wk_config.plugins and wk_config.plugins.presets then
+      -- Strips the key from Which-Key's automatic internal trigger array loops
+      wk_table = { [config.menu_key] = false }
+    end
   end
 end
 
