@@ -2,17 +2,9 @@ local M = {}
 
 -- stylua: ignore
 ---Recursively merges user-defined menus onto factory default tree definitions
----@param defaults table The factory baseline menu arrays
----@param overrides table The user custom override menu arrays
----@param path string Context indicator string for verbose error outputs
----@return table merged_tree The synthesized final array layout
 function M.merge_menu_tree(defaults, overrides, path)
-  if type(overrides) ~= 'table' then
-    return vim.deepcopy(defaults)
-  end
-
+  if type(overrides) ~= 'table' then return vim.deepcopy(defaults) end
   local res = vim.deepcopy(defaults)
-
   for _, u_node in ipairs(overrides) do
     if type(u_node) == 'table' then
       local matched_node = nil
@@ -27,96 +19,128 @@ function M.merge_menu_tree(defaults, overrides, path)
           end
         end
       end
-
       if matched_node then
         if u_node.shortcut then matched_node.shortcut = u_node.shortcut end
         if u_node.desc then matched_node.desc = u_node.desc end
         if u_node.command then matched_node.command = u_node.command end
-
         if matched_node.node == 'menu' and u_node.items then
           matched_node.items = M.merge_menu_tree(matched_node.items or {}, u_node.items, path .. '.items')
         end
       else
         local new_node = vim.deepcopy(u_node)
         new_node.node = new_node.node or 'item'
-
         if new_node.node == 'menu' then
           new_node.items = M.merge_menu_tree({}, u_node.items or {}, path .. '.items')
         end
-
         table.insert(res, new_node)
       end
     end
   end
-
   return res
 end
 
----Processes the final configuration state and maps interactive menus to Which-Key
----@param config table The fully validated runtime options table
+---Renders a pure, native floating window modeled exactly after the Helix menu layout
+local function render_helix_float(title, items, on_back)
+  local display_lines = {}
+  local key_mappings = {}
+  local max_desc_len = 0
+
+  -- Measure item sizes to calculate boundaries dynamically
+  for _, item in ipairs(items or {}) do
+    local label = item.node == 'menu' and ('+' .. item.desc) or item.desc
+    if #label > max_desc_len then
+      max_desc_len = #label
+    end
+  end
+
+  -- THE HELIX VISUAL SIGNATURE: Left-align labels, pad right, right-align hotkey brackets
+  for _, item in ipairs(items or {}) do
+    local shortcut_str = '[' .. item.shortcut .. ']'
+    local label = item.node == 'menu' and ('+' .. item.desc) or item.desc
+    local padding = string.rep(' ', (max_desc_len - #label) + 4)
+    table.insert(display_lines, '  ' .. label .. padding .. shortcut_str .. '  ')
+    key_mappings[item.shortcut:lower()] = item
+  end
+
+  if on_back then
+    table.insert(display_lines, string.rep('─', max_desc_len + 12))
+    table.insert(display_lines, '  Back          [<BS>]  ')
+  end
+
+  -- Instantiate an unlisted scratchpad buffer container
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, display_lines)
+
+  local width = max_desc_len + 12
+  local height = #display_lines
+  local ui = vim.api.nvim_list_uis()[1]
+
+  -- Open the custom centered floating canvas window profile
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = 'editor',
+    width = width,
+    height = height,
+    col = ui and ((ui.width - width) / 2) or 12,
+    row = ui and ((ui.height - height) / 2) or 10,
+    style = 'minimal',
+    border = 'single',
+    title = ' ' .. title .. ' ',
+    title_pos = 'center',
+  })
+
+  vim.wo[win].winhl = 'Normal:NormalFloat,Border:FloatBorder'
+  vim.bo[buf].modifiable = false
+
+  local function close_menu()
+    if vim.api.nvim_win_is_valid(win) then
+      vim.api.nvim_win_close(win, true)
+    end
+  end
+
+  -- Intercept hotkeys safely inside our overlay window panel scope
+  vim.keymap.set('n', '<Esc>', close_menu, { buffer = buf, silent = true })
+
+  if on_back then
+    vim.keymap.set('n', '<BS>', function()
+      close_menu()
+      on_back()
+    end, { buffer = buf, silent = true })
+  end
+
+  for shortcut, item in pairs(key_mappings) do
+    vim.keymap.set('n', shortcut, function()
+      close_menu()
+      if item.node == 'item' then
+        vim.cmd(item.command)
+      elseif item.node == 'menu' then
+        -- Recursively tunnel deeper down submenus natively
+        render_helix_float(item.desc, item.items, function()
+          render_helix_float(title, items, on_back)
+        end)
+      end
+    end, { buffer = buf, silent = true })
+  end
+end
+
+---Processes the final configuration parameters and maps hotkeys
 function M.buildUserMenu(config)
   if config == nil or config.menu_key == nil then
     return
   end
 
-  local icon = { icon = '  ', color = 'orange' }
-  local wk_table = {}
+  -- 1. Create a native Neovim keymap pointing directly to our Helix engine loop
+  vim.keymap.set('n', config.menu_key, function()
+    render_helix_float(config.menu_name, config.menu_bindings, nil)
+  end, { desc = string.format('Toggle %s Menu Window', config.menu_name), silent = true })
 
-  -- 1. Scan the tree first to compute the max description layout width
-  local max_desc_len = 0
-  local function calculateWidth(menu)
-    for _, child in ipairs(menu or {}) do
-      local label = child.node == 'menu' and ('+' .. child.desc) or child.desc
-      if #label > max_desc_len then
-        max_desc_len = #label
-      end
-      if child.node == 'menu' then
-        calculateWidth(child.items)
-      end
-    end
-  end
-  calculateWidth(config.menu_bindings)
-
-  -- 2. Build explicit mappings padding descriptions to replicate the Helix preset layout
-  local function traverseMenu(menu, wkey)
-    for _, child_node in ipairs(menu or {}) do
-      local current_key = wkey .. child_node.shortcut
-      local clean_label = child_node.node == 'menu' and ('+' .. child_node.desc) or child_node.desc
-
-      -- Calculate structural trailing spaces to right-align the hotkey markers manually
-      local pad_count = (max_desc_len - #clean_label) + 6
-      local padding_str = string.rep(' ', pad_count)
-      local simulated_helix_desc = clean_label .. padding_str .. '[' .. child_node.shortcut .. ']'
-
-      if child_node.node == 'menu' then
-        table.insert(wk_table, { current_key, group = simulated_helix_desc, icon = icon })
-        traverseMenu(child_node.items, current_key)
-      elseif child_node.node == 'item' then
-        table.insert(wk_table, {
-          current_key,
-          '<cmd>' .. child_node.command .. '<CR>',
-          desc = simulated_helix_desc,
-          icon = icon,
-        })
-      end
-    end
-  end
-
+  -- 2. Statically register inside Which-Key using basic group definitions
+  -- This guarantees your menu is listed cleanly as "\ ➜ PlatformIO" on the main panel!
   local ok, wk = pcall(require, 'which-key')
-  if not ok then
-    return
+  if ok then
+    wk.add({
+      { config.menu_key, group = config.menu_name, icon = { icon = '  ', color = 'orange' } },
+    })
   end
-
-  -- Parse all submenus using absolute keys path layouts
-  traverseMenu(config.menu_bindings, config.menu_key)
-
-  -- 3. Statically append the root trigger item to avoid fading from the global panel index
-  table.insert(wk_table, { config.menu_key, group = config.menu_name, icon = icon })
-
-  -- 4. Map directly to Which-Key using native layouts variables
-  wk.add(wk_table, {
-    sort = { 'order', 'group', 'manual', 'mod' },
-  })
 end
 
 return M
