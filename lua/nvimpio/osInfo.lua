@@ -79,7 +79,7 @@ local os_info = {
   clangd_config = vim.fs.joinpath(nvimpioConfigDir, '.clangdConfig.json'),
   clangd_flags = vim.fs.joinpath(nvimpioConfigDir, '.clangdFlags.txt'),
   project_config = vim.fs.joinpath(nvimpioConfigDir, '.projectConfig.json'),
-  nvim_config_dir = nvimpioConfigDir,
+  nvimpio_config_dir = nvimpioConfigDir,
 
   ---@param msg string The message to display
   ---@param level string|integer|nil
