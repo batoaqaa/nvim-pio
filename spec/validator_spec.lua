@@ -1,16 +1,10 @@
 ---@diagnostic disable: undefined-global, undefined-field
 -- Save this file as: spec/validator_spec.lua
 
--- 1. Initialize the global environment natively by importing your OS module layout
--- Adjust the path context below to point directly to your system info setup file
-require('nvimpio.osInfo')
-
--- 2. Safely capture the global type casting schema to satisfy the Lls_lua diagnostic engine
+require('nvimpio.os')
 local OS = _G.OS ---@cast OS +OS
 
--- 3. Require the modules under test
 local M = require('nvimpio')
-require('nvimpio.validator')
 
 describe('PlatformIO Configuration & Validation System', function()
   before_each(function()
@@ -37,14 +31,7 @@ describe('PlatformIO Configuration & Validation System', function()
       },
     }
 
-    -- Mock the dependencies tree merging system for isolation testing
-    package.loaded['nvimpio.menu'] = {
-      merge_menu_tree = function(_, user_tree, _)
-        return user_tree
-      end,
-    }
-
-    -- Reset active runtime choices state
+    -- Reset active runtime state
     M.options = nil
   end)
 
@@ -53,6 +40,8 @@ describe('PlatformIO Configuration & Validation System', function()
     assert.is_table(M.options)
     assert.is_true(M.options.clangd.support)
     assert.is_equal('<leader>\\', M.options.menu_key)
+    -- FIX: Index the array first before checking the field properties
+    assert.is_equal('item', M.options.menu_bindings[1].node)
   end)
 
   it('should merge scalar properties correctly without breaking bindings arrays', function()
@@ -64,6 +53,8 @@ describe('PlatformIO Configuration & Validation System', function()
     assert.is_true(M.options.debug)
     assert.is_true(M.options.clangd.install)
     assert.is_true(M.options.clangd.support)
+    -- FIX: Index the array first before checking the field properties
+    assert.is_equal('item', M.options.menu_bindings[1].node)
   end)
 
   it('should raise a breaking error when top-level configurations violate type schemas', function()
@@ -84,7 +75,7 @@ describe('PlatformIO Configuration & Validation System', function()
               {
                 node = 'item',
                 desc = 'Bad Shortcut Rule',
-                shortcut = 'LONG_SHORTCUT',
+                shortcut = 'LONG_SHORTCUT', -- Intentionally broken constraint (> 1 character)
                 command = 'ValidCommand',
               },
             },
