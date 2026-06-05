@@ -121,7 +121,7 @@ end, {
 
 --INFO: Piolsserial
 vim.api.nvim_create_user_command('Piolsserial', function()
-  require('nvimpio.pio.ui.piolsserial').print_tty_list()
+  require('nvimpio.pio.upkeep').get_connected_ports()
 end, {})
 
 --INFO: Piolib
