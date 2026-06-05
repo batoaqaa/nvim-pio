@@ -58,12 +58,10 @@ function M.get_sysroot_triplet(cc_compiler)
     _G.metadata.sysroot = toolchain_root
   end
 
-
   -- Extract the macros using the correct platform null device destination
   local auto_defines = {}
   local cmd = string.format('"%s" -E -dM -xc++ %s', cc_compiler, OS.devNul)
   local handle = io.popen(cmd)
-
 
   if handle then
     for line in handle:lines() do
@@ -94,43 +92,44 @@ function M.get_sysroot_triplet(cc_compiler)
     auto_defines = auto_defines,
   }
 end
+
 --INFO:
 -- Fast environment detection from platformio.ini file(no external calls)
---- stylua: ignore
+-- stylua: ignore
 --=============================================================================
 -- Helper function to extract connected hardware ports using PlatformIO core
--- local function get_connected_ports()
---   if vim.fn.executable('pio') ~= 1 then
---     return {}
---   end
---
---   -- Spawn an explicit JSON hardware scan via the core engine
---   local ok, obj = pcall(function()
---     return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait()
---   end)
---
---   if not ok or not obj or obj.code ~= 0 or not obj.stdout then
---     return {}
---   end
---
---   -- Parse output safely into data tables
---   local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
---   if not parse_ok or type(devices) ~= 'table' then
---     return {}
---   end
---
---   local paths = {}
---   for _, dev in ipairs(devices) do
---     if dev.port then
---       paths[dev.port] = true
---     end
---   end
---   return paths
--- end
+function M.get_connected_ports()
+  if vim.fn.executable('pio') ~= 1 then
+    return {}
+  end
 
--- configure_hardware_parameters
--- get_connected_ports
+  -- Spawn an explicit JSON hardware scan via the core engine
+  local ok, obj = pcall(function()
+    return vim.system({ 'pio', 'device', 'list', '--json' }):wait()
+  end)
+
+  if not ok or not obj or obj.code ~= 0 or not obj.stdout then
+    return {}
+  end
+
+  -- Parse output safely into data tables
+  local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
+  if not parse_ok or type(devices) ~= 'table' then
+    return {}
+  end
+
+  local paths = {}
+  for _, dev in ipairs(devices) do
+    if dev.port then
+      paths[dev.port] = true
+    end
+  end
+  return devices
+end
+
 -- stylua: ignore
+--=============================================================================
+--INFO: setup up device port
 function M.configure_hardware_parameters()
   _G.metadata.isBusy = true
   local p_state = _G.metadata.port_parameters
@@ -260,99 +259,6 @@ function M.configure_hardware_parameters()
   run(1)
 end
 
--- good
--- function M.configure_hardware_parameters()
---   local p_state = _G.metadata.port_parameters
---   if vim.fn.executable('pio') ~= 1 then
---     return
---   end
---
---   -- 1. Scan Ports with robust property fallbacks
---   local ok, obj = pcall(function()
---     return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait()
---   end)
---   local ports = {}
---   if ok and obj and obj.code == 0 and obj.stdout then
---     for _, d in ipairs(vim.json.decode(obj.stdout) or {}) do
---       local p = d.port or d.device
---       if p and p ~= '' then
---         table.insert(ports, p)
---       end
---     end
---   end
---   if #ports == 0 then
---     return vim.notify('NVIM-PIO: No serial devices detected.', 3)
---   end
---   table.sort(ports)
---
---   -- 2. Declarative Step Definition Setup
---   local b = { '9600', '19200', '38400', '57600', '115200', '230400', '460800', '921600' }
---   local steps = {
---     {
---       p = ' Select Upload Port ',
---       c = ports,
---       s = function(x)
---         p_state.port = x
---         vim.env.PLATFORMIO_UPLOAD_PORT = x
---         vim.env.PLATFORMIO_MONITOR_PORT = x
---       end,
---     },
---     {
---       p = ' Select Upload Speed ',
---       c = b,
---       s = function(x)
---         p_state.upload_speed = x
---         vim.env.PLATFORMIO_UPLOAD_SPEED = x
---       end,
---     },
---     {
---       p = ' Select Monitor Speed ',
---       c = b,
---       s = function(x)
---         p_state.monitor_speed = x
---         vim.env.PLATFORMIO_MONITOR_SPEED = x
---       end,
---     },
---     {
---       p = ' Set Monitor RTS State ',
---       c = { '0', '1' },
---       s = function(x)
---         p_state.monitor_rts = x
---         vim.g.platformio_monitor_rts = x
---       end,
---     },
---     {
---       p = ' Set Monitor DTR State ',
---       c = { '0', '1' },
---       s = function(x)
---         p_state.monitor_dtr = x
---         vim.g.platformio_monitor_dtr = x
---       end,
---     },
---   }
---
---   -- 3. High-Performance Linear Wizard Runner
---   local function run(i)
---     if not steps[i] then
---       -- Visual summary text reflects proper hardware terminology
---       local msg = string.format(
---         'Injected: Port: %s | Upload: %s baud | Monitor: %s baud',
---         p_state.port or 'Auto',
---         p_state.upload_speed or 'Ini',
---         p_state.monitor_speed or 'Ini'
---       )
---       return _G.OS and type(_G.OS.notify) == 'function' and _G.OS.notify(msg, 'info') or vim.notify(msg, 2)
---     end
---     vim.ui.select(steps[i].c, { prompt = steps[i].p }, function(sel)
---       if not sel then
---         return
---       end
---       steps[i].s(sel)
---       run(i + 1)
---     end)
---   end
---   run(1)
--- end
 --=============================================================================
 --INFO:get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
@@ -407,7 +313,6 @@ fetch_metadata = function(callback, active_env, from, attempts)
     --   return false
     -- end)
 
-
     -- 2. RIGID WORKSPACE INCLUDE PATH SORTER (Zero Naming Assumptions)
     local map_includes = function(list)
       local res = {}
@@ -450,7 +355,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     meta.includes_compatlib = map_includes(inc.compatlib)
     --
 
-    -- --🟢  keep for later deals with cxx_flags
+    -- --🟢  keep for later if to deal with cxx_flags
     -- if _G.metadata and type(_G.metadata.cxx_flags) == 'table' then
     --   local boiler = require('nvimpio.boilerplate')
     --   local pio_diag = require('nvimpio.clangd.diagnostic')
@@ -714,279 +619,6 @@ function M.compile_commandsFix() --M.dbPathsFix()
   _G.metadata.isBusy = false
 end
 
--- INFO:
---configuration for running sequential commands on ToggleTerminal
--- stylua: ignore
--- Initialize
--- =============================================================================
--- =============================================================================
--- =============================================================================
--- =============================================================================
--- local current_token -- = tostring(math.random(10000, 99999))
--- local current_id = -1 -- Holds 0 for DONE, or 1-9 for PASS
---
--- local session_counter = 1 -- Our high-performance integer counter
--- local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
--- local callBack = nil -- Your execution hook function pointer
--- local fromMsg = ''
--- M.queue = {}
--- term.stdout_callback = M.stdoutcallback
--- local trm
--- local nvimpio = require('nvimpio')
---
--- -- Ensure this table is declared in your module scope or function closure
--- local clangd_extracted_args = {}
--- -- Set this to true when launching the clangd terminal, false when done
--- local clangd_check_active = false
--- M.token_echo_passed = false
---
--- -- INFO: ToggleTerminal commands stdout filter
--- -- stylua: ignore
--- -- =============================================================================
--- function M.stdoutcallback(_, _, data, _)
---   if not data or #data == 0 then
---     return
---   end
---
---   if #data > 1 then
---     -- local content = pio_buffer .. table.concat(data, '', 1, #data - 1)
---     local content = pio_buffer .. table.concat(data, '', 1, #data)
---     pio_buffer = data[#data] -- Save the new partial line
---
---     ---------------------------------------------------------------------------
---     -- 🛠️ INJECTED CLANGD FLAG EXTRACTION LOGIC
---     ---------------------------------------------------------------------------
---     -- If your clangd check sequence is running, scrape the incoming buffer data
---     -- if clangd_check_active then
---     --   -- 1. Exclude lines containing .clang-format configurations to prevent false hits
---     --   if not string.find(content, "%.clang%-format") then
---     --     -- 2. Extract your targeted unknown compiler arguments
---     --     for arg in string.gmatch(content, "unknown argument[:%s]+'([^']+)'") do
---     --       table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
---     --     end
---     --   end
---     --   print('check')
---     --   print(vim.inspect(clangd_extracted_args))
---     -- end
---
---
---
---
---     -- Add this state variable to your module scope (at the top of your file)
---
---     -- Inside your callback function:
---     if clangd_check_active then
---       -- 1. Create your two distinct patterns
---       local  start_pattern_done = '_CMMNDS_' .. current_token .. '":"DONE'
---
---       -- 2. Check if the initial command echo has just streamed past
---
---       local _, start_idx = string.find(content, start_pattern_done, 1, true)
---
---
---       local target_text = content
---       if start_idx then
---         M.token_echo_passed = true
---         target_text = string.sub(content, start_idx + 1)
---       end
---
---       -- 3. Check if the final output result has arrived (signals the absolute end)
---
---       -- 4. THE GATED LOOP: Only extract AFTER the echo has passed, but BEFORE the final done token closes it
---       if M.token_echo_passed and not string.find(target_text, "%.clang%-format") then
--- clangd_extracted_args = {}
---         print(vim.inspect(clangd_extracted_args))
---         for arg in string.gmatch(target_text, "unknown argument[:%s]+'([^']+)'") do
---           table.insert(clangd_extracted_args, string.format('"%s"', arg:gsub('[;%.]$', '')))
---         end
---         print(vim.inspect(clangd_extracted_args))
---       end
---     end
---
---     ---------------------------------------------------------------------------
---
---
---     local pass_target = 'PASS' .. current_id
---
---     local pass_pattern = '_CMMNDS_' .. current_token .. ':' .. pass_target
---     local fail_pattern = '_CMMNDS_' .. current_token .. ':FAIL'
---     local done_pattern = '_CMMNDS_' .. current_token .. ':DONE'
---
---     local has_pass = content:find(pass_pattern) ~= nil
---     local has_done = content:find(done_pattern) ~= nil
---     local has_fail = content:find(fail_pattern) ~= nil
---
---     if has_pass or has_fail or has_done then
---       local active_cb = callBack
---
---
---       local final_status = 'FAIL'
---       if has_fail then
---         final_status = 'FAIL'
---         callBack = nil
---         M.queue = {}
---         pio_buffer = ''
---         -- M.queue = {} -- Instantly wipe remaining queue items to halt the pipeline
---       elseif has_done then
---         final_status = 'DONE'
---         callBack = nil
---         pio_buffer = ''
---         M.queue = {}
---       elseif has_pass then
---         final_status = pass_target
---       end
---
---       if final_status and active_cb then
---         vim.schedule(function() active_cb(final_status) end)
---       end
---
---       return -- Break out immediately upon executing the callback
---     end
---
---   else
---     -- Only one element (no newline yet;) means the line isn't finished yet
---     pio_buffer = pio_buffer .. data[1]
---   end
---
---   -- 3. Safety Trim (Prevents memory leaks if no newline ever comes)
---   if #pio_buffer > 5000 then
---     pio_buffer = pio_buffer:sub(-2500)
---   end
--- end
--- -- =============================================================================
--- -- =============================================================================
--- local current_token -- = tostring(math.random(10000, 99999))
--- local current_id = -1 -- Holds 0 for DONE, or 1-9 for PASS
---
--- local session_counter = 1 -- Our high-performance integer counter
--- local pio_buffer = '' -- Initialize to prevent nil concatenation crashes
--- local callBack = nil -- Your execution hook function pointer
--- local fromMsg = ''
--- M.queue = {}
--- term.stdout_callback = M.stdoutcallback
--- local trm
---
--- local clangd_extracted_args = {}
--- local clangd_check_active = false
---
--- -- Safe persistent string sandbox for the run history
--- M.current_run_raw_text = ''
---
--- function M.stdoutcallback(_, _, data, _)
---   if not data or #data == 0 then
---     return
---   end
---
---   if #data > 1 then
---     local content = pio_buffer .. table.concat(data, '', 1, #data)
---     pio_buffer = data[#data] -- Save the new partial line
---
---     ---------------------------------------------------------------------------
---     -- 1. CONTINUOUSLY ACCUMULATE FRESH MULTI-LINE CHUNKS SAFELY
---     ---------------------------------------------------------------------------
---     if clangd_check_active then
---       M.current_run_raw_text = M.current_run_raw_text .. content
---     end
---
---     local pass_target = 'PASS' .. current_id
---     local pass_pattern = '_CMMNDS_' .. current_token .. ':' .. pass_target
---     local fail_pattern = '_CMMNDS_' .. current_token .. ':FAIL'
---     local done_pattern = '_CMMNDS_' .. current_token .. ':DONE'
---
---     local has_pass = content:find(pass_pattern) ~= nil
---     local has_done = content:find(done_pattern) ~= nil
---     local has_fail = content:find(fail_pattern) ~= nil
---
---     if has_pass or has_fail or has_done then
---       local active_cb = callBack
---       local final_status = 'FAIL'
---
---       if has_fail or has_done then
---         final_status = has_fail and 'FAIL' or 'DONE'
---         callBack = nil
---         M.queue = {}
---         pio_buffer = ''
---
---         -----------------------------------------------------------------------
---         -- 2. PARSE THE ISOLATED TEXT SANDBOX ON COMPLETION
---         -----------------------------------------------------------------------
---         if clangd_check_active then
---           clangd_extracted_args = {}
---
---           -- Look for boundaries in our private, un-truncated string sandbox
---           local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
---           local _, start_idx = string.find(M.current_run_raw_text, start_pattern, 1, true)
---
---           if not start_idx then
---             local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
---             _, start_idx = string.find(M.current_run_raw_text, fallback_echo, 1, true)
---           end
---
---           local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
---           local end_idx = string.find(M.current_run_raw_text, end_pattern, 1, true)
---
---           -- Slice out the exact text segment between the boundary markers
---           if start_idx and end_idx and end_idx > start_idx then
---             local fresh_run_logs = string.sub(M.current_run_raw_text, start_idx + 1, end_idx - 1)
---
---             if not string.find(fresh_run_logs, '%.clang%-format') then
---               local seen = {}
---               for arg in string.gmatch(fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
---                 local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
---                 if not seen[clean_flag] then
---                   seen[clean_flag] = true
---                   table.insert(clangd_extracted_args, clean_flag)
---                 end
---               end
---             end
---           end
---
---           -- Wipe the isolated task tracking states completely
---           M.current_run_raw_text = ''
---           clangd_check_active = false
---         end
---         -----------------------------------------------------------------------
---       elseif has_pass then
---         final_status = pass_target
---       end
---
---       if final_status and active_cb then
---         vim.schedule(function()
---           active_cb(final_status)
---         end)
---       end
---
---       return -- Break out immediately upon executing the callback
---     end
---   else
---     ---------------------------------------------------------------------------
---     -- TARGET DATA[1] STRINGS TO PREVENT TABLE CONCATENATION CRASHES
---     ---------------------------------------------------------------------------
---     -- Only one element means the line isn't finished yet
---     pio_buffer = pio_buffer .. data[1]
---
---     -- Sync single lines into our isolated sandbox if the check loop is active
---     if clangd_check_active then
---       M.current_run_raw_text = M.current_run_raw_text .. data[1]
---     end
---   end
---
---   -- Your safety guard trims pio_buffer normally, but M.current_run_raw_text is unaffected!
---   if #pio_buffer > 5000 then
---     pio_buffer = pio_buffer:sub(-2500)
---   end
--- end
--- -- =============================================================================
--- ⏳ 1. CRITICAL MODULE STATE TRACKER FOR TIMEOUTS
-M.safety_timer = nil
---- Dynamic Timeout Reset Routine
-local function stop_safety_timer()
-  if M.safety_timer then
-    M.safety_timer:stop()
-    M.safety_timer:close()
-    M.safety_timer = nil
-  end
-end
 -- -- =============================================================================
 local current_token -- = tostring(math.random(10000, 99999))
 local session_counter = 1 -- Our high-performance integer counter
@@ -1030,7 +662,6 @@ function M.stdoutcallback(_, _, data, _)
 
     if has_fail or has_done then
       -- ✅ SUCCESSFUL RUN DETECTED: Kill the countdown timer immediately!
-      -- stop_safety_timer()
       callBack = nil
       M.queue = {}
 
@@ -1144,32 +775,6 @@ M.run_sequence = function(tasks)
       pio_buffer = ''
       clangd_extracted_args = {} -- Clear the collected flags table
       clangd_check_active = false -- Arm the parsing loop tracker
-
-      -- stop_safety_timer()
-      -- local max_execution_time_ms = 20000
-      -- local uv = vim.uv or vim.loop
-      --
-      -- M.safety_timer = uv.new_timer()
-      -- M.safety_timer:start(
-      --   max_execution_time_ms,
-      --   0,
-      --   vim.schedule_wrap(function()
-      --     if clangd_check_active or #content > 0 then
-      --       stop_safety_timer()
-      --       pio_buffer = ''
-      --       content = ''
-      --       clangd_check_active = false
-      --       M.queue = {} -- Break the queue sequence to prevent consecutive glitches
-      --
-      --       local fallback_cb = callBack
-      --       callBack = nil
-      --       OS.notify(fromMsg .. ' ⚠️ Clangd pipeline stalled. Hard buffer reset triggered!', 'error')
-      --       if fallback_cb and type(fallback_cb) == 'function' then
-      --         fallback_cb('FAIL')
-      --       end
-      --     end
-      --   end)
-      -- )
 
       term.stdout_callback = M.stdoutcallback
       callBack('INIT')

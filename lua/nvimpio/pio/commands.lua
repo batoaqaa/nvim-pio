@@ -81,9 +81,6 @@ vim.api.nvim_create_user_command('PioDbFixPaths', function()
   require('nvimpio.pio.upkeep').compile_commandsFix()
 end, {})
 
-------------------------------------------------------
-local piolsserial = require('nvimpio.pio.ui.piolsserial')
-
 --INFO: Piorun
 ------------------------------------------------------
 vim.api.nvim_create_user_command('Piorun', function(opts)
@@ -111,10 +108,11 @@ vim.api.nvim_create_user_command('Piomon', function(opts)
 end, {
   nargs = '*',
   complete = function(_, cmd_line)
+    local ports = require('nvimpio.pio.upkeep').get_connected_ports()
     local parts = vim.split(cmd_line, '%s+')
     local BAUD = { '4800', '9600', '57600', '115200' }
-    local ports = {}
-    for _, item in ipairs(piolsserial.tty_list) do table.insert(ports, item.port) end
+    -- local ports = {}
+    -- for _, item in ipairs(piolsserial.tty_list) do table.insert(ports, item.port) end
     if #parts == 2 then return BAUD end
     if #parts == 3 then return ports end
     return {}
