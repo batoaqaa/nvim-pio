@@ -96,6 +96,7 @@ function M.buildUserMenu(config)
   local is_whichkey_loaded = package.loaded['which-key'] ~= nil
   if not is_whichkey_loaded then
     wk.setup({
+      preset = 'classic', -- Default safely to classic if uninitialized
       delay = 0,
       icons = {
         mappings = vim.g.have_nerd_font,
@@ -121,21 +122,111 @@ function M.buildUserMenu(config)
   -- Run tree flattening algorithm
   traverseMenu(config.menu_bindings, config.menu_key)
 
-  -- Send directly to layout engine using strict localized styling overrides.
-  -- This enforces Helix design choices for this window profile even if the user has 'classic' configured globally.
+  -- =========================================================================
+  -- CRITICAL HOT-SWAP LAYER: Force Helix layout rules directly on the engine
+  -- =========================================================================
+  -- 1. Read the user's active configuration table
+  local wk_config = require('which-key.config')
+
+  -- 2. Back up their active layout choice safely to prevent global regression bugs
+  local original_preset = wk_config.preset or 'classic'
+
+  -- 3. Set the global runtime preset strictly to Helix
+  wk_config.preset = 'helix'
+
+  -- 4. Re-execute the engine setup loop to re-generate internal text rendering metrics
+  wk.setup({ preset = 'helix' })
+
+  -- 5. Inject your plugin's parsed array mapping specifications
   wk.add(wk_table, {
     sort = { 'order', 'group', 'manual', 'mod' },
-    layout = {
-      width = { min = 20, max = 50 }, -- Helix-style narrow flexible columns
-      spacing = 3, -- Generous column spacing layout padding width
-      align = 'right', -- THE HELIX SIGNATURE: Right-aligns all hotkey shortcut labels
-    },
-    win = {
-      border = 'single', -- Clean, crisp perimeter border layout style
-      position = 'bottom', -- Standard base panel rendering orientation
-    },
   })
+
+  -- 6. Immediately restore the user's personal preferred styling profile in the background
+  vim.schedule(function()
+    local restore_wk = require('which-key')
+    local current_config = require('which-key.config')
+    current_config.preset = original_preset
+    restore_wk.setup({ preset = original_preset })
+  end)
+  -- =========================================================================
 end
+
+-- function M.buildUserMenu(config)
+--   if config == nil or config.menu_key == nil then
+--     return
+--   end
+--
+--   local icon = { icon = '  ', color = 'orange' }
+--   local wk_table = { mode = { 'n', 'v' } }
+--
+--   -- Recursive menu hierarchy mapping iterator traversal flattening algorithm
+--   local function traverseMenu(menu, wkey)
+--     for _, child_node in ipairs(menu or {}) do
+--       if child_node.node == 'menu' then
+--         traverseMenu(child_node.items, wkey .. child_node.shortcut)
+--         table.insert(wk_table, { wkey .. child_node.shortcut, group = child_node.desc, icon = icon })
+--       elseif child_node.node == 'item' then
+--         table.insert(wk_table, {
+--           wkey .. child_node.shortcut,
+--           '<cmd>' .. child_node.command .. '<CR>',
+--           desc = child_node.desc,
+--           icon = icon,
+--         })
+--       end
+--     end
+--   end
+--
+--   -- Safely assert Which-Key access without crashing Neovim profiles lacking it
+--   local ok, wk = pcall(require, 'which-key')
+--   if not ok then
+--     return
+--   end
+--
+--   -- Initialize Which-Key layout defaults safely if it hasn't loaded yet
+--   local is_whichkey_loaded = package.loaded['which-key'] ~= nil
+--   if not is_whichkey_loaded then
+--     wk.setup({
+--       delay = 0,
+--       icons = {
+--         mappings = vim.g.have_nerd_font,
+--         keys = vim.g.have_nerd_font and {} or {
+--           Up = '<Up> ',
+--           Down = '<Down> ',
+--           Left = '<Left> ',
+--           Right = '<Right> ',
+--           C = '<C-…> ',
+--           M = '<M-…> ',
+--           D = '<D-…> ',
+--           S = '<S-…> ',
+--           CR = '<CR> ',
+--           Esc = '<Esc> ',
+--         },
+--       },
+--     })
+--   end
+--
+--   -- Base Root Trigger Menu assignment mapping
+--   table.insert(wk_table, { config.menu_key, group = config.menu_name, icon = icon })
+--
+--   -- Run tree flattening algorithm
+--   traverseMenu(config.menu_bindings, config.menu_key)
+--
+--   -- Send directly to layout engine using strict localized styling overrides.
+--   -- This enforces Helix design choices for this window profile even if the user has 'classic' configured globally.
+--   wk.add(wk_table, {
+--     sort = { 'order', 'group', 'manual', 'mod' },
+--     layout = {
+--       width = { min = 20, max = 50 }, -- Helix-style narrow flexible columns
+--       spacing = 3, -- Generous column spacing layout padding width
+--       align = 'right', -- THE HELIX SIGNATURE: Right-aligns all hotkey shortcut labels
+--     },
+--     win = {
+--       border = 'single', -- Clean, crisp perimeter border layout style
+--       position = 'bottom', -- Standard base panel rendering orientation
+--     },
+--   })
+-- end
 
 return M
 
