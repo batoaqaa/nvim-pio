@@ -62,7 +62,17 @@ function M.buildUserMenu(config)
   local icon = { icon = '  ', color = 'orange' } -- Assign platformio orange icon
   local wk_table = {}
 
-  -- Flat traversal parser building absolute sequential string paths
+  -- =========================================================================
+  -- LEADER EXPANSION LAYER: Resolves string compilation conflicts
+  -- =========================================================================
+  -- If map starts with '<leader>', replace it with the user's actual active mapping key token
+  local base_key = config.menu_key
+  if base_key:sub(1, 8):lower() == '<leader>' then
+    local map_leader = vim.g.mapleader or ' '
+    base_key = map_leader .. base_key:sub(9)
+  end
+
+  -- Flat traversal parser building absolute sequential string paths smoothly
   local function traverseMenu(menu, wkey)
     for _, child_node in ipairs(menu or {}) do
       local current_key = wkey .. child_node.shortcut
@@ -72,7 +82,7 @@ function M.buildUserMenu(config)
       elseif child_node.node == 'item' then
         table.insert(wk_table, {
           current_key,
-          '<cmd>' .. child_node.command .. '<CR>', -- Fixed the syntax space bug after <cmd>
+          '<cmd>' .. child_node.command .. '<CR>', -- Pristine syntax space-free command execution string
           desc = child_node.desc,
           icon = icon,
         })
@@ -80,17 +90,17 @@ function M.buildUserMenu(config)
     end
   end
 
-  -- Safely require which-key without crashing if the user doesn't have it installed
+  -- Safely assert Which-Key access without crashing Neovim profiles lacking it
   local ok, wk = pcall(require, 'which-key')
   if not ok then
     return
   end
 
-  -- 1. Register the base category title mapping
-  table.insert(wk_table, { config.menu_key, group = config.menu_name, icon = icon })
+  -- 1. Register the base category title layout inside the table
+  table.insert(wk_table, { base_key, group = config.menu_name, icon = icon })
 
-  -- 2. Expand your menu tree selections
-  traverseMenu(config.menu_bindings, config.menu_key)
+  -- 2. Expand your menu tree selections using the cleaned base key
+  traverseMenu(config.menu_bindings, base_key)
 
   -- 3. Send everything directly to the Which-Key mapping registry
   wk.add(wk_table, {
@@ -105,8 +115,7 @@ function M.buildUserMenu(config)
     win = {
       position = 'bottom',
       border = 'single',
-
-      -- INTEGRATION FIX: Injects your Nerd Font icon symbol text straight onto the window title title!
+      -- Injects your Nerd Font icon symbol text straight onto the window title border!
       title = '  ' .. config.menu_name .. ' ',
       title_pos = 'center',
     },
@@ -114,7 +123,6 @@ function M.buildUserMenu(config)
 end
 
 return M
-
 -- local M = {}
 --
 -- -- stylua: ignore
