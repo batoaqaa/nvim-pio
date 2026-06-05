@@ -1,7 +1,7 @@
 ---@diagnostic disable: undefined-global, undefined-field
 -- Save this file as: spec/validator_spec.lua
 
-require('nvimpio.os')
+require('nvimpio.osInfo')
 local OS = _G.OS ---@cast OS +OS
 
 local M = require('nvimpio')
