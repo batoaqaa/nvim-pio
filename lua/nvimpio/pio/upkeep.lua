@@ -124,6 +124,8 @@ function M.get_connected_ports()
       paths[dev.port] = true
     end
   end
+
+  print(vim.inspect(devices))
   return devices
 end
 
