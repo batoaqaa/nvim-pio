@@ -62,17 +62,40 @@ function M.buildUserMenu(config)
   local icon = { icon = '  ', color = 'orange' }
   local wk_table = {}
 
-  -- Recursive parser to build standard absolute paths that Which-Key requires
+  -- 1. Scan the tree first to compute the max description layout width
+  local max_desc_len = 0
+  local function calculateWidth(menu)
+    for _, child in ipairs(menu or {}) do
+      local label = child.node == 'menu' and ('+' .. child.desc) or child.desc
+      if #label > max_desc_len then
+        max_desc_len = #label
+      end
+      if child.node == 'menu' then
+        calculateWidth(child.items)
+      end
+    end
+  end
+  calculateWidth(config.menu_bindings)
+
+  -- 2. Build explicit mappings padding descriptions to replicate the Helix preset layout
   local function traverseMenu(menu, wkey)
     for _, child_node in ipairs(menu or {}) do
+      local current_key = wkey .. child_node.shortcut
+      local clean_label = child_node.node == 'menu' and ('+' .. child_node.desc) or child_node.desc
+
+      -- Calculate structural trailing spaces to right-align the hotkey markers manually
+      local pad_count = (max_desc_len - #clean_label) + 6
+      local padding_str = string.rep(' ', pad_count)
+      local simulated_helix_desc = clean_label .. padding_str .. '[' .. child_node.shortcut .. ']'
+
       if child_node.node == 'menu' then
-        table.insert(wk_table, { wkey .. child_node.shortcut, group = child_node.desc, icon = icon })
-        traverseMenu(child_node.items, wkey .. child_node.shortcut)
+        table.insert(wk_table, { current_key, group = simulated_helix_desc, icon = icon })
+        traverseMenu(child_node.items, current_key)
       elseif child_node.node == 'item' then
         table.insert(wk_table, {
-          wkey .. child_node.shortcut,
+          current_key,
           '<cmd>' .. child_node.command .. '<CR>',
-          desc = child_node.desc,
+          desc = simulated_helix_desc,
           icon = icon,
         })
       end
@@ -84,29 +107,16 @@ function M.buildUserMenu(config)
     return
   end
 
-  -- Parse all submenus using the absolute root menu prefix so no items disappear
+  -- Parse all submenus using absolute keys path layouts
   traverseMenu(config.menu_bindings, config.menu_key)
 
-  -- 1. Register the base category label statically so it appears inside the top-level menu
+  -- 3. Statically append the root trigger item to avoid fading from the global panel index
   table.insert(wk_table, { config.menu_key, group = config.menu_name, icon = icon })
 
-  -- =========================================================================
-  -- THE OFFICIAL V3 FIX: Send everything to wk.add with custom options
-  -- =========================================================================
+  -- 4. Map directly to Which-Key using native layouts variables
   wk.add(wk_table, {
-    -- Forces Which-Key v3 to completely swap its layout metrics for this tree profile
-    preset = 'helix',
     sort = { 'order', 'group', 'manual', 'mod' },
-    layout = {
-      align = 'right', -- Enforces flush-right hotkey labels
-      spacing = 3,
-    },
-    win = {
-      position = 'bottom',
-      border = 'single',
-    },
   })
-  -- =========================================================================
 end
 
 return M
