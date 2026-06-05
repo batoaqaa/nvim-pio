@@ -115,33 +115,25 @@ function M.buildUserMenu(config)
     })
   end
 
-  -- Base Root Trigger Menu assignment mapping
-  table.insert(wk_table, { config.menu_key, group = config.menu_name, icon = icon })
+  -- =========================================================================
+  -- CRITICAL: INJECT HELIX PRESET PROPERTIES ONTO THE TOP-LEVEL GROUP BINDING
+  -- =========================================================================
+  table.insert(wk_table, {
+    config.menu_key,
+    group = config.menu_name,
+    icon = icon,
+    -- Forces Which-Key v3 engine to evaluate this specific branch using Helix's columns style
+    preset = 'helix',
+    expand = 0, -- Ensures menus do not instantly spill wide in columns layout
+  })
 
   -- Run tree flattening algorithm
   traverseMenu(config.menu_bindings, config.menu_key)
 
-  -- =========================================================================
-  -- ENFORCE HELIX VISUAL SPECIFICATIONS FOR THIS POPUP ONLY
-  -- =========================================================================
+  -- Send directly to layout engine using strict array sorting overrides
   wk.add(wk_table, {
     sort = { 'order', 'group', 'manual', 'mod' },
-
-    -- Explicitly provide the exact parameters that make up the Helix preset layout
-    layout = {
-      width = { min = 20, max = 50 },
-      spacing = 3, -- Clean spacing between columns
-      align = 'right', -- Forces the hotkey text to align right next to descriptions
-    },
-    win = {
-      border = 'single', -- Helix uses clean sharp borders
-      position = 'bottom', -- Opens at the bottom of the screen
-      title = config.menu_name, -- Places a neat title on the border edge
-      title_pos = 'center',
-      padding = { 1, 2, 1, 2 }, -- Clean window margins layout
-    },
   })
-  -- =========================================================================
 end
 -- function M.buildUserMenu(config)
 --   if config == nil or config.menu_key == nil then
