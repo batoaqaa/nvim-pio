@@ -543,10 +543,10 @@ end
 --   -- debug = false,
 -- }
 local pioConfig = {
-  pio = {
-    pio_runtime_dir = '~/.platformio',
-    pio_storage_dir = '~/.platformio',
-  },
+  -- pio = {
+  --   pio_runtime_dir = '~/.platformio',
+  --   pio_storage_dir = '~/.platformio',
+  -- },
   clangd = {
     support = true,
     install = true,
