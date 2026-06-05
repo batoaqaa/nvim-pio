@@ -60,7 +60,7 @@ function M.buildUserMenu(config)
   end
 
   local icon = { icon = '  ', color = 'orange' }
-  local wk_table = {} -- Strictly holds pure inner execution contents
+  local wk_table = { mode = { 'n', 'v' } }
 
   -- Recursive menu hierarchy mapping iterator traversal flattening algorithm
   local function traverseMenu(menu, wkey)
@@ -85,35 +85,49 @@ function M.buildUserMenu(config)
     return
   end
 
-  -- Parse inner submenus into our isolated execution dictionary table
-  -- Note: We start generation directly from an empty key string to build clean local key paths!
-  traverseMenu(config.menu_bindings, '')
+  -- Parse inner submenus under your main trigger key path
+  traverseMenu(config.menu_bindings, config.menu_key)
 
   -- =========================================================================
-  -- THE NATIVE WAY: Create an Isolated Show Command mapping Trigger Loop
+  -- THE INTERCEPT PATTERN: Register globally, but style dynamically
   -- =========================================================================
-  -- 1. Create a native Neovim keymap bound directly to your configuration trigger key
-  vim.keymap.set({ 'n', 'v' }, config.menu_key, function()
-    -- Explicitly open a Which-Key window isolated *only* to your plugin bindings
-    wk.show({
-      keys = config.menu_key,
-      loop = false,
-      -- We pass your custom mappings tree table layout structure directly here
-      spec = wk_table,
 
-      -- INJECT REVALUATION CONFIGURATIONS:
-      -- This enforces Which-Key v3 to completely swap its internal layout
-      -- configurations metrics for this specific popup window instantiation event loop!
-      preset = 'helix',
-      win = {
-        position = 'bottom',
-        border = 'single',
-      },
-    })
-  end, {
-    desc = string.format('Open %s Menu Menu Panel', config.menu_name),
-    silent = true,
+  -- 1. Register the root menu key in the global index table so it shows up in top-level menus
+  table.insert(wk_table, {
+    config.menu_key,
+    group = config.menu_name,
+    icon = icon,
+    -- Map your trigger key directly to a dynamic state transformation closure!
+    function()
+      local current_config = require('which-key.config')
+
+      -- Back up user's active preset choice safely to prevent layout bugs
+      local original_preset = current_config.preset or 'classic'
+
+      -- Force the layout configuration layout metrics to Helix rules right before processing
+      current_config.preset = 'helix'
+
+      -- Trigger an internal layout refresh manually without breaking the 'modes' buffer index
+      require('which-key.view').update()
+
+      -- Immediately open your menu tree view inside the newly refreshed window container
+      require('which-key').show({
+        keys = config.menu_key,
+        spec = wk_table,
+        preset = 'helix',
+      })
+
+      -- Automatically clean up and restore their preferred preset style right afterward
+      vim.schedule(function()
+        local restore_config = require('which-key.config')
+        restore_config.preset = original_preset
+        require('which-key.view').update()
+      end)
+    end,
   })
+
+  -- 2. Safely add everything to Which-Key's primary tree registry
+  wk.add(wk_table)
   -- =========================================================================
 end
 
