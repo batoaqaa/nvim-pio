@@ -60,14 +60,16 @@ function M.buildUserMenu(config)
   end
 
   local icon = { icon = '  ', color = 'orange' }
-  local wk_table = {} -- Strictly hold sub-menu paths
+  local wk_table = {}
 
-  -- Recursive menu hierarchy mapping iterator traversal flattening algorithm
+  -- Recursive flattening algorithm using clean local base paths
   local function traverseMenu(menu, wkey)
     for _, child_node in ipairs(menu or {}) do
       if child_node.node == 'menu' then
-        traverseMenu(child_node.items, wkey .. child_node.shortcut)
+        -- Register the group sub-heading node item natively
         table.insert(wk_table, { wkey .. child_node.shortcut, group = child_node.desc, icon = icon })
+        -- Continue tunneling down into nested items
+        traverseMenu(child_node.items, wkey .. child_node.shortcut)
       elseif child_node.node == 'item' then
         table.insert(wk_table, {
           wkey .. child_node.shortcut,
@@ -85,50 +87,34 @@ function M.buildUserMenu(config)
     return
   end
 
-  -- Parse inner submenus under your main trigger key path
-  traverseMenu(config.menu_bindings, config.menu_key)
+  -- 1. Parse your user configuration bindings list into the execution tree
+  -- We start with an empty string "" to build relative structural shortcuts (e.g. "a", "g", "d")
+  traverseMenu(config.menu_bindings, '')
 
-  -- =========================================================================
-  -- THE INTERCEPT FUNCTION PATTERN (CRASH-FREE & FLUID HELIX)
-  -- =========================================================================
-
-  -- 1. Register the core menu path statically so it shows up in global menus
+  -- 2. Statically register the root label inside the global which-key panel
+  -- This guarantees your menu is cleanly displayed as "\ ➜  +PlatformIO" on the main leader panel
   wk.add({
     { config.menu_key, group = config.menu_name, icon = icon },
   })
 
-  -- 2. Inject the dynamic layout swap inside a local function mapping definition
-  wk.add({
-    {
-      config.menu_key,
-      icon = icon,
-      desc = config.menu_name,
-      -- Map the execution straight to an intermediate runtime state callback function
-      function()
-        local wk_config = require('which-key.config')
-
-        -- Back up the user's active preset preference safely
-        local original_preset = wk_config.preset or 'classic'
-
-        -- Switch the layout engine's active preset target strictly to Helix
-        wk_config.preset = 'helix'
-
-        -- Force Which-Key to instantly re-render its open windows using Helix layout math
-        wk.show({
-          keys = config.menu_key,
-          spec = wk_table,
-        })
-
-        -- Reset back to the user's preferred layout style cleanly in the background
-        -- 50ms delay guarantees that your menu renders as Helix first before resetting
-        vim.defer_fn(function()
-          local restore_config = require('which-key.config')
-          restore_config.preset = original_preset
-        end, 50)
-      end,
-    },
+  -- 3. Overwrite the native Neovim key handler interface for your exact key sequence
+  -- This intercepts the command chain before Which-Key triggers its default cached panel layout
+  vim.keymap.set({ 'n', 'v' }, config.menu_key, function()
+    -- Explicitly command the layout engine to render your menu inside a fresh isolated view layout
+    wk.show({
+      spec = wk_table,
+      preset = 'helix', -- FORCES THE HELIX LAYOUT AND RIGHT-ALIGNMENT INSTANTLY
+      win = {
+        position = 'bottom',
+        border = 'single',
+        title = ' ' .. config.menu_name .. ' ',
+        title_pos = 'center',
+      },
+    })
+  end, {
+    desc = string.format('Open %s Action Panel', config.menu_name),
+    silent = true,
   })
-  -- =========================================================================
 end
 
 return M
