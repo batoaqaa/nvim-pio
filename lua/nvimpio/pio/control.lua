@@ -79,6 +79,7 @@ local function watch_file(target, callback)
 
   handle:start(folder_path, { recursive = false }, function(err, filename, events)
     if err or (filename and filename ~= target_filename) then return end
+    if _G.metadata.isBusy then print('ok') end
     if target.isBusy or (_G.metadata and _G.metadata.isBusy) then return end
     if events and not (events.change or events['rename']) then return end
 
