@@ -96,7 +96,6 @@ function M.buildUserMenu(config)
   local is_whichkey_loaded = package.loaded['which-key'] ~= nil
   if not is_whichkey_loaded then
     wk.setup({
-      preset = 'classic', -- Default safely to classic if uninitialized
       delay = 0,
       icons = {
         mappings = vim.g.have_nerd_font,
@@ -123,35 +122,27 @@ function M.buildUserMenu(config)
   traverseMenu(config.menu_bindings, config.menu_key)
 
   -- =========================================================================
-  -- CRITICAL HOT-SWAP LAYER: Force Helix layout rules directly on the engine
+  -- ENFORCE HELIX VISUAL SPECIFICATIONS FOR THIS POPUP ONLY
   -- =========================================================================
-  -- 1. Read the user's active configuration table
-  local wk_config = require('which-key.config')
-
-  -- 2. Back up their active layout choice safely to prevent global regression bugs
-  local original_preset = wk_config.preset or 'classic'
-
-  -- 3. Set the global runtime preset strictly to Helix
-  wk_config.preset = 'helix'
-
-  -- 4. Re-execute the engine setup loop to re-generate internal text rendering metrics
-  wk.setup({ preset = 'helix' })
-
-  -- 5. Inject your plugin's parsed array mapping specifications
   wk.add(wk_table, {
     sort = { 'order', 'group', 'manual', 'mod' },
-  })
 
-  -- 6. Immediately restore the user's personal preferred styling profile in the background
-  vim.schedule(function()
-    local restore_wk = require('which-key')
-    local current_config = require('which-key.config')
-    current_config.preset = original_preset
-    restore_wk.setup({ preset = original_preset })
-  end)
+    -- Explicitly provide the exact parameters that make up the Helix preset layout
+    layout = {
+      width = { min = 20, max = 50 },
+      spacing = 3, -- Clean spacing between columns
+      align = 'right', -- Forces the hotkey text to align right next to descriptions
+    },
+    win = {
+      border = 'single', -- Helix uses clean sharp borders
+      position = 'bottom', -- Opens at the bottom of the screen
+      title = config.menu_name, -- Places a neat title on the border edge
+      title_pos = 'center',
+      padding = { 1, 2, 1, 2 }, -- Clean window margins layout
+    },
+  })
   -- =========================================================================
 end
-
 -- function M.buildUserMenu(config)
 --   if config == nil or config.menu_key == nil then
 --     return
