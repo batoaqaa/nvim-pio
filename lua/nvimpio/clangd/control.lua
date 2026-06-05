@@ -588,12 +588,12 @@ function M.init(clangd)
   -- Apply and Enable
   -- local getClangdConfig = require('nvimpio.clangd.control').getClangdConfig
   -- if getClangdConfig then
-    local clangConfig = M.getClangdConfig()
-    vim.lsp.config('clangd', clangConfig)
-    vim.lsp.enable('clangd')
+    -- local clangConfig = M.getClangdConfig()
+    -- vim.lsp.config('clangd', clangConfig)
+    -- vim.lsp.enable('clangd')
   -- end
 
-  -- require('nvimpio.clangd.commands')
+  require('nvimpio.clangd.commands')
   -- vim.api.nvim_create_user_command('PioFilter', function()
   --   local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
   --   if success and pio_diag and pio_diag.manage_file_diagnostics_interactive then
