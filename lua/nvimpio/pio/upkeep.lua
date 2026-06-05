@@ -94,91 +94,129 @@ function M.get_sysroot_triplet(cc_compiler)
     auto_defines = auto_defines,
   }
 end
+-- configure_hardware_parameters
+-- get_connected_ports
+function M.get_connected_ports()
+  local p_state = require('nvimpio').runtime_parameters or {}
+  if vim.fn.executable('pio') ~= 1 then
+    return
+  end
 
+  -- 1. Scan Ports with robust property fallbacks
+  local ok, obj = pcall(function()
+    return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait()
+  end)
+  local ports = {}
+  if ok and obj and obj.code == 0 and obj.stdout then
+    for _, d in ipairs(vim.json.decode(obj.stdout) or {}) do
+      local p = d.port or d.device
+      if p and p ~= '' then
+        table.insert(ports, p)
+      end
+    end
+  end
+  if #ports == 0 then
+    return vim.notify('NVIM-PIO: No serial devices detected.', 3)
+  end
+  table.sort(ports)
+
+  -- 2. Declarative Step Definition Setup
+  local b = { '9600', '19200', '38400', '57600', '115200', '230400', '460800', '921600' }
+  local steps = {
+    {
+      p = ' Select Upload Port ',
+      c = ports,
+      s = function(x)
+        p_state.selected_port = x
+        vim.g.platformio_selected_port = x
+      end,
+    },
+    {
+      p = ' Select Upload Speed ',
+      c = b,
+      s = function(x)
+        p_state.upload_speed = x
+      end,
+    },
+    {
+      p = ' Select Monitor Speed ',
+      c = b,
+      s = function(x)
+        p_state.monitor_speed = x
+      end,
+    },
+    {
+      p = ' Set Monitor RTS State ',
+      c = { '0', '1' },
+      s = function(x)
+        p_state.monitor_rts = x
+      end,
+    },
+    {
+      p = ' Set Monitor DTR State ',
+      c = { '0', '1' },
+      s = function(x)
+        p_state.monitor_dtr = x
+      end,
+    },
+  }
+
+  -- 3. High-Performance Linear Wizard Runner
+  local function run(i)
+    if not steps[i] then
+      local msg = string.format(
+        'Config Locked: Port: %s | Upload: %s | Monitor: %s',
+        p_state.selected_port or 'Auto',
+        p_state.upload_speed or 'Ini',
+        p_state.monitor_speed or 'Ini'
+      )
+      return _G.OS and type(_G.OS.notify) == 'function' and _G.OS.notify(msg, 'info') or vim.notify(msg, 2)
+    end
+    vim.ui.select(steps[i].c, { prompt = steps[i].p }, function(sel)
+      if not sel then
+        return
+      end
+      steps[i].s(sel)
+      run(i + 1)
+    end)
+  end
+  run(1)
+end
 
 --INFO:
 -- Fast environment detection from platformio.ini file(no external calls)
 -- stylua: ignore
 --=============================================================================
 -- Helper function to extract connected hardware ports using PlatformIO core
-local function get_connected_ports()
-  if vim.fn.executable('pio') ~= 1 then
-    return {}
-  end
+-- local function get_connected_ports()
+--   if vim.fn.executable('pio') ~= 1 then
+--     return {}
+--   end
+--
+--   -- Spawn an explicit JSON hardware scan via the core engine
+--   local ok, obj = pcall(function()
+--     return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait()
+--   end)
+--
+--   if not ok or not obj or obj.code ~= 0 or not obj.stdout then
+--     return {}
+--   end
+--
+--   -- Parse output safely into data tables
+--   local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
+--   if not parse_ok or type(devices) ~= 'table' then
+--     return {}
+--   end
+--
+--   local paths = {}
+--   for _, dev in ipairs(devices) do
+--     if dev.port then
+--       paths[dev.port] = true
+--     end
+--   end
+--   return paths
+-- end
 
-  -- Spawn an explicit JSON hardware scan via the core engine
-  local ok, obj = pcall(function()
-    return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait()
-  end)
-
-  if not ok or not obj or obj.code ~= 0 or not obj.stdout then
-    return {}
-  end
-
-  -- Parse output safely into data tables
-  local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
-  if not parse_ok or type(devices) ~= 'table' then
-    return {}
-  end
-
-  local paths = {}
-  for _, dev in ipairs(devices) do
-    if dev.port then
-      paths[dev.port] = true
-    end
-  end
-  return paths
-end
-
----Queries active system hardware ports and opens an interactive selection picker
----@param callback fun(port: string)? Optional action to run with the selected port name
-function M.select_active_port(callback)
-  -- 1. Scan the hardware bus via the core engine
-  local active_ports = get_connected_ports()
-
-  -- 2. Extract keys into a sequential array list layout for the selection interface
-  local port_list = {}
-  for port_path, _ in pairs(active_ports) do
-    table.insert(port_list, port_path)
-  end
-
-  -- Sort alphabetically so COM10 shows up consistently after COM3, etc.
-  table.sort(port_list)
-
-  -- 3. Fail-fast safety guard if no microcontrollers are detected
-  if #port_list == 0 then
-    if _G.OS and type(_G.OS.notify) == 'function' then
-      _G.OS.notify('No active PlatformIO serial devices detected. Check USB connections.', 'warn')
-    else
-      vim.notify('NVIM-PIO: No active serial devices detected.', vim.log.levels.WARN)
-    end
-    return
-  end
-
-  -- 4. Open Neovim's standardized, unified selection prompt window
-  vim.ui.select(port_list, {
-    prompt = ' Select Targeted Serial Upload Port ',
-    -- Format how the entries look inside the prompt window canvas
-    format_item = function(item)
-      return string.format('     %s ', item)
-    end,
-  }, function(selected_port)
-    -- If the user pressed <Esc> or aborted selection, cancel out cleanly
-    if not selected_port then
-      return
-    end
-
-    -- Trigger the optional callback action if provided, or default to setting an internal global state variable
-    if callback then
-      callback(selected_port)
-    else
-      vim.g.platformio_selected_port = selected_port
-      if _G.OS and type(_G.OS.notify) == 'function' then
-        _G.OS.notify('Target serial upload port locked to: ' .. selected_port, 'info')
-      end
-    end
-  end)
-end
 --=============================================================================
 --INFO:get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
