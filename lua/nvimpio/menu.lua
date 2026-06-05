@@ -71,7 +71,7 @@ function M.buildUserMenu(config)
       elseif child_node.node == 'item' then
         table.insert(wk_table, {
           wkey .. child_node.shortcut,
-          '<cmd>' .. child_node.command .. '<CR>', -- Fixed the syntax space bug cleanly
+          '<cmd>' .. child_node.command .. '<CR>', -- Pristine syntax command block execution mapping string
           desc = child_node.desc,
           icon = icon,
         })
@@ -92,15 +92,23 @@ function M.buildUserMenu(config)
   traverseMenu(config.menu_bindings, config.menu_key)
 
   -- =========================================================================
-  -- SAFE LOCALIZED PRESET OVERRIDE (CRASH-FREE APPROACH)
+  -- TARGETED LOW-LEVEL PROP INJECTIONS (EXACT V3 SCHEMA)
   -- =========================================================================
-  -- Which-Key v3 expects options as an independent dictionary block inside the add loop
   wk.add(wk_table, {
-    preset = 'helix', -- Pass the layout preset straight to the local add context
-    sort = { 'order', 'group', 'manual', 'mod' },
+    sort = { 'order', 'group', 'manual', 'mod' }, -- Enforce isolated menu list sorting order
+    expand = 0, -- Prevents horizontal column spillover
+
+    -- We pass the structural layout settings directly into the options block.
+    -- This enforces the exact right-aligned layout behavior of the Helix preset.
     win = {
-      position = 'bottom',
-      border = 'single',
+      position = 'bottom', -- Locks appearance position at the bottom of the screen
+      border = 'single', -- Emulates Helix's signature sharp single borders
+      width = { min = 20, max = 50 },
+      padding = { 1, 2, 1, 2 }, -- Standard window margins spacing layout inside window panel
+    },
+    layout = {
+      align = 'right', -- THE VISUAL SIGNATURE: Right-aligns key labels next to text [1]
+      spacing = 3, -- Column item padding width
     },
   })
   -- =========================================================================
