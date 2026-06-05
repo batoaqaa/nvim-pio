@@ -60,21 +60,23 @@ function M.buildUserMenu(config)
   end
 
   local icon = { icon = '  ', color = 'orange' } -- Assign platformio orange icon
-  local sub_bindings = {}
 
-  -- Flat traversal parser building clean, relative shortcuts (e.g. "b", "e", "a")
-  -- We start from an empty base string "" to let Which-Key group them under the main trigger!
+  -- Flat traversal parser building clean, relative shortcuts recursively
   local function traverseMenu(menu)
     local bindings = {}
     for _, child_node in ipairs(menu or {}) do
       if child_node.node == 'menu' then
-        table.insert(bindings, {
+        local submenu_node = {
           child_node.shortcut,
           group = child_node.desc,
           icon = icon,
-          -- Recursively pack submenus using standard v3 structure nesting arrays
-          traverseMenu(child_node.items),
-        })
+        }
+        -- Recursively unpack and append child sub-nodes into this nested menu container
+        local children = traverseMenu(child_node.items)
+        for _, child in ipairs(children) do
+          table.insert(submenu_node, child)
+        end
+        table.insert(bindings, submenu_node)
       elseif child_node.node == 'item' then
         table.insert(bindings, {
           child_node.shortcut,
@@ -97,33 +99,34 @@ function M.buildUserMenu(config)
   local nested_items = traverseMenu(config.menu_bindings)
 
   -- =========================================================================
-  -- THE NATIVE V3 WAY: Inline Preset Forcing via Structural Branching
+  -- THE NATIVE V3 WAY: Structural Branching Definition
   -- =========================================================================
-  -- We push your whole configuration tree inside a single, clean wk.add block.
-  -- Specifying layout attributes directly on the root key ensures it modifies *only* your menu!
-  wk.add({
-    {
-      config.menu_key,
-      group = config.menu_name,
-      icon = icon,
+  -- Base configuration node for your root menu trigger path
+  local root_node = {
+    config.menu_key,
+    group = config.menu_name,
+    icon = icon,
 
-      -- FORCES TRUE HELIX RENDERING AND PERFECT RIGHT-ALIGNMENT FOR THIS BRANCH ONLY:
-      preset = 'helix',
+    -- FORCES TRUE HELIX RENDERING AND PERFECT RIGHT-ALIGNMENT FOR THIS BRANCH ONLY:
+    preset = 'helix',
 
-      -- Inject options modifying only this specific panel window popup layout instance
-      win = {
-        position = 'bottom',
-        border = 'single',
-        -- Injects your Nerd Font icon symbol text directly onto the window title border!
-        title = '  ' .. config.menu_name .. ' ',
-        title_pos = 'center',
-      },
-
-      -- Unpack every single child element inside this localized preset branch rule
-      -- Using standard table unpacking allows all 10+ items to populate instantly
-      table.unpack(nested_items),
+    -- Inject window properties modifying only this specific popup panel instance
+    win = {
+      position = 'bottom',
+      border = 'single',
+      -- Injects your Nerd Font icon symbol text directly onto the window title border!
+      title = '  ' .. config.menu_name .. ' ',
+      title_pos = 'center',
     },
-  })
+  }
+
+  -- Inject all compiled sub-bindings cleanly inside your root node list layout
+  for _, item in ipairs(nested_items) do
+    table.insert(root_node, item)
+  end
+
+  -- Safely push the completed layout to Which-Key's core mapping engine
+  wk.add({ root_node })
   -- =========================================================================
 end
 
