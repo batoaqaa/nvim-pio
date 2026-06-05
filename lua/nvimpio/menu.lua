@@ -45,7 +45,7 @@ local function render_helix_float(title, items, on_back)
   local key_mappings = {}
   local max_desc_len = 0
 
-  -- Measure item sizes to calculate boundaries dynamically
+  -- 1. Scan the tree first to compute the max description layout width
   for _, item in ipairs(items or {}) do
     local label = item.node == 'menu' and ('+' .. item.desc) or item.desc
     if #label > max_desc_len then
@@ -53,7 +53,7 @@ local function render_helix_float(title, items, on_back)
     end
   end
 
-  -- THE HELIX VISUAL SIGNATURE: Left-align labels, pad right, right-align hotkey brackets
+  -- 2. Build explicit mappings padding descriptions to replicate the Helix preset layout
   for _, item in ipairs(items or {}) do
     local shortcut_str = '[' .. item.shortcut .. ']'
     local label = item.node == 'menu' and ('+' .. item.desc) or item.desc
@@ -67,21 +67,20 @@ local function render_helix_float(title, items, on_back)
     table.insert(display_lines, '  Back          [<BS>]  ')
   end
 
-  -- Instantiate an unlisted scratchpad buffer container
+  -- 3. Compute window positioning metrics centering right over the current screen
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, display_lines)
 
   local width = max_desc_len + 12
   local height = #display_lines
-  local ui = vim.api.nvim_list_uis()[1]
+  local ui = vim.api.nvim_list_uis()
 
-  -- Open the custom centered floating canvas window profile
   local win = vim.api.nvim_open_win(buf, true, {
     relative = 'editor',
     width = width,
     height = height,
-    col = ui and ((ui.width - width) / 2) or 12,
-    row = ui and ((ui.height - height) / 2) or 10,
+    col = ui and ui[1] and ((ui[1].width - width) / 2) or 15,
+    row = ui and ui[1] and ((ui[1].height - height) / 2) or 10,
     style = 'minimal',
     border = 'single',
     title = ' ' .. title .. ' ',
