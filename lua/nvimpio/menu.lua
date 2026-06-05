@@ -62,26 +62,30 @@ function M.buildUserMenu(config)
   local icon = { icon = '  ', color = 'orange' } -- Assign platformio orange icon
   local sub_bindings = {}
 
-  -- Flat traversal parser building clean, relative sub-shortcuts (e.g. "b", "e", "a")
-  local function traverseMenu(menu, wkey)
+  -- Flat traversal parser building clean, relative shortcuts (e.g. "b", "e", "a")
+  -- We start from an empty base string "" to let Which-Key group them under the main trigger!
+  local function traverseMenu(menu)
+    local bindings = {}
     for _, child_node in ipairs(menu or {}) do
-      local current_key = wkey .. child_node.shortcut
       if child_node.node == 'menu' then
-        table.insert(sub_bindings, { current_key, group = child_node.desc, icon = icon })
-        traverseMenu(child_node.items, current_key)
+        table.insert(bindings, {
+          child_node.shortcut,
+          group = child_node.desc,
+          icon = icon,
+          -- Recursively pack submenus using standard v3 structure nesting arrays
+          traverseMenu(child_node.items),
+        })
       elseif child_node.node == 'item' then
-        table.insert(sub_bindings, {
-          current_key,
-          '<cmd>' .. child_node.command .. '<CR>',
+        table.insert(bindings, {
+          child_node.shortcut,
+          '<cmd>' .. child_node.command .. '<CR>', -- Pristine, space-free command execution string
           desc = child_node.desc,
           icon = icon,
         })
       end
     end
+    return bindings
   end
-
-  -- Parse all internal submenus starting from an empty root string ""
-  traverseMenu(config.menu_bindings, '')
 
   -- Safely require which-key without crashing Neovim profiles lacking it
   local ok, wk = pcall(require, 'which-key')
@@ -89,38 +93,35 @@ function M.buildUserMenu(config)
     return
   end
 
+  -- Parse all internal bindings recursively into a nested structural layout array
+  local nested_items = traverseMenu(config.menu_bindings)
+
   -- =========================================================================
-  -- THE PROXY COMMAND COMMAND SYSTEM (FORCES HELIX AND LOADS ALL ITEMS)
+  -- THE NATIVE V3 WAY: Inline Preset Forcing via Structural Branching
   -- =========================================================================
-
-  -- 1. Register a global user command that explicitly spawns an isolated Helix window
-  vim.api.nvim_create_user_command('PioMenu', function()
-    -- Closes any leftover parent Which-Key visual layout panels instantly
-    pcall(function()
-      require('which-key.view').close()
-    end)
-
-    -- Force-open your menu bindings using a clean, fresh Helix instantiation block
-    wk.show({
-      spec = sub_bindings,
-      preset = 'helix', -- ENFORCES FLUSH-RIGHT SHORTCUT KEYS INSTANTLY
-      win = {
-        position = 'bottom',
-        border = 'single',
-        title = '  ' .. config.menu_name .. ' ',
-        title_pos = 'center',
-      },
-    })
-  end, { force = true })
-
-  -- 2. Register your menu key inside Which-Key to map directly to our new user command
-  -- This ensures it shows up cleanly as "\ ➜  +PlatformIO" on the main leader pane!
+  -- We push your whole configuration tree inside a single, clean wk.add block.
+  -- Specifying layout attributes directly on the root key ensures it modifies *only* your menu!
   wk.add({
     {
       config.menu_key,
-      '<cmd>PioMenu<CR>', -- When pressed, it executes the command and boots the Helix menu!
-      desc = config.menu_name,
+      group = config.menu_name,
       icon = icon,
+
+      -- FORCES TRUE HELIX RENDERING AND PERFECT RIGHT-ALIGNMENT FOR THIS BRANCH ONLY:
+      preset = 'helix',
+
+      -- Inject options modifying only this specific panel window popup layout instance
+      win = {
+        position = 'bottom',
+        border = 'single',
+        -- Injects your Nerd Font icon symbol text directly onto the window title border!
+        title = '  ' .. config.menu_name .. ' ',
+        title_pos = 'center',
+      },
+
+      -- Unpack every single child element inside this localized preset branch rule
+      -- Using standard table unpacking allows all 10+ items to populate instantly
+      table.unpack(nested_items),
     },
   })
   -- =========================================================================
