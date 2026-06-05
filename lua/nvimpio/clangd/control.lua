@@ -586,12 +586,12 @@ function M.init(clangd)
   require('nvimpio.clangd.attach')
 
   -- Apply and Enable
-  -- local getClangdConfig = require('nvimpio.clangd.control').getClangdConfig
-  -- if getClangdConfig then
-    -- local clangConfig = M.getClangdConfig()
-    -- vim.lsp.config('clangd', clangConfig)
-    -- vim.lsp.enable('clangd')
-  -- end
+  local getClangdConfig = require('nvimpio.clangd.control').getClangdConfig
+  if getClangdConfig then
+    local clangConfig = M.getClangdConfig()
+    vim.lsp.config('clangd', clangConfig)
+    vim.lsp.enable('clangd')
+  end
 
   require('nvimpio.clangd.commands')
   -- vim.api.nvim_create_user_command('PioFilter', function()
