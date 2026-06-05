@@ -104,6 +104,8 @@ function M.setup(user_opts)
   user_opts = user_opts or {}
   M.options = vim.deepcopy(user_opts)
 
+  M.initialize_full_options()
+
   -- INFO: Pioini
   vim.api.nvim_create_user_command('Pioinit', function()
     vim.g.platformioRootDir = vim.uv.cwd()
