@@ -54,6 +54,8 @@ return {
         support = true,
         install = false,
       },
+      menu_key = '<leader>\\', -- replace this menu key  to your convenience
+      menu_name = 'PlatformIO', -- replace this menu name to your convenience
     })
   end,
 }
