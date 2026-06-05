@@ -71,7 +71,7 @@ function M.buildUserMenu(config)
       elseif child_node.node == 'item' then
         table.insert(wk_table, {
           wkey .. child_node.shortcut,
-          '<cmd>' .. child_node.command .. '<CR>', -- Fixed space bug inside execution strings
+          '<cmd>' .. child_node.command .. '<CR>', -- Fixed the syntax space bug cleanly
           desc = child_node.desc,
           icon = icon,
         })
@@ -92,41 +92,17 @@ function M.buildUserMenu(config)
   traverseMenu(config.menu_bindings, config.menu_key)
 
   -- =========================================================================
-  -- SAFE RUNTIME WRAPPER COUPLING LAYER
+  -- SAFE LOCALIZED PRESET OVERRIDE (CRASH-FREE APPROACH)
   -- =========================================================================
-  -- 1. Introspect and back up the user's entire real configuration state dynamically
-  local wk_config = require('which-key.config')
-  local user_backup = vim.deepcopy(wk_config)
-
-  -- 2. Establish a unified, safe fallback container for uninitialized spaces
-  local delay_val = user_backup.delay or 0
-  local icons_val = user_backup.icons or { mappings = vim.g.have_nerd_font }
-
-  -- 3. Execute setup modifications to lock in Helix metrics across the engine layout cache
-  wk.setup({
-    preset = 'helix',
-    delay = delay_val,
-    icons = icons_val,
+  -- Which-Key v3 expects options as an independent dictionary block inside the add loop
+  wk.add(wk_table, {
+    preset = 'helix', -- Pass the layout preset straight to the local add context
     sort = { 'order', 'group', 'manual', 'mod' },
+    win = {
+      position = 'bottom',
+      border = 'single',
+    },
   })
-
-  -- 4. Inject your plugin array definitions securely
-  wk.add(wk_table)
-
-  -- 5. Restore the user's entire environment footprint completely unmarred in the background
-  vim.schedule(function()
-    -- Restore original reference properties safely
-    for k, v in pairs(wk_config) do
-      wk_config[k] = nil
-    end
-    for k, v in pairs(user_backup) do
-      wk_config[k] = v
-    end
-
-    -- Force Which-Key to re-cache back onto the user's preferred native layout specification
-    local r_wk = require('which-key')
-    r_wk.setup({ preset = user_backup.preset or 'classic' })
-  end)
   -- =========================================================================
 end
 
