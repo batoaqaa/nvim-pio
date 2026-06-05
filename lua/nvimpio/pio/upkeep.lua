@@ -295,7 +295,9 @@ function M.configure_hardware_parameters()
     end)
   end
   run(1)
-  _G.metadata.isBusy = false
+  vim.defer_fn(function()
+    _G.metadata.isBusy = false
+  end, 500)
 end
 
 -- good
