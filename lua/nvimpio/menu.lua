@@ -60,23 +60,29 @@ function M.buildUserMenu(config)
   end
 
   local icon = { icon = '  ', color = 'orange' }
-  local wk_table = { mode = { 'n', 'v' } }
 
   -- Recursive menu hierarchy mapping iterator traversal flattening algorithm
-  local function traverseMenu(menu, wkey)
+  local function traverseMenu(menu)
+    local sub_tree = {}
     for _, child_node in ipairs(menu or {}) do
       if child_node.node == 'menu' then
-        traverseMenu(child_node.items, wkey .. child_node.shortcut)
-        table.insert(wk_table, { wkey .. child_node.shortcut, group = child_node.desc, icon = icon })
+        -- Recursively pack submenus inside nested spec layout definitions
+        table.insert(sub_tree, {
+          child_node.shortcut,
+          group = child_node.desc,
+          icon = icon,
+          expand = traverseMenu(child_node.items),
+        })
       elseif child_node.node == 'item' then
-        table.insert(wk_table, {
-          wkey .. child_node.shortcut,
-          '<cmd>' .. child_node.command .. '<CR>', -- Pristine syntax space fix
+        table.insert(sub_tree, {
+          child_node.shortcut,
+          '<cmd>' .. child_node.command .. '<CR>', -- Clean, space-free command execution string
           desc = child_node.desc,
           icon = icon,
         })
       end
     end
+    return sub_tree
   end
 
   -- Safely assert Which-Key access without crashing Neovim profiles lacking it
@@ -85,49 +91,24 @@ function M.buildUserMenu(config)
     return
   end
 
-  -- Parse inner submenus under your main trigger key path
-  traverseMenu(config.menu_bindings, config.menu_key)
-
   -- =========================================================================
-  -- THE NATIVE PROXY INTERCEPT PATTERN (FORCES HELIX PERFECTLY WITH ZERO CRASHES)
+  -- THE V3 SPEC NESTING LAYOUT ENGINE (FORCES HELIX PROFILES PERFECTLY)
   -- =========================================================================
+  wk.add({
+    {
+      config.menu_key,
+      group = config.menu_name,
+      icon = icon,
 
-  -- 1. Register the root menu string in Which-Key globally so it shows up in top-level menus
-  table.insert(wk_table, {
-    config.menu_key,
-    group = config.menu_name,
-    icon = icon,
-  })
-  wk.add(wk_table)
+      -- FORCES HELIX FOR THIS BRANCH ONLY:
+      -- Passing layout preset configurations nested inline directly onto your
+      -- root trigger key dictionary layout structure forces Which-Key v3 to
+      -- completely evaluate this specific path branch layout using Helix right-aligned metrics!
+      preset = 'helix',
 
-  -- 2. Bind a standard native keymap to intercept the exact shortcut execution event block
-  vim.keymap.set({ 'n', 'v' }, config.menu_key, function()
-    local wk_config = require('which-key.config')
-
-    -- Save full state configurations parameters to avoid setting leaks
-    local old_preset = wk_config.preset or 'classic'
-    local old_align = wk_config.layout and wk_config.layout.align or 'left'
-
-    -- Hot-swap raw alignment and preset structures inside memory
-    wk_config.preset = 'helix'
-    if wk_config.layout then
-      wk_config.layout.align = 'right'
-    end
-
-    -- Trigger manual show to force a total visual engine refresh using Helix metrics
-    wk.show({
-      keys = config.menu_key,
-      spec = wk_table,
-    })
-
-    -- Instantly restore user options cleanly right behind the active popup layout window
-    wk_config.preset = old_preset
-    if wk_config.layout then
-      wk_config.layout.align = old_align
-    end
-  end, {
-    desc = string.format('Open %s Menu', config.menu_name),
-    silent = true,
+      -- Generate and expand your plugin mappings natively inside this isolated branch spec
+      expand = traverseMenu(config.menu_bindings),
+    },
   })
   -- =========================================================================
 end
