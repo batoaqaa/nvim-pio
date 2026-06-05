@@ -90,7 +90,7 @@ function M.activate()
   isActivated = true
   -- vim.schedule(function ()
   vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
-  M.initialize_full_options()
+  -- M.initialize_full_options()
   local menu = require('nvimpio.menu')
   menu.buildUserMenu(M.options)
   require('nvimpio.pio.control').init(M.options.clangd)
