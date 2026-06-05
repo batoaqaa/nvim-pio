@@ -71,7 +71,7 @@ function M.buildUserMenu(config)
       elseif child_node.node == 'item' then
         table.insert(wk_table, {
           wkey .. child_node.shortcut,
-          '<cmd>' .. child_node.command .. '<CR>', -- Fixed the syntax space bug cleanly
+          '<cmd>' .. child_node.command .. '<CR>', -- Fixed space bug inside execution strings
           desc = child_node.desc,
           icon = icon,
         })
@@ -85,29 +85,6 @@ function M.buildUserMenu(config)
     return
   end
 
-  -- Initialize Which-Key layout defaults safely if it hasn't loaded yet
-  local is_whichkey_loaded = package.loaded['which-key'] ~= nil
-  if not is_whichkey_loaded then
-    wk.setup({
-      delay = 0,
-      icons = {
-        mappings = vim.g.have_nerd_font,
-        keys = vim.g.have_nerd_font and {} or {
-          Up = '<Up> ',
-          Down = '<Down> ',
-          Left = '<Left> ',
-          Right = '<Right> ',
-          C = '<C-…> ',
-          M = '<M-…> ',
-          D = '<D-…> ',
-          S = '<S-…> ',
-          CR = '<CR> ',
-          Esc = '<Esc> ',
-        },
-      },
-    })
-  end
-
   -- Base Root Trigger Menu assignment mapping
   table.insert(wk_table, { config.menu_key, group = config.menu_name, icon = icon })
 
@@ -115,24 +92,42 @@ function M.buildUserMenu(config)
   traverseMenu(config.menu_bindings, config.menu_key)
 
   -- =========================================================================
-  -- THE INLINE OVERRIDE WAY: Replicate Helix metrics cleanly inside execution parameters
+  -- SAFE RUNTIME WRAPPER COUPLING LAYER
   -- =========================================================================
-  wk.add(wk_table, {
-    sort = { 'order', 'group', 'manual', 'mod' }, -- Enforce isolated menu list order
-    expand = 0, -- Prevting spilling panels side-by-side
+  -- 1. Introspect and back up the user's entire real configuration state dynamically
+  local wk_config = require('which-key.config')
+  local user_backup = vim.deepcopy(wk_config)
 
-    -- Manually specify layout configurations mimicking the exact Helix core specifications:
-    layout = {
-      align = 'right', -- THE VISUAL SIGNATURE: Right-align hotkeys next to descriptions
-      width = { min = 25, max = 50 },
-      spacing = 4, -- Precise padding columns margins
-    },
-    win = {
-      position = 'bottom', -- Forces standard baseline rendering panel position
-      border = 'single', -- Clean sharp perimeter borders style matching helix layout rules
-      padding = { 1, 2, 1, 2 }, -- Top, Right, Bottom, Left margins spacing layout inside window panel
-    },
+  -- 2. Establish a unified, safe fallback container for uninitialized spaces
+  local delay_val = user_backup.delay or 0
+  local icons_val = user_backup.icons or { mappings = vim.g.have_nerd_font }
+
+  -- 3. Execute setup modifications to lock in Helix metrics across the engine layout cache
+  wk.setup({
+    preset = 'helix',
+    delay = delay_val,
+    icons = icons_val,
+    sort = { 'order', 'group', 'manual', 'mod' },
   })
+
+  -- 4. Inject your plugin array definitions securely
+  wk.add(wk_table)
+
+  -- 5. Restore the user's entire environment footprint completely unmarred in the background
+  vim.schedule(function()
+    -- Restore original reference properties safely
+    for k, v in pairs(wk_config) do
+      wk_config[k] = nil
+    end
+    for k, v in pairs(user_backup) do
+      wk_config[k] = v
+    end
+
+    -- Force Which-Key to re-cache back onto the user's preferred native layout specification
+    local r_wk = require('which-key')
+    r_wk.setup({ preset = user_backup.preset or 'classic' })
+  end)
+  -- =========================================================================
 end
 
 return M
