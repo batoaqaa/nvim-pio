@@ -3,7 +3,7 @@
 
 -- 1. Initialize the global environment natively by importing your OS module layout
 -- Adjust the path context below to point directly to your system info setup file
-require('nvimpio.os')
+require('nvimpio.osInfo')
 
 -- 2. Safely capture the global type casting schema to satisfy the Lls_lua diagnostic engine
 local OS = _G.OS ---@cast OS +OS
