@@ -62,90 +62,52 @@ end
 ---Processes the final configuration state and maps interactive menus to Which-Key
 ---@param config table The fully validated runtime options table
 function M.buildUserMenu(config)
+  if config == nil or config.menu_key == nil then
+    return
+  end
+
   local icon = { icon = '  ', color = 'orange' } -- Assign platformio orange icon
   local wk_table = { mode = { 'n', 'v' } }
 
   local function traverseMenu(menu, wkey)
-    for _, child_node in ipairs(menu) do
+    for _, child_node in ipairs(menu or {}) do
       if child_node.node == 'menu' then
         traverseMenu(child_node.items, wkey .. child_node.shortcut)
         table.insert(wk_table, { wkey .. child_node.shortcut, group = child_node.desc, icon = icon })
       elseif child_node.node == 'item' then
         table.insert(wk_table, {
           wkey .. child_node.shortcut,
-          '<cmd> ' .. child_node.command .. '<CR>',
+          '<cmd>' .. child_node.command .. '<CR>', -- FIX: Removed the buggy space after <cmd>
           desc = child_node.desc,
           icon = icon,
         })
       end
     end
   end
-  if config.menu_key == nil then
+
+  -- Safely require which-key without crashing if the user doesn't have it installed
+  local ok, wk = pcall(require, 'which-key')
+  if not ok then
     return
   end
 
-  local wk_config = { preset = 'helix' }
-  local is_whichkey_loaded = package.loaded['which-key'] ~= nil
-  local ok, wk = pcall(require, 'which-key')
-  if ok then
-    if not is_whichkey_loaded then
-      wk.setup({
-        preset = 'helix', --"classic", --"helix", --
-        delay = 0,
-        icons = {
-          -- set icon mappings to true if you have a Nerd Font
-          mappings = vim.g.have_nerd_font,
-          -- If you are using a Nerd Font: set icons.keys to an empty table which will use the
-          -- default which-key.nvim defined Nerd Font icons, otherwise define a string table
-          keys = vim.g.have_nerd_font and {} or {
-            Up = '<Up> ',
-            Down = '<Down> ',
-            Left = '<Left> ',
-            Right = '<Right> ',
-            C = '<C-…> ',
-            M = '<M-…> ',
-            D = '<D-…> ',
-            S = '<S-…> ',
-            CR = '<CR> ',
-            Esc = '<Esc> ',
-            ScrollWheelDown = '<ScrollWheelDown> ',
-            ScrollWheelUp = '<ScrollWheelUp> ',
-            NL = '<NL> ',
-            BS = '<BS> ',
-            Space = '<Space> ',
-            Tab = '<Tab> ',
-            F1 = '<F1>',
-            F2 = '<F2>',
-            F3 = '<F3>',
-            F4 = '<F4>',
-            F5 = '<F5>',
-            F6 = '<F6>',
-            F7 = '<F7>',
-            F8 = '<F8>',
-            F9 = '<F9>',
-            F10 = '<F10>',
-            F11 = '<F11>',
-            F12 = '<F12>',
-          },
-        },
-        -- sort = { "order", "group", "manual", "mod" },
-        sort = { 'local', 'order', 'group', 'alphanum', 'mod' },
-      })
-    else
-      require('which-key').setup({ preset = 'helix' })
-    end
-    -- vim.api.nvim_echo({ { 'which-key plugin not found!', 'ErrorMsg' } }, true, {})
-    -- return
-  end
+  -- =========================================================================
+  -- THE CORRECT V3 WAY: Attach the preset directly to your root menu item
+  -- =========================================================================
+  table.insert(wk_table, {
+    config.menu_key,
+    group = config.menu_name,
+    icon = icon,
+    preset = 'helix', -- Enforces helix visual style ONLY for this menu group tree branch!
+  })
 
-  local wkConfig = require('which-key.config')
-  wkConfig.sort = { 'order', 'group', 'manual', 'mod' }
-
-  table.insert(wk_table, { config.menu_key, group = config.menu_name, icon = icon })
-
+  -- Flatten the configuration array menu items definitions
   traverseMenu(config.menu_bindings, config.menu_key)
 
-  wk.add(wk_table)
+  -- Send directly to the mapping engine with isolated sorting overrides
+  wk.add(wk_table, {
+    sort = { 'order', 'group', 'manual', 'mod' }, -- Safely handles sorting isolated only to this block
+  })
 end
 -- function M.buildUserMenu(config)
 --   if config == nil or config.menu_key == nil then
