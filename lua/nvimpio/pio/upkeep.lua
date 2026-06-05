@@ -105,7 +105,7 @@ function M.get_connected_ports()
 
   -- Spawn an explicit JSON hardware scan via the core engine
   local ok, obj = pcall(function()
-    return vim.system({ 'pio', 'device', 'list', '--json' }):wait()
+    return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait()
   end)
 
   if not ok or not obj or obj.code ~= 0 or not obj.stdout then
