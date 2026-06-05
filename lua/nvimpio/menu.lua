@@ -7,8 +7,12 @@ local M = {}
 ---@param path string Context indicator string for verbose error outputs
 ---@return table merged_tree The synthesized final array layout
 function M.merge_menu_tree(defaults, overrides, path)
-  if type(overrides) ~= 'table' then return vim.deepcopy(defaults) end
+  if type(overrides) ~= 'table' then
+    return vim.deepcopy(defaults)
+  end
+
   local res = vim.deepcopy(defaults)
+
   for _, u_node in ipairs(overrides) do
     if type(u_node) == 'table' then
       local matched_node = nil
@@ -23,144 +27,105 @@ function M.merge_menu_tree(defaults, overrides, path)
           end
         end
       end
+
       if matched_node then
         if u_node.shortcut then matched_node.shortcut = u_node.shortcut end
         if u_node.desc then matched_node.desc = u_node.desc end
         if u_node.command then matched_node.command = u_node.command end
+
         if matched_node.node == 'menu' and u_node.items then
           matched_node.items = M.merge_menu_tree(matched_node.items or {}, u_node.items, path .. '.items')
         end
       else
         local new_node = vim.deepcopy(u_node)
         new_node.node = new_node.node or 'item'
+
         if new_node.node == 'menu' then
           new_node.items = M.merge_menu_tree({}, u_node.items or {}, path .. '.items')
         end
+
         table.insert(res, new_node)
       end
     end
   end
+
   return res
 end
 
----Renders a pure, native floating window modeled exactly after the Helix menu layout
-local function render_helix_float(title, items, on_back)
-  local display_lines = {}
-  local key_mappings = {}
-  local max_desc_len = 0
-
-  -- 1. Scan the active level items to find the longest description label string width
-  for _, item in ipairs(items or {}) do
-    local label = item.node == 'menu' and ('+' .. item.desc) or item.desc
-    if #label > max_desc_len then
-      max_desc_len = #label
-    end
-  end
-
-  -- 2. Build the visual text layout padding right-aligning the hotkey shortcut labels perfectly
-  for _, item in ipairs(items or {}) do
-    local shortcut_str = '[' .. item.shortcut .. ']'
-    local label = item.node == 'menu' and ('+' .. item.desc) or item.desc
-
-    -- THE TRUE HELIX SIGNATURE: Flush-right matching via precise trailing space math
-    local padding = string.rep(' ', (max_desc_len - #label) + 6)
-    table.insert(display_lines, '  ' .. label .. padding .. shortcut_str .. '  ')
-    key_mappings[item.shortcut:lower()] = item
-  end
-
-  -- Append structural navigation hints if we are inside a nested submenu branch
-  if on_back then
-    table.insert(display_lines, string.rep('─', max_desc_len + 14))
-    table.insert(display_lines, '  Back          ' .. string.rep(' ', max_desc_len - 4) .. '[<BS>] ')
-  end
-
-  -- 3. Open an unlisted, temporary scratchpad canvas buffer memory row
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, display_lines)
-
-  local width = max_desc_len + 14
-  local height = #display_lines
-  local ui = vim.api.nvim_list_uis()
-
-  -- Spawns the clean centered screen popup floating layout window
-  local win = vim.api.nvim_open_win(buf, true, {
-    relative = 'editor',
-    width = width,
-    height = height,
-    col = ui and ui[1] and ((ui[1].width - width) / 2) or 15,
-    row = ui and ui[1] and ((ui[1].height - height) / 2) or 10,
-    style = 'minimal',
-    border = 'single',
-    title = '   ' .. title .. ' ',
-    title_pos = 'center',
-  })
-
-  -- Apply professional Neovim float palette background highlights configurations
-  vim.wo[win].winhl = 'Normal:NormalFloat,Border:FloatBorder'
-  vim.bo[buf].modifiable = false
-
-  local function close_menu()
-    if vim.api.nvim_win_is_valid(win) then
-      vim.api.nvim_win_close(win, true)
-    end
-  end
-
-  -- 4. Map navigation interception hotkeys cleanly bound strictly to this window buffer
-  vim.keymap.set('n', '<Esc>', close_menu, { buffer = buf, silent = true })
-
-  if on_back then
-    vim.keymap.set('n', '<BS>', function()
-      close_menu()
-      on_back()
-    end, { buffer = buf, silent = true })
-  end
-
-  for shortcut, item in pairs(key_mappings) do
-    vim.keymap.set('n', shortcut, function()
-      close_menu()
-      if item.node == 'item' then
-        -- Native execution trigger call
-        vim.cmd(item.command)
-      elseif item.node == 'menu' then
-        -- Recursively open the nested branch, passing a back-closure reference
-        render_helix_float(item.desc, item.items, function()
-          render_helix_float(title, items, on_back)
-        end)
-      end
-    end, { buffer = buf, silent = true })
-  end
-end
-
----Processes the final options configuration maps and initializes triggers
+---Processes the final configuration state and maps interactive menus to Which-Key
+---@param config table The fully validated runtime options table
 function M.buildUserMenu(config)
   if config == nil or config.menu_key == nil then
     return
   end
 
-  -- =========================================================================
-  -- CLEAN KEYBOARD COUPLING INTERCEPT LAYER
-  -- =========================================================================
-  -- 1. Create a native Neovim keymap pointing directly to our Helix engine loop
-  -- This executes instantly when <leader>\ is struck, bypassing Which-Key's rendering hooks!
-  vim.keymap.set('n', config.menu_key, function()
-    -- Closes Which-Key's active parent lookup dashboard window buffer if it's currently open
-    pcall(function()
-      require('which-key.view').close()
-    end)
+  local icon = { icon = '  ', color = 'orange' } -- Assign platformio orange icon
+  local wk_table = {}
 
-    -- Renders your pristine, flawless native Helix panel overlay window
-    render_helix_float(config.menu_name, config.menu_bindings, nil)
-  end, { desc = string.format('Toggle %s Menu Window', config.menu_name), silent = true })
-
-  -- 2. Statically register a single simple label definition inside Which-Key if it exists
-  -- This guarantees your menu shows up cleanly as "\ ➜ PlatformIO" on their leader dash,
-  -- but running it seamlessly drops straight out to our clean native float canvas instead!
-  local ok, wk = pcall(require, 'which-key')
-  if ok then
-    wk.add({
-      { config.menu_key, group = config.menu_name, icon = { icon = '  ', color = 'orange' } },
-    })
+  -- =========================================================================
+  -- LEADER EXPANSION LAYER: Resolves mapping string conflicts for Which-Key
+  -- =========================================================================
+  local base_key = config.menu_key
+  if base_key:sub(1, 8):lower() == '<leader>' then
+    local map_leader = vim.g.mapleader or ' '
+    base_key = map_leader .. base_key:sub(9)
   end
+
+  -- Flat traversal parser building absolute sequential keys that Which-Key requires
+  local function traverseMenu(menu, wkey)
+    for _, child_node in ipairs(menu or {}) do
+      local current_key = wkey .. child_node.shortcut
+      if child_node.node == 'menu' then
+        table.insert(wk_table, { current_key, group = child_node.desc, icon = icon })
+        traverseMenu(child_node.items, current_key)
+      elseif child_node.node == 'item' then
+        table.insert(wk_table, {
+          current_key,
+          '<cmd>' .. child_node.command .. '<CR>', -- Fixed the syntax space bug after <cmd>
+          desc = child_node.desc,
+          icon = icon,
+        })
+      end
+    end
+  end
+
+  -- Safely require which-key without crashing Neovim profiles lacking it
+  local ok, wk = pcall(require, 'which-key')
+  if not ok then
+    return
+  end
+
+  -- 1. Parse all your submenus using the absolute base key prefix
+  traverseMenu(config.menu_bindings, base_key)
+
+  -- 2. Statically document the entry path inside Which-Key globally
+  -- This lists your menu cleanly as "\ ➜ PlatformIO" on their main leader dashboard!
+  wk.add({
+    { config.menu_key, group = config.menu_name, icon = icon },
+  })
+
+  -- =========================================================================
+  -- THE DYNAMIC RE-RENDERING FIX (FORCES HELIX AND LOADS ALL ITEMS)
+  -- =========================================================================
+  -- Bind a core native keymap straight to your config.menu_key sequence.
+  -- This intercepts execution before Which-Key applies its default cached layout panel!
+  vim.keymap.set({ 'n', 'v' }, config.menu_key, function()
+    -- Instruct the v3 engine to display a fresh layout popup specifically for your plugin tree
+    wk.show({
+      spec = wk_table, -- Passes the absolute key layout tree
+      preset = 'helix', -- FORCES TRUE HELIX RENDERING AND RIGHT-ALIGNMENT
+      win = {
+        position = 'bottom',
+        border = 'single',
+        -- Injects your Nerd Font icon symbol text directly onto the window title border
+        title = '  ' .. config.menu_name .. ' ',
+        title_pos = 'center',
+      },
+    })
+  end, {
+    desc = string.format('Open %s Action Panel', config.menu_name),
+    silent = true,
+  })
   -- =========================================================================
 end
 
