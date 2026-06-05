@@ -52,5 +52,5 @@ AUTHORS                                                       *pio-authors*
 
 Created by [Your Name/Username].
 Distributed under the MIT license.
-
+:helptags doc/
  vim:tw=78:ts=8:ft=help:norl:

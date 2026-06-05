@@ -265,25 +265,12 @@ local plugins = {
       'nvim-tree/nvim-web-devicons',
       config = function()
         require('lualine').setup({
-          options = {
-            globalstatus = true, -- Single statusline for all windows
-            extensios = { 'neo-treee' },
-          },
-          -- This replaces the visual part of bufferline
-          tabline = {
-            lualine_a = {
-              {
-                'buffers',
-                show_filename_only = true,
-                hide_filename_extension = false,
-                show_modified_status = true,
-                mode = 0, -- 0: Shows buffer name
-                max_length = vim.o.columns,
-                filetype_names = {
-                  NvimTree = 'Explorer',
-                  TelescopePrompt = 'Telescope',
-                },
-              },
+          sections = {
+            lualine_x = {
+              function()
+                return require('nvimpio.statusline').get_status_string()
+              end,
+              'filetype',
             },
           },
         })
