@@ -71,7 +71,7 @@ function M.buildUserMenu(config)
       elseif child_node.node == 'item' then
         table.insert(wk_table, {
           wkey .. child_node.shortcut,
-          '<cmd>' .. child_node.command .. '<CR>', -- Pristine syntax command block execution mapping string
+          '<cmd>' .. child_node.command .. '<CR>',
           desc = child_node.desc,
           icon = icon,
         })
@@ -86,29 +86,36 @@ function M.buildUserMenu(config)
   end
 
   -- Base Root Trigger Menu assignment mapping
-  table.insert(wk_table, { config.menu_key, group = config.menu_name, icon = icon })
+  table.insert(wk_table, {
+    config.menu_key,
+    group = config.menu_name,
+    icon = icon,
+  })
 
   -- Run tree flattening algorithm
   traverseMenu(config.menu_bindings, config.menu_key)
 
   -- =========================================================================
-  -- TARGETED LOW-LEVEL PROP INJECTIONS (EXACT V3 SCHEMA)
+  -- LOW-LEVEL SPEC OVERRIDES: FIX THE FLASHING LAYOUT GLITCH
   -- =========================================================================
   wk.add(wk_table, {
-    sort = { 'order', 'group', 'manual', 'mod' }, -- Enforce isolated menu list sorting order
-    expand = 0, -- Prevents horizontal column spillover
+    sort = { 'order', 'group', 'manual', 'mod' },
 
-    -- We pass the structural layout settings directly into the options block.
-    -- This enforces the exact right-aligned layout behavior of the Helix preset.
+    -- CRITICAL CONFIGURATION: This prevents your plugin trigger key sequence
+    -- from parsing inside the top-level automatic window container group layout loop
+    expand = 0,
+
+    -- Pass low-level attributes matching Helix design parameters.
+    -- This guarantees a clean render instantly when <leader>\ is complete.
     win = {
-      position = 'bottom', -- Locks appearance position at the bottom of the screen
-      border = 'single', -- Emulates Helix's signature sharp single borders
+      position = 'bottom',
+      border = 'single',
       width = { min = 20, max = 50 },
-      padding = { 1, 2, 1, 2 }, -- Standard window margins spacing layout inside window panel
+      padding = { 1, 2, 1, 2 },
     },
     layout = {
-      align = 'right', -- THE VISUAL SIGNATURE: Right-aligns key labels next to text [1]
-      spacing = 3, -- Column item padding width
+      align = 'right',
+      spacing = 3,
     },
   })
   -- =========================================================================
