@@ -84,40 +84,8 @@ function M.get_sysroot_triplet(cc_compiler)
     handle:close()
   end
 
-
-  -- if handle then
-  --   for line in handle:lines() do
-  --     -- Capture the macro name and its assigned value
-  --     local macro, value = line:match("#define%s+([%w_]+)%s+(.*)")
-  --     if macro and value ~= "" then
-  --       -- CONDITION 1: It is an architecture guard (starts with double underscores like __XTENSA__)
-  --       -- CONDITION 2: It defines a GCC compiler property (starts with __GNUC__)
-  --       -- CONDITION 3: It is a target chip configuration flag (starts with __ESP or matching board layouts)
-  --       if macro:match("^__") or macro:match("^%a+_") then
-  --         -- Filter out volatile/dynamic environment noise that breaks caching
-  --         if not (macro:match("TIME") or macro:match("DATE") or macro:match("FILE") or macro:match("LINE")) then
-  --           table.insert(auto_defines, "-D" .. macro .. "=" .. value)
-  --         end
-  --       end
-  --     end
-  --   end
-  --   handle:close()
-  -- end
-  -- if handle then
-  --   for line in handle:lines() do
-  --     -- Captures any architecture architecture tags (XTENSA, AVR, ARM, RISCV, STM32, etc.)
-  --     local macro, value = line:match("#define%s+([%w_]+)%s+(%d+)")
-  --     if macro and (macro:match("XTENSA") or macro:match("ESP32") or macro:match("ARM") or macro:match("MPC") or macro:match("AVR")) then
-  --       table.insert(auto_defines, "-D" .. macro .. "=" .. value)
-  --     end
-  --   end
-  --   handle:close()
-  -- end
-
   _G.metadata.auto_defines = auto_defines
 
-  -- We ALWAYS return the compiled dataset table if a valid bin directory was verified.
-  -- This guarantees your plugin never returns 'nil' under new Espressif folder designs!
   return {
     triplet = triplet,
     sysroot = _G.metadata.sysroot,
@@ -133,35 +101,84 @@ end
 -- stylua: ignore
 --=============================================================================
 -- Helper function to extract connected hardware ports using PlatformIO core
--- local function get_connected_ports()
---   if vim.fn.executable('pio') ~= 1 then
---     return {}
---   end
---
---   -- Spawn an explicit JSON hardware scan via the core engine
---   local ok, obj = pcall(function()
---     return vim.system({ 'pio', 'device', 'list', '--json' }):wait()
---   end)
---
---   if not ok or not obj or obj.code ~= 0 or not obj.stdout then
---     return {}
---   end
---
---   -- Parse output safely into data tables
---   local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
---   if not parse_ok or type(devices) ~= 'table' then
---     return {}
---   end
---
---   local paths = {}
---   for _, dev in ipairs(devices) do
---     if dev.port then
---       paths[dev.port] = true
---     end
---   end
---   return paths
--- end
+local function get_connected_ports()
+  if vim.fn.executable('pio') ~= 1 then
+    return {}
+  end
 
+  -- Spawn an explicit JSON hardware scan via the core engine
+  local ok, obj = pcall(function()
+    return vim.system({ 'pio', 'device', 'list', '--json' }):wait()
+  end)
+
+  if not ok or not obj or obj.code ~= 0 or not obj.stdout then
+    return {}
+  end
+
+  -- Parse output safely into data tables
+  local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
+  if not parse_ok or type(devices) ~= 'table' then
+    return {}
+  end
+
+  local paths = {}
+  for _, dev in ipairs(devices) do
+    if dev.port then
+      paths[dev.port] = true
+    end
+  end
+  return paths
+end
+
+---Queries active system hardware ports and opens an interactive selection picker
+---@param callback fun(port: string)? Optional action to run with the selected port name
+function M.select_active_port(callback)
+  -- 1. Scan the hardware bus via the core engine
+  local active_ports = get_connected_ports()
+
+  -- 2. Extract keys into a sequential array list layout for the selection interface
+  local port_list = {}
+  for port_path, _ in pairs(active_ports) do
+    table.insert(port_list, port_path)
+  end
+
+  -- Sort alphabetically so COM10 shows up consistently after COM3, etc.
+  table.sort(port_list)
+
+  -- 3. Fail-fast safety guard if no microcontrollers are detected
+  if #port_list == 0 then
+    if _G.OS and type(_G.OS.notify) == 'function' then
+      _G.OS.notify('No active PlatformIO serial devices detected. Check USB connections.', 'warn')
+    else
+      vim.notify('NVIM-PIO: No active serial devices detected.', vim.log.levels.WARN)
+    end
+    return
+  end
+
+  -- 4. Open Neovim's standardized, unified selection prompt window
+  vim.ui.select(port_list, {
+    prompt = ' Select Targeted Serial Upload Port ',
+    -- Format how the entries look inside the prompt window canvas
+    format_item = function(item)
+      return string.format('     %s ', item)
+    end,
+  }, function(selected_port)
+    -- If the user pressed <Esc> or aborted selection, cancel out cleanly
+    if not selected_port then
+      return
+    end
+
+    -- Trigger the optional callback action if provided, or default to setting an internal global state variable
+    if callback then
+      callback(selected_port)
+    else
+      vim.g.platformio_selected_port = selected_port
+      if _G.OS and type(_G.OS.notify) == 'function' then
+        _G.OS.notify('Target serial upload port locked to: ' .. selected_port, 'info')
+      end
+    end
+  end)
+end
 --=============================================================================
 --INFO:get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell

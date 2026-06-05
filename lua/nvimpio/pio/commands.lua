@@ -19,9 +19,9 @@ vim.api.nvim_create_user_command('PioPickEnv', function()
   require('nvimpio.pio.ui.activeEnvPicker').select_env_picker()
 end, { desc = 'Switch [E]nvironment' })
 
-vim.keymap.set('n', '<leader>\\e', function()
-  require('nvimpio.pio.ui.activeEnvPicker').select_env_picker()
-end, { desc = 'Switch [E]nvironment' })
+-- vim.keymap.set('n', '<leader>\\e', function()
+--   require('nvimpio.pio.ui.activeEnvPicker').select_env_picker()
+-- end, { desc = 'Switch [E]nvironment' })
 
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
@@ -94,6 +94,14 @@ end, {
   -- Autocompletion options
   complete = function(_, _, _) return { 'upload', 'uploadfs', 'build', 'clean' } end,
 })
+
+
+-- Add this command registry string helper directly to your setup hooks
+vim.api.nvim_create_user_command('PioSelectPort', function()
+  -- Adjust path string reference below to point to wherever you saved the wrapper function
+  require('nvimpio').select_active_port()
+end, { force = true })
+
 
 --INFO: Piomon
 -- piolsserial.sync_ttylist()

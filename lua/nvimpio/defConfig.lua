@@ -72,6 +72,7 @@ local defConfig = {
         { node = 'item', desc = '[D]evice list', shortcut = 'd', command = 'Piocmdf device list' },
         { node = 'item', desc = '[F]ull clean', shortcut = 'f', command = 'Piocmdf run -t fullclean' },
         { node = 'item', desc = '[M]onitor', shortcut = 'm', command = 'Piocmdh run -t monitor' },
+        { node = 'item', desc = '[P]ort select hardware', shortcut = 'p', command = 'PioSelectPort' },
         { node = 'item', desc = '[U]pload', shortcut = 'u', command = 'Piocmdf run -t upload' },
       },
     },
