@@ -39,67 +39,42 @@ function M.merge_menu_tree(defaults, overrides, path)
   return res
 end
 
----Renders a stable, standardized menu layout using Neovim's native selection engine
-local function show_native_picker(title, items, parent_menu_items)
-  -- 1. Format choices for display
-  local choices = {}
-  for _, item in ipairs(items or {}) do
-    local label = item.node == 'menu' and ('    ' .. item.desc) or ('    ' .. item.desc)
-    table.insert(choices, label)
-  end
-
-  if parent_menu_items then
-    table.insert(choices, '    Back')
-  end
-
-  -- 2. Open standard native selection window loop interface
-  vim.ui.select(choices, {
-    prompt = ' ' .. title .. ' ',
-  }, function(choice, index)
-    if not choice then
-      return
-    end -- User hit Esc to close cleanly
-
-    -- Handle Back tracking navigation choice
-    if choice == '    Back' and parent_menu_items then
-      show_native_picker('PlatformIO', parent_menu_items, nil)
-      return
-    end
-
-    local selected_item = items[index]
-    if not selected_item then
-      return
-    end
-
-    if selected_item.node == 'item' then
-      -- Execute target command string safely inside standard thread
-      vim.cmd(selected_item.command)
-    elseif selected_item.node == 'menu' then
-      -- Recursively dive deeper into submenus safely
-      show_native_picker(selected_item.desc, selected_item.items, items)
-    end
-  end)
-end
-
----Processes configuration parameters and provisions standard which-key entries
+---Processes the configuration parameters and structures a standard nested spec
 function M.buildUserMenu(config)
   if config == nil or config.menu_key == nil then
     return
   end
 
-  -- 1. Map your trigger shortcut straight to a clean, isolated native selection prompt script
-  vim.keymap.set('n', config.menu_key, function()
-    show_native_picker(config.menu_name, config.menu_bindings, nil)
-  end, { desc = string.format('Toggle %s Picker', config.menu_name), silent = true })
+  local icon = { icon = '  ', color = 'orange' }
+  local wk_table = {}
 
-  -- 2. Statically document the entry path inside Which-Key if it is installed
-  -- This lists your menu cleanly as "\ ➜ PlatformIO" on their leader dash,
-  -- but running it seamlessly drops straight out to Neovim's clean native engine selector!
+  -- 1. Base root key container assignment definition
+  table.insert(wk_table, { config.menu_key, group = config.menu_name, icon = icon })
+
+  -- 2. Clean, standard flat structural registration loop parser
+  local function traverseMenu(menu, wkey)
+    for _, child_node in ipairs(menu or {}) do
+      local current_key = wkey .. child_node.shortcut
+      if child_node.node == 'menu' then
+        table.insert(wk_table, { current_key, group = child_node.desc, icon = icon })
+        traverseMenu(child_node.items, current_key)
+      elseif child_node.node == 'item' then
+        table.insert(wk_table, {
+          current_key,
+          '<cmd>' .. child_node.command .. '<CR>',
+          desc = child_node.desc,
+          icon = icon,
+        })
+      end
+    end
+  end
+
+  traverseMenu(config.menu_bindings, config.menu_key)
+
+  -- 3. Pass raw nested layout dictionary straight into the Which-Key mapping registry
   local ok, wk = pcall(require, 'which-key')
   if ok then
-    wk.add({
-      { config.menu_key, group = config.menu_name, icon = { icon = '  ', color = 'orange' } },
-    })
+    wk.add(wk_table)
   end
 end
 
