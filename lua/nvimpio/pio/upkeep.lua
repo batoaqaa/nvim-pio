@@ -96,7 +96,7 @@ function M.get_sysroot_triplet(cc_compiler)
 end
 --INFO:
 -- Fast environment detection from platformio.ini file(no external calls)
--- stylua: ignore
+--- stylua: ignore
 --=============================================================================
 -- Helper function to extract connected hardware ports using PlatformIO core
 -- local function get_connected_ports()
@@ -130,47 +130,99 @@ end
 
 -- configure_hardware_parameters
 -- get_connected_ports
+
 function M.configure_hardware_parameters()
   local p_state = _G.metadata.port_parameters
-  if vim.fn.executable('pio') ~= 1 then return end
+  if vim.fn.executable('pio') ~= 1 then
+    return
+  end
 
   -- 1. Scan Ports with robust property fallbacks
-  local ok, obj = pcall(function() return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait() end)
+  local ok, obj = pcall(function()
+    return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait()
+  end)
   local ports = {}
   if ok and obj and obj.code == 0 and obj.stdout then
     for _, d in ipairs(vim.json.decode(obj.stdout) or {}) do
       local p = d.port or d.device
-      if p and p ~= "" then table.insert(ports, p) end
+      if p and p ~= '' then
+        table.insert(ports, p)
+      end
     end
   end
-  if #ports == 0 then return vim.notify("NVIM-PIO: No serial devices detected.", 3) end
+  if #ports == 0 then
+    return vim.notify('NVIM-PIO: No serial devices detected.', 3)
+  end
   table.sort(ports)
 
   -- 2. Declarative Step Definition Setup
   local b = { '9600', '19200', '38400', '57600', '115200', '230400', '460800', '921600' }
   local steps = {
-    { p = ' Select Upload Port ', c = ports, s = function(x) p_state.port = x end },
-    { p = ' Select Upload Speed ', c = b,     s = function(x) p_state.upload_speed = x end },
-    { p = ' Select Monitor Speed ', c = b,    s = function(x) p_state.monitor_speed = x end },
-    { p = ' Set Monitor RTS State ', c = {'0','1'}, s = function(x) p_state.monitor_rts = x end },
-    { p = ' Set Monitor DTR State ', c = {'0','1'}, s = function(x) p_state.monitor_dtr = x end }
+    {
+      p = ' Select Upload Port ',
+      c = ports,
+      s = function(x)
+        p_state.port = x
+        vim.env.PLATFORMIO_UPLOAD_PORT = x
+        vim.env.PLATFORMIO_MONITOR_PORT = x
+      end,
+    },
+    {
+      p = ' Select Upload Speed ',
+      c = b,
+      s = function(x)
+        p_state.upload_speed = x
+        vim.env.PLATFORMIO_UPLOAD_SPEED = x
+      end,
+    },
+    {
+      p = ' Select Monitor Speed ',
+      c = b,
+      s = function(x)
+        p_state.monitor_speed = x
+        vim.env.PLATFORMIO_MONITOR_SPEED = x
+      end,
+    },
+    {
+      p = ' Set Monitor RTS State ',
+      c = { '0', '1' },
+      s = function(x)
+        p_state.monitor_rts = x
+        vim.g.platformio_monitor_rts = x
+      end,
+    },
+    {
+      p = ' Set Monitor DTR State ',
+      c = { '0', '1' },
+      s = function(x)
+        p_state.monitor_dtr = x
+        vim.g.platformio_monitor_dtr = x
+      end,
+    },
   }
 
   -- 3. High-Performance Linear Wizard Runner
   local function run(i)
     if not steps[i] then
-      local msg = string.format("Config Locked: Port: %s | Upload: %s | Monitor: %s", p_state.port or "Auto", p_state.upload_speed or "Ini", p_state.monitor_speed or "Ini")
+      -- Visual summary text reflects proper hardware terminology
+      local msg = string.format(
+        'Injected: Port: %s | Upload: %s baud | Monitor: %s baud',
+        p_state.port or 'Auto',
+        p_state.upload_speed or 'Ini',
+        p_state.monitor_speed or 'Ini'
+      )
       return _G.OS and type(_G.OS.notify) == 'function' and _G.OS.notify(msg, 'info') or vim.notify(msg, 2)
     end
     vim.ui.select(steps[i].c, { prompt = steps[i].p }, function(sel)
-      if not sel then return end
+      if not sel then
+        return
+      end
       steps[i].s(sel)
       run(i + 1)
     end)
   end
   run(1)
 end
-
 --=============================================================================
 --INFO:get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
