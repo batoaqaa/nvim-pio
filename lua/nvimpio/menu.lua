@@ -62,13 +62,11 @@ function M.buildUserMenu(config)
   local icon = { icon = '  ', color = 'orange' }
   local wk_table = {}
 
-  -- Recursive flattening algorithm using clean local base paths
+  -- Recursive parser to build standard absolute paths that Which-Key requires
   local function traverseMenu(menu, wkey)
     for _, child_node in ipairs(menu or {}) do
       if child_node.node == 'menu' then
-        -- Register the group sub-heading node item natively
         table.insert(wk_table, { wkey .. child_node.shortcut, group = child_node.desc, icon = icon })
-        -- Continue tunneling down into nested items
         traverseMenu(child_node.items, wkey .. child_node.shortcut)
       elseif child_node.node == 'item' then
         table.insert(wk_table, {
@@ -81,40 +79,48 @@ function M.buildUserMenu(config)
     end
   end
 
-  -- Safely assert Which-Key access without crashing Neovim profiles lacking it
   local ok, wk = pcall(require, 'which-key')
   if not ok then
     return
   end
 
-  -- 1. Parse your user configuration bindings list into the execution tree
-  -- We start with an empty string "" to build relative structural shortcuts (e.g. "a", "g", "d")
-  traverseMenu(config.menu_bindings, '')
+  -- Parse all submenus using the absolute root menu prefix
+  traverseMenu(config.menu_bindings, config.menu_key)
 
-  -- 2. Statically register the root label inside the global which-key panel
-  -- This guarantees your menu is cleanly displayed as "\ ➜  +PlatformIO" on the main leader panel
+  -- =========================================================================
+  -- THE FUNCTION BRANCH OVERRIDE (FORCES ALL ITEMS AND HELIX STYLE)
+  -- =========================================================================
   wk.add({
-    { config.menu_key, group = config.menu_name, icon = icon },
-  })
+    {
+      config.menu_key,
+      group = config.menu_name,
+      icon = icon,
+      -- We pass a function inside the branch array instead of an action string.
+      -- This lets us hijack the display window the exact millisecond it is requested.
+      function()
+        -- 1. Grab Which-Key's runtime layout configuration layout context
+        local wk_config = require('which-key.config')
+        local original_preset = wk_config.preset or 'classic'
 
-  -- 3. Overwrite the native Neovim key handler interface for your exact key sequence
-  -- This intercepts the command chain before Which-Key triggers its default cached panel layout
-  vim.keymap.set({ 'n', 'v' }, config.menu_key, function()
-    -- Explicitly command the layout engine to render your menu inside a fresh isolated view layout
-    wk.show({
-      spec = wk_table,
-      preset = 'helix', -- FORCES THE HELIX LAYOUT AND RIGHT-ALIGNMENT INSTANTLY
-      win = {
-        position = 'bottom',
-        border = 'single',
-        title = ' ' .. config.menu_name .. ' ',
-        title_pos = 'center',
-      },
-    })
-  end, {
-    desc = string.format('Open %s Action Panel', config.menu_name),
-    silent = true,
+        -- 2. Force the preset value to Helix in active memory spaces
+        wk_config.preset = 'helix'
+
+        -- 3. Explicitly spawn the popup window container using the parsed absolute specs
+        wk.show({
+          keys = config.menu_key,
+          spec = wk_table,
+        })
+
+        -- 4. Cleanly restore their original layout preferences behind the scenes
+        -- We delay this by 20 milliseconds to guarantee the window completes its text alignment math first
+        vim.defer_fn(function()
+          local restore_config = require('which-key.config')
+          restore_config.preset = original_preset
+        end, 20)
+      end,
+    },
   })
+  -- =========================================================================
 end
 
 return M
