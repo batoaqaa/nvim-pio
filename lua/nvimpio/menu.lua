@@ -71,7 +71,7 @@ function M.buildUserMenu(config)
       elseif child_node.node == 'item' then
         table.insert(wk_table, {
           wkey .. child_node.shortcut,
-          '<cmd>' .. child_node.command .. '<CR>',
+          '<cmd>' .. child_node.command .. '<CR>', -- Pristine syntax space fix
           desc = child_node.desc,
           icon = icon,
         })
@@ -89,45 +89,46 @@ function M.buildUserMenu(config)
   traverseMenu(config.menu_bindings, config.menu_key)
 
   -- =========================================================================
-  -- THE INTERCEPT PATTERN: Register globally, but style dynamically
+  -- THE NATIVE PROXY INTERCEPT PATTERN (FORCES HELIX PERFECTLY WITH ZERO CRASHES)
   -- =========================================================================
 
-  -- 1. Register the root menu key in the global index table so it shows up in top-level menus
+  -- 1. Register the root menu string in Which-Key globally so it shows up in top-level menus
   table.insert(wk_table, {
     config.menu_key,
     group = config.menu_name,
     icon = icon,
-    -- Map your trigger key directly to a dynamic state transformation closure!
-    function()
-      local current_config = require('which-key.config')
-
-      -- Back up user's active preset choice safely to prevent layout bugs
-      local original_preset = current_config.preset or 'classic'
-
-      -- Force the layout configuration layout metrics to Helix rules right before processing
-      current_config.preset = 'helix'
-
-      -- Trigger an internal layout refresh manually without breaking the 'modes' buffer index
-      require('which-key.view').update()
-
-      -- Immediately open your menu tree view inside the newly refreshed window container
-      require('which-key').show({
-        keys = config.menu_key,
-        spec = wk_table,
-        preset = 'helix',
-      })
-
-      -- Automatically clean up and restore their preferred preset style right afterward
-      vim.schedule(function()
-        local restore_config = require('which-key.config')
-        restore_config.preset = original_preset
-        require('which-key.view').update()
-      end)
-    end,
   })
-
-  -- 2. Safely add everything to Which-Key's primary tree registry
   wk.add(wk_table)
+
+  -- 2. Bind a standard native keymap to intercept the exact shortcut execution event block
+  vim.keymap.set({ 'n', 'v' }, config.menu_key, function()
+    local wk_config = require('which-key.config')
+
+    -- Save full state configurations parameters to avoid setting leaks
+    local old_preset = wk_config.preset or 'classic'
+    local old_align = wk_config.layout and wk_config.layout.align or 'left'
+
+    -- Hot-swap raw alignment and preset structures inside memory
+    wk_config.preset = 'helix'
+    if wk_config.layout then
+      wk_config.layout.align = 'right'
+    end
+
+    -- Trigger manual show to force a total visual engine refresh using Helix metrics
+    wk.show({
+      keys = config.menu_key,
+      spec = wk_table,
+    })
+
+    -- Instantly restore user options cleanly right behind the active popup layout window
+    wk_config.preset = old_preset
+    if wk_config.layout then
+      wk_config.layout.align = old_align
+    end
+  end, {
+    desc = string.format('Open %s Menu', config.menu_name),
+    silent = true,
+  })
   -- =========================================================================
 end
 
