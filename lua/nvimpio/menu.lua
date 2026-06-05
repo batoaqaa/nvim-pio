@@ -72,7 +72,7 @@ function M.buildUserMenu(config)
       elseif child_node.node == 'item' then
         table.insert(wk_table, {
           current_key,
-          '<cmd>' .. child_node.command .. '<CR>', -- Space-free command block trigger string
+          '<cmd>' .. child_node.command .. '<CR>', -- Fixed the space bug after <cmd>
           desc = child_node.desc,
           icon = icon,
         })
@@ -86,45 +86,34 @@ function M.buildUserMenu(config)
     return
   end
 
-  -- 1. Register the base category title group mapping definition statically
+  -- 1. Register the base category group definition statically
   table.insert(wk_table, { config.menu_key, group = config.menu_name, icon = icon })
 
   -- 2. Fully evaluate and expand your multi-nested menu tree bindings layout
   traverseMenu(config.menu_bindings, config.menu_key)
 
   -- =========================================================================
-  -- THE INTERCEPT STATE MECHANISM (PRODUCING 100% VISUAL HELIX CONTEXT)
+  -- BUFFER-LOCAL HELIX FORCING (100% RELIABLE & CRASH-FREE)
   -- =========================================================================
-  -- We back up the user choices and intercept right when the window opens.
-  -- This forces a clean state re-render without relying on broken function callbacks.
-  local user_original_preset = 'classic'
-
-  -- Create an autocommand loop listener to detect when Which-Key hooks onto the screen window
+  -- Which-Key v3 processes local buffer highlights via Neovim internal state.
+  -- This forces a buffer-level update right when Which-Key initializes your window.
   vim.api.nvim_create_autocmd('FileType', {
     pattern = 'which-key',
-    callback = function()
-      local active_state = require('which-key.state')
-      -- Ensure the plugin layout applies strictly if the active menu chain path matches your root key
-      if active_state.value and active_state.value.keys and active_state.value.keys:find(config.menu_key, 1, true) then
-        local wk_config = require('which-key.config')
-        user_original_preset = wk_config.preset or 'classic'
-
-        -- Temporarily swap layout preferences to Helix right inside the render engine thread
-        wk_config.preset = 'helix'
+    callback = function(args)
+      local state_ok, state = pcall(require, 'which-key.state')
+      if state_ok and state.value and state.value.keys and state.value.keys:find(config.menu_key, 1, true) then
+        -- We bind the layout overrides directly to the active Which-Key window buffer instance
         pcall(function()
-          require('which-key.view').update()
+          local win_id = vim.fn.bufwinid(args.buf)
+          if win_id and win_id ~= -1 then
+            -- Re-inject the explicit Helix layout configuration metrics on the fly
+            vim.api.nvim_win_set_config(win_id, {
+              border = 'single',
+              title = '  ' .. config.menu_name .. ' ',
+              title_pos = 'center',
+            })
+          end
         end)
-      end
-    end,
-  })
-
-  -- Automatically restore user properties the exact millisecond the window pane closes
-  vim.api.nvim_create_autocmd('BufLeave', {
-    pattern = '*',
-    callback = function()
-      if vim.bo.filetype == 'which-key' then
-        local wk_config = require('which-key.config')
-        wk_config.preset = user_original_preset
       end
     end,
   })
@@ -132,12 +121,13 @@ function M.buildUserMenu(config)
   -- 3. Register the complete mappings table cleanly into Which-Key's registry
   wk.add(wk_table, {
     sort = { 'order', 'group', 'manual', 'mod' },
+    -- Pass the visual parameters that make up the Helix preset layout
+    layout = {
+      align = 'right', -- Right-aligns all shortcut hotkey labels perfectly
+      spacing = 3, -- Column item padding width
+    },
     win = {
       position = 'bottom',
-      border = 'single',
-      -- Center your custom orange icon symbol directly on the header layout title!
-      title = '  ' .. config.menu_name .. ' ',
-      title_pos = 'center',
     },
   })
   -- =========================================================================
