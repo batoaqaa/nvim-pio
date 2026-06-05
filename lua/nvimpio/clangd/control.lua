@@ -91,7 +91,7 @@ function M.getClangdConfig()
   end
 
   -- Format your template string
-  local json_config = boilerplate_gen([[.clangdConfig.json]], OS.nvim_config_dir)
+  local json_config = boilerplate_gen([[.clangdConfig.json]], OS.nvimpio_config_dir)
   if not json_config then
     return nil
   end

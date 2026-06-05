@@ -17,7 +17,7 @@ local winHome = os.getenv("USERPROFILE") or "C:\\"
 local nixHome = vim.uv.os_homedir() or "/root"
 local defaultHome = is_win and winHome or nixHome
 local projectDir = vim.uv.cwd() or '.'
-local nvimConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
+local nvimpioConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
 
 ---@class OS
 ---@field name "windows"|"macos"|"linux"
@@ -44,7 +44,7 @@ local nvimConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
 ---@field clangd_config string
 ---@field clangd_flags string
 ---@field project_config string
----@field nvim_config_dir string
+---@field nvimpio_config_dir string
 ---@field notify fun(msg: string, level?: string|integer)
 ---@field pioReady fun(): boolean
 
@@ -75,11 +75,11 @@ local os_info = {
   cache_dir = vim.fn.stdpath('cache'),
   bin_dir = is_win and "Scripts" or "bin",
   project_dir = projectDir,
-  clangd_filter = vim.fs.joinpath(nvimConfigDir, '.clangdFilter.json'),
-  clangd_config = vim.fs.joinpath(nvimConfigDir, '.clangdConfig.json'),
-  clangd_flags = vim.fs.joinpath(nvimConfigDir, '.clangdFlags.txt'),
-  project_config = vim.fs.joinpath(nvimConfigDir, '.projectConfig.json'),
-  nvim_config_dir = nvimConfigDir,
+  clangd_filter = vim.fs.joinpath(nvimpioConfigDir, '.clangdFilter.json'),
+  clangd_config = vim.fs.joinpath(nvimpioConfigDir, '.clangdConfig.json'),
+  clangd_flags = vim.fs.joinpath(nvimpioConfigDir, '.clangdFlags.txt'),
+  project_config = vim.fs.joinpath(nvimpioConfigDir, '.projectConfig.json'),
+  nvim_config_dir = nvimpioConfigDir,
 
   ---@param msg string The message to display
   ---@param level string|integer|nil
