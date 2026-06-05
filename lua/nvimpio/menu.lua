@@ -60,29 +60,23 @@ function M.buildUserMenu(config)
   end
 
   local icon = { icon = '  ', color = 'orange' }
+  local wk_table = {} -- Strictly hold sub-menu paths
 
   -- Recursive menu hierarchy mapping iterator traversal flattening algorithm
-  local function traverseMenu(menu)
-    local sub_tree = {}
+  local function traverseMenu(menu, wkey)
     for _, child_node in ipairs(menu or {}) do
       if child_node.node == 'menu' then
-        -- Recursively pack submenus inside nested spec layout definitions
-        table.insert(sub_tree, {
-          child_node.shortcut,
-          group = child_node.desc,
-          icon = icon,
-          expand = traverseMenu(child_node.items),
-        })
+        traverseMenu(child_node.items, wkey .. child_node.shortcut)
+        table.insert(wk_table, { wkey .. child_node.shortcut, group = child_node.desc, icon = icon })
       elseif child_node.node == 'item' then
-        table.insert(sub_tree, {
-          child_node.shortcut,
-          '<cmd>' .. child_node.command .. '<CR>', -- Clean, space-free command execution string
+        table.insert(wk_table, {
+          wkey .. child_node.shortcut,
+          '<cmd>' .. child_node.command .. '<CR>',
           desc = child_node.desc,
           icon = icon,
         })
       end
     end
-    return sub_tree
   end
 
   -- Safely assert Which-Key access without crashing Neovim profiles lacking it
@@ -91,23 +85,47 @@ function M.buildUserMenu(config)
     return
   end
 
+  -- Parse inner submenus under your main trigger key path
+  traverseMenu(config.menu_bindings, config.menu_key)
+
   -- =========================================================================
-  -- THE V3 SPEC NESTING LAYOUT ENGINE (FORCES HELIX PROFILES PERFECTLY)
+  -- THE INTERCEPT FUNCTION PATTERN (CRASH-FREE & FLUID HELIX)
   -- =========================================================================
+
+  -- 1. Register the core menu path statically so it shows up in global menus
+  wk.add({
+    { config.menu_key, group = config.menu_name, icon = icon },
+  })
+
+  -- 2. Inject the dynamic layout swap inside a local function mapping definition
   wk.add({
     {
       config.menu_key,
-      group = config.menu_name,
       icon = icon,
+      desc = config.menu_name,
+      -- Map the execution straight to an intermediate runtime state callback function
+      function()
+        local wk_config = require('which-key.config')
 
-      -- FORCES HELIX FOR THIS BRANCH ONLY:
-      -- Passing layout preset configurations nested inline directly onto your
-      -- root trigger key dictionary layout structure forces Which-Key v3 to
-      -- completely evaluate this specific path branch layout using Helix right-aligned metrics!
-      preset = 'helix',
+        -- Back up the user's active preset preference safely
+        local original_preset = wk_config.preset or 'classic'
 
-      -- Generate and expand your plugin mappings natively inside this isolated branch spec
-      expand = traverseMenu(config.menu_bindings),
+        -- Switch the layout engine's active preset target strictly to Helix
+        wk_config.preset = 'helix'
+
+        -- Force Which-Key to instantly re-render its open windows using Helix layout math
+        wk.show({
+          keys = config.menu_key,
+          spec = wk_table,
+        })
+
+        -- Reset back to the user's preferred layout style cleanly in the background
+        -- 50ms delay guarantees that your menu renders as Helix first before resetting
+        vim.defer_fn(function()
+          local restore_config = require('which-key.config')
+          restore_config.preset = original_preset
+        end, 50)
+      end,
     },
   })
   -- =========================================================================
