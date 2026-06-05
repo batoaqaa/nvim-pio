@@ -164,7 +164,7 @@ CompileFlags:
     %s
     ]
   Add: [
-    "@.nvimpio/.clangdFlags.txt"
+    "@%s"
     ]
 ]],
   content = function(self, project_root_param)
@@ -346,7 +346,7 @@ CompileFlags:
     end
 
     -- 3. ASSEMBLE CLEAN MAIN .CLANGD STRINGS PROFILE
-    dynamicBlock = string.format(self.dynamic, table.concat(formatted_removed_args, ',\n    '))
+    dynamicBlock = string.format(self.dynamic, table.concat(formatted_removed_args, ',\n    '), OS.clangd_flags)
     local final_content = staticBlock .. '\n' .. dynamicBlock
 
     -- 4. UNCONDITIONAL DISK WRITER MATRIX
