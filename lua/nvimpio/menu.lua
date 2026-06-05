@@ -7,12 +7,8 @@ local M = {}
 ---@param path string Context indicator string for verbose error outputs
 ---@return table merged_tree The synthesized final array layout
 function M.merge_menu_tree(defaults, overrides, path)
-  if type(overrides) ~= 'table' then
-    return vim.deepcopy(defaults)
-  end
-
+  if type(overrides) ~= 'table' then return vim.deepcopy(defaults) end
   local res = vim.deepcopy(defaults)
-
   for _, u_node in ipairs(overrides) do
     if type(u_node) == 'table' then
       local matched_node = nil
@@ -27,110 +23,117 @@ function M.merge_menu_tree(defaults, overrides, path)
           end
         end
       end
-
       if matched_node then
         if u_node.shortcut then matched_node.shortcut = u_node.shortcut end
         if u_node.desc then matched_node.desc = u_node.desc end
         if u_node.command then matched_node.command = u_node.command end
-
         if matched_node.node == 'menu' and u_node.items then
           matched_node.items = M.merge_menu_tree(matched_node.items or {}, u_node.items, path .. '.items')
         end
       else
         local new_node = vim.deepcopy(u_node)
         new_node.node = new_node.node or 'item'
-
         if new_node.node == 'menu' then
           new_node.items = M.merge_menu_tree({}, u_node.items or {}, path .. '.items')
         end
-
         table.insert(res, new_node)
       end
     end
   end
-
   return res
 end
 
----Processes the final configuration state and maps interactive menus to Which-Key
----@param config table The fully validated runtime options table
+---Renders a stable, standardized menu layout using Neovim's native selection engine
+---@param title string Window group heading label string
+---@param items table Active node items tree configuration array
+---@param parent_menu_items table|nil Falling back backtracking data array
+local function show_native_picker(title, items, parent_menu_items)
+  -- 1. Scan the tree layer first to compute the max description layout width
+  local max_desc_len = 0
+  for _, item in ipairs(items or {}) do
+    local label = item.node == 'menu' and ('+' .. item.desc) or item.desc
+    if #label > max_desc_len then
+      max_desc_len = #label
+    end
+  end
+
+  -- 2. Format choices padding descriptions left, forcing shortcuts right-aligned perfectly
+  local choices = {}
+  local lookup_registry = {}
+
+  for i, item in ipairs(items or {}) do
+    local label = item.node == 'menu' and ('    ' .. item.desc) or ('    ' .. item.desc)
+    local hotkey_str = '[' .. item.shortcut:upper() .. ']'
+
+    -- THE VISUAL HELIX SIGNATURE: Math-driven precise trailing space right-alignment padding
+    local padding = string.rep(' ', (max_desc_len - #item.desc) + 6)
+    local formatted_row = label .. padding .. hotkey_str
+
+    table.insert(choices, formatted_row)
+    lookup_registry[i] = item
+  end
+
+  -- Append structural backtracking button option if inside a sub-heading level
+  if parent_menu_items then
+    table.insert(choices, '    Back')
+  end
+
+  -- 3. Invoke Neovim's built-in picker loop interface window container
+  vim.ui.select(choices, {
+    prompt = '   ' .. title .. ' ',
+  }, function(choice, index)
+    if not choice then
+      return
+    end -- User pressed <Esc> to drop out cleanly
+
+    -- Handle back tracking navigation choice
+    if choice == '    Back' and parent_menu_items then
+      show_native_picker('PlatformIO', parent_menu_items, nil)
+      return
+    end
+
+    local selected_item = lookup_registry[index]
+    if not selected_item then
+      return
+    end
+
+    if selected_item.node == 'item' then
+      -- Fire target Vim string command instantly inside core thread
+      vim.cmd(selected_item.command)
+    elseif selected_item.node == 'menu' then
+      -- Recursively dive deeper into submenus safely
+      show_native_picker(selected_item.desc, selected_item.items, items)
+    end
+  end)
+end
+
+---Processes configuration parameters and provisions standard which-key entries
+---@param config table The fully validated configuration options table
 function M.buildUserMenu(config)
   if config == nil or config.menu_key == nil then
     return
   end
 
-  local icon = { icon = '  ', color = 'orange' } -- Assign platformio orange icon
-  local wk_table = {}
+  -- 1. Map your trigger shortcut straight to our clean, isolated native selection picker script
+  vim.keymap.set('n', config.menu_key, function()
+    -- Closes Which-Key's parent lookup window instantly right as you trigger your menu
+    pcall(function()
+      require('which-key.view').close()
+    end)
 
-  -- Flat traversal parser building absolute sequential mapping strings
-  local function traverseMenu(menu, wkey)
-    for _, child_node in ipairs(menu or {}) do
-      local current_key = wkey .. child_node.shortcut
-      if child_node.node == 'menu' then
-        table.insert(wk_table, { current_key, group = child_node.desc, icon = icon })
-        traverseMenu(child_node.items, current_key)
-      elseif child_node.node == 'item' then
-        table.insert(wk_table, {
-          current_key,
-          '<cmd>' .. child_node.command .. '<CR>', -- Fixed the space bug after <cmd>
-          desc = child_node.desc,
-          icon = icon,
-        })
-      end
-    end
-  end
+    -- Launch the beautifully padded layout picker loop
+    show_native_picker(config.menu_name, config.menu_bindings, nil)
+  end, { desc = string.format('Toggle %s Action Picker', config.menu_name), silent = true })
 
-  -- Safely require which-key without crashing Neovim profiles lacking it
+  -- 2. Statically document the entry path inside Which-Key if it is installed
+  -- This lists your menu cleanly as "\ ➜ PlatformIO" on their leader dash,
+  -- but running it seamlessly drops straight out to our clean native engine selector!
   local ok, wk = pcall(require, 'which-key')
-  if not ok then
-    return
+  if ok then
+    wk.add({
+      { config.menu_key, group = config.menu_name, icon = { icon = '  ', color = 'orange' } },
+    })
   end
-
-  -- 1. Register the base category group definition statically
-  table.insert(wk_table, { config.menu_key, group = config.menu_name, icon = icon })
-
-  -- 2. Fully evaluate and expand your multi-nested menu tree bindings layout
-  traverseMenu(config.menu_bindings, config.menu_key)
-
-  -- =========================================================================
-  -- BUFFER-LOCAL HELIX FORCING (100% RELIABLE & CRASH-FREE)
-  -- =========================================================================
-  -- Which-Key v3 processes local buffer highlights via Neovim internal state.
-  -- This forces a buffer-level update right when Which-Key initializes your window.
-  vim.api.nvim_create_autocmd('FileType', {
-    pattern = 'which-key',
-    callback = function(args)
-      local state_ok, state = pcall(require, 'which-key.state')
-      if state_ok and state.value and state.value.keys and state.value.keys:find(config.menu_key, 1, true) then
-        -- We bind the layout overrides directly to the active Which-Key window buffer instance
-        pcall(function()
-          local win_id = vim.fn.bufwinid(args.buf)
-          if win_id and win_id ~= -1 then
-            -- Re-inject the explicit Helix layout configuration metrics on the fly
-            vim.api.nvim_win_set_config(win_id, {
-              border = 'single',
-              title = '  ' .. config.menu_name .. ' ',
-              title_pos = 'center',
-            })
-          end
-        end)
-      end
-    end,
-  })
-
-  -- 3. Register the complete mappings table cleanly into Which-Key's registry
-  wk.add(wk_table, {
-    sort = { 'order', 'group', 'manual', 'mod' },
-    -- Pass the visual parameters that make up the Helix preset layout
-    layout = {
-      align = 'right', -- Right-aligns all shortcut hotkey labels perfectly
-      spacing = 3, -- Column item padding width
-    },
-    win = {
-      position = 'bottom',
-    },
-  })
-  -- =========================================================================
 end
 
 return M
