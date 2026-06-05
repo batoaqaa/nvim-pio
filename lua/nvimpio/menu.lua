@@ -62,78 +62,90 @@ end
 ---Processes the final configuration state and maps interactive menus to Which-Key
 ---@param config table The fully validated runtime options table
 function M.buildUserMenu(config)
-  if config == nil or config.menu_key == nil then
-    return
-  end
-
-  local icon = { icon = '  ', color = 'orange' }
+  local icon = { icon = '  ', color = 'orange' } -- Assign platformio orange icon
   local wk_table = { mode = { 'n', 'v' } }
 
-  -- Recursive menu hierarchy mapping iterator traversal flattening algorithm
   local function traverseMenu(menu, wkey)
-    for _, child_node in ipairs(menu or {}) do
+    for _, child_node in ipairs(menu) do
       if child_node.node == 'menu' then
         traverseMenu(child_node.items, wkey .. child_node.shortcut)
         table.insert(wk_table, { wkey .. child_node.shortcut, group = child_node.desc, icon = icon })
       elseif child_node.node == 'item' then
         table.insert(wk_table, {
           wkey .. child_node.shortcut,
-          '<cmd>' .. child_node.command .. '<CR>',
+          '<cmd> ' .. child_node.command .. '<CR>',
           desc = child_node.desc,
           icon = icon,
         })
       end
     end
   end
-
-  -- Safely assert Which-Key access without crashing Neovim profiles lacking it
-  local ok, wk = pcall(require, 'which-key')
-  if not ok then
+  if config.menu_key == nil then
     return
   end
 
-  -- Initialize Which-Key layout defaults safely if it hasn't loaded yet
+  local wk_config = { preset = 'helix' }
   local is_whichkey_loaded = package.loaded['which-key'] ~= nil
-  if not is_whichkey_loaded then
-    wk.setup({
-      delay = 0,
-      icons = {
-        mappings = vim.g.have_nerd_font,
-        keys = vim.g.have_nerd_font and {} or {
-          Up = '<Up> ',
-          Down = '<Down> ',
-          Left = '<Left> ',
-          Right = '<Right> ',
-          C = '<C-…> ',
-          M = '<M-…> ',
-          D = '<D-…> ',
-          S = '<S-…> ',
-          CR = '<CR> ',
-          Esc = '<Esc> ',
+  local ok, wk = pcall(require, 'which-key')
+  if ok then
+    if not is_whichkey_loaded then
+      wk.setup({
+        preset = 'helix', --"classic", --"helix", --
+        delay = 0,
+        icons = {
+          -- set icon mappings to true if you have a Nerd Font
+          mappings = vim.g.have_nerd_font,
+          -- If you are using a Nerd Font: set icons.keys to an empty table which will use the
+          -- default which-key.nvim defined Nerd Font icons, otherwise define a string table
+          keys = vim.g.have_nerd_font and {} or {
+            Up = '<Up> ',
+            Down = '<Down> ',
+            Left = '<Left> ',
+            Right = '<Right> ',
+            C = '<C-…> ',
+            M = '<M-…> ',
+            D = '<D-…> ',
+            S = '<S-…> ',
+            CR = '<CR> ',
+            Esc = '<Esc> ',
+            ScrollWheelDown = '<ScrollWheelDown> ',
+            ScrollWheelUp = '<ScrollWheelUp> ',
+            NL = '<NL> ',
+            BS = '<BS> ',
+            Space = '<Space> ',
+            Tab = '<Tab> ',
+            F1 = '<F1>',
+            F2 = '<F2>',
+            F3 = '<F3>',
+            F4 = '<F4>',
+            F5 = '<F5>',
+            F6 = '<F6>',
+            F7 = '<F7>',
+            F8 = '<F8>',
+            F9 = '<F9>',
+            F10 = '<F10>',
+            F11 = '<F11>',
+            F12 = '<F12>',
+          },
         },
-      },
-    })
+        -- sort = { "order", "group", "manual", "mod" },
+        sort = { 'local', 'order', 'group', 'alphanum', 'mod' },
+      })
+    else
+      require('which-key').setup({ preset = 'helix' })
+    end
+    -- vim.api.nvim_echo({ { 'which-key plugin not found!', 'ErrorMsg' } }, true, {})
+    -- return
   end
 
-  -- =========================================================================
-  -- CRITICAL: INJECT HELIX PRESET PROPERTIES ONTO THE TOP-LEVEL GROUP BINDING
-  -- =========================================================================
-  table.insert(wk_table, {
-    config.menu_key,
-    group = config.menu_name,
-    icon = icon,
-    -- Forces Which-Key v3 engine to evaluate this specific branch using Helix's columns style
-    preset = 'helix',
-    expand = 0, -- Ensures menus do not instantly spill wide in columns layout
-  })
+  local wkConfig = require('which-key.config')
+  wkConfig.sort = { 'order', 'group', 'manual', 'mod' }
 
-  -- Run tree flattening algorithm
+  table.insert(wk_table, { config.menu_key, group = config.menu_name, icon = icon })
+
   traverseMenu(config.menu_bindings, config.menu_key)
 
-  -- Send directly to layout engine using strict array sorting overrides
-  wk.add(wk_table, {
-    sort = { 'order', 'group', 'manual', 'mod' },
-  })
+  wk.add(wk_table)
 end
 -- function M.buildUserMenu(config)
 --   if config == nil or config.menu_key == nil then
@@ -189,25 +201,24 @@ end
 --     })
 --   end
 --
---   -- Base Root Trigger Menu assignment mapping
---   table.insert(wk_table, { config.menu_key, group = config.menu_name, icon = icon })
+--   -- =========================================================================
+--   -- CRITICAL: INJECT HELIX PRESET PROPERTIES ONTO THE TOP-LEVEL GROUP BINDING
+--   -- =========================================================================
+--   table.insert(wk_table, {
+--     config.menu_key,
+--     group = config.menu_name,
+--     icon = icon,
+--     -- Forces Which-Key v3 engine to evaluate this specific branch using Helix's columns style
+--     preset = 'helix',
+--     expand = 0, -- Ensures menus do not instantly spill wide in columns layout
+--   })
 --
 --   -- Run tree flattening algorithm
 --   traverseMenu(config.menu_bindings, config.menu_key)
 --
---   -- Send directly to layout engine using strict localized styling overrides.
---   -- This enforces Helix design choices for this window profile even if the user has 'classic' configured globally.
+--   -- Send directly to layout engine using strict array sorting overrides
 --   wk.add(wk_table, {
 --     sort = { 'order', 'group', 'manual', 'mod' },
---     layout = {
---       width = { min = 20, max = 50 }, -- Helix-style narrow flexible columns
---       spacing = 3, -- Generous column spacing layout padding width
---       align = 'right', -- THE HELIX SIGNATURE: Right-aligns all hotkey shortcut labels
---     },
---     win = {
---       border = 'single', -- Clean, crisp perimeter border layout style
---       position = 'bottom', -- Standard base panel rendering orientation
---     },
 --   })
 -- end
 
