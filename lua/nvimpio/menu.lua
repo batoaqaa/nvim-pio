@@ -45,7 +45,7 @@ local function render_helix_float(title, items, on_back)
   local key_mappings = {}
   local max_desc_len = 0
 
-  -- 1. Scan the active items to find the longest description string width
+  -- 1. Scan the active items to find the longest description label string width
   for _, item in ipairs(items or {}) do
     local label = item.node == 'menu' and ('+' .. item.desc) or item.desc
     if #label > max_desc_len then
@@ -55,10 +55,10 @@ local function render_helix_float(title, items, on_back)
 
   -- 2. Build lines with strict string padding to force hotkey text flush-right
   for _, item in ipairs(items or {}) do
-    local shortcut_str = '[' .. item.shortcut .. ']'
+    local shortcut_str = '[' .. item.shortcut:upper() .. ']'
     local label = item.node == 'menu' and ('+' .. item.desc) or item.desc
 
-    -- THE VISUAL HELIX SIGNATURE: Math-driven precise trailing space right-alignment padding
+    -- THE VISUAL HELIX SIGNATURE: Flush-right matching via precise trailing space math
     local padding = string.rep(' ', (max_desc_len - #label) + 6)
     table.insert(display_lines, '  ' .. label .. padding .. shortcut_str .. '  ')
     key_mappings[item.shortcut:lower()] = item
