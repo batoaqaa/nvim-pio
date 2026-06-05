@@ -31,8 +31,8 @@ local function pioInstall(runtime_dir, on_done)
   local download_cmd = string.format("%s -c \"import urllib.request; urllib.request.urlretrieve('%s%s', '%s')\"", python, script_url, script_name, script_path)
   -- Run the installer script out of the safe cache target space
   local install_cmd
-  local piocheck = require('nvimpio.pioCheck')
-  local custom_penv_dir = piocheck.clean(runtime_dir .. OS.folder_sep .. 'penv')
+  local core = require('nvimpio.core')
+  local custom_penv_dir = core.clean(runtime_dir .. OS.folder_sep .. 'penv')
   if OS.is_win then
     install_cmd = string.format('$env:PLATFORMIO_PENV_DIR=%q; %s %s', custom_penv_dir, python, script_path)
   else

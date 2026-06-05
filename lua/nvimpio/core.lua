@@ -2,6 +2,14 @@ local M = {}
 
 local pio_term = nil
 
+function M.clean(raw_path)
+  if not raw_path or raw_path == '' then
+    return nil
+  end
+  local normalized = vim.fs.normalize(vim.fn.expand(raw_path))
+  -- return OS.is_win and normalized:gsub('/', '\\') or normalized
+  return normalized
+end
 -- Verifies tracking paths and triggers the background installer loop if unpopulated
 --------------------------------------------------------------------------------
 -- UTILITY LAYERS: Safe Path Normalization & Data Strippers
@@ -108,7 +116,7 @@ end
 
 function M.execute_cmd_clean(target_command)
   local main = require('nvimpio')
-  local pio = require('nvimpio.pioCheck')
+  -- local pio = require('nvimpio.pioCheck')
   main.initialize_full_options()
 
   local status, ToggleTerm = pcall(require, 'toggleterm.terminal')
@@ -116,7 +124,7 @@ function M.execute_cmd_clean(target_command)
     return OS.notify('ToggleTerm is required but missing.', 'error')
   end
 
-  local pio_bin = main.config.pio_bin_dir or (pio.clean(main.options.pio.pio_runtime_dir) .. OS.folder_sep .. 'penv' .. OS.folder_sep .. OS.bin_dir)
+  local pio_bin = main.config.pio_bin_dir or (M.clean(main.options.pio.pio_runtime_dir) .. OS.folder_sep .. 'penv' .. OS.folder_sep .. OS.bin_dir)
 
   if pio_term then
     pio_term:shutdown()
