@@ -60,7 +60,7 @@ function M.buildUserMenu(config)
   end
 
   local icon = { icon = '  ', color = 'orange' }
-  local wk_table = { mode = { 'n', 'v' } }
+  local wk_table = {} -- Strictly holds pure inner execution contents
 
   -- Recursive menu hierarchy mapping iterator traversal flattening algorithm
   local function traverseMenu(menu, wkey)
@@ -85,38 +85,34 @@ function M.buildUserMenu(config)
     return
   end
 
-  -- Base Root Trigger Menu assignment mapping
-  table.insert(wk_table, {
-    config.menu_key,
-    group = config.menu_name,
-    icon = icon,
-  })
-
-  -- Run tree flattening algorithm
-  traverseMenu(config.menu_bindings, config.menu_key)
+  -- Parse inner submenus into our isolated execution dictionary table
+  -- Note: We start generation directly from an empty key string to build clean local key paths!
+  traverseMenu(config.menu_bindings, '')
 
   -- =========================================================================
-  -- LOW-LEVEL SPEC OVERRIDES: FIX THE FLASHING LAYOUT GLITCH
+  -- THE NATIVE WAY: Create an Isolated Show Command mapping Trigger Loop
   -- =========================================================================
-  wk.add(wk_table, {
-    sort = { 'order', 'group', 'manual', 'mod' },
+  -- 1. Create a native Neovim keymap bound directly to your configuration trigger key
+  vim.keymap.set({ 'n', 'v' }, config.menu_key, function()
+    -- Explicitly open a Which-Key window isolated *only* to your plugin bindings
+    wk.show({
+      keys = config.menu_key,
+      loop = false,
+      -- We pass your custom mappings tree table layout structure directly here
+      spec = wk_table,
 
-    -- CRITICAL CONFIGURATION: This prevents your plugin trigger key sequence
-    -- from parsing inside the top-level automatic window container group layout loop
-    expand = 0,
-
-    -- Pass low-level attributes matching Helix design parameters.
-    -- This guarantees a clean render instantly when <leader>\ is complete.
-    win = {
-      position = 'bottom',
-      border = 'single',
-      width = { min = 20, max = 50 },
-      padding = { 1, 2, 1, 2 },
-    },
-    layout = {
-      align = 'right',
-      spacing = 3,
-    },
+      -- INJECT REVALUATION CONFIGURATIONS:
+      -- This enforces Which-Key v3 to completely swap its internal layout
+      -- configurations metrics for this specific popup window instantiation event loop!
+      preset = 'helix',
+      win = {
+        position = 'bottom',
+        border = 'single',
+      },
+    })
+  end, {
+    desc = string.format('Open %s Menu Menu Panel', config.menu_name),
+    silent = true,
   })
   -- =========================================================================
 end
