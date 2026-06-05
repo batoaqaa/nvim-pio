@@ -108,11 +108,11 @@ vim.api.nvim_create_user_command('Piomon', function(opts)
 end, {
   nargs = '*',
   complete = function(_, cmd_line)
-    local ports = require('nvimpio.pio.upkeep').get_connected_ports()
+    local paths = require('nvimpio.pio.upkeep').get_connected_ports()
     local parts = vim.split(cmd_line, '%s+')
     local BAUD = { '4800', '9600', '57600', '115200' }
-    -- local ports = {}
-    -- for _, item in ipairs(piolsserial.tty_list) do table.insert(ports, item.port) end
+    local ports = {}
+    for port_name, _ in pairs(paths) do table.insert(ports, port_name) end
     if #parts == 2 then return BAUD end
     if #parts == 3 then return ports end
     return {}

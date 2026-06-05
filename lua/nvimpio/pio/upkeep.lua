@@ -125,8 +125,8 @@ function M.get_connected_ports()
     end
   end
 
-  print(vim.inspect(devices))
-  return devices
+  print(vim.inspect(paths))
+  return paths
 end
 
 -- stylua: ignore
