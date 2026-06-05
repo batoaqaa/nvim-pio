@@ -40,12 +40,12 @@ function M.merge_menu_tree(defaults, overrides, path)
 end
 
 ---Renders a pure, native floating window modeled exactly after the Helix menu layout
-local function render_helix_float(title, items, on_back)
+local function render_helix_menu(title, items, on_back)
   local display_lines = {}
   local key_mappings = {}
   local max_desc_len = 0
 
-  -- 1. Scan the tree first to compute the max description layout width
+  -- 1. Scan the active level items to find the longest description label string width
   for _, item in ipairs(items or {}) do
     local label = item.node == 'menu' and ('+' .. item.desc) or item.desc
     if #label > max_desc_len then
@@ -53,40 +53,45 @@ local function render_helix_float(title, items, on_back)
     end
   end
 
-  -- 2. Build explicit mappings padding descriptions to replicate the Helix preset layout
+  -- 2. Build the visual text layout padding right-aligning the hotkey shortcut labels perfectly
   for _, item in ipairs(items or {}) do
     local shortcut_str = '[' .. item.shortcut .. ']'
     local label = item.node == 'menu' and ('+' .. item.desc) or item.desc
-    local padding = string.rep(' ', (max_desc_len - #label) + 4)
+
+    -- THE VISUAL HELIX SIGNATURE: Flush-right matching via precise trailing space math
+    local padding = string.rep(' ', (max_desc_len - #label) + 6)
     table.insert(display_lines, '  ' .. label .. padding .. shortcut_str .. '  ')
     key_mappings[item.shortcut:lower()] = item
   end
 
+  -- Append structural navigation hints if we are inside a nested submenu branch
   if on_back then
-    table.insert(display_lines, string.rep('─', max_desc_len + 12))
-    table.insert(display_lines, '  Back          [<BS>]  ')
+    table.insert(display_lines, string.rep('─', max_desc_len + 14))
+    table.insert(display_lines, '  Back          ' .. string.rep(' ', max_desc_len - 4) .. '[<BS>] ')
   end
 
-  -- 3. Compute window positioning metrics centering right over the current screen
+  -- 3. Open an unlisted, temporary scratchpad canvas buffer memory row
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, display_lines)
 
-  local width = max_desc_len + 12
+  local width = max_desc_len + 14
   local height = #display_lines
-  local ui = vim.api.nvim_list_uis()
+  local ui = vim.api.nvim_list_uis()[1]
 
+  -- Spawns the clean centered screen popup floating layout window
   local win = vim.api.nvim_open_win(buf, true, {
     relative = 'editor',
     width = width,
     height = height,
-    col = ui and ui[1] and ((ui[1].width - width) / 2) or 15,
-    row = ui and ui[1] and ((ui[1].height - height) / 2) or 10,
+    col = ui and ((ui.width - width) / 2) or 15,
+    row = ui and ((ui.height - height) / 2) or 10,
     style = 'minimal',
     border = 'single',
     title = ' ' .. title .. ' ',
     title_pos = 'center',
   })
 
+  -- Apply professional Neovim float palette background highlights configurations
   vim.wo[win].winhl = 'Normal:NormalFloat,Border:FloatBorder'
   vim.bo[buf].modifiable = false
 
@@ -96,7 +101,7 @@ local function render_helix_float(title, items, on_back)
     end
   end
 
-  -- Intercept hotkeys safely inside our overlay window panel scope
+  -- 4. Map navigation interception hotkeys cleanly bound strictly to this window buffer
   vim.keymap.set('n', '<Esc>', close_menu, { buffer = buf, silent = true })
 
   if on_back then
@@ -110,30 +115,32 @@ local function render_helix_float(title, items, on_back)
     vim.keymap.set('n', shortcut, function()
       close_menu()
       if item.node == 'item' then
+        -- Native execution trigger call
         vim.cmd(item.command)
       elseif item.node == 'menu' then
-        -- Recursively tunnel deeper down submenus natively
-        render_helix_float(item.desc, item.items, function()
-          render_helix_float(title, items, on_back)
+        -- Recursively open the nested branch, passing a back-closure reference
+        render_helix_menu(item.desc, item.items, function()
+          render_helix_menu(title, items, on_back)
         end)
       end
     end, { buffer = buf, silent = true })
   end
 end
 
----Processes the final configuration parameters and maps hotkeys
+---Processes the final options configuration maps and initializes triggers
 function M.buildUserMenu(config)
   if config == nil or config.menu_key == nil then
     return
   end
 
-  -- 1. Create a native Neovim keymap pointing directly to our Helix engine loop
+  -- 1. Create a native keymap that directly boots your bulletproof window layout
   vim.keymap.set('n', config.menu_key, function()
-    render_helix_float(config.menu_name, config.menu_bindings, nil)
+    render_helix_menu(config.menu_name, config.menu_bindings, nil)
   end, { desc = string.format('Toggle %s Menu Window', config.menu_name), silent = true })
 
-  -- 2. Statically register inside Which-Key using basic group definitions
-  -- This guarantees your menu is listed cleanly as "\ ➜ PlatformIO" on the main panel!
+  -- 2. Statically register a single simple label definition inside Which-Key if it exists
+  -- This guarantees your menu shows up cleanly as "\ ➜ PlatformIO" on their leader dash,
+  -- but hitting it seamlessly drops out to our clean native float canvas instead!
   local ok, wk = pcall(require, 'which-key')
   if ok then
     wk.add({
