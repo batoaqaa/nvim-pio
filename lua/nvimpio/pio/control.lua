@@ -256,6 +256,75 @@ function M.init(clangd_config)
 
   if clangd_config.support then clangd.init(clangd_config) end
 
+
+
+
+
+
+vim.keymap.set('n', '<leader>tl', function()
+  local tabs = vim.api.nvim_list_tabpages()
+  local current_tab = vim.api.nvim_get_current_tabpage()
+  local choices = {}
+  local current_idx = 1
+
+  for i, tab in ipairs(tabs) do
+    -- Track which tab we are currently looking at to highlight it
+    if tab == current_tab then
+      current_idx = i
+    end
+
+    local win = vim.api.nvim_tabpage_get_win(tab)
+    local buf = vim.api.nvim_win_get_buf(win)
+    local buf_name = vim.api.nvim_buf_get_name(buf)
+
+    -- Format the display name (Handles regular files vs hidden/terminal buffers)
+    local display_name = "[No Name]"
+    if buf_name ~= "" then
+      if buf_name:match("toggleterm") or vim.bo[buf].buftype == "terminal" then
+        -- Cleans up the long shell path to just say "Terminal"
+        display_name = "   Terminal"
+      else
+        -- Drops absolute paths and keeps just the filename (e.g., "init.lua")
+        display_name = "   " .. vim.fn.fnamemodify(buf_name, ":t")
+      end
+    end
+
+    -- Check if the buffer has unsaved changes
+    local modified = vim.bo[buf].modified and " ◉" or ""
+
+    -- Assemble the menu string line
+    local label = string.format("%d: Tab %d %s%s", i, i, display_name, modified)
+    table.insert(choices, label)
+  end
+
+  -- Don't open a menu if you only have one tab open anyway
+  if #choices <= 1 then
+    vim.notify("Only one tab page open!", vim.log.levels.INFO)
+    return
+  end
+
+  -- Trigger the native Neovim selector engine
+  vim.ui.select(choices, {
+    prompt = '   Jump to Tab Page:',
+    kind = 'tabpage',
+    default = choices[current_idx], -- Pre-selects your current tab position
+  }, function(choice)
+    if choice then
+      -- Parse out the leading digits before the colon separator
+      local tab_idx = choice:match("^(%d+):")
+      if tab_idx then
+        vim.cmd(tab_idx .. "gt")
+      end
+    end
+  end)
+end, { desc = "Interactive Tab List Menu" })
+
+
+
+
+
+
+
   -- Always start the watcher so it can catch a future 'pio init'
   M.start_watchers()
 
