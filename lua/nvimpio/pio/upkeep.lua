@@ -214,7 +214,7 @@ function M.configure_hardware_parameters()
     local function run(i)
       if not steps[i] then
         inject_into_ini()
-        local msg = string.format("Injected: Port: %s | Upload: %s baud | Monitor: %s baud", 
+        local msg = string.format("Injected: Port: %s | Upload: %s baud | Monitor: %s baud",
           p_state.selected_port or "Auto", p_state.upload_speed or "Ini", p_state.monitor_speed or "Ini")
         return _G.OS and type(_G.OS.notify) == 'function' and _G.OS.notify(msg, 'info') or vim.notify(msg, 2)
       end
