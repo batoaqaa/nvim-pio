@@ -797,9 +797,9 @@ M.run_sequence = function(tasks)
     table.insert(M.queue, { cmd, step_id, token })
   end
 
-  if not nvimpio.is_active then
-    require('nvimpio.pio.metadata')
-  end
+  -- if not nvimpio.is_active then
+  --   require('nvimpio.pio.metadata')
+  -- end
 
   if callBack then
     vim.schedule(function()
