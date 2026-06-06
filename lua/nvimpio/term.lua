@@ -35,17 +35,17 @@ end
 local function getPreviousWindow(orig_window)
   -- 2. Define your context class
   ---@class PioPrevContext
-  ---@field term Terminal|nil  -- Handle for horizontal terminal
-  ---@field mon Terminal|nil
+  ---@field term Terminal|nil
+  ---@field mon Terminal|nil  -- Handle for horizontal terminal
   ---@field cli Terminal|nil
-  ---@field horizontal boolean      -- flag horizontal terminal
+  ---@field vertical boolean      -- flag vertical terminal
   ---@field orig_window number|nil
   local prev = {
     orig_window = orig_window,
     term = nil, --active terminal
     cli = nil, --cli terminal
     mon = nil, --mon terminal
-    horizontal = false, --is active terminal direction horizontal
+    vertical = false, --is active terminal direction vertical
   }
   local terms = require('toggleterm.terminal').get_all(true)
   if #terms ~= 0 then
@@ -59,8 +59,8 @@ local function getPreviousWindow(orig_window)
             prev.orig_window = tonumber(name_splt[2]) -- set orig_window to the previous terminal onrig_window
             prev.term = terms[i]
           end
-          if terms[i].direction == 'horizontal' then
-            prev.horizontal = true
+          if terms[i].direction == 'vertical' then
+            prev.vertical = true
           end
         elseif name_splt[1] == 'piomon' then
           prev.mon = terms[i]
@@ -69,8 +69,8 @@ local function getPreviousWindow(orig_window)
             prev.orig_window = tonumber(name_splt[2]) -- set orig_window to the previous terminal onrig_window
             prev.term = terms[i]
           end
-          if terms[i].direction == 'horizontal' then
-            prev.horizontal = true
+          if terms[i].direction == 'vertical' then
+            prev.vertical = true
           end
         end
       end
@@ -163,6 +163,10 @@ function M.ToggleTerminal(command, direction)
     title = 'Pio CLI> [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
     pioOpts.display_name = 'piocli:' .. orig_window
     pioOpts.id = 99
+    pioOpts.direction = 'vertical'
+    pioOpts.size = function()
+      return vim.o.columns
+    end
 
     -- INFO: on_stdout
     pioOpts.on_stdout = function(terminal, job, data, name)
@@ -178,7 +182,7 @@ function M.ToggleTerminal(command, direction)
       end
     end
   end
-  pioOpts.direction = 'horizontal' --direction
+  pioOpts.direction = direction
   ------------------------------------------------------
 
   -- INFO: termConfig table start
@@ -202,8 +206,6 @@ function M.ToggleTerminal(command, direction)
       },
     },
     close_on_exit = false, --closeOnexit,
-    start_in_insert = true,
-    persist_size = false,
 
     -- INFO: on_open()
     on_open = function(t)
@@ -319,7 +321,7 @@ function M.ToggleTerminal(command, direction)
 
   -- INFO: create new terminal
   local terminal = require('toggleterm.terminal').Terminal:new(termConfig)
-  if prev.term and prev.horizontal then
+  if prev.term and prev.vertical then
     prev.term.close()
   end
   terminal:toggle()
