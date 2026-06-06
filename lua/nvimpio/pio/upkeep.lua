@@ -504,6 +504,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     else
       OS.notify(from .. 'Skipping next steps due to compilation idedata failure.', 'error')
       fire_callback(false)
+      print('out')
       return
     end
   end)
