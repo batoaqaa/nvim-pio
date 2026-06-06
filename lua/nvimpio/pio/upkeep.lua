@@ -135,7 +135,6 @@ end
 ---Configures all PlatformIO hardware execution variables interactively with real-time async discovery
 function M.configure_hardware_parameters()
   local p_state = _G.metadata.port_parameters
-  _G.metadata.isBusy = true
 
   if vim.fn.executable('pio') ~= 1 then
     vim.notify('NVIM-PIO: PlatformIO CLI binary not found in system $PATH.', vim.log.levels.ERROR)
@@ -158,6 +157,7 @@ function M.configure_hardware_parameters()
     }
 
     local function inject_into_ini()
+      _G.metadata.isBusy = true
       local ini_path = vim.fs.joinpath(vim.uv.cwd(), "platformio.ini")
       if vim.fn.filereadable(ini_path) ~= 1 then return end
 
@@ -209,6 +209,10 @@ function M.configure_hardware_parameters()
         f_out:write(table.concat(lines, eol) .. eol)
         f_out:close()
       end
+
+      vim.defer_fn(function()
+        _G.metadata.isBusy = false
+      end, 500)
     end
 
     local function run(i)
@@ -274,9 +278,6 @@ function M.configure_hardware_parameters()
       run_wizard(fresh_ports)
     end)
 
-    vim.defer_fn(function()
-      _G.metadata.isBusy = false
-    end, 500)
   end)
   -- =========================================================================
 end
