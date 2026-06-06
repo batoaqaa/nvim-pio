@@ -777,7 +777,7 @@ end
 -- INFO: commands sequencer
 -- stylua: ignore
 -- =============================================================================
-local nvimpio = require('nvimpio')
+-- local nvimpio = require('nvimpio')
 M.run_sequence = function(tasks)
   M.queue = {}
   local commands = tasks.cmnds
@@ -912,7 +912,7 @@ end
 function M.handlePioInstall(result, on_done)
   if result == 'INIT' then
     if #M.queue > 0 then
--- G.metadata.isBusy = true
+      if require('nvimpio').nvimpio.is_active then _G.metadata.isBusy = true end
       trm = term.ToggleTerminal(pop(M.queue), 'float')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
