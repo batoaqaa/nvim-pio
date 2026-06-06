@@ -4,24 +4,19 @@ local pio_term = nil
 
 ---Defensively isolates and locks the correct active python path boundaries into Neovim's environment
 function M.enforce_virtualenv_isolation()
-  -- 1. Read the environment path strings safely from active system variables
   local active_venv = vim.env.VIRTUAL_ENV
   if not active_venv or active_venv == '' then
     return
   end
 
-  -- 2. Construct the absolute binary path structure (Windows uses \Scripts, Unix uses /bin)
   local path_separator = _G.OS and _G.OS.folder_sep or '\\'
   local bin_folder = (_G.OS and _G.OS.is_win) and 'Scripts' or 'bin'
   local venv_bin_path = active_venv .. path_separator .. bin_folder
 
-  -- 3. Verify that the targeting scripts directory physically exists on their hard drive
   if vim.fn.isdirectory(venv_bin_path) == 1 then
     local current_path_registry = vim.env.PATH or ''
     local variable_delimiter = (_G.OS and _G.OS.is_win) and ';' or ':'
 
-    -- 4. Check if the environment bin folder is already at the very front of the path string
-    -- If it isn't, prepend it to guarantee highest evaluation priority across all subshells!
     if not current_path_registry:match('^' .. vim.pesc(venv_bin_path)) then
       vim.env.PATH = venv_bin_path .. variable_delimiter .. current_path_registry
     end
@@ -32,39 +27,36 @@ function M.clean(raw_path)
   if not raw_path or raw_path == '' then
     return nil
   end
-  local normalized = vim.fs.normalize(vim.fn.expand(raw_path))
-  -- return OS.is_win and normalized:gsub('/', '\\') or normalized
-  return normalized
+  return vim.fs.normalize(vim.fn.expand(raw_path))
 end
--- Verifies tracking paths and triggers the background installer loop if unpopulated
---------------------------------------------------------------------------------
--- UTILITY LAYERS: Safe Path Normalization & Data Strippers
---------------------------------------------------------------------------------
 
--- Resolves user strings (~/), strips spacing errors, and standardizes sytem paths
--- stylua: ignore
 function M.resolve_user_path(raw_path)
-  if not raw_path or raw_path == "" then return nil end
+  if not raw_path or raw_path == '' then
+    return nil
+  end
   local trimmed = vim.trim(raw_path)
   local expanded = vim.fn.expand(trimmed)
-  -- If expansion fails or tracks an invalid pattern, protect string integrity
-  if expanded == "" or expanded:match("^~") then
+  if expanded == '' or expanded:match('^~') then
     expanded = trimmed
   end
   return vim.fs.normalize(expanded)
 end
 
--- Checks toolchain existence and resolves paths without parsing heavy structures
 -- stylua: ignore
+---Checks toolchain existence and resolves paths cleanly without executing circular leaks
 function M.ensure_toolchain_active(on_success_callback, retry_counter)
-  local main = require("nvimpio")
   retry_counter = retry_counter or 0
 
-  -- JIT Path Gateway: Safely parses configuration choices at invocation runtime
+  -- 1. DECOUPLED LOADING: Read defaults statically first to prevent circular module initialization loops
+  local ok_main, main = pcall(require, "nvimpio")
+  if not ok_main then
+    if type(on_success_callback) == 'function' then on_success_callback(false) end
+    return
+  end
+
   local current_pio_opts = (main.options and main.options.pio) or (main.defaults and main.defaults.pio) or {}
   local raw_runtime_dir = M.resolve_user_path(current_pio_opts.pio_runtime_dir)
 
-  -- Execute fallback checks only if options parameters are missing or completely blank strings
   if not raw_runtime_dir or raw_runtime_dir == "" then
     raw_runtime_dir = OS.is_win and vim.fs.joinpath(vim.env.USERPROFILE, '.platformio')
       or vim.fs.joinpath(vim.uv.os_homedir(), '.platformio')
@@ -109,13 +101,13 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
 
     main.config.pio_storage_dir = raw_storage_dir
 
-    -- CRITICAL LOGIC ROUTING: Only fire execution callback downstream if toolchain is active!
+    -- CRITICAL ACTIVATION GATE: Only execute callback downstream if verification successfully completes!
     if type(on_success_callback) == 'function' then
       if retry_counter == 0 then OS.notify('PlatformIO verified and active.') end
       on_success_callback(true)
     end
   else
-    -- Toolchain missing and installation failed on retry pass boundary
+    -- If retry counter is hit, terminate execution track completely to block background activations
     if retry_counter >= 1 then
       return vim.schedule(function()
         OS.notify("PlatformIO path resolution failed. Target missing.", 'error')
@@ -123,13 +115,17 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
       end)
     end
 
-    -- BLOCKING GATEWAY: Wrap prompt setup and FORCE return to stop the caller thread from continuing!
+    -- STOP MOTOR FALL-THROUGH: Prompt the user and forcefully stop execution cascade lines here
     vim.schedule(function()
       if vim.fn.confirm('PlatformIO not found. Install toolchain?', '&Yes\n&No', 1) == 1 then
         local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
         if ok then
-          installer.pioInstall(base_runtime, function(status)
-            -- Once terminal install finishes, run recursion step 1 to register paths cleanly
+          -- Lock activation flags so background daemons sleep during the terminal download window
+          if _G.metadata then _G.metadata.isInstalling = true end
+
+          installer.pioInstall(base_runtime, function(_)
+            if _G.metadata then _G.metadata.isInstalling = false end
+            -- Run loop recursion step 1 to cleanly parse the freshly written folder paths
             M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
           end)
         else
@@ -146,7 +142,6 @@ end
 
 function M.execute_cmd_clean(target_command)
   local main = require('nvimpio')
-  -- local pio = require('nvimpio.pioCheck')
   main.initialize_full_options()
 
   local status, ToggleTerm = pcall(require, 'toggleterm.terminal')
@@ -174,12 +169,14 @@ function M.execute_cmd_clean(target_command)
 end
 
 function M.execute_init(args)
-  M.ensure_toolchain_active(function()
-    local full_cmd = 'pio project init'
-    if args and args.fargs and #args.fargs > 0 then
-      full_cmd = full_cmd .. ' ' .. table.concat(args.fargs, ' ')
+  M.ensure_toolchain_active(function(success)
+    if success then
+      local full_cmd = 'pio project init'
+      if args and args.fargs and #args.fargs > 0 then
+        full_cmd = full_cmd .. ' ' .. table.concat(args.fargs, ' ')
+      end
+      M.execute_cmd_clean(full_cmd)
     end
-    M.execute_cmd_clean(full_cmd)
   end)
 end
 
@@ -197,8 +194,10 @@ function M.configure_paths()
         end
         main.options.pio.pio_runtime_dir = r
         main.options.pio.pio_storage_dir = s
-        M.ensure_toolchain_active(function()
-          OS.notify('PlatformIO Wizard workspace paths updated successfully!')
+        M.ensure_toolchain_active(function(success)
+          if success then
+            OS.notify('PlatformIO Wizard workspace paths updated successfully!')
+          end
         end)
       end)
     end)
