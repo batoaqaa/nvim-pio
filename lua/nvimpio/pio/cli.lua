@@ -50,20 +50,121 @@ end
 
 --INFO: Generate compiledb
 ------------------------------------------------------------------------------------
+-- In-memory state tracking to prevent multiple concurrent database compilations
+local compile_job_handle = nil
+
+---Compiles the project compilation database asynchronously with user feedback and kill hooks
+---@param from string Logging context tracker prefix
+---@param active_env string? The targeted environment layout choice
+---@param cb fun(success: boolean)? Optional callback hook to execute on termination
 function M.buildCompileDB(from, active_env, cb)
+  from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
   active_env = active_env or _G.metadata.active_env
-  vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { timeout = 60000,  text = true }, function(obj)
-    vim.schedule(function()
-      local ok = (obj.code == 0)
-      if ok then
-        OS.notify(string.format('%sbuild compiledb success for %s.', from, active_env), 'info')
+
+  -- 1. Concurrent Execution Guard
+  if compile_job_handle then
+    vim.notify("NVIM-PIO: Compilation database generation is already running.", vim.log.levels.WARN)
+    return
+  end
+
+  -- Update global metadata states immediately
+  _G.metadata.isBusy = true
+  _G.metadata.compiledb_status = "Generating"
+
+  -- 2. Visual Progress Feedback System
+  local msg = string.format("Generating Compilation Database for [%s]...", active_env)
+  if _G.OS and type(_G.OS.notify) == 'function' then
+    _G.OS.notify(msg .. "\nUse :PioAbortCompile to cancel if it takes too long.", 'info')
+  else
+    vim.notify("NVIM-PIO: " .. msg, vim.log.levels.INFO)
+  end
+
+  -- 3. Provision the On-Demand Abort User Command Interceptor
+  vim.api.nvim_create_user_command('PioAbortCompile', function()
+    if compile_job_handle then
+      -- Send a strict SIGKILL system signal to terminate the terminal job tree immediately
+      pcall(function() compile_job_handle:kill(9) end)
+      compile_job_handle = nil
+      _G.metadata.isBusy = false
+      _G.metadata.compiledb_status = "Aborted"
+      
+      local abort_txt = "Compilation database build aborted by user command."
+      if _G.OS and type(_G.OS.notify) == 'function' then
+        _G.OS.notify(abort_txt, 'warn')
       else
-        notify_system_error(from, string.format('build compiledb for %s failed: ', active_env), obj)
+        vim.notify("NVIM-PIO: " .. abort_txt, vim.log.levels.WARN)
       end
-      if cb and type(cb) == "function" then cb(ok) end
+      if cb then cb(false) end
+    end
+  end, { force = true, desc = "Abort the running background PlatformIO database compilation job" })
+
+  -- 4. REMOVED STRUCTURAL TIMEOUT: Spawn background stream via process handles engine
+  -- This lets the background compilation take as long as it needs without throwing exceptions
+  local ok, handle = pcall(function()
+    return vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { text = true }, function(obj)
+      -- Clean up the persistent memory process pointer handle references
+      compile_job_handle = nil
+
+      vim.schedule(function()
+        _G.metadata.isBusy = false
+        local success = (obj and obj.code == 0)
+
+        if success then
+          _G.metadata.compiledb_status = "Ready"
+          local succ_txt = string.format('%sBuild compiledb success for %s.', from, active_env)
+          if _G.OS and type(_G.OS.notify) == 'function' then
+            _G.OS.notify(succ_txt, 'info')
+          else
+            vim.notify("NVIM-PIO: " .. succ_txt, vim.log.levels.INFO)
+          end
+        else
+          -- If code is 9, it means the user canceled it, so we don't dump a noisy error panel
+          if obj.code == 9 or _G.metadata.compiledb_status == "Aborted" then
+            _G.metadata.compiledb_status = "Cancelled"
+          else
+            _G.metadata.compiledb_status = "Failed"
+            -- Helper to format stack logs dynamically
+            if type(notify_system_error) == "function" then
+              notify_system_error(from, string.format('Build compiledb for %s failed: ', active_env), obj)
+            else
+              vim.notify(string.format("NVIM-PIO: Build compiledb failed with exit code %s", obj.code), vim.log.levels.ERROR)
+            end
+          end
+        end
+
+        -- Delete the placeholder abort command cleanly once execution thread completes
+        pcall(function() vim.api.nvim_del_user_command('PioAbortCompile') end)
+
+        if cb and type(cb) == "function" then cb(success) end
+      end)
     end)
   end)
+
+  if ok and handle then
+    compile_job_handle = handle
+  else
+    compile_job_handle = nil
+    _G.metadata.isBusy = false
+    _G.metadata.compiledb_status = "Failed"
+    vim.notify("NVIM-PIO: Failed to spawn background system process loop.", vim.log.levels.ERROR)
+    pcall(function() vim.api.nvim_del_user_command('PioAbortCompile') end)
+    if cb then cb(false) end
+  end
 end
+-- function M.buildCompileDB(from, active_env, cb)
+--   active_env = active_env or _G.metadata.active_env
+--   vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { timeout = 60000,  text = true }, function(obj)
+--     vim.schedule(function()
+--       local ok = (obj.code == 0)
+--       if ok then
+--         OS.notify(string.format('%sbuild compiledb success for %s.', from, active_env), 'info')
+--       else
+--         notify_system_error(from, string.format('build compiledb for %s failed: ', active_env), obj)
+--       end
+--       if cb and type(cb) == "function" then cb(ok) end
+--     end)
+--   end)
+-- end
 
 --INFO: Piocmd(h/f)
 ------------------------------------------------------
