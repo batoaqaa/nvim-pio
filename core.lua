@@ -144,6 +144,90 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   end
 end
 
+-- function M.ensure_toolchain_active(on_success_callback, retry_counter)
+--   local main = require("nvimpio")
+--   retry_counter = retry_counter or 0
+--
+--   -- JIT Path Gateway: Safely parses configuration choices at invocation runtime
+--   local current_pio_opts = (main.options and main.options.pio) or (main.defaults and main.defaults.pio) or {}
+--   local raw_runtime_dir = M.resolve_user_path(current_pio_opts.pio_runtime_dir)
+--
+--   -- Execute fallback checks only if options parameters are missing or completely blank strings
+--   if not raw_runtime_dir or raw_runtime_dir == "" then
+--     raw_runtime_dir = OS.is_win and vim.fs.joinpath(vim.env.USERPROFILE, '.platformio')
+--       or vim.fs.joinpath(vim.uv.os_homedir(), '.platformio')
+--   end
+--
+--   local base_runtime = raw_runtime_dir
+--   local bin_subfolder = OS.is_win and 'Scripts' or 'bin'
+--   local target_bin = vim.fs.joinpath(base_runtime, 'penv', bin_subfolder)
+--   local verified = false
+--
+--   local local_pio_executable = vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio'))
+--   if vim.fn.executable(local_pio_executable) == 1 then
+--     main.config.pio_runtime_dir = target_bin
+--     verified = true
+--   end
+--
+--   if verified then
+--     local current_path = vim.env.PATH or ''
+--     -- Clean cross-platform separator and token validation
+--     local target_clean = vim.fs.normalize(main.config.pio_runtime_dir)
+--     if OS.is_win then target_clean = target_clean:lower() end
+--
+--     local active_paths = vim.split(current_path, OS.path_sep, { trimempty = true })
+--     local found_in_path = false
+--
+--     for _, segment in ipairs(active_paths) do
+--       local seg_clean = vim.fs.normalize(segment)
+--       if OS.is_win then seg_clean = seg_clean:lower() end
+--       if seg_clean == target_clean then
+--         found_in_path = true
+--         break
+--       end
+--     end
+--
+--     if not found_in_path then
+--       vim.env.PATH = main.config.pio_runtime_dir .. OS.path_sep .. current_path
+--     end
+--
+--     local raw_storage_dir = M.resolve_user_path(current_pio_opts.pio_storage_dir) or vim.env.PLATFORMIO_CORE_DIR or base_runtime
+--     if raw_storage_dir and vim.fn.isdirectory(raw_storage_dir) == 0 then
+--       vim.fn.mkdir(raw_storage_dir, 'p')
+--     end
+--
+--     -- vim.env.PLATFORMIO_CORE_DIR = raw_storage_dir
+--     main.config.pio_storage_dir = raw_storage_dir
+--
+--     if type(on_success_callback) == 'function' then
+--       on_success_callback(true)
+--       if retry_counter == 0 then OS.notify('PIO already installed and verified') end
+--     end
+--   else
+--     if retry_counter >= 1 then
+--       return vim.schedule(function()
+--         OS.notify("PlatformIO path resolution failed. Target missing.", 'error')
+--       end)
+--     end
+--     vim.schedule(function()
+--       if vim.fn.confirm('PlatformIO not found. Install toolchain?', '&Yes\n&No', 1) == 1 then
+--         local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
+--         if ok then
+--           installer.pioInstall(base_runtime, function(_)
+--             M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
+--           end)
+--         else
+--           OS.notify('Installer module missing', 'error')
+--           if type(on_success_callback) == 'function' then on_success_callback(false) end
+--         end
+--       else
+--         OS.notify('Execution aborted: Toolchain missing.', 'warn')
+--         if type(on_success_callback) == 'function' then on_success_callback(false) end
+--       end
+--     end)
+--   end
+-- end
+
 function M.execute_cmd_clean(target_command)
   local main = require('nvimpio')
   -- local pio = require('nvimpio.pioCheck')

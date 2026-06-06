@@ -57,6 +57,20 @@ end
 function M.activate()
   if isActivated then return end
 
+  -- =========================================================================
+  -- HARD LOCK SHIELD: Block automatic activation if paths are missing
+  -- =========================================================================
+  -- This acts as a complete gate, ensuring your background refresh timers 
+  -- and tracking hooks never boot if the binary is absent or compiling!
+  local pio_bin = M.config.pio_runtime_dir
+  local pio_exe = OS.is_win and "pio.exe" or "pio"
+  local check_path = pio_bin and vim.fs.joinpath(pio_bin, pio_exe) or ""
+
+  if vim.fn.executable(check_path) ~= 1 and vim.fn.executable("pio") ~= 1 and vim.fn.executable("pio.exe") ~= 1 then
+    return -- SAFELY HALTS ENTIRE BACKGROUND REFRESH SYSTEM
+  end
+  -- =========================================================================
+
   isActivated = true
   -- vim.schedule(function ()
   vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
