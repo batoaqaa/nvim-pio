@@ -500,10 +500,11 @@ fetch_metadata = function(callback, active_env, from, attempts)
       -- OS.notify(from .. 'Idedata is ready. Proceeding with analysis...')
         -- Execute recursive check loop to accurately verify and load newly compiled files
       if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
-      else fire_callback(false) end
+      else fire_callback(false); return end
     else
       OS.notify(from .. 'Skipping next steps due to compilation idedata failure.', 'error')
       fire_callback(false)
+      return
     end
   end)
 
