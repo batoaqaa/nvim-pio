@@ -121,10 +121,9 @@ end, {
 
 --INFO: Piolsserial
 vim.api.nvim_create_user_command('Piolsserial', function()
-  -- local cmd_table = {'device', 'list'}
-  -- require('nvimpio.pio.cli').piocmd(cmd_table, 'float')
-  print(vim.inspect(require('nvimpio.pio.upkeep').get_connected_ports()))
-  -- require('nvimpio.pio.upkeep').get_connected_ports()
+  local cmd_table = {'device', 'list'}
+  require('nvimpio.pio.cli').piocmd(cmd_table, 'float')
+  -- print(vim.inspect(require('nvimpio.pio.upkeep').get_connected_ports()))
 end, {})
 
 --INFO: Piolib

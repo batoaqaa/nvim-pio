@@ -125,143 +125,370 @@ function M.get_connected_ports()
     end
   end
 
-  print(vim.inspect(paths))
   return paths
 end
 
+--=============================================================================
 -- stylua: ignore
 --=============================================================================
 --INFO: setup up device port
+-- File: lua/nvimpio/pio/commands.lua
+-- Memory cache layer to store discovered ports to ensure instant menu loads
+local cached_ports = {}
+local is_scanning = false
+
+---Silently updates the active hardware port array cache in the background
+local function async_update_ports(callback)
+  if is_scanning then
+    if callback then
+      callback(cached_ports)
+    end
+    return
+  end
+
+  if vim.fn.executable('pio') ~= 1 then
+    if callback then
+      callback({})
+    end
+    return
+  end
+
+  is_scanning = true
+
+  -- ASYNCHRONOUS ENGINE: Executes completely in the background without freezing the editor UI thread
+  vim.system({ 'pio', 'device', 'list', '--json-output' }, { text = true }, function(obj)
+    is_scanning = false
+    local ports = {}
+
+    if obj and obj.code == 0 and obj.stdout then
+      local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
+      if parse_ok and type(devices) == 'table' then
+        local unique_paths = {}
+        for _, d in ipairs(devices) do
+          local p = d.port or d.device
+          if p and p ~= '' then
+            unique_paths[p] = true
+          end
+        end
+        for path, _ in pairs(unique_paths) do
+          table.insert(ports, path)
+        end
+        table.sort(ports)
+      end
+    end
+
+    -- Update our fast memory cache registry pointer
+    cached_ports = ports
+
+    if callback then
+      vim.schedule(function()
+        callback(ports)
+      end)
+    end
+  end)
+end
+
+---Trigger a silent hardware bus refresh early when the plugin boots up
+function M.prime_hardware_cache()
+  async_update_ports()
+end
+
+---Configures all PlatformIO hardware execution variables interactively with instant caching
 function M.configure_hardware_parameters()
-  _G.metadata.isBusy = true
-  local p_state = _G.metadata.port_parameters
-  if vim.fn.executable('pio') ~= 1 then return end
+  local init_mod = require('nvimpio')
+  local p_state = init_mod.runtime_parameters or {}
 
-  -- 1. Scan Ports with robust property fallbacks
-  local ok, obj = pcall(function() return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait() end)
-  local ports = {}
-  if ok and obj and obj.code == 0 and obj.stdout then
-    for _, d in ipairs(vim.json.decode(obj.stdout) or {}) do
-      local p = d.port or d.device
-      if p and p ~= '' then table.insert(ports, p) end
-    end
-  end
-  if #ports == 0 then return vim.notify('NVIM-PIO: No serial devices detected.', 3) end
-  table.sort(ports)
+  -- Standard baud rate selection speeds definitions matrix array
+  local speeds = { '9600', '19200', '38400', '57600', '115200', '230400', '460800', '921600' }
 
-  -- 2. Declarative Step Definition Setup
-  local b = { '9600', '19200', '38400', '57600', '115200', '230400', '460800', '921600' }
-  local steps = {
-    { p = ' Select Upload Port ', c = ports, s = function(x) p_state.selected_port = x end, },
-    { p = ' Select Upload Speed ', c = b, s = function(x) p_state.upload_speed = x end, },
-    { p = ' Select Monitor Speed ', c = b, s = function(x) p_state.monitor_speed = x end, },
-    { p = ' Set Monitor RTS State ', c = { '0', '1' }, s = function(x) p_state.monitor_rts = x end, },
-    { p = ' Set Monitor DTR State ', c = { '0', '1' }, s = function(x) p_state.monitor_dtr = x end, },
-  }
+  -- 1. Definition helper for our step-by-step picker layout loop
+  local function run_wizard(available_ports)
+    -- Fallback default loop choice if no physical hardware tokens match
+    local active_ports = (#available_ports > 0) and available_ports or { 'Auto Detect' }
 
-  -- 3. File System Injector Engine (Safely mutates platformio.ini)
-  local function inject_into_ini()
-    local ini_path = vim.fs.joinpath(vim.uv.cwd(), "platformio.ini")
-    if vim.fn.filereadable(ini_path) ~= 1 then return end
+    local steps = {
+      {
+        p = ' Select Upload Port ',
+        c = active_ports,
+        s = function(x)
+          p_state.selected_port = x
+          vim.g.platformio_selected_port = x
+        end,
+      },
+      {
+        p = ' Select Upload Speed ',
+        c = speeds,
+        s = function(x)
+          p_state.upload_speed = x
+        end,
+      },
+      {
+        p = ' Select Monitor Speed ',
+        c = speeds,
+        s = function(x)
+          p_state.monitor_speed = x
+        end,
+      },
+      {
+        p = ' Set Monitor RTS State ',
+        c = { '0', '1' },
+        s = function(x)
+          p_state.monitor_rts = x
+        end,
+      },
+      {
+        p = ' Set Monitor DTR State ',
+        c = { '0', '1' },
+        s = function(x)
+          p_state.monitor_dtr = x
+        end,
+      },
+    }
 
-    -- Read the file content safely lines by lines
-    local lines = {}
-    local f_in = io.open(ini_path, "r")
-    if f_in then
-      for line in f_in:lines() do
-        -- STRIP FILTER: Strip all old lines including the explicit hardware pins blocks
-        if not line:find("^upload_port%s*=") and
-           not line:find("^monitor_port%s*=") and
-           not line:find("^upload_speed%s*=") and
-           not line:find("^monitor_speed%s*=") and
-           not line:find("^monitor_filters%s*=") and
-           not line:find("^monitor_rts%s*=") and
-           not line:find("^monitor_dtr%s*=") then
-          table.insert(lines, line)
-        end
-      end
-      f_in:close()
-    end
-
-    -- Compile our new active parameters into valid native PlatformIO syntax
-    local new_configs = {}
-    if p_state.selected_port then
-      table.insert(new_configs, "upload_port = " .. p_state.selected_port)
-      table.insert(new_configs, "monitor_port = " .. p_state.selected_port)
-    end
-    if p_state.upload_speed then
-      table.insert(new_configs, "upload_speed = " .. p_state.upload_speed)
-    end
-    if p_state.monitor_speed then
-      table.insert(new_configs, "monitor_speed = " .. p_state.monitor_speed)
-    end
-
-    -- Standard PlatformIO filters layout profile properties
-    table.insert(new_configs, "monitor_filters = direct, send_on_enter")
-
-    -- FIX APPLIED HERE: Map RTS/DTR variables directly as native standalone fields!
-    if p_state.monitor_rts then
-      table.insert(new_configs, "monitor_rts = " .. p_state.monitor_rts)
-    end
-    if p_state.monitor_dtr then
-      table.insert(new_configs, "monitor_dtr = " .. p_state.monitor_dtr)
-    end
-
-    -- Locate or inject a clean global [env] block right at the top of the file
-    local env_found = false
-    for idx, line in ipairs(lines) do
-      if line:match("^%s*%[%s*env%s*%]%s*$") then
-        env_found = true
-        for i, cfg in ipairs(new_configs) do
-          table.insert(lines, idx + i, cfg)
-        end
-        break
-      end
-    end
-
-    if not env_found then
-      table.insert(lines, "")
-      table.insert(lines, "[env]")
-      for _, cfg in ipairs(new_configs) do
-        table.insert(lines, cfg)
-      end
-    end
-
-    -- Write modifications array back to your platformio.ini file
-    local f_out = io.open(ini_path, "w")
-    if f_out then
-      f_out:write(table.concat(lines, "\n") .. "\n")
-      f_out:close()
-    end
-    vim.defer_fn(function()
-      _G.metadata.isBusy = false
-    end, 500)
-  end
-
-  -- 4. High-Performance Linear Wizard Runner
-  local function run(i)
-    if not steps[i] then
-      -- Fire the data writer routine immediately once step 5 is processed successfully
-      inject_into_ini()
-
-      local msg = string.format(
-        'Injected into ini! Port: %s | Upload: %s baud | Monitor: %s baud',
-        p_state.selected_port or 'Auto',
-        p_state.upload_speed or 'Ini',
-        p_state.monitor_speed or 'Ini'
-      )
-      return _G.OS and type(_G.OS.notify) == 'function' and _G.OS.notify(msg, 'info') or vim.notify(msg, 2)
-    end
-    vim.ui.select(steps[i].c, { prompt = steps[i].p }, function(sel)
-      if not sel then
+    -- Standard File System Injector Engine (Preserves original contents)
+    local function inject_into_ini()
+      local ini_path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
+      if vim.fn.filereadable(ini_path) ~= 1 then
         return
       end
-      steps[i].s(sel)
-      run(i + 1)
+
+      local lines = {}
+      local eol = '\n'
+      local f_in = io.open(ini_path, 'rb')
+      if f_in then
+        local content = f_in:read('*all')
+        f_in:close()
+        if content:find('\r\n') then
+          eol = '\r\n'
+        end
+        for line in content:gmatch('[^\r\n]+') do
+          if
+            not line:find('^%s*upload_port%s*=')
+            and not line:find('^%s*monitor_port%s*=')
+            and not line:find('^%s*upload_speed%s*=')
+            and not line:find('^%s*monitor_speed%s*=')
+            and not line:find('^%s*monitor_filters%s*=')
+            and not line:find('^%s*monitor_rts%s*=')
+            and not line:find('^%s*monitor_dtr%s*=')
+          then
+            table.insert(lines, line)
+          end
+        end
+      end
+
+      local new_configs = { 'monitor_filters = direct, send_on_enter' }
+      if p_state.selected_port and p_state.selected_port ~= 'Auto Detect' then
+        table.insert(new_configs, 'upload_port = ' .. p_state.selected_port)
+        table.insert(new_configs, 'monitor_port = ' .. p_state.selected_port)
+      end
+      if p_state.upload_speed then
+        table.insert(new_configs, 'upload_speed = ' .. p_state.upload_speed)
+      end
+      if p_state.monitor_speed then
+        table.insert(new_configs, 'monitor_speed = ' .. p_state.monitor_speed)
+      end
+      if p_state.monitor_rts then
+        table.insert(new_configs, 'monitor_rts = ' .. p_state.monitor_rts)
+      end
+      if p_state.monitor_dtr then
+        table.insert(new_configs, 'monitor_dtr = ' .. p_state.monitor_dtr)
+      end
+
+      local env_idx = nil
+      for idx, line in ipairs(lines) do
+        if line:match('^%s*%[%s*env%s*%]%s*$') then
+          env_idx = idx
+          break
+        end
+      end
+
+      if env_idx then
+        for i, cfg in ipairs(new_configs) do
+          table.insert(lines, env_idx + i, cfg)
+        end
+      else
+        table.insert(lines, '')
+        table.insert(lines, '[env]')
+        for _, cfg in ipairs(new_configs) do
+          table.insert(lines, cfg)
+        end
+      end
+
+      local f_out = io.open(ini_path, 'wb')
+      if f_out then
+        f_out:write(table.concat(lines, eol) .. eol)
+        f_out:close()
+      end
+    end
+
+    local function run(i)
+      if not steps[i] then
+        inject_into_ini()
+        local msg = string.format(
+          'Injected: Port: %s | Upload: %s baud | Monitor: %s baud',
+          p_state.selected_port or 'Auto',
+          p_state.upload_speed or 'Ini',
+          p_state.monitor_speed or 'Ini'
+        )
+        return _G.OS and type(_G.OS.notify) == 'function' and _G.OS.notify(msg, 'info') or vim.notify(msg, 2)
+      end
+
+      vim.ui.select(steps[i].c, { prompt = steps[i].p }, function(sel)
+        if not sel then
+          return vim.notify('NVIM-PIO: Configuration wizard aborted.', vim.log.levels.WARN)
+        end
+        steps[i].s(sel)
+        run(i + 1)
+      end)
+    end
+    run(1)
+  end
+
+  -- 2. RUNTIME LOOKUP COUPLING: Read cached ports instantly if they exist, else update gracefully
+  if #cached_ports > 0 then
+    run_wizard(cached_ports)
+    async_update_ports() -- Silent background refresh for the next run
+  else
+    -- First time configuration run fallback loop layout step
+    vim.notify('NVIM-PIO: Scanning hardware port bus...', vim.log.levels.INFO)
+    async_update_ports(function(fresh_ports)
+      run_wizard(fresh_ports)
     end)
   end
-  run(1)
 end
+
+-- Good
+-- function M.configure_hardware_parameters()
+--   _G.metadata.isBusy = true
+--   local p_state = _G.metadata.port_parameters
+--   if vim.fn.executable('pio') ~= 1 then return end
+--
+--   -- 1. Scan Ports with robust property fallbacks
+--   local ok, obj = pcall(function() return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait() end)
+--   local ports = {}
+--   if ok and obj and obj.code == 0 and obj.stdout then
+--     for _, d in ipairs(vim.json.decode(obj.stdout) or {}) do
+--       local p = d.port or d.device
+--       if p and p ~= '' then table.insert(ports, p) end
+--     end
+--   end
+--   if #ports == 0 then return vim.notify('NVIM-PIO: No serial devices detected.', 3) end
+--   table.sort(ports)
+--
+--   -- 2. Declarative Step Definition Setup
+--   local b = { '9600', '19200', '38400', '57600', '115200', '230400', '460800', '921600' }
+--   local steps = {
+--     { p = ' Select Upload Port ', c = ports, s = function(x) p_state.selected_port = x end, },
+--     { p = ' Select Upload Speed ', c = b, s = function(x) p_state.upload_speed = x end, },
+--     { p = ' Select Monitor Speed ', c = b, s = function(x) p_state.monitor_speed = x end, },
+--     { p = ' Set Monitor RTS State ', c = { '0', '1' }, s = function(x) p_state.monitor_rts = x end, },
+--     { p = ' Set Monitor DTR State ', c = { '0', '1' }, s = function(x) p_state.monitor_dtr = x end, },
+--   }
+--
+--   -- 3. File System Injector Engine (Safely mutates platformio.ini)
+--   local function inject_into_ini()
+--     local ini_path = vim.fs.joinpath(vim.uv.cwd(), "platformio.ini")
+--     if vim.fn.filereadable(ini_path) ~= 1 then return end
+--
+--     -- Read the file content safely lines by lines
+--     local lines = {}
+--     local f_in = io.open(ini_path, "r")
+--     if f_in then
+--       for line in f_in:lines() do
+--         -- STRIP FILTER: Strip all old lines including the explicit hardware pins blocks
+--         if not line:find("^upload_port%s*=") and
+--            not line:find("^monitor_port%s*=") and
+--            not line:find("^upload_speed%s*=") and
+--            not line:find("^monitor_speed%s*=") and
+--            not line:find("^monitor_filters%s*=") and
+--            not line:find("^monitor_rts%s*=") and
+--            not line:find("^monitor_dtr%s*=") then
+--           table.insert(lines, line)
+--         end
+--       end
+--       f_in:close()
+--     end
+--
+--     -- Compile our new active parameters into valid native PlatformIO syntax
+--     local new_configs = {}
+--     if p_state.selected_port then
+--       table.insert(new_configs, "upload_port = " .. p_state.selected_port)
+--       table.insert(new_configs, "monitor_port = " .. p_state.selected_port)
+--     end
+--     if p_state.upload_speed then
+--       table.insert(new_configs, "upload_speed = " .. p_state.upload_speed)
+--     end
+--     if p_state.monitor_speed then
+--       table.insert(new_configs, "monitor_speed = " .. p_state.monitor_speed)
+--     end
+--
+--     -- Standard PlatformIO filters layout profile properties
+--     table.insert(new_configs, "monitor_filters = direct, send_on_enter")
+--
+--     -- FIX APPLIED HERE: Map RTS/DTR variables directly as native standalone fields!
+--     if p_state.monitor_rts then
+--       table.insert(new_configs, "monitor_rts = " .. p_state.monitor_rts)
+--     end
+--     if p_state.monitor_dtr then
+--       table.insert(new_configs, "monitor_dtr = " .. p_state.monitor_dtr)
+--     end
+--
+--     -- Locate or inject a clean global [env] block right at the top of the file
+--     local env_found = false
+--     for idx, line in ipairs(lines) do
+--       if line:match("^%s*%[%s*env%s*%]%s*$") then
+--         env_found = true
+--         for i, cfg in ipairs(new_configs) do
+--           table.insert(lines, idx + i, cfg)
+--         end
+--         break
+--       end
+--     end
+--
+--     if not env_found then
+--       table.insert(lines, "")
+--       table.insert(lines, "[env]")
+--       for _, cfg in ipairs(new_configs) do
+--         table.insert(lines, cfg)
+--       end
+--     end
+--
+--     -- Write modifications array back to your platformio.ini file
+--     local f_out = io.open(ini_path, "w")
+--     if f_out then
+--       f_out:write(table.concat(lines, "\n") .. "\n")
+--       f_out:close()
+--     end
+--     vim.defer_fn(function()
+--       _G.metadata.isBusy = false
+--     end, 500)
+--   end
+--
+--   -- 4. High-Performance Linear Wizard Runner
+--   local function run(i)
+--     if not steps[i] then
+--       -- Fire the data writer routine immediately once step 5 is processed successfully
+--       inject_into_ini()
+--
+--       local msg = string.format(
+--         'Injected into ini! Port: %s | Upload: %s baud | Monitor: %s baud',
+--         p_state.selected_port or 'Auto',
+--         p_state.upload_speed or 'Ini',
+--         p_state.monitor_speed or 'Ini'
+--       )
+--       return _G.OS and type(_G.OS.notify) == 'function' and _G.OS.notify(msg, 'info') or vim.notify(msg, 2)
+--     end
+--     vim.ui.select(steps[i].c, { prompt = steps[i].p }, function(sel)
+--       if not sel then
+--         return
+--       end
+--       steps[i].s(sel)
+--       run(i + 1)
+--     end)
+--   end
+--   run(1)
+-- end
+--=============================================================================
 
 --=============================================================================
 --INFO:get pio project metadata info
