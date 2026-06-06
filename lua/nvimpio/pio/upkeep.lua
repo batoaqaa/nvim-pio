@@ -1,7 +1,7 @@
 ---@class platformio.utils.pio
 local M = {}
 
-local clangd = require('nvimpio.clangd.control')
+-- local clangd = require('nvimpio.clangd.control')
 local misc = require('nvimpio.utils.misc')
 local term = require('nvimpio.utils.term')
 local boilerplate = require('nvimpio.boilerplate')
@@ -1029,7 +1029,7 @@ function M.handlePioDB(result, active_env, on_done)
           boilerplate.args = clangd_extracted_args
           boilerplate_gen('.clangd', vim.g.platformioRootDir)
           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
-          clangd.restart()
+          require('nvimpio.clangd.control').restart()
         end, 500) -- 50ms delay, adjust as needed
       end
     end
@@ -1042,7 +1042,7 @@ function M.handlePioDB(result, active_env, on_done)
           boilerplate.args = clangd_extracted_args
           boilerplate_gen('.clangd', vim.g.platformioRootDir)
           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
-          clangd.restart()
+          require('nvimpio.clangd.control').restart()
         end, 500) -- 50ms delay, adjust as needed
         on_done(true)
       else on_done(false) end
@@ -1088,7 +1088,7 @@ function M.handleIdedata(result, active_env, on_done)
           boilerplate.args = clangd_extracted_args
           boilerplate_gen('.clangd', vim.g.platformioRootDir)
           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
-          clangd.restart()
+          require('nvimpio.clangd.control').restart()
         end, 500) -- 50ms delay, adjust as needed
       end
     end
@@ -1101,7 +1101,7 @@ function M.handleIdedata(result, active_env, on_done)
           boilerplate.args = clangd_extracted_args
           boilerplate_gen('.clangd', vim.g.platformioRootDir)
           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
-          clangd.restart()
+          require('nvimpio.clangd.control').restart()
         end, 500) -- 50ms delay, adjust as needed
         on_done(true)
       else on_done(false) end
@@ -1161,7 +1161,7 @@ function M.handlePiolib(result)
     vim.schedule(function()
       OS.notify('PIO lib+db: Done', "info")
       M.pio_refresh(function(success)
-        if success then clangd.getUnknownArgsCli('PIO lib+db: ') end
+        if success then require('nvimpio.clangd.control').getUnknownArgsCli('PIO lib+db: ') end
       end, 'PIO lib+db: ')
     end)
     if trm then trm:close() end
