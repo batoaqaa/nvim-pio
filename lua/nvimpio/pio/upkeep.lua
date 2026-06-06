@@ -98,190 +98,229 @@ end
 -- stylua: ignore
 --=============================================================================
 -- Helper function to extract connected hardware ports using PlatformIO core
-function M.get_connected_ports()
-  if vim.fn.executable('pio') ~= 1 then
-    return {}
-  end
-
-  -- Spawn an explicit JSON hardware scan via the core engine
-  local ok, obj = pcall(function()
-    return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait()
-  end)
-
-  if not ok or not obj or obj.code ~= 0 or not obj.stdout then
-    return {}
-  end
-
-  -- Parse output safely into data tables
-  local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
-  if not parse_ok or type(devices) ~= 'table' then
-    return {}
-  end
-
-  local paths = {}
-  for _, dev in ipairs(devices) do
-    if dev.port then
-      paths[dev.port] = true
-    end
-  end
-
-  return paths
-end
+-- function M.get_connected_ports()
+--   if vim.fn.executable('pio') ~= 1 then
+--     return {}
+--   end
+--
+--   -- Spawn an explicit JSON hardware scan via the core engine
+--   local ok, obj = pcall(function()
+--     return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait()
+--   end)
+--
+--   if not ok or not obj or obj.code ~= 0 or not obj.stdout then
+--     return {}
+--   end
+--
+--   -- Parse output safely into data tables
+--   local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
+--   if not parse_ok or type(devices) ~= 'table' then
+--     return {}
+--   end
+--
+--   local paths = {}
+--   for _, dev in ipairs(devices) do
+--     if dev.port then
+--       paths[dev.port] = true
+--     end
+--   end
+--
+--   return paths
+-- end
 
 --=============================================================================
 -- stylua: ignore
 --=============================================================================
 --INFO: setup up device port
----Configures all PlatformIO hardware execution variables interactively with real-time async discovery
-function M.configure_hardware_parameters()
-  local p_state = _G.metadata.port_parameters
+---Scans the hardware bus for active microcontrollers and returns a sorted list array of strings
+---@return string[] ports A sequential list of discovered port strings
+function M.get_connected_ports()
+  if vim.fn.executable('pio') ~= 1 then return {} end
 
-  if vim.fn.executable('pio') ~= 1 then
-    vim.notify('NVIM-PIO: PlatformIO CLI binary not found in system $PATH.', vim.log.levels.ERROR)
-    return
-  end
-
-  -- Standard baud rate selection choices matrix
-  local speeds = { '9600', '19200', '38400', '57600', '115200', '230400', '460800', '921600' }
-
-  -- Core wizard steps runner engine
-  local function run_wizard(final_ports)
-    local active_ports = (#final_ports > 0) and final_ports or { "Auto Detect" }
-
-    local steps = {
-      { p = ' [1/5] Select Targeted Serial Upload Port ', c = active_ports, s = function(x) p_state.selected_port = x; vim.g.platformio_selected_port = x end },
-      { p = ' [2/5] Select Upload Speed (Baud) ',        c = speeds,       s = function(x) p_state.upload_speed = x end },
-      { p = ' [3/5] Select Serial Monitor Speed (Baud) ', c = speeds,       s = function(x) p_state.monitor_speed = x end },
-      { p = ' [4/5] Set Monitor RTS Pin Logic State ',    c = {'0','1'},    s = function(x) p_state.monitor_rts = x end },
-      { p = ' [5/5] Set Hardware Monitor DTR Pin State ', c = {'0','1'},    s = function(x) p_state.monitor_dtr = x end }
-    }
-
-    local function inject_into_ini()
-      _G.metadata.isBusy = true
-      local ini_path = vim.fs.joinpath(vim.uv.cwd(), "platformio.ini")
-      if vim.fn.filereadable(ini_path) ~= 1 then return end
-
-      local lines = {}
-      local eol = "\n"
-      local f_in = io.open(ini_path, "rb")
-      if f_in then
-        local content = f_in:read("*all")
-        f_in:close()
-        if content:find("\r\n") then eol = "\r\n" end
-        for line in content:gmatch("[^\r\n]+") do
-          if not line:find("^%s*upload_port%s*=") and
-             not line:find("^%s*monitor_port%s*=") and
-             not line:find("^%s*upload_speed%s*=") and
-             not line:find("^%s*monitor_speed%s*=") and
-             not line:find("^%s*monitor_filters%s*=") and
-             not line:find("^%s*monitor_rts%s*=") and
-             not line:find("^%s*monitor_dtr%s*=") then
-            table.insert(lines, line)
-          end
-        end
-      end
-
-      local new_configs = { "monitor_filters = direct, send_on_enter" }
-      if p_state.selected_port and p_state.selected_port ~= "Auto Detect" then
-        table.insert(new_configs, "upload_port = " .. p_state.selected_port)
-        table.insert(new_configs, "monitor_port = " .. p_state.selected_port)
-      end
-      if p_state.upload_speed  then table.insert(new_configs, "upload_speed = " .. p_state.upload_speed) end
-      if p_state.monitor_speed then table.insert(new_configs, "monitor_speed = " .. p_state.monitor_speed) end
-      if p_state.monitor_rts   then table.insert(new_configs, "monitor_rts = " .. p_state.monitor_rts) end
-      if p_state.monitor_dtr   then table.insert(new_configs, "monitor_dtr = " .. p_state.monitor_dtr) end
-
-      local env_idx = nil
-      for idx, line in ipairs(lines) do
-        if line:match("^%s*%[%s*env%s*%]%s*$") then env_idx = idx; break end
-      end
-
-      if env_idx then
-        for i, cfg in ipairs(new_configs) do table.insert(lines, env_idx + i, cfg) end
-      else
-        table.insert(lines, "")
-        table.insert(lines, "[env]")
-        for _, cfg in ipairs(new_configs) do table.insert(lines, cfg) end
-      end
-
-      local f_out = io.open(ini_path, "wb")
-      if f_out then
-        f_out:write(table.concat(lines, eol) .. eol)
-        f_out:close()
-      end
-
-      vim.defer_fn(function()
-        _G.metadata.isBusy = false
-      end, 500)
-    end
-
-    local function run(i)
-      if not steps[i] then
-        inject_into_ini()
-        local msg = string.format("Injected: Port: %s | Upload: %s baud | Monitor: %s baud",
-          p_state.selected_port or "Auto", p_state.upload_speed or "Ini", p_state.monitor_speed or "Ini")
-        return _G.OS and type(_G.OS.notify) == 'function' and _G.OS.notify(msg, 'info') or vim.notify(msg, 2)
-      end
-
-      vim.ui.select(steps[i].c, { prompt = steps[i].p }, function(sel)
-        if not sel then return vim.notify("NVIM-PIO: Configuration wizard aborted.", vim.log.levels.WARN) end
-        steps[i].s(sel)
-        run(i + 1)
-      end)
-    end
-    run(1)
-  end
-
-  -- =========================================================================
-  -- REAL-TIME REACTIVE LOADER INTERFACE
-  -- =========================================================================
-  -- 1. Instantly pop up a placeholder menu to give the user immediate visual feedback
-  local loading_placeholder = " [ Scanning Connected Hardware Ports... Please Wait ] "
-
-  vim.ui.select({ loading_placeholder }, {
-    prompt = ' [1/5] Select Targeted Serial Upload Port ',
-  }, function(choice)
-    -- If the user clicks the placeholder text or presses Esc, cleanly cancel the flow
-    if choice == loading_placeholder or not choice then return end
-
-    -- If the choice matches an updated port item, feed it into the wizard runner
-    run_wizard({ choice })
+  -- Run the system command synchronously to fetch device mappings
+  local ok, obj = pcall(function()
+    return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait()
   end)
 
-  -- 2. Simultaneously fire off a non-blocking background task to get live system ports
-  vim.system({ 'pio', 'device', 'list', '--json-output' }, { text = true }, function(obj)
-    local fresh_ports = {}
-    if obj and obj.code == 0 and obj.stdout then
-      local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
-      if parse_ok and type(devices) == 'table' then
-        local unique_paths = {}
-        for _, d in ipairs(devices) do
-          local p = d.port or d.device
-          if p and p ~= "" then unique_paths[p] = true end
-        end
-        for path, _ in pairs(unique_paths) do
-          table.insert(fresh_ports, path)
-        end
-        table.sort(fresh_ports)
-      end
+  if not ok or not obj or obj.code ~= 0 or not obj.stdout then return {} end
+
+  local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
+  if not parse_ok or type(devices) ~= 'table' then return {} end
+
+  -- Clean property extraction loop with robust hardware device fallbacks
+  local unique_paths = {}
+  for _, dev in ipairs(devices) do
+    local active_path = dev.port or dev.device
+    if active_path and type(active_path) == 'string' and vim.trim(active_path) ~= '' then
+      unique_paths[active_path] = true
     end
+  end
 
-    -- 3. Dynamic UI Swap: Safe closure execution on the main Neovim loop thread
-    vim.schedule(function()
-      -- Automatically close the placeholder overlay panel buffer
-      pcall(function()
-        -- Simulates a key strike sequence to dismiss the temporary prompt cleanly
-        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
-      end)
+  -- Flatten dictionary keys out into a sequential list array for selectors
+  local ports = {}
+  for path, _ in pairs(unique_paths) do
+    table.insert(ports, path)
+  end
+  table.sort(ports)
 
-      -- Fire up the genuine wizard step 1 sequence using the freshly detected devices!
-      run_wizard(fresh_ports)
-    end)
-
-  end)
-  -- =========================================================================
+  return ports
 end
 
+---Configures all PlatformIO hardware execution variables interactively
+function M.configure_hardware_parameters()
+  local p_state = _G.metadata.port_parameters
+  local speeds = { '9600', '19200', '38400', '57600', '115200', '230400', '460800', '921600' }
+
+  -- 1. Instantly gather ports using our new unified scanner function helper
+  local ports = M.get_connected_ports()
+  if #ports == 0 then
+    ports = { 'Auto Detect' }
+  end
+
+  -- Define the steps mapping sequence arrays
+  local steps = {
+    {
+      p = ' [1/5] Select Targeted Serial Port ',
+      c = ports,
+      s = function(x)
+        p_state.selected_port = x
+        vim.g.platformio_selected_port = x
+      end,
+    },
+    {
+      p = ' [2/5] Select Upload Speed (Baud) ',
+      c = speeds,
+      s = function(x)
+        p_state.upload_speed = x
+      end,
+    },
+    {
+      p = ' [3/5] Select Serial Monitor Speed ',
+      c = speeds,
+      s = function(x)
+        p_state.monitor_speed = x
+      end,
+    },
+    {
+      p = ' [4/5] Set Monitor RTS Pin State ',
+      c = { '0', '1' },
+      s = function(x)
+        p_state.monitor_rts = x
+      end,
+    },
+    {
+      p = ' [5/5] Set Monitor DTR Pin State ',
+      c = { '0', '1' },
+      s = function(x)
+        p_state.monitor_dtr = x
+      end,
+    },
+  }
+
+  -- Defensive, Context-Aware File System Injector Engine
+  local function inject_into_ini()
+    _G.metadata.isBusy = true
+    local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
+    if vim.fn.filereadable(path) ~= 1 then
+      return
+    end
+
+    local lines, eol = {}, '\n'
+    local f_in = io.open(path, 'rb')
+    if f_in then
+      local src = f_in:read('*all') or ''
+      f_in:close()
+      if src:find('\r\n') then
+        eol = '\r\n'
+      end
+      for line in src:gmatch('[^\r\n]+') do
+        if
+          not line:match('^%s*upload_port%s*=')
+          and not line:match('^%s*monitor_port%s*=')
+          and not line:match('^%s*upload_speed%s*=')
+          and not line:match('^%s*monitor_speed%s*=')
+          and not line:match('^%s*monitor_filters%s*=')
+          and not line:match('^%s*monitor_rts%s*=')
+          and not line:match('^%s*monitor_dtr%s*=')
+        then
+          table.insert(lines, line)
+        end
+      end
+    end
+
+    local patches = { 'monitor_filters = direct, send_on_enter' }
+    if p_state.selected_port and p_state.selected_port ~= 'Auto Detect' then
+      table.insert(patches, 'upload_port = ' .. p_state.selected_port)
+      table.insert(patches, 'monitor_port = ' .. p_state.selected_port)
+    end
+    if p_state.upload_speed then
+      table.insert(patches, 'upload_speed = ' .. p_state.upload_speed)
+    end
+    if p_state.monitor_speed then
+      table.insert(patches, 'monitor_speed = ' .. p_state.monitor_speed)
+    end
+    if p_state.monitor_rts then
+      table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts)
+    end
+    if p_state.monitor_dtr then
+      table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr)
+    end
+
+    local env_idx = nil
+    for idx, line in ipairs(lines) do
+      if line:match('^%s*%[%s*env%s*%]%s*$') then
+        env_idx = idx
+        break
+      end
+    end
+
+    if env_idx then
+      for i, cfg in ipairs(patches) do
+        table.insert(lines, env_idx + i, cfg)
+      end
+    else
+      table.insert(lines, '')
+      table.insert(lines, '[env]')
+      for _, cfg in ipairs(patches) do
+        table.insert(lines, cfg)
+      end
+    end
+
+    local f_out = io.open(path, 'wb')
+    if f_out then
+      f_out:write(table.concat(lines, eol) .. eol)
+      f_out:close()
+    end
+    vim.defer_fn(function()
+      _G.metadata.isBusy = false
+    end, 500)
+  end
+
+  -- Linear Execution Wizard Runner Loop
+  local function run(step_idx)
+    if not steps[step_idx] then
+      inject_into_ini()
+      local msg = string.format(
+        'Injected: Port: %s | Upload: %s baud | Monitor: %s baud',
+        p_state.selected_port or 'Auto',
+        p_state.upload_speed or 'Ini',
+        p_state.monitor_speed or 'Ini'
+      )
+      return _G.OS and type(_G.OS.notify) == 'function' and _G.OS.notify(msg, 'info') or vim.notify(msg, 2)
+    end
+
+    vim.ui.select(steps[step_idx].c, { prompt = steps[step_idx].p }, function(sel)
+      if not sel then
+        return vim.notify('NVIM-PIO: Configuration wizard aborted.', 3)
+      end
+      steps[step_idx].s(sel)
+      run(step_idx + 1)
+    end)
+  end
+
+  -- Run the wizard sequence directly using instantaneous parsed arrays
+  run(1)
+end
 -- Good
 -- function M.configure_hardware_parameters()
 --   _G.metadata.isBusy = true
