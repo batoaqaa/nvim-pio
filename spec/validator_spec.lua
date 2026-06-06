@@ -119,7 +119,7 @@ framework = arduino
       end)
 
       -- Run your target parsing function pipeline
-      local core_mod = require('nvimpio.init') -- Or whichever module file get_active_env is exposed on
+      local core_mod = require('nvimpio.pio.metadata') -- Or whichever module file get_active_env is exposed on
       local active_env, metadata = core_mod.get_active_env('TEST_CONTEXT: ')
 
       -- 3. Restore both functions cleanly to preserve test isolation
