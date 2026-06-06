@@ -28,7 +28,7 @@ function M.get_sysroot_triplet(cc_compiler)
   for _, name in ipairs(files) do
     -- Pattern: ^(.*) matches triplet, %- matches dash, g[c%+][c%+] matches gcc/g++
     local match = name:match('^(.*)%-g[c%+][c%+]')
-    if match then triplet = misc.normalizePath(match) break
+    if match then triplet = vim.fs.normalizePath(match) break
     end
   end
 
@@ -36,14 +36,14 @@ function M.get_sysroot_triplet(cc_compiler)
   if not triplet then return nil end
 
   -- toolchain_root is the parent of the 'bin' folder
-  local toolchain_root = misc.normalizePath(vim.fn.fnamemodify(bin_path, ':h'))
+  local toolchain_root = vim.fs.normalizePath(vim.fn.fnamemodify(bin_path, ':h'))
 
   -- sysroot folder is expected to have the same name as the triplet
   local sysroot = vim.fs.joinpath(toolchain_root, triplet)
 
   -- local query_driver = vim.fs.joinpath(bin_path, triplet) .. '-*'
   -- local query_driver = misc.normalizePath(bin_path .. '/' .. triplet .. '-*')
-  local query_driver = misc.normalizePath(bin_path .. '/*')
+  local query_driver = vim.fs.normalizePath(bin_path .. '/*')
 
   _G.metadata = _G.metadata or {}
   _G.metadata.triplet = triplet
@@ -597,10 +597,10 @@ function M.compile_commandsFix() --M.dbPathsFix()
   local prntFlags = true
   for _, entry in ipairs(data) do
     -- Standard normalization
-    if entry.directory then entry.directory = misc.normalizePath(entry.directory) end
-    if entry.file then entry.file = misc.normalizePath(entry.file) end
-    if entry.arguments then entry.arguments = misc.normalizeFlags(entry.arguments) end
-    if entry.output then entry.output = misc.normalizePath(entry.output) end
+    if entry.directory then entry.directory = vim.fs.normalizePath(entry.directory) end
+    if entry.file then entry.file = vim.fs.normalizePath(entry.file) end
+    if entry.arguments then entry.arguments = vim.fs.normalizeFlags(entry.arguments) end
+    if entry.output then entry.output = vim.fs.normalizePath(entry.output) end
 
     if entry.command then
       -- Extract compiler and everything after it
@@ -613,7 +613,7 @@ function M.compile_commandsFix() --M.dbPathsFix()
 
           if path_map[short_name] then
             -- Use normalizePath on the new path
-            local full_compiler_path = misc.normalizePath(path_map[short_name])
+            local full_compiler_path = vim.fs.normalizePath(path_map[short_name])
 
             -- Quote the path if it contains spaces
             if full_compiler_path:find(" ") then
