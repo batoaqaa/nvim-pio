@@ -912,7 +912,7 @@ end
 function M.handlePioInstall(result, on_done)
   if result == 'INIT' then
     if #M.queue > 0 then
-      _G.metadata.isBusy = true
+-- G.metadata.isBusy = true
       trm = term.ToggleTerminal(pop(M.queue), 'float')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
