@@ -143,6 +143,7 @@ function M.ToggleTerminal(command, direction)
     title = 'Pio Monitor: [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
     pioOpts.display_name = 'piomon:' .. orig_window
     pioOpts.id = 98
+    pioOpts.direction = 'horizontal'
     pioOpts.on_stdout = nil
   else -- INFO: if previous cli terminal already opened ==> reopen
     if prev.cli then
