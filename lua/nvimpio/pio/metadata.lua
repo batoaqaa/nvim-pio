@@ -293,6 +293,7 @@ function M.get_active_env(from)
   require('nvimpio').config.pio_storage_dir = metadata.core_dir
   print('core_dir= ' .. metadata.core_dir)
   print('vars.platforms_dir= ' .. pio_vars.platforms_dir)
+  print('platforms_dir= ' .. metadata.platforms_dir)
   -- Merge [env] defaults down into each specific profile block
   for env, locals in pairs(raw_envs) do
     metadata.envs[env] = vim.tbl_deep_extend("force", base_env, locals)
