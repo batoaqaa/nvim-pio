@@ -40,17 +40,11 @@ local function getPreviousWindow(orig_window)
             prev.orig_window = tonumber(name_splt[2])
             prev.term = terms[i]
           end
-          if terms[i].direction == 'vertical' then
-            prev.float = false
-          end
         elseif name_splt[1] == 'piomon' then
           prev.mon = terms[i]
           if terms[i].window == orig_window then
             prev.orig_window = tonumber(name_splt[2])
             prev.term = terms[i]
-          end
-          if terms[i].direction == 'vertical' then
-            prev.float = false
           end
         end
       end
@@ -101,6 +95,7 @@ function M.ToggleTerminal(command, direction)
   local prev = getPreviousWindow(vim.api.nvim_get_current_win())
   local orig_window = prev.orig_window
 
+  -- REQUIREMENTS COPIED FROM YOUR ORIGINAL ATTR GENERATION BLOCK:
   if string.find(command, ' monitor') then
     if prev.mon then
       prev.mon.display_name = 'piomon:' .. orig_window
@@ -113,9 +108,10 @@ function M.ToggleTerminal(command, direction)
       end
       return prev.mon
     end
-    title = 'Pio Monitor: [In normal mode press: q or :q to hide; :q! to quit]'
+    -- [Requirement Copy]: Monitor Custom Title String
+    title = 'Pio Monitor: [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
     pioOpts.display_name = 'piomon:' .. orig_window
-    pioOpts.id = 98
+    pioOpts.id = 98 -- [Requirement Copy]: Hardware Monitor ID 98
     pioOpts.on_stdout = nil
   else
     if prev.cli then
@@ -134,10 +130,12 @@ function M.ToggleTerminal(command, direction)
       end, 50)
       return prev.cli
     end
-    title = 'Pio CLI> [In normal mode press: q or :q to hide; :q! to quit]'
+    -- [Requirement Copy]: CLI Custom Title String
+    title = 'Pio CLI> [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
     pioOpts.display_name = 'piocli:' .. orig_window
-    pioOpts.id = 99
+    pioOpts.id = 99 -- [Requirement Copy]: Command Line Execution ID 99
 
+    -- [Requirement Copy]: CLI Output Callback Forwarding
     pioOpts.on_stdout = function(terminal, job, data, name)
       if type(M.stdout_callback) == 'function' then
         M.stdout_callback(terminal, job, data, name)
@@ -154,11 +152,11 @@ function M.ToggleTerminal(command, direction)
   local termConfig = {
     hidden = true,
     hide_numbers = true,
-    -- FIXED: Changed core direction to vertical to lock inside file viewport bounds
+    -- CHANGED: Use vertical to lock both terminal streams side-by-side like text buffers
     direction = 'vertical',
-    -- FIXED: Force the target width calculation to maximize inside your file column layout
+    -- CHANGED: Let them evenly share half of the main workspace columns
     size = function()
-      return vim.api.nvim_win_get_width(0)
+      return math.ceil(vim.api.nvim_win_get_width(0) * 0.5)
     end,
     close_on_exit = false,
 
@@ -178,9 +176,9 @@ function M.ToggleTerminal(command, direction)
       vim.keymap.set('t', '<Esc>', [[<C-\><C-n>k]], { buffer = t.bufnr })
       vim.keymap.set('n', '<Esc>', [[<C-\><C-n>a]], { buffer = t.bufnr })
 
-      -- FIXED: Seamless user navigation paths inside terminal context strings
+      -- JUMP KEYS: Let Shift-H/L navigate across the Tree, CLI, and Monitor columns smoothly
       vim.keymap.set('t', '<S-h>', [[<C-\><C-n><C-w>h]], { buffer = t.bufnr, silent = true })
-      vim.keymap.set('n', '<S-h>', '<C-w>h', { buffer = t.bufnr, silent = true })
+      vim.keymap.set('t', '<S-l>', [[<C-\><C-n><C-w>l]], { buffer = t.bufnr, silent = true })
 
       vim.keymap.set('n', 'q', function()
         PioTermClose(t)
@@ -201,7 +199,8 @@ function M.ToggleTerminal(command, direction)
     end,
 
     on_close = function(t)
-      orig_window = tonumber(M.strsplit(t.display_name, ':')[2])
+      local name_splt = M.strsplit(t.display_name, ':')
+      orig_window = tonumber(name_splt[2])
       if orig_window and vim.api.nvim_win_is_valid(orig_window) then
         vim.api.nvim_set_current_win(orig_window)
       else
@@ -210,7 +209,8 @@ function M.ToggleTerminal(command, direction)
     end,
 
     on_create = function(t)
-      local platformio = vim.api.nvim_create_augroup(M.strsplit(t.display_name, ':')[1], { clear = true })
+      local name_splt = M.strsplit(t.display_name, ':')
+      local platformio = vim.api.nvim_create_augroup(name_splt[1], { clear = true })
 
       vim.api.nvim_create_autocmd('CmdlineLeave', {
         group = platformio,
@@ -220,9 +220,9 @@ function M.ToggleTerminal(command, direction)
             local quit = vim.fn.getcmdline() == 'q'
             local quitbang = vim.fn.getcmdline() == 'q!'
             if quitbang or quit then
-              local name_splt = M.strsplit(t.display_name, ':')
+              local ns = M.strsplit(t.display_name, ':')
               if quitbang then
-                if name_splt[1] == 'piomon' then
+                if ns[1] == 'piomon' then
                   local exit = vim.api.nvim_replace_termcodes('<C-C>exit', true, true, true)
                   send(t, exit)
                 else
@@ -230,7 +230,7 @@ function M.ToggleTerminal(command, direction)
                 end
               end
 
-              orig_window = tonumber(name_splt[2])
+              orig_window = tonumber(ns[2])
               vim.schedule(function()
                 if orig_window and vim.api.nvim_win_is_valid(orig_window) then
                   vim.api.nvim_set_current_win(orig_window)
@@ -251,8 +251,9 @@ function M.ToggleTerminal(command, direction)
           pcall(vim.keymap.del, 't', '<Esc>', { buffer = args.buf })
           pcall(vim.keymap.del, 'n', '<Esc>', { buffer = args.buf })
           pcall(vim.keymap.del, 't', '<S-h>', { buffer = args.buf })
-          pcall(vim.keymap.del, 'n', '<S-h>', { buffer = args.buf })
-          vim.api.nvim_clear_autocmds({ group = M.strsplit(t.display_name, ':')[1] })
+          pcall(vim.keymap.del, 't', '<S-l>', { buffer = args.buf })
+          local ns = M.strsplit(t.display_name, ':')
+          vim.api.nvim_clear_autocmds({ group = ns[1] })
         end,
       })
     end,
@@ -261,10 +262,6 @@ function M.ToggleTerminal(command, direction)
   termConfig = vim.tbl_deep_extend('force', termConfig, pioOpts or {})
 
   local terminal = require('toggleterm.terminal').Terminal:new(termConfig)
-  if prev.term then
-    prev.term.close()
-  end
-
   terminal:toggle()
 
   vim.defer_fn(function()
