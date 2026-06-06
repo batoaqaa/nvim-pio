@@ -269,7 +269,7 @@ function M.get_active_env(from)
     elseif current_sec and line ~= '' then
       local k, v = line:match('^%s*([%w_%-]+)%s*=%s*(.-)%s*$')
       if k and v then
-        if current_sec == 'platformio' then pio_vars[k] = vim.trim(v); print(pio_vars[k])
+        if current_sec == 'platformio' then pio_vars[k] = vim.trim(v); print(k .. ' =' .. pio_vars[k])
         elseif current_sec == 'env' then base_env[k] = vim.trim(v)
         elseif current_sec:match('^env:') then raw_envs[current_sec:match('^env:(.+)$')][k] = vim.trim(v) end
       end
@@ -291,9 +291,11 @@ function M.get_active_env(from)
     envs = {}
   }
   require('nvimpio').config.pio_storage_dir = metadata.core_dir
+
   print('core_dir= ' .. metadata.core_dir)
   print('vars.platforms_dir= ' .. pio_vars.platforms_dir)
   print('platforms_dir= ' .. metadata.platforms_dir)
+
   -- Merge [env] defaults down into each specific profile block
   for env, locals in pairs(raw_envs) do
     metadata.envs[env] = vim.tbl_deep_extend("force", base_env, locals)
