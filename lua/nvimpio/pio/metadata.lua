@@ -269,7 +269,7 @@ function M.get_active_env(from)
     elseif current_sec and line ~= '' then
       local k, v = line:match('^%s*([%w_%-]+)%s*=%s*(.-)%s*$')
       if k and v then
-        if current_sec == 'platformio' then pio_vars[k] = vim.trim(v); print(k .. ' =' .. pio_vars[k])
+        if current_sec == 'platformio' then pio_vars[k] = vim.trim(v)
         elseif current_sec == 'env' then base_env[k] = vim.trim(v)
         elseif current_sec:match('^env:') then raw_envs[current_sec:match('^env:(.+)$')][k] = vim.trim(v) end
       end
@@ -281,18 +281,8 @@ function M.get_active_env(from)
     return nil, {}
   end
 
-  -- -- Construct final metadata response schema
-  -- local storage_fallback = require('nvimpio').config.pio_storage_dir or "~/.platformio"
-  -- local metadata = {
-  --   core_dir = interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs),
-  --   packages_dir = interpolate(pio_vars.packages_dir or "${platformio.core_dir}/packages", nil, pio_vars, base_env, raw_envs),
-  --   platforms_dir = interpolate(pio_vars.platforms_dir or "${platformio.core_dir}/platforms", nil, pio_vars, base_env, raw_envs),
-  --   default_envs = normalize_value('default_envs', pio_vars.default_envs),
-  --   envs = {}
-  -- }
-  -- require('nvimpio').config.pio_storage_dir = metadata.core_dir
   -- =========================================================================
-  -- CRITICAL FIX LAYER: Pre-calculate core_dir directly inside pio_vars
+  -- Pre-calculate core_dir directly inside pio_vars
   -- =========================================================================
   local storage_fallback = require('nvimpio').config.pio_storage_dir or "~/.platformio"
 
@@ -313,10 +303,6 @@ function M.get_active_env(from)
     envs = {}
   }
   -- =========================================================================
-
-  print('core_dir= ' .. metadata.core_dir)
-  print('vars.platforms_dir= ' .. pio_vars.platforms_dir)
-  print('platforms_dir= ' .. metadata.platforms_dir)
 
   -- Merge [env] defaults down into each specific profile block
   for env, locals in pairs(raw_envs) do
