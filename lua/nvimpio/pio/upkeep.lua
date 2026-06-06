@@ -163,7 +163,6 @@ function M.get_connected_ports()
   end
   table.sort(ports)
 
-  print(vim.inspect(ports))
   return ports
 end
 
