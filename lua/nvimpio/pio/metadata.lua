@@ -269,7 +269,7 @@ function M.get_active_env(from)
     elseif current_sec and line ~= '' then
       local k, v = line:match('^%s*([%w_%-]+)%s*=%s*(.-)%s*$')
       if k and v then
-        if current_sec == 'platformio' then pio_vars[k] = vim.trim(v); print(v)
+        if current_sec == 'platformio' then pio_vars[k] = vim.trim(v); print(pio_vars[k])
         elseif current_sec == 'env' then base_env[k] = vim.trim(v)
         elseif current_sec:match('^env:') then raw_envs[current_sec:match('^env:(.+)$')][k] = vim.trim(v) end
       end
