@@ -134,8 +134,7 @@ end
 --INFO: setup up device port
 ---Configures all PlatformIO hardware execution variables interactively with real-time async discovery
 function M.configure_hardware_parameters()
-  local init_mod = require('nvimpio')
-  local p_state = init_mod.runtime_parameters or {}
+  local p_state = _G.metadata.port_parameters
 
   if vim.fn.executable('pio') ~= 1 then
     vim.notify('NVIM-PIO: PlatformIO CLI binary not found in system $PATH.', vim.log.levels.ERROR)
@@ -273,6 +272,10 @@ function M.configure_hardware_parameters()
       -- Fire up the genuine wizard step 1 sequence using the freshly detected devices!
       run_wizard(fresh_ports)
     end)
+
+    vim.defer_fn(function()
+      _G.metadata.isBusy = false
+    end, 500)
   end)
   -- =========================================================================
 end
