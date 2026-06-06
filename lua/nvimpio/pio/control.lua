@@ -255,10 +255,6 @@ function M.init(clangd_config)
   require('nvimpio.pio.metadata') --.load_project_config()
   -- require('nvimpio.pio.diagnostic')
 
-  -- PRIME CACHE: Scans USB device entries silently right when Neovim starts up
-  pcall(function()
-    require('nvimpio.pio.commands').prime_hardware_cache()
-  end)
   if clangd_config.support then clangd.init(clangd_config) end
 
   -- Always start the watcher so it can catch a future 'pio init'
