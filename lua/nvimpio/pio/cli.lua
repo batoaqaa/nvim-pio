@@ -258,8 +258,8 @@ function M.buildCompileDB(from, active_env, cb)
   -- =========================================================================
   -- THE LEAK FINDER GADGET: Prints the exact file calling this on boot!
   -- =========================================================================
-  print("DEBUG LEAK SOURCE DETECTED BY:")
-  print(debug.traceback())
+  -- print("DEBUG LEAK SOURCE DETECTED BY:")
+  -- print(debug.traceback())
   -- =========================================================================
 
   active_env = active_env or _G.metadata.active_env
