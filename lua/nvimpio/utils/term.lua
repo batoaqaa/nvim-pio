@@ -114,7 +114,6 @@ end
 ------------------------------------------------------
 -- INFO: ToggleTerminal
 function M.ToggleTerminal(command, direction)
-  direction = 'vertical'
   local status_ok, _ = pcall(require, 'toggleterm')
   if not status_ok then
     vim.api.nvim_echo({ { 'toggleterm not found!', 'ErrorMsg' } }, true, {})
@@ -143,7 +142,7 @@ function M.ToggleTerminal(command, direction)
     title = 'Pio Monitor: [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
     pioOpts.display_name = 'piomon:' .. orig_window
     pioOpts.id = 98
-    pioOpts.direction = 'horizontal'
+    pioOpts.direction = 'horizontal' or direction
     pioOpts.on_stdout = nil
   else -- INFO: if previous cli terminal already opened ==> reopen
     if prev.cli then
@@ -165,7 +164,7 @@ function M.ToggleTerminal(command, direction)
     title = 'Pio CLI> [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
     pioOpts.display_name = 'piocli:' .. orig_window
     pioOpts.id = 99
-    pioOpts.direction = 'vertical'
+    pioOpts.direction = 'vertical' or direction
     pioOpts.size = function()
       return vim.o.columns
     end
@@ -184,7 +183,7 @@ function M.ToggleTerminal(command, direction)
       end
     end
   end
-  pioOpts.direction = direction
+  -- pioOpts.direction = direction
   ------------------------------------------------------
 
   -- INFO: termConfig table start
