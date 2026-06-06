@@ -32,11 +32,8 @@ end
 -- stylua: ignore start
 --INFO: Generate idedata.json
 ------------------------------------------------------------------------------------
--- File: lua/nvimpio/pio/commands.lua
-
 -- Dedicated in-memory pointer to isolate and track the background IDE data job tree
 local idedata_job_handle = nil
-
 ---Compiles PlatformIO project IDE framework metadata asynchronously with cancellation hooks
 ---@param from string Logging context tracker prefix string
 ---@param active_env string? The targeted microchip environment block choice
