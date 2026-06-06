@@ -262,6 +262,7 @@ function M.init(clangd_config)
 
 
 
+
 vim.keymap.set('n', '<leader>tl', function()
   local tabs = vim.api.nvim_list_tabpages()
   local current_tab = vim.api.nvim_get_current_tabpage()
@@ -273,21 +274,35 @@ vim.keymap.set('n', '<leader>tl', function()
       current_idx = i
     end
 
-    local win = vim.api.nvim_tabpage_get_win(tab)
-    local buf = vim.api.nvim_win_get_buf(win)
-    local buf_name = vim.api.nvim_buf_get_name(buf)
+    -- 1. Try to fetch the custom toggleterm title we saved inside the tab
+    local success, custom_title = pcall(vim.api.nvim_tabpage_get_var, tab, "tab_title")
+    local display_name = ""
 
-    local display_name = "[No Name]"
-    if buf_name ~= "" then
-      if buf_name:match("toggleterm") or vim.bo[buf].buftype == "terminal" then
-        display_name = "   Terminal"
+    if success and custom_title then
+      display_name = custom_title
+    else
+      -- 2. Fallback to extracting the active buffer name if no custom tab title exists
+      local win = vim.api.nvim_tabpage_get_win(tab)
+      local buf = vim.api.nvim_win_get_buf(win)
+      local buf_name = vim.api.nvim_buf_get_name(buf)
+
+      if buf_name ~= "" then
+        if buf_name:match("toggleterm") or vim.bo[buf].buftype == "terminal" then
+          display_name = "   Terminal"
+        else
+          display_name = "   " .. vim.fn.fnamemodify(buf_name, ":t")
+        end
       else
-        display_name = "   " .. vim.fn.fnamemodify(buf_name, ":t")
+        display_name = "[No Name]"
+      end
+
+      -- Append modified marker if file has unsaved changes
+      if vim.bo[buf].modified then
+        display_name = display_name .. " ◉"
       end
     end
 
-    local modified = vim.bo[buf].modified and " ◉" or ""
-    local label = string.format("%d: Tab %d %s%s", i, i, display_name, modified)
+    local label = string.format("%d: Tab %d (%s)", i, i, display_name)
     table.insert(choices, label)
   end
 
@@ -304,13 +319,11 @@ vim.keymap.set('n', '<leader>tl', function()
     if choice then
       local tab_idx = choice:match("^(%d+):")
       if tab_idx then
-        -- FIXED: Replaced '1gt' string with standard 'tabnext 1' command
         vim.cmd("tabnext " .. tab_idx)
       end
     end
   end)
 end, { desc = "Interactive Tab List Menu" })
-
 
 
 
