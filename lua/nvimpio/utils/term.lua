@@ -114,7 +114,7 @@ end
 ------------------------------------------------------
 -- INFO: ToggleTerminal
 function M.ToggleTerminal(command, direction)
-  direction = 'vertical'
+  direction = 'float'
   local status_ok, _ = pcall(require, 'toggleterm')
   if not status_ok then
     vim.api.nvim_echo({ { 'toggleterm not found!', 'ErrorMsg' } }, true, {})
@@ -165,7 +165,7 @@ function M.ToggleTerminal(command, direction)
     title = 'Pio CLI> [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
     pioOpts.display_name = 'piocli:' .. orig_window
     pioOpts.id = 99
-    pioOpts.direction = 'vertical' or direction
+    pioOpts.direction = 'float' or direction
     pioOpts.size = function()
       return vim.o.columns
     end
@@ -193,20 +193,42 @@ function M.ToggleTerminal(command, direction)
     hide_numbers = true,
     -- env = { PATH = vim.env.PATH,},
     float_opts = {
-      winblend = 0,
+      -- Options: 'single' | 'double' | 'shadow' | 'curved' | 'none'
+      border = 'none',
+      -- Dynamically calculate coordinates to overlay ONLY the active window area
       width = function()
-        return math.ceil(vim.o.columns * 0.85)
+        return vim.api.nvim_win_get_width(0)
       end,
       height = function()
-        return math.ceil(vim.o.lines * 0.75)
+        return vim.api.nvim_win_get_height(0)
       end,
-      -- shell = vim.o.shell,
-      shell = OS.shell,
-      highlights = {
-        border = 'FloatBorder',
-        background = 'NormalFloat',
-      },
+      row = function()
+        -- Anchors the overlay exactly onto the top edge of your file window
+        local win_pos = vim.api.nvim_win_get_position(0)
+        return win_pos[1]
+      end,
+      col = function()
+        -- Shifts the window right to avoid covering neo-tree/nvim-tree
+        local win_pos = vim.api.nvim_win_get_position(0)
+        return win_pos[2]
+      end,
     },
+    direction = 'float',
+    -- float_opts = {
+    --   winblend = 0,
+    --   width = function()
+    --     return math.ceil(vim.o.columns * 0.85)
+    --   end,
+    --   height = function()
+    --     return math.ceil(vim.o.lines * 0.75)
+    --   end,
+    --   -- shell = vim.o.shell,
+    --   shell = OS.shell,
+    --   highlights = {
+    --     border = 'FloatBorder',
+    --     background = 'NormalFloat',
+    --   },
+    -- },
     close_on_exit = false, --closeOnexit,
 
     -- INFO: on_open()
