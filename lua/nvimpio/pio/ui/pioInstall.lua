@@ -28,8 +28,8 @@ local function pioInstall(runtime_dir, on_done)
   local script_url = 'https://raw.githubusercontent.com/platformio/platformio-core-installer/master/'
 
   -- 4. Calculate the targeting penv directory cleanly
-  local core = require('nvimpio.core')
-  local custom_penv_dir = core.clean(runtime_dir .. OS.folder_sep .. 'penv')
+  -- local core = require('nvimpio.core')
+  local custom_penv_dir = require('nvimpio.core').clean(runtime_dir .. OS.folder_sep .. 'penv')
 
   -- If an old penv folder exists, wipe it completely down to the hard drive
   if type(custom_penv_dir) == 'string' and custom_penv_dir ~= '' then
