@@ -135,6 +135,7 @@ end
 ---Configures all PlatformIO hardware execution variables interactively with real-time async discovery
 function M.configure_hardware_parameters()
   local p_state = _G.metadata.port_parameters
+  _G.metadata.isBusy = true
 
   if vim.fn.executable('pio') ~= 1 then
     vim.notify('NVIM-PIO: PlatformIO CLI binary not found in system $PATH.', vim.log.levels.ERROR)
