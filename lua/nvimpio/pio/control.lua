@@ -262,6 +262,35 @@ function M.init(clangd_config)
 
 
 
+local term_buf = nil
+
+vim.keymap.set({'n', 't'}, '<leader>tf', function()
+  -- 1. Safely exit terminal mode if you are currently typing in it
+  if vim.api.nvim_get_mode().mode == 't' then
+    vim.cmd([[raw_mode == 't' and <C-\><C-n>]])
+  end
+
+  -- 2. If the terminal is open and visible on screen, hide it by switching to your last code file
+  if term_buf and vim.api.nvim_buf_is_valid(term_buf) and vim.fn.bufwinnr(term_buf) ~= -1 then
+    vim.cmd("b#")
+    return
+  end
+
+  -- 3. If the terminal already exists in memory but is hidden, bring it into your active file window
+  if term_buf and vim.api.nvim_buf_is_valid(term_buf) then
+    vim.api.nvim_set_current_buf(term_buf)
+  else
+    -- 4. Create a fresh terminal buffer inside your current window (keeps neo-tree/nvim-tree perfectly open)
+    vim.cmd("terminal")
+    term_buf = vim.api.nvim_get_current_buf()
+
+    -- Strip line numbers and set styles to match a clean terminal pane
+    vim.cmd("setlocal nonumber norelativenumber signcolumn=no")
+  end
+
+  -- Automatically drop your cursor into typing mode
+  vim.cmd("startinsert")
+end, { desc = "Toggle true full-buffer terminal" })
 
 vim.keymap.set('n', '<leader>tl', function()
   local tabs = vim.api.nvim_list_tabpages()
