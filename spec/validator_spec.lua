@@ -106,23 +106,25 @@ framework = arduino
       -- Mock the internal file system reader module temporarily for isolation testing
       local misc = require('nvimpio.utils.misc')
       local original_readFile = misc.readFile
-      misc.readFile = function(_)
-        return true, mock_ini_content
-      end
 
-      -- Mock the file check to always think the file exists during the test
+      -- 1. Safely mock your custom file reader
+      rawset(misc, 'readFile', function(_)
+        return true, mock_ini_content
+      end)
+
+      -- 2. Safely mock the native Neovim file check function
       local original_filereadable = vim.fn.filereadable
-      vim.fn.filereadable = function(_)
+      rawset(vim.fn, 'filereadable', function(_)
         return 1
-      end
+      end)
 
       -- Run your target parsing function pipeline
-      local active_env, metadata = M.get_active_env('TEST_CONTEXT: ')
+      local core_mod = require('nvimpio.init') -- Or whichever module file get_active_env is exposed on
+      local active_env, metadata = core_mod.get_active_env('TEST_CONTEXT: ')
 
-      -- Restore our filesystem wrappers immediately to keep other tests isolated and healthy
-      misc.readFile = original_readFile
-      vim.fn.filereadable = original_filereadable
-
+      -- 3. Restore both functions cleanly to preserve test isolation
+      rawset(misc, 'readFile', original_readFile)
+      rawset(vim.fn, 'filereadable', original_filereadable)
       -- Core Assertions: Verify data structure interpolation matches expectations
       assert.is_equal('uno', active_env)
       assert.is_table(metadata)
