@@ -114,6 +114,7 @@ end
 ------------------------------------------------------
 -- INFO: ToggleTerminal
 function M.ToggleTerminal(command, direction)
+  direction = 'vertical'
   local status_ok, _ = pcall(require, 'toggleterm')
   if not status_ok then
     vim.api.nvim_echo({ { 'toggleterm not found!', 'ErrorMsg' } }, true, {})
