@@ -36,16 +36,16 @@ local function getPreviousWindow(orig_window)
   -- 2. Define your context class
   ---@class PioPrevContext
   ---@field term Terminal|nil
-  ---@field mon Terminal|nil  -- Handle for horizontal terminal
+  ---@field mon Terminal|nil  -- Handle for float terminal
   ---@field cli Terminal|nil
-  ---@field horizontal boolean      -- flag horizontal terminal
+  ---@field float boolean      -- flag float terminal
   ---@field orig_window number|nil
   local prev = {
     orig_window = orig_window,
     term = nil, --active terminal
     cli = nil, --cli terminal
     mon = nil, --mon terminal
-    horizontal = false, --is active terminal direction horizontal
+    float = false, --is active terminal direction float
   }
   local terms = require('toggleterm.terminal').get_all(true)
   if #terms ~= 0 then
@@ -59,8 +59,8 @@ local function getPreviousWindow(orig_window)
             prev.orig_window = tonumber(name_splt[2]) -- set orig_window to the previous terminal onrig_window
             prev.term = terms[i]
           end
-          if terms[i].direction == 'horizontal' then
-            prev.horizontal = true
+          if terms[i].direction == 'float' then
+            prev.float = true
           end
         elseif name_splt[1] == 'piomon' then
           prev.mon = terms[i]
@@ -69,8 +69,8 @@ local function getPreviousWindow(orig_window)
             prev.orig_window = tonumber(name_splt[2]) -- set orig_window to the previous terminal onrig_window
             prev.term = terms[i]
           end
-          if terms[i].direction == 'horizontal' then
-            prev.horizontal = true
+          if terms[i].direction == 'float' then
+            prev.float = true
           end
         end
       end
@@ -143,7 +143,7 @@ function M.ToggleTerminal(command, direction)
     title = 'Pio Monitor: [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
     pioOpts.display_name = 'piomon:' .. orig_window
     pioOpts.id = 98
-    pioOpts.direction = 'horizontal' or direction
+    pioOpts.direction = 'float' or direction
     pioOpts.on_stdout = nil
   else -- INFO: if previous cli terminal already opened ==> reopen
     if prev.cli then
@@ -213,7 +213,7 @@ function M.ToggleTerminal(command, direction)
         return win_pos[2]
       end,
     },
-    direction = 'horizontal',
+    direction = 'float',
     -- float_opts = {
     --   winblend = 0,
     --   width = function()
@@ -345,7 +345,7 @@ function M.ToggleTerminal(command, direction)
 
   -- INFO: create new terminal
   local terminal = require('toggleterm.terminal').Terminal:new(termConfig)
-  if prev.term and prev.horizontal then
+  if prev.term and prev.float then
     prev.term.close()
   end
   terminal:toggle()
