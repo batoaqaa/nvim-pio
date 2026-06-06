@@ -38,14 +38,14 @@ local function getPreviousWindow(orig_window)
   ---@field term Terminal|nil  -- Handle for horizontal terminal
   ---@field mon Terminal|nil
   ---@field cli Terminal|nil
-  ---@field vertical boolean      -- flag vertical terminal
+  ---@field horizontal boolean      -- flag horizontal terminal
   ---@field orig_window number|nil
   local prev = {
     orig_window = orig_window,
     term = nil, --active terminal
     cli = nil, --cli terminal
     mon = nil, --mon terminal
-    vertical = false, --is active terminal direction vertical
+    horizontal = false, --is active terminal direction horizontal
   }
   local terms = require('toggleterm.terminal').get_all(true)
   if #terms ~= 0 then
@@ -59,8 +59,8 @@ local function getPreviousWindow(orig_window)
             prev.orig_window = tonumber(name_splt[2]) -- set orig_window to the previous terminal onrig_window
             prev.term = terms[i]
           end
-          if terms[i].direction == 'vertical' then
-            prev.vertical = true
+          if terms[i].direction == 'horizontal' then
+            prev.horizontal = true
           end
         elseif name_splt[1] == 'piomon' then
           prev.mon = terms[i]
@@ -69,8 +69,8 @@ local function getPreviousWindow(orig_window)
             prev.orig_window = tonumber(name_splt[2]) -- set orig_window to the previous terminal onrig_window
             prev.term = terms[i]
           end
-          if terms[i].direction == 'vertical' then
-            prev.vertical = true
+          if terms[i].direction == 'horizontal' then
+            prev.horizontal = true
           end
         end
       end
@@ -178,7 +178,7 @@ function M.ToggleTerminal(command, direction)
       end
     end
   end
-  pioOpts.direction = 'vertical' --direction
+  pioOpts.direction = 'horizontal' --direction
   ------------------------------------------------------
 
   -- INFO: termConfig table start
@@ -202,6 +202,8 @@ function M.ToggleTerminal(command, direction)
       },
     },
     close_on_exit = false, --closeOnexit,
+    start_in_insert = true,
+    persist_size = false,
 
     -- INFO: on_open()
     on_open = function(t)
@@ -317,7 +319,7 @@ function M.ToggleTerminal(command, direction)
 
   -- INFO: create new terminal
   local terminal = require('toggleterm.terminal').Terminal:new(termConfig)
-  if prev.term and prev.vertical then
+  if prev.term and prev.horizontal then
     prev.term.close()
   end
   terminal:toggle()
