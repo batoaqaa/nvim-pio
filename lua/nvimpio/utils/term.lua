@@ -178,7 +178,7 @@ function M.ToggleTerminal(command, direction)
       end
     end
   end
-  pioOpts.direction = direction
+  pioOpts.direction = 'tab' --direction
   ------------------------------------------------------
 
   -- INFO: termConfig table start
