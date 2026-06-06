@@ -2,6 +2,32 @@ local M = {}
 
 local pio_term = nil
 
+---Defensively isolates and locks the correct active python path boundaries into Neovim's environment
+function M.enforce_virtualenv_isolation()
+  -- 1. Read the environment path strings safely from active system variables
+  local active_venv = vim.env.VIRTUAL_ENV
+  if not active_venv or active_venv == '' then
+    return
+  end
+
+  -- 2. Construct the absolute binary path structure (Windows uses \Scripts, Unix uses /bin)
+  local path_separator = _G.OS and _G.OS.folder_sep or '\\'
+  local bin_folder = (_G.OS and _G.OS.is_win) and 'Scripts' or 'bin'
+  local venv_bin_path = active_venv .. path_separator .. bin_folder
+
+  -- 3. Verify that the targeting scripts directory physically exists on their hard drive
+  if vim.fn.isdirectory(venv_bin_path) == 1 then
+    local current_path_registry = vim.env.PATH or ''
+    local variable_delimiter = (_G.OS and _G.OS.is_win) and ';' or ':'
+
+    -- 4. Check if the environment bin folder is already at the very front of the path string
+    -- If it isn't, prepend it to guarantee highest evaluation priority across all subshells!
+    if not current_path_registry:match('^' .. vim.pesc(venv_bin_path)) then
+      vim.env.PATH = venv_bin_path .. variable_delimiter .. current_path_registry
+    end
+  end
+end
+
 function M.clean(raw_path)
   if not raw_path or raw_path == '' then
     return nil

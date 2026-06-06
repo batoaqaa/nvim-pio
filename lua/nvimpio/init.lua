@@ -51,36 +51,6 @@ function M.initialize_full_options()
   -- 6. Save back to M.options only when validation completely passes
   M.options = final_options
 end
--- function M.initialize_full_options()
---   local menu = require('nvimpio.menu')
---   local val = require('nvimpio.validator')
---
---   if M.options and M.options.menu_bindings then return end
---
---   -- 1. Create a clean deep copy of all factory defaults
---   local primitive_defaults = vim.deepcopy(M.defaults)
---
---   -- 2. Strip out the menu bindings array so tbl_deep_extend doesn't wipe it out!
---   primitive_defaults.menu_bindings = nil
---
---   -- 3. Isolate the user's custom layout overrides
---   local user_bindings = M.options and M.options.menu_bindings
---   if M.options then M.options.menu_bindings = nil end
---
---   -- 4. Safely merge primitives on top of your public factory baseline template
---   local full_defaults = vim.tbl_deep_extend('force', primitive_defaults, M.options or {})
---   M.options = full_defaults
---
---   -- 5. Route list array combining safely through our custom merge engine
---   M.options.menu_bindings = user_bindings and menu.merge_menu_tree(M.defaults.menu_bindings, user_bindings, 'menu_bindings')
---     or vim.deepcopy(M.defaults.menu_bindings)
---
---   -- 6. Pass everything through the data type constraints validation layer
---   local ok, err = val.validate_all_options(M.options)
---   if not ok then
---     error('PlatformIO Configuration Error:\n' .. err, 0)
---   end
--- end
 
 ------------------------------------------------------------------------
 -- Activation: Turn on the plugin features
@@ -90,7 +60,11 @@ function M.activate()
   isActivated = true
   -- vim.schedule(function ()
   vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
-  -- M.initialize_full_options()
+
+  -- CRITICAL PATH REPAIR: Force Python environment isolation before options are parsed or commands register
+  require('nvimpio.core').enforce_virtualenv_isolation()
+  M.initialize_full_options()
+
   local menu = require('nvimpio.menu')
   menu.buildUserMenu(M.options)
   require('nvimpio.pio.control').init(M.options.clangd)
@@ -104,7 +78,7 @@ function M.setup(user_opts)
   user_opts = user_opts or {}
   M.options = vim.deepcopy(user_opts)
 
-  M.initialize_full_options()
+  -- M.initialize_full_options()
 
   -- INFO: Pioini
   vim.api.nvim_create_user_command('Pioinit', function()
