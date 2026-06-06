@@ -1,6 +1,5 @@
 -- stylua: ignore start
 require('nvimpio.osInfo')
-require('nvimpio.statusline')
 
 ---@class NvimPio
 local M = {}
@@ -78,6 +77,9 @@ function M.activate()
   -- CRITICAL PATH REPAIR: Force Python environment isolation before options are parsed or commands register
   require('nvimpio.core').enforce_virtualenv_isolation()
   M.initialize_full_options()
+
+  -- Load statusline ONLY after verification passes!
+  require('nvimpio.statusline')
 
   local menu = require('nvimpio.menu')
   menu.buildUserMenu(M.options)
