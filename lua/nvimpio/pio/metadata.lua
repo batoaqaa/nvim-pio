@@ -281,16 +281,38 @@ function M.get_active_env(from)
     return nil, {}
   end
 
-  -- Construct final metadata response schema
+  -- -- Construct final metadata response schema
+  -- local storage_fallback = require('nvimpio').config.pio_storage_dir or "~/.platformio"
+  -- local metadata = {
+  --   core_dir = interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs),
+  --   packages_dir = interpolate(pio_vars.packages_dir or "${platformio.core_dir}/packages", nil, pio_vars, base_env, raw_envs),
+  --   platforms_dir = interpolate(pio_vars.platforms_dir or "${platformio.core_dir}/platforms", nil, pio_vars, base_env, raw_envs),
+  --   default_envs = normalize_value('default_envs', pio_vars.default_envs),
+  --   envs = {}
+  -- }
+  -- require('nvimpio').config.pio_storage_dir = metadata.core_dir
+  -- =========================================================================
+  -- CRITICAL FIX LAYER: Pre-calculate core_dir directly inside pio_vars
+  -- =========================================================================
   local storage_fallback = require('nvimpio').config.pio_storage_dir or "~/.platformio"
+
+  -- Resolve core_dir first so it exists inside pio_vars for packages/platforms loops
+  pio_vars.core_dir = pcall(function()
+    return interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs)
+  end) and interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs) or storage_fallback
+
+  -- Update your plugin core config storage layer synchronously
+  require('nvimpio').config.pio_storage_dir = pio_vars.core_dir
+
+  -- Construct final metadata response schema cleanly using pre-seeded variables
   local metadata = {
-    core_dir = interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs),
+    core_dir = pio_vars.core_dir,
     packages_dir = interpolate(pio_vars.packages_dir or "${platformio.core_dir}/packages", nil, pio_vars, base_env, raw_envs),
     platforms_dir = interpolate(pio_vars.platforms_dir or "${platformio.core_dir}/platforms", nil, pio_vars, base_env, raw_envs),
     default_envs = normalize_value('default_envs', pio_vars.default_envs),
     envs = {}
   }
-  require('nvimpio').config.pio_storage_dir = metadata.core_dir
+  -- =========================================================================
 
   print('core_dir= ' .. metadata.core_dir)
   print('vars.platforms_dir= ' .. pio_vars.platforms_dir)
