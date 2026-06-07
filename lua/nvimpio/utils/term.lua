@@ -66,6 +66,7 @@ function M.ToggleTerminal(command, terminal_type)
 
   -- 4. PROCESS PERSISTENCE: Pure modern Lua channel spawning architecture
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
+    -- Create a hidden scratch buffer that is strictly unlisted
     target_buf = vim.api.nvim_create_buf(false, true)
     if terminal_type == 'monitor' then
       pio_mon_buf = target_buf
@@ -73,36 +74,29 @@ function M.ToggleTerminal(command, terminal_type)
       pio_cli_buf = target_buf
     end
 
-    -- Spawn a native interactive shell process tied to the buffer layout
-    local chan_id = vim.api.nvim_open_term(target_buf, {
-      on_input = function(_, _, _, data)
-        -- FIXED: Replaced legacy jobsend with native nvim_chan_send API
-        local active_job = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
-        if active_job then
-          vim.api.nvim_chan_send(active_job, data)
-        end
-      end,
-    })
+    -- FIXED: We let jobstart handle the term channel attachment natively on an unmodified buffer.
+    -- This eliminates the "requires unmodified buffer" Neovim runtime crash.
+    vim.api.nvim_buf_call(target_buf, function()
+      local job_id = vim.fn.jobstart(vim.o.shell, {
+        term = true,
+        -- Automatically drops the cursor back into insertion mode when re-focusing
+        on_exit = function()
+          if terminal_type == 'monitor' then
+            pio_mon_chan = nil
+          else
+            pio_cli_chan = nil
+          end
+        end,
+      })
 
-    -- Start the clean system shell session execution thread stream
-    local job_id = vim.fn.jobstart(vim.o.shell, {
-      term = true,
-      on_stdout = function(_, data)
-        -- Safely pushes background output streams into the visible buffer lines
-        if vim.api.nvim_buf_is_valid(target_buf) then
-          vim.api.nvim_chan_send(chan_id, table.concat(data, '\r\n') .. '\r\n')
-        end
-      end,
-    })
-
-    -- Cache channel pointers globally for execution sending paths
-    if terminal_type == 'monitor' then
-      pio_mon_chan = job_id
-    else
-      pio_cli_chan = job_id
-    end
+      -- Cache the native terminal channel pointer globally for your command execution streams
+      if terminal_type == 'monitor' then
+        pio_mon_chan = job_id
+      else
+        pio_cli_chan = job_id
+      end
+    end)
   end
-
   -- 5. ABSOLUTE GEOMETRIC GRID PLACEMENT:
   local target_height = math.ceil(vim.o.lines * 0.28)
   local cmdheight = vim.o.cmdheight or 1
@@ -195,15 +189,14 @@ function M.ToggleTerminal(command, terminal_type)
   end
   -----------------------------------------------------------------------------
 
-  -- Automatically stream project compile command flags via the modern channel pipelines
+  -- Automatically stream project compile command flags via the channel pipelines
   if command and command ~= '' then
-    -- FIXED: Replaced legacy jobsend with native nvim_chan_send API for input triggers
     local active_job = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
     if active_job then
+      -- Sends your PlatformIO macro instructions down to the running interactive shell thread
       vim.api.nvim_chan_send(active_job, command .. (vim.fn.has('win32') == 1 and '\r\n' or '\n'))
     end
   end
-
   vim.cmd('startinsert')
 end
 
