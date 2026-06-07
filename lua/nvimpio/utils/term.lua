@@ -213,6 +213,13 @@ function M.ToggleTerminal(command, direction)
 
       -- vim.cmd('wincmd =')
 
+      -- DUAL PANEL HOME ROW CROSS SWITCHER (;;)
+      vim.keymap.set({ 'n', 't' }, ';;', function()
+      if vim.api.nvim_get_mode().mode == 't' then
+        local esc = vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true)
+        vim.api.nvim_feedkeys(esc, 'n', false)
+       end
+
       vim.keymap.set('t', '<Esc>', [[<C-\><C-n>k]], { buffer = t.bufnr })
       vim.keymap.set('n', '<Esc>', [[<C-\><C-n>a]], { buffer = t.bufnr })
 
