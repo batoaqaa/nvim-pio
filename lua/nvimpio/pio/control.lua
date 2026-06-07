@@ -319,7 +319,9 @@ function M.init(clangd_config)
 local term_buf = nil
 
 
-vim.keymap.set({ "n", "t" }, "<leader>st", toggle_terminal, { desc = "Toggle terminal" })
+-- Maps <leader>t to open a bottom terminal with a fixed height of 15 rows
+vim.keymap.set('n', '<leader>st', ':botright split | resize 15 | terminal<CR>', { silent = true })
+-- vim.keymap.set({ "n", "t" }, "<leader>st", toggle_terminal, { desc = "Toggle terminal" })
 
 vim.keymap.set({'n', 't'}, '<leader>tf', function()
   -- 1. Safely exit terminal mode if you are currently typing in it
