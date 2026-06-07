@@ -106,13 +106,20 @@ function M.ToggleTerminal(command, terminal_type)
   end, { buffer = target_buf })
 
   -- Escape path out of the terminal panel back UP to code workspace files
-  vim.keymap.set({ 'n', 't' }, '<C-k>', function()
-    if vim.api.nvim_get_mode().mode == 't' then
-      vim.cmd([[raw_mode == 't' and <C-\><C-n>]])
-    end
-    vim.cmd('wincmd k')
-  end, { buffer = target_buf, silent = true })
 
+  -- Escape path out of the terminal panel back UP to code workspace files
+  vim.keymap.set({ 'n', 't' }, '<C-k>', function()
+    -- FIXED CRASH: Replaced broken vim.cmd string with safe native feedkeys
+    if vim.api.nvim_get_mode().mode == 't' then
+      local escape_keys = vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true)
+      vim.api.nvim_feedkeys(escape_keys, 'n', false)
+    end
+
+    -- Micro-schedule ensures the terminal drops insertion state before Neovim moves the cursor window focus
+    vim.schedule(function()
+      vim.cmd('wincmd k')
+    end)
+  end, { buffer = target_buf, silent = true })
   -----------------------------------------------------------------------------
   -- KEYMAP GROUP B: GLOBAL NAVIGATION HOOKS (Registered on generation)
   -----------------------------------------------------------------------------
