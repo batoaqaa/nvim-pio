@@ -164,7 +164,6 @@ function M.ToggleTerminal(command, terminal_type)
   local new_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(new_win, target_buf)
 
-  -- Forces layout container to stretch edge-to-edge horizontally along the bottom row [Index]
   vim.cmd('wincmd J')
   vim.api.nvim_win_set_height(new_win, target_height)
 
@@ -233,20 +232,16 @@ vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter' }, {
   callback = function()
     vim.schedule(function()
       local active_term_win = pio_cli_win or pio_mon_win
-      -- If the terminal window handle is active, check if its structural integrity was split
       if active_term_win and vim.api.nvim_win_is_valid(active_term_win) then
         local target_height = math.ceil(vim.o.lines * 0.28)
         local current_width = vim.api.nvim_win_get_width(active_term_win)
 
-        -- If width drops below full screen width, a vertical pillar split was forced
         if current_width < vim.o.columns then
           local cur_win = vim.api.nvim_get_current_win()
-          -- Catch the rogue file buffer that tried to split the terminal layout
           if cur_win == active_term_win or vim.api.nvim_win_get_buf(cur_win) ~= (pio_cli_buf or pio_mon_buf) then
             local rogue_buf = vim.api.nvim_win_get_buf(cur_win)
             local valid_editor = find_valid_editor_window()
 
-            -- Push the file up into the center code workspace safely
             if valid_editor then
               vim.api.nvim_win_set_buf(valid_editor, rogue_buf)
               vim.api.nvim_set_current_win(valid_editor)
@@ -254,8 +249,6 @@ vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter' }, {
             end
           end
 
-          -- ⚡ THE CORRECTION SNAP: Forces the terminal container layout row back down
-          -- into an horizontal layout spanning all columns across the absolute bottom edge [Index]!
           vim.api.nvim_set_current_win(active_term_win)
           vim.cmd('wincmd J')
           vim.api.nvim_win_set_height(active_term_win, target_height)
@@ -271,3 +264,27 @@ vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter' }, {
 })
 
 ----------------------------------------------------------------------------------------
+-- GLOBAL SHORTCUT INITIALIZATIONS
+----------------------------------------------------------------------------------------
+vim.keymap.set('n', '<C-h>', '<C-w>h', { silent = true })
+vim.keymap.set('n', '<C-l>', '<C-w>l', { silent = true })
+
+vim.keymap.set('n', '<C-j>', function()
+  if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
+    vim.api.nvim_set_current_win(pio_cli_win)
+    vim.cmd('startinsert')
+  elseif pio_mon_win and vim.api.nvim_win_is_valid(pio_mon_win) then
+    vim.api.nvim_set_current_win(pio_mon_win)
+    vim.cmd('startinsert')
+  else
+    vim.cmd('wincmd j')
+  end
+end, { silent = true })
+
+vim.keymap.set('n', [[\gm]], function()
+  M.ToggleTerminal('', 'monitor')
+end, { silent = true })
+vim.keymap.set('n', [[\t]], function()
+  M.ToggleTerminal('', 'cli')
+end, { silent = true })
+return M
