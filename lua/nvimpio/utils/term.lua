@@ -144,7 +144,7 @@ function M.ToggleTerminal(command, direction)
     pioOpts.display_name = 'piomon:' .. orig_window
     pioOpts.id = 98
     pioOpts.on_stdout = nil
-    pioOpts.direction = 'verical' or direction
+    pioOpts.direction = 'float' or direction
   else -- INFO: if previous cli terminal already opened ==> reopen
     if prev.cli then
       prev.cli.display_name = 'piocli:' .. orig_window
@@ -165,7 +165,7 @@ function M.ToggleTerminal(command, direction)
     title = 'Pio CLI> [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
     pioOpts.display_name = 'piocli:' .. orig_window
     pioOpts.id = 99
-    pioOpts.direction = 'vertical' or direction
+    pioOpts.direction = 'float' or direction
 
     -- INFO: on_stdout
     pioOpts.on_stdout = function(terminal, job, data, name)
