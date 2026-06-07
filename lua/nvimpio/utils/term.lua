@@ -11,11 +11,8 @@ local last_active_editor_win = nil
 local pio_cli_chan = nil
 local pio_mon_chan = nil
 
--- Cache the original cmdheight to restore clean editor layout properties on close
-local original_cmdheight = vim.o.cmdheight
-
 ----------------------------------------------------------------------------------------
--- CLEAN EXIT LOGIC: Restores native editor layout geometries cleanly
+-- CLEAN EXIT LOGIC: Closes structural split viewports cleanly and restores focus
 local function HideTerminalWindow(terminal_type)
   local win_id = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
   if win_id and vim.api.nvim_win_is_valid(win_id) then
@@ -27,16 +24,13 @@ local function HideTerminalWindow(terminal_type)
     pio_cli_win = nil
   end
 
-  -- Restore original layout proportions to pull the text editor viewport back down
-  vim.o.cmdheight = original_cmdheight
-
   if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) then
     vim.api.nvim_set_current_win(last_active_editor_win)
   end
 end
 
 ----------------------------------------------------------------------------------------
--- CORE INTERACTIVE ABSOLUTE PANEL RUNNER
+-- CORE STRUCTURAL RUNNER (UNCONDITIONAL BOTTOM TILE PACKER)
 function M.ToggleTerminal(command, terminal_type)
   local active_win = vim.api.nvim_get_current_win()
   if active_win ~= pio_cli_win and active_win ~= pio_mon_win then
@@ -56,7 +50,7 @@ function M.ToggleTerminal(command, terminal_type)
   local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
 
-  -- 1. MUTUAL EXCLUSION: Close opposition workspace instantly
+  -- 1. MUTUAL EXCLUSION: Close opposition split instantly
   if other_win and vim.api.nvim_win_is_valid(other_win) then
     vim.api.nvim_win_close(other_win, true)
     if terminal_type == 'monitor' then
@@ -66,7 +60,7 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 2. TOGGLE LOGIC: If panel is currently visible, slide it away
+  -- 2. TOGGLE LOGIC: If split panel is currently open, hide it
   if target_win and vim.api.nvim_win_is_valid(target_win) then
     HideTerminalWindow(terminal_type)
     return
@@ -141,27 +135,21 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 4. 🥇 THE UNBREAKABLE BOTTOM SCREEN ANCHOR
-  -- Fetch the absolute maximum size properties of the terminal screen lines directly
-  local max_lines = vim.api.nvim_get_option_value('lines', {})
-  local max_cols = vim.api.nvim_get_option_value('columns', {})
-  local target_height = math.ceil(max_lines * 0.28)
+  -- 4. 🥇 THE UNBEATABLE BOTTOM PANEL TILE ANCHOR
+  local target_height = math.ceil(vim.o.lines * 0.28)
 
-  original_cmdheight = vim.o.cmdheight
-  vim.o.cmdheight = target_height + original_cmdheight
+  -- Create a standard split viewport frame natively
+  vim.cmd('new')
+  local new_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(new_win, target_buf)
 
-  -- Use strict absolute layout options to bypass middle-screen alignment issues
-  local win_opts = {
-    relative = 'editor',
-    style = 'minimal',
-    focusable = true,
-    width = max_cols,
-    height = target_height,
-    row = max_lines - target_height - original_cmdheight - 1, -- Exact bottom math calculation
-    col = 0,
-  }
+  -- 🔥 THE FINAL SHIELD: Forces the new split window layout container to break out of
+  -- sidebar column structures and stretch edge-to-edge along the absolute bottom row [Index]!
+  vim.cmd('wincmd J')
 
-  local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
+  -- Explicitly hardcode the row size parameters inside the engine framework
+  vim.api.nvim_win_set_height(new_win, target_height)
+
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
   else
@@ -170,6 +158,8 @@ function M.ToggleTerminal(command, terminal_type)
 
   -- 5. WINDOW PANE DECORATIONS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+
+  -- Lock the row footprint completely to shield it from layout collapsing loops
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
   local hl = { bg = '#80a3d4', fg = '#000000' }
@@ -183,15 +173,13 @@ function M.ToggleTerminal(command, terminal_type)
     HideTerminalWindow(terminal_type)
   end, { buffer = target_buf })
 
-  -- Upward Navigation shortcut shifts focus back up seamlessly
+  -- Upward Navigation shortcut shifts focus back up to coding space seamlessly
   vim.keymap.set({ 'n', 't' }, '<C-k>', function()
     if vim.api.nvim_get_mode().mode == 't' then
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
     end
     vim.schedule(function()
-      if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) then
-        vim.api.nvim_set_current_win(last_active_editor_win)
-      end
+      vim.cmd('wincmd k')
     end)
   end, { buffer = target_buf, silent = true })
 
@@ -230,6 +218,8 @@ vim.keymap.set('n', '<C-j>', function()
   elseif pio_mon_win and vim.api.nvim_win_is_valid(pio_mon_win) then
     vim.api.nvim_set_current_win(pio_mon_win)
     vim.cmd('startinsert')
+  else
+    vim.cmd('wincmd j')
   end
 end, { silent = true })
 
