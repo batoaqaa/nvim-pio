@@ -264,6 +264,15 @@ function M.init(clangd_config)
 
 local term_buf = nil
 
+vim.keymap.set({'n', 't'}, '<leader>st', function()
+  vim.cmd.vnew()
+  vim.cmd.term()
+  vim.cmd.wincmd("J")
+  vim.api.nvim_win_heights(0,5)
+end, { desc = "Toggle true full-buffer terminal" })
+
+
+
 vim.keymap.set({'n', 't'}, '<leader>tf', function()
   -- 1. Safely exit terminal mode if you are currently typing in it
   if vim.api.nvim_get_mode().mode == 't' then
