@@ -86,16 +86,17 @@ function M.ToggleTerminal(command, terminal_type)
       end,
     })
 
-    -- Configure your terminal execution context array arguments safely
+    -- 🟢 POWERSHELL EXECUTION WINDOWS RULES
     local shell_cmd = { vim.o.shell }
     if vim.fn.has('win32') == 1 then
-      shell_cmd = { 'cmd.exe' }
+      -- -NoLogo: Cleans initialization verbose blocks
+      -- -ExecutionPolicy Bypass: Protects scripting permissions from breaking
+      shell_cmd = { 'powershell.exe', '-NoLogo', '-ExecutionPolicy', 'Bypass' }
     end
 
     -- Spawn a real, interactive pseudo-terminal context handler string
     local job_id = vim.fn.jobstart(shell_cmd, {
-      -- ⚠️ CRITICAL OPTION: Forces real-time, interactive TTY streaming
-      pty = true,
+      pty = true, -- Forces real-time, interactive TTY streaming
       on_stdout = function(_, data)
         if vim.api.nvim_buf_is_valid(target_buf) and data then
           local lines = {}
@@ -189,7 +190,7 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end, { buffer = target_buf, silent = true })
 
-  -- Smart Terminal Toggle (Wipe error risks completely by forcing clean strings execution)
+  -- Smart Terminal Toggle
   vim.keymap.set({ 'n', 't' }, ';;', function()
     if vim.api.nvim_get_mode().mode == 't' then
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
@@ -204,8 +205,8 @@ function M.ToggleTerminal(command, terminal_type)
   if command and command ~= '' then
     local active_chan = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
     if active_chan then
-      local newline = vim.fn.has('win32') == 1 and '\r\n' or '\n'
-      vim.api.nvim_chan_send(active_chan, command .. newline)
+      -- PowerShell uses standard \r\n newline breaks natively on Windows
+      vim.api.nvim_chan_send(active_chan, command .. '\r\n')
     end
   end
 
