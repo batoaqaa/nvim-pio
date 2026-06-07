@@ -12,7 +12,7 @@ local pio_cli_chan = nil
 local pio_mon_chan = nil
 
 ----------------------------------------------------------------------------------------
--- SAFELY ESCAPE SIDEBARS: Finds a standard code file window to protect split shapes
+-- SAFELY ESCAPE SIDEBARS: Finds a normal code window to restore focus cleanly
 local function find_valid_editor_window()
   local wins = vim.api.nvim_tabpage_list_wins(0)
   for _, win in ipairs(wins) do
@@ -29,12 +29,10 @@ local function find_valid_editor_window()
 end
 
 ----------------------------------------------------------------------------------------
--- CLEAN EXIT LOGIC: Disarms hardware protection shields and closes layout splits cleanly
+-- CLEAN EXIT LOGIC: Closes floating panels cleanly and restores focus
 local function HideTerminalWindow(terminal_type)
   local win_id = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
   if win_id and vim.api.nvim_win_is_valid(win_id) then
-    -- Temporarily lower the shield block right before closing to prevent kernel layout panic
-    vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = win_id })
     vim.api.nvim_win_close(win_id, true)
   end
   if terminal_type == 'monitor' then
@@ -49,7 +47,7 @@ local function HideTerminalWindow(terminal_type)
 end
 
 ----------------------------------------------------------------------------------------
--- CORE STRUCTURAL RUNNER (PRODUCTION GRADE COORD-FREE TOPOLOGY)
+-- CORE INTERACTIVE ABSOLUTE PANEL RUNNER
 function M.ToggleTerminal(command, terminal_type)
   local active_win = vim.api.nvim_get_current_win()
   if active_win ~= pio_cli_win and active_win ~= pio_mon_win then
@@ -69,9 +67,8 @@ function M.ToggleTerminal(command, terminal_type)
   local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
 
-  -- 1. MUTUAL EXCLUSION: Close opposition split instantly
+  -- 1. MUTUAL EXCLUSION: Close opposition viewport instantly
   if other_win and vim.api.nvim_win_is_valid(other_win) then
-    vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = other_win })
     vim.api.nvim_win_close(other_win, true)
     if terminal_type == 'monitor' then
       pio_cli_win = nil
@@ -86,7 +83,7 @@ function M.ToggleTerminal(command, terminal_type)
     return
   end
 
-  -- 3. INTERACTIVE PTY EMULATION ENGINE (DEPRECATION FREE)
+  -- 3. INTERACTIVE PTY EMULATION ENGINE
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
     target_buf = vim.api.nvim_create_buf(false, true)
     if terminal_type == 'monitor' then
@@ -139,35 +136,32 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 4. 🥇 UNBREAKABLE STRUCTURAL INJECTION ROUTINE
-  -- Switch cursor to standard workspace buffer area to anchor the split perspective correctly
-  local neutral_win = find_valid_editor_window()
-  if neutral_win then
-    vim.api.nvim_set_current_win(neutral_win)
-  end
+  -- 4. THE ABSOLUTE FLOATING OVERLAY LAYER
+  -- By getting the raw terminal metrics directly, we bypass all layout math calculations.
+  local total_screen_lines = vim.o.lines
+  local total_screen_cols = vim.o.columns
+  local target_height = math.ceil(total_screen_lines * 0.28)
 
-  -- Open structural tile space using a native full-width horizontal bottom slice split [Index]
-  local target_height = math.ceil(vim.o.lines * 0.28)
-  vim.cmd('botright ' .. target_height .. 'split')
+  local win_opts = {
+    relative = 'editor', -- Bypasses window splits, sidebars, and grid limits entirely
+    style = 'minimal',
+    focusable = true,
+    width = total_screen_cols,
+    height = target_height,
+    row = total_screen_lines - target_height - 2, -- Hardcoded baseline position relative to total display rows
+    col = 0,
+  }
 
-  local new_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(new_win, target_buf)
-
+  local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
   else
     pio_cli_win = new_win
   end
 
-  -- 5. NATIVE WINDOW DECORATIONS & PROTECTION SHIELDS
+  -- 5. WINDOW PANE DECORATIONS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
-
-  -- Lock row resize matrix explicitly to secure dimensions
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
-
-  -- 🛡️ THE ARCHITECTURAL SHIELD: Locks window frame allocation strictly to terminal channel.
-  -- File switches, Telescope hooks, and sidebar clicks are forbidden from entering this split pane!
-  vim.api.nvim_set_option_value('winfixbuf', true, { scope = 'local', win = new_win })
 
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
