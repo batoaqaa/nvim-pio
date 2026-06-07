@@ -175,7 +175,7 @@ function M.ToggleTerminal(command, direction)
   local termConfig = {
     hidden = true,
     hide_numbers = true,
-    direction = 'vertical',
+    direction = 'horizontal',
     size = function()
       return math.ceil(vim.o.columns * 0.38)
     end,
