@@ -217,43 +217,50 @@ end, { silent = true })
 ----------------------------------------------------------------------------------------
 -- HIGH-PERFORMANCE SCREEN GRID WATCHDOG (Zero Lag Layout Alignment Core)
 ----------------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------------------
+-- HIGH-PERFORMANCE WORKSPACE SPLIT GUARD (Preserves Vertical Splits Up Top)
+----------------------------------------------------------------------------------------
 local group = vim.api.nvim_create_augroup('PioTerminalSplitGuard', { clear = true })
 
 vim.api.nvim_create_autocmd('WinNew', {
   group = group,
   callback = function()
-    -- Wait 1 millisecond for the layout engine to render the structural change
+    -- Capture the exact window that was just created right now
+    local newly_created_win = vim.api.nvim_get_current_win()
+
     vim.schedule(function()
-      -- Check if either of our custom Pio panels are currently open and valid
-      local target_win = nil
+      -- Check if either Pio terminal is open
+      local pio_win = nil
       if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
-        target_win = pio_cli_win
+        pio_win = pio_cli_win
       elseif pio_mon_win and vim.api.nvim_win_is_valid(pio_mon_win) then
-        target_win = pio_mon_win
+        pio_win = pio_mon_win
       end
 
-      -- If a Pio layout panel is active, verify it is still locked seamlessly to the bottom
-      if target_win then
-        -- Grab the active cursor position so we can return the user seamlessly after alignment
-        local current_win = vim.api.nvim_get_current_win()
+      -- If a Pio window is active AND a plugin just split inside it or distorted it
+      if pio_win and vim.api.nvim_win_is_valid(newly_created_win) then
+        -- Check if the layout engine placed the new split inside the terminal area
+        local new_win_buf = vim.api.nvim_win_get_buf(newly_created_win)
+        local is_terminal_focused = (newly_created_win == pio_win)
 
-        -- Temporarily step into the Pio panel, force its anchor flat, and return
-        vim.api.nvim_set_current_win(target_win)
-        vim.cmd('wincmd J')
+        -- If the new split happened 'inside' our protected terminal block
+        if is_terminal_focused or vim.bo[new_win_buf].buftype == 'terminal' then
+          -- 1. Jump focus into the newly spawned rogue window split
+          vim.api.nvim_set_current_win(newly_created_win)
 
-        -- Re-apply your custom responsive target height calculation
-        local target_height = math.ceil(vim.o.lines * 0.28)
-        vim.cmd('resize ' .. target_height)
+          -- 2. Use lowercase 'wincmd k' to kick ONLY this window up into the code area.
+          -- This leaves your existing side-by-side vertical splits completely untouched!
+          vim.cmd('wincmd k')
 
-        -- Safely snap the developer's focus right back to their active workspace split
-        if vim.api.nvim_win_is_valid(current_win) then
-          vim.api.nvim_set_current_win(current_win)
+          -- 3. Restore the locked height constraint of your bottom terminal panel
+          local target_height = math.ceil(vim.o.lines * 0.28)
+          vim.api.nvim_win_set_height(pio_win, target_height)
         end
       end
     end)
   end,
 })
-
 return M
 -- local M = {}
 --
