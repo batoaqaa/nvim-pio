@@ -198,7 +198,7 @@ function M.ToggleTerminal(command, direction)
       -- vim.cmd("wincmd J")
       -- vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = t.window })
       -- vim.cmd('wincmd =')
-      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = term.window })
+      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = t.window })
       local hl = { bg = '#80a3d4', fg = '#000000' }
 
       if hl then
