@@ -221,46 +221,87 @@ end, { silent = true })
 ----------------------------------------------------------------------------------------
 -- HIGH-PERFORMANCE WORKSPACE SPLIT GUARD (Preserves Vertical Splits Up Top)
 ----------------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------------------
+-- HIGH-PERFORMANCE REDIRECTION INTERCEPTOR (Preserves All Layout Splits Globally)
+----------------------------------------------------------------------------------------
 local group = vim.api.nvim_create_augroup('PioTerminalSplitGuard', { clear = true })
 
-vim.api.nvim_create_autocmd('WinNew', {
+vim.api.nvim_create_autocmd('BufEnter', {
   group = group,
-  callback = function()
-    -- Capture the exact window that was just created right now
-    local newly_created_win = vim.api.nvim_get_current_win()
+  callback = function(args)
+    local current_buf = args.buf
 
-    vim.schedule(function()
-      -- Check if either Pio terminal is open
-      local pio_win = nil
-      if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
-        pio_win = pio_cli_win
-      elseif pio_mon_win and vim.api.nvim_win_is_valid(pio_mon_win) then
-        pio_win = pio_mon_win
+    -- Rule 1: Completely ignore terminal streams, floating widgets, or log lines
+    if vim.bo[current_buf].buftype ~= '' then
+      return
+    end
+
+    -- Identify if either of your custom Pio terminals are currently open and valid
+    local pio_win = nil
+    local pio_buf = nil
+    if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
+      pio_win = pio_cli_win
+      pio_buf = pio_cli_buf
+    elseif pio_mon_win and vim.api.nvim_win_is_valid(pio_mon_win) then
+      pio_win = pio_mon_win
+      pio_buf = pio_mon_buf
+    end
+
+    -- Rule 2: If no Pio layout panel is open, terminate execution instantly
+    if not pio_win then
+      return
+    end
+
+    -- Grab the active window frame context
+    local active_win = vim.api.nvim_get_current_win()
+
+    -- Check if Neovim accidentally swapped a code file into the protected terminal window
+    local is_file_in_terminal_win = (vim.api.nvim_win_get_buf(pio_win) == current_buf)
+
+    if active_win == pio_win or is_file_in_terminal_win then
+      -- 1. Instantly pull the code file out of the bottom window layout panel container
+      if pio_buf and vim.api.nvim_buf_is_valid(pio_buf) then
+        vim.api.nvim_win_set_buf(pio_win, pio_buf)
       end
 
-      -- If a Pio window is active AND a plugin just split inside it or distorted it
-      if pio_win and vim.api.nvim_win_is_valid(newly_created_win) then
-        -- Check if the layout engine placed the new split inside the terminal area
-        local new_win_buf = vim.api.nvim_win_get_buf(newly_created_win)
-        local is_terminal_focused = (newly_created_win == pio_win)
+      -- 2. Safely redirect the file to a clean code window up top
+      vim.schedule(function()
+        -- Attempt to find a valid code window that is NOT our terminal window
+        local target_code_win = nil
+        if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) and last_active_editor_win ~= pio_win then
+          target_code_win = last_active_editor_win
+        else
+          -- Scan your active layout columns for an available code frame
+          for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+            if win ~= pio_win and vim.api.nvim_win_is_valid(win) then
+              target_code_win = win
+              break
+            end
+          end
+        end
 
-        -- If the new split happened 'inside' our protected terminal block
-        if is_terminal_focused or vim.bo[new_win_buf].buftype == 'terminal' then
-          -- 1. Jump focus into the newly spawned rogue window split
-          vim.api.nvim_set_current_win(newly_created_win)
-
-          -- 2. Use lowercase 'wincmd k' to kick ONLY this window up into the code area.
-          -- This leaves your existing side-by-side vertical splits completely untouched!
+        -- 3. Apply the buffer context swap natively without running flattening layout adjustments
+        if target_code_win then
+          vim.api.nvim_set_current_win(target_code_win)
+          vim.api.nvim_set_current_buf(current_buf)
+        else
+          -- Universal Fallback: If no windows exist up top, generate a clean split above the terminal
           vim.cmd('wincmd k')
+          vim.cmd('split')
+          vim.api.nvim_set_current_buf(current_buf)
+        end
 
-          -- 3. Restore the locked height constraint of your bottom terminal panel
+        -- 4. Re-enforce and maintain your exact 28% dynamic vertical layout floor size profile
+        if vim.api.nvim_win_is_valid(pio_win) then
           local target_height = math.ceil(vim.o.lines * 0.28)
           vim.api.nvim_win_set_height(pio_win, target_height)
         end
-      end
-    end)
+      end)
+    end
   end,
 })
+
 return M
 -- local M = {}
 --
