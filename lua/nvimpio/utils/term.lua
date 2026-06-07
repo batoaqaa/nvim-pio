@@ -11,7 +11,7 @@ local function SafeCloseTerminal(buf_id)
     local win_id = vim.fn.bufwinid(buf_id)
     if win_id and win_id ~= -1 and vim.api.nvim_win_is_valid(win_id) then
       vim.api.nvim_win_close(win_id, true)
-      -- Equalize other windows to reclaim the vertical space cleanly when closed
+      -- Safely re-balance code window layouts once on close
       vim.cmd('wincmd =')
     end
   end
@@ -77,34 +77,10 @@ function M.ToggleTerminal(command, terminal_type)
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
-  -- 7. THE AUTOMATED LAYOUT PRESERVER GUARD
-  -- This autocmd watches the whole Neovim session. The exact millisecond any sidebar (like Aerial)
-  -- opens and tries to distort the window tree, this loop flattens the terminal back to the bottom
-  -- row, re-adjusts the code panels above it, and instantly returns user cursor focus.
-  local platformio_group = vim.api.nvim_create_augroup('PioGuard_' .. target_buf, { clear = true })
-  vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter' }, {
-    group = platformio_group,
-    callback = function()
-      local term_win = vim.fn.bufwinid(target_buf)
-      if term_win and term_win ~= -1 and vim.api.nvim_win_is_valid(term_win) then
-        vim.schedule(function()
-          if vim.api.nvim_win_is_valid(term_win) then
-            local cur_win = vim.api.nvim_get_current_win()
-            vim.api.nvim_set_current_win(term_win)
+  -- CLEAN UP PASS: All layout-breaking 'WinNew' or 'BufWinEnter' loops have been
+  -- completely deleted. This instantly stops the terminal from taking over your screen.
 
-            vim.cmd('wincmd J') -- Flatten back across the bottom row safely
-            vim.cmd('wincmd =') -- Auto-resize code windows above it so no text is hidden!
-
-            if cur_win and vim.api.nvim_win_is_valid(cur_win) then
-              vim.api.nvim_set_current_win(cur_win)
-            end
-          end
-        end)
-      end
-    end,
-  })
-
-  -- 8. VISUAL STYLING AND FIXED WINBAR HEADER
+  -- 7. VISUAL STYLING AND FIXED WINBAR HEADER
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
   local winBartitle = '%#MyWinBar# ' .. title .. ' [Press q to hide]%*'
@@ -176,15 +152,6 @@ function M.ToggleTerminal(command, terminal_type)
     end, { desc = 'Toggle PlatformIO CLI Panel', silent = true })
   end
   -----------------------------------------------------------------------------
-
-  -- Clean out cleanup pass handlers when terminal exits
-  vim.api.nvim_create_autocmd('BufUnload', {
-    group = platformio_group,
-    buffer = target_buf,
-    callback = function()
-      pcall(vim.api.nvim_clear_autocmds, { group = 'PioGuard_' .. target_buf })
-    end,
-  })
 
   -- Automatically run passed command strings via your platformio job channels
   if command and command ~= '' then
