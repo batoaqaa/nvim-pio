@@ -185,6 +185,7 @@ function M.ToggleTerminal(command, direction)
     hidden = true,
     hide_numbers = true,
     direction = 'horizontal',
+    size = 0.3,
     close_on_exit = false,
 
     on_open = function(t)
