@@ -175,9 +175,10 @@ function M.ToggleTerminal(command, direction)
   local termConfig = {
     hidden = true,
     hide_numbers = true,
-    direction = 'float',
+    direction = 'vertical',
     size = function()
-      return math.ceil(vim.o.columns * 0.38)
+      -- return math.ceil(vim.o.columns * 0.38)
+      return vim.api.nvim_win_get_width(0)
     end,
     close_on_exit = false,
 
