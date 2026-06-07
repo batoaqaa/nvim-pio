@@ -39,14 +39,14 @@ local function getPreviousWindow(orig_window)
   ---@field term Terminal|nil  -- Handle for horizontal terminal
   ---@field mon Terminal|nil
   ---@field cli Terminal|nil
-  ---@field float boolean      -- flag float terminal
+  ---@field vertical boolean      -- flag vertical terminal
   ---@field orig_window number|nil
   local prev = {
     orig_window = orig_window,
     term = nil, --active terminal
     cli = nil, --cli terminal
     mon = nil, --mon terminal
-    float = false, --is active terminal direction float
+    vertical = false, --is active terminal direction vertical
   }
   local terms = require('toggleterm.terminal').get_all(true)
   if #terms ~= 0 then
@@ -60,8 +60,8 @@ local function getPreviousWindow(orig_window)
             prev.orig_window = tonumber(name_splt[2]) -- set orig_window to the previous terminal onrig_window
             prev.term = terms[i]
           end
-          if terms[i].direction == 'float' then
-            prev.float = true
+          if terms[i].direction == 'vertical' then
+            prev.vertical = true
           end
         elseif name_splt[1] == 'piomon' then
           prev.mon = terms[i]
@@ -70,8 +70,8 @@ local function getPreviousWindow(orig_window)
             prev.orig_window = tonumber(name_splt[2]) -- set orig_window to the previous terminal onrig_window
             prev.term = terms[i]
           end
-          if terms[i].direction == 'float' then
-            prev.float = true
+          if terms[i].direction == 'vertical' then
+            prev.vertical = true
           end
         end
       end
@@ -165,7 +165,7 @@ function M.ToggleTerminal(command, direction)
     title = 'Pio CLI> [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
     pioOpts.display_name = 'piocli:' .. orig_window
     pioOpts.id = 99
-    pioOpts.direction = 'horizontal' or direction
+    pioOpts.direction = 'vertical' or direction
 
     -- INFO: on_stdout
     pioOpts.on_stdout = function(terminal, job, data, name)
@@ -204,7 +204,7 @@ function M.ToggleTerminal(command, direction)
     --     background = 'NormalFloat',
     --   },
     -- },
-    float_opts = (direction == 'float') and {
+    float_opts = (direction == 'vertical') and {
       winblend = 0,
       width = function()
         return math.ceil(vim.o.columns * 0.85)
@@ -334,7 +334,7 @@ function M.ToggleTerminal(command, direction)
 
   -- INFO: create new terminal
   local terminal = require('toggleterm.terminal').Terminal:new(termConfig)
-  if prev.term and prev.float then
+  if prev.term and prev.vertical then
     prev.term.close()
   end
   terminal:toggle()
