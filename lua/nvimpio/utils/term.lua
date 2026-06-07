@@ -7,6 +7,10 @@ local pio_cli_win = nil
 local pio_mon_win = nil
 local last_active_editor_win = nil
 
+-- Memory slots to track active job channel IDs for clean input sending
+local pio_cli_chan = nil
+local pio_mon_chan = nil
+
 ----------------------------------------------------------------------------------------
 -- CLEAN EXIT LOGIC: Destroys window frame handles and restores focus
 local function HideTerminalWindow(terminal_type)
@@ -62,7 +66,7 @@ function M.ToggleTerminal(command, terminal_type)
     return
   end
 
-  -- 3. MODERN UNLISTED TERMINAL INITIALIZATION (DEPRECATION FREE)
+  -- 3. MODERN UNLISTED INTERACTIVE PTY TERMINAL (DEPRECATION FREE)
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
     -- Generate unlisted scratch buffer cleanly
     target_buf = vim.api.nvim_create_buf(false, true)
@@ -72,36 +76,70 @@ function M.ToggleTerminal(command, terminal_type)
       pio_cli_buf = target_buf
     end
 
-    -- Build command execution format based on operating system
-    local cmd_str = command or vim.o.shell
-    if command and command ~= '' then
-      if vim.fn.has('win32') == 1 then
-        cmd_str = string.format('cmd.exe /c "%s && pause"', command)
-      else
-        cmd_str = string.format('%s -c "%s; echo; read -p \'Press enter to exit...\'"', vim.o.shell, command)
-      end
+    -- Initialize a pristine, modern terminal screen mapping canvas channel
+    local term_chan_id = vim.api.nvim_open_term(target_buf, {
+      on_input = function(_, _, _, data)
+        local active_job = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
+        if active_job then
+          vim.api.nvim_chan_send(active_job, data)
+        end
+      end,
+    })
+
+    -- Configure your terminal execution context array arguments safely
+    local shell_cmd = { vim.o.shell }
+    if vim.fn.has('win32') == 1 then
+      shell_cmd = { 'cmd.exe' }
     end
 
-    -- Run modern background job spawn wrapped cleanly inside the target buffer context
-    vim.api.nvim_buf_call(target_buf, function()
-      -- vim.cmd.terminal launches a full PTY streaming session natively on the buffer
-      vim.cmd.terminal(cmd_str)
+    -- Spawn a real, interactive pseudo-terminal context handler string
+    local job_id = vim.fn.jobstart(shell_cmd, {
+      -- ⚠️ CRITICAL OPTION: Forces real-time, interactive TTY streaming
+      pty = true,
+      on_stdout = function(_, data)
+        if vim.api.nvim_buf_is_valid(target_buf) and data then
+          local lines = {}
+          for _, line in ipairs(data) do
+            -- Stream-safe inline garbage cleaner
+            local is_garbage = line:find('|| Processing')
+              or line:find('--- forcing')
+              or line:find('--- Terminal')
+              or line:find('--- Available filters')
+              or line:find('--- More details')
+              or line:find('--- Quit:')
 
-      -- Stop the buffer from auto-wiping on process completion so the compilation log stays readable
-      local current_job_id = vim.b.terminal_job_id
-      if current_job_id then
-        vim.api.nvim_create_autocmd('TermClose', {
-          buffer = target_buf,
-          callback = function()
-            if terminal_type == 'monitor' then
-              pio_mon_buf = nil
-            else
-              pio_cli_buf = nil
+            if not is_garbage then
+              table.insert(lines, line)
             end
-          end,
-        })
-      end
-    end)
+          end
+          if #lines > 0 then
+            local output = table.concat(lines, '\r\n')
+            vim.api.nvim_chan_send(term_chan_id, output)
+          end
+        end
+      end,
+      on_stderr = function(_, data)
+        if vim.api.nvim_buf_is_valid(target_buf) and data then
+          vim.api.nvim_chan_send(term_chan_id, table.concat(data, '\r\n'))
+        end
+      end,
+      on_exit = function()
+        if terminal_type == 'monitor' then
+          pio_mon_chan = nil
+          pio_mon_buf = nil
+        else
+          pio_cli_chan = nil
+          pio_cli_buf = nil
+        end
+      end,
+    })
+
+    -- Record operational backplane job identifiers
+    if terminal_type == 'monitor' then
+      pio_mon_chan = job_id
+    else
+      pio_cli_chan = job_id
+    end
   end
 
   -- 4. GEOMETRIC DISPLAY MATHEMATICS
@@ -151,7 +189,7 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end, { buffer = target_buf, silent = true })
 
-  -- Smart Terminal Toggle
+  -- Smart Terminal Toggle (Wipe error risks completely by forcing clean strings execution)
   vim.keymap.set({ 'n', 't' }, ';;', function()
     if vim.api.nvim_get_mode().mode == 't' then
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
@@ -161,6 +199,15 @@ function M.ToggleTerminal(command, terminal_type)
       M.ToggleTerminal('', next_type)
     end)
   end, { buffer = target_buf, silent = true })
+
+  -- 7. EXECUTE COMMAND STRING IF PRESENT
+  if command and command ~= '' then
+    local active_chan = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
+    if active_chan then
+      local newline = vim.fn.has('win32') == 1 and '\r\n' or '\n'
+      vim.api.nvim_chan_send(active_chan, command .. newline)
+    end
+  end
 
   vim.cmd('startinsert')
 end
