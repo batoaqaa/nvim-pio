@@ -73,7 +73,9 @@ function M.ToggleTerminal(command, terminal_type)
   local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
 
-  -- 1. MUTUAL EXCLUSION: Close opposition layout viewports instantly
+  -- 1. 🥇 MUTUAL EXCLUSION & PRE-RESET SHIELD
+  -- If the opposite window is open, close it AND immediately reset cmdheight back
+  -- to the original base line BEFORE doing any new coordinate calculations!
   if other_win and vim.api.nvim_win_is_valid(other_win) then
     vim.api.nvim_win_close(other_win, true)
     if terminal_type == 'monitor' then
@@ -81,6 +83,7 @@ function M.ToggleTerminal(command, terminal_type)
     else
       pio_mon_win = nil
     end
+    vim.o.cmdheight = original_cmdheight
   end
 
   -- 2. TOGGLE LOGIC: Close active pane if requested
@@ -145,11 +148,12 @@ function M.ToggleTerminal(command, terminal_type)
   -- 4. THE UNBREAKABLE BOTTOM LAYER GEOMETRY
   local target_height = math.ceil(vim.o.lines * 0.28)
 
-  -- Cache the real current cmdheight state cleanly before modifying layouts
-  original_cmdheight = vim.o.cmdheight
+  -- If we're not switching windows, capture the clean current cmdheight baseline
+  if not other_win then
+    original_cmdheight = vim.o.cmdheight
+  end
 
-  -- 🛡️ THE VIEWPORT SHIELD LAYER: Increases cmdheight to compress the main workspace.
-  -- This creates a physical boundary that stops text from scrolling under the terminal window.
+  -- THE VIEWPORT SHIELD: Compresses the code workspace up safely
   vim.o.cmdheight = target_height + original_cmdheight
 
   local win_opts = {
@@ -158,8 +162,8 @@ function M.ToggleTerminal(command, terminal_type)
     focusable = true,
     width = vim.o.columns, -- Stretches full screen width
     height = target_height,
-    anchor = 'SW', -- Southwest Anchor: Aligns calculations from the bottom up
-    row = vim.o.lines - original_cmdheight, -- Positions it directly above your command statusline row
+    anchor = 'SW', -- Southwest Anchor: Calculates geometry from the bottom edge up
+    row = vim.o.lines - original_cmdheight, -- Fixed row position relative to screen boundary
     col = 0,
   }
 
