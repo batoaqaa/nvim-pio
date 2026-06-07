@@ -12,6 +12,9 @@ local pio_mon_win = nil
 local pio_cli_chan = nil
 local pio_mon_chan = nil
 
+-- Track the previous standard layout window handle to exit floating terminals cleanly
+local last_active_editor_win = nil
+
 ----------------------------------------------------------------------------------------
 -- INFO: Safe Window Closure Logic (Triggered on 'q' or when toggling off)
 local function HideTerminalWindow(terminal_type)
@@ -24,11 +27,22 @@ local function HideTerminalWindow(terminal_type)
   else
     pio_cli_win = nil
   end
+
+  -- Restore focus back to the code editor frame upon terminal window closure
+  if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) then
+    vim.api.nvim_set_current_win(last_active_editor_win)
+  end
 end
 
 ----------------------------------------------------------------------------------------
 -- INFO: Core Layout Spawner (Global Canvas Layer Architecture)
 function M.ToggleTerminal(command, terminal_type)
+  -- Cache active focus coordinate anchors before altering editor layouts
+  local active_win = vim.api.nvim_get_current_win()
+  if active_win ~= pio_cli_win and active_win ~= pio_mon_win then
+    last_active_editor_win = active_win
+  end
+
   -- 1. Enforce strict title header assignments immediately at the top
   local title = ''
   if terminal_type == 'monitor' or (command and string.find(command, ' monitor')) then
@@ -55,12 +69,7 @@ function M.ToggleTerminal(command, terminal_type)
 
   -- 3. TOGGLE WINDOW ACTION: If this window is open, hide it
   if target_win and vim.api.nvim_win_is_valid(target_win) then
-    vim.api.nvim_win_close(target_win, true)
-    if terminal_type == 'monitor' then
-      pio_mon_win = nil
-    else
-      pio_cli_win = nil
-    end
+    HideTerminalWindow(terminal_type)
     return
   end
 
@@ -76,7 +85,6 @@ function M.ToggleTerminal(command, terminal_type)
     -- Open a modern terminal channel stream natively on the buffer
     local chan_id = vim.api.nvim_open_term(target_buf, {
       on_input = function(_, _, _, data)
-        -- FIXED: Using native Lua api to send user keypress inputs down to the background channel
         local active_job = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
         if active_job then
           vim.api.nvim_chan_send(active_job, data)
@@ -84,13 +92,36 @@ function M.ToggleTerminal(command, terminal_type)
       end,
     })
 
-    -- Start the background process without { term = true } to prevent buffer conflicts
-    local job_id = vim.fn.jobstart(vim.o.shell, {
+    -- Compile system execution arguments safely based on OS context
+    local cmd_args = {}
+    if vim.fn.has('win32') == 1 then
+      cmd_args = { vim.o.shell, '/c', command }
+    else
+      cmd_args = { vim.o.shell, '-c', command }
+    end
+
+    -- Start the background process directly running the active command string variable
+    local job_id = vim.fn.jobstart(cmd_args, {
       on_stdout = function(_, data)
         if vim.api.nvim_buf_is_valid(target_buf) and data then
-          -- Pipes the shell text lines directly into the open terminal emulator buffer canvas
-          local output = table.concat(data, '\r\n') .. '\r\n'
-          vim.api.nvim_chan_send(chan_id, output)
+          local lines = {}
+          for _, line in ipairs(data) do
+            -- Stream-safe filtering layer: Skips garbage outputs before they hit the stream
+            local is_garbage = line:find('|| Processing')
+              or line:find('--- forcing')
+              or line:find('--- Terminal')
+              or line:find('--- Available filters')
+              or line:find('--- More details')
+              or line:find('--- Quit:')
+
+            if not is_garbage and line ~= '' then
+              table.insert(lines, line)
+            end
+          end
+          if #lines > 0 then
+            local output = table.concat(lines, '\r\n') .. '\r\n'
+            vim.api.nvim_chan_send(chan_id, output)
+          end
         end
       end,
       on_stderr = function(_, data)
@@ -114,35 +145,9 @@ function M.ToggleTerminal(command, terminal_type)
     else
       pio_cli_chan = job_id
     end
-
-    -- CLEAN HEADER FILTER: Cleans up the initial PlatformIO verbose boot menu lines dynamically
-    local pio_group = vim.api.nvim_create_augroup('PioCleaner_' .. target_buf, { clear = true })
-    vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
-      group = pio_group,
-      buffer = target_buf,
-      callback = function()
-        vim.schedule(function()
-          if vim.api.nvim_buf_is_valid(target_buf) then
-            local lines = vim.api.nvim_buf_get_lines(target_buf, 0, -1, false)
-            for i, line in ipairs(lines) do
-              local is_garbage = line:find('|| Processing')
-                or line:find('--- forcing')
-                or line:find('--- Terminal')
-                or line:find('--- Available filters')
-                or line:find('--- More details')
-                or line:find('--- Quit:')
-              if is_garbage then
-                vim.api.nvim_buf_set_lines(target_buf, i - 1, i, false, { '' })
-              end
-            end
-          end
-        end)
-      end,
-    })
   end
 
   -- 5. ABSOLUTE GEOMETRIC GRID CONFIGURATION:
-  -- Locks position securely on a separate overlay layer to prevent vertical pillar splitting
   local target_height = math.ceil(vim.o.lines * 0.28)
   local cmdheight = vim.o.cmdheight or 1
 
@@ -182,14 +187,16 @@ function M.ToggleTerminal(command, terminal_type)
     HideTerminalWindow(terminal_type)
   end, { buffer = target_buf })
 
-  -- CRASH-FREE UPWARD NAVIGATION SHORTCUT
+  -- CRASH-FREE UPWARD NAVIGATION SHORTCUT (Escapes Float Context Cleanly)
   vim.keymap.set({ 'n', 't' }, '<C-k>', function()
     if vim.api.nvim_get_mode().mode == 't' then
       local esc = vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true)
       vim.api.nvim_feedkeys(esc, 'n', false)
     end
     vim.schedule(function()
-      vim.cmd('wincmd k')
+      if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) then
+        vim.api.nvim_set_current_win(last_active_editor_win)
+      end
     end)
   end, { buffer = target_buf, silent = true })
 
@@ -206,44 +213,41 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end, { buffer = target_buf, silent = true, desc = 'Switch between PlatformIO terminals' })
 
-  -----------------------------------------------------------------------------
-  -- GLOBAL SHORTCUT RE-REGISTRATIONS (Preserved across context switches)
-  -----------------------------------------------------------------------------
-  vim.keymap.set('n', '<C-h>', '<C-w>h')
-  vim.keymap.set('n', '<C-l>', '<C-w>l')
-
-  -- GLOBAL INTERCEPT DOWNWARD MOVEMENT KEY:
-  vim.keymap.set('n', '<C-j>', function()
-    local cur_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
-    if cur_win and vim.api.nvim_win_is_valid(cur_win) then
-      vim.api.nvim_set_current_win(cur_win)
-      vim.cmd('startinsert')
-    else
-      vim.cmd('wincmd j')
-    end
-  end, { silent = true })
-
-  if terminal_type == 'monitor' then
-    vim.keymap.set('n', [[<leader>\gm]], function()
-      M.ToggleTerminal('', 'monitor')
-    end, { silent = true })
-  else
-    vim.keymap.set('n', [[<leader>\t]], function()
-      M.ToggleTerminal('', 'cli')
-    end, { silent = true })
-  end
-  -----------------------------------------------------------------------------
-
   -- Pass PlatformIO command strings directly through the modern background channel
   if command and command ~= '' then
     local active_chan = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
     if active_chan then
-      -- FIXED: Replaced legacy jobsend with native Lua nvim_chan_send API for terminal triggers
       vim.api.nvim_chan_send(active_chan, command .. (vim.fn.has('win32') == 1 and '\r\n' or '\n'))
     end
   end
 
   vim.cmd('startinsert')
 end
+
+-----------------------------------------------------------------------------
+-- ONE-TIME GLOBAL SHORTCUT INITIALIZATIONS (Prevents mapping registry leaks)
+-----------------------------------------------------------------------------
+vim.keymap.set('n', '<C-h>', '<C-w>h')
+vim.keymap.set('n', '<C-l>', '<C-w>l')
+
+vim.keymap.set('n', '<C-j>', function()
+  if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
+    vim.api.nvim_set_current_win(pio_cli_win)
+    vim.cmd('startinsert')
+  elseif pio_mon_win and vim.api.nvim_win_is_valid(pio_mon_win) then
+    vim.api.nvim_set_current_win(pio_mon_win)
+    vim.cmd('startinsert')
+  else
+    vim.cmd('wincmd j')
+  end
+end, { silent = true })
+
+vim.keymap.set('n', [[<leader>\gm]], function()
+  M.ToggleTerminal('', 'monitor')
+end, { silent = true })
+
+vim.keymap.set('n', [[<leader>\t]], function()
+  M.ToggleTerminal('', 'cli')
+end, { silent = true })
 
 return M
