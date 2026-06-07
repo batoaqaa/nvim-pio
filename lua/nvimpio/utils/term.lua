@@ -193,6 +193,7 @@ function M.ToggleTerminal(command, direction)
 
     on_open = function(t)
       vim.cmd("wincmd J")
+      vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = t.window })
       -- vim.cmd('wincmd =')
       local hl = { bg = '#80a3d4', fg = '#000000' }
 
@@ -248,29 +249,6 @@ function M.ToggleTerminal(command, direction)
     on_create = function(t)
       local p_type, p_win = string.match(t.display_name, '([^:]+):([^:]+)')
       local platformio = vim.api.nvim_create_augroup(p_type .. '_group', { clear = true })
-      -- PLUGIN FIX: Auto-correct layout if a file tree tries to open a file inside this terminal window
-      vim.api.nvim_create_autocmd("BufWinEnter", {
-        group = platformio,
-        buffer = t.bufnr,
-        callback = function()
-          -- Verify if the current window is still supposed to be just our terminal
-          if vim.api.nvim_get_current_buf() ~= t.bufnr then
-            -- 1. Grab the file buffer that accidentally landed inside the terminal pane
-            local faulty_file_buf = vim.api.nvim_get_current_buf()
-
-            -- 2. Restore the terminal buffer to this bottom window spot
-            vim.api.nvim_set_current_buf(t.bufnr)
-
-            -- 3. Force this terminal window to lock to the absolute horizontal bottom
-            vim.cmd("wincmd J")
-            vim.cmd("wincmd k")
-            vim.api.nvim_set_current_buf(faulty_file_buf)
-          else
-            -- If it's just the terminal drawing itself, ensure it stays clamped horizontally to the bottom
-            vim.cmd("wincmd J")
-          end
-        end,
-      })
 
       vim.api.nvim_create_autocmd('CmdlineLeave', {
         group = platformio,
