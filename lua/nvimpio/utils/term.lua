@@ -11,6 +11,9 @@ local last_active_editor_win = nil
 local pio_cli_chan = nil
 local pio_mon_chan = nil
 
+-- Cache the original cmdheight to restore clean editor layout properties on close
+local original_cmdheight = vim.o.cmdheight
+
 ----------------------------------------------------------------------------------------
 -- SAFELY ESCAPE PANELS: Restores cursor focus back to your text files
 local function find_valid_editor_window()
@@ -40,6 +43,9 @@ local function HideTerminalWindow(terminal_type)
   else
     pio_cli_win = nil
   end
+
+  -- 🛡️ SHIELD REMOVAL: Pulls the text editor viewport back down to full height safely
+  vim.o.cmdheight = original_cmdheight
 
   if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) then
     vim.api.nvim_set_current_win(last_active_editor_win)
@@ -136,18 +142,24 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 4. 🥇 THE UNBREAKABLE BOTTOM LAYER GEOMETRY
+  -- 4. THE UNBREAKABLE BOTTOM LAYER GEOMETRY
   local target_height = math.ceil(vim.o.lines * 0.28)
-  local cmd_offset = vim.o.cmdheight > 0 and vim.o.cmdheight or 1
+
+  -- Cache the real current cmdheight state cleanly before modifying layouts
+  original_cmdheight = vim.o.cmdheight
+
+  -- 🛡️ THE VIEWPORT SHIELD LAYER: Increases cmdheight to compress the main workspace.
+  -- This creates a physical boundary that stops text from scrolling under the terminal window.
+  vim.o.cmdheight = target_height + original_cmdheight
 
   local win_opts = {
-    relative = 'editor', -- ⚡ Immune to splits: Bypasses standard window grids entirely [Index]
+    relative = 'editor', -- Immune to splits: Bypasses standard window grids entirely
     style = 'minimal',
     focusable = true,
-    width = vim.o.columns, -- Stretches full screen width [Index]
+    width = vim.o.columns, -- Stretches full screen width
     height = target_height,
-    anchor = 'SW', -- Southwest Anchor: Aligns calculations from the bottom up [Index]
-    row = vim.o.lines - cmd_offset, -- Pins it directly above your command statusline row [Index]
+    anchor = 'SW', -- Southwest Anchor: Aligns calculations from the bottom up
+    row = vim.o.lines - original_cmdheight, -- Positions it directly above your command statusline row
     col = 0,
   }
 
