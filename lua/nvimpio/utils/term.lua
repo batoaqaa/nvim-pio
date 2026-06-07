@@ -15,17 +15,26 @@ local pio_mon_chan = nil
 -- CLEAN EXIT LOGIC: Disarms hardware protection shields and closes layout splits cleanly
 local function HideTerminalWindow(terminal_type)
   local win_id = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
+
   if win_id and vim.api.nvim_win_is_valid(win_id) then
-    -- Lower the shield right before closing to prevent layout validation engine panic
-    vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = win_id })
-    vim.api.nvim_win_close(win_id, true)
+    -- Find which tab owns this window frame
+    for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+      if vim.tbl_contains(vim.api.nvim_tabpage_list_wins(tab), win_id) then
+        -- Close the entire isolated tab layout page container cleanly
+        vim.api.nvim_set_current_tabpage(tab)
+        vim.cmd('tabclose')
+        break
+      end
+    end
   end
+
   if terminal_type == 'monitor' then
     pio_mon_win = nil
   else
     pio_cli_win = nil
   end
 
+  -- Return focus smoothly back to where the developer was coding
   if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) then
     vim.api.nvim_set_current_win(last_active_editor_win)
   end
@@ -122,16 +131,29 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 4. 🥇 THE NATIVE CORE NESTING INJECTION (REVERTED TO STANDARD LAYER)
-  local target_height = math.ceil(vim.o.lines * 0.28)
-  local prev_win = vim.api.nvim_get_current_win()
+  -- 4. 🥇 THE ISOLATED TAB LAYOUT ENGINE (REPLACES SPLITS COMPLETELY)
+  -- Scan all open tabs to check if our specific terminal buffer is already visible on screen
+  local existing_tab = nil
+  for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
+      if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == target_buf then
+        existing_tab = tab
+        break
+      end
+    end
+  end
 
-  -- Use 'botright' to slice space from the absolute screen container boundary
-  vim.cmd('botright split')
+  -- If it's already open in a tab, jump straight to it and exit
+  if existing_tab then
+    vim.api.nvim_set_current_tabpage(existing_tab)
+    vim.cmd('startinsert')
+    return
+  end
+
+  -- Otherwise, spawn a completely fresh tab page container layer
+  vim.cmd('tabnew')
   local new_win = vim.api.nvim_get_current_win()
-
   vim.api.nvim_win_set_buf(new_win, target_buf)
-  vim.api.nvim_win_set_height(new_win, target_height)
 
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
@@ -139,22 +161,13 @@ function M.ToggleTerminal(command, terminal_type)
     pio_cli_win = new_win
   end
 
-  -- 5. WINDOW PANE DECORATIONS & PROTECTION SHIELDS
+  -- 5. WINDOW DECORATIONS (No protection shields needed anymore!)
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
-
-  -- Lock layout dimension footprints globally so other splits cannot alter them
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
-  vim.api.nvim_set_option_value('winfixbuf', true, { scope = 'local', win = new_win })
 
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
-  local winBartitle = '%#MyWinBar# ' .. title .. ' [Press ;; to Switch | Press q to hide]%*'
+  local winBartitle = '%#MyWinBar# ' .. title .. ' [Press ;; to Switch | Press q to close Tab]%*'
   vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = new_win })
-
-  if prev_win and vim.api.nvim_win_is_valid(prev_win) then
-    vim.api.nvim_set_current_win(prev_win)
-  end
-
   -- 6. BUFFER SPECIFIC MAPS
   vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = target_buf })
   vim.keymap.set('n', 'q', function()
@@ -276,6 +289,36 @@ vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter' }, {
   end,
 })
 
+-- Pressing <leader>\l instantly flips between your code layout and terminal layout
+vim.keymap.set('n', [[<leader>\l]], function()
+  -- Look for an open terminal buffer
+  local target_buf = pio_cli_buf or pio_mon_buf
+  if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
+    -- If no terminal is active yet, spawn the CLI terminal natively
+    M.ToggleTerminal('', 'cli')
+    return
+  end
+
+  -- Check if we are currently looking at the terminal tab
+  local current_buf = vim.api.nvim_get_current_buf()
+  if current_buf == pio_cli_buf or current_buf == pio_mon_buf then
+    -- Escape back to the main file editing workspace tab split
+    if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) then
+      vim.api.nvim_set_current_win(last_active_editor_win)
+    end
+  else
+    -- Find the terminal tab page row and hop into it instantly
+    for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+      for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
+        if vim.api.nvim_win_get_buf(win) == target_buf then
+          vim.api.nvim_set_current_tabpage(tab)
+          vim.cmd('startinsert')
+          return
+        end
+      end
+    end
+  end
+end, { silent = true, desc = 'Toggle View Layouts' })
 return M
 
 -- local M = {}
