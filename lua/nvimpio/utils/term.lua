@@ -144,7 +144,7 @@ function M.ToggleTerminal(command, direction)
     pioOpts.display_name = 'piomon:' .. orig_window
     pioOpts.id = 98
     pioOpts.on_stdout = nil
-    pioOpts.direction = direction
+    pioOpts.direction = 'verical' or direction
   else -- INFO: if previous cli terminal already opened ==> reopen
     if prev.cli then
       prev.cli.display_name = 'piocli:' .. orig_window
