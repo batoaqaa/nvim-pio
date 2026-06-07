@@ -184,30 +184,40 @@ function M.ToggleTerminal(command, direction)
     hidden = true,
     hide_numbers = true,
 
-    -- 1. HARD-LOCK HARDWARE ENGINE TO HORIZONTAL SPLITS ONLY
-    direction = 'horizontal',
-    size = function()
-      return math.ceil(vim.o.lines * 0.30)
-    end,
+    -- 1. DETACH FROM RESIZING COLUMNS: Switches the module engine to a global overlay layer.
+    -- This makes it 100% immune to being squished into a vertical column by Aerial or Neo-tree.
+    direction = 'float',
+
+    float_opts = {
+      border = 'none', -- No border lines to match a clean edge-to-edge split window style
+      focusable = true, -- Keeps keyboard cursor interactions perfectly responsive
+
+      -- 2. DYNAMIC WORKSPACE WIDTH: Forces the window to span 100% horizontally edge-to-edge
+      width = function()
+        return vim.o.columns
+      end,
+
+      -- 3. PROPORTIONAL COLUMN HEIGHT: Locks the split height to exactly 30% of your screen rows
+      height = function()
+        return math.ceil(vim.o.lines * 0.30)
+      end,
+
+      -- 4. CRITICAL PLACEMENT COORDINATES:
+      row = function()
+        -- FIXED FULL-SCREEN OVERFLOW: We track the total system rows, subtract our custom height,
+        -- and strictly subtract the active command-line row height (cmdheight).
+        -- This forces the float to snap PERFECTLY to the bottom edge right above your statusline!
+        local cmdheight = vim.o.cmdheight or 1
+        return vim.o.lines - math.ceil(vim.o.lines * 0.30) - cmdheight - 1
+      end,
+      col = function()
+        -- Starts exactly at the far-left coordinate margin (column 0)
+        return 0
+      end,
+    },
     close_on_exit = false,
 
     on_open = function(t)
-      -- 2. THE LYNCHPIN OVERRIDE: This executes exactly ONCE when the window spawns.
-      -- A capital 'J' forces the window to break out of the local vertical column,
-      -- flattening it across the absolute bottom edge of your screen underneath ALL sidebars.
-      vim.cmd('wincmd J')
-
-      -- 3. THE SIZE REBALANCER: Instantly forces the layout engine to respect your height,
-      -- completely stopping ToggleTerm from expanding full-screen or covering your statusline.
-      local target_height = math.ceil(vim.o.lines * 0.30)
-      vim.api.nvim_win_set_height(t.window, target_height)
-
-      -- 4. HARDLOCK HEIGHT: Prevents Neovim from squishing it when user sidebars (like Aerial) load
-      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = t.window })
-
-      -- Balance other splits smoothly
-      vim.cmd('wincmd =')
-
       local hl = { bg = '#80a3d4', fg = '#000000' }
       if hl then
         vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
