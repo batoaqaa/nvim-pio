@@ -319,6 +319,20 @@ function M.init(clangd_config)
 local term_buf = nil
 
 
+local group = vim.api.nvim_create_augroup("LockTerminalBottom", { clear = true })
+
+vim.api.nvim_create_autocmd({ "WinEnter", "WinNew" }, {
+  group = group,
+  callback = function()
+    -- Only run this logic if the current buffer is a terminal
+    if vim.bo.buftype == "terminal" then
+      -- If someone splits the terminal window, 'wincmd J' forces it back 
+      -- to a full-width row spanning the absolute bottom
+      vim.cmd("wincmd J")
+      vim.cmd("resize 15")
+    end
+  end,
+})
 -- Maps <leader>t to open a bottom terminal with a fixed height of 15 rows
 vim.keymap.set('n', '<leader>st', ':botright split | resize 15 | terminal<CR>', { silent = true })
 -- vim.keymap.set({ "n", "t" }, "<leader>st", toggle_terminal, { desc = "Toggle terminal" })
