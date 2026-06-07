@@ -141,23 +141,23 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 4. 🥇 ABSOLUTE BOT-ANCHORED SHIELD GEOMETRY
+  -- 4. 🥇 CRASH-FREE SOUTHWEST BOTTOM-LOCKED GEOMETRY FIXED FRAME MATRIX
   local target_height = math.ceil(vim.o.lines * 0.28)
 
-  -- Cache current cmdheight state natively before updating
+  -- Cache original cmdheight state natively before updating layout boundaries
   original_cmdheight = vim.o.cmdheight
 
-  -- 🔥 THE VIEWPORT SHIELD: Shrinks the active file editor screen framework upward
-  -- by padding the cmdheight area. This completely stops text and cursors from sliding behind the terminal.
-  vim.o.cmdheight = target_height + original_cmdheight + 1
+  -- THE VIEWPORT SHIELD: Dynamically scales cmdheight space to compress file viewports upwards
+  vim.o.cmdheight = target_height + original_cmdheight
 
   local win_opts = {
-    relative = 'editor', -- Bypasses Neo-Tree and Aerial layouts completely
+    relative = 'editor', -- Bypasses sidebars completely
     style = 'minimal',
     focusable = true,
-    width = vim.o.columns, -- Spans 100% of screen width
+    width = vim.o.columns, -- Stretching 100% full screen width boundary size
     height = target_height,
-    row = vim.o.lines - target_height - original_cmdheight - 1, -- Absolute bottom coordinate anchor
+    anchor = 'SW', -- 🔥 SOUTHWEST ANCHOR: Calculates row coordinates from the bottom edge up
+    row = vim.o.lines, -- Absolute lowest coordinate line factor on monitor
     col = 0,
   }
 
