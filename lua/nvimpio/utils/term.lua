@@ -120,28 +120,24 @@ function M.ToggleTerminal(command, direction)
     return
   end
 
-  -- 1. Get the current active terminal states upfront
-  local prev = M.getPreviousWindow(vim.api.nvim_get_current_win())
-  local orig_window = prev.orig_window
-
-  -- 2. UNIFIED TOGGLE HOOK: Close the opponent window immediately before running any logic
-  if string.find(command, ' monitor') then
-    if prev.cli then
-      prev.cli:close()
-    end -- If opening monitor, shut down CLI
-  else
-    if prev.mon then
-      prev.mon:close()
-    end -- If opening CLI, shut down monitor
-  end
+  -- -- 1. Get the current active terminal states upfront
+  -- local prev = M.getPreviousWindow(vim.api.nvim_get_current_win())
+  -- local orig_window = prev.orig_window
+  --
+  -- -- 2. UNIFIED TOGGLE HOOK: Close the opponent window immediately before running any logic
+  -- if string.find(command, ' monitor') then
+  --   if prev.cli then prev.cli:close() end  -- If opening monitor, shut down CLI
+  -- else
+  --   if prev.mon then prev.mon:close() end  -- If opening CLI, shut down monitor
+  -- end
 
   -- 3. Now your main logic stays clean, pure, and untouched
   local title = ''
   local pioOpts = {}
 
   -- INFO: set orig_window to current window, or if available get current toggleterm previous window
-  -- local prev = getPreviousWindow(vim.api.nvim_get_current_win())
-  -- local orig_window = prev.orig_window
+  local prev = getPreviousWindow(vim.api.nvim_get_current_win())
+  local orig_window = prev.orig_window
 
   if string.find(command, ' monitor') then
     if prev.mon then -- INFO: if previous monitor terminal already opened ==> reopen
@@ -194,7 +190,7 @@ function M.ToggleTerminal(command, direction)
       end
     end
   end
-  pioOpts.direction = 'horizontal' --direction
+  pioOpts.direction = direction
   ------------------------------------------------------
 
   -- INFO: termConfig table start
