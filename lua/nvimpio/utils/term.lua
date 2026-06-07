@@ -188,6 +188,7 @@ function M.ToggleTerminal(command, direction)
     -- This makes it 100% immune to being squished into a vertical column by Aerial or Neo-tree.
     direction = 'float',
 
+    hide_on_losshost = false,
     float_opts = {
       border = 'none', -- No border lines to match a clean edge-to-edge split window style
       focusable = true, -- Keeps keyboard cursor interactions perfectly responsive
@@ -218,6 +219,9 @@ function M.ToggleTerminal(command, direction)
     close_on_exit = false,
 
     on_open = function(t)
+      -- PLUGIN FIX: Enforce focus boundaries so Neovim treats this as a persistent layout row
+      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = t.window })
+
       local hl = { bg = '#80a3d4', fg = '#000000' }
       if hl then
         vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
