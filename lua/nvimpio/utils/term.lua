@@ -211,26 +211,12 @@ function M.ToggleTerminal(command, direction)
 
     -- INFO: on_open()
     on_open = function(t)
-      -- 1. PLUGIN ARCHITECTURE FIX: Force the terminal layout to the absolute bottom row grid
-      -- This forces it to span 100% horizontally underneath BOTH code windows AND sidebar views (like Aerial)
-      vim.cmd('wincmd J')
-
-      -- 2. Lock the window height so Neovim is forbidden from squishing it when Aerial mounts
+      -- 1. Lock the vertical height of this terminal window pane.
+      -- This forces Neovim to preserve your horizontal bottom layout
+      -- when plugins like Aerial split the workspace vertically above it.
       vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = t.window })
 
-      -- 3. INTERCEPT LAYOUT FLOODS: Micro-schedule an extra layout correction check
-      -- to catch and correct the screen width if Aerial spawns concurrently during the draw routine
-      vim.schedule(function()
-        if vim.api.nvim_win_is_valid(t.window) then
-          vim.api.nvim_set_current_win(t.window)
-          vim.cmd('wincmd J')
-          -- Jump your user's cursor focus back to the code file above the terminal right away
-          vim.cmd('wincmd k')
-        end
-      end)
-      -- Get properties of the 'Normal' highlight group (background of main editor)
-      -- local hl = vim.api.nvim_get_hl(0, { name = 'PmenuSel' })
-      -- local hl = { bg = '#e4cf0e', fg = '#0012d9' }
+      -- 2. Clean highlight and title bar integration logic
       local hl = { bg = '#80a3d4', fg = '#000000' }
 
       if hl then
