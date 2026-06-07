@@ -185,14 +185,14 @@ function M.ToggleTerminal(command, direction)
     hidden = true,
     hide_numbers = true,
     direction = 'horizontal',
-    -- size = 15, 
+    size = 15,
 
     -- Option B: Dynamic height (e.g., exactly 28% of total editor height)
-    size = function(term)
-      if term.direction == "horizontal" then
-        return math.ceil(vim.o.lines * 0.28)
-      end
-    end,
+    -- size = function(term)
+    --   if term.direction == "horizontal" then
+    --     return math.ceil(vim.o.lines * 0.28)
+    --   end
+    -- end,
     close_on_exit = false,
 
     on_open = function(t)
