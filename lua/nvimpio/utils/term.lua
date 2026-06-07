@@ -185,7 +185,6 @@ function M.ToggleTerminal(command, direction)
     hidden = true,
     hide_numbers = true,
     direction = 'horizontal',
-    size = 15,
 
     -- Option B: Dynamic height (e.g., exactly 28% of total editor height)
     -- size = function(term)
@@ -199,6 +198,7 @@ function M.ToggleTerminal(command, direction)
       -- vim.cmd("wincmd J")
       -- vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = t.window })
       -- vim.cmd('wincmd =')
+      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = term.window })
       local hl = { bg = '#80a3d4', fg = '#000000' }
 
       if hl then
@@ -213,12 +213,18 @@ function M.ToggleTerminal(command, direction)
 
       -- vim.cmd('wincmd =')
 
-      -- DUAL PANEL HOME ROW CROSS SWITCHER (;;)
-      vim.keymap.set({ 'n', 't' }, ';;', function()
-      if vim.api.nvim_get_mode().mode == 't' then
-        local esc = vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true)
-        vim.api.nvim_feedkeys(esc, 'n', false)
-       end
+      -- -- DUAL PANEL HOME ROW CROSS SWITCHER (;;)
+      -- vim.keymap.set({ 'n', 't' }, ';;', function()
+      --   if vim.api.nvim_get_mode().mode == 't' then
+      --     local esc = vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true)
+      --     vim.api.nvim_feedkeys(esc, 'n', false)
+      --   end
+      --
+      --   local next_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
+      --   vim.schedule(function()
+      --     M.ToggleTerminal('', next_type)
+      --   end)
+      -- end, { buffer = target_buf, silent = true, desc = 'Switch between PlatformIO terminals' })
 
       vim.keymap.set('t', '<Esc>', [[<C-\><C-n>k]], { buffer = t.bufnr })
       vim.keymap.set('n', '<Esc>', [[<C-\><C-n>a]], { buffer = t.bufnr })
