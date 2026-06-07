@@ -139,6 +139,15 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end, { silent = true })
 
+  if terminal_type == 'monitor' then
+    vim.keymap.set('n', '<leader>\\gm', function()
+      M.ToggleTerminal('', 'monitor')
+    end, { desc = 'Toggle/Recall PlatformIO Monitor Panel', silent = true })
+  else
+    vim.keymap.set('n', '<leader>\\t', function()
+      M.ToggleTerminal('', 'cli')
+    end, { desc = 'Toggle/Recall PlatformIO CLI Panel', silent = true })
+  end
   -----------------------------------------------------------------------------
 
   -- 8. EXECUTE PENDING PLATFORMIO COMMAND STRINGS
