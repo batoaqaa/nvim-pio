@@ -202,7 +202,9 @@ function M.ToggleTerminal(command, direction)
       -- 4. HARD-LOCK PLACEMENT COORDINATES:
       row = function()
         -- Anchors the float exactly to the bottom line of the editor view grid
-        return vim.o.lines - math.ceil(vim.o.lines * 0.30) - 2
+        local cmdheight = vim.o.cmdheight or 1
+        return vim.o.lines - math.ceil(vim.o.lines * 0.30) - cmdheight - 1
+        -- return vim.o.lines - math.ceil(vim.o.lines * 0.30) - 2
       end,
       col = function()
         -- Starts at the very left edge of the screen (0)
@@ -213,19 +215,6 @@ function M.ToggleTerminal(command, direction)
 
     -- INFO: on_open()
     on_open = function(t)
-      -- 1. PLUGIN ARCHITECTURE FIX: Lock the terminal to a native horizontal baseline.
-      -- This forces Neovim to preserve your horizontal bottom layout boundary.
-      vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = t.window })
-
-      -- 2. GLOBAL PROTECTION: Force the editor to anchor all window splits to the screen layout framework.
-      -- This stops sidebars like Aerial or Neo-tree from pushing the terminal into vertical strips!
-      if vim.o.splitkeep ~= "screen" then
-        vim.o.splitkeep = "screen"
-      end
-
-      -- 3. Equalize window spacing cleanly without closing sidebars
-      vim.cmd("wincmd =")
-
       local hl = { bg = '#80a3d4', fg = '#000000' }
 
       if hl then
