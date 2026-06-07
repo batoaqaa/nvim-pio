@@ -215,22 +215,11 @@ vim.keymap.set('n', [[<leader>\t]], function()
 end, { silent = true })
 
 ----------------------------------------------------------------------------------------
--- HIGH-PERFORMANCE SCREEN GRID WATCHDOG (Zero Lag Layout Alignment Core)
-----------------------------------------------------------------------------------------
-
-----------------------------------------------------------------------------------------
--- HIGH-PERFORMANCE WORKSPACE SPLIT GUARD (Preserves Vertical Splits Up Top)
-----------------------------------------------------------------------------------------
-
-----------------------------------------------------------------------------------------
--- HIGH-PERFORMANCE REDIRECTION INTERCEPTOR (Preserves All Layout Splits Globally)
-----------------------------------------------------------------------------------------
-----------------------------------------------------------------------------------------
--- HIGH-PERFORMANCE REDIRECTION INTERCEPTOR (Neo-tree & Aerial Layout Protected Core)
+-- HARD ENFORCEMENT INTERCEPTOR (Prevents Neo-tree/Aerial Window Inversions)
 ----------------------------------------------------------------------------------------
 local group = vim.api.nvim_create_augroup('PioTerminalSplitGuard', { clear = true })
 
-vim.api.nvim_create_autocmd('BufEnter', {
+vim.api.nvim_create_autocmd({ 'BufWinEnter', 'BufEnter' }, {
   group = group,
   callback = function(args)
     local current_buf = args.buf
@@ -254,21 +243,19 @@ vim.api.nvim_create_autocmd('BufEnter', {
     end
 
     -- Rule 2: Exit immediately if your bottom terminal panel is closed
-    if not pio_win then
+    if not pio_win or not pio_buf then
       return
     end
 
-    -- Check if Neovim accidentally swapped a file into your terminal frame window container
+    -- Check if Neovim is actively forcing or holding a code file inside the terminal frame window
     local file_leaked_into_terminal_win = (vim.api.nvim_win_get_buf(pio_win) == current_buf)
     local active_win = vim.api.nvim_get_current_win()
 
     if active_win == pio_win or file_leaked_into_terminal_win then
-      -- 1. Instantly restore your original terminal tracking buffer to its layout panel window frame
-      if pio_buf and vim.api.nvim_buf_is_valid(pio_buf) then
-        vim.api.nvim_win_set_buf(pio_win, pio_buf)
-      end
+      -- 1. HARD RESET: Lock down the terminal buffer immediately to prevent the layout from shifting
+      vim.api.nvim_win_set_buf(pio_win, pio_buf)
 
-      -- 2. Safely redirect the code file up to your primary workspace columns
+      -- 2. Prevent the layout engine from drawing the split inside the terminal frame
       vim.schedule(function()
         local target_code_win = nil
 
@@ -297,21 +284,25 @@ vim.api.nvim_create_autocmd('BufEnter', {
           end
         end
 
-        -- 3. Apply the buffer context swap natively without running flattening layout adjustments
+        -- 3. Move the file up to your primary workspace columns cleanly
         if target_code_win then
           vim.api.nvim_set_current_win(target_code_win)
           vim.api.nvim_set_current_buf(current_buf)
         else
-          -- Universal Fallback: If layout is entirely frozen, pop a fresh horizontal split above terminal
+          -- Universal Fallback: If layout is entirely frozen, force focus upwards out of the terminal block
           if vim.api.nvim_win_is_valid(pio_win) then
             vim.api.nvim_set_current_win(pio_win)
           end
           vim.cmd('wincmd k')
-          vim.cmd('split')
-          vim.api.nvim_set_current_buf(current_buf)
+          if vim.api.nvim_get_current_win() ~= pio_win then
+            vim.api.nvim_set_current_buf(current_buf)
+          else
+            vim.cmd('split')
+            vim.api.nvim_set_current_buf(current_buf)
+          end
         end
 
-        -- 4. Re-enforce and maintain your exact 28% dynamic vertical layout floor size profile
+        -- 4. Re-enforce and maintain your exact 28% vertical layout floor size profile
         if vim.api.nvim_win_is_valid(pio_win) then
           local target_height = math.ceil(vim.o.lines * 0.28)
           vim.api.nvim_win_set_height(pio_win, target_height)
@@ -322,6 +313,7 @@ vim.api.nvim_create_autocmd('BufEnter', {
 })
 
 return M
+
 -- local M = {}
 --
 -- -- Background tracking slots for running buffers and window handles
