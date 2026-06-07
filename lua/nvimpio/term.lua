@@ -27,10 +27,10 @@
 -- ---@class Terminal
 -- ---@field id number
 -- ---@field bufnr number
--- ---@field window number
 -- ---@field close function
+-- ---@field display_name string
+-- ---@field window number
 -- ---@field toggle function
---
 -- -- Define your context class
 -- ---@class PioPrevContext
 -- ---@field term Terminal|nil
@@ -38,7 +38,6 @@
 -- ---@field cli Terminal|nil
 -- ---@field float boolean
 -- ---@field orig_window number|nil
---
 -- local function getPreviousWindow(orig_window)
 --   local prev = {
 --     orig_window = orig_window,

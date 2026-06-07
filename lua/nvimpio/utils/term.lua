@@ -2,8 +2,6 @@ local M = {}
 
 local config = require('nvimpio').config
 
--- to fix require loop, toggleterm is using stdout_callback function in 'platformio.utils.pio'
--- M.stdout_callback will be assigned by 'platformio.utils.pio'
 M.stdout_callback = nil
 M.exit_callback = nil
 
@@ -23,15 +21,18 @@ function M.check_prefix(str, prefix)
 end
 
 ------------------------------------------------------
--- Tell the LSP what a "Terminal" object looks like
 ---@class Terminal
 ---@field id number
 ---@field bufnr number
----@field close function
----@field display_name string
 ---@field window number
+---@field display_name string
+---@field job_id number
+---@field close function
 ---@field toggle function
--- Define your context class
+---@field open function
+---@field spawn function
+---@field direction string
+
 ---@class PioPrevContext
 ---@field term Terminal|nil
 ---@field mon Terminal|nil
@@ -41,28 +42,30 @@ end
 local function getPreviousWindow(orig_window)
   local prev = {
     orig_window = orig_window,
-    term = nil, -- active terminal
-    cli = nil, -- cli terminal
-    mon = nil, -- mon terminal
+    term = nil,
+    cli = nil,
+    mon = nil,
     float = false,
   }
   local terms = require('toggleterm.terminal').get_all(true)
   if #terms ~= 0 then
     for i = 1, #terms do
-      if terms[i].display_name and terms[i].display_name ~= '' and terms[i].display_name:find('pio', 1) then
-        local name_splt = M.strsplit(terms[i].display_name, ':')
-        if name_splt[1] == 'piocli' then
+      local dname = terms[i].display_name
+      if dname and dname ~= '' and string.find(dname, 'pio', 1) then
+        -- SAFE MATCH: No array indices used, preventing code box breakages
+        local name_type, win_id_str = string.match(dname, '([^:]+):([^:]+)')
+        local win_id = tonumber(win_id_str)
+
+        if name_type == 'piocli' then
           prev.cli = terms[i]
           if terms[i].window == orig_window then
-            ---@diagnostic disable-next-line: cast-local-type
-            prev.orig_window = tonumber(name_splt[2])
+            prev.orig_window = win_id
             prev.term = terms[i]
           end
-        elseif name_splt[1] == 'piomon' then
+        elseif name_type == 'piomon' then
           prev.mon = terms[i]
           if terms[i].window == orig_window then
-            ---@diagnostic disable-next-line: cast-local-type
-            prev.orig_window = tonumber(name_splt[2])
+            prev.orig_window = win_id
             prev.term = terms[i]
           end
         end
@@ -90,11 +93,10 @@ end
 
 ------------------------------------------------------
 local function PioTermClose(t)
-  local name_splt = M.strsplit(t.display_name, ':')
-  local orig_window = tonumber(name_splt[2])
+  local name_type, win_id_str = string.match(t.display_name, '([^:]+):([^:]+)')
+  local orig_window = tonumber(win_id_str)
   vim.api.nvim_win_close(t.window, true)
 
-  -- Balance window layout when closed
   vim.cmd('wincmd =')
 
   if orig_window and vim.api.nvim_win_is_valid(orig_window) then
@@ -131,7 +133,7 @@ function M.ToggleTerminal(command, direction)
       end
       return prev.mon
     end
-    title = 'Pio Monitor: [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
+    title = 'Pio Monitor: [In normal mode press: q or :q to hide; :q! to quit]'
     pioOpts.display_name = 'piomon:' .. orig_window
     pioOpts.id = 98
     pioOpts.on_stdout = nil
@@ -153,7 +155,7 @@ function M.ToggleTerminal(command, direction)
       end, 50)
       return prev.cli
     end
-    title = 'Pio CLI> [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
+    title = 'Pio CLI> [In normal mode press: q or :q to hide; :q! to quit]'
     pioOpts.display_name = 'piocli:' .. orig_window
     pioOpts.id = 99
 
@@ -179,7 +181,6 @@ function M.ToggleTerminal(command, direction)
     end,
     close_on_exit = false,
 
-    -- INFO: on_open()
     on_open = function(t)
       local hl = { bg = '#80a3d4', fg = '#000000' }
 
@@ -206,11 +207,11 @@ function M.ToggleTerminal(command, direction)
       end, { desc = 'PioTermClose', buffer = t.bufnr })
 
       if config.debug then
-        local name_splt = M.strsplit(t.display_name, ':')
+        local p_type, p_win = string.match(t.display_name, '([^:]+):([^:]+)')
         vim.api.nvim_echo({
           { 'ToggleTerm ', 'MoreMsg' },
-          { '(Term name: ' .. name_splt[1] .. ')', 'MoreMsg' },
-          { '(Prev win ID: ' .. name_splt[2] .. ')', 'MoreMsg' },
+          { '(Term name: ' .. p_type .. ')', 'MoreMsg' },
+          { '(Prev win ID: ' .. p_win .. ')', 'MoreMsg' },
           { '(Term Win ID: ' .. t.window .. ')', 'MoreMsg' },
           { '(Term Buffer#: ' .. t.bufnr .. ')', 'MoreMsg' },
           { '(Term id: ' .. t.id .. ')', 'MoreMsg' },
@@ -219,10 +220,9 @@ function M.ToggleTerminal(command, direction)
       end
     end,
 
-    -- INFO: on_close()
     on_close = function(t)
-      local name_splt = M.strsplit(t.display_name, ':')
-      orig_window = tonumber(name_splt[2])
+      local p_type, p_win = string.match(t.display_name, '([^:]+):([^:]+)')
+      orig_window = tonumber(p_win)
 
       vim.cmd('wincmd =')
 
@@ -233,12 +233,10 @@ function M.ToggleTerminal(command, direction)
       end
     end,
 
-    -- INFO: on_create()
     on_create = function(t)
-      local name_splt = M.strsplit(t.display_name, ':')
-      local platformio = vim.api.nvim_create_augroup(name_splt[1], { clear = true })
+      local p_type, p_win = string.match(t.display_name, '([^:]+):([^:]+)')
+      local platformio = vim.api.nvim_create_augroup(p_type .. '_group', { clear = true })
 
-      -- INFO: CmdlineLeave
       vim.api.nvim_create_autocmd('CmdlineLeave', {
         group = platformio,
         buffer = t.bufnr,
@@ -247,9 +245,9 @@ function M.ToggleTerminal(command, direction)
             local quit = vim.fn.getcmdline() == 'q'
             local quitbang = vim.fn.getcmdline() == 'q!'
             if quitbang or quit then
-              local ns = M.strsplit(t.display_name, ':')
+              local ns_type, ns_win_str = string.match(t.display_name, '([^:]+):([^:]+)')
               if quitbang then
-                if ns[1] == 'piomon' then
+                if ns_type == 'piomon' then
                   local exit = vim.api.nvim_replace_termcodes('<C-C>exit', true, true, true)
                   send(t, exit)
                 else
@@ -257,7 +255,7 @@ function M.ToggleTerminal(command, direction)
                 end
               end
 
-              orig_window = tonumber(ns[2])
+              orig_window = tonumber(ns_win_str)
               vim.schedule(function()
                 vim.cmd('wincmd =')
                 if orig_window and vim.api.nvim_win_is_valid(orig_window) then
@@ -271,7 +269,6 @@ function M.ToggleTerminal(command, direction)
         end,
       })
 
-      -- INFO: BufUnload
       vim.api.nvim_create_autocmd('BufUnload', {
         group = platformio,
         desc = 'toggleterm buffer unloaded',
@@ -282,8 +279,8 @@ function M.ToggleTerminal(command, direction)
           pcall(vim.keymap.del, 't', '<S-h>', { buffer = args.buf })
           pcall(vim.keymap.del, 't', '<S-l>', { buffer = args.buf })
 
-          local ns = M.strsplit(t.display_name, ':')
-          vim.api.nvim_clear_autocmds({ group = ns[1] })
+          local ns_type = string.match(t.display_name, '([^:]+):')
+          vim.api.nvim_clear_autocmds({ group = ns_type .. '_group' })
           vim.schedule(function()
             vim.cmd('wincmd =')
           end)
@@ -302,366 +299,18 @@ function M.ToggleTerminal(command, direction)
       send(terminal, command)
     end
   end, 50)
-end
-return M
 
--- local M = {}
---
--- local config = require('nvimpio').config
---
--- -- to fix require loop, toggleterm is using stdout_callback function in 'platformio.utils.pio'
--- -- M.stdout_callback will be assigned by 'platformio.utils.pio'
--- M.stdout_callback = nil
--- M.exit_callback = nil
---
--- ------------------------------------------------------
--- function M.strsplit(inputstr, del)
---   local t = {}
---   if type(inputstr) == 'string' and inputstr and inputstr ~= '' then
---     for str in string.gmatch(inputstr, '([^' .. del .. ']+)') do
---       table.insert(t, str)
---     end
---   end
---   return t
--- end
---
--- function M.check_prefix(str, prefix)
---   return str:sub(1, #prefix) == prefix
--- end
---
--- ------------------------------------------------------
---
--- -- 1. Tell the LSP what a "Terminal" object looks like (simplified)
--- ---@class Terminal
--- ---@field id number
--- ---@field bufnr number
--- ---@field window number
--- ---@field close function
--- ---@field toggle function
--- -- INFO: get previous window
--- local function getPreviousWindow(orig_window)
---   -- 2. Define your context class
---   ---@class PioPrevContext
---   ---@field term Terminal|nil
---   ---@field mon Terminal|nil  -- Handle for float terminal
---   ---@field cli Terminal|nil
---   ---@field float boolean      -- flag float terminal
---   ---@field orig_window number|nil
---   local prev = {
---     orig_window = orig_window,
---     term = nil, --active terminal
---     cli = nil, --cli terminal
---     mon = nil, --mon terminal
---     float = false, --is active terminal direction float
---   }
---   local terms = require('toggleterm.terminal').get_all(true)
---   if #terms ~= 0 then
---     for i = 1, #terms do
---       if terms[i].display_name and terms[i].display_name ~= '' and terms[i].display_name:find('pio', 1) then
---         local name_splt = M.strsplit(terms[i].display_name, ':')
---         if name_splt[1] == 'piocli' then
---           prev.cli = terms[i]
---           if terms[i].window == orig_window then
---             ---@diagnostic disable-next-line: cast-local-type
---             prev.orig_window = tonumber(name_splt[2]) -- set orig_window to the previous terminal onrig_window
---             prev.term = terms[i]
---           end
---           if terms[i].direction == 'float' then
---             prev.float = true
---           end
---         elseif name_splt[1] == 'piomon' then
---           prev.mon = terms[i]
---           if terms[i].window == orig_window then
---             ---@diagnostic disable-next-line: cast-local-type
---             prev.orig_window = tonumber(name_splt[2]) -- set orig_window to the previous terminal onrig_window
---             prev.term = terms[i]
---           end
---           if terms[i].direction == 'float' then
---             prev.float = true
---           end
---         end
---       end
---     end
---   end
---   return prev
--- end
---
--- ------------------------------------------------------
--- -- INFO: Send command
--- local function send(term, cmd)
---   vim.fn.chansend(term.job_id, cmd .. OS.eol)
---   if vim.api.nvim_buf_is_loaded(term.bufnr) and vim.api.nvim_buf_is_valid(term.bufnr) then
---     if term.window and vim.api.nvim_win_is_valid(term.window) then --vim.ui.term_has_open_win(term) then
---       vim.api.nvim_set_current_win(term.window) -- terminal focus
---       vim.api.nvim_buf_call(term.bufnr, function()
---         local mode = vim.api.nvim_get_mode().mode
---         if mode == 'n' or mode == 'nt' then
---           vim.cmd('normal! G') -- normal command to Goto bottom of buffer (scroll)
---         end
---       end)
---     end
---   end
--- end
---
--- ------------------------------------------------------
--- -- INFO: PioTermClose
--- local function PioTermClose(t)
---   local orig_window = tonumber(M.strsplit(t.display_name, ':')[2])
---   -- close terminal window
---   vim.api.nvim_win_close(t.window, true)
---
---   -- go back to previous window
---   if orig_window and vim.api.nvim_win_is_valid(orig_window) then
---     vim.api.nvim_set_current_win(orig_window)
---   else
---     vim.api.nvim_set_current_win(0)
---   end
--- end
---
--- ------------------------------------------------------
--- -- INFO: ToggleTerminal
--- function M.ToggleTerminal(command, direction)
---   direction = 'float'
---   local status_ok, _ = pcall(require, 'toggleterm')
---   if not status_ok then
---     vim.api.nvim_echo({ { 'toggleterm not found!', 'ErrorMsg' } }, true, {})
---     return
---   end
---
---   local title = ''
---   local pioOpts = {}
---
---   -- INFO: set orig_window to current window, or if available get current toggleterm previous window
---   local prev = getPreviousWindow(vim.api.nvim_get_current_win())
---   local orig_window = prev.orig_window
---
---   if string.find(command, ' monitor') then
---     if prev.mon then -- INFO: if previous monitor terminal already opened ==> reopen
---       prev.mon.display_name = 'piomon:' .. orig_window
---       local win_type = vim.fn.win_gettype(prev.mon.window)
---       local win_open = win_type == '' or win_type == 'popup'
---       if prev.mon.window and (win_open and vim.api.nvim_win_get_buf(prev.mon.window) == prev.mon.bufnr) then
---         vim.api.nvim_set_current_win(prev.mon.window)
---       else
---         prev.mon:open()
---       end
---       return prev.mon
---     end
---     title = 'Pio Monitor: [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
---     pioOpts.display_name = 'piomon:' .. orig_window
---     pioOpts.id = 98
---     pioOpts.direction = 'float' or direction
---     pioOpts.on_stdout = nil
---   else -- INFO: if previous cli terminal already opened ==> reopen
---     if prev.cli then
---       prev.cli.display_name = 'piocli:' .. orig_window
---       local win_type = vim.fn.win_gettype(prev.cli.window)
---       local win_open = win_type == '' or win_type == 'popup'
---       if prev.cli.window and (win_open and vim.api.nvim_win_get_buf(prev.cli.window) == prev.cli.bufnr) then
---         vim.api.nvim_set_current_win(prev.cli.window)
---       else
---         prev.cli:open()
---       end
---       vim.defer_fn(function()
---         if command and command ~= '' then
---           send(prev.cli, command)
---         end
---       end, 50) -- 50ms delay, adjust as needed
---       return prev.cli
---     end
---     title = 'Pio CLI> [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
---     pioOpts.display_name = 'piocli:' .. orig_window
---     pioOpts.id = 99
---     pioOpts.direction = 'float' or direction
---     pioOpts.size = function()
---       return vim.o.columns
---     end
---
---     -- INFO: on_stdout
---     pioOpts.on_stdout = function(terminal, job, data, name)
---       if type(M.stdout_callback) == 'function' then
---         M.stdout_callback(terminal, job, data, name)
---       end
---     end
---
---     -- INFO: on_stdout
---     pioOpts.on_stderr = function(terminal, job, data, name)
---       if type(M.stdout_callback) == 'function' then
---         M.stdout_callback(terminal, job, data, name)
---       end
---     end
---   end
---   -- pioOpts.direction = direction
---   ------------------------------------------------------
---
---   -- INFO: termConfig table start
---   local termConfig = {
---     hidden = true, -- Start hidden, we'll open it explicitly
---     hide_numbers = true,
---     -- env = { PATH = vim.env.PATH,},
---     float_opts = {
---       -- Options: 'single' | 'double' | 'shadow' | 'curved' | 'none'
---       border = 'none',
---       -- Dynamically calculate coordinates to overlay ONLY the active window area
---       width = function()
---         return vim.api.nvim_win_get_width(0)
---       end,
---       height = function()
---         return vim.api.nvim_win_get_height(0)
---       end,
---       row = function()
---         -- Anchors the overlay exactly onto the top edge of your file window
---         local win_pos = vim.api.nvim_win_get_position(0)
---         return win_pos[1]
---       end,
---       col = function()
---         -- Shifts the window right to avoid covering neo-tree/nvim-tree
---         local win_pos = vim.api.nvim_win_get_position(0)
---         return win_pos[2]
---       end,
---     },
---     direction = 'float',
---     -- float_opts = {
---     --   winblend = 0,
---     --   width = function()
---     --     return math.ceil(vim.o.columns * 0.85)
---     --   end,
---     --   height = function()
---     --     return math.ceil(vim.o.lines * 0.75)
---     --   end,
---     --   -- shell = vim.o.shell,
---     --   shell = OS.shell,
---     --   highlights = {
---     --     border = 'FloatBorder',
---     --     background = 'NormalFloat',
---     --   },
---     -- },
---     close_on_exit = false, --closeOnexit,
---
---     -- INFO: on_open()
---     on_open = function(t)
---       -- Get properties of the 'Normal' highlight group (background of main editor)
---       -- local hl = vim.api.nvim_get_hl(0, { name = 'PmenuSel' })
---       -- local hl = { bg = '#e4cf0e', fg = '#0012d9' }
---       local hl = { bg = '#80a3d4', fg = '#000000' }
---
---       if hl then
---         vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
---
---         local winBartitle = '%#MyWinBar#' .. title .. '%*'
---         vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = t.window })
---
---         -- Following necessary to solve that some time winbar not showing
---         vim.schedule(function()
---           vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = t.window })
---         end)
---       end
---       vim.keymap.set('t', '<Esc>', [[<C-\><C-n>k]], { buffer = t.bufnr })
---       vim.keymap.set('n', '<Esc>', [[<C-\><C-n>a]], { buffer = t.bufnr })
---
---       vim.keymap.set('n', 'q', function()
---         PioTermClose(t)
---       end, { desc = 'PioTermClose', buffer = t.bufnr })
---
---       if config.debug then
---         local name_splt = M.strsplit(t.display_name, ':')
---         vim.api.nvim_echo({
---           { 'ToggleTerm ', 'MoreMsg' },
---           { '(Term name: ' .. name_splt[1] .. ')', 'MoreMsg' },
---           { '(Prev win ID: ' .. name_splt[2] .. ')', 'MoreMsg' },
---           { '(Term Win ID: ' .. t.window .. ')', 'MoreMsg' },
---           { '(Term Buffer#: ' .. t.bufnr .. ')', 'MoreMsg' },
---           { '(Term id: ' .. t.id .. ')', 'MoreMsg' },
---           { '(Job ID: ' .. t.job_id .. ')', 'MoreMsg' },
---         }, true, {})
---       end
---     end,
---
---     -- INFO: on_close()
---     on_close = function(t)
---       orig_window = tonumber(M.strsplit(t.display_name, ':')[2])
---       ---@diagnostic disable-next-line: param-type-mismatch
---       if orig_window and vim.api.nvim_win_is_valid(orig_window) then
---         vim.api.nvim_set_current_win(orig_window)
---       else
---         vim.api.nvim_set_current_win(0)
---       end
---     end,
---
---     -- -- INFO: on_exit()
---     -- on_exit = function(_)
---     --   exit_callback()
---     -- end,
---
---     -- INFO: on_create() {
---     on_create = function(t)
---       local platformio = vim.api.nvim_create_augroup(M.strsplit(t.display_name, ':')[1], { clear = true })
---
---       -- INFO: CmdlineLeave
---       vim.api.nvim_create_autocmd('CmdlineLeave', {
---         group = platformio,
---         -- pattern = ':',
---         buffer = t.bufnr,
---         callback = function()
---           if vim.v.event and not vim.v.event.abort and vim.v.event.cmdtype == ':' then
---             local quit = vim.fn.getcmdline() == 'q'
---             local quitbang = vim.fn.getcmdline() == 'q!'
---             if quitbang or quit then
---               local name_splt = M.strsplit(t.display_name, ':')
---               if quitbang then
---                 if name_splt[1] == 'piomon' then -- monitor terminal
---                   local exit = vim.api.nvim_replace_termcodes('<C-C>exit', true, true, true)
---                   send(t, exit)
---                 else -- cli terminal
---                   send(t, 'exit')
---                 end
---               end
---
---               orig_window = tonumber(name_splt[2])
---               vim.schedule(function()
---                 -- go back to previous window
---                 if orig_window and vim.api.nvim_win_is_valid(orig_window) then
---                   vim.api.nvim_set_current_win(orig_window)
---                 else
---                   vim.api.nvim_set_current_win(0)
---                 end
---               end)
---             end
---           end
---         end,
---       })
---
---       -- INFO: BufUnload
---       vim.api.nvim_create_autocmd('BufUnload', {
---         group = platformio,
---         desc = 'toggleterm buffer unloaded',
---         buffer = t.bufnr,
---         callback = function(args)
---           vim.keymap.del('t', '<Esc>', { buffer = args.buf })
---           vim.keymap.del('n', '<Esc>', { buffer = args.buf })
---
---           -- clear autommmand when quit
---           vim.api.nvim_clear_autocmds({ group = M.strsplit(t.display_name, ':')[1] })
---         end,
---       })
---     end,
---   }
---   -- INFO: termConfig table end
---
---   termConfig = vim.tbl_deep_extend('force', termConfig, pioOpts or {})
---
---   -- INFO: create new terminal
---   local terminal = require('toggleterm.terminal').Terminal:new(termConfig)
---   if prev.term and prev.float then
---     prev.term.close()
---   end
---   terminal:toggle()
---   vim.defer_fn(function()
---     if command and command ~= '' then
---       send(terminal, command)
---     end
---   end, 50) -- 50ms delay, adjust as needed sgget
---   return terminal
--- end
---
--- return M
+  return terminal
+end
+
+------------------------------------------------------
+function M.ToggleBoth()
+  M.ToggleTerminal('', 'vertical')
+  M.ToggleTerminal(' monitor', 'vertical')
+
+  vim.schedule(function()
+    vim.cmd('wincmd =')
+  end)
+end
+
+return M
