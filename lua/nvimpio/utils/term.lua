@@ -6,13 +6,11 @@ local pio_mon_buf = nil
 
 ----------------------------------------------------------------------------------------
 -- INFO: Safe terminal exit routine (Tied to pressing 'q' inside normal mode)
--- FIXED: Declared at the very top of the script so it is defined for all keymaps
 local function SafeCloseTerminal(buf_id)
   if buf_id and vim.api.nvim_buf_is_valid(buf_id) then
     local win_id = vim.fn.bufwinid(buf_id)
     if win_id and win_id ~= -1 and vim.api.nvim_win_is_valid(win_id) then
       vim.api.nvim_win_close(win_id, true)
-      -- Force standard workspace columns to balance their layout spacing evenly
       vim.cmd('wincmd =')
     end
   end
@@ -44,7 +42,6 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   -- 4. SPAWN STRATEGY: Initialize a native window pane layout at the bottom edge
-  -- 'botright split' tells Neovim to initialize a root split boundary across the horizontal plane
   local target_height = math.ceil(vim.o.lines * 0.28)
   vim.cmd('botright ' .. target_height .. 'split')
   local new_win = vim.api.nvim_get_current_win()
@@ -62,29 +59,55 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 6. THE GRID RE-ANCHOR HOOK:
-  -- Forces the terminal pane out of local parent columns and flattens it across
-  -- the bottom of your entire monitor underneath Neo-tree, your code file, and Aerial!
+  -- 6. HARD-LOCK LAYOUT PROPERTIES
+  vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
+
+  -- 7. THE BUFFER PROTECTOR GUARD (Crucial for distributed plugins)
+  -- If a user hits a file inside neo-tree/aerial while focus is here, this interceptor
+  -- kicks the incoming code file up to the main pane and preserves your terminal at the bottom.
+  local platformio_group = vim.api.nvim_create_augroup('PioGuard_' .. target_buf, { clear = true })
+  vim.api.nvim_create_autocmd('BufLeave', {
+    group = platformio_group,
+    buffer = target_buf,
+    callback = function()
+      vim.schedule(function()
+        local win_id = vim.fn.bufwinid(target_buf)
+        if win_id and win_id ~= -1 and vim.api.nvim_win_is_valid(win_id) then
+          local current_buf = vim.api.nvim_win_get_buf(win_id)
+          if current_buf ~= target_buf then
+            -- A file tree hijacked this terminal window pane! Put the file back up top.
+            local stolen_file_buf = current_buf
+            vim.api.nvim_win_set_buf(win_id, target_buf) -- Restore terminal buffer instantly
+
+            -- Open the file in the code window split right above the terminal
+            local cur_win = vim.api.nvim_get_current_win()
+            vim.cmd('wincmd k')
+            vim.api.nvim_set_current_buf(stolen_file_buf)
+            vim.api.nvim_set_current_win(cur_win)
+          end
+        end
+      end)
+    end,
+  })
+
+  -- 8. THE GRID RE-ANCHOR HOOK
   vim.schedule(function()
     if vim.api.nvim_win_is_valid(new_win) then
       vim.api.nvim_win_call(new_win, function()
         vim.cmd('wincmd J')
       end)
-      -- Hardlocks the height so sidebars are forbidden from resizing or shifting it
-      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
     end
   end)
 
-  -- 7. CLEAN LAYOUT FRAMEWORK STYLING
-  vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+  -- 9. VISUAL STYLING AND WINBAR
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
   local title = (terminal_type == 'monitor') and 'Pio Monitor' or 'Pio CLI>'
   local winBartitle = '%#MyWinBar# ' .. title .. ' [Press q to hide]%*'
   vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = new_win })
 
-  -- 8. LOCAL KEYMAPS BOUND DIRECTLY TO THIS INSTANCE BUFFER
-  -- <Esc> drops out of raw input mode, and 'q' safely executes the closure sequence
+  -- 10. LOCAL KEYMAPS
   vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = target_buf })
   vim.keymap.set('n', 'q', function()
     SafeCloseTerminal(target_buf)
@@ -98,7 +121,6 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- Automatically trigger input focus mode inside the terminal right away
   vim.cmd('startinsert')
 end
 
