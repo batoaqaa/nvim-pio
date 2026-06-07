@@ -6,16 +6,33 @@ local pio_mon_buf = nil
 local pio_cli_win = nil
 local pio_mon_win = nil
 local last_active_editor_win = nil
+
+-- Memory slots to track active job channel IDs for clean input sending
 local pio_cli_chan = nil
 local pio_mon_chan = nil
 
 ----------------------------------------------------------------------------------------
--- CLEAN EXIT LOGIC: Safely unlocks and terminates window frames
+-- SAFELY ESCAPE PANELS: Restores cursor focus back to your text files
+local function find_valid_editor_window()
+  local wins = vim.api.nvim_tabpage_list_wins(0)
+  for _, win in ipairs(wins) do
+    if vim.api.nvim_win_is_valid(win) and win ~= pio_cli_win and win ~= pio_mon_win then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local bt = vim.api.nvim_get_option_value('buftype', { buf = buf })
+      if ft ~= 'neo-tree' and ft ~= 'aerial' and bt ~= 'terminal' and bt ~= 'nofile' then
+        return win
+      end
+    end
+  end
+  return nil
+end
+
+----------------------------------------------------------------------------------------
+-- CLEAN EXIT LOGIC: Closes your bottom panel window and pulls the code editor down
 local function HideTerminalWindow(terminal_type)
   local win_id = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
   if win_id and vim.api.nvim_win_is_valid(win_id) then
-    -- Temporarily unlock before closing to prevent layout engine panic
-    vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = win_id })
     vim.api.nvim_win_close(win_id, true)
   end
   if terminal_type == 'monitor' then
@@ -30,7 +47,7 @@ local function HideTerminalWindow(terminal_type)
 end
 
 ----------------------------------------------------------------------------------------
--- CORE STRUCTURAL RUNNER (PROFESSIONAL NATIVE LOCK PATTERN)
+-- CORE INTERACTIVE BOTTOM PANEL RUNNER
 function M.ToggleTerminal(command, terminal_type)
   local active_win = vim.api.nvim_get_current_win()
   if active_win ~= pio_cli_win and active_win ~= pio_mon_win then
@@ -50,9 +67,8 @@ function M.ToggleTerminal(command, terminal_type)
   local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
 
-  -- 1. MUTUAL EXCLUSION: Close opposition split instantly
+  -- 1. MUTUAL EXCLUSION: Close opposition layout viewports instantly
   if other_win and vim.api.nvim_win_is_valid(other_win) then
-    vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = other_win })
     vim.api.nvim_win_close(other_win, true)
     if terminal_type == 'monitor' then
       pio_cli_win = nil
@@ -120,29 +136,31 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 4. CLEAN LAYOUT GENERATION PASS
+  -- 4. 🥇 THE UNBREAKABLE BOTTOM LAYER GEOMETRY
   local target_height = math.ceil(vim.o.lines * 0.28)
+  local cmd_offset = vim.o.cmdheight > 0 and vim.o.cmdheight or 1
 
-  -- Open terminal structure via a pristine horizontal bottom split
-  vim.cmd('botright ' .. target_height .. 'split')
-  local new_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(new_win, target_buf)
+  local win_opts = {
+    relative = 'editor', -- ⚡ Immune to splits: Bypasses standard window grids entirely [Index]
+    style = 'minimal',
+    focusable = true,
+    width = vim.o.columns, -- Stretches full screen width [Index]
+    height = target_height,
+    anchor = 'SW', -- Southwest Anchor: Aligns calculations from the bottom up [Index]
+    row = vim.o.lines - cmd_offset, -- Pins it directly above your command statusline row [Index]
+    col = 0,
+  }
 
+  local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
   else
     pio_cli_win = new_win
   end
 
-  -- 5. NATIVE WINDOW DECORATIONS & PROTECTION SHIELDS
+  -- 5. WINDOW DECORATIONS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
-
-  -- Lock window resize tracking states natively
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
-
-  -- 🥇 THE PROFESSIONAL SHIELD: Natively locks this window frame allocation to this buffer.
-  -- File managers, links, and telescope pickers are rejected by the editor kernel from splitting this pane!
-  vim.api.nvim_set_option_value('winfixbuf', true, { scope = 'local', win = new_win })
 
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
@@ -160,8 +178,9 @@ function M.ToggleTerminal(command, terminal_type)
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
     end
     vim.schedule(function()
-      if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) then
-        vim.api.nvim_set_current_win(last_active_editor_win)
+      local target = find_valid_editor_window() or last_active_editor_win
+      if target and vim.api.nvim_win_is_valid(target) then
+        vim.api.nvim_set_current_win(target)
       else
         vim.cmd('wincmd k')
       end
