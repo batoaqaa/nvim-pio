@@ -30,7 +30,7 @@ local function HideTerminalWindow(terminal_type)
 end
 
 ----------------------------------------------------------------------------------------
--- CORE STRUCTURAL RUNNER
+-- CORE STRUCTURAL RUNNER (LAYOUT PROTECTED)
 function M.ToggleTerminal(command, terminal_type)
   local active_win = vim.api.nvim_get_current_win()
   if active_win ~= pio_cli_win and active_win ~= pio_mon_win then
@@ -135,14 +135,17 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 4. NEW GEOMETRIC STRUCTURAL SPLIT ARCHITECTURE
-  -- Calculates a fixed layout size at the bottom of the editor canvas
+  -- 4. UNBREAKABLE SHIELDED GLOBAL BOTTOM SPLIT
   local target_height = math.ceil(vim.o.lines * 0.28)
 
-  -- Open a native horizontal structural window split at the very bottom edge
-  vim.cmd('botright ' .. target_height .. 'split')
-  local new_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(new_win, target_buf)
+  -- Open structural layout relative to absolute editor grid root frame
+  local new_win = vim.api.nvim_open_win(target_buf, true, {
+    split = 'below',
+    win = -1, -- Crucial: Forces split to span beneath sidebars globally
+  })
+
+  -- Explicitly declare structural parameters to lock layout coordinates
+  vim.api.nvim_win_set_height(new_win, target_height)
 
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
@@ -150,8 +153,10 @@ function M.ToggleTerminal(command, terminal_type)
     pio_cli_win = new_win
   end
 
-  -- 5. WINDOW PANE DECORATIONS
+  -- 5. SHIELD DECORATIONS & WINDOW LOCKS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+
+  -- 🔥 LAYOUT SHIELD LAYER: Prevents auto-resizing when other splits open/close
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
   local hl = { bg = '#80a3d4', fg = '#000000' }
@@ -165,7 +170,7 @@ function M.ToggleTerminal(command, terminal_type)
     HideTerminalWindow(terminal_type)
   end, { buffer = target_buf })
 
-  -- Upward Navigation shortcut works natively across layout splits
+  -- Upward Navigation shortcut shifts focus back up seamlessly
   vim.keymap.set({ 'n', 't' }, '<C-k>', function()
     if vim.api.nvim_get_mode().mode == 't' then
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
