@@ -1,135 +1,198 @@
 local M = {}
 
--- Track background process job IDs
-local pio_cli_job = nil
-local pio_mon_job = nil
+-- Pure native memory tracking blocks (No ToggleTerm dependencies)
+local pio_cli_buf = nil
+local pio_mon_buf = nil
 
--- Keep a history log of outputs so switching views doesn't lose data
-local pio_cli_lines = {}
-local pio_mon_lines = {}
+local pio_cli_win = nil
+local pio_mon_win = nil
+
+local pio_cli_chan = nil
+local pio_mon_chan = nil
 
 ----------------------------------------------------------------------------------------
--- INFO: Appends process stream logs into the Quickfix window dynamically
-local function AppendToQuickfix(lines, terminal_type)
-  -- Filter and clean carriage returns from raw terminal output streams
-  local clean_lines = {}
-  for _, line in ipairs(lines) do
-    local clean = line:gsub('\r', '')
-    table.insert(clean_lines, { text = clean })
+-- INFO: Safe Hide Engine (Tied to pressing 'q' inside normal mode)
+local function HideTerminalWindow(terminal_type)
+  local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
+  if target_win and vim.api.nvim_win_is_valid(target_win) then
+    vim.api.nvim_win_close(target_win, true)
   end
-
-  -- Append to the global quickfix list
-  vim.fn.setqflist({}, 'a', {
-    title = (terminal_type == 'monitor') and 'PlatformIO Device Monitor' or 'PlatformIO CLI',
-    items = clean_lines,
-  })
+  if terminal_type == 'monitor' then
+    pio_mon_win = nil
+  else
+    pio_cli_win = nil
+  end
 end
 
 ----------------------------------------------------------------------------------------
--- INFO: Unified Background Process Pipeline (Pure Global Grid Architecture)
+-- INFO: Unified Full-Width Bottom Terminal Spawner (Global Canvas Layer Architecture)
 function M.ToggleTerminal(command, terminal_type)
-  -- Normalize layout headers and flags
+  -- 1. Normalize variables and titles right at the top
+  local title = ''
   if terminal_type == 'monitor' or (command and string.find(command, ' monitor')) then
+    title = 'Pio Monitor'
     terminal_type = 'monitor'
   else
+    title = 'Pio CLI>'
     terminal_type = 'cli'
   end
 
-  -- Check if the quickfix window is currently open on screen
-  local qf_win = vim.fn.getqflist({ winid = 0 }).winid
-  local is_qf_open = qf_win and qf_win ~= 0 and vim.api.nvim_win_is_valid(qf_win)
+  local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
+  local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
+  local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
 
-  -- TOGGLE ACTION: If open, close it and stop execution loop
-  if is_qf_open then
-    vim.cmd('cclose')
+  -- 2. MUTUAL EXCLUSION: If the other terminal is open, close its window layer first
+  if other_win and vim.api.nvim_win_is_valid(other_win) then
+    vim.api.nvim_win_close(other_win, true)
+    if terminal_type == 'monitor' then
+      pio_cli_win = nil
+    else
+      pio_mon_win = nil
+    end
+  end
+
+  -- 3. TOGGLE ACTION: If our target window is already open, close it
+  if target_win and vim.api.nvim_win_is_valid(target_win) then
+    vim.api.nvim_win_close(target_win, true)
+    if terminal_type == 'monitor' then
+      pio_mon_win = nil
+    else
+      pio_cli_win = nil
+    end
     return
   end
 
-  -- Clear old quickfix entries to display fresh compilation records
-  vim.fn.setqflist({}, 'r', {
-    title = (terminal_type == 'monitor') and 'PlatformIO Device Monitor' or 'PlatformIO CLI',
-    items = {},
-  })
+  -- 4. VALIDATE BUFFER & LOG STRIP FILTER
+  if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
+    target_buf = vim.api.nvim_create_buf(false, true)
+    if terminal_type == 'monitor' then
+      pio_mon_buf = target_buf
+    else
+      pio_cli_buf = target_buf
+    end
 
-  -- Clear memory buffers for the fresh run
-  if terminal_type == 'monitor' then
-    pio_mon_lines = {}
-  else
-    pio_cli_lines = {}
-  end
+    -- Open a modern terminal channel stream natively
+    vim.api.nvim_buf_call(target_buf, function()
+      local chan_id = vim.api.nvim_open_term(target_buf, {
+        on_input = function(_, _, _, data)
+          local active_job = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
+          if active_job then
+            vim.api.nvim_chan_send(active_job, data)
+          end
+        end,
+      })
 
-  -- Spawn a clean async background thread worker. Requires zero user setups!
-  local cmd_to_run = (command and command ~= '') and command or vim.o.shell
-  local job_id = vim.fn.jobstart(cmd_to_run, {
-    stdout_buffered = false,
-    on_stdout = function(_, data)
-      if data then
-        if terminal_type == 'monitor' then
-          for _, l in ipairs(data) do
-            table.insert(pio_mon_lines, l)
+      -- Start shell process worker threads
+      local job_id = vim.fn.jobstart(vim.o.shell, {
+        term = true,
+        on_stdout = function(_, data)
+          if vim.api.nvim_buf_is_loaded(target_buf) then
+            for _, line in ipairs(data) do
+              -- FILTER HOOK: Drops the verbose PlatformIO startup menu lines instantly from view
+              local is_garbage = line:find('|| Processing')
+                or line:find('--- forcing')
+                or line:find('--- Terminal')
+                or line:find('--- Available filters')
+                or line:find('--- More details')
+                or line:find('--- Quit:')
+
+              if not is_garbage and line ~= '' then
+                vim.api.nvim_chan_send(chan_id, line .. '\r\n')
+              end
+            end
           end
-          AppendToQuickfix(data, 'monitor')
-        else
-          for _, l in ipairs(data) do
-            table.insert(pio_cli_lines, l)
-          end
-          AppendToQuickfix(data, 'cli')
-        end
-      end
-    end,
-    on_stderr = function(_, data)
-      if data then
-        AppendToQuickfix(data, terminal_type)
-      end
-    end,
-    on_exit = function()
+        end,
+      })
       if terminal_type == 'monitor' then
-        pio_mon_job = nil
+        pio_mon_chan = job_id
       else
-        pio_cli_job = nil
+        pio_cli_chan = job_id
       end
-    end,
-  })
+    end)
+  end
 
+  -- 5. ABSOLUTE GEOMETRIC GRID CONFIGURATION:
+  -- Anchors the window to the absolute outer frame row of your monitor.
+  -- It is physically impossible for Neo-tree, Aerial, or your file tabs to push it vertical!
+  local target_height = math.ceil(vim.o.lines * 0.28)
+  local cmdheight = vim.o.cmdheight or 1
+
+  local win_opts = {
+    relative = 'editor', -- Detaches completely from Neovim's split window hierarchy tree
+    style = 'minimal',
+    focusable = true,
+    width = vim.o.columns,
+    height = target_height,
+    row = vim.o.lines - target_height - cmdheight - 1,
+    col = 0,
+  }
+
+  -- 6. DRAW PERMANENT RECTANGLE PANELS
+  local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
-    pio_mon_job = job_id
+    pio_mon_win = new_win
   else
-    pio_cli_job = job_id
+    pio_cli_win = new_win
   end
 
-  -- Open the native full-width bottom Quickfix panel layout
-  local target_height = math.ceil(vim.o.lines * 0.25)
-  vim.cmd('botright copen ' .. target_height)
-  local new_qf_win = vim.fn.getqflist({ winid = 0 }).winid
+  -- 7. CLEAN WORKSPACE CONFIGURATIONS
+  vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
-  -- Hard-lock the height boundary so Aerial or Neo-tree cannot distort it
-  if new_qf_win and new_qf_win ~= 0 then
-    vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_qf_win })
-  end
+  -- 8. VISUAL WINBAR DECORATIONS
+  local hl = { bg = '#80a3d4', fg = '#000000' }
+  vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
+  local winBartitle = '%#MyWinBar# ' .. title .. ' [Press ;; to Switch | Press q to hide]%*'
+  vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = new_win })
 
   -----------------------------------------------------------------------------
-  -- LOCAL MAPS & SHORTCUT OVERRIDES (Registered dynamically inside the module)
+  -- LOCAL MAPS (Scoped strictly to this terminal buffer)
+  -----------------------------------------------------------------------------
+  vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = target_buf })
+  vim.keymap.set('n', 'q', function()
+    HideTerminalWindow(terminal_type)
+  end, { buffer = target_buf })
+
+  -- CRASH-FREE UPWARD NAVIGATION SHORTCUT
+  vim.keymap.set({ 'n', 't' }, '<C-k>', function()
+    if vim.api.nvim_get_mode().mode == 't' then
+      local esc = vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true)
+      vim.api.nvim_feedkeys(esc, 'n', false)
+    end
+    vim.schedule(function()
+      vim.cmd('wincmd k')
+    end)
+  end, { buffer = target_buf, silent = true })
+
+  -- DUAL PANEL HOME ROW CROSS SWITCHER (;;)
+  vim.keymap.set({ 'n', 't' }, ';;', function()
+    if vim.api.nvim_get_mode().mode == 't' then
+      local esc = vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true)
+      vim.api.nvim_feedkeys(esc, 'n', false)
+    end
+
+    local next_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
+    vim.schedule(function()
+      M.ToggleTerminal('', next_type)
+    end)
+  end, { buffer = target_buf, silent = true, desc = 'Switch between PlatformIO terminals' })
+
+  -----------------------------------------------------------------------------
+  -- GLOBAL SHORTCUT RE-REGISTRATIONS (Preserved across context switches)
   -----------------------------------------------------------------------------
   vim.keymap.set('n', '<C-h>', '<C-w>h')
   vim.keymap.set('n', '<C-l>', '<C-w>l')
-  vim.keymap.set('n', '<C-j>', '<C-w>j')
-  vim.keymap.set('n', '<C-k>', '<C-w>k')
 
-  -- DOUBLE SEMI-COLON CROSS SWITCHER LOGIC
-  -- Swaps the quickfix log pipeline between your CLI stream and Monitor stream instantly
-  vim.keymap.set('n', ';;', function()
-    local next_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
-    vim.cmd('cclose') -- Close current pane layout
-    vim.schedule(function()
-      -- Recall the other stream view layer cleanly
-      local cached_items = (next_type == 'monitor') and pio_mon_lines or pio_cli_lines
-      vim.fn.setqflist({}, 'r', {
-        title = (next_type == 'monitor') and 'PlatformIO Device Monitor' or 'PlatformIO CLI',
-        items = cached_items,
-      })
-      vim.cmd('botright copen ' .. target_height)
-    end)
-  end, { silent = true, desc = 'Switch between PlatformIO logs' })
+  -- GLOBAL INTERCEPT DOWNWARD MOVEMENT KEY:
+  vim.keymap.set('n', '<C-j>', function()
+    local cur_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
+    if cur_win and vim.api.nvim_win_is_valid(cur_win) then
+      vim.api.nvim_set_current_win(cur_win)
+      vim.cmd('startinsert')
+    else
+      vim.cmd('wincmd j')
+    end
+  end, { silent = true })
 
   if terminal_type == 'monitor' then
     vim.keymap.set('n', [[<leader>\gm]], function()
@@ -140,6 +203,17 @@ function M.ToggleTerminal(command, terminal_type)
       M.ToggleTerminal('', 'cli')
     end, { silent = true })
   end
+  -----------------------------------------------------------------------------
+
+  -- Pass PlatformIO command strings directly through the modern channel pipeline
+  if command and command ~= '' then
+    local active_chan = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
+    if active_chan then
+      vim.api.nvim_chan_send(active_chan, command .. (vim.fn.has('win32') == 1 and '\r\n' or '\n'))
+    end
+  end
+
+  vim.cmd('startinsert')
 end
 
 return M
