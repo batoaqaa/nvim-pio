@@ -232,7 +232,6 @@ function M.ToggleTerminal(command, direction)
       end
       vim.keymap.set('t', '<Esc>', [[<C-\><C-n>k]], { buffer = t.bufnr })
       vim.keymap.set('n', '<Esc>', [[<C-\><C-n>a]], { buffer = t.bufnr })
-
       vim.keymap.set('n', 'q', function()
         PioTermClose(t)
       end, { desc = 'PioTermClose', buffer = t.bufnr })
@@ -249,6 +248,13 @@ function M.ToggleTerminal(command, direction)
           { '(Job ID: ' .. t.job_id .. ')', 'MoreMsg' },
         }, true, {})
       end
+
+      -- Optional: A gentle, local equalization check strictly for this window layout
+      vim.schedule(function()
+        if vim.api.nvim_win_is_valid(t.window) then
+          vim.cmd('wincmd =')
+        end
+      end)
     end,
 
     -- INFO: on_close()
