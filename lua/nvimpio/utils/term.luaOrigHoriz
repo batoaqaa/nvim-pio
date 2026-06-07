@@ -1,3 +1,4 @@
+-- sylua: ignore start
 local M = {}
 
 local config = require('nvimpio').config
@@ -22,24 +23,28 @@ function M.check_prefix(str, prefix)
   return str:sub(1, #prefix) == prefix
 end
 
-------------------------------------------------------
-
+-- ------------------------------------------------------
 -- 1. Tell the LSP what a "Terminal" object looks like (simplified)
 ---@class Terminal
 ---@field id number
 ---@field bufnr number
 ---@field window number
+---@field display_name string
+---@field job_id number
 ---@field close function
 ---@field toggle function
+---@field open function
+---@field spawn function
+---@field direction string
+-- 2. Define your context class
+---@class PioPrevContext
+---@field term Terminal|nil
+---@field mon Terminal|nil
+---@field cli Terminal|nil
+---@field float boolean
+---@field orig_window number|nil
 -- INFO: get previous window
-local function getPreviousWindow(orig_window)
-  -- 2. Define your context class
-  ---@class PioPrevContext
-  ---@field term Terminal|nil  -- Handle for horizontal terminal
-  ---@field mon Terminal|nil
-  ---@field cli Terminal|nil
-  ---@field float boolean      -- flag float terminal
-  ---@field orig_window number|nil
+function M.getPreviousWindow(orig_window)
   local prev = {
     orig_window = orig_window,
     term = nil, --active terminal
@@ -114,6 +119,7 @@ end
 ------------------------------------------------------
 -- INFO: ToggleTerminal
 function M.ToggleTerminal(command, direction)
+  direction = 'horizontal'
   local status_ok, _ = pcall(require, 'toggleterm')
   if not status_ok then
     vim.api.nvim_echo({ { 'toggleterm not found!', 'ErrorMsg' } }, true, {})
@@ -123,9 +129,25 @@ function M.ToggleTerminal(command, direction)
   local title = ''
   local pioOpts = {}
 
-  -- INFO: set orig_window to current window, or if available get current toggleterm previous window
-  local prev = getPreviousWindow(vim.api.nvim_get_current_win())
+  -- 1. Get the current active terminal states upfront
+  local prev = M.getPreviousWindow(vim.api.nvim_get_current_win())
   local orig_window = prev.orig_window
+
+  -- 2. UNIFIED TOGGLE HOOK: Close the opponent window immediately before running any logic
+  if string.find(command, ' monitor') then
+    if prev.cli then
+      prev.cli:close()
+    end -- If opening monitor, shut down CLI
+  else
+    if prev.mon then
+      prev.mon:close()
+    end -- If opening CLI, shut down monitor
+  end
+
+  -- 3. Now your main logic stays clean, pure, and untouched
+  -- INFO: set orig_window to current window, or if available get current toggleterm previous window
+  -- local prev = M.getPreviousWindow(vim.api.nvim_get_current_win())
+  -- local orig_window = prev.orig_window
 
   if string.find(command, ' monitor') then
     if prev.mon then -- INFO: if previous monitor terminal already opened ==> reopen
