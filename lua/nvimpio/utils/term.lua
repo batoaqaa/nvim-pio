@@ -214,6 +214,46 @@ vim.keymap.set('n', [[<leader>\t]], function()
   M.ToggleTerminal('', 'cli')
 end, { silent = true })
 
+----------------------------------------------------------------------------------------
+-- HIGH-PERFORMANCE SCREEN GRID WATCHDOG (Zero Lag Layout Alignment Core)
+----------------------------------------------------------------------------------------
+local group = vim.api.nvim_create_augroup('PioTerminalSplitGuard', { clear = true })
+
+vim.api.nvim_create_autocmd('WinNew', {
+  group = group,
+  callback = function()
+    -- Wait 1 millisecond for the layout engine to render the structural change
+    vim.schedule(function()
+      -- Check if either of our custom Pio panels are currently open and valid
+      local target_win = nil
+      if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
+        target_win = pio_cli_win
+      elseif pio_mon_win and vim.api.nvim_win_is_valid(pio_mon_win) then
+        target_win = pio_mon_win
+      end
+
+      -- If a Pio layout panel is active, verify it is still locked seamlessly to the bottom
+      if target_win then
+        -- Grab the active cursor position so we can return the user seamlessly after alignment
+        local current_win = vim.api.nvim_get_current_win()
+
+        -- Temporarily step into the Pio panel, force its anchor flat, and return
+        vim.api.nvim_set_current_win(target_win)
+        vim.cmd('wincmd J')
+
+        -- Re-apply your custom responsive target height calculation
+        local target_height = math.ceil(vim.o.lines * 0.28)
+        vim.cmd('resize ' .. target_height)
+
+        -- Safely snap the developer's focus right back to their active workspace split
+        if vim.api.nvim_win_is_valid(current_win) then
+          vim.api.nvim_set_current_win(current_win)
+        end
+      end
+    end)
+  end,
+})
+
 return M
 -- local M = {}
 --
