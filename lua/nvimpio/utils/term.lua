@@ -7,35 +7,17 @@ local pio_cli_win = nil
 local pio_mon_win = nil
 local last_active_editor_win = nil
 
--- Track the original height of the code workspace window to restore it cleanly
-local original_editor_height = nil
-
 -- Memory slots to track active job channel IDs for clean input sending
 local pio_cli_chan = nil
 local pio_mon_chan = nil
 
 ----------------------------------------------------------------------------------------
--- SAFELY ESCAPE SIDEBARS: Finds a normal code window to calculate row dimensions
-local function find_valid_editor_window()
-  local wins = vim.api.nvim_tabpage_list_wins(0)
-  for _, win in ipairs(wins) do
-    if vim.api.nvim_win_is_valid(win) and win ~= pio_cli_win and win ~= pio_mon_win then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      local bt = vim.api.nvim_get_option_value('buftype', { buf = buf })
-      if ft ~= 'neo-tree' and ft ~= 'aerial' and bt ~= 'terminal' and bt ~= 'nofile' then
-        return win
-      end
-    end
-  end
-  return nil
-end
-
-----------------------------------------------------------------------------------------
--- CLEAN EXIT LOGIC: Restores the file editor viewport dimensions back to full height
+-- CLEAN EXIT LOGIC: Disarms hardware protection shields and closes layout splits cleanly
 local function HideTerminalWindow(terminal_type)
   local win_id = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
   if win_id and vim.api.nvim_win_is_valid(win_id) then
+    -- Lower the shield right before closing to prevent layout validation engine panic
+    vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = win_id })
     vim.api.nvim_win_close(win_id, true)
   end
   if terminal_type == 'monitor' then
@@ -44,20 +26,13 @@ local function HideTerminalWindow(terminal_type)
     pio_cli_win = nil
   end
 
-  -- 🛡️ RE-EXPAND VIEWPORT: Restores the central code file window back to full height
-  local editor_win = find_valid_editor_window()
-  if editor_win and original_editor_height and vim.api.nvim_win_is_valid(editor_win) then
-    vim.api.nvim_win_set_height(editor_win, original_editor_height)
-  end
-  original_editor_height = nil
-
   if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) then
     vim.api.nvim_set_current_win(last_active_editor_win)
   end
 end
 
 ----------------------------------------------------------------------------------------
--- CORE INTERACTIVE ABSOLUTE PANEL RUNNER
+-- CORE STRUCTURAL RUNNER
 function M.ToggleTerminal(command, terminal_type)
   local active_win = vim.api.nvim_get_current_win()
   if active_win ~= pio_cli_win and active_win ~= pio_mon_win then
@@ -77,8 +52,9 @@ function M.ToggleTerminal(command, terminal_type)
   local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
 
-  -- 1. MUTUAL EXCLUSION: Close opposition viewport instantly
+  -- 1. MUTUAL EXCLUSION: Close opposition split instantly
   if other_win and vim.api.nvim_win_is_valid(other_win) then
+    vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = other_win })
     vim.api.nvim_win_close(other_win, true)
     if terminal_type == 'monitor' then
       pio_cli_win = nil
@@ -146,42 +122,32 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 4. THE ABSOLUTE FLOATING OVERLAY LAYER (WITH WORKSPACE FRAME BUFFERING)
-  local total_screen_lines = vim.o.lines
-  local total_screen_cols = vim.o.columns
-  local target_height = math.ceil(total_screen_lines * 0.28)
+  -- 4. 🥇 THE NATIVE CORE NESTING INJECTION
+  local target_height = math.ceil(vim.o.lines * 0.28)
 
-  -- 🛡️ THE VIEWPORT WORKSPACE SHIELD: Finds your central file window and physically
-  -- shrinks its row height parameter. This prevents any code or cursor lines from scrolling down behind the panel!
-  local editor_win = find_valid_editor_window()
-  if editor_win and not original_editor_height then
-    original_editor_height = vim.api.nvim_win_get_height(editor_win)
-    local shrunken_height = original_editor_height - target_height - 1
-    if shrunken_height > 1 then
-      vim.api.nvim_win_set_height(editor_win, shrunken_height)
-    end
-  end
-
-  local win_opts = {
-    relative = 'editor', -- Bypasses layout splits and sidebars entirely
-    style = 'minimal',
-    focusable = true,
-    width = total_screen_cols,
+  -- Open a clean split anchored natively to the global screen grid layout frame.
+  -- Setting 'win = 0' forces the engine to slice space from the absolute screen container boundary [Index].
+  local new_win = vim.api.nvim_open_win(target_buf, true, {
+    split = 'below',
+    win = 0, -- 🔥 THE FIX: Anchors layout allocation globally across ALL columns, stretching under sidebars natively [Index]
     height = target_height,
-    row = total_screen_lines - target_height - vim.o.cmdheight - 1, -- Absolute bottom row anchor positioning
-    col = 0,
-  }
+  })
 
-  local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
   else
     pio_cli_win = new_win
   end
 
-  -- 5. WINDOW PANE DECORATIONS
+  -- 5. WINDOW PANE DECORATIONS & PROTECTION SHIELDS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+
+  -- Freezes the row dimension footprint so other splits cannot smash it out of alignment
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
+
+  -- 🛡️ THE ARCHITECTURAL CONTRACT: Natively locks this window instance frame to this buffer.
+  -- External file pickers and buffer targets are legally forbidden from using or splitting this layout section!
+  vim.api.nvim_set_option_value('winfixbuf', true, { scope = 'local', win = new_win })
 
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
@@ -199,12 +165,7 @@ function M.ToggleTerminal(command, terminal_type)
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
     end
     vim.schedule(function()
-      local target = find_valid_editor_window() or last_active_editor_win
-      if target and vim.api.nvim_win_is_valid(target) then
-        vim.api.nvim_set_current_win(target)
-      else
-        vim.cmd('wincmd k')
-      end
+      vim.cmd('wincmd k')
     end)
   end, { buffer = target_buf, silent = true })
 
@@ -229,7 +190,7 @@ function M.ToggleTerminal(command, terminal_type)
 end
 
 ----------------------------------------------------------------------------------------
--- GLOBAL KEYMAP REGISTRY
+-- GLOBAL KEYMAP REGISTRY (Saves memory allocations by executing exactly once)
 ----------------------------------------------------------------------------------------
 vim.keymap.set('n', '<C-h>', '<C-w>h', { silent = true })
 vim.keymap.set('n', '<C-l>', '<C-w>l', { silent = true })
