@@ -141,23 +141,23 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 4. 🥇 CRASH-FREE SOUTHWEST BOTTOM-LOCKED GEOMETRY FIXED FRAME MATRIX
-  local target_height = math.ceil(vim.o.lines * 0.28)
+  -- 4. 🥇 THE UNBREAKABLE BOTTOM SCREEN ANCHOR
+  -- Fetch the absolute maximum size properties of the terminal screen lines directly
+  local max_lines = vim.api.nvim_get_option_value('lines', {})
+  local max_cols = vim.api.nvim_get_option_value('columns', {})
+  local target_height = math.ceil(max_lines * 0.28)
 
-  -- Cache original cmdheight state natively before updating layout boundaries
   original_cmdheight = vim.o.cmdheight
-
-  -- THE VIEWPORT SHIELD: Dynamically scales cmdheight space to compress file viewports upwards
   vim.o.cmdheight = target_height + original_cmdheight
 
+  -- Use strict absolute layout options to bypass middle-screen alignment issues
   local win_opts = {
-    relative = 'editor', -- Bypasses sidebars completely
+    relative = 'editor',
     style = 'minimal',
     focusable = true,
-    width = vim.o.columns, -- Stretching 100% full screen width boundary size
+    width = max_cols,
     height = target_height,
-    anchor = 'SW', -- 🔥 SOUTHWEST ANCHOR: Calculates row coordinates from the bottom edge up
-    row = vim.o.lines, -- Absolute lowest coordinate line factor on monitor
+    row = max_lines - target_height - original_cmdheight - 1, -- Exact bottom math calculation
     col = 0,
   }
 
