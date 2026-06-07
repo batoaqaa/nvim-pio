@@ -41,7 +41,7 @@ end
 ---@field cli Terminal|nil
 ---@field float boolean
 ---@field orig_window number|nil
-local function getPreviousWindow(orig_window)
+function M.getPreviousWindow(orig_window)
   local prev = {
     orig_window = orig_window,
     term = nil,
@@ -116,7 +116,7 @@ function M.ToggleTerminal(command, direction)
     return
   end
   -- 1. Get the current active terminal states upfront
-  local prev = getPreviousWindow(vim.api.nvim_get_current_win())
+  local prev = M.getPreviousWindow(vim.api.nvim_get_current_win())
   local orig_window = prev.orig_window
 
   -- 2. UNIFIED TOGGLE HOOK: Close the opponent window immediately before running any logic

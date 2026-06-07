@@ -28,19 +28,41 @@ local function pioTermList()
   telescope.load_extension('ui-select')
   local toggleterm_list = {}
 
-  local terms = require('toggleterm.terminal').get_all(true)
-  if #terms ~= 0 then
-    for i = 1, #terms do
-      if terms[i].display_name and terms[i].display_name ~= '' and terms[i].display_name:find('pio', 1) then
-        local misc = require('nvimpio.utils.misc')
-        local termtype = misc.strsplit(terms[i].display_name, ':')[1]
-        table.insert(toggleterm_list, {
-          term = terms[i],
-          termtype = termtype, -- Store the terminal type [piomon or piocli]
-        })
-      end
-    end
+  -- local prev = {
+  --   orig_window = orig_window,
+  --   term = nil,
+  --   cli = nil,
+  --   mon = nil,
+  --   float = false,
+  -- }
+  local prev = require('nvimpio.utils.term').getPreviousWindow(vim.api.nvim_get_current_win())
+  if prev.cli then
+    table.insert(toggleterm_list, {
+      term = prev.cli,
+      termtype = 'piocli', -- Store the terminal type [piomon or piocli]
+      hide = prev.mon,
+    })
   end
+  if prev.mon then
+    table.insert(toggleterm_list, {
+      term = prev.mon,
+      termtype = 'piomon', -- Store the terminal type [piomon or piocli]
+      hide = prev.cli,
+    })
+  end
+  -- local terms = require('toggleterm.terminal').get_all(true)
+  -- if #terms ~= 0 then
+  --   for i = 1, #terms do
+  --     if terms[i].display_name and terms[i].display_name ~= '' and terms[i].display_name:find('pio', 1) then
+  --       local misc = require('nvimpio.utils.misc')
+  --       local termtype = misc.strsplit(terms[i].display_name, ':')[1]
+  --       table.insert(toggleterm_list, {
+  --         term = terms[i],
+  --         termtype = termtype, -- Store the terminal type [piomon or piocli]
+  --       })
+  --     end
+  --   end
+  -- end
 
   if #toggleterm_list == 0 then
     vim.api.nvim_echo({ { 'No PIO terminal windows found.', 'Normal' } }, true, {})
@@ -66,6 +88,9 @@ local function pioTermList()
       if chosen.term.window and (win_open and vim.api.nvim_win_get_buf(chosen.term.window) == chosen.term.bufnr) then
         vim.api.nvim_set_current_win(chosen.term.window)
       else
+        if chosen.hide then
+          chosen.hide:close()
+        end
         chosen.term:open()
       end
       vim.api.nvim_echo({ { 'Switched to PIO terminal: ' .. chosen.termtype, 'Normal' } }, true, {})
