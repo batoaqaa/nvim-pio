@@ -183,6 +183,7 @@ function M.ToggleTerminal(command, direction)
     close_on_exit = false,
 
     on_open = function(t)
+      vim.cmd('wincmd =')
       local hl = { bg = '#80a3d4', fg = '#000000' }
 
       if hl then
