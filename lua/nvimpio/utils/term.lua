@@ -7,12 +7,15 @@ local pio_cli_win = nil
 local pio_mon_win = nil
 local last_active_editor_win = nil
 
+-- Track the original height of the code workspace window to restore it cleanly
+local original_editor_height = nil
+
 -- Memory slots to track active job channel IDs for clean input sending
 local pio_cli_chan = nil
 local pio_mon_chan = nil
 
 ----------------------------------------------------------------------------------------
--- SAFELY ESCAPE SIDEBARS: Finds a normal code window to restore focus cleanly
+-- SAFELY ESCAPE SIDEBARS: Finds a normal code window to calculate row dimensions
 local function find_valid_editor_window()
   local wins = vim.api.nvim_tabpage_list_wins(0)
   for _, win in ipairs(wins) do
@@ -29,7 +32,7 @@ local function find_valid_editor_window()
 end
 
 ----------------------------------------------------------------------------------------
--- CLEAN EXIT LOGIC: Closes floating panels cleanly and restores focus
+-- CLEAN EXIT LOGIC: Restores the file editor viewport dimensions back to full height
 local function HideTerminalWindow(terminal_type)
   local win_id = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
   if win_id and vim.api.nvim_win_is_valid(win_id) then
@@ -40,6 +43,13 @@ local function HideTerminalWindow(terminal_type)
   else
     pio_cli_win = nil
   end
+
+  -- 🛡️ RE-EXPAND VIEWPORT: Restores the central code file window back to full height
+  local editor_win = find_valid_editor_window()
+  if editor_win and original_editor_height and vim.api.nvim_win_is_valid(editor_win) then
+    vim.api.nvim_win_set_height(editor_win, original_editor_height)
+  end
+  original_editor_height = nil
 
   if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) then
     vim.api.nvim_set_current_win(last_active_editor_win)
@@ -136,19 +146,29 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 4. THE ABSOLUTE FLOATING OVERLAY LAYER
-  -- By getting the raw terminal metrics directly, we bypass all layout math calculations.
+  -- 4. THE ABSOLUTE FLOATING OVERLAY LAYER (WITH WORKSPACE FRAME BUFFERING)
   local total_screen_lines = vim.o.lines
   local total_screen_cols = vim.o.columns
   local target_height = math.ceil(total_screen_lines * 0.28)
 
+  -- 🛡️ THE VIEWPORT WORKSPACE SHIELD: Finds your central file window and physically
+  -- shrinks its row height parameter. This prevents any code or cursor lines from scrolling down behind the panel!
+  local editor_win = find_valid_editor_window()
+  if editor_win and not original_editor_height then
+    original_editor_height = vim.api.nvim_win_get_height(editor_win)
+    local shrunken_height = original_editor_height - target_height - 1
+    if shrunken_height > 1 then
+      vim.api.nvim_win_set_height(editor_win, shrunken_height)
+    end
+  end
+
   local win_opts = {
-    relative = 'editor', -- Bypasses window splits, sidebars, and grid limits entirely
+    relative = 'editor', -- Bypasses layout splits and sidebars entirely
     style = 'minimal',
     focusable = true,
     width = total_screen_cols,
     height = target_height,
-    row = total_screen_lines - target_height - 2, -- Hardcoded baseline position relative to total display rows
+    row = total_screen_lines - target_height - vim.o.cmdheight - 1, -- Absolute bottom row anchor positioning
     col = 0,
   }
 
