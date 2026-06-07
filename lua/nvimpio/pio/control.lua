@@ -268,7 +268,7 @@ vim.keymap.set({'n', 't'}, '<leader>st', function()
   vim.cmd.vnew()
   vim.cmd.term()
   vim.cmd.wincmd("J")
-  vim.api.nvim_win_heights(0,5)
+  vim.api.nvim_win_set_heights(0,5)
 end, { desc = "Toggle true full-buffer terminal" })
 
 
