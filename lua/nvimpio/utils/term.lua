@@ -192,6 +192,10 @@ function M.ToggleTerminal(command, direction)
     close_on_exit = false,
 
     on_open = function(t)
+      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = t.window })
+
+      -- Balance other splits smoothly without causing layout shifts
+      vim.cmd('wincmd =')
       -- 2. HARD-LOCK VISUAL BARS: Forces the window pane layout to structural bottom constraints
       vim.cmd('wincmd J')
       vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = t.window })
@@ -238,28 +242,6 @@ function M.ToggleTerminal(command, direction)
 
     on_create = function(t)
       local platformio = vim.api.nvim_create_augroup(M.strsplit(t.display_name, ':')[1], { clear = true })
-
-      -- 4. INTERCEPT NEW LAYOUT SPLITS FROM OTHER PLUGINS
-      -- If Aerial opens or refreshes, this event catches the layout shift, flattens the terminal
-      -- to the bottom underneath them, and instantly moves the user's cursor back to their code window.
-      vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter' }, {
-        group = platformio,
-        callback = function()
-          local term_win = vim.fn.bufwinid(t.bufnr)
-          if term_win and term_win ~= -1 and vim.api.nvim_win_is_valid(term_win) then
-            vim.schedule(function()
-              if vim.api.nvim_win_is_valid(term_win) then
-                local cur_win = vim.api.nvim_get_current_win()
-                vim.api.nvim_set_current_win(term_win)
-                vim.cmd('wincmd J') -- Moves below Aerial and Neo-tree safely
-                if vim.api.nvim_win_is_valid(cur_win) then
-                  vim.api.nvim_set_current_win(cur_win)
-                end
-              end
-            end)
-          end
-        end,
-      })
 
       vim.api.nvim_create_autocmd('CmdlineLeave', {
         group = platformio,
