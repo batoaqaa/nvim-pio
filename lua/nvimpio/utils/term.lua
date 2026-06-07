@@ -4,7 +4,7 @@ local M = {}
 local pio_cli_buf = nil
 local pio_mon_buf = nil
 
--- Memory trackers for the channel IDs
+-- Memory trackers for the native terminal channel IDs (job IDs)
 local pio_cli_chan = nil
 local pio_mon_chan = nil
 
@@ -21,7 +21,7 @@ local function HideTerminalWindow(terminal_type)
 end
 
 ----------------------------------------------------------------------------------------
--- INFO: Unified Full-Width Bottom Terminal Spawner (Global Winbar Panel Architecture)
+-- INFO: Unified Full-Width Bottom Terminal Spawner (Stable Architecture)
 function M.ToggleTerminal(command, terminal_type)
   -- 1. Enforce strict title header assignments immediately at the top
   local title = ''
@@ -55,21 +55,23 @@ function M.ToggleTerminal(command, terminal_type)
 
   -- 4. PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
-    target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted, scratch buffer
+    target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
     if terminal_type == 'monitor' then
       pio_mon_buf = target_buf
     else
       pio_cli_buf = target_buf
     end
 
-    -- Open a modern terminal channel stream natively
+    -- FIXED CRASH: We execute jobstart directly onto an unmodified buffer.
+    -- We removed nvim_open_term completely to fix the buffer conflict error.
     vim.api.nvim_buf_call(target_buf, function()
-      local chan_id = vim.api.nvim_open_term(target_buf, {})
       local job_id = vim.fn.jobstart(vim.o.shell, {
         term = true,
-        on_stdout = function(_, data)
-          if vim.api.nvim_buf_is_valid(target_buf) then
-            vim.api.nvim_chan_send(chan_id, table.concat(data, '\r\n') .. '\r\n')
+        on_exit = function()
+          if terminal_type == 'monitor' then
+            pio_mon_chan = nil
+          else
+            pio_cli_chan = nil
           end
         end,
       })
@@ -83,7 +85,7 @@ function M.ToggleTerminal(command, terminal_type)
 
   -- 5. FIXED ABSOLUTE PANEL DIMENSIONS:
   -- Using 'botright split' with a hardlocked height creates a true workspace split
-  -- but avoids any aggressive resizing autocommands or loop loops.
+  -- and completely avoids any aggressive resizing autocommands or loop loops.
   local target_height = math.ceil(vim.o.lines * 0.28)
   vim.cmd('botright ' .. target_height .. 'split')
   local new_win = vim.api.nvim_get_current_win()
@@ -91,7 +93,7 @@ function M.ToggleTerminal(command, terminal_type)
 
   -- 6. HARD-LOCK WINDOW FLAGS:
   -- Tells Neovim that your terminal window size is rigid and cannot be squished
-  -- or collapsed down to 3 lines by files or other incoming windows.
+  -- or collapsed down by files or other incoming windows.
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
@@ -164,6 +166,7 @@ function M.ToggleTerminal(command, terminal_type)
   if command and command ~= '' then
     local active_job = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
     if active_job then
+      -- FIXED: Uses the native nvim_chan_send API on the unmodified job channel
       vim.api.nvim_chan_send(active_job, command .. (vim.fn.has('win32') == 1 and '\r\n' or '\n'))
     end
   end
