@@ -185,15 +185,11 @@ function M.ToggleTerminal(command, direction)
     hidden = true,
     hide_numbers = true,
     direction = 'horizontal',
-    size = function()
-      -- return math.ceil(vim.o.columns * 0.68)
-      return vim.api.nvim_win_get_width(0)
-    end,
     close_on_exit = false,
 
     on_open = function(t)
-      vim.cmd("wincmd J")
-      vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = t.window })
+      -- vim.cmd("wincmd J")
+      -- vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = t.window })
       -- vim.cmd('wincmd =')
       local hl = { bg = '#80a3d4', fg = '#000000' }
 
