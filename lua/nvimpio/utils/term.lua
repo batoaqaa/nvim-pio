@@ -192,7 +192,8 @@ function M.ToggleTerminal(command, direction)
     close_on_exit = false,
 
     on_open = function(t)
-      vim.cmd('wincmd =')
+      vim.cmd("wincmd J")
+      -- vim.cmd('wincmd =')
       local hl = { bg = '#80a3d4', fg = '#000000' }
 
       if hl then
@@ -205,7 +206,7 @@ function M.ToggleTerminal(command, direction)
         end)
       end
 
-      vim.cmd('wincmd =')
+      -- vim.cmd('wincmd =')
 
       vim.keymap.set('t', '<Esc>', [[<C-\><C-n>k]], { buffer = t.bufnr })
       vim.keymap.set('n', '<Esc>', [[<C-\><C-n>a]], { buffer = t.bufnr })
