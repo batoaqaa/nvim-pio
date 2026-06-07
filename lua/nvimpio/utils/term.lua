@@ -30,7 +30,7 @@ local function HideTerminalWindow(terminal_type)
 end
 
 ----------------------------------------------------------------------------------------
--- CORE STRUCTURAL RUNNER (LAYOUT PROTECTED)
+-- CORE STRUCTURAL RUNNER (BACKWARDS COMPATIBLE UNCONDITIONAL BOTTOM ANCHOR)
 function M.ToggleTerminal(command, terminal_type)
   local active_win = vim.api.nvim_get_current_win()
   if active_win ~= pio_cli_win and active_win ~= pio_mon_win then
@@ -135,16 +135,19 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 4. UNBREAKABLE SHIELDED GLOBAL BOTTOM SPLIT
+  -- 4. 🥇 THE UNCONDITIONAL GLOBAL SCREEN BOTTOM ANCHOR (wincmd J)
   local target_height = math.ceil(vim.o.lines * 0.28)
 
-  -- Open structural layout relative to absolute editor grid root frame
-  local new_win = vim.api.nvim_open_win(target_buf, true, {
-    split = 'below',
-    win = -1, -- Crucial: Forces split to span beneath sidebars globally
-  })
+  -- Create a standard structural split window layout pass natively [Index]
+  vim.cmd('split')
+  local new_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(new_win, target_buf)
 
-  -- Explicitly declare structural parameters to lock layout coordinates
+  -- 🔥 THE FORCE SHIELD MIGRATION: Rips the split window container out of local layout columns
+  -- and anchors it flat across the absolute bottom edge of your entire monitor canvas frame layout [Index].
+  vim.cmd('wincmd J')
+
+  -- Force freeze the geometry height parameters securely
   vim.api.nvim_win_set_height(new_win, target_height)
 
   if terminal_type == 'monitor' then
@@ -153,10 +156,8 @@ function M.ToggleTerminal(command, terminal_type)
     pio_cli_win = new_win
   end
 
-  -- 5. SHIELD DECORATIONS & WINDOW LOCKS
+  -- 5. WINDOW PANE DECORATIONS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
-
-  -- 🔥 LAYOUT SHIELD LAYER: Prevents auto-resizing when other splits open/close
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
   local hl = { bg = '#80a3d4', fg = '#000000' }
