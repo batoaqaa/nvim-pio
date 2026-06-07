@@ -177,8 +177,8 @@ function M.ToggleTerminal(command, direction)
     hide_numbers = true,
     direction = 'vertical',
     size = function()
-      -- return math.ceil(vim.o.columns * 0.38)
-      return vim.api.nvim_win_get_width(0)
+      return math.ceil(vim.o.columns * 0.68)
+      -- return vim.api.nvim_win_get_width(0)
     end,
     close_on_exit = false,
 
