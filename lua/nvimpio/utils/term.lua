@@ -215,82 +215,79 @@ vim.keymap.set('n', [[<leader>\t]], function()
 end, { silent = true })
 
 ----------------------------------------------------------------------------------------
--- GLOBAL PLUG-AND-PLAY LAYOUT GUARDIAN (Zero-Config, Immune to Third-Party Split Logic)
+-- BULLETPROOF WINDOW INTERCEPTOR (Kills the Neo-tree Top / Scrambled Layout Bug)
 ----------------------------------------------------------------------------------------
-local group = vim.api.nvim_create_augroup('PioTerminalLayoutGuardian', { clear = true })
+local group = vim.api.nvim_create_augroup('PioTerminalLayoutFixEngine', { clear = true })
 
--- We hook into WinEnter and WinNew. This captures the exact millisecond after ANY
--- third-party plugin (Neo-tree, Aerial, Telescope, etc.) finishes shifting windows.
-vim.api.nvim_create_autocmd({ 'WinEnter', 'WinNew' }, {
+-- We hook into WinEnter. The exact microsecond you focus or click inside the terminal,
+-- or right when Neo-tree prepares to search for an active window slot.
+vim.api.nvim_create_autocmd('WinEnter', {
   group = group,
   callback = function()
-    -- Identify if either of your plugin's tracking windows are active
+    -- Identify if either of your plugin's tracking terminal windows are open and active
     local pio_win = nil
-    local pio_buf = nil
     if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
       pio_win = pio_cli_win
-      pio_buf = pio_cli_buf
     elseif pio_mon_win and vim.api.nvim_win_is_valid(pio_mon_win) then
       pio_win = pio_mon_win
-      pio_buf = pio_mon_buf
     end
 
-    -- If your plugin's terminal window isn't currently open on screen, exit immediately
-    if not pio_win or not pio_buf then
+    -- If your terminal panel isn't open on screen, exit instantly (0% CPU impact)
+    if not pio_win then
       return
     end
 
-    -- We use vim.schedule to guarantee third-party layout code completes execution first
-    vim.schedule(function()
-      if not vim.api.nvim_win_is_valid(pio_win) then
-        return
-      end
+    -- If the current active focused window is your terminal window
+    if vim.api.nvim_get_current_win() == pio_win then
+      -- We must immediately and pre-emptively find a safe code editor window up top
+      -- BEFORE Neo-tree can look at the layout grid and break it.
+      local safe_code_win = nil
 
-      -- 1. DETECT THE SCRAMBLE NATIVELY
-      -- Calculate where the terminal window is resting relative to the screen grid frame
-      local win_pos = vim.api.nvim_win_get_position(pio_win)
-      local win_row = win_pos[1] -- How many rows down from the top of the monitor it is
-      local screen_height = vim.o.lines
-
-      -- If the terminal window's top-edge row is less than halfway down the screen,
-      -- it means an external plugin split has forcefully inverted the layout!
-      local is_inverted = (win_row < (screen_height * 0.4))
-      local active_buf_in_pio = vim.api.nvim_win_get_buf(pio_win)
-
-      -- 2. ENFORCE STRUCTURAL ALIGNMENT
-      if is_inverted or active_buf_in_pio ~= pio_buf then
-        -- Track user's focus window instance to return them seamlessly right after
-        local original_focus_win = vim.api.nvim_get_current_win()
-
-        -- If a plugin forced a file into your terminal frame, restore its buffer reference
-        if active_buf_in_pio ~= pio_buf and vim.api.nvim_buf_is_valid(pio_buf) then
-          vim.api.nvim_win_set_buf(pio_win, pio_buf)
-        end
-
-        -- Step focus into your terminal window container frame
-        vim.api.nvim_set_current_win(pio_win)
-
-        -- Execute standard uppercase J. This forces Neovim's layout engine to rebuild
-        -- the entire layout container, pinning your window as a flat floor under everything.
-        -- Because it runs inside vim.schedule AFTER Neo-tree finishes, it leaves Neo-tree
-        -- and Aerial arranged as clean, vertical sidebars on top of the terminal layout!
-        vim.cmd('wincmd J')
-
-        -- Re-enforce your precise 28% dynamic vertical workspace size footprint
-        local target_height = math.ceil(vim.o.lines * 0.28)
-        vim.api.nvim_win_set_height(pio_win, target_height)
-
-        -- Return the developer's cursor seamlessly back to the file split they were editing
-        if original_focus_win and vim.api.nvim_win_is_valid(original_focus_win) and original_focus_win ~= pio_win then
-          vim.api.nvim_set_current_win(original_focus_win)
+      if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) and last_active_editor_win ~= pio_win then
+        local buf = vim.api.nvim_win_get_buf(last_active_editor_win)
+        local ft = vim.bo[buf].filetype
+        if ft ~= 'neo-tree' and ft ~= 'aerial' then
+          safe_code_win = last_active_editor_win
         end
       end
-    end)
+
+      -- If tracking data isn't set, find the first available non-sidebar center split window
+      if not safe_code_win then
+        for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+          if win ~= pio_win and vim.api.nvim_win_is_valid(win) then
+            local buf = vim.api.nvim_win_get_buf(win)
+            local ft = vim.bo[buf].filetype
+            local bt = vim.bo[buf].buftype
+            if ft ~= 'neo-tree' and ft ~= 'aerial' and bt == '' then
+              safe_code_win = win
+              break
+            end
+          end
+        end
+      end
+
+      -- 🔥 THE MAGIC INTERCEPTION CONTRACT:
+      -- If Neo-tree is open and the user tries to open a file while the terminal window is focused,
+      -- we transparently shift the "active window focus state" up to the code window right before
+      -- Neo-tree runs its internal picker calculation.
+      if safe_code_win then
+        -- Temporarily switch Neo-tree's target focus up into the main code workspace
+        vim.api.nvim_set_current_win(safe_code_win)
+
+        -- Let Neo-tree process the file selection cleanly inside the upper code section
+        vim.schedule(function()
+          -- Force the terminal back to its exact locked size profile so it doesn't bounce
+          if vim.api.nvim_win_is_valid(pio_win) then
+            local target_height = math.ceil(vim.o.lines * 0.28)
+            vim.api.nvim_win_set_height(pio_win, target_height)
+          end
+        end)
+      end
+    end
   end,
 })
 
 return M
-
 -- local M = {}
 --
 -- -- Background tracking slots for running buffers and window handles
