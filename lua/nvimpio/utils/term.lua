@@ -192,30 +192,21 @@ function M.ToggleTerminal(command, direction)
     close_on_exit = false,
 
     on_open = function(t)
-      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = t.window })
-
-      -- Balance other splits smoothly without causing layout shifts
-      vim.cmd('wincmd =')
-      -- 2. HARD-LOCK VISUAL BARS: Forces the window pane layout to structural bottom constraints
+      -- 2. THE LYNCHPIN OVERRIDE: This executes exactly ONCE when the window spawns.
+      -- A capital 'J' forces the window to break out of the local vertical column,
+      -- flattening it across the absolute bottom edge of your screen underneath ALL sidebars.
       vim.cmd('wincmd J')
+
+      -- 3. THE SIZE REBALANCER: Instantly forces the layout engine to respect your height,
+      -- completely stopping ToggleTerm from expanding full-screen or covering your statusline.
+      local target_height = math.ceil(vim.o.lines * 0.30)
+      vim.api.nvim_win_set_height(t.window, target_height)
+
+      -- 4. HARDLOCK HEIGHT: Prevents Neovim from squishing it when user sidebars (like Aerial) load
       vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = t.window })
 
-      -- 3. THE RE-ALIGNMENT HOOK FOR MULTI-SIDEBARS (Aerial, Neo-tree, symbols-outline)
-      -- The exact millisecond any plugin tries to squish this workspace column,
-      -- this background routine re-locks the terminal horizontally to the base screen grid layer.
-      vim.schedule(function()
-        if vim.api.nvim_win_is_valid(t.window) then
-          local current_focused_win = vim.api.nvim_get_current_win()
-          vim.api.nvim_set_current_win(t.window)
-
-          -- Forces the window to stay flat under Aerial and Neo-tree
-          vim.cmd('wincmd J')
-
-          if vim.api.nvim_win_is_valid(current_focused_win) then
-            vim.api.nvim_set_current_win(current_focused_win)
-          end
-        end
-      end)
+      -- Balance other splits smoothly
+      vim.cmd('wincmd =')
 
       local hl = { bg = '#80a3d4', fg = '#000000' }
       if hl then
