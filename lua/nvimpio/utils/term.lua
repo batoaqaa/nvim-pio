@@ -215,16 +215,16 @@ vim.keymap.set('n', [[<leader>\t]], function()
 end, { silent = true })
 
 ----------------------------------------------------------------------------------------
--- HARD ENFORCEMENT INTERCEPTOR (Prevents Neo-tree/Aerial Window Inversions)
+-- ULTRA HIGH-PERFORMANCE PRE-EMPTIVE REDIRECTION ENGINE (Zero Layout Mutations)
 ----------------------------------------------------------------------------------------
 local group = vim.api.nvim_create_augroup('PioTerminalSplitGuard', { clear = true })
 
-vim.api.nvim_create_autocmd({ 'BufWinEnter', 'BufEnter' }, {
+vim.api.nvim_create_autocmd('BufWinEnter', {
   group = group,
   callback = function(args)
     local current_buf = args.buf
 
-    -- Rule 1: Ignore structural buffers, terminals, tree items, or utility popups
+    -- Rule 1: Instantly ignore non-file streams, logs, and sidebar plugin components
     local bt = vim.bo[current_buf].buftype
     local ft = vim.bo[current_buf].filetype
     if bt ~= '' or ft == 'neo-tree' or ft == 'aerial' then
@@ -242,24 +242,20 @@ vim.api.nvim_create_autocmd({ 'BufWinEnter', 'BufEnter' }, {
       pio_buf = pio_mon_buf
     end
 
-    -- Rule 2: Exit immediately if your bottom terminal panel is closed
     if not pio_win or not pio_buf then
       return
     end
 
-    -- Check if Neovim is actively forcing or holding a code file inside the terminal frame window
-    local file_leaked_into_terminal_win = (vim.api.nvim_win_get_buf(pio_win) == current_buf)
-    local active_win = vim.api.nvim_get_current_win()
-
-    if active_win == pio_win or file_leaked_into_terminal_win then
-      -- 1. HARD RESET: Lock down the terminal buffer immediately to prevent the layout from shifting
+    -- Check if Neovim is actively loading the code file buffer into the terminal pane window frame
+    if vim.api.nvim_win_get_buf(pio_win) == current_buf then
+      -- 1. HARD RESTORE: Instantly lock the terminal stream buffer back down to prevent layout inversion
       vim.api.nvim_win_set_buf(pio_win, pio_buf)
 
-      -- 2. Prevent the layout engine from drawing the split inside the terminal frame
+      -- 2. Evacuate the incoming code file to a valid upper coding split without breaking layout grids
       vim.schedule(function()
         local target_code_win = nil
 
-        -- Verify if your last active editor tracking split is a valid target up top
+        -- Validate your module's historical memory editor tracker
         if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) and last_active_editor_win ~= pio_win then
           local last_ft = vim.bo[vim.api.nvim_win_get_buf(last_active_editor_win)].filetype
           if last_ft ~= 'neo-tree' and last_ft ~= 'aerial' then
@@ -267,7 +263,7 @@ vim.api.nvim_create_autocmd({ 'BufWinEnter', 'BufEnter' }, {
           end
         end
 
-        -- Layout Scan Fallback: Find an available editor slot that isn't a sidebar plugin
+        -- Layout Scan Fallback: Find an available editing tab segment that isn't a sidebar plugin
         if not target_code_win then
           for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
             if win ~= pio_win and vim.api.nvim_win_is_valid(win) then
@@ -275,7 +271,6 @@ vim.api.nvim_create_autocmd({ 'BufWinEnter', 'BufEnter' }, {
               local win_ft = vim.bo[win_buf].filetype
               local win_bt = vim.bo[win_buf].buftype
 
-              -- Select only true editing workspace slots
               if win_ft ~= 'neo-tree' and win_ft ~= 'aerial' and win_bt == '' then
                 target_code_win = win
                 break
@@ -284,25 +279,21 @@ vim.api.nvim_create_autocmd({ 'BufWinEnter', 'BufEnter' }, {
           end
         end
 
-        -- 3. Move the file up to your primary workspace columns cleanly
+        -- 3. Apply the buffer allocation shift without running global layout-breaking commands
         if target_code_win then
           vim.api.nvim_set_current_win(target_code_win)
           vim.api.nvim_set_current_buf(current_buf)
         else
-          -- Universal Fallback: If layout is entirely frozen, force focus upwards out of the terminal block
-          if vim.api.nvim_win_is_valid(pio_win) then
-            vim.api.nvim_set_current_win(pio_win)
-          end
+          -- Universal Fallback: Clear the terminal track boundary vertically
+          vim.api.nvim_set_current_win(pio_win)
           vim.cmd('wincmd k')
-          if vim.api.nvim_get_current_win() ~= pio_win then
-            vim.api.nvim_set_current_buf(current_buf)
-          else
-            vim.cmd('split')
-            vim.api.nvim_set_current_buf(current_buf)
+          if vim.bo.filetype == 'neo-tree' or vim.bo.filetype == 'aerial' then
+            vim.cmd('wincmd l')
           end
+          vim.api.nvim_set_current_buf(current_buf)
         end
 
-        -- 4. Re-enforce and maintain your exact 28% vertical layout floor size profile
+        -- 4. Lock your explicit responsive 28% vertical window footprint row scale
         if vim.api.nvim_win_is_valid(pio_win) then
           local target_height = math.ceil(vim.o.lines * 0.28)
           vim.api.nvim_win_set_height(pio_win, target_height)
@@ -313,7 +304,6 @@ vim.api.nvim_create_autocmd({ 'BufWinEnter', 'BufEnter' }, {
 })
 
 return M
-
 -- local M = {}
 --
 -- -- Background tracking slots for running buffers and window handles
