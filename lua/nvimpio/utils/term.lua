@@ -125,6 +125,30 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end, { buffer = target_buf, silent = true })
 
+  -- NEW TAB SWITCHING HOOK: Instantly jumps between CLI and Monitor panels!
+  vim.keymap.set({ 'n', 't' }, '<Tab>', function()
+    -- 1. Safely drop out of terminal input mode if typing
+    if vim.api.nvim_get_mode().mode == 't' then
+      local esc = vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true)
+      vim.api.nvim_feedkeys(esc, 'n', false)
+    end
+
+    -- 2. Figure out the other terminal type we want to switch to
+    local next_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
+    local next_win = (next_type == 'monitor') and pio_mon_win or pio_cli_win
+
+    -- 3. Micro-schedule the jump so Neovim drops insert mode before shifting windows
+    vim.schedule(function()
+      if next_win and vim.api.nvim_win_is_valid(next_win) then
+        -- If the other terminal window is open, glide focus into it immediately
+        vim.api.nvim_set_current_win(next_win)
+        vim.cmd('startinsert')
+      else
+        -- If it's hidden, trigger your Toggle Terminal function to pull it up
+        M.ToggleTerminal('', next_type)
+      end
+    end)
+  end, { buffer = target_buf, silent = true, desc = 'Switch between PlatformIO terminals' })
   -----------------------------------------------------------------------------
   -- GLOBAL NAVIGATION & RECALL SHORTCUTS
   -----------------------------------------------------------------------------
