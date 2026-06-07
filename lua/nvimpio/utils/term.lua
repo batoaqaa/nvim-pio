@@ -122,6 +122,9 @@ function M.ToggleTerminal(command, direction)
 
   if string.find(command, ' monitor') then
     if prev.mon then
+      if prev.cli then
+        prev.cli:close()
+      end
       prev.mon.display_name = 'piomon:' .. orig_window
       local win_type = vim.fn.win_gettype(prev.mon.window)
       local win_open = win_type == '' or win_type == 'popup'
@@ -134,12 +137,18 @@ function M.ToggleTerminal(command, direction)
       end
       return prev.mon
     end
+    if prev.cli then
+      prev.cli:close()
+    end
     title = 'Pio Monitor: [In normal mode press: q or :q to hide; :q! to quit]'
     pioOpts.display_name = 'piomon:' .. orig_window
     pioOpts.id = 98
     pioOpts.on_stdout = nil
   else
     if prev.cli then
+      if prev.mon then
+        prev.mon:close()
+      end
       prev.cli.display_name = 'piocli:' .. orig_window
       local win_type = vim.fn.win_gettype(prev.cli.window)
       local win_open = win_type == '' or win_type == 'popup'
@@ -156,6 +165,9 @@ function M.ToggleTerminal(command, direction)
         end
       end, 50)
       return prev.cli
+    end
+    if prev.mon then
+      prev.mon:close()
     end
     title = 'Pio CLI> [In normal mode press: q or :q to hide; :q! to quit]'
     pioOpts.display_name = 'piocli:' .. orig_window
