@@ -1,3 +1,4 @@
+-- stylua: ignore start
 local M = {}
 
 local config = require('nvimpio').config
@@ -104,11 +105,8 @@ local function PioTermClose(t)
   vim.api.nvim_win_close(t.window, true)
 
   -- go back to previous window
-  if orig_window and vim.api.nvim_win_is_valid(orig_window) then
-    vim.api.nvim_set_current_win(orig_window)
-  else
-    vim.api.nvim_set_current_win(0)
-  end
+  if orig_window and vim.api.nvim_win_is_valid(orig_window) then vim.api.nvim_set_current_win(orig_window)
+  else vim.api.nvim_set_current_win(0) end
 end
 
 ------------------------------------------------------
@@ -134,9 +132,7 @@ function M.ToggleTerminal(command, direction)
       local win_open = win_type == '' or win_type == 'popup'
       if prev.mon.window and (win_open and vim.api.nvim_win_get_buf(prev.mon.window) == prev.mon.bufnr) then
         vim.api.nvim_set_current_win(prev.mon.window)
-      else
-        prev.mon:open()
-      end
+      else prev.mon:open() end
       return prev.mon
     end
     title = 'Pio Monitor: [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
@@ -185,38 +181,38 @@ function M.ToggleTerminal(command, direction)
   local termConfig = {
     hidden = true, -- Start hidden, we'll open it explicitly
     hide_numbers = true,
-    -- 1. FORCE HORIZONTAL ENGINE: Hard-lock the base layout to a bottom split layer
-    direction = 'horizontal',
-    size = function()
-      return math.ceil(vim.o.lines * 0.32)
-    end,
 
-    -- env = { PATH = vim.env.PATH,},
+    -- 1. SWITCH TO GLOBAL FLOATING LAYOUT: This removes the terminal from Neovim's split grid,
+    -- completely protecting it from being pushed or squished by Aerial or Neo-tree.
+    direction = 'float',
+
     float_opts = {
-      winblend = 0,
+      border = 'none', -- Keeps a clean edge--edge terminal look
+
+      -- 2. LOCK HORIZONTAL WIDTH: Forces the float to stretch across 100% of the monitor columns
       width = function()
-        return math.ceil(vim.o.columns * 0.85)
+        return vim.o.columns
       end,
+
+      -- 3. LOCK HEIGHT: Give it a stable height at the bottom of the monitor
       height = function()
-        return math.ceil(vim.o.lines * 0.75)
+        return math.ceil(vim.o.lines * 0.30)
       end,
-      -- shell = vim.o.shell,
-      shell = OS.shell,
-      highlights = {
-        border = 'FloatBorder',
-        background = 'NormalFloat',
-      },
+
+      -- 4. HARD-LOCK PLACEMENT COORDINATES:
+      row = function()
+        -- Anchors the float exactly to the bottom line of the editor view grid
+        return vim.o.lines - math.ceil(vim.o.lines * 0.30) - 2
+      end,
+      col = function()
+        -- Starts at the very left edge of the screen (0)
+        return 0
+      end,
     },
     close_on_exit = false, --closeOnexit,
 
     -- INFO: on_open()
     on_open = function(t)
-      -- 1. Lock the vertical height of this terminal window pane.
-      -- This forces Neovim to preserve your horizontal bottom layout
-      -- when plugins like Aerial split the workspace vertically above it.
-      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = t.window })
-
-      -- 2. Clean highlight and title bar integration logic
       local hl = { bg = '#80a3d4', fg = '#000000' }
 
       if hl then
@@ -232,9 +228,7 @@ function M.ToggleTerminal(command, direction)
       end
       vim.keymap.set('t', '<Esc>', [[<C-\><C-n>k]], { buffer = t.bufnr })
       vim.keymap.set('n', '<Esc>', [[<C-\><C-n>a]], { buffer = t.bufnr })
-      vim.keymap.set('n', 'q', function()
-        PioTermClose(t)
-      end, { desc = 'PioTermClose', buffer = t.bufnr })
+      vim.keymap.set('n', 'q', function() PioTermClose(t) end, { desc = 'PioTermClose', buffer = t.bufnr })
 
       if config.debug then
         local name_splt = M.strsplit(t.display_name, ':')
@@ -248,13 +242,6 @@ function M.ToggleTerminal(command, direction)
           { '(Job ID: ' .. t.job_id .. ')', 'MoreMsg' },
         }, true, {})
       end
-
-      -- Optional: A gentle, local equalization check strictly for this window layout
-      vim.schedule(function()
-        if vim.api.nvim_win_is_valid(t.window) then
-          vim.cmd('wincmd =')
-        end
-      end)
     end,
 
     -- INFO: on_close()
