@@ -128,8 +128,9 @@ function M.ToggleTerminal(command, direction)
       if prev.mon.window and (win_open and vim.api.nvim_win_get_buf(prev.mon.window) == prev.mon.bufnr) then
         vim.api.nvim_set_current_win(prev.mon.window)
       else
-        prev.mon:open()
-        vim.cmd('wincmd =')
+        prev.mon:open(math.ceil(vim.o.lines * 0.35), 'horizontal')
+        -- prev.mon:open()
+        -- vim.cmd('wincmd =')
       end
       return prev.mon
     end
@@ -145,8 +146,9 @@ function M.ToggleTerminal(command, direction)
       if prev.cli.window and (win_open and vim.api.nvim_win_get_buf(prev.cli.window) == prev.cli.bufnr) then
         vim.api.nvim_set_current_win(prev.cli.window)
       else
-        prev.cli:open()
-        vim.cmd('wincmd =')
+        prev.cli:open(math.ceil(vim.o.lines * 0.35), 'horizontal')
+        -- prev.cli:open()
+        -- vim.cmd('wincmd =')
       end
       vim.defer_fn(function()
         if command and command ~= '' then
