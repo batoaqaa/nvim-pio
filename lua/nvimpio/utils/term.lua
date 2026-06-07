@@ -155,7 +155,6 @@ function M.ToggleTerminal(command, terminal_type)
   -- 4. THE UNBEATABLE BOTTOM PANEL TILE ANCHOR
   local target_height = math.ceil(vim.o.lines * 0.28)
 
-  -- Escape to a neutral code pane context window to execute the split pass cleanly
   local neutral_win = find_valid_editor_window()
   if neutral_win then
     vim.api.nvim_set_current_win(neutral_win)
@@ -165,7 +164,6 @@ function M.ToggleTerminal(command, terminal_type)
   local new_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(new_win, target_buf)
 
-  -- Force layout container to stretch edge-to-edge horizontally along the bottom row
   vim.cmd('wincmd J')
   vim.api.nvim_win_set_height(new_win, target_height)
 
@@ -226,33 +224,53 @@ function M.ToggleTerminal(command, terminal_type)
 end
 
 ----------------------------------------------------------------------------------------
--- 🛡️ THE UNBREAKABLE WINDOW INTERCEPTOR AUTOCMAND SHIELD
+-- 🛡️ THE UNBREAKABLE BUFFER-REDIRECT AUTOCMAND SHIELD
 ----------------------------------------------------------------------------------------
+-- This listens for whenever a normal file tries to enter any layout window.
+-- If it catches a code file loading inside your bottom terminal panel, it hijacks
+-- the buffer, puts the terminal view back, and opens the code file safely in the center.
 local layout_shield_group = vim.api.nvim_create_augroup('PioTerminalLayoutShield', { clear = true })
-vim.api.nvim_create_autocmd('WinNew', {
+vim.api.nvim_create_autocmd('BufWinEnter', {
   group = layout_shield_group,
   callback = function()
-    vim.schedule(function()
-      local cur_win = vim.api.nvim_get_current_win()
-      if cur_win == pio_cli_win or cur_win == pio_mon_win then
+    local cur_win = vim.api.nvim_get_current_win()
+    -- Check if a code file is hijacking either the CLI or Monitor window spaces
+    if cur_win == pio_cli_win or cur_win == pio_mon_win then
+      local rogue_buf = vim.api.nvim_win_get_buf(cur_win)
+      local bt = vim.api.nvim_get_option_value('buftype', { buf = rogue_buf })
+
+      -- If it's a normal code file (not a terminal process or special buffer layout)
+      if bt ~= 'terminal' and bt ~= 'nofile' then
         local valid_editor = find_valid_editor_window()
+
+        -- Restore the terminal buffer back to its correct bottom pane container
+        local term_buf = (cur_win == pio_cli_win) and pio_cli_buf or pio_mon_buf
+        if term_buf and vim.api.nvim_buf_is_valid(term_buf) then
+          vim.api.nvim_win_set_buf(cur_win, term_buf)
+        end
+
+        -- Redirect the file buffer up to the main standard code editor region safely
         if valid_editor then
-          local rogue_buf = vim.api.nvim_win_get_buf(cur_win)
           vim.api.nvim_win_set_buf(valid_editor, rogue_buf)
           vim.api.nvim_set_current_win(valid_editor)
-          vim.api.nvim_win_close(cur_win, true)
-
-          local active_term_win = pio_cli_win or pio_mon_win
-          local target_height = math.ceil(vim.o.lines * 0.28)
-          if active_term_win and vim.api.nvim_win_is_valid(active_term_win) then
-            vim.api.nvim_win_set_height(active_term_win, target_height)
-          end
+        else
+          -- If no editor window is available, generate a clean split above the terminal panel
+          vim.cmd('wincmd k')
+          vim.cmd('split')
+          local new_editor_win = vim.api.nvim_get_current_win()
+          vim.api.nvim_win_set_buf(new_editor_win, rogue_buf)
         end
+
+        -- Lock the target row size back to the terminal split
+        local target_height = math.ceil(vim.o.lines * 0.28)
+        vim.api.nvim_win_set_height(cur_win, target_height)
       end
-    end)
+    end
   end,
 })
 
+----------------------------------------------------------------------------------------
+-- GLOBAL KEYMAP REGISTRY
 ----------------------------------------------------------------------------------------
 -- 🥇 CLEAN OUT-OF-THE-BOX GLOBAL SHORTCUT INITIALIZATIONS
 ----------------------------------------------------------------------------------------
@@ -276,7 +294,7 @@ end, { silent = true })
 vim.keymap.set('n', [[<leader>\gm]], function()
   M.ToggleTerminal('', 'monitor')
 end, { silent = true })
-vim.keymap.set('n', [[\t]], function()
+vim.keymap.set('n', [[<leader>\t]], function()
   M.ToggleTerminal('', 'cli')
 end, { silent = true })
 
