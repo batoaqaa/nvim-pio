@@ -283,7 +283,41 @@ function M.ToggleTerminal(command, direction)
 
     -- INFO: on_create() {
     on_create = function(t)
-      local platformio = vim.api.nvim_create_augroup(M.strsplit(t.display_name, ':')[1], { clear = true })
+      -- Form an isolated workspace event group string name
+      local p_type = M.strsplit(t.display_name, ':')
+      local splt_1 = p_type or 'pio'
+      local platformio = vim.api.nvim_create_augroup(splt_1 .. '_layout_guard', { clear = true })
+      -- local platformio = vim.api.nvim_create_augroup(M.strsplit(t.display_name, ':')[1], { clear = true })
+
+      -- PLUGIN ARCHITECTURE PROTECTION ENGINES:
+      -- Catch any new window generation event on screen to enforce bottom boundaries
+      vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter' }, {
+        group = platformio,
+        callback = function()
+          -- Verify if our terminal buffer is valid and running on screen somewhere
+          local term_win = vim.fn.bufwinid(t.bufnr)
+          if term_win and term_win ~= -1 and vim.api.nvim_win_is_valid(term_win) then
+            -- Micro-schedule execution to wait until the sidebar (Aerial) finishes drawing
+            vim.schedule(function()
+              if vim.api.nvim_win_is_valid(term_win) then
+                -- 1. Cache the user's current cursor window focus location
+                local current_focused_win = vim.api.nvim_get_current_win()
+
+                -- 2. Jump focus to our terminal window pane
+                vim.api.nvim_set_current_win(term_win)
+
+                -- 3. Hard-lock it to the absolute horizontal bottom edge across all columns
+                vim.cmd('wincmd J')
+
+                -- 4. Restore the user's cursor instantly back to where they were typing
+                if vim.api.nvim_win_is_valid(current_focused_win) then
+                  vim.api.nvim_set_current_win(current_focused_win)
+                end
+              end
+            end)
+          end
+        end,
+      })
 
       -- INFO: CmdlineLeave
       vim.api.nvim_create_autocmd('CmdlineLeave', {
