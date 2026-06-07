@@ -12,34 +12,6 @@ local pio_cli_chan = nil
 local pio_mon_chan = nil
 
 ----------------------------------------------------------------------------------------
--- SAFELY ESCAPE SIDEBARS: Finds a normal code window to avoid split corruption
-local function find_valid_editor_window()
-  local wins = vim.api.nvim_tabpage_list_wins(0)
-
-  -- Step A: Prioritize standard file code windows
-  for _, win in ipairs(wins) do
-    if vim.api.nvim_win_is_valid(win) then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      local bt = vim.api.nvim_get_option_value('buftype', { buf = buf })
-
-      -- Exclude common sidebar panels and terminal components
-      if ft ~= 'neo-tree' and ft ~= 'aerial' and bt ~= 'terminal' and bt ~= 'nofile' then
-        return win
-      end
-    end
-  end
-
-  -- Step B: Fallback if no clean file window is opened yet
-  for _, win in ipairs(wins) do
-    if win ~= pio_cli_win and win ~= pio_mon_win and vim.api.nvim_win_is_valid(win) then
-      return win
-    end
-  end
-  return vim.api.nvim_get_current_win()
-end
-
-----------------------------------------------------------------------------------------
 -- CLEAN EXIT LOGIC: Closes structural split viewports and restores focus
 local function HideTerminalWindow(terminal_type)
   local win_id = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
@@ -58,7 +30,7 @@ local function HideTerminalWindow(terminal_type)
 end
 
 ----------------------------------------------------------------------------------------
--- CORE STRUCTURAL RUNNER
+-- CORE STRUCTURAL RUNNER (GLOBAL FOOTPRINT RESISTANT TO SIDEBARS)
 function M.ToggleTerminal(command, terminal_type)
   local active_win = vim.api.nvim_get_current_win()
   if active_win ~= pio_cli_win and active_win ~= pio_mon_win then
@@ -163,17 +135,16 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 4. 🥇 CRASH-PROOF STRUCTURAL PANEL INJECTION WHEEL
-  -- Safely shift cursor context out of sidebars before generating splits
-  local neutral_win = find_valid_editor_window()
-  vim.api.nvim_set_current_win(neutral_win)
-
-  -- Execute structural splitting at the absolute lowest border
+  -- 4. 🥇 UNBREAKABLE FULL-WIDTH GLOBAL BOTTOM SPLIT INTERCEPTOR
   local target_height = math.ceil(vim.o.lines * 0.28)
-  vim.cmd('botright ' .. target_height .. 'split')
 
-  local new_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(new_win, target_buf)
+  -- Open a native layout split anchored directly to the entire grid window container frame.
+  -- Setting 'win = 0' forces the engine to slice space from the global screen scope.
+  local new_win = vim.api.nvim_open_win(target_buf, true, {
+    split = 'below',
+    win = 0, -- 🔥 CRITICAL: Anchors split across ALL columns globally, bypassing sidebars completely
+    height = target_height,
+  })
 
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
@@ -181,8 +152,10 @@ function M.ToggleTerminal(command, terminal_type)
     pio_cli_win = new_win
   end
 
-  -- 5. WINDOW PANE DECORATIONS
+  -- 5. WINDOW PANE DECORATIONS & PROTECTION SHIELDS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+
+  -- Protects the height layout footprint from collapsing if editor panes change size
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
   local hl = { bg = '#80a3d4', fg = '#000000' }
