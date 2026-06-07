@@ -284,7 +284,7 @@ function M.ToggleTerminal(command, direction)
     -- INFO: on_create() {
     on_create = function(t)
       -- Form an isolated workspace event group string name
-      local p_type = M.strsplit(t.display_name, ':')
+      local p_type = M.strsplit(t.display_name, ':')[1]
       local splt_1 = p_type or 'pio'
       local platformio = vim.api.nvim_create_augroup(splt_1 .. '_layout_guard', { clear = true })
       -- local platformio = vim.api.nvim_create_augroup(M.strsplit(t.display_name, ':')[1], { clear = true })
