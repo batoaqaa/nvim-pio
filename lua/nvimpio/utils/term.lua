@@ -164,6 +164,7 @@ function M.ToggleTerminal(command, terminal_type)
   local new_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(new_win, target_buf)
 
+  -- Forces layout container to stretch edge-to-edge horizontally along the bottom row [Index]
   vim.cmd('wincmd J')
   vim.api.nvim_win_set_height(new_win, target_height)
 
@@ -224,78 +225,49 @@ function M.ToggleTerminal(command, terminal_type)
 end
 
 ----------------------------------------------------------------------------------------
--- 🛡️ THE UNBREAKABLE BUFFER-REDIRECT AUTOCMAND SHIELD
+-- 🛡️ UNBREAKABLE RE-ENFORCEMENT SHIELD LOOP (FORCES HORIZONTAL BOTTOM)
 ----------------------------------------------------------------------------------------
--- This listens for whenever a normal file tries to enter any layout window.
--- If it catches a code file loading inside your bottom terminal panel, it hijacks
--- the buffer, puts the terminal view back, and opens the code file safely in the center.
 local layout_shield_group = vim.api.nvim_create_augroup('PioTerminalLayoutShield', { clear = true })
-vim.api.nvim_create_autocmd('BufWinEnter', {
+vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter' }, {
   group = layout_shield_group,
   callback = function()
-    local cur_win = vim.api.nvim_get_current_win()
-    -- Check if a code file is hijacking either the CLI or Monitor window spaces
-    if cur_win == pio_cli_win or cur_win == pio_mon_win then
-      local rogue_buf = vim.api.nvim_win_get_buf(cur_win)
-      local bt = vim.api.nvim_get_option_value('buftype', { buf = rogue_buf })
-
-      -- If it's a normal code file (not a terminal process or special buffer layout)
-      if bt ~= 'terminal' and bt ~= 'nofile' then
-        local valid_editor = find_valid_editor_window()
-
-        -- Restore the terminal buffer back to its correct bottom pane container
-        local term_buf = (cur_win == pio_cli_win) and pio_cli_buf or pio_mon_buf
-        if term_buf and vim.api.nvim_buf_is_valid(term_buf) then
-          vim.api.nvim_win_set_buf(cur_win, term_buf)
-        end
-
-        -- Redirect the file buffer up to the main standard code editor region safely
-        if valid_editor then
-          vim.api.nvim_win_set_buf(valid_editor, rogue_buf)
-          vim.api.nvim_set_current_win(valid_editor)
-        else
-          -- If no editor window is available, generate a clean split above the terminal panel
-          vim.cmd('wincmd k')
-          vim.cmd('split')
-          local new_editor_win = vim.api.nvim_get_current_win()
-          vim.api.nvim_win_set_buf(new_editor_win, rogue_buf)
-        end
-
-        -- Lock the target row size back to the terminal split
+    vim.schedule(function()
+      local active_term_win = pio_cli_win or pio_mon_win
+      -- If the terminal window handle is active, check if its structural integrity was split
+      if active_term_win and vim.api.nvim_win_is_valid(active_term_win) then
         local target_height = math.ceil(vim.o.lines * 0.28)
-        vim.api.nvim_win_set_height(cur_win, target_height)
+        local current_width = vim.api.nvim_win_get_width(active_term_win)
+
+        -- If width drops below full screen width, a vertical pillar split was forced
+        if current_width < vim.o.columns then
+          local cur_win = vim.api.nvim_get_current_win()
+          -- Catch the rogue file buffer that tried to split the terminal layout
+          if cur_win == active_term_win or vim.api.nvim_win_get_buf(cur_win) ~= (pio_cli_buf or pio_mon_buf) then
+            local rogue_buf = vim.api.nvim_win_get_buf(cur_win)
+            local valid_editor = find_valid_editor_window()
+
+            -- Push the file up into the center code workspace safely
+            if valid_editor then
+              vim.api.nvim_win_set_buf(valid_editor, rogue_buf)
+              vim.api.nvim_set_current_win(valid_editor)
+              vim.api.nvim_win_close(cur_win, true)
+            end
+          end
+
+          -- ⚡ THE CORRECTION SNAP: Forces the terminal container layout row back down
+          -- into an horizontal layout spanning all columns across the absolute bottom edge [Index]!
+          vim.api.nvim_set_current_win(active_term_win)
+          vim.cmd('wincmd J')
+          vim.api.nvim_win_set_height(active_term_win, target_height)
+
+          local restored_editor = find_valid_editor_window()
+          if restored_editor then
+            vim.api.nvim_set_current_win(restored_editor)
+          end
+        end
       end
-    end
+    end)
   end,
 })
 
 ----------------------------------------------------------------------------------------
--- GLOBAL KEYMAP REGISTRY
-----------------------------------------------------------------------------------------
--- 🥇 CLEAN OUT-OF-THE-BOX GLOBAL SHORTCUT INITIALIZATIONS
-----------------------------------------------------------------------------------------
-vim.keymap.set('n', '<C-h>', '<C-w>h', { silent = true })
-vim.keymap.set('n', '<C-l>', '<C-w>l', { silent = true })
-
--- SMART DOWNWARD ACCELERATOR MAP: Focused cursor navigation straight to active panel
-vim.keymap.set('n', '<C-j>', function()
-  if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
-    vim.api.nvim_set_current_win(pio_cli_win)
-    vim.cmd('startinsert')
-  elseif pio_mon_win and vim.api.nvim_win_is_valid(pio_mon_win) then
-    vim.api.nvim_set_current_win(pio_mon_win)
-    vim.cmd('startinsert')
-  else
-    vim.cmd('wincmd j')
-  end
-end, { silent = true })
-
--- LEADER BACKSLASH HOTKEYS: Fixed tracking pointers for instant spawns
-vim.keymap.set('n', [[<leader>\gm]], function()
-  M.ToggleTerminal('', 'monitor')
-end, { silent = true })
-vim.keymap.set('n', [[<leader>\t]], function()
-  M.ToggleTerminal('', 'cli')
-end, { silent = true })
-
-return M
