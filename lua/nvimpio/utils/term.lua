@@ -51,6 +51,24 @@ end
 inject_edgy_integration()
 
 ----------------------------------------------------------------------------------------
+-- 🛡️ NEUTRAL ENVIRONMENT FINDER: Safely escapes sidebars to eliminate E957 split crashes
+local function find_valid_editor_window()
+  local wins = vim.api.nvim_tabpage_list_wins(0)
+  for _, win in ipairs(wins) do
+    if vim.api.nvim_win_is_valid(win) and win ~= pio_cli_win and win ~= pio_mon_win then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local bt = vim.api.nvim_get_option_value('buftype', { buf = buf })
+      -- Only target true text workspace zones (exclude plugin panes and sidebars)
+      if ft ~= 'neo-tree' and ft ~= 'aerial' and bt ~= 'terminal' and bt ~= 'nofile' then
+        return win
+      end
+    end
+  end
+  return nil
+end
+
+----------------------------------------------------------------------------------------
 -- CLEAN EXIT LOGIC: Closes structural splits cleanly and restores focus
 local function HideTerminalWindow(terminal_type)
   local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
@@ -131,18 +149,27 @@ function M.ToggleTerminal(command, terminal_type)
   -- SPAWN INTERCEPT TRIGGER
   local has_edgy = pcall(require, 'edgy')
   if has_edgy then
-    -- PATH A: If edgy is installed, open it and let edgy intercept the window placement
+    -- PATH A: If edgy is installed, split relative to a neutral window to preserve tree shape
+    local neutral_win = find_valid_editor_window()
+    if neutral_win then
+      vim.api.nvim_set_current_win(neutral_win)
+    end
+
     vim.cmd('split')
     local split_win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(split_win, target_buf)
   else
-    -- PATH B: If edgy is NOT installed, run a native fallback that forces
-    -- the window into an unbreakable full-width bottom layout floor tile [Index].
+    -- PATH B: If edgy is NOT installed, migrate cursor to code buffer first to prevent E957
+    local neutral_win = find_valid_editor_window()
+    if neutral_win then
+      vim.api.nvim_set_current_win(neutral_win)
+    end
+
     vim.cmd('split')
     local fallback_win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(fallback_win, target_buf)
 
-    -- Force the split container out of local grids and move it to the absolute bottom row [Index]
+    -- Force the split container out of local layout columns and anchor flat across the bottom [Index]
     vim.fn.win_splitmove(fallback_win, 0, { vertical = false, rightbelow = true })
 
     local target_height = math.ceil(vim.o.lines * 0.28)
@@ -160,7 +187,7 @@ function M.ToggleTerminal(command, terminal_type)
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
-  -- The Kernel Lock: Prevents file managers/Telescope from hijacking this window splitting allocation
+  -- The Kernel Lock: Prevents file managers/Telescope from hijacking this window layout allocation
   vim.api.nvim_set_option_value('winfixbuf', true, { scope = 'local', win = new_win })
 
   local hl = { bg = '#80a3d4', fg = '#000000' }
@@ -180,7 +207,12 @@ function M.ToggleTerminal(command, terminal_type)
       vim.api.nvim_feedkeys(esc, 'n', false)
     end
     vim.schedule(function()
-      vim.cmd('wincmd k')
+      local target = find_valid_editor_window() or last_active_editor_win
+      if target and vim.api.nvim_win_is_valid(target) then
+        vim.api.nvim_set_current_win(target)
+      else
+        vim.cmd('wincmd k')
+      end
     end)
   end, { buffer = target_buf, silent = true })
 
@@ -231,6 +263,7 @@ vim.keymap.set('n', [[<leader>\t]], function()
 end, { silent = true })
 
 return M
+
 -- local M = {}
 --
 -- -- Memory slots to preserve running terminal process background buffers
