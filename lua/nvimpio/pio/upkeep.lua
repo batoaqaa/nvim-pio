@@ -679,23 +679,25 @@ function M.stdoutcallback(_, data, event)
   if data and #data > 0 then
     vim.notify('[PioData Dump]: ' .. table.concat(data, ' | '), vim.log.levels.DEBUG)
   end
+  -----------------------------------------------------------------------------
 
   -----------------------------------------------------------------------------
-  -- 🌟 NATIVE TERMINAL ARRAY-TO-STRING FLATTENER ADAPTER
-  -- Converts raw Neovim array tables into flat strings to prevent concatenation type crashes [INDEX]
-  local clean_data = {}
+  -----------------------------------------------------------------------------
+  -- 🌟 NATIVE TERMINAL TABLE ARRAY STANDARDIST UNPACKER
+  -----------------------------------------------------------------------------
+  local processed_lines = {}
   for i, line in ipairs(data) do
-    clean_data[i] = line
+    processed_lines[i] = line:gsub('\r', '')
   end
-  local chunk_len = #clean_data
+  local chunk_count = #processed_lines
+  -----------------------------------------------------------------------------
 
-  if chunk_len > 1 then
-    content = content .. pio_buffer .. table.concat(clean_data, '', 1, chunk_len)
-    pio_buffer = clean_data[chunk_len]
+  if chunk_count > 1 then
+    content = content .. pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
+    pio_buffer = processed_lines[chunk_count]
   else
-    -- FIXED SINGLE-ITEM CRASH: Safely extracts index 1 out of the clean array list [INDEX]
-    content = content .. pio_buffer .. clean_data[1]
-    pio_buffer = clean_data[1]
+    content = content .. pio_buffer .. processed_lines[1]
+    pio_buffer = processed_lines[1]
   end
   -----------------------------------------------------------------------------
 
@@ -767,10 +769,8 @@ function M.stdoutcallback(_, data, event)
       end
 
       -- 🏁 3. FLUSH THE BUFFER CLEAN HERE AT THE END OF THE COMMAND RUN
-      -- pio_buffer = ''
-      -- content = ''
-      content = content .. pio_buffer .. data
-      pio_buffer = data
+      pio_buffer = ''
+      content = ''
       -----------------------------------------------------------------------
     end
 
