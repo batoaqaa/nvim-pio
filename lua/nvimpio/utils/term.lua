@@ -51,6 +51,37 @@ local function HideTerminalWindow(terminal_type)
   end
 end
 
+local function RenderDelayedWindow(target_buf, terminal_type, title)
+  local prev_win = vim.api.nvim_get_current_win()
+
+  vim.cmd('botright split')
+  local new_win = vim.api.nvim_get_current_win()
+
+  vim.api.nvim_win_set_buf(new_win, target_buf)
+  vim.api.nvim_win_set_height(new_win, get_target_height())
+
+  if terminal_type == 'monitor' then
+    pio_mon_win = new_win
+  else
+    pio_cli_win = new_win
+  end
+
+  vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
+  vim.api.nvim_set_option_value('winfixbuf', true, { scope = 'local', win = new_win })
+
+  local hl = { bg = '#80a3d4', fg = '#000000' }
+  vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
+  local winBartitle = '%#MyWinBar# ' .. title .. ' [Press ;; to Switch | Press q to hide]%*'
+  vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = new_win })
+
+  if prev_win and vim.api.nvim_win_is_valid(prev_win) and prev_win ~= new_win then
+    vim.api.nvim_set_current_win(prev_win)
+  end
+
+  vim.cmd('startinsert')
+end
+
 function M.ToggleTerminal(command, terminal_type)
   local active_win = vim.api.nvim_get_current_win()
   if active_win ~= pio_cli_win and active_win ~= pio_mon_win then
@@ -76,6 +107,8 @@ function M.ToggleTerminal(command, terminal_type)
     HideTerminalWindow(terminal_type)
     return
   end
+
+  local title = (terminal_type == 'monitor') and 'Pio Monitor' or 'Pio CLI>'
 
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
     target_buf = vim.api.nvim_create_buf(false, true)
@@ -128,32 +161,12 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  local prev_win = vim.api.nvim_get_current_win()
-  vim.cmd('botright split')
-  local new_win = vim.api.nvim_get_current_win()
-
-  vim.api.nvim_win_set_buf(new_win, target_buf)
-  vim.api.nvim_win_set_height(new_win, get_target_height())
-
-  if terminal_type == 'monitor' then
-    pio_mon_win = new_win
-  else
-    pio_cli_win = new_win
-  end
-
-  vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
-  vim.api.nvim_set_option_value('winfixbuf', true, { scope = 'local', win = new_win })
-
-  local title = (terminal_type == 'monitor') and 'Pio Monitor' or 'Pio CLI>'
-  local hl = { bg = '#80a3d4', fg = '#000000' }
-  vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
-  local winBartitle = '%#MyWinBar# ' .. title .. ' [Press ;; to Switch | Press q to hide]%*'
-  vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = new_win })
-
-  if prev_win and vim.api.nvim_win_is_valid(prev_win) and prev_win ~= new_win then
-    vim.api.nvim_set_current_win(prev_win)
-  end
+  -- 🔥 THE DELAY ENGINE
+  -- Wait 150 milliseconds for Neo-tree/Aerial setup tasks to settle completely.
+  -- Then cleanly trigger our global bottom-split builder layout rule.
+  vim.defer_fn(function()
+    RenderDelayedWindow(target_buf, terminal_type, title)
+  end, 150)
 
   vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = target_buf })
   vim.keymap.set('n', 'q', function()
@@ -184,8 +197,6 @@ function M.ToggleTerminal(command, terminal_type)
       vim.api.nvim_chan_send(active_chan, command .. '\r\n')
     end
   end
-
-  vim.cmd('startinsert')
 end
 
 local group = vim.api.nvim_create_augroup('PioTerminalLayoutWatchdogEngine', { clear = true })
