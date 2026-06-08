@@ -94,7 +94,8 @@ end
 
 ---The master backwards-compatible gateway function called everywhere in your plugin repository
 ---@param command_string string The absolute PlatformIO command instructions string
-function M.ToggleTerminal(command_string)
+function M.ToggleTerminal(command_string, dir)
+  dir = 'hh'
   if not command_string or type(command_string) ~= 'string' or vim.trim(command_string) == '' then
     return false
   end
