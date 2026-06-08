@@ -10,19 +10,22 @@ local pio_mon_win = nil
 
 ----------------------------------------------------------------------------------------
 -- INFO: Safe Window Closure Logic (Tied to pressing 'q' inside normal mode)
-local function SafeCloseTerminal(buf_id)
-  if buf_id and vim.api.nvim_buf_is_valid(buf_id) then
-    local win_id = vim.fn.bufwinid(buf_id)
-    if win_id and win_id ~= -1 and vim.api.nvim_win_is_valid(win_id) then
-      vim.api.nvim_win_close(win_id, true)
-      -- Force standard workspace windows to balance their layout spacing evenly once on close
-      vim.cmd('wincmd =')
-    end
+local function HideTerminalWindow(terminal_type)
+  local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
+  if target_win and vim.api.nvim_win_is_valid(target_win) then
+    vim.api.nvim_win_close(target_win, true)
   end
+  if terminal_type == 'monitor' then
+    pio_mon_win = nil
+  else
+    pio_cli_win = nil
+  end
+  -- Force an immediate, complete interface redraw when closing to cleanly expand the text lines back
+  vim.cmd('redraw!')
 end
 
 ----------------------------------------------------------------------------------------
--- INFO: Core Layout Spawner (Global Edge-Anchored Window Partition Architecture)
+-- INFO: Core Layout Spawner (Buffer-Relative Overlay Framework)
 function M.ToggleTerminal(command, terminal_type)
   -- 1. Enforce strict title header assignments immediately at the top
   local title = ''
@@ -50,22 +53,16 @@ function M.ToggleTerminal(command, terminal_type)
 
   -- 3. TOGGLE ACTION: If our target window is already open, close it
   if target_win and vim.api.nvim_win_is_valid(target_win) then
-    vim.api.nvim_win_close(target_win, true)
-    if terminal_type == 'monitor' then
-      pio_mon_win = nil
-    else
-      pio_cli_win = nil
-    end
-    vim.cmd('wincmd =')
+    HideTerminalWindow(terminal_type)
     return
   end
 
-  -- Cache the user's active file window handle right before we spawn the split
-  local original_file_win = vim.api.nvim_get_current_win()
+  -- Cache the user's active code file window handle right before we spawn the split
+  local parent_file_win = vim.api.nvim_get_current_win()
 
   -- 4. PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
-    target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted, scratch buffer
+    target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
     if terminal_type == 'monitor' then
       pio_mon_buf = target_buf
     else
@@ -84,44 +81,47 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end
 
-  -- 5. SPAWN STRATEGY: Initialize a native horizontal split pane at the bottom edge.
-  -- 'botright split' initially cuts Neovim's layout tree at the root screen layer.
-  local target_height = math.ceil(vim.o.lines * 0.28)
-  vim.cmd('botright ' .. target_height .. 'split')
-  local new_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(new_win, target_buf)
+  -- 5. BUFFER-RELATIVE CONFIGURATION SETUP
+  local file_win_width = vim.api.nvim_win_get_width(parent_file_win)
+  local file_win_height = vim.api.nvim_win_get_height(parent_file_win)
 
+  local target_height = math.ceil(file_win_height * 0.32)
+
+  local win_opts = {
+    relative = 'win', -- HARD-LOCKS TO THE FILE WINDOW ONLY: Bypasses monitor grid completely
+    win = parent_file_win, -- Binds the coordinate system to their current text document pane
+    style = 'minimal', -- Disables border and padding overheads
+    focusable = true, -- Keeps keyboard layout paths fully operational
+    width = file_win_width, -- Stretches exactly to the margins of their code file pane
+    height = target_height,
+    row = file_win_height - target_height, -- Clamps precisely to the bottom of the file view
+    col = 0, -- Starts flush with the left edge of their text
+  }
+
+  -- 6. RENDER THE SECURE HORIZONTAL PANEL OVERLAY
+  local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
   else
     pio_cli_win = new_win
   end
 
-  -- 6. THE PROGRAMMATIC FOCUS TRIGGER FIXED:
-  -- This programmatically recreates your manual focus action the exact millisecond the split mounts.
-  -- It switches current window focus down to the console, forces a clean root layout flatten ("wincmd J"),
-  -- balances the file dimensions above it ("wincmd ="), and bounces cursor control back to the file window instantly!
+  -- 7. THE AUTOMATED PROGRAMMATIC FORCE-REDRAW ENGINE
+  -- FIXED: Instead of relying on focus shifts alone, this fires a clear, absolute layout update pass.
+  -- By updating the configuration metrics inline and demanding a raw 'redraw!', Neovim is programmatically
+  -- forced to push the upper file text lines up and out from behind the terminal mask instantly on spawn.
   vim.schedule(function()
     if new_win and vim.api.nvim_win_is_valid(new_win) then
-      -- Jump behind the scenes to trigger the native layout pass
-      vim.api.nvim_set_current_win(new_win)
-      vim.cmd('wincmd J') -- Slam across 100% full-screen width at the absolute bottom row [INDEX]
-      vim.cmd('wincmd =') -- Natively compress the code file views above it so NO text is hidden [INDEX]
-
-      -- Lock the terminal window height size boundary natively
-      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
-
-      -- Seamlessly bounce the user's cursor focus back to their original C++ editing pane
-      if original_file_win and original_file_win ~= new_win and vim.api.nvim_win_is_valid(original_file_win) then
-        vim.api.nvim_set_current_win(original_file_win)
-      end
+      pcall(vim.api.nvim_win_set_config, new_win, win_opts)
+      vim.cmd('redraw!')
     end
   end)
 
-  -- 7. CLEAN WINDOW SYSTEM FLAGS (Completely free of global autocommands or layout loops)
+  -- 8. CLEAN SYSTEM OPTIONS DECORATIONS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
-  -- 8. VISUAL CUSTOM WINBAR STYLING
+  -- 9. VISUAL CUSTOM WINBAR STYLING
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
   local winBartitle = '%#MyWinBar# ' .. title .. ' [Press ;; to Switch | Press q to hide]%*'
@@ -132,7 +132,7 @@ function M.ToggleTerminal(command, terminal_type)
   -----------------------------------------------------------------------------
   vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = target_buf })
   vim.keymap.set('n', 'q', function()
-    SafeCloseTerminal(target_buf)
+    HideTerminalWindow(terminal_type)
   end, { buffer = target_buf })
 
   -- CRASH-FREE UPWARD NAVIGATION KEYMAP
@@ -142,7 +142,9 @@ function M.ToggleTerminal(command, terminal_type)
       vim.api.nvim_feedkeys(esc, 'n', false)
     end
     vim.schedule(function()
-      vim.cmd('wincmd k')
+      if parent_file_win and vim.api.nvim_win_is_valid(parent_file_win) then
+        vim.api.nvim_set_current_win(parent_file_win)
+      end
     end)
   end, { buffer = target_buf, silent = true })
 
@@ -168,9 +170,8 @@ function M.ToggleTerminal(command, terminal_type)
   -- GLOBAL INTERCEPT DOWNWARD MOVEMENT HOOK:
   -- Focuses your cursor straight down into your active terminal pane natively
   vim.keymap.set('n', '<C-j>', function()
-    local cur_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
-    if cur_win and vim.api.nvim_win_is_valid(cur_win) then
-      vim.api.nvim_set_current_win(cur_win)
+    if new_win and vim.api.nvim_win_is_valid(new_win) then
+      vim.api.nvim_set_current_win(new_win)
       vim.cmd('startinsert')
     else
       vim.cmd('wincmd j')
@@ -196,12 +197,10 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- Fallback auto-insert hook to guarantee cursor readiness inside the shell prompt
   vim.cmd('startinsert')
 end
 
 return M
-
 -- local M = {}
 --
 -- -- Memory slots to preserve running terminal process background buffers
