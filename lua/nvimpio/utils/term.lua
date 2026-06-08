@@ -15,6 +15,17 @@ end
 local function HideTerminalWindow(terminal_type)
   local win_id = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
 
+  -- FALLBACK: Scan all visible windows if the tracker variable is out of sync
+  if not win_id or not vim.api.nvim_win_is_valid(win_id) then
+    local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == target_buf then
+        win_id = win
+        break
+      end
+    end
+  end
+
   if win_id and vim.api.nvim_win_is_valid(win_id) then
     local safe_target_win = nil
     if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) and last_active_editor_win ~= win_id then
@@ -61,6 +72,19 @@ function M.ToggleTerminal(command, terminal_type)
     terminal_type = 'monitor'
   else
     terminal_type = 'cli'
+  end
+
+  -- 🔥 FIX: Pre-emptively scan open windows to catch terminals and sync tracking registers
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_is_valid(win) then
+      local b = vim.api.nvim_win_get_buf(win)
+      if b == pio_cli_buf then
+        pio_cli_win = win
+      end
+      if b == pio_mon_buf then
+        pio_mon_win = win
+      end
+    end
   end
 
   local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
