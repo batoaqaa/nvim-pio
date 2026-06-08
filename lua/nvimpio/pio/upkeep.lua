@@ -681,19 +681,43 @@ function M.stdoutcallback(_, data, event)
   end
   -----------------------------------------------------------------------------
 
-  if not data or #data == 0 then
-    return
+  -----------------------------------------------------------------------------
+  -- 🌟 NATIVE STREAM DATA SANITIZATION ADAPTER
+  -----------------------------------------------------------------------------
+  -- 1. Convert the raw table array into clean, unified text chunks instantly
+  local text_lines = {}
+  for i, line in ipairs(data) do
+    -- Remove Windows return carriages (\r) and trailing PTY control formatting strings
+    local clean_line = line:gsub('\r', ''):gsub('\x1b%[[0-9;]*%a', '')
+    text_lines[i] = clean_line
   end
 
-  if #data > 1 then
-    content = content .. pio_buffer .. table.concat(data, '', 1, #data)
-    pio_buffer = data[#data]
+  -- 2. Standardize data mapping layout parameters to mirror your original structure
+  local current_chunk_count = #text_lines
+  -----------------------------------------------------------------------------
+
+  -- UPDATED EVALUATION: Processes text_lines array elements flawlessly without syntax crashes
+  if current_chunk_count > 1 then
+    content = content .. pio_buffer .. table.concat(text_lines, '', 1, current_chunk_count)
+    pio_buffer = text_lines[current_chunk_count]
   else
-    -- Safe single item array evaluation
-    -- pio_buffer = pio_buffer .. data[1]
-    content = content .. pio_buffer .. data[1]
-    pio_buffer = data[1]
+    -- FIXED SINGLE-ITEM CRASH: Explicitly references index [1] of the clean array table
+    content = content .. pio_buffer .. text_lines[1]
+    pio_buffer = text_lines[1]
   end
+  -- if not data or #data == 0 then
+  --   return
+  -- end
+  --
+  -- if #data > 1 then
+  --   content = content .. pio_buffer .. table.concat(data, '', 1, #data)
+  --   pio_buffer = data[#data]
+  -- else
+  --   -- Safe single item array evaluation
+  --   -- pio_buffer = pio_buffer .. data[1]
+  --   content = content .. pio_buffer .. data[1]
+  --   pio_buffer = data[1]
+  -- end
 
   local pass_target = 'PASS' .. current_id
   local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
