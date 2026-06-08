@@ -1,116 +1,58 @@
--- File: lua/nvimpio/utils/window.lua
+-- File: lua/nvimpio/utils/term.lua
 local M = {}
 
--- Persistent in-memory cache to track your twin process tracks securely
-M.state = {
-  monitor = { buf = nil, win = nil, chan = nil },
-  cli = { buf = nil, win = nil, chan = nil },
-}
+-- Backwards-compatible variable state tracking aliases to prevent script crashes
+M.p_mon_b = nil
+M.p_cli_b = nil
+M.p_mon_c = nil
+M.p_cli_c = nil
 
-local layout_group = vim.api.nvim_create_augroup('NvimPioWindowPortalLock', { clear = true })
+---Backwards-compatible bridge wrapper function to route old calls to the new floating portal engine
+---@param command_string string The absolute PlatformIO command to pass to the terminal channel
+function M.ToggleTerminal(command_string)
+  -- 1. Safely handle empty arguments to prevent unhandled runtime errors
+  if not command_string or type(command_string) ~= 'string' or vim.trim(command_string) == '' then
+    return false
+  end
 
----Calculates the exact pixel dimensions to pin our portal across the absolute bottom edge of Neovim
----@return table config High-precision floating geometry profile
-local function calculate_bottom_portal_geometry()
-  -- Query the master screen boundaries from the core rendering loop
-  local total_columns = vim.o.columns
-  local total_lines = vim.o.lines
-  local statusline_height = (vim.o.laststatus > 0) and 1 or 0
-  local cmdline_height = vim.o.cmdheight or 1
+  -- 2. AUTOMATED TRACK SELECTOR: Detect if the command is a live monitor or standard compile task
+  local track_type = 'cli'
+  local clean_cmd = vim.trim(command_string)
 
-  -- Lock the height precisely to 15 text layout rows
-  local target_height = 15
+  if clean_cmd:find('monitor') or clean_cmd:find('device list') then
+    track_type = 'monitor'
+  end
 
-  -- Calculate the exact absolute vertical row index offset on the grid matrix
-  local vertical_row_offset = total_lines - target_height - statusline_height - cmdline_height
+  -- 3. ENSURE PROTOCOL SYNTAX PRESETS: Normalize raw inputs into structured binary strings
+  -- If the incoming string doesn't start with 'pio', prepend it so termopen executes correctly
+  if not clean_cmd:match('^pio%s') and clean_cmd ~= 'pio' then
+    clean_cmd = 'pio ' .. clean_cmd
+  end
 
-  return {
-    relative = 'editor', -- Pins layout to the root screen, NOT individual tabs/splits
-    row = vertical_row_offset,
-    col = 0,
-    width = total_columns,
-    height = target_height,
-    style = 'minimal', -- Suppresses line numbers, sign columns, and fold gutters natively
-    focusable = true,
-  }
+  -- 4. INTERACTIVE ROUTING GATEWAY: Hand off execution to your new floating layout portal
+  local ok, portal_engine = pcall(require, 'nvimpio.utils.window')
+  if not ok or not portal_engine then
+    -- Fallback safety notice if the window file hasn't been completely saved to disk yet
+    vim.notify('NVIM-PIO: Core floating window layout module missing.', vim.log.levels.ERROR)
+    return false
+  end
+
+  -- Fire the new responsive layout workflow engine
+  portal_engine.toggle_terminal_portal(track_type, clean_cmd)
+
+  -- 5. SYNTAX BACKWARD STATE ALIGNMENT: Populate your legacy pointer references
+  -- This ensures other file components reading M.p_mon_c don't encounter nil values
+  local active_state = portal_engine.state[track_type]
+  if track_type == 'monitor' then
+    M.p_mon_b = active_state.buf
+    M.p_mon_c = active_state.chan
+  else
+    M.p_cli_b = active_state.buf
+    M.p_cli_c = active_state.chan
+  end
+
+  return true
 end
-
----Spawns or switches focus to a completely layout-locked background execution terminal portal
----@param track_type "monitor"|"cli" Choose which distinct execution channel track to render
----@param shell_cmd string? The PlatformIO shell instruction text to initialize (if buffer is fresh)
-function M.toggle_terminal_portal(track_type, shell_cmd)
-  local track = M.state[track_type]
-
-  -- 1. IF PORTAL IS CURRENTLY VISIBLE: Hide it safely by destroying ONLY the window border frame
-  if track.win and vim.api.nvim_win_is_valid(track.win) then
-    pcall(vim.api.nvim_win_close, track.win, true)
-    track.win = nil
-    return
-  end
-
-  -- 2. BUFFER LIFECYCLE MANAGEMENT: Re-use the existing active buffer text stream if valid
-  if not track.buf or not vim.api.nvim_buf_is_valid(track.buf) then
-    track.buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratchpad container
-    vim.bo[track.buf].filetype = 'nvimpio-terminal'
-    track.chan = nil -- Reset channel since it requires a fresh execution wrapper
-  end
-
-  -- 3. GEOMETRY COMPILATION: Render the floating window portal pinned across the bottom edge
-  local geometry = calculate_bottom_portal_geometry()
-  track.win = vim.api.nvim_open_win(track.buf, true, geometry)
-
-  -- Apply sticky formatting properties to the local window structure profile
-  vim.wo[track.win].winfixheight = true
-  vim.wo[track.win].winfixwidth = true
-  vim.wo[track.win].wrap = true
-
-  -- 4. PROCESS INITIALIZATION: Spawn the shell task ONLY if it is a fresh stream
-  if (not track.chan or track.chan <= 0) and shell_cmd and shell_cmd ~= '' then
-    -- Execute standard built-in terminal channel stream mapping pipelines
-    track.chan = vim.fn.termopen(shell_cmd, {
-      on_exit = function(_, exit_code)
-        -- Auto-Cleanup Event Hook: Destroy window structures if a CLI run finishes cleanly
-        vim.schedule(function()
-          if track_type == 'cli' and exit_code == 0 then
-            if track.win and vim.api.nvim_win_is_valid(track.win) then
-              pcall(vim.api.nvim_win_close, track.win, true)
-              track.win = nil
-            end
-          end
-        end)
-      end,
-    })
-  end
-
-  -- Force terminal interface mode to capture keyboard navigation entries immediately
-  vim.cmd('startinsert')
-end
-
--- =========================================================================
--- DYNAMIC SCREEN RESPONSIVENESS ENGINE
--- =========================================================================
--- If the user drags or resizes their terminal emulator window window grid layout,
--- we must instantly recalculate and snap our floating panels back into true bottom alignment.
-vim.api.nvim_create_autocmd('VimResized', {
-  group = layout_group,
-  callback = function()
-    vim.schedule(function()
-      local fresh_geometry = calculate_bottom_portal_geometry()
-
-      for _, track in pairs(M.state) do
-        if track.win and vim.api.nvim_win_is_valid(track.win) then
-          pcall(vim.api.nvim_win_set_config, track.win, {
-            row = fresh_geometry.row,
-            col = fresh_geometry.col,
-            width = fresh_geometry.width,
-            height = fresh_geometry.height,
-          })
-        end
-      end
-    end)
-  end,
-})
--- =========================================================================
 
 return M
 -- local M = {}
