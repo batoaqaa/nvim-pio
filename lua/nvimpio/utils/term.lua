@@ -190,7 +190,7 @@ end
 
 local group = vim.api.nvim_create_augroup('PioTerminalLayoutWatchdogEngine', { clear = true })
 
-vim.api.nvim_create_autocmd({ 'WinNew', 'WinClosed', 'TabEnter', 'BufWinEnter' }, {
+vim.api.nvim_create_autocmd({ 'WinResized', 'BufWinEnter', 'WinNew', 'TabEnter' }, {
   group = group,
   callback = function(args)
     local ft = vim.bo[args.buf].filetype
@@ -221,38 +221,11 @@ vim.api.nvim_create_autocmd({ 'WinNew', 'WinClosed', 'TabEnter', 'BufWinEnter' }
         vim.api.nvim_win_set_buf(pio_win, pio_buf)
       end
 
-      local pio_width = vim.api.nvim_win_get_width(pio_win)
-      local total_width = vim.o.columns
-      local win_pos = vim.api.nvim_win_get_position(pio_win)
-      local win_row = win_pos[1]
-      local total_lines = vim.o.lines
+      local current_height = vim.api.nvim_win_get_height(pio_win)
+      local expected_height = get_target_height()
 
-      local is_misaligned = (pio_width < total_width) or (win_row < (total_lines * 0.4))
-
-      if is_misaligned then
-        local current_win = vim.api.nvim_get_current_win()
-        vim.api.nvim_set_current_win(pio_win)
-        vim.cmd('noautocmd wincmd J')
-
-        local target_height = get_target_height()
-        vim.api.nvim_win_set_height(pio_win, target_height)
-
-        if current_win and vim.api.nvim_win_is_valid(current_win) and current_win ~= pio_win then
-          local target_buf = vim.api.nvim_win_get_buf(current_win)
-          if vim.bo[target_buf].filetype ~= 'neo-tree' and vim.bo[target_buf].filetype ~= 'aerial' then
-            vim.api.nvim_set_current_win(current_win)
-          else
-            for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-              if win ~= pio_win and vim.api.nvim_win_is_valid(win) then
-                local w_buf = vim.api.nvim_win_get_buf(win)
-                if vim.bo[w_buf].filetype ~= 'neo-tree' and vim.bo[w_buf].filetype ~= 'aerial' and vim.bo[w_buf].buftype == '' then
-                  vim.api.nvim_set_current_win(win)
-                  break
-                end
-              end
-            end
-          end
-        end
+      if current_height ~= expected_height then
+        vim.api.nvim_win_set_height(pio_win, expected_height)
       end
     end)
   end,
