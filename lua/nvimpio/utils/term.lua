@@ -59,7 +59,6 @@ local function find_valid_editor_window()
       local buf = vim.api.nvim_win_get_buf(win)
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local bt = vim.api.nvim_get_option_value('buftype', { buf = buf })
-      -- Only target true text workspace zones (exclude plugin panels and sidebars)
       if ft ~= 'neo-tree' and ft ~= 'aerial' and bt ~= 'terminal' and bt ~= 'nofile' then
         return win
       end
@@ -134,6 +133,8 @@ function M.ToggleTerminal(command, terminal_type)
       pio_cli_buf = target_buf
     end
 
+    -- 🥇 THE TIMING CORRECTION: Assign the filetype to the buffer memory instantly,
+    -- BEFORE any window splitting commands run. This allows edgy.nvim to intercept it.
     vim.api.nvim_set_option_value('filetype', 'nvimpio-terminal', { buf = target_buf })
 
     local target_shell = vim.o.shell
@@ -147,7 +148,7 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   -- SPAWN INTERCEPT TRIGGER
-  -- Ensure focus is forced to a standard file buffer window BEFORE generating splits
+  -- Move focus away from locked sidebars to prevent E957 crashes
   local neutral_win = find_valid_editor_window()
   if neutral_win then
     vim.api.nvim_set_current_win(neutral_win)
@@ -157,12 +158,13 @@ function M.ToggleTerminal(command, terminal_type)
   local has_edgy = pcall(require, 'edgy')
 
   if has_edgy then
-    -- PATH A: Edgy is installed. Open standard split and let edgy intercept it
+    -- PATH A: Edgy is installed. Opening a split with a pre-labeled buffer
+    -- triggers edgy's layout hook instantly, placing it flat along the bottom row.
     vim.cmd('split')
     local split_win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(split_win, target_buf)
   else
-    -- PATH B: Edgy is absent. Open a native horizontal split row locked at the absolute bottom [Index]
+    -- PATH B: Fallback if edgy is absent
     vim.cmd('botright ' .. target_height .. 'split')
     local fallback_win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(fallback_win, target_buf)
@@ -178,8 +180,6 @@ function M.ToggleTerminal(command, terminal_type)
   -- WINDOW PANE DECORATIONS & PROTECTION SHIELDS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
-
-  -- The Kernel Lock: Prevents file managers/Telescope from hijacking this window layout allocation
   vim.api.nvim_set_option_value('winfixbuf', true, { scope = 'local', win = new_win })
 
   local hl = { bg = '#80a3d4', fg = '#000000' }
@@ -247,14 +247,8 @@ vim.keymap.set('n', '<C-j>', function()
   end
 end, { silent = true })
 
-vim.keymap.set('n', [[<leader>\gm]], function()
-  M.ToggleTerminal('', 'monitor')
-end, { silent = true })
-vim.keymap.set('n', [[<leader>\t]], function()
-  M.ToggleTerminal('', 'cli')
-end, { silent = true })
-
 return M
+
 -- local M = {}
 --
 -- -- Memory slots to preserve running terminal process background buffers
