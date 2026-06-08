@@ -86,20 +86,20 @@ function M.ToggleTerminal(cmd, t)
       p_cli_b = tb
     end
     local tc = vim.api.nvim_open_term(tb, {
-      on_input = function(_, _, _, d)
+      on_input = function(_, _, _, data)
         local j = (t == 'monitor') and p_mon_c or p_cli_c
         if j then
-          vim.api.nvim_chan_send(j, d)
+          vim.api.nvim_chan_send(j, data)
         end
       end,
     })
     local sh = vim.fn.has('win32') == 1 and { 'powershell.exe', '-NoLogo', '-ExecutionPolicy', 'Bypass' } or { vim.o.shell }
     local jid = vim.fn.jobstart(sh, {
       pty = true,
-      on_stdout = function(_, d)
-        if vim.api.nvim_buf_is_valid(tb) and d then
+      on_stdout = function(_, data)
+        if vim.api.nvim_buf_is_valid(tb) and data then
           local lines = {}
-          for _, l in ipairs(d) do
+          for _, l in ipairs(data) do
             if not (l:find('|| Processing') or l:find('--- forcing') or l:find('--- Terminal')) then
               table.insert(lines, l)
             end
@@ -175,26 +175,20 @@ function M.ToggleTerminal(cmd, t)
   vim.cmd('startinsert')
 end
 
-local g = vim.api.nvim_create_augroup('PioFocusWatch', { clear = true })
-vim.api.nvim_create_autocmd('WinLeave', {
+local g = vim.api.nvim_create_augroup('PioLayoutWatch', { clear = true })
+vim.api.nvim_create_autocmd({ 'WinNew', 'WinClosed' }, {
   group = g,
   callback = function()
-    vim.schedule(function()
-      local cur_win = vim.api.nvim_get_current_win()
-      local active_t = nil
-      if p_cli_w and vim.api.nvim_win_is_valid(p_cli_w) then
-        active_t = 'cli'
-      end
-      if p_mon_w and vim.api.nvim_win_is_valid(p_mon_w) then
-        active_t = 'monitor'
-      end
-      if active_t then
-        local tw = (active_t == 'monitor') and p_mon_w or p_cli_w
-        if cur_win ~= tw then
-          hide_w(active_t)
-        end
-      end
-    end)
+    local active_t = nil
+    if p_cli_w and vim.api.nvim_win_is_valid(p_cli_w) then
+      active_t = 'cli'
+    end
+    if p_mon_w and vim.api.nvim_win_is_valid(p_mon_w) then
+      active_t = 'monitor'
+    end
+    if active_t then
+      hide_w(active_t)
+    end
   end,
 })
 
