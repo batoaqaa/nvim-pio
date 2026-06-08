@@ -8,10 +8,6 @@ local pio_mon_buf = nil
 local pio_cli_win = nil
 local pio_mon_win = nil
 
--- Tracks original buffer scroll offsets so we can restore them flawlessly on close
-local original_scrolloff = nil
-local active_tracked_buf = nil
-
 ----------------------------------------------------------------------------------------
 -- INFO: Safe Window Closure Logic (Tied to pressing 'q' inside normal mode)
 local function HideTerminalWindow(terminal_type)
@@ -23,13 +19,6 @@ local function HideTerminalWindow(terminal_type)
     pio_mon_win = nil
   else
     pio_cli_win = nil
-  end
-
-  -- FIXED SCROLL GAP CLOSURE: Restore the user's personal scrolloff configuration immediately
-  if active_tracked_buf and vim.api.nvim_buf_is_valid(active_tracked_buf) and original_scrolloff then
-    vim.api.nvim_buf_set_option(active_tracked_buf, 'scrolloff', original_scrolloff)
-    original_scrolloff = nil
-    active_tracked_buf = nil
   end
   vim.cmd('redraw!')
 end
@@ -67,9 +56,8 @@ function M.ToggleTerminal(command, terminal_type)
     return
   end
 
-  -- Cache the user's active code file window and buffer coordinates
+  -- Cache the user's active code file window handle right before we spawn the split
   local parent_file_win = vim.api.nvim_get_current_win()
-  local parent_file_buf = vim.api.nvim_get_current_buf()
 
   -- 4. PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
@@ -109,16 +97,7 @@ function M.ToggleTerminal(command, terminal_type)
     col = 0, -- Starts flush with the left edge of their text
   }
 
-  -- 6. FIXED SCROLL GAP ENGINE: Programmatically push file text up out of the way!
-  -- We inject the terminal's height line-count into the code buffer's scrolloff property.
-  -- This creates an invisible barrier that forces your files to pad their scrolling lines perfectly.
-  if not original_scrolloff then
-    original_scrolloff = vim.api.nvim_buf_get_option(parent_file_buf, 'scrolloff')
-    active_tracked_buf = parent_file_buf
-    vim.api.nvim_buf_set_option(parent_file_buf, 'scrolloff', target_height + 2)
-  end
-
-  -- 7. RENDER THE SECURE HORIZONTAL PANEL OVERLAY
+  -- 6. RENDER THE SECURE HORIZONTAL PANEL OVERLAY
   local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
@@ -126,26 +105,27 @@ function M.ToggleTerminal(command, terminal_type)
     pio_cli_win = new_win
   end
 
-  -- 8. AUTOMATED FORCE-VIEWPORT RECALCULATION
-  -- Recreates your manual step completely hands-free. It forces an internal text update
-  -- via native feedkeys, making Neovim align your code rows above the terminal without
-  -- needing you to click or jump cursor states.
+  -- 7. THE AUTOMATED RE-RENDERING SYNCHRONIZER
+  -- FIXED: This replicates your exact working manual fix programmatically. It executes a micro-scheduled
+  -- focus swap down to the console to trigger Neovim's layout engine pass, forces a deep screen redraw!,
+  -- and immediately returns cursor control back to your C++ file win handle within a split millisecond.
   vim.schedule(function()
-    if parent_file_win and vim.api.nvim_win_is_valid(parent_file_win) then
-      vim.api.nvim_win_call(parent_file_win, function()
-        -- Simulates a native redraw signal to re-stack file lines safely
-        local keys = vim.api.nvim_replace_termcodes('zz', true, false, true)
-        vim.api.nvim_feedkeys(keys, 'n', false)
-      end)
+    if new_win and vim.api.nvim_win_is_valid(new_win) then
+      vim.api.nvim_set_current_win(new_win)
       vim.cmd('redraw!')
+
+      if parent_file_win and vim.api.nvim_win_is_valid(parent_file_win) then
+        vim.api.nvim_set_current_win(parent_file_win)
+        vim.cmd('redraw!')
+      end
     end
   end)
 
-  -- 9. CLEAN SYSTEM OPTIONS DECORATIONS
+  -- 8. CLEAN SYSTEM OPTIONS DECORATIONS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
-  -- 10. VISUAL CUSTOM WINBAR STYLING
+  -- 9. VISUAL CUSTOM WINBAR STYLING
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
   local winBartitle = '%#MyWinBar# ' .. title .. ' [Press ;; to Switch | Press q to hide]%*'
@@ -192,6 +172,7 @@ function M.ToggleTerminal(command, terminal_type)
   vim.keymap.set('n', '<C-l>', '<C-w>l')
 
   -- GLOBAL INTERCEPT DOWNWARD MOVEMENT HOOK:
+  -- Focuses your cursor straight down into your active terminal pane natively
   vim.keymap.set('n', '<C-j>', function()
     if new_win and vim.api.nvim_win_is_valid(new_win) then
       vim.api.nvim_set_current_win(new_win)
