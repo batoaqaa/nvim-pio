@@ -60,6 +60,9 @@ function M.ToggleTerminal(command, terminal_type)
     return
   end
 
+  -- Cache the user's active file window handle right before we spawn the split
+  local original_file_win = vim.api.nvim_get_current_win()
+
   -- 4. PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
     target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted, scratch buffer
@@ -81,31 +84,42 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end
 
-  -- 5. THE GLOBAL GRID ANCHOR LAYER:
-  -- We set splitkeep to 'screen' to lock the core buffer viewports from shifting vertical.
-  -- Passing win = 0 forces the partition to slice at the global horizontal root layer.
-  if vim.o.splitkeep ~= 'screen' then
-    vim.o.splitkeep = 'screen'
-  end
-
+  -- 5. SPAWN STRATEGY: Initialize a native horizontal split pane at the bottom edge.
+  -- 'botright split' initially cuts Neovim's layout tree at the root screen layer.
   local target_height = math.ceil(vim.o.lines * 0.28)
-  local win_opts = {
-    split = 'below', -- Directions token to open the partition beneath upper nodes
-    win = 0, -- Maps bounds calculation directly to the horizontal root tree container
-    height = target_height,
-  }
+  vim.cmd('botright ' .. target_height .. 'split')
+  local new_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(new_win, target_buf)
 
-  -- 6. RENDER THE STABLE HARDLOCKED PANELS
-  local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
   else
     pio_cli_win = new_win
   end
 
-  -- 7. CLEAN WINDOW SYSTEM FLAGS (Completely free of autocommands or loop loops)
+  -- 6. AUTOMATED FOCUS JUMP ENGINE (100% Loop-free and robust)
+  -- This programmatically recreates your manual focus action the exact millisecond the split mounts.
+  -- It forces an artificial window switch down to the console, triggers a root layout flatten ("wincmd J"),
+  -- balances the window sizes ("wincmd ="), and bounces cursor control back to the file window instantly!
+  vim.schedule(function()
+    if new_win and vim.api.nvim_win_is_valid(new_win) then
+      -- Jump behind the scenes to trigger the native layout pass
+      vim.api.nvim_set_current_win(new_win)
+      vim.cmd('wincmd J') -- Slam across 100% full-screen width at the absolute bottom row
+      vim.cmd('wincmd =') -- Natively compress the code file views above it so NO text is hidden
+
+      -- Lock the terminal window height size boundary natively
+      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
+
+      -- Seamlessly bounce the user's cursor focus back to their original C++ editing pane
+      if original_file_win and vim.api.nvim_win_is_valid(original_file_win) then
+        vim.api.nvim_set_current_win(original_file_win)
+      end
+    end
+  end)
+
+  -- 7. CLEAN WINDOW SYSTEM FLAGS (Completely free of global autocommands or layout loops)
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
   -- 8. VISUAL CUSTOM WINBAR STYLING
   local hl = { bg = '#80a3d4', fg = '#000000' }
@@ -154,8 +168,9 @@ function M.ToggleTerminal(command, terminal_type)
   -- GLOBAL INTERCEPT DOWNWARD MOVEMENT HOOK:
   -- Focuses your cursor straight down into your active terminal pane natively
   vim.keymap.set('n', '<C-j>', function()
-    if new_win and vim.api.nvim_win_is_valid(new_win) then
-      vim.api.nvim_set_current_win(new_win)
+    local cur_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
+    if cur_win and vim.api.nvim_win_is_valid(cur_win) then
+      vim.api.nvim_set_current_win(cur_win)
       vim.cmd('startinsert')
     else
       vim.cmd('wincmd j')
@@ -181,11 +196,11 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
+  -- Fallback auto-insert hook to guarantee cursor readiness inside the shell prompt
   vim.cmd('startinsert')
 end
 
 return M
-
 -- local M = {}
 --
 -- -- Memory trackers for your two persistent plugin terminal buffers
