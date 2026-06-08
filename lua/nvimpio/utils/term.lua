@@ -125,7 +125,8 @@ local function toggle_bottom_pane(track_type, shell_cmd)
 end
 
 ---The master backwards-compatible gateway function called everywhere in your plugin repository
-function M.ToggleTerminal(command_string)
+function M.ToggleTerminal(command_string, dir)
+  dir = ''
   if not command_string or type(command_string) ~= 'string' or vim.trim(command_string) == '' then
     return false
   end
