@@ -1,62 +1,146 @@
 -- File: lua/nvimpio/utils/term.lua
 local M = {}
 
--- Backwards-compatible variable state tracking aliases to prevent script crashes
+-- Legacy State Variables for Backwards Compatibility
 M.p_mon_b = nil
 M.p_cli_b = nil
 M.p_mon_c = nil
 M.p_cli_c = nil
 
----Backwards-compatible bridge wrapper function to route old calls to the new floating portal engine
----@param command_string string The absolute PlatformIO command to pass to the terminal channel
-function M.ToggleTerminal(command_string, diir)
-  dir = 'horizontal' or ''
+-- Master Floating State Registry
+local portal_state = {
+  monitor = { buf = nil, win = nil, chan = nil },
+  cli = { buf = nil, win = nil, chan = nil },
+}
 
-  -- 1. Safely handle empty arguments to prevent unhandled runtime errors
+local layout_group = vim.api.nvim_create_augroup('NvimPioWindowPortalLock', { clear = true })
+
+---High-precision calculation engine to map our layout across the absolute edge grid
+local function calculate_bottom_portal_geometry()
+  local total_columns = vim.o.columns
+  local total_lines = vim.o.lines
+  local statusline_height = (vim.o.laststatus > 0) and 1 or 0
+  local cmdline_height = vim.o.cmdheight or 1
+  local target_height = 15
+
+  local vertical_row_offset = total_lines - target_height - statusline_height - cmdline_height
+
+  return {
+    relative = 'editor',
+    row = vertical_row_offset,
+    col = 0,
+    width = total_columns,
+    height = target_height,
+    style = 'minimal',
+    focusable = true,
+  }
+end
+
+---Internal processing engine to toggle the custom floating window layer
+local function toggle_terminal_portal(track_type, shell_cmd)
+  local track = portal_state[track_type]
+
+  -- 1. IF VISIBLE: Close window layout frame and save running cache handles
+  if track.win and vim.api.nvim_win_is_valid(track.win) then
+    pcall(vim.api.nvim_win_close, track.win, true)
+    track.win = nil
+    return
+  end
+
+  -- 2. BUFFER INTEGRITY FILTER: Recycle active text buffer space safely
+  if not track.buf or not vim.api.nvim_buf_is_valid(track.buf) then
+    track.buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[track.buf].filetype = 'nvimpio-terminal'
+    track.chan = nil
+  end
+
+  -- 3. RENDER PORTAL LAYOUT: Open the absolute positioned overlay frame
+  local geometry = calculate_bottom_portal_geometry()
+  track.win = vim.api.nvim_open_win(track.buf, true, geometry)
+
+  vim.wo[track.win].winfixheight = true
+  vim.wo[track.win].winfixwidth = true
+  vim.wo[track.win].wrap = true
+
+  -- 4. SPAWN TERMINAL CHANNEL: Run instructions strictly inside fresh buffer streams
+  if (not track.chan or track.chan <= 0) and shell_cmd and shell_cmd ~= '' then
+    track.chan = vim.fn.termopen(shell_cmd, {
+      on_exit = function(_, exit_code)
+        vim.schedule(function()
+          if track_type == 'cli' and exit_code == 0 then
+            if track.win and vim.api.nvim_win_is_valid(track.win) then
+              pcall(vim.api.nvim_win_close, track.win, true)
+              track.win = nil
+            end
+          end
+        end)
+      end,
+    })
+  end
+
+  vim.cmd('startinsert')
+end
+
+---The master backwards-compatible gateway function called everywhere in your plugin
+---@param command_string string The absolute PlatformIO command instructions string
+function M.ToggleTerminal(command_string)
   if not command_string or type(command_string) ~= 'string' or vim.trim(command_string) == '' then
     return false
   end
 
-  -- 2. AUTOMATED TRACK SELECTOR: Detect if the command is a live monitor or standard compile task
-  local track_type = 'cli'
   local clean_cmd = vim.trim(command_string)
+  local track_type = 'cli'
 
+  -- Automated Execution Router: Distinguish between compile runs and serial hardware streams
   if clean_cmd:find('monitor') or clean_cmd:find('device list') then
     track_type = 'monitor'
   end
 
-  -- 3. ENSURE PROTOCOL SYNTAX PRESETS: Normalize raw inputs into structured binary strings
-  -- If the incoming string doesn't start with 'pio', prepend it so termopen executes correctly
   if not clean_cmd:match('^pio%s') and clean_cmd ~= 'pio' then
     clean_cmd = 'pio ' .. clean_cmd
   end
 
-  -- 4. INTERACTIVE ROUTING GATEWAY: Hand off execution to your new floating layout portal
-  local ok, portal_engine = pcall(require, 'nvimpio.utils.window')
-  if not ok or not portal_engine then
-    -- Fallback safety notice if the window file hasn't been completely saved to disk yet
-    vim.notify('NVIM-PIO: Core floating window layout module missing.', vim.log.levels.ERROR)
-    return false
-  end
+  -- Execute portal rendering workflow
+  toggle_terminal_portal(track_type, clean_cmd)
 
-  -- Fire the new responsive layout workflow engine
-  portal_engine.toggle_terminal_portal(track_type, clean_cmd)
-
-  -- 5. SYNTAX BACKWARD STATE ALIGNMENT: Populate your legacy pointer references
-  -- This ensures other file components reading M.p_mon_c don't encounter nil values
-  local active_state = portal_engine.state[track_type]
+  -- Synchronize state changes back to your legacy global tracking variables safely
+  local active = portal_state[track_type]
   if track_type == 'monitor' then
-    M.p_mon_b = active_state.buf
-    M.p_mon_c = active_state.chan
+    M.p_mon_b = active.buf
+    M.p_mon_c = active.chan
   else
-    M.p_cli_b = active_state.buf
-    M.p_cli_c = active_state.chan
+    M.p_cli_b = active.buf
+    M.p_cli_c = active.chan
   end
 
   return true
 end
 
+-- =========================================================================
+-- HIGH-PERFORMANCE DYNAMIC RE-SNAP LAYER
+-- =========================================================================
+vim.api.nvim_create_autocmd('VimResized', {
+  group = layout_group,
+  callback = function()
+    vim.schedule(function()
+      local fresh_geometry = calculate_bottom_portal_geometry()
+      for _, track in pairs(portal_state) do
+        if track.win and vim.api.nvim_win_is_valid(track.win) then
+          pcall(vim.api.nvim_win_set_config, track.win, {
+            row = fresh_geometry.row,
+            col = fresh_geometry.col,
+            width = fresh_geometry.width,
+            height = fresh_geometry.height,
+          })
+        end
+      end
+    end)
+  end,
+})
+-- =========================================================================
+
 return M
+
 -- local M = {}
 --
 -- local pio_cli_buf = nil
