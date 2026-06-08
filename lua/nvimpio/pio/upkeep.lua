@@ -667,48 +667,54 @@ local trm
 local pio_buffer = ''
 local content = ''
 
--- [LEAVE OUTSIDE]: Kept completely independent from the internal layout spawner loops
 function M.stdoutcallback(job_id, data, event)
-  -----------------------------------------------------------------------------
-  -- 🔍 DETECTIVE TRACE HOOKS: Run this snippet to verify active process triggers
-  -----------------------------------------------------------------------------
-  -- Trace Call #1: Logs the unique event name ("stdout") and incoming table length
-  vim.notify(string.format('[PioTrace] Callback hit! Event: %s, Chunks received: %d', tostring(event), data and #data or 0), vim.log.levels.INFO)
-
-  -- Trace Call #2: Dumps the raw log string block content to verify stream integrity
-  if data and #data > 0 then
-    vim.notify('[PioData Dump]: ' .. table.concat(data, ' | '), vim.log.levels.DEBUG)
-  end
-  -----------------------------------------------------------------------------
-
   if not data or #data == 0 then
     return
   end
 
   -----------------------------------------------------------------------------
-  -- 🌟 NATIVE TERMINAL TABLE ARRAY STANDARDIST UNPACKER & ANSI STRIPPER
+  -- 🔍 DEEP TRACE LOG ENTRY: Captures the raw chunk array sizes
   -----------------------------------------------------------------------------
+  vim.notify(string.format('\n[DEEP TRACE] --- NEW RAW CHUNK ARRIVAL --- Chunks: %d', #data), vim.log.levels.INFO)
+  for idx, val in ipairs(data) do
+    vim.notify(string.format('  Raw Line [%d]: %q', idx, val), vim.log.levels.DEBUG)
+  end
+  -----------------------------------------------------------------------------
+
   local processed_lines = {}
   for i, line in ipairs(data) do
-    -- Removes Windows carriage returns (\r) AND strips raw interactive PTY ANSI color strings
-    -- This ensures your core pattern strings stay pristine behind the scenes!
     processed_lines[i] = line:gsub('\r', ''):gsub('\x1b%[[0-9;]*%a', '')
   end
   local chunk_count = #processed_lines
-  -----------------------------------------------------------------------------
 
   if chunk_count > 1 then
     content = content .. pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
     pio_buffer = processed_lines[chunk_count]
   else
     content = content .. pio_buffer .. processed_lines[1]
-    pio_buffer = processed_lines[1]
+    pio_buffer = ''
   end
+
+  -----------------------------------------------------------------------------
+  -- 🔍 DEEP TRACE LOG CONTENT: Inspects the fully accumulated buffer text
+  -----------------------------------------------------------------------------
+  vim.notify(string.format('[DEEP TRACE] Searching for current_token: %q', tostring(current_token)), vim.log.levels.INFO)
+  vim.notify(string.format('[DEEP TRACE] Accumulated Content:\n%s\n--- END CONTENT ---', content), vim.log.levels.DEBUG)
+  -----------------------------------------------------------------------------
 
   local pass_target = 'PASS' .. current_id
   local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target, 1, true) ~= nil
   local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE', 1, true) ~= nil
   local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL', 1, true) ~= nil
+
+  -----------------------------------------------------------------------------
+  -- 🔍 DEEP TRACE MATCH CHECKS: Logs the literal search result outcomes
+  -----------------------------------------------------------------------------
+  vim.notify(
+    string.format('[DEEP TRACE] Match Status -> has_pass: %s, has_done: %s, has_fail: %s', tostring(has_pass), tostring(has_done), tostring(has_fail)),
+    vim.log.levels.INFO
+  )
+  -----------------------------------------------------------------------------
 
   if has_pass or has_fail or has_done then
     local active_cb = callBack
@@ -721,28 +727,20 @@ function M.stdoutcallback(job_id, data, event)
       if clangd_check_active then
         clangd_extracted_args = {}
 
-        local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
-        local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
-
-        -- FIXED EXTRACTOR MATCH: We reverse-scan the content buffer using string.match
-        -- or explicit index offsets to ensure we find the true output token line
-        -- at the bottom of the log stream, safely skipping any interactive shell input echoes!
         local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
         local end_idx = content:find(end_pattern, 1, true)
 
-        -- Fallback scanner to isolate the boundary coordinates safely
         local start_idx = nil
         if end_idx then
-          -- Scan backwards from right before our termination token marker line
+          local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
+          local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
           local search_zone = content:sub(1, end_idx - 1)
 
-          -- Find the last occurrence of the start pattern sequence
           local current_pos = 1
           while true do
             local next_start, next_end = search_zone:find(start_pattern, current_pos, true)
             if not next_start then
               if not start_idx then
-                -- Try the fallback echo pattern if the target status hasn't matched yet
                 local fb_start, fb_end = search_zone:find(fallback_echo, current_pos, true)
                 if fb_start then
                   start_idx = fb_end
@@ -755,9 +753,15 @@ function M.stdoutcallback(job_id, data, event)
           end
         end
 
-        -- Slice and parse the isolated fresh compilation logs text block safely
+        -----------------------------------------------------------------------------
+        -- 🔍 DEEP TRACE EXTRACTOR INDICES: Pinpoints slicing boundary failures
+        -----------------------------------------------------------------------------
+        vim.notify(string.format('[DEEP TRACE] Slicing Indices -> start_idx: %s, end_idx: %s', tostring(start_idx), tostring(end_idx)), vim.log.levels.WARN)
+        -----------------------------------------------------------------------------
+
         if start_idx and end_idx and end_idx > start_idx then
           local fresh_run_logs = string.sub(content, start_idx + 1, end_idx - 1)
+          vim.notify('[DEEP TRACE] Extracted Run Logs successfully sliced!', vim.log.levels.INFO)
 
           if not string.find(fresh_run_logs, '%.clang%-format') then
             local seen = {}
@@ -770,7 +774,7 @@ function M.stdoutcallback(job_id, data, event)
             end
           end
         else
-          -- Reset stream buffer values cleanly before escaping an un-synchronized token block
+          vim.notify('[DEEP TRACE] CRITICAL ERROR: Slicing bounds failed. Aborting callback!', vim.log.levels.ERROR)
           pio_buffer = ''
           content = ''
           return
