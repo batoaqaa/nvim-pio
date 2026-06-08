@@ -7,7 +7,7 @@ M.p_cli_b = nil
 M.p_mon_c = nil
 M.p_cli_c = nil
 
--- Edgy-Style Window & Buffer State Cache Registry
+-- Master Proxy State Cache Registry
 local pane_state = {
   monitor = { buf = nil, win = nil, chan = nil, spacer_win = nil, spacer_buf = nil },
   cli = { buf = nil, win = nil, chan = nil, spacer_win = nil, spacer_buf = nil },
@@ -20,7 +20,7 @@ local function get_win_geometry(win_id)
   if not win_id or not vim.api.nvim_win_is_valid(win_id) then
     return nil
   end
-  local pos = vim.api.nvim_win_get_position(win_id) -- returns {row, col}
+  local pos = vim.api.nvim_win_get_position(win_id)
   local width = vim.api.nvim_win_get_width(win_id)
   local height = vim.api.nvim_win_get_height(win_id)
   return { row = pos[1], col = pos[2], width = width, height = height }
@@ -30,7 +30,7 @@ end
 local function toggle_bottom_pane(track_type, shell_cmd)
   local track = pane_state[track_type]
 
-  -- 1. IF PANE IS VISIBLE: Gracefully close both the float portal and the structural spacer split
+  -- 1. IF VISIBLE: Gracefully close both the float portal and the structural spacer split
   if track.win and vim.api.nvim_win_is_valid(track.win) then
     pcall(vim.api.nvim_win_close, track.win, true)
     track.win = nil
@@ -44,8 +44,7 @@ local function toggle_bottom_pane(track_type, shell_cmd)
   -- Cache your active text writing cursor window context safely before any operations
   local initial_active_win = vim.api.nvim_get_current_win()
 
-  -- 2. STAGE A: CREATE THE STRUCTURAL SPACER SPLIT
-  -- This forces code windows to physically shrink up, ensuring code never overlaps!
+  -- 2. STAGE A: CREATE THE STRUCTURAL SPACER BUFFER
   if not track.spacer_buf or not vim.api.nvim_buf_is_valid(track.spacer_buf) then
     track.spacer_buf = vim.api.nvim_create_buf(false, true)
     vim.bo[track.spacer_buf].buftype = 'nofile'
@@ -54,26 +53,34 @@ local function toggle_bottom_pane(track_type, shell_cmd)
     vim.api.nvim_buf_set_name(track.spacer_buf, 'PlatformIO_Dock_Spacer_' .. track_type)
   end
 
-  -- Raise the safety shield flag to completely mute background upkeep scripts during mutations
+  -- Raise the safety shield flag to completely mute background upkeep scripts
   if _G.metadata then
     _G.metadata.isShiftingLayout = true
   end
 
-  -- Spawn ordinary lower layout split box
-  vim.cmd('botright split')
-  track.spacer_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(track.spacer_win, track.spacer_buf)
-  vim.cmd('resize 15')
+  -- =========================================================================
+  -- LOW-LEVEL TREE ATTACHMENT BYPASS (No more botright split)
+  -- =========================================================================
+  -- Open a pristine split window programmatically to house our spacer buffer
+  local temp_win = vim.api.nvim_open_win(track.spacer_buf, false, {
+    split = 'below',
+    height = 15,
+  })
 
-  -- =========================================================================
-  -- TYPO FIXED HERE: Explicitly pass the valid spacer window reference handle
-  -- =========================================================================
+  -- Surgically shift the window frame to the absolute baseline layer of Neovim's layout tree
+  pcall(function()
+    vim.api.nvim_win_splitmove(temp_win, 0, { vertical = false, rightbelow = true })
+  end)
+
+  track.spacer_win = temp_win
+
+  -- Hard-lock the spacer height parameters directly on the low-level window container
   vim.wo[track.spacer_win].winfixheight = true
   vim.wo[track.spacer_win].winfixwidth = true
-  vim.wo[track.spacer_win].winhighlight = 'Normal:NormalSB,SignColumn:NormalSB'
+  pcall(vim.api.nvim_win_set_height, track.spacer_win, 15)
   -- =========================================================================
 
-  -- 3. STAGE B: CREATE THE CORE TERMINAL CHANNEL STREAM
+  -- 3. STAGE B: CREATE THE CORE TERMINAL BUFFER
   if not track.buf or not vim.api.nvim_buf_is_valid(track.buf) then
     track.buf = vim.api.nvim_create_buf(false, true)
     vim.bo[track.buf].filetype = 'nvimpio-terminal'
@@ -184,8 +191,6 @@ vim.api.nvim_create_autocmd({ 'BufEnter', 'WinResized', 'VimResized' }, {
       end
 
       -- HIJACK INTERCEPTOR GATEWAY:
-      -- If Neo-tree attempts to open a file inside our underlying structural spacer split window slot,
-      -- intercept it immediately, clear the console pane, and evict the code file up to editing view splits!
       if track.spacer_win and current_win == track.spacer_win and args.buf ~= track.spacer_buf then
         local leaked_buf = args.buf
 
