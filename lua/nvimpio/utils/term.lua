@@ -90,9 +90,15 @@ function M.ToggleTerminal(command, terminal_type)
     vim.api.nvim_buf_call(target_buf, function()
       vim.fn.jobstart(target_shell, {
         term = true, -- Attaches a native PTY container natively onto the blank buffer context
-        on_stdout = function(_, data, _)
+        on_stderr = function(job_id, data, event)
           if type(M.stdout_callback) == 'function' then
-            M.stdout_callback(target_buf, data)
+            M.stdout_callback(target_buf, job_id, data, event)
+          end
+        end,
+        on_stdout = function(job_id, data, event)
+          if type(M.stdout_callback) == 'function' then
+            -- M.stdout_callback(terminal, job, data, name)
+            M.stdout_callback(target_buf, job_id, data, event)
           end
         end,
         on_exit = function()
