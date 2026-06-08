@@ -7,99 +7,103 @@ M.p_cli_b = nil
 M.p_mon_c = nil
 M.p_cli_c = nil
 
--- Master Floating State Registry
-local portal_state = {
-  monitor = { buf = nil, win = nil, chan = nil },
-  cli = { buf = nil, win = nil, chan = nil },
+-- Edgy-Style Window & Buffer State Cache Registry
+local pane_state = {
+  monitor = { buf = nil, win = nil, chan = nil, spacer_win = nil, spacer_buf = nil },
+  cli = { buf = nil, win = nil, chan = nil, spacer_win = nil, spacer_buf = nil },
 }
 
-local layout_group = vim.api.nvim_create_augroup('NvimPioAbsoluteDockPortal', { clear = true })
+local layout_group = vim.api.nvim_create_augroup('NvimPioProxyLayoutEngine', { clear = true })
 
----High-precision calculation engine to map our layout across the absolute edge grid
-local function calculate_bottom_portal_geometry()
-  local total_columns = vim.o.columns
-  local total_lines = vim.o.lines
-  local statusline_height = (vim.o.laststatus > 0) and 1 or 0
-  local cmdline_height = vim.o.cmdheight or 1
-  local target_height = 15
-
-  local vertical_row_offset = total_lines - target_height - statusline_height - cmdline_height
-
-  return {
-    relative = 'editor', -- Pins layout to the root screen, NOT individual tabs/splits
-    row = vertical_row_offset,
-    col = 0,
-    width = total_columns,
-    height = target_height,
-    style = 'minimal', -- Suppresses line numbers, sign columns, and fold gutters natively
-    focusable = true,
-  }
-end
-
----CRITICAL SHIELD MECHANISM: Toggles global rendering offsets so text never overlaps
----@param active boolean True to inject padding spacing, False to clear it
-local function toggle_workspace_viewport_bounds(active)
-  -- We use window-local options to shift text rows up by 15 lines safely
-  for _, win in ipairs(vim.api.nvim_list_wins()) do
-    if vim.api.nvim_win_is_valid(win) then
-      local config = vim.api.nvim_win_get_config(win)
-      if config.relative == '' then -- Only manipulate normal code window split panes
-        if active then
-          vim.wo[win].scrolloff = 15 -- Forces Neovim to push your active code text ABOVE the terminal float!
-        else
-          vim.wo[win].scrolloff = 0
-        end
-      end
-    end
+---Helper to get exact screen coordinates of a specific window split pane
+local function get_win_geometry(win_id)
+  if not win_id or not vim.api.nvim_win_is_valid(win_id) then
+    return nil
   end
+  local pos = vim.api.nvim_win_get_position(win_id) -- returns {row, col}
+  local width = vim.api.nvim_win_get_width(win_id)
+  local height = vim.api.nvim_win_get_height(win_id)
+  return { row = pos[1], col = pos[2], width = width, height = height }
 end
 
----Internal processing engine to toggle the custom floating window layer
-local function toggle_terminal_portal(track_type, shell_cmd)
-  local track = portal_state[track_type]
+---Internal processing engine to toggle the layout-locked proxy terminal pane cleanly
+local function toggle_bottom_pane(track_type, shell_cmd)
+  local track = pane_state[track_type]
 
-  -- 1. IF PORTAL IS CURRENTLY VISIBLE: Hide it safely by destroying ONLY the window border frame
+  -- 1. IF PANE IS VISIBLE: Gracefully close both the float portal and the structural spacer split
   if track.win and vim.api.nvim_win_is_valid(track.win) then
     pcall(vim.api.nvim_win_close, track.win, true)
     track.win = nil
-    toggle_workspace_viewport_bounds(false) -- Let code expand back down full screen
+    if track.spacer_win and vim.api.nvim_win_is_valid(track.spacer_win) then
+      pcall(vim.api.nvim_win_close, track.spacer_win, true)
+      track.spacer_win = nil
+    end
     return
   end
 
-  -- 2. BUFFER LIFECYCLE MANAGEMENT: Re-use the existing active buffer text stream if valid
-  if not track.buf or not vim.api.nvim_buf_is_valid(track.buf) then
-    track.buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratchpad container
-    vim.bo[track.buf].filetype = 'nvimpio-terminal'
+  -- Cache your active text writing cursor window context safely before any operations
+  local initial_active_win = vim.api.nvim_get_current_win()
 
-    -- Tell Neovim's window coordinator that this buffer is a system panel
-    vim.bo[track.buf].buftype = 'nofile'
-    vim.bo[track.buf].bufhidden = 'hide'
+  -- 2. STAGE A: CREATE THE STRUCTURAL SPACER SPLIT
+  -- This forces code windows to physically shrink up, ensuring code never overlaps!
+  if not track.spacer_buf or not vim.api.nvim_buf_is_valid(track.spacer_buf) then
+    track.spacer_buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[track.spacer_buf].buftype = 'nofile'
+    vim.bo[track.spacer_buf].bufhidden = 'hide'
+    vim.bo[track.spacer_buf].swapfile = false
+    vim.api.nvim_buf_set_name(track.spacer_buf, 'PlatformIO_Dock_Spacer_' .. track_type)
+  end
+
+  -- Raise the safety shield flag to completely mute background upkeep scripts during mutations
+  if _G.metadata then
+    _G.metadata.isShiftingLayout = true
+  end
+
+  -- Spawn ordinary lower layout split box
+  vim.cmd('botright split')
+  track.spacer_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(track.spacer_win, track.spacer_buf)
+  vim.cmd('resize 15')
+
+  -- Hard-lock spacer geometry parameters layout filters natively
+  vim.wo[track.spacer_win].winfixheight = true
+  vim.wo[track.winfixwidth] = true
+  vim.wo[track.spacer_win].winhighlight = 'Normal:NormalSB,SignColumn:NormalSB'
+
+  -- 3. STAGE B: CREATE THE ORE TERMINAL CHANNEL STREAM
+  if not track.buf or not vim.api.nvim_buf_is_valid(track.buf) then
+    track.buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[track.buf].filetype = 'nvimpio-terminal'
     track.chan = nil
   end
 
-  -- Enforce text view restrictions before rendering the portal layout
-  toggle_workspace_viewport_bounds(true)
+  -- 4. STAGE C: DROP OVERLAY PORTAL WINDOW EXACTLY ON TOP OF SPACER
+  local geo = get_win_geometry(track.spacer_win)
+  if geo then
+    track.win = vim.api.nvim_open_win(track.buf, true, {
+      relative = 'editor',
+      row = geo.row,
+      col = geo.col,
+      width = geo.width,
+      height = geo.height,
+      style = 'minimal',
+      focusable = true,
+    })
+  end
 
-  -- 3. GEOMETRY COMPILATION: Render the floating window portal pinned across the bottom edge
-  local geometry = calculate_bottom_portal_geometry()
-  track.win = vim.api.nvim_open_win(track.buf, true, geometry)
-
-  -- Apply sticky formatting properties to the local window structure profile
-  vim.wo[track.win].winfixheight = true
-  vim.wo[track.win].winfixwidth = true
-  vim.wo[track.win].wrap = true
-
-  -- 4. PROCESS INITIALIZATION: Spawn the shell task ONLY if it is a fresh stream
+  -- Spawn the interactive terminal shell execution channel natively
   if (not track.chan or track.chan <= 0) and shell_cmd and shell_cmd ~= '' then
     track.chan = vim.fn.termopen(shell_cmd, {
       on_exit = function(_, exit_code)
-        -- Auto-Cleanup Event Hook: Destroy window structures if a CLI run finishes cleanly
         vim.schedule(function()
           if track_type == 'cli' and exit_code == 0 then
             if track.win and vim.api.nvim_win_is_valid(track.win) then
               pcall(vim.api.nvim_win_close, track.win, true)
               track.win = nil
-              toggle_workspace_viewport_bounds(false)
+            end
+            if track.spacer_win and vim.api.nvim_win_is_valid(track.spacer_win) then
+              pcall(vim.api.nvim_win_close, track.spacer_win, true)
+              track.spacer_win = nil
             end
           end
         end)
@@ -107,12 +111,20 @@ local function toggle_terminal_portal(track_type, shell_cmd)
     })
   end
 
-  -- Force terminal interface mode to capture keyboard navigation entries immediately
-  vim.cmd('startinsert')
+  -- Release the layout state flag lock safely on the next loop tick
+  vim.schedule(function()
+    if _G.metadata then
+      _G.metadata.isShiftingLayout = false
+    end
+  end)
+
+  -- RESTORE FOCUS INSTANTLY: Return cursor smoothly to the active code file or sidebar tree
+  if vim.api.nvim_win_is_valid(initial_active_win) then
+    vim.api.nvim_set_current_win(initial_active_win)
+  end
 end
 
 ---The master backwards-compatible gateway function called everywhere in your plugin repository
----@param command_string string The absolute PlatformIO command instructions string
 function M.ToggleTerminal(command_string)
   if not command_string or type(command_string) ~= 'string' or vim.trim(command_string) == '' then
     return false
@@ -121,7 +133,6 @@ function M.ToggleTerminal(command_string)
   local clean_cmd = vim.trim(command_string)
   local track_type = 'cli'
 
-  -- Automated Execution Router: Distinguish between compile runs and serial hardware streams
   if clean_cmd:find('monitor') or clean_cmd:find('device list') then
     track_type = 'monitor'
   end
@@ -130,10 +141,9 @@ function M.ToggleTerminal(command_string)
     clean_cmd = 'pio ' .. clean_cmd
   end
 
-  toggle_terminal_portal(track_type, clean_cmd)
+  toggle_bottom_pane(track_type, clean_cmd)
 
-  -- Synchronize state changes back to your legacy global tracking variables safely
-  local active = portal_state[track_type]
+  local active = pane_state[track_type]
   if track_type == 'monitor' then
     M.p_mon_b = active.buf
     M.p_mon_c = active.chan
@@ -146,31 +156,258 @@ function M.ToggleTerminal(command_string)
 end
 
 -- =========================================================================
--- HIGH-PERFORMANCE WINDOW RE-ALIGNMENT RESIZE MONITOR
+-- THE WORKSPACE WINDOW PROTECTION GUARD & LAYOUT LOCK
 -- =========================================================================
-vim.api.nvim_create_autocmd({ 'VimResized', 'BufEnter' }, {
+vim.api.nvim_create_autocmd({ 'BufEnter', 'WinResized', 'VimResized' }, {
   group = layout_group,
-  callback = function()
-    vim.schedule(function()
-      local fresh_geometry = calculate_bottom_portal_geometry()
+  callback = function(args)
+    local current_win = vim.api.nvim_get_current_win()
 
-      for _, track in pairs(portal_state) do
-        if track.win and vim.api.nvim_win_is_valid(track.win) then
+    for type_name, track in pairs(pane_state) do
+      -- Synchronize Floating Overlay Geometry Bounds to perfectly match the underlying Spacer Pane
+      if track.spacer_win and vim.api.nvim_win_is_valid(track.spacer_win) then
+        pcall(vim.api.nvim_win_set_height, track.spacer_win, 15)
+
+        local geo = get_win_geometry(track.spacer_win)
+        if geo and track.win and vim.api.nvim_win_is_valid(track.win) then
           pcall(vim.api.nvim_win_set_config, track.win, {
-            row = fresh_geometry.row,
-            col = fresh_geometry.col,
-            width = fresh_geometry.width,
-            height = fresh_geometry.height,
+            relative = 'editor',
+            row = geo.row,
+            col = geo.col,
+            width = geo.width,
+            height = geo.height,
           })
-          toggle_workspace_viewport_bounds(true)
         end
       end
-    end)
+
+      -- HIJACK INTERCEPTOR GATEWAY:
+      -- If Neo-tree attempts to open a file inside our underlying structural spacer split window slot,
+      -- intercept it immediately, clear the console pane, and evict the code file up to editing view splits!
+      if track.spacer_win and current_win == track.spacer_win and args.buf ~= track.spacer_buf then
+        local leaked_buf = args.buf
+
+        vim.schedule(function()
+          -- Put the structural spacer buffer back into its proper window frame instantly
+          if vim.api.nvim_win_is_valid(track.spacer_win) and vim.api.nvim_buf_is_valid(track.spacer_buf) then
+            vim.api.nvim_win_set_buf(track.spacer_win, track.spacer_buf)
+          end
+
+          -- Evict the leaked file into a valid upper code window split pane
+          local target_win = nil
+          for _, w in ipairs(vim.api.nvim_list_wins()) do
+            if w ~= track.spacer_win and w ~= track.win then
+              local b = vim.api.nvim_win_get_buf(w)
+              local ft = vim.bo[b].filetype
+              local bt = vim.bo[b].buftype
+              if bt == '' and ft ~= 'neo-tree' and ft ~= 'NvimTree' then
+                target_win = w
+                break
+              end
+            end
+          end
+
+          if target_win then
+            vim.api.nvim_set_current_win(target_win)
+            vim.api.nvim_win_set_buf(target_win, leaked_buf)
+          else
+            -- Empty Workspace Fix (Only Neo-Tree and Spacer are active)
+            local neotree_win = nil
+            for _, w in ipairs(vim.api.nvim_list_wins()) do
+              if w ~= track.spacer_win and w ~= track.win then
+                neotree_win = w
+                break
+              end
+            end
+
+            if neotree_win and vim.api.nvim_win_is_valid(neotree_win) then
+              local code_win = vim.api.nvim_open_win(leaked_buf, true, { split = 'right', win = neotree_win })
+              vim.api.nvim_set_current_win(code_win)
+            else
+              vim.cmd('new')
+              pcall(vim.api.nvim_win_set_buf, 0, leaked_buf)
+            end
+          end
+        end)
+      end
+    end
   end,
 })
 -- =========================================================================
 
 return M
+-- -- File: lua/nvimpio/utils/term.lua
+-- local M = {}
+--
+-- -- Legacy State Variables for Backwards Compatibility across your files
+-- M.p_mon_b = nil
+-- M.p_cli_b = nil
+-- M.p_mon_c = nil
+-- M.p_cli_c = nil
+--
+-- -- Master Floating State Registry
+-- local portal_state = {
+--   monitor = { buf = nil, win = nil, chan = nil },
+--   cli = { buf = nil, win = nil, chan = nil },
+-- }
+--
+-- local layout_group = vim.api.nvim_create_augroup('NvimPioAbsoluteDockPortal', { clear = true })
+--
+-- ---High-precision calculation engine to map our layout across the absolute edge grid
+-- local function calculate_bottom_portal_geometry()
+--   local total_columns = vim.o.columns
+--   local total_lines = vim.o.lines
+--   local statusline_height = (vim.o.laststatus > 0) and 1 or 0
+--   local cmdline_height = vim.o.cmdheight or 1
+--   local target_height = 15
+--
+--   local vertical_row_offset = total_lines - target_height - statusline_height - cmdline_height
+--
+--   return {
+--     relative = 'editor', -- Pins layout to the root screen, NOT individual tabs/splits
+--     row = vertical_row_offset,
+--     col = 0,
+--     width = total_columns,
+--     height = target_height,
+--     style = 'minimal', -- Suppresses line numbers, sign columns, and fold gutters natively
+--     focusable = true,
+--   }
+-- end
+--
+-- ---CRITICAL SHIELD MECHANISM: Toggles global rendering offsets so text never overlaps
+-- ---@param active boolean True to inject padding spacing, False to clear it
+-- local function toggle_workspace_viewport_bounds(active)
+--   -- We use window-local options to shift text rows up by 15 lines safely
+--   for _, win in ipairs(vim.api.nvim_list_wins()) do
+--     if vim.api.nvim_win_is_valid(win) then
+--       local config = vim.api.nvim_win_get_config(win)
+--       if config.relative == '' then -- Only manipulate normal code window split panes
+--         if active then
+--           vim.wo[win].scrolloff = 15 -- Forces Neovim to push your active code text ABOVE the terminal float!
+--         else
+--           vim.wo[win].scrolloff = 0
+--         end
+--       end
+--     end
+--   end
+-- end
+--
+-- ---Internal processing engine to toggle the custom floating window layer
+-- local function toggle_terminal_portal(track_type, shell_cmd)
+--   local track = portal_state[track_type]
+--
+--   -- 1. IF PORTAL IS CURRENTLY VISIBLE: Hide it safely by destroying ONLY the window border frame
+--   if track.win and vim.api.nvim_win_is_valid(track.win) then
+--     pcall(vim.api.nvim_win_close, track.win, true)
+--     track.win = nil
+--     toggle_workspace_viewport_bounds(false) -- Let code expand back down full screen
+--     return
+--   end
+--
+--   -- 2. BUFFER LIFECYCLE MANAGEMENT: Re-use the existing active buffer text stream if valid
+--   if not track.buf or not vim.api.nvim_buf_is_valid(track.buf) then
+--     track.buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratchpad container
+--     vim.bo[track.buf].filetype = 'nvimpio-terminal'
+--
+--     -- Tell Neovim's window coordinator that this buffer is a system panel
+--     vim.bo[track.buf].buftype = 'nofile'
+--     vim.bo[track.buf].bufhidden = 'hide'
+--     track.chan = nil
+--   end
+--
+--   -- Enforce text view restrictions before rendering the portal layout
+--   toggle_workspace_viewport_bounds(true)
+--
+--   -- 3. GEOMETRY COMPILATION: Render the floating window portal pinned across the bottom edge
+--   local geometry = calculate_bottom_portal_geometry()
+--   track.win = vim.api.nvim_open_win(track.buf, true, geometry)
+--
+--   -- Apply sticky formatting properties to the local window structure profile
+--   vim.wo[track.win].winfixheight = true
+--   vim.wo[track.win].winfixwidth = true
+--   vim.wo[track.win].wrap = true
+--
+--   -- 4. PROCESS INITIALIZATION: Spawn the shell task ONLY if it is a fresh stream
+--   if (not track.chan or track.chan <= 0) and shell_cmd and shell_cmd ~= '' then
+--     track.chan = vim.fn.termopen(shell_cmd, {
+--       on_exit = function(_, exit_code)
+--         -- Auto-Cleanup Event Hook: Destroy window structures if a CLI run finishes cleanly
+--         vim.schedule(function()
+--           if track_type == 'cli' and exit_code == 0 then
+--             if track.win and vim.api.nvim_win_is_valid(track.win) then
+--               pcall(vim.api.nvim_win_close, track.win, true)
+--               track.win = nil
+--               toggle_workspace_viewport_bounds(false)
+--             end
+--           end
+--         end)
+--       end,
+--     })
+--   end
+--
+--   -- Force terminal interface mode to capture keyboard navigation entries immediately
+--   vim.cmd('startinsert')
+-- end
+--
+-- ---The master backwards-compatible gateway function called everywhere in your plugin repository
+-- ---@param command_string string The absolute PlatformIO command instructions string
+-- function M.ToggleTerminal(command_string)
+--   if not command_string or type(command_string) ~= 'string' or vim.trim(command_string) == '' then
+--     return false
+--   end
+--
+--   local clean_cmd = vim.trim(command_string)
+--   local track_type = 'cli'
+--
+--   -- Automated Execution Router: Distinguish between compile runs and serial hardware streams
+--   if clean_cmd:find('monitor') or clean_cmd:find('device list') then
+--     track_type = 'monitor'
+--   end
+--
+--   if not clean_cmd:match('^pio%s') and clean_cmd ~= 'pio' then
+--     clean_cmd = 'pio ' .. clean_cmd
+--   end
+--
+--   toggle_terminal_portal(track_type, clean_cmd)
+--
+--   -- Synchronize state changes back to your legacy global tracking variables safely
+--   local active = portal_state[track_type]
+--   if track_type == 'monitor' then
+--     M.p_mon_b = active.buf
+--     M.p_mon_c = active.chan
+--   else
+--     M.p_cli_b = active.buf
+--     M.p_cli_c = active.chan
+--   end
+--
+--   return true
+-- end
+--
+-- -- =========================================================================
+-- -- HIGH-PERFORMANCE WINDOW RE-ALIGNMENT RESIZE MONITOR
+-- -- =========================================================================
+-- vim.api.nvim_create_autocmd({ 'VimResized', 'BufEnter' }, {
+--   group = layout_group,
+--   callback = function()
+--     vim.schedule(function()
+--       local fresh_geometry = calculate_bottom_portal_geometry()
+--
+--       for _, track in pairs(portal_state) do
+--         if track.win and vim.api.nvim_win_is_valid(track.win) then
+--           pcall(vim.api.nvim_win_set_config, track.win, {
+--             row = fresh_geometry.row,
+--             col = fresh_geometry.col,
+--             width = fresh_geometry.width,
+--             height = fresh_geometry.height,
+--           })
+--           toggle_workspace_viewport_bounds(true)
+--         end
+--       end
+--     end)
+--   end,
+-- })
+-- -- =========================================================================
+--
+-- return M
 -- local M = {}
 --
 -- local pio_cli_buf = nil
