@@ -22,7 +22,7 @@ local function inject_edgy_integration()
   if has_edgy and edgy.config then
     edgy.config.bottom = edgy.config.bottom or {}
     local is_registered = false
-    for _, item in ipairs(edgy.config.bottom) do
+    for _, item in ipairs(edgy.config.bottom or {}) do
       if item.ft == 'nvimpio-terminal' then
         is_registered = true
         break
@@ -35,7 +35,7 @@ local function inject_edgy_integration()
     local raw_edgy_config = vim.g.edgy_config or {}
     raw_edgy_config.bottom = raw_edgy_config.bottom or {}
     local is_registered = false
-    for _, item in ipairs(raw_edgy_config.bottom) do
+    for _, item in ipairs(raw_edgy_config.bottom or {}) do
       if item.ft == 'nvimpio-terminal' then
         is_registered = true
         break
@@ -51,7 +51,7 @@ end
 inject_edgy_integration()
 
 ----------------------------------------------------------------------------------------
--- 🛡️ NEUTRAL ENVIRONMENT FINDER: Safely escapes sidebars to eliminate E957 split crashes
+-- 🛡️ NEUTRAL ENVIRONMENT FINDER: Safely escapes sidebars to protect layout operations
 local function find_valid_editor_window()
   local wins = vim.api.nvim_tabpage_list_wins(0)
   for _, win in ipairs(wins) do
@@ -59,7 +59,7 @@ local function find_valid_editor_window()
       local buf = vim.api.nvim_win_get_buf(win)
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local bt = vim.api.nvim_get_option_value('buftype', { buf = buf })
-      -- Only target true text workspace zones (exclude plugin panes and sidebars)
+      -- Only target true text workspace zones (exclude plugin panels and sidebars)
       if ft ~= 'neo-tree' and ft ~= 'aerial' and bt ~= 'terminal' and bt ~= 'nofile' then
         return win
       end
@@ -147,33 +147,25 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   -- SPAWN INTERCEPT TRIGGER
-  local has_edgy = pcall(require, 'edgy')
-  if has_edgy then
-    -- PATH A: If edgy is installed, split relative to a neutral window to preserve tree shape
-    local neutral_win = find_valid_editor_window()
-    if neutral_win then
-      vim.api.nvim_set_current_win(neutral_win)
-    end
+  -- Ensure focus is forced to a standard file buffer window BEFORE generating splits
+  local neutral_win = find_valid_editor_window()
+  if neutral_win then
+    vim.api.nvim_set_current_win(neutral_win)
+  end
 
+  local target_height = math.ceil(vim.o.lines * 0.28)
+  local has_edgy = pcall(require, 'edgy')
+
+  if has_edgy then
+    -- PATH A: Edgy is installed. Open standard split and let edgy intercept it
     vim.cmd('split')
     local split_win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(split_win, target_buf)
   else
-    -- PATH B: If edgy is NOT installed, migrate cursor to code buffer first to prevent E957
-    local neutral_win = find_valid_editor_window()
-    if neutral_win then
-      vim.api.nvim_set_current_win(neutral_win)
-    end
-
-    vim.cmd('split')
+    -- PATH B: Edgy is absent. Open a native horizontal split row locked at the absolute bottom [Index]
+    vim.cmd('botright ' .. target_height .. 'split')
     local fallback_win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(fallback_win, target_buf)
-
-    -- Force the split container out of local layout columns and anchor flat across the bottom [Index]
-    vim.fn.win_splitmove(fallback_win, 0, { vertical = false, rightbelow = true })
-
-    local target_height = math.ceil(vim.o.lines * 0.28)
-    vim.api.nvim_win_set_height(fallback_win, target_height)
   end
 
   local new_win = vim.api.nvim_get_current_win()
@@ -263,7 +255,6 @@ vim.keymap.set('n', [[<leader>\t]], function()
 end, { silent = true })
 
 return M
-
 -- local M = {}
 --
 -- -- Memory slots to preserve running terminal process background buffers
