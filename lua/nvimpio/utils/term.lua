@@ -64,7 +64,7 @@ function M.ToggleTerminal(command, terminal_type)
     return
   end
 
-  -- 4. PROCESS PERSISTENCE LAYER: Completely free of deprecated APIs
+  -- 4. NEW MODERN PROCESS PERSISTENCE LAYER: Completely free of deprecated APIs
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
     target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
     if terminal_type == 'monitor' then
@@ -83,22 +83,16 @@ function M.ToggleTerminal(command, terminal_type)
       end,
     })
 
-    -- FIXED FOR WINDOWS POWERSHELL: Define absolute shell options explicitly
-    -- We must populate an array table of initialization arguments for jobstart
+    -- FIXED POWERSHELL CALL STRUCTURE FOR WINDOWS ENVIRONMENT
     local spawn_cmd = {}
 
     if vim.fn.has('win32') == 1 then
-      -- 1. Explicitly use the absolute powershell executable
-      spawn_cmd = { 'powershell.exe', '-NoLogo', '-ExecutionPolicy', 'Bypass' }
-
-      -- 2. CRITICAL SYSTEM FIX: Temporarily reconfigure internal environment flags
-      -- strictly during this execution pass so strings process as PowerShell chords instead of cmd.exe
-      vim.opt.shell = 'powershell.exe'
-      vim.opt.shellcmdflag = '-NoProfile -ExecutionPolicy Bypass -Command [Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;'
-      vim.opt.shellquote = ''
-      vim.opt.shellxquote = ''
+      -- HARD-LOCKS POWERSHELL INTERACTIVE PARAMETERS NATIVELY:
+      -- -NoExit keeps the terminal session thread alive
+      -- -NoLogo strips initial shell version clutter text rows
+      spawn_cmd = { 'powershell.exe', '-NoExit', '-NoLogo', '-ExecutionPolicy', 'Bypass' }
     else
-      -- Fallback cleanly to standard Unix/Mac shell configurations
+      -- Fallback cleanly to standard Unix/Mac systems configurations
       spawn_cmd = { vim.o.shell }
     end
 
@@ -255,7 +249,7 @@ function M.ToggleTerminal(command, terminal_type)
     local active_chan = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
     if active_chan then
       -- Uses native Lua nvim_chan_send API for terminal execution strings
-      vim.api.nvim_chan_send(active_chan, command .. '\n')
+      vim.api.nvim_chan_send(active_chan, command .. '\r\n')
     end
   end
 
