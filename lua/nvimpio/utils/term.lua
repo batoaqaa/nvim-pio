@@ -52,9 +52,20 @@ function M.ToggleTerminal(command, terminal_type)
     SafeCloseTerminal(other_buf)
   end
 
-  -- 3. TOGGLE ACTION: If our target window is already open, close it
+  -- 3. ALWAYS-OPEN TARGET ENGINE:
+  -- FIXED: Removed the closure code logic path. If a user presses their shortcut hotkey
+  -- while the window is visible, it moves their cursor focus straight inside it instead of hiding it!
   if target_win and vim.api.nvim_win_is_valid(target_win) then
-    SafeCloseTerminal(target_buf)
+    vim.api.nvim_set_current_win(target_win)
+    pcall(vim.api.nvim_win_set_height, target_win, target_panel_height)
+
+    -- If an execution string macro was explicitly passed, process it immediately over the channel
+    if command and command ~= '' then
+      local job_id = vim.b[target_buf].terminal_job_id
+      if job_id then
+        vim.fn.chansend(job_id, command .. (vim.fn.has('win32') == 1 and '\r\n' or '\n'))
+      end
+    end
     return
   end
 
@@ -77,10 +88,10 @@ function M.ToggleTerminal(command, terminal_type)
       end
     end
 
-    -- We call jobstart inside a pristine buffer wrapper without nvim_open_term [INDEX].
+    -- We call jobstart inside a pristine buffer wrapper without nvim_open_term.
     vim.api.nvim_buf_call(target_buf, function()
       vim.fn.jobstart(target_shell, {
-        term = true, -- Attaches a native PTY container natively onto the blank buffer context [INDEX]
+        term = true, -- Attaches a native PTY container natively onto the blank buffer context
         on_stdout = function(_, data, _)
           if type(M.stdout_callback) == 'function' then
             M.stdout_callback(target_buf, data)
@@ -99,8 +110,8 @@ function M.ToggleTerminal(command, terminal_type)
   target_panel_height = math.ceil(vim.o.lines * 0.28)
 
   local win_opts = {
-    split = 'below', -- Directions token to open the partition beneath upper nodes [INDEX]
-    win = -1, -- HARDLOCK GRID: Breaks out of local columns into top-level monitor screen frame [INDEX]
+    split = 'below', -- Directions token to open the partition beneath upper nodes
+    win = -1, -- HARDLOCK GRID: Breaks out of local columns into top-level monitor screen frame
     height = target_panel_height,
   }
 
@@ -174,8 +185,6 @@ function M.ToggleTerminal(command, terminal_type)
   vim.keymap.set('n', '<C-l>', '<C-w>l')
 
   -- GLOBAL INTERCEPT DOWNWARD MOVEMENT HOOK:
-  -- FIXED NORMAL-MODE FOCUS: Removed 'startinsert' string loops so dropping focus
-  -- into your terminal panel cleanly preserves Normal mode natively! [INDEX]
   vim.keymap.set('n', '<C-j>', function()
     local cur_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
     if cur_win and vim.api.nvim_win_is_valid(cur_win) then
@@ -204,9 +213,6 @@ function M.ToggleTerminal(command, terminal_type)
       vim.fn.chansend(job_id, command .. (vim.fn.has('win32') == 1 and '\r\n' or '\n'))
     end
   end
-
-  -- FIXED NORMAL-MODE ENTRY: Removed the final global startinsert call.
-  -- The terminal splits open directly in Normal mode, letting the user view text lines immediately [INDEX].
 end
 
 return M
