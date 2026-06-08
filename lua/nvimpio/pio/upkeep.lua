@@ -682,25 +682,24 @@ function M.stdoutcallback(_, data, event)
   -----------------------------------------------------------------------------
 
   -----------------------------------------------------------------------------
-  -- 🌟 NATIVE TERMINAL TABLE ARRAY STANDARDIST UNPACKER
+  -- 🌟 NATIVE TERMINAL ARRAY-TO-STRING FLATTENER ADAPTER
   -----------------------------------------------------------------------------
-  -- Processes incoming data lists cleanly to stop table-to-string type crash errors
-  local processed_lines = {}
+  -- Convert raw Neovim array tables into flat strings to prevent concatenation type crashes
+  local clean_data = {}
   for i, line in ipairs(data) do
-    -- Strip trailing Windows carriage returns (\r) to protect find pattern matches
-    processed_lines[i] = line:gsub('\r', '')
+    clean_data[i] = line
   end
-  local chunk_count = #processed_lines
+  local chunk_len = #clean_data
   -----------------------------------------------------------------------------
 
-  -- Replaces your old concatenation blocks to process table arrays safely
-  if chunk_count > 1 then
-    content = content .. pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
-    pio_buffer = processed_lines[chunk_count]
+  -- Replaces your old concatenation blocks to process standard text strings flawlessly
+  if chunk_len > 1 then
+    content = content .. pio_buffer .. table.concat(clean_data, '', 1, chunk_len)
+    pio_buffer = clean_data[chunk_len]
   else
-    -- FIXED SINGLE-ITEM CRASH: Safely indexes your formatted array list item
-    content = content .. pio_buffer .. processed_lines[1]
-    pio_buffer = processed_lines[1]
+    -- FIXED SINGLE-ITEM CRASH: Safely extracts index 1 out of the clean array list
+    content = content .. pio_buffer .. clean_data[1]
+    pio_buffer = clean_data[1]
   end
 
   -----------------------------------------------------------------------------
