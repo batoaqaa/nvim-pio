@@ -51,73 +51,97 @@ function M.ToggleTerminal(command, terminal_type)
   ------------------------------------------------------------------
 
   local group = vim.api.nvim_create_augroup('TerminalPositionLock', { clear = true })
-  local is_adjusting_layout = false
+  local settle_timer = nil
+  local target_term_buf = nil -- Persists our unique terminal buffer reference in memory
 
-  vim.api.nvim_create_autocmd({ 'WinNew', 'WinLeave', 'BufEnter' }, {
+  -- Helper: Safely finds any active window currently rendering our custom terminal buffer
+  local function find_term_win()
+    if not target_term_buf or not vim.api.nvim_buf_is_valid(target_term_buf) then
+      return nil
+    end
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+      if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == target_term_buf then
+        return win
+      end
+    end
+    return nil
+  end
+
+  vim.api.nvim_create_autocmd({ 'WinNew', 'WinClosed', 'BufEnter' }, {
     group = group,
+    pattern = '*',
     callback = function(args)
-      local triggering_buf = args.buf
+      -- 1. TRACKER LOGIC: Cache the unique nvimpio-terminal buffer id if we see it
+      if vim.bo[args.buf].filetype == 'nvimpio-terminal' then
+        target_term_buf = args.buf
+      end
 
-      if is_adjusting_layout then
+      -- If we don't have an active terminal buffer tracked yet, skip layout manipulation
+      if not target_term_buf or not vim.api.nvim_buf_is_valid(target_term_buf) then
         return
       end
 
-      -- 1. TARGETED FILETYPE GUARD: Only execute for your custom terminal
-      if vim.bo[triggering_buf].filetype ~= 'nvimpio-terminal' then
-        return
+      -- 2. INSTANT HIDE: If the terminal window is open right now, close its window visibility instantly
+      -- This hides it gracefully before Neo-tree or new splits mess up the layout geometries
+      local term_win = find_term_win()
+      if term_win then
+        -- Pass true to force close window layout frames without deleting the background buffer data!
+        pcall(vim.api.nvim_win_close, term_win, true)
       end
 
-      -- 2. INSTANT VISUAL HIDE: Find the window and minimize it to a single line instantly
-      for _, win in ipairs(vim.api.nvim_list_wins()) do
-        if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == triggering_buf then
-          pcall(vim.api.nvim_win_set_height, win, 1) -- Drops height to 1 line, effectively hiding it
-          break
-        end
+      -- 3. DEBOUNCED ENGINE: Cancel any existing timers so rapid successive events don't pile up
+      if settle_timer then
+        pcall(function()
+          settle_timer:stop()
+          settle_timer:close()
+        end)
+        settle_timer = nil
       end
 
-      -- =========================================================================
-      -- NON-BLOCKING 1-SECOND ASYNCHRONOUS TIMER
-      -- =========================================================================
-      local timer = vim.uv.new_timer()
-      timer:start(
+      -- 4. WAIT FOR EVERYTHING TO SETTLE (Non-blocking 1-Second Defer Loop)
+      settle_timer = vim.uv.new_timer()
+      settle_timer:start(
         1000,
         0,
         vim.schedule_wrap(function()
-          -- Clean up the tracking timer reference from system memory safely
-          timer:stop()
-          timer:close()
+          if settle_timer then
+            settle_timer:stop()
+            settle_timer:close()
+            settle_timer = nil
+          end
 
-          -- Verify the buffer wasn't closed or deleted by the user during that 1 second!
-          if not vim.api.nvim_buf_is_valid(triggering_buf) then
+          -- Verify that the underlying terminal buffer wasn't manually deleted during the delay
+          if not target_term_buf or not vim.api.nvim_buf_is_valid(target_term_buf) then
             return
           end
 
-          -- 3. Execute the position fix pipeline cleanly
-          for _, win in ipairs(vim.api.nvim_list_wins()) do
-            if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == triggering_buf then
-              local current_win = vim.api.nvim_get_current_win()
-
-              is_adjusting_layout = true
-
-              pcall(function()
-                -- Jump in, force it down to the absolute bottom row workspace alignment, and scale
-                vim.api.nvim_set_current_win(win)
-                vim.cmd('wincmd J')
-                vim.cmd('resize 15')
-
-                -- Return focus seamlessly back to the user's active coding buffer window
-                if vim.api.nvim_win_is_valid(current_win) then
-                  vim.api.nvim_set_current_win(current_win)
-                end
-              end)
-
-              is_adjusting_layout = false
-              break
-            end
+          -- Double-check that it didn't accidentally pop back open during the wait window
+          if find_term_win() then
+            return
           end
+
+          -- 5. SMOOTH RE-APPEAR: Re-render the terminal buffer perfectly underneath the workspace layout
+          local current_win = vim.api.nvim_get_current_win()
+
+          pcall(function()
+            -- Open a clean split spanning the complete bottom margin profile of Neovim
+            vim.cmd('botright split')
+            local new_win = vim.api.nvim_get_current_win()
+
+            -- Re-link our persistent running terminal execution channel back into view!
+            vim.api.nvim_win_set_buf(new_win, target_term_buf)
+            vim.cmd('resize 15')
+
+            -- Force terminal buffer configurations to stay synced cleanly
+            vim.wo[new_win].winfixheight = true
+
+            -- Instantly place the user's cursor focus back into their active text coding split pane
+            if vim.api.nvim_win_is_valid(current_win) and current_win ~= new_win then
+              vim.api.nvim_set_current_win(current_win)
+            end
+          end)
         end)
       )
-      -- =========================================================================
     end,
   })
   -- local group = vim.api.nvim_create_augroup('TerminalPositionLock', { clear = true })
