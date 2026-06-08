@@ -81,34 +81,28 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end
 
-  -- 5. SPAWN STRATEGY: Initialize the window pane layout at the base screen layout grid layer
+  -- 5. THE GLOBAL CONTAINER LAYER SPLIT:
+  -- We pass 'split = "below"' and relate it to the main window container ('win = 0') via nvim_open_win.
+  -- Neovim handles the geometry natively, forcing a flat row split across the absolute bottom
+  -- of the screen beneath files, neo-tree, and aerial without requiring ANY layout loops.
   local target_height = math.ceil(vim.o.lines * 0.28)
-  vim.cmd('botright ' .. target_height .. 'split')
-  local new_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(new_win, target_buf)
+  local win_opts = {
+    split = 'below', -- Directions token to open the partition beneath upper nodes [INDEX]
+    win = 0, -- Maps bounds calculation to the core window layout frame container [INDEX]
+    height = target_height,
+  }
 
+  -- 6. RENDER THE STABLE HARDLOCKED PANELS
+  local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
   else
     pio_cli_win = new_win
   end
 
-  -- 6. OVERRIDE CREATION ORDER HIERARCHY (100% Loop-free and stable)
-  -- The microsecond Neovim finishes drawing your split window pane, this hook fires EXACTLY once.
-  -- A capital 'J' forces the pane out of the local creation tree column branch, slamming it across
-  -- the absolute horizontal bottom row of the screen frame underneath BOTH code files and sidebars!
-  vim.schedule(function()
-    if vim.api.nvim_win_is_valid(new_win) then
-      vim.api.nvim_win_call(new_win, function()
-        vim.cmd('wincmd J')
-      end)
-      -- Hardlocks the height so user sidebars (Aerial/Neo-tree) are forbidden from resizing or shifting it
-      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
-    end
-  end)
-
-  -- 7. CLEAN WINDOW SYSTEM FLAGS (Completely free of global autocommands or layout loops)
+  -- 7. PANE OPTIONS SETTINGS (Completely loop-free, 100% robust)
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
   -- 8. VISUAL CUSTOM WINBAR STYLING
   local hl = { bg = '#80a3d4', fg = '#000000' }
@@ -188,6 +182,7 @@ function M.ToggleTerminal(command, terminal_type)
 end
 
 return M
+
 -- local M = {}
 --
 -- -- Persistent background storage buffers for running shell processes
