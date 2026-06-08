@@ -81,7 +81,10 @@ end
 function M.ToggleTerminal(command, terminal_type)
   local active_win = vim.api.nvim_get_current_win()
   if active_win ~= pio_cli_win and active_win ~= pio_mon_win then
-    last_active_editor_win = active_win
+    local cur_ft = vim.bo.filetype
+    if cur_ft ~= 'neo-tree' and cur_ft ~= 'aerial' then
+      last_active_editor_win = active_win
+    end
   end
 
   if terminal_type == 'monitor' or (command and string.find(command, ' monitor')) then
@@ -171,7 +174,25 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  local prev_win = vim.api.nvim_get_current_win()
+  local safe_editor_win = nil
+  if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) then
+    safe_editor_win = last_active_editor_win
+  else
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_is_valid(win) and win ~= shared_win then
+        local b = vim.api.nvim_win_get_buf(win)
+        if vim.bo[b].filetype ~= 'neo-tree' and vim.bo[b].filetype ~= 'aerial' and vim.bo[b].buftype == '' then
+          safe_editor_win = win
+          break
+        end
+      end
+    end
+  end
+
+  if safe_editor_win then
+    vim.api.nvim_set_current_win(safe_editor_win)
+  end
+
   local final_win = shared_win
 
   if not final_win or not vim.api.nvim_win_is_valid(final_win) then
@@ -185,17 +206,11 @@ function M.ToggleTerminal(command, terminal_type)
     })
 
     vim.o.splitbelow = old_splitbelow
-
-    -- Force the newly spawned window down across all columns using the absolute floor rule
-    vim.api.nvim_set_current_win(final_win)
-    vim.cmd('noautocmd wincmd J')
   else
     vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = final_win })
     vim.api.nvim_win_set_buf(final_win, target_buf)
     vim.api.nvim_win_set_height(final_win, get_target_height())
-
     vim.api.nvim_set_current_win(final_win)
-    vim.cmd('noautocmd wincmd J')
   end
 
   if terminal_type == 'monitor' then
@@ -214,8 +229,11 @@ function M.ToggleTerminal(command, terminal_type)
   local winBartitle = '%#MyWinBar# ' .. title .. ' [Press ;; to Switch | Press q to hide]%*'
   vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = final_win })
 
-  if prev_win and vim.api.nvim_win_is_valid(prev_win) and prev_win ~= final_win then
-    vim.api.nvim_set_current_win(prev_win)
+  vim.api.nvim_set_current_win(final_win)
+  vim.cmd('noautocmd wincmd J')
+
+  if safe_editor_win and vim.api.nvim_win_is_valid(safe_editor_win) then
+    vim.api.nvim_set_current_win(safe_editor_win)
   end
 
   vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = target_buf })
@@ -248,6 +266,7 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
+  vim.api.nvim_set_current_win(final_win)
   vim.cmd('startinsert')
 end
 
