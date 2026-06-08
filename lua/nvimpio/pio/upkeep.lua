@@ -681,39 +681,19 @@ function M.stdoutcallback(_, data, event)
   end
   -----------------------------------------------------------------------------
 
-  -----------------------------------------------------------------------------
-  -----------------------------------------------------------------------------
-  -- 🌟 NATIVE TERMINAL TABLE ARRAY STANDARDIST UNPACKER
-  -----------------------------------------------------------------------------
-  local processed_lines = {}
-  for i, line in ipairs(data) do
-    processed_lines[i] = line:gsub('\r', '')
+  if not data or #data == 0 then
+    return
   end
-  local chunk_count = #processed_lines
-  -----------------------------------------------------------------------------
 
-  if chunk_count > 1 then
-    content = content .. pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
-    pio_buffer = processed_lines[chunk_count]
+  if #data > 1 then
+    content = content .. pio_buffer .. table.concat(data, '', 1, #data)
+    pio_buffer = data[#data]
   else
-    content = content .. pio_buffer .. processed_lines[1]
-    pio_buffer = processed_lines[1]
+    -- Safe single item array evaluation
+    -- pio_buffer = pio_buffer .. data[1]
+    content = content .. pio_buffer .. data[1]
+    pio_buffer = data[1]
   end
-  -----------------------------------------------------------------------------
-
-  -- if not data or #data == 0 then
-  --   return
-  -- end
-  --
-  -- if #data > 1 then
-  --   content = content .. pio_buffer .. table.concat(data, '', 1, #data)
-  --   pio_buffer = data[#data]
-  -- else
-  --   -- Safe single item array evaluation
-  --   -- pio_buffer = pio_buffer .. data[1]
-  --   content = content .. pio_buffer .. data[1]
-  --   pio_buffer = data[1]
-  -- end
 
   local pass_target = 'PASS' .. current_id
   local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
