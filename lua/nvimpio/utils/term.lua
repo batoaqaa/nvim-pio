@@ -10,7 +10,62 @@ local pio_mon_win = nil
 local last_active_editor_win = nil
 
 ----------------------------------------------------------------------------------------
--- 🛡️ NEUTRAL ENVIRONMENT FINDER: Safely escapes sidebars to protect layout operations
+-- 🥇 LIVE TRACE LOGGER: Safely writes data directly to Neovim's notification logs
+local function TraceLog(msg, debug_data)
+  local dump = debug_data and vim.inspect(debug_data) or ''
+  vim.notify(string.format('[PioTrace] %s %s', msg, dump), vim.log.levels.INFO)
+end
+
+----------------------------------------------------------------------------------------
+-- CONFIG INJECTION LAYER
+local function inject_edgy_integration()
+  local pio_layout_rule = {
+    ft = 'nvimpio-terminal',
+    title = 'PlatformIO Terminal',
+    size = { height = 14 },
+  }
+
+  local has_edgy, edgy = pcall(require, 'edgy')
+  TraceLog('Runtime Scan - Is edgy.nvim present in package cache?', { loaded = has_edgy })
+
+  if has_edgy and edgy.config then
+    edgy.config.bottom = edgy.config.bottom or {}
+    local is_registered = false
+    for _, item in ipairs(edgy.config.bottom) do
+      if item.ft == 'nvimpio-terminal' then
+        is_registered = true
+        break
+      end
+    end
+    TraceLog("Active Table Scan - Is 'nvimpio-terminal' in edgy.config.bottom?", { found = is_registered })
+    if not is_registered then
+      table.insert(edgy.config.bottom, pio_layout_rule)
+      TraceLog('Live-patched edgy.config.bottom registry table successfully.')
+    end
+  else
+    local raw_edgy_config = vim.g.edgy_config or {}
+    raw_edgy_config.bottom = raw_edgy_config.bottom or {}
+    local is_registered = false
+    for _, item in ipairs(raw_edgy_config.bottom or {}) do
+      if item.ft == 'nvimpio-terminal' then
+        is_registered = true
+        break
+      end
+    end
+    TraceLog("Pre-init Scan - Is 'nvimpio-terminal' in global vim.g.edgy_config.bottom?", { found = is_registered })
+    if not is_registered then
+      table.insert(raw_edgy_config.bottom, pio_layout_rule)
+      vim.g.edgy_config = raw_edgy_config
+      TraceLog('Seeded rule into fallback vim.g.edgy_config pool.')
+    end
+  end
+end
+
+-- Run injection immediately upon module parse
+inject_edgy_integration()
+
+----------------------------------------------------------------------------------------
+-- NEUTRAL ENVIRONMENT FINDER: Safely escapes sidebars to protect layout operations
 local function find_valid_editor_window()
   local wins = vim.api.nvim_tabpage_list_wins(0)
   for _, win in ipairs(wins) do
@@ -48,6 +103,8 @@ end
 ----------------------------------------------------------------------------------------
 -- CORE INTERACTIVE DISTRIBUTABLE PANEL RUNNER
 function M.ToggleTerminal(command, terminal_type)
+  TraceLog('ToggleTerminal Event Invoke - Params Passed:', { command = command, type = terminal_type })
+
   local active_win = vim.api.nvim_get_current_win()
   if active_win ~= pio_cli_win and active_win ~= pio_mon_win then
     last_active_editor_win = active_win
@@ -66,7 +123,7 @@ function M.ToggleTerminal(command, terminal_type)
   local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
 
-  -- MUTUAL EXCLUSION: Close opposition workspace viewports instantly
+  -- MUTUAL EXCLUSION
   if other_win and vim.api.nvim_win_is_valid(other_win) then
     vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = other_win })
     vim.api.nvim_win_close(other_win, true)
@@ -77,7 +134,7 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- TOGGLE ACTION: Close active pane if requested
+  -- TOGGLE ACTION
   if target_win and vim.api.nvim_win_is_valid(target_win) then
     HideTerminalWindow(terminal_type)
     return
@@ -92,8 +149,8 @@ function M.ToggleTerminal(command, terminal_type)
       pio_cli_buf = target_buf
     end
 
-    -- Assign the filetype to the buffer memory instantly so edgy can recognize it
     vim.api.nvim_set_option_value('filetype', 'nvimpio-terminal', { buf = target_buf })
+    TraceLog("Allocated Scratch Buffer with 'nvimpio-terminal' Filetype Stamped:", { buf_id = target_buf })
 
     local target_shell = vim.o.shell
     if vim.fn.has('win32') == 1 then
@@ -105,47 +162,53 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end
 
-  -- 🥇 RUNTIME INJECTION SHIELD: Intercept and patch edgy tables right before splitting
-  local has_edgy, edgy = pcall(require, 'edgy')
-  if has_edgy and edgy.config then
-    edgy.config.bottom = edgy.config.bottom or {}
-    local is_registered = false
-    for _, item in ipairs(edgy.config.bottom) do
-      if item.ft == 'nvimpio-terminal' then
-        is_registered = true
-        break
-      end
-    end
-    if not is_registered then
-      table.insert(edgy.config.bottom, {
-        ft = 'nvimpio-terminal',
-        title = 'PlatformIO Terminal',
-        size = { height = 14 },
-      })
-    end
-  end
-
-  -- SPAWN INTERCEPT TRIGGER
+  -- Escape sidebars
   local neutral_win = find_valid_editor_window()
   if neutral_win then
     vim.api.nvim_set_current_win(neutral_win)
   end
 
   local target_height = math.ceil(vim.o.lines * 0.28)
+  local has_edgy, edgy = pcall(require, 'edgy')
+  local current_path = 'native_fallback'
+
+  -- Ensure your runtime injection check updates right before parsing layout blocks
+  if has_edgy and edgy.config then
+    edgy.config.bottom = edgy.config.bottom or {}
+    local check_again = false
+    for _, item in ipairs(edgy.config.bottom) do
+      if item.ft == 'nvimpio-terminal' then
+        check_again = true
+        break
+      end
+    end
+    if not check_again then
+      table.insert(edgy.config.bottom, { ft = 'nvimpio-terminal', title = 'PlatformIO Terminal', size = { height = 14 } })
+    end
+  end
 
   if has_edgy then
-    -- PATH A: Edgy is active. Create a split; edgy will automatically re-route it
+    current_path = 'edgy_split_intercept'
+    TraceLog("Edgy detected during execution trigger. Running layout 'split' hook allocation pass.")
     vim.cmd('split')
     local split_win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(split_win, target_buf)
   else
-    -- PATH B: Native fallback if edgy is absent
+    current_path = 'standard_botright_fallback'
+    TraceLog('Edgy undetected or completely inactive. Slicing screen via standard native fallback command.')
     vim.cmd('botright ' .. target_height .. 'split')
     local fallback_win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(fallback_win, target_buf)
   end
 
   local new_win = vim.api.nvim_get_current_win()
+  TraceLog('Window allocation step finalized successfully.', {
+    path_selected = current_path,
+    win_generated = new_win,
+    current_buf = vim.api.nvim_win_get_buf(new_win),
+    current_filetype = vim.api.nvim_get_option_value('filetype', { buf = target_buf }),
+  })
+
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
   else
@@ -210,7 +273,7 @@ end
 vim.keymap.set('n', '<C-h>', '<C-w>h', { silent = true })
 vim.keymap.set('n', '<C-l>', '<C-w>l', { silent = true })
 
-vim.keymap.set('n', '<C-j>', function()
+vim.keymap.set('n', '', function()
   if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
     vim.api.nvim_set_current_win(pio_cli_win)
     vim.cmd('startinsert')
@@ -221,7 +284,6 @@ vim.keymap.set('n', '<C-j>', function()
     vim.cmd('wincmd j')
   end
 end, { silent = true })
-
 return M
 
 -- local M = {}
