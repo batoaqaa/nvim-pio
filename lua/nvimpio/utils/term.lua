@@ -8,10 +8,6 @@ local pio_mon_buf = nil
 local pio_cli_win = nil
 local pio_mon_win = nil
 
--- Native channel IDs used for streaming PlatformIO commands
-local pio_cli_chan = nil
-local pio_mon_chan = nil
-
 ----------------------------------------------------------------------------------------
 -- INFO: Safe Window Closure Logic (Tied to pressing 'q' inside normal mode)
 local function HideTerminalWindow(terminal_type)
@@ -64,8 +60,8 @@ function M.ToggleTerminal(command, terminal_type)
     return
   end
 
-  -- 4. THE ULTIMATE POWERSHELL PIPELINE FIX:
-  -- Spawns an interactive modern shell using native open_term pipelines
+  -- 4. THE CORRECT WINDOWS POWERSHELL PIPELINE:
+  -- Generates a native unlisted terminal channel block natively without E474 errors
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
     target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
     if terminal_type == 'monitor' then
@@ -74,47 +70,16 @@ function M.ToggleTerminal(command, terminal_type)
       pio_cli_buf = target_buf
     end
 
-    -- FIXED TYPING: Set the buffer type explicitly to 'terminal' right away
-    vim.api.nvim_buf_set_option(target_buf, 'buftype', 'terminal')
-
-    -- Determine target windows platform shell engine
+    -- Determine target windows platform shell engine cleanly
     local target_shell = vim.o.shell
     if vim.fn.has('win32') == 1 then
       target_shell = 'powershell.exe'
     end
 
+    -- FIXED: We launch the shell inside a clean nvim_buf_call wrapper using termopen.
+    -- This sets the 'buftype' to 'terminal' automatically, fixing your typing bugs!
     vim.api.nvim_buf_call(target_buf, function()
-      -- FIXED: Initialize the terminal using Neovim's modern open_term layout engine
-      -- while separating the jobstart data streams to solve the unmodified buffer error.
-      local chan_id = vim.api.nvim_open_term(target_buf, {})
-
-      local job_id = vim.fn.jobstart(target_shell, {
-        on_stdout = function(_, data)
-          if vim.api.nvim_buf_is_valid(target_buf) and data then
-            local output = table.concat(data, '\r\n') .. '\r\n'
-            vim.api.nvim_chan_send(chan_id, output)
-          end
-        end,
-        on_stderr = function(_, data)
-          if vim.api.nvim_buf_is_valid(target_buf) and data then
-            local output = table.concat(data, '\r\n') .. '\r\n'
-            vim.api.nvim_chan_send(chan_id, output)
-          end
-        end,
-        on_exit = function()
-          if terminal_type == 'monitor' then
-            pio_mon_chan = nil
-          else
-            pio_cli_chan = nil
-          end
-        end,
-      })
-
-      if terminal_type == 'monitor' then
-        pio_mon_chan = job_id
-      else
-        pio_cli_chan = job_id
-      end
+      vim.fn.termopen(target_shell)
     end)
 
     -- CLEAN HEADER FILTER: Cleans up initial PlatformIO startup diagnostics menu text rows
@@ -238,9 +203,10 @@ function M.ToggleTerminal(command, terminal_type)
 
   -- Pass PlatformIO command strings directly through the modern background channel
   if command and command ~= '' then
-    local active_chan = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
-    if active_chan then
-      vim.api.nvim_chan_send(active_chan, command .. '\r\n')
+    local chan_id = vim.b[target_buf].terminal_job_id
+    if chan_id then
+      -- Uses standard chansend to pipe the execution strings directly to the shell process
+      vim.fn.chansend(chan_id, command .. '\r\n')
     end
   end
 
