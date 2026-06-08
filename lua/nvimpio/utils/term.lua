@@ -1,42 +1,26 @@
 local M = {}
 
--- Memory slots to preserve running terminal process background buffers
+-- Memory trackers for your two persistent plugin terminal buffers
 local pio_cli_buf = nil
 local pio_mon_buf = nil
 
--- Memory trackers for the active window IDs
-local pio_cli_win = nil
-local pio_mon_win = nil
-
--- FIXED SHUN OVERLAP: Tracks the original file window height so we can restore it cleanly
-local saved_parent_height = nil
-local active_parent_win = nil
-
 ----------------------------------------------------------------------------------------
--- INFO: Safe Window Closure Logic (Tied to pressing 'q' inside normal mode)
-local function HideTerminalWindow(terminal_type)
-  local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
-  if target_win and vim.api.nvim_win_is_valid(target_win) then
-    vim.api.nvim_win_close(target_win, true)
-  end
-  if terminal_type == 'monitor' then
-    pio_mon_win = nil
-  else
-    pio_cli_win = nil
-  end
-
-  -- FIXED SHUN OVERLAP: Restore the code file window back to its original full height
-  if active_parent_win and vim.api.nvim_win_is_valid(active_parent_win) and saved_parent_height then
-    vim.api.nvim_win_set_height(active_parent_win, saved_parent_height)
-    saved_parent_height = nil
-    active_parent_win = nil
+-- INFO: Safe terminal exit routine (Tied to pressing 'q' inside normal mode)
+local function SafeCloseTerminal(buf_id)
+  if buf_id and vim.api.nvim_buf_is_valid(buf_id) then
+    local win_id = vim.fn.bufwinid(buf_id)
+    if win_id and win_id ~= -1 and vim.api.nvim_win_is_valid(win_id) then
+      vim.api.nvim_win_close(win_id, true)
+      -- Force standard workspace windows to balance their layout spacing evenly once on close
+      vim.cmd('wincmd =')
+    end
   end
 end
 
 ----------------------------------------------------------------------------------------
--- INFO: Core Layout Spawner (Buffer-Relative Overlay Framework)
+-- INFO: Unified Full-Width Bottom Terminal Spawner (Stable Split Architecture)
 function M.ToggleTerminal(command, terminal_type)
-  -- Enforce strict title header assignments immediately at the top
+  -- 1. Enforce strict title header assignments immediately at the top
   local title = ''
   if terminal_type == 'monitor' or (command and string.find(command, ' monitor')) then
     title = 'Pio Monitor'
@@ -46,96 +30,68 @@ function M.ToggleTerminal(command, terminal_type)
     terminal_type = 'cli'
   end
 
-  local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
-  local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
+  -- Determine target buffer context arrays
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
+  local other_buf = (terminal_type == 'monitor') and pio_cli_buf or pio_mon_buf
 
-  -- MUTUAL EXCLUSION: If the other terminal panel window is visible, hide it first
-  if other_win and vim.api.nvim_win_is_valid(other_win) then
-    vim.api.nvim_win_close(other_win, true)
-    if terminal_type == 'monitor' then
-      pio_cli_win = nil
-    else
-      pio_mon_win = nil
+  -- 2. MUTUAL EXCLUSION: If the opponent window is currently open, hide it first
+  if other_buf and vim.api.nvim_buf_is_valid(other_buf) then
+    local other_win = vim.fn.bufwinid(other_buf)
+    if other_win and other_win ~= -1 and vim.api.nvim_win_is_valid(other_win) then
+      vim.api.nvim_win_close(other_win, true)
     end
   end
 
-  -- TOGGLE ACTION: If our target window is already open, close it
-  if target_win and vim.api.nvim_win_is_valid(target_win) then
-    vim.api.nvim_win_close(target_win, true)
-    if terminal_type == 'monitor' then
-      pio_mon_win = nil
-    else
-      pio_cli_win = nil
+  -- 3. TOGGLE ACTION: If our target terminal window is already open on screen, close it
+  if target_buf and vim.api.nvim_buf_is_valid(target_buf) then
+    local target_win = vim.fn.bufwinid(target_buf)
+    if target_win and target_win ~= -1 and vim.api.nvim_win_is_valid(target_win) then
+      vim.api.nvim_win_close(target_win, true)
+      vim.cmd('wincmd =')
+      return
     end
-
-    -- FIXED SHUN OVERLAP: Restore the code file window back to full size on toggle off
-    if active_parent_win and vim.api.nvim_win_is_valid(active_parent_win) and saved_parent_height then
-      vim.api.nvim_win_set_height(active_parent_win, saved_parent_height)
-      saved_parent_height = nil
-      active_parent_win = nil
-    end
-    return
   end
 
-  -- PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
+  -- 4. PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
-    target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
+    target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted, scratch buffer
     if terminal_type == 'monitor' then
       pio_mon_buf = target_buf
     else
       pio_cli_buf = target_buf
     end
 
+    -- Determine target windows platform shell engine cleanly
     local target_shell = vim.o.shell
     if vim.fn.has('win32') == 1 then
       target_shell = 'powershell.exe'
     end
 
+    -- Run the shell cleanly. This sets 'buftype' to 'terminal' natively, fixing typing bugs!
     vim.api.nvim_buf_call(target_buf, function()
       vim.fn.termopen(target_shell)
     end)
   end
 
-  -- BUFFER-RELATIVE POSITIONING SETUP
-  local parent_file_win = vim.api.nvim_get_current_win()
-  local file_win_width = vim.api.nvim_win_get_width(parent_file_win)
-  local file_win_height = vim.api.nvim_win_get_height(parent_file_win)
-
-  local target_height = math.ceil(file_win_height * 0.32)
-
-  -- FIXED SHUN OVERLAP: Cache and resize the top code file window
-  -- This forces the code text viewport to compress upward so it NEVER overlaps with the terminal!
-  if not saved_parent_height then
-    saved_parent_height = file_win_height
-    active_parent_win = parent_file_win
-    vim.api.nvim_win_set_height(parent_file_win, saved_parent_height - target_height)
+  -- 5. FIXED LAYOUT MECHANIC: Initialize the window pane layout at the base screen layer
+  -- We set splitkeep to 'screen' to lock the core buffer viewports from shifting vertical.
+  -- 'botright split' tells Neovim to initialize a root split boundary across the horizontal plane.
+  if vim.o.splitkeep ~= 'screen' then
+    vim.o.splitkeep = 'screen'
   end
 
-  local win_opts = {
-    relative = 'win',
-    win = parent_file_win,
-    style = 'minimal',
-    focusable = true,
-    width = file_win_width,
-    height = target_height,
-    row = saved_parent_height - target_height, -- Bound exactly to the original lower margin line
-    col = 0,
-  }
+  local target_height = math.ceil(vim.o.lines * 0.28)
+  vim.cmd('botright ' .. target_height .. 'split')
 
-  -- RENDER THE SECURE horizont Panel Overlay
-  local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
-  if terminal_type == 'monitor' then
-    pio_mon_win = new_win
-  else
-    pio_cli_win = new_win
-  end
+  local new_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(new_win, target_buf)
 
-  -- PANE OPTION DECORATIONS
+  -- 6. HARD-LOCK WINDOW LAYOUT MARGINS
+  -- Set style options and tell Neovim that your terminal window height is structurally rigid
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
-  -- VISUAL CUSTOM WINBAR STYLING
+  -- 7. VISUAL CUSTOM WINBAR STYLING
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
   local winBartitle = '%#MyWinBar# ' .. title .. ' [Press ;; to Switch | Press q to hide]%*'
@@ -146,7 +102,7 @@ function M.ToggleTerminal(command, terminal_type)
   -----------------------------------------------------------------------------
   vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = target_buf })
   vim.keymap.set('n', 'q', function()
-    HideTerminalWindow(terminal_type)
+    SafeCloseTerminal(target_buf)
   end, { buffer = target_buf })
 
   -- CRASH-FREE UPWARD NAVIGATION KEYMAP
@@ -156,9 +112,7 @@ function M.ToggleTerminal(command, terminal_type)
       vim.api.nvim_feedkeys(esc, 'n', false)
     end
     vim.schedule(function()
-      if parent_file_win and vim.api.nvim_win_is_valid(parent_file_win) then
-        vim.api.nvim_set_current_win(parent_file_win)
-      end
+      vim.cmd('wincmd k')
     end)
   end, { buffer = target_buf, silent = true })
 
@@ -182,9 +136,11 @@ function M.ToggleTerminal(command, terminal_type)
   vim.keymap.set('n', '<C-l>', '<C-w>l')
 
   -- GLOBAL INTERCEPT DOWNWARD MOVEMENT HOOK:
+  -- Focuses your cursor straight down into your active terminal pane natively
   vim.keymap.set('n', '<C-j>', function()
-    if new_win and vim.api.nvim_win_is_valid(new_win) then
-      vim.api.nvim_set_current_win(new_win)
+    local win_id = (terminal_type == 'monitor') and vim.fn.bufwinid(pio_mon_buf) or vim.fn.bufwinid(pio_cli_buf)
+    if win_id and win_id ~= -1 and vim.api.nvim_win_is_valid(win_id) then
+      vim.api.nvim_set_current_win(win_id)
       vim.cmd('startinsert')
     else
       vim.cmd('wincmd j')
