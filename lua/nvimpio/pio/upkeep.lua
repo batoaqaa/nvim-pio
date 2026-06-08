@@ -658,7 +658,6 @@ local current_id = -1
 
 local callBack = nil
 M.queue = {}
-term.stdout_callback = M.stdoutcallback
 
 local clangd_extracted_args = {}
 local clangd_check_active = false
@@ -752,6 +751,7 @@ function M.stdoutcallback(_, data, _)
     return
   end
 end
+term.stdout_callback = M.stdoutcallback
 -- =============================================================================
 
 -- =============================================================================
