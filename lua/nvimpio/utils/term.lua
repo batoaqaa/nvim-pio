@@ -49,39 +49,90 @@ end
 -- CORE STRUCTURAL RUNNER (PRODUCTION GRADE COORD-FREE TOPOLOGY)
 function M.ToggleTerminal(command, terminal_type)
   ------------------------------------------------------------------
+
   local group = vim.api.nvim_create_augroup('TerminalPositionLock', { clear = true })
+
+  -- A state flag to prevent the function from re-triggering itself during window jumps
+  local is_adjusting_layout = false
 
   vim.api.nvim_create_autocmd({ 'WinNew', 'WinLeave', 'BufEnter' }, {
     group = group,
-    callback = function(args) -- 'args' contains data about the event
-      -- 1. Identify which buffer triggered the event
+    callback = function(args)
       local triggering_buf = args.buf
 
-      -- 2. Check if THAT specific buffer is a terminal
-      if vim.bo[triggering_buf].buftype == 'terminal' then
-        -- 3. Safely schedule the position fix for this specific terminal
-        vim.schedule(function()
-          -- Find which window is currently holding our target terminal buffer
-          for _, win in ipairs(vim.api.nvim_list_wins()) do
-            if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == triggering_buf then
-              local current_win = vim.api.nvim_get_current_win()
+      -- 1. CRITICAL RACE GUARD: Exit immediately if we are already in the middle of shifting windows
+      if is_adjusting_layout then
+        return
+      end
 
-              -- Jump in, force it down, resize, and jump back
+      -- 2. TARGETED FILETYPE GUARD: Validate that this is strictly an nvimpio terminal
+      -- This ignores all generic system terminals, ToggleTerm panels, and code windows.
+      if vim.bo[triggering_buf].filetype ~= 'nvimpio-terminal' then
+        return
+      end
+
+      -- 3. Safely schedule the position fix for this specific terminal profile
+      vim.schedule(function()
+        for _, win in ipairs(vim.api.nvim_list_wins()) do
+          if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == triggering_buf then
+            local current_win = vim.api.nvim_get_current_win()
+
+            -- Activate the layout shield lock right before shifting focus or moving tabs
+            is_adjusting_layout = true
+
+            pcall(function()
+              -- Jump in, force the custom panel to the absolute bottom row workspace alignment, and resize
               vim.api.nvim_set_current_win(win)
               vim.cmd('wincmd J')
               vim.cmd('resize 15')
 
+              -- Return focus seamlessly back to the user's active cursor row split pane
               if vim.api.nvim_win_is_valid(current_win) then
                 vim.api.nvim_set_current_win(current_win)
               end
+            end)
 
-              break -- We found it and fixed it, stop looping
-            end
+            -- Release the layout state flag lock cleanly once the operation completes
+            is_adjusting_layout = false
+            break
           end
-        end)
-      end
+        end
+      end)
     end,
   })
+  -- local group = vim.api.nvim_create_augroup('TerminalPositionLock', { clear = true })
+  --
+  -- vim.api.nvim_create_autocmd({ 'WinNew', 'WinLeave', 'BufEnter' }, {
+  --   group = group,
+  --   callback = function(args) -- 'args' contains data about the event
+  --     -- 1. Identify which buffer triggered the event
+  --     local triggering_buf = args.buf
+  --
+  --     -- 2. Check if THAT specific buffer is a terminal
+  --     if vim.bo[triggering_buf].buftype == 'terminal' then
+  --       -- 3. Safely schedule the position fix for this specific terminal
+  --       vim.schedule(function()
+  --         -- Find which window is currently holding our target terminal buffer
+  --         for _, win in ipairs(vim.api.nvim_list_wins()) do
+  --           if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == triggering_buf then
+  --             local current_win = vim.api.nvim_get_current_win()
+  --
+  --             -- Jump in, force it down, resize, and jump back
+  --             vim.api.nvim_set_current_win(win)
+  --             vim.cmd('wincmd J')
+  --             vim.cmd('resize 15')
+  --
+  --             if vim.api.nvim_win_is_valid(current_win) then
+  --               vim.api.nvim_set_current_win(current_win)
+  --             end
+  --
+  --             break -- We found it and fixed it, stop looping
+  --           end
+  --         end
+  --       end)
+  --     end
+  --   end,
+  -- })
   ------------------------------------------------------------------
   local active_win = vim.api.nvim_get_current_win()
   if active_win ~= pio_cli_win and active_win ~= pio_mon_win then
