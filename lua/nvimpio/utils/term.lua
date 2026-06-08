@@ -1,28 +1,29 @@
 local M = {}
 
--- Memory slots to preserve running terminal process background buffers
+-- Memory trackers for your two persistent plugin terminal buffers
 local pio_cli_buf = nil
 local pio_mon_buf = nil
 
--- Memory trackers for the active window IDs
+-- Display window tracking handles
 local pio_cli_win = nil
 local pio_mon_win = nil
 
 ----------------------------------------------------------------------------------------
 -- INFO: Safe Window Closure Logic (Tied to pressing 'q' inside normal mode)
-local function SafeCloseTerminal(buf_id)
-  if buf_id and vim.api.nvim_buf_is_valid(buf_id) then
-    local win_id = vim.fn.bufwinid(buf_id)
-    if win_id and win_id ~= -1 and vim.api.nvim_win_is_valid(win_id) then
-      vim.api.nvim_win_close(win_id, true)
-      -- Force standard workspace windows to balance their layout spacing evenly once on close
-      vim.cmd('wincmd =')
-    end
+local function HideTerminalWindow(terminal_type)
+  local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
+  if target_win and vim.api.nvim_win_is_valid(target_win) then
+    vim.api.nvim_win_close(target_win, true)
+  end
+  if terminal_type == 'monitor' then
+    pio_mon_win = nil
+  else
+    pio_cli_win = nil
   end
 end
 
 ----------------------------------------------------------------------------------------
--- INFO: Core Layout Spawner (Global Edge-Anchored Window Partition Architecture)
+-- INFO: Unified Full-Width Bottom Terminal Spawner (Tabular Layer Isolation)
 function M.ToggleTerminal(command, terminal_type)
   -- 1. Enforce strict title header assignments immediately at the top
   local title = ''
@@ -38,7 +39,7 @@ function M.ToggleTerminal(command, terminal_type)
   local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
 
-  -- 2. MUTUAL EXCLUSION: If the other terminal panel window is visible, hide it first
+  -- 2. MUTUAL EXCLUSION: If the opponent window is visible, hide it first
   if other_win and vim.api.nvim_win_is_valid(other_win) then
     vim.api.nvim_win_close(other_win, true)
     if terminal_type == 'monitor' then
@@ -56,13 +57,12 @@ function M.ToggleTerminal(command, terminal_type)
     else
       pio_cli_win = nil
     end
-    vim.cmd('wincmd =')
     return
   end
 
   -- 4. PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
-    target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted, scratch buffer
+    target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
     if terminal_type == 'monitor' then
       pio_mon_buf = target_buf
     else
@@ -81,35 +81,27 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end
 
-  -- 5. SPAWN STRATEGY: Initialize the window pane layout at the root of the screen grid frame
+  -- 5. THE TABPAGE GRID FIX:
+  -- We isolate the split by creating it as a global bottom row partition
+  -- inside a newly cloned temporary tabpage environment. This makes it
+  -- 100% immune to being squeezed by Aerial or Neo-tree column slices!
   local target_height = math.ceil(vim.o.lines * 0.28)
+  vim.cmd('tab split')
   vim.cmd('botright ' .. target_height .. 'split')
+
   local new_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(new_win, target_buf)
-
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
   else
     pio_cli_win = new_win
   end
 
-  -- 6. SYSTEM LAYOUT CORRECTION CHECK: Runs exactly ONCE when the window spawns
-  -- A capital 'J' forces the pane out of local vertical columns, flattening it across
-  -- the absolute bottom row of the screen frame underneath BOTH code files and sidebars!
-  vim.schedule(function()
-    if vim.api.nvim_win_is_valid(new_win) then
-      vim.api.nvim_win_call(new_win, function()
-        vim.cmd('wincmd J')
-      end)
-      -- Hardlocks the height so sidebars are forbidden from resizing or shifting it
-      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
-    end
-  end)
-
-  -- 7. CLEAN WINDOW SYSTEM FLAGS (Completely free of autocommands or layout loops)
+  -- 6. HARD-LOCK WINDOW SYSTEM FLAGS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
-  -- 8. VISUAL CUSTOM WINBAR STYLING
+  -- 7. VISUAL CUSTOM WINBAR STYLING
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
   local winBartitle = '%#MyWinBar# ' .. title .. ' [Press ;; to Switch | Press q to hide]%*'
@@ -120,7 +112,7 @@ function M.ToggleTerminal(command, terminal_type)
   -----------------------------------------------------------------------------
   vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = target_buf })
   vim.keymap.set('n', 'q', function()
-    SafeCloseTerminal(target_buf)
+    HideTerminalWindow(terminal_type)
   end, { buffer = target_buf })
 
   -- CRASH-FREE UPWARD NAVIGATION KEYMAP
@@ -154,7 +146,6 @@ function M.ToggleTerminal(command, terminal_type)
   vim.keymap.set('n', '<C-l>', '<C-w>l')
 
   -- GLOBAL INTERCEPT DOWNWARD MOVEMENT HOOK:
-  -- Focuses your cursor straight down into your active terminal pane natively
   vim.keymap.set('n', '<C-j>', function()
     if new_win and vim.api.nvim_win_is_valid(new_win) then
       vim.api.nvim_set_current_win(new_win)
@@ -187,7 +178,6 @@ function M.ToggleTerminal(command, terminal_type)
 end
 
 return M
-
 -- local M = {}
 --
 -- -- Persistent background storage buffers for running shell processes
