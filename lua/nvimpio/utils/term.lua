@@ -34,7 +34,8 @@ local function GetActiveCodeWindow()
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
-      if vim.bo[buf].buftype == '' and vim.bo[buf].filetype ~= 'neo-tree' and vim.bo[buf].filetype ~= 'aerial' and vim.bo[buf].filetype ~= 'NvimTree' then
+      local w_ft = vim.bo[buf].filetype
+      if vim.bo[buf].buftype == '' and w_ft ~= 'neo-tree' and w_ft ~= 'aerial' and w_ft ~= 'NvimTree' then
         return win -- Found the main text editor pane handle!
       end
     end
@@ -96,6 +97,7 @@ function M.ToggleTerminal(command, terminal_type)
 
   -- 4. FIXED SIDEBAR CLIPPING: Dynamically locate the center code window handle
   local parent_file_win = GetActiveCodeWindow()
+  local orig_window = parent_file_win
 
   -- 5. CLEAN PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
@@ -130,8 +132,7 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   -- 6. DYNAMIC COORDINATE MATRIX GENERATION:
-  -- We fetch the screen-space coordinates of your centered code file viewport.
-  -- win_pos[1] provides the row line, win_pos[2] provides the column start (right after neo-tree)
+  -- FIXED TABLE INDICES: win_pos[1] maps to the row line, win_pos[2] maps to the column start
   local win_pos = vim.api.nvim_win_get_position(parent_file_win)
   local file_win_width = vim.api.nvim_win_get_width(parent_file_win)
   local file_win_height = vim.api.nvim_win_get_height(parent_file_win)
@@ -144,7 +145,7 @@ function M.ToggleTerminal(command, terminal_type)
     width = file_win_width, -- Stretches exactly across the width of the code pane, bypassing sidebars!
     height = target_height,
     row = win_pos[1] + file_win_height - target_height, -- Places flush with the base line of code
-    col = win_pos[2], -- FIXED: Aligns perfectly right after your left sidebars (Neo-tree)!
+    col = win_pos[2], -- FIXED COLUMN SHIFT: Aligns perfectly right after your left sidebars (Neo-tree)!
   }
 
   -- 7. SHUN OVERLAP SCROLL PADDING: Force file text to compress upward
@@ -174,6 +175,11 @@ function M.ToggleTerminal(command, terminal_type)
   -- 10. VISUAL WINBAR DECORATIONS
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
+
+  -- Set display name for buffer context reference matching
+  local prefix = (terminal_type == 'monitor') and 'piomon' or 'piocli'
+  vim.api.nvim_buf_set_name(target_buf, prefix .. ':' .. orig_window)
+
   local winBartitle = '%#MyWinBar#' .. title .. '%*'
   vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = new_win })
 
