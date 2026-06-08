@@ -153,7 +153,7 @@ function M.ToggleTerminal(command, terminal_type)
 
   local title = (terminal_type == 'monitor') and 'Pio Monitor' or 'Pio CLI>'
   local hl = { bg = '#80a3d4', fg = '#000000' }
-  vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
+  vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = '#000000' })
   local winBartitle = '%#MyWinBar# ' .. title .. ' [Press ;; to Switch | Press q to hide]%*'
   vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = new_win })
 
@@ -196,7 +196,7 @@ end
 
 local group = vim.api.nvim_create_augroup('PioTerminalLayoutWatchdogEngine', { clear = true })
 
-vim.api.nvim_create_autocmd({ 'WinResized', 'BufWinEnter', 'WinNew', 'TabEnter' }, {
+vim.api.nvim_create_autocmd({ 'WinNew', 'WinClosed', 'TabEnter', 'BufWinEnter' }, {
   group = group,
   callback = function(args)
     local ft = vim.bo[args.buf].filetype
@@ -204,36 +204,16 @@ vim.api.nvim_create_autocmd({ 'WinResized', 'BufWinEnter', 'WinNew', 'TabEnter' 
       return
     end
 
-    local pio_win = nil
-    local pio_buf = nil
+    local active_type = nil
     if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
-      pio_win = pio_cli_win
-      pio_buf = pio_cli_buf
+      active_type = 'cli'
     elseif pio_mon_win and vim.api.nvim_win_is_valid(pio_mon_win) then
-      pio_win = pio_mon_win
-      pio_buf = pio_mon_buf
+      active_type = 'monitor'
     end
 
-    if not pio_win or not pio_buf then
-      return
+    if active_type then
+      HideTerminalWindow(active_type)
     end
-
-    vim.schedule(function()
-      if not vim.api.nvim_win_is_valid(pio_win) then
-        return
-      end
-
-      if vim.api.nvim_win_get_buf(pio_win) ~= pio_buf and vim.api.nvim_buf_is_valid(pio_buf) then
-        vim.api.nvim_win_set_buf(pio_win, pio_buf)
-      end
-
-      local current_height = vim.api.nvim_win_get_height(pio_win)
-      local expected_height = get_target_height()
-
-      if current_height ~= expected_height then
-        vim.api.nvim_win_set_height(pio_win, expected_height)
-      end
-    end)
   end,
 })
 
