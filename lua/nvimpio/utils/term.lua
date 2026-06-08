@@ -83,15 +83,27 @@ function M.ToggleTerminal(command, terminal_type)
       end,
     })
 
-    -- FIXED FOR WINDOWS: Determine target system shell path dynamically
-    -- If on a Windows machine, explicitly load PowerShell instead of fallback cmd.exe
-    local target_shell = vim.o.shell
+    -- FIXED FOR WINDOWS POWERSHELL: Define absolute shell options explicitly
+    -- We must populate an array table of initialization arguments for jobstart
+    local spawn_cmd = {}
+
     if vim.fn.has('win32') == 1 then
-      target_shell = 'powershell.exe'
+      -- 1. Explicitly use the absolute powershell executable
+      spawn_cmd = { 'powershell.exe', '-NoLogo', '-ExecutionPolicy', 'Bypass' }
+
+      -- 2. CRITICAL SYSTEM FIX: Temporarily reconfigure internal environment flags
+      -- strictly during this execution pass so strings process as PowerShell chords instead of cmd.exe
+      vim.opt.shell = 'powershell.exe'
+      vim.opt.shellcmdflag = '-NoProfile -ExecutionPolicy Bypass -Command [Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;'
+      vim.opt.shellquote = ''
+      vim.opt.shellxquote = ''
+    else
+      -- Fallback cleanly to standard Unix/Mac shell configurations
+      spawn_cmd = { vim.o.shell }
     end
 
     -- Start the background process without { term = true } to prevent buffer conflicts
-    local job_id = vim.fn.jobstart(target_shell, {
+    local job_id = vim.fn.jobstart(spawn_cmd, {
       on_stdout = function(_, data)
         if vim.api.nvim_buf_is_valid(target_buf) and data then
           local output = table.concat(data, '\r\n') .. '\r\n'
@@ -147,7 +159,6 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   -- 5. ABSOLUTE GEOMETRIC GRID CONFIGURATION:
-  -- Locks position securely on a separate overlay layer to prevent vertical pillar splitting
   local target_height = math.ceil(vim.o.lines * 0.28)
   local cmdheight = vim.o.cmdheight or 1
 
