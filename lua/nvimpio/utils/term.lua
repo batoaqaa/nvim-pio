@@ -1,4 +1,3 @@
---
 local M = {}
 
 local pio_cli_buf = nil
@@ -8,21 +7,9 @@ local pio_mon_win = nil
 local last_active_editor_win = nil
 local pio_cli_chan = nil
 local pio_mon_chan = nil
-local pio_scratch_buf = nil
 
 local function get_target_height()
   return math.ceil(vim.o.lines * 0.28)
-end
-
-local function GetOrCreateScratch()
-  if not pio_scratch_buf or not vim.api.nvim_buf_is_valid(pio_scratch_buf) then
-    pio_scratch_buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_name(pio_scratch_buf, 'PioHiddenCanvas')
-    vim.api.nvim_set_option_value('buftype', 'nofile', { buf = pio_scratch_buf })
-    vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = pio_scratch_buf })
-    vim.api.nvim_set_option_value('swapfile', false, { buf = pio_scratch_buf })
-  end
-  return pio_scratch_buf
 end
 
 local function HideTerminalWindow(terminal_type)
@@ -39,14 +26,6 @@ local function HideTerminalWindow(terminal_type)
   end
 
   if win_id and vim.api.nvim_win_is_valid(win_id) then
-    local scratch = GetOrCreateScratch()
-
-    vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = win_id })
-    vim.api.nvim_win_set_buf(win_id, scratch)
-    vim.api.nvim_win_set_height(win_id, 0)
-    vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = win_id })
-    vim.api.nvim_set_option_value('winfixbuf', true, { scope = 'local', win = win_id })
-
     local safe_target_win = nil
     if last_active_editor_win and vim.api.nvim_win_is_valid(last_active_editor_win) and last_active_editor_win ~= win_id then
       local b = vim.api.nvim_win_get_buf(last_active_editor_win)
@@ -70,6 +49,28 @@ local function HideTerminalWindow(terminal_type)
     if safe_target_win then
       vim.api.nvim_set_current_win(safe_target_win)
     end
+
+    vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = win_id })
+    vim.api.nvim_win_close(win_id, true)
+
+    vim.schedule(function()
+      for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+        if vim.api.nvim_win_is_valid(win) then
+          local buf = vim.api.nvim_win_get_buf(win)
+          local ft = vim.bo[buf].filetype
+          if ft == 'neo-tree' or ft == 'aerial' then
+            local w_height = vim.api.nvim_win_get_height(win)
+            if w_height < vim.o.lines * 0.4 then
+              vim.api.nvim_set_current_win(win)
+              vim.cmd('wincmd H')
+            end
+          end
+        end
+      end
+      if safe_target_win and vim.api.nvim_win_is_valid(safe_target_win) then
+        vim.api.nvim_set_current_win(safe_target_win)
+      end
+    end)
   end
 
   if terminal_type == 'monitor' then
@@ -91,35 +92,32 @@ function M.ToggleTerminal(command, terminal_type)
     terminal_type = 'cli'
   end
 
-  local shared_win = nil
-  local scratch = GetOrCreateScratch()
+  -- Sync tracking windows across layout context changes
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
       local b = vim.api.nvim_win_get_buf(win)
-      if b == pio_cli_buf or b == pio_mon_buf or b == scratch then
-        shared_win = win
-        break
+      if b == pio_cli_buf then
+        pio_cli_win = win
+      end
+      if b == pio_mon_buf then
+        pio_mon_win = win
       end
     end
   end
 
-  if shared_win then
-    local active_buf = vim.api.nvim_win_get_buf(shared_win)
-    local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
-
-    if active_buf == target_buf and vim.api.nvim_win_get_height(shared_win) > 0 then
-      HideTerminalWindow(terminal_type)
-      return
-    end
-  end
-
-  if terminal_type == 'monitor' then
-    pio_cli_win = nil
-  else
-    pio_mon_win = nil
-  end
-
+  local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
+  local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
+
+  if other_win and vim.api.nvim_win_is_valid(other_win) then
+    local other_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
+    HideTerminalWindow(other_type)
+  end
+
+  if target_win and vim.api.nvim_win_is_valid(target_win) then
+    HideTerminalWindow(terminal_type)
+    return
+  end
 
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
     target_buf = vim.api.nvim_create_buf(false, true)
@@ -173,40 +171,35 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   local prev_win = vim.api.nvim_get_current_win()
-  local final_win = shared_win
 
-  if not final_win or not vim.api.nvim_win_is_valid(final_win) then
-    local old_splitbelow = vim.o.splitbelow
-    vim.o.splitbelow = true
-    final_win = vim.api.nvim_open_win(target_buf, true, {
-      split = 'below',
-      win = 0,
-      height = get_target_height(),
-    })
-    vim.o.splitbelow = old_splitbelow
-  else
-    vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = final_win })
-    vim.api.nvim_win_set_buf(final_win, target_buf)
-    vim.api.nvim_win_set_height(final_win, get_target_height())
-  end
+  local old_splitbelow = vim.o.splitbelow
+  vim.o.splitbelow = true
+
+  local new_win = vim.api.nvim_open_win(target_buf, true, {
+    split = 'below',
+    win = 0,
+    height = get_target_height(),
+  })
+
+  vim.o.splitbelow = old_splitbelow
 
   if terminal_type == 'monitor' then
-    pio_mon_win = final_win
+    pio_mon_win = new_win
   else
-    pio_cli_win = final_win
+    pio_cli_win = new_win
   end
 
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = final_win })
-  vim.api.nvim_set_option_value('winfixbuf', true, { scope = 'local', win = final_win })
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
+  vim.api.nvim_set_option_value('winfixbuf', true, { scope = 'local', win = new_win })
 
   local title = (terminal_type == 'monitor') and 'Pio Monitor' or 'Pio CLI>'
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = '#000000' })
   local winBartitle = '%#MyWinBar# ' .. title .. ' [Press ;; to Switch | Press q to hide]%*'
-  vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = final_win })
+  vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = new_win })
 
-  if prev_win and vim.api.nvim_win_is_valid(prev_win) and prev_win ~= final_win then
+  if prev_win and vim.api.nvim_win_is_valid(prev_win) and prev_win ~= new_win then
     vim.api.nvim_set_current_win(prev_win)
   end
 
@@ -247,16 +240,15 @@ vim.keymap.set('n', '<C-h>', '<C-w>h', { silent = true })
 vim.keymap.set('n', '<C-l>', '<C-w>l', { silent = true })
 
 vim.keymap.set('n', '<C-j>', function()
-  local cur = vim.api.nvim_get_current_win()
-  if cur ~= pio_cli_win and cur ~= pio_mon_win then
-    local target = pio_cli_win or pio_mon_win
-    if target and vim.api.nvim_win_is_valid(target) and vim.api.nvim_win_get_height(target) > 0 then
-      vim.api.nvim_set_current_win(target)
-      vim.cmd('startinsert')
-      return
-    end
+  if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
+    vim.api.nvim_set_current_win(pio_cli_win)
+    vim.cmd('startinsert')
+  elseif pio_mon_win and vim.api.nvim_win_is_valid(pio_mon_win) then
+    vim.api.nvim_set_current_win(pio_mon_win)
+    vim.cmd('startinsert')
+  else
+    vim.cmd('wincmd j')
   end
-  vim.cmd('wincmd j')
 end, { silent = true })
 
 vim.keymap.set('n', [[<leader>\gm]], function()
