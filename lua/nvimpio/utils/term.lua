@@ -34,7 +34,7 @@ end
 function M.ToggleTerminal(command, terminal_type)
   -- 1. Enforce strict title header assignments immediately at the top
   local title = ''
-  if terminal_type == 'monitor' or (command and string.find(command, ' monitor')) then
+  if command and string.find(command, ' monitor') then
     title = ' Pio Monitor '
     terminal_type = 'monitor'
   else
