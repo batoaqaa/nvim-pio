@@ -13,9 +13,9 @@ local pane_state = {
   cli = { buf = nil, win = nil, chan = nil },
 }
 
-local layout_group = vim.api.nvim_create_augroup('NvimPioEdgyLayoutLock', { clear = true })
+local layout_group = vim.api.nvim_create_augroup('NvimPioNativeLayoutLock', { clear = true })
 
----Internal processing engine to surgically insert a fixed layout pane at the bottom
+---Internal processing engine that follows Neovim's native buffer lifecycle rules
 local function toggle_bottom_pane(track_type, shell_cmd)
   local track = pane_state[track_type]
 
@@ -30,66 +30,51 @@ local function toggle_bottom_pane(track_type, shell_cmd)
   local initial_active_win = vim.api.nvim_get_current_win()
 
   -- =========================================================================
-  -- STAGE 1: CREATE AND POLE-POSITION THE WINDOW VIA A GHOST BUFFER
-  -- =========================================================================
-  -- We create a temporary, throwaway scratchpad buffer to handle layout shifting side effects
-  local ghost_buf = vim.api.nvim_create_buf(false, true)
-
-  -- Open a normal split containing only the temporary ghost buffer
-  local temp_win = vim.api.nvim_open_win(ghost_buf, false, {
-    split = 'below',
-    height = 15,
-  })
-
-  -- SURGICAL TREE MANIPULATION: Slice the window safely to the absolute bottom row.
-  -- This forces code splits to shrink upwards cleanly, preventing overlapping text!
-  pcall(function()
-    vim.api.nvim_win_splitmove(temp_win, 0, { vertical = false, rightbelow = true })
-  end)
-
-  track.win = temp_win
-
-  -- Hard-lock the dimensions of this pane immediately inside the layout grid array
-  vim.wo[track.win].winfixheight = true
-  vim.wo[track.win].winfixwidth = true
-  vim.wo[track.win].wrap = true
-  pcall(vim.api.nvim_win_set_height, track.win, 15)
-
-  -- =========================================================================
-  -- STAGE 2: MOUNT PRISTINE TERMINAL STREAM
+  -- FOLLOW NEOVIM'S RULES: SPAWN CHANNELS AT ATOMIC CREATION TIME
   -- =========================================================================
   if shell_cmd and shell_cmd ~= '' then
-    -- Create a brand new, completely unlisted, 100% untouched buffer
+    -- Rule Step A: Create a brand-new, completely empty scratchpad memory buffer
     track.buf = vim.api.nvim_create_buf(false, true)
     vim.bo[track.buf].filetype = 'nvimpio-terminal'
 
-    -- Swap the pristine buffer into our perfectly positioned window frame,
-    -- replacing the temporary ghost buffer entirely.
-    vim.api.nvim_win_set_buf(track.win, track.buf)
-
-    -- Explicitly wipe the ghost buffer out of memory to prevent leaks
-    pcall(vim.api.nvim_buf_delete, ghost_buf, { force = true })
-
-    -- Enforce absolute unmodified status right before execution mount
-    vim.bo[track.buf].modified = false
-
-    -- Launch terminal shell stream channel safely (GUARANTEED ZERO MODIFICATIONS)
-    track.chan = vim.fn.termopen(shell_cmd, {
-      on_exit = function(_, exit_code)
-        -- Auto-Cleanup Hook: Wipe the frame automatically if a build task passes cleanly
-        vim.schedule(function()
-          if track_type == 'cli' and exit_code == 0 then
-            if track.win and vim.api.nvim_win_is_valid(track.win) then
-              pcall(vim.api.nvim_win_close, track.win, true)
-              track.win = nil
-            end
-          end
-        end)
-      end,
+    -- Rule Step B: Open an ordinary horizontal window split layout
+    local temp_win = vim.api.nvim_open_win(track.buf, false, {
+      split = 'below',
+      height = 15,
     })
+
+    -- Rule Step C: Use Neovim's native window splitmove engine to slice it to the absolute bottom row
+    pcall(function()
+      vim.api.nvim_win_splitmove(temp_win, 0, { vertical = false, rightbelow = true })
+    end)
+    track.win = temp_win
+
+    -- Apply fixed geometry parameters layout filters natively
+    vim.wo[track.win].winfixheight = true
+    vim.wo[track.win].winfixwidth = true
+    vim.wo[track.win].wrap = true
+    pcall(vim.api.nvim_win_set_height, track.win, 15)
+
+    -- Rule Step D: Execute the terminal stream directly inside the focused pane context layout.
+    -- Because the window is completely settled before termopen runs, it complies
+    -- perfectly with Neovim's unmodified state checks!
+    vim.api.nvim_win_call(track.win, function()
+      track.chan = vim.fn.termopen(shell_cmd, {
+        on_exit = function(_, exit_code)
+          vim.schedule(function()
+            if track_type == 'cli' and exit_code == 0 then
+              if track.win and vim.api.nvim_win_is_valid(track.win) then
+                pcall(vim.api.nvim_win_close, track.win, true)
+                track.win = nil
+              end
+            end
+          end)
+        end,
+      })
+    end)
   end
 
-  -- RESTORE FOCUS INSTANTLY: Jump back to the active editing file
+  -- RESTORE FOCUS INSTANTLY: Return cursor smoothly to the active code file
   if vim.api.nvim_win_is_valid(initial_active_win) then
     vim.api.nvim_set_current_win(initial_active_win)
   end
@@ -105,7 +90,6 @@ function M.ToggleTerminal(command_string)
   local clean_cmd = vim.trim(command_string)
   local track_type = 'cli'
 
-  -- Automated Execution Router: Distinguish between compile runs and serial hardware streams
   if clean_cmd:find('monitor') or clean_cmd:find('device list') then
     track_type = 'monitor'
   end
@@ -116,7 +100,6 @@ function M.ToggleTerminal(command_string)
 
   toggle_bottom_pane(track_type, clean_cmd)
 
-  -- Synchronize state changes back to your legacy global tracking variables safely
   local active = pane_state[track_type]
   if track_type == 'monitor' then
     M.p_mon_b = active.buf
@@ -130,7 +113,7 @@ function M.ToggleTerminal(command_string)
 end
 
 -- =========================================================================
--- STATE MONITOR RESOLUTION LOCK: THE EDGY LAYOUT MONITOR
+-- HIGH-PERFORMANCE EDGY MONITOR RESIZE ENFORCEMENT HOOK
 -- =========================================================================
 vim.api.nvim_create_autocmd({ 'WinResized', 'VimResized' }, {
   group = layout_group,
