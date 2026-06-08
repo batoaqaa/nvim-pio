@@ -15,11 +15,15 @@ end
 
 local function safe_w()
   if l_win and vim.api.nvim_win_is_valid(l_win) and not is_term(l_win) then
-    return l_win
+    local buf = vim.api.nvim_win_get_buf(l_win)
+    if vim.bo[buf].buftype == '' then
+      return l_win
+    end
   end
   for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(w) and not is_term(w) then
-      if vim.bo[vim.api.nvim_win_get_buf(w)].buftype == '' then
+      local buf = vim.api.nvim_win_get_buf(w)
+      if vim.bo[buf].buftype == '' then
         return w
       end
     end
@@ -43,6 +47,7 @@ local function hide_w(t)
     if s and s ~= w then
       vim.api.nvim_set_current_win(s)
     end
+    vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = w })
     vim.api.nvim_win_close(w, true)
   end
   if t == 'monitor' then
@@ -125,26 +130,32 @@ function M.ToggleTerminal(cmd, t)
       p_cli_c = jid
     end
   end
-  local th = get_h()
-  local r = vim.o.lines - th - 2
+  local sw = safe_w()
+  if sw then
+    vim.api.nvim_set_current_win(sw)
+  end
+  local old_splitbelow = vim.o.splitbelow
+  vim.o.splitbelow = true
   local fw = vim.api.nvim_open_win(tb, true, {
-    relative = 'editor',
-    row = r,
-    col = 0,
-    width = vim.o.columns,
-    height = th,
-    style = 'minimal',
-    focusable = true,
+    split = 'below',
+    win = 0,
+    height = get_h(),
   })
+  vim.o.splitbelow = old_splitbelow
   if t == 'monitor' then
     p_mon_w = fw
   else
     p_cli_w = fw
   end
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = fw })
+  vim.api.nvim_set_option_value('winfixbuf', true, { scope = 'local', win = fw })
   local name = (t == 'monitor') and 'Pio Monitor' or 'Pio CLI>'
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = '#80a3d4', fg = '#000000' })
   vim.api.nvim_set_option_value('winbar', '%#MyWinBar# ' .. name .. ' [Press ;; to Switch | Press q to hide]%*', { scope = 'local', win = fw })
+  if sw and vim.api.nvim_win_is_valid(sw) then
+    vim.api.nvim_set_current_win(sw)
+  end
   vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = tb })
   vim.keymap.set('n', 'q', function()
     hide_w(t)
@@ -154,7 +165,7 @@ function M.ToggleTerminal(cmd, t)
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
     end
     vim.schedule(function()
-      hide_w(t)
+      vim.cmd('wincmd k')
     end)
   end, { buffer = tb, silent = true })
   vim.keymap.set({ 'n', 't' }, ';;', function()
@@ -163,6 +174,15 @@ function M.ToggleTerminal(cmd, t)
     end
     vim.schedule(function()
       M.ToggleTerminal('', (t == 'monitor') and 'cli' or 'monitor')
+      local tw_win = (t == 'monitor') and p_cli_w or p_mon_w
+      if tw_win and vim.api.nvim_win_is_valid(tw_win) then
+        local active = vim.api.nvim_get_current_win()
+        vim.api.nvim_set_current_win(tw_win)
+        vim.cmd('noautocmd wincmd J')
+        if active and vim.api.nvim_win_is_valid(active) then
+          vim.api.nvim_set_current_win(active)
+        end
+      end
     end)
   end, { buffer = tb, silent = true })
   if cmd and cmd ~= '' then
@@ -172,38 +192,24 @@ function M.ToggleTerminal(cmd, t)
     end
   end
   vim.api.nvim_set_current_win(fw)
+  vim.cmd('noautocmd wincmd J')
   vim.cmd('startinsert')
 end
 
-local g = vim.api.nvim_create_augroup('PioWatch', { clear = true })
-vim.api.nvim_create_autocmd({ 'WinLeave', 'BufLeave' }, {
-  group = g,
-  callback = function(a)
-    if a.buf == p_cli_b or a.buf == p_mon_b then
-      local t = (a.buf == p_mon_b) and 'monitor' or 'cli'
-      vim.schedule(function()
-        hide_w(t)
-      end)
-    end
-  end,
-})
-
+vim.keymap.set('n', '<C-h>', '<C-w>h', { silent = true })
+vim.keymap.set('n', '<C-l>', '<C-w>l', { silent = true })
 vim.keymap.set('n', '<C-j>', function()
   local target = pio_cli_win or pio_mon_win
   if target and vim.api.nvim_win_is_valid(target) then
     vim.api.nvim_set_current_win(target)
     vim.cmd('startinsert')
   else
-    M.ToggleTerminal('', 'cli')
+    vim.cmd('wincmd j')
   end
 end, { silent = true })
-vim.keymap.set('n', '<leader>\\gm', function()
-  M.ToggleTerminal('', 'monitor')
-end, { silent = true })
-vim.keymap.set('n', '<leader>\\t', function()
-  M.ToggleTerminal('', 'cli')
-end, { silent = true })
+
 return M
+
 -- local M = {}
 --
 -- local pio_cli_buf = nil
