@@ -31,7 +31,9 @@ local function inject_edgy_integration()
     -- CASE A: Edgy is already loaded. Insert into live operational configuration.
     edgy.config.bottom = edgy.config.bottom or {}
     local is_registered = false
-    for _, item in ipairs(edgy.config.bottom) do
+
+    -- FIXED: Protected with 'or {}' to prevent bad argument ipairs crashing if bottom config is missing
+    for _, item in ipairs(edgy.config.bottom or {}) do
       if item.ft == 'nvimpio-terminal' then
         is_registered = true
         break
@@ -43,7 +45,9 @@ local function inject_edgy_integration()
   else
     -- CASE B: Edgy hasn't run setup yet. Seed global table parameters for automatic merge.
     local is_registered = false
-    for _, item in ipairs(vim.g.edgy_config.bottom) do
+
+    -- FIXED: Protected with 'or {}' to guarantee crash-free parsing
+    for _, item in ipairs(vim.g.edgy_config.bottom or {}) do
       if item.ft == 'nvimpio-terminal' then
         is_registered = true
         break
@@ -254,7 +258,6 @@ vim.keymap.set('n', [[<leader>\t]], function()
 end, { silent = true })
 
 return M
-
 -- local M = {}
 --
 -- -- Memory slots to preserve running terminal process background buffers
