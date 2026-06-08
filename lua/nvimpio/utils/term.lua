@@ -85,12 +85,12 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   -- 5. THE GLOBAL GRID FIX:
-  -- We pass 'split = "botright"' to the programmatic nvim_open_win API instead of calling vim.cmd split tricks.
-  -- This forces Neovim to create an un-splittable room partition at the absolute bottom of the monitor screen frame.
+  -- FIXED: Changed 'botright' to 'below' and passed 'win = -1' to anchor the split layout
+  -- at the root of the editor window hierarchy tree. This natively spans full width under all sidebars!
   local target_height = math.ceil(vim.o.lines * 0.28)
   local win_opts = {
-    split = 'botright', -- Forces full screen width underneath BOTH code files and sidebars natively!
-    win = 0, -- Relates configuration bounds to the main workspace viewport
+    split = 'below', -- Sets the split vector direction [INDEX]
+    win = -1, -- Targets the global frame instead of a local column [INDEX]
     height = target_height,
   }
 
@@ -102,7 +102,7 @@ function M.ToggleTerminal(command, terminal_type)
     pio_cli_win = new_win
   end
 
-  -- 7. CLEAN WINDOW SYSTEM FLAGS (Completely free of autocommands or loop loops)
+  -- 7. CLEAN WINDOW SYSTEM FLAGS (Completely free of autocommands or layout loops)
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
@@ -184,6 +184,7 @@ function M.ToggleTerminal(command, terminal_type)
 end
 
 return M
+
 -- local M = {}
 --
 -- -- Persistent background storage buffers for running shell processes
