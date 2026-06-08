@@ -18,6 +18,32 @@ local original_scrolloff = nil
 local active_parent_win = nil
 
 ----------------------------------------------------------------------------------------
+-- INFO: Automatic Code Window Targeting Finder (Hardcode-free layout bounds grabber)
+local function GetActiveCodeWindow()
+  local current_win = vim.api.nvim_get_current_win()
+  local current_buf = vim.api.nvim_win_get_buf(current_win)
+  local ft = vim.bo[current_buf].filetype
+  local bt = vim.bo[current_buf].buftype
+
+  -- If the cursor is currently resting inside a valid code buffer, reuse it right away!
+  if bt == '' and ft ~= 'neo-tree' and ft ~= 'aerial' and ft ~= 'NvimTree' then
+    return current_win
+  end
+
+  -- If the cursor is trapped inside a sidebar plugin layout column, search for a code split
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      if vim.bo[buf].buftype == '' and vim.bo[buf].filetype ~= 'neo-tree' and vim.bo[buf].filetype ~= 'aerial' and vim.bo[buf].filetype ~= 'NvimTree' then
+        return win -- Found the main text editor pane handle!
+      end
+    end
+  end
+
+  return current_win -- Extreme fallback path
+end
+
+----------------------------------------------------------------------------------------
 -- INFO: Safe Window Closure Logic (Tied to pressing 'q' inside normal mode)
 local function HideTerminalWindow(terminal_type)
   local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
@@ -68,10 +94,10 @@ function M.ToggleTerminal(command, terminal_type)
     return
   end
 
-  -- Cache the user's active code file window handle right before we spawn the split
-  local parent_file_win = vim.api.nvim_get_current_win()
+  -- 4. FIXED SIDEBAR CLIPPING: Dynamically locate the center code window handle
+  local parent_file_win = GetActiveCodeWindow()
 
-  -- 4. CLEAN PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
+  -- 5. CLEAN PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
     target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
     if terminal_type == 'monitor' then
@@ -86,7 +112,7 @@ function M.ToggleTerminal(command, terminal_type)
       target_shell = 'powershell.exe'
     end
 
-    -- Launch the terminal natively inside a buffer context call loop [INDEX]
+    -- Launch the terminal natively inside a buffer context call loop
     vim.api.nvim_buf_call(target_buf, function()
       vim.fn.termopen(target_shell, {
         on_stdout = function(_, data, _)
@@ -103,23 +129,23 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end
 
-  -- 5. BUFFER-RELATIVE GEOMETRY CONFIGURATION
+  -- 6. BUFFER-RELATIVE GEOMETRY CONFIGURATION
   local file_win_width = vim.api.nvim_win_get_width(parent_file_win)
   local file_win_height = vim.api.nvim_win_get_height(parent_file_win)
   local target_height = math.ceil(file_win_height * 0.32)
 
   local win_opts = {
-    relative = 'win', -- Hard-locks to the active text viewport branch
-    win = parent_file_win, -- Anchors coordinate boundaries to the code file window frame
+    relative = 'win', -- Hard-locks strictly to the file window branch
+    win = parent_file_win, -- Anchors coordinate boundaries to the center code file window frame
     style = 'minimal', -- Strips margins, gutters, and borders
     focusable = true, -- Keeps keyboard layout inputs active
-    width = file_win_width, -- Stretches exactly across the width of the code pane
+    width = file_win_width, -- Stretches exactly across the width of the code pane, bypassing sidebars!
     height = target_height,
     row = file_win_height - target_height, -- Clamps precisely to the bottom of the active file view
     col = 0,
   }
 
-  -- 6. SHUN OVERLAP SCROLL PADDING: Force file text to compress upward [INDEX]
+  -- 7. SHUN OVERLAP SCROLL PADDING: Force file text to compress upward
   if not original_scrolloff and vim.api.nvim_win_is_valid(parent_file_win) then
     original_scrolloff = vim.wo[parent_file_win].scrolloff
     active_parent_win = parent_file_win
@@ -131,7 +157,7 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end
 
-  -- 7. RENDER THE SECURE horizont PANEL OVERLAY
+  -- 8. RENDER THE SECURE PANEL OVERLAY
   local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
@@ -139,11 +165,11 @@ function M.ToggleTerminal(command, terminal_type)
     pio_cli_win = new_win
   end
 
-  -- 8. PANE OPTION DECORATIONS
+  -- 9. PANE OPTION DECORATIONS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
-  -- 9. VISUAL WINBAR DECORATIONS
+  -- 10. VISUAL WINBAR DECORATIONS
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
   local winBartitle = '%#MyWinBar#' .. title .. '%*'
