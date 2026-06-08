@@ -81,14 +81,13 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end
 
-  -- 5. THE GLOBAL CREATION ORDER FIX:
-  -- We pass 'split = "below"' combined with 'splitmode = "botright"' directly into nvim_open_win.
-  -- This instructs Neovim to completely ignore the local window tree creation order hierarchy,
-  -- hard-locking the split across 100% of the screen width at the absolute bottom row of the monitor!
+  -- 5. THE GLOBAL GRID FIX:
+  -- FIXED: Removed invalid key 'splitmode'. We pass 'win = -1' to split across
+  -- the absolute root frame of Neovim, forcing full screen width under all sidebars natively!
   local target_height = math.ceil(vim.o.lines * 0.28)
   local win_opts = {
-    split = 'below',
-    splitmode = 'botright', -- OVERRIDES CREATION ORDER: Forces it below Aerial, files, and Neo-tree!
+    split = 'below', -- Direct Neovim window split command orientation
+    win = -1, -- HARDLOCK GRID: Breaks out of local columns into top-level screen frame
     height = target_height,
   }
 
@@ -182,6 +181,7 @@ function M.ToggleTerminal(command, terminal_type)
 end
 
 return M
+
 -- local M = {}
 --
 -- -- Persistent background storage buffers for running shell processes
