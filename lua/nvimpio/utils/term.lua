@@ -10,17 +10,14 @@ local pio_mon_win = nil
 
 ----------------------------------------------------------------------------------------
 -- INFO: Safe Window Closure Logic (Tied to pressing 'q' inside normal mode)
-local function HideTerminalWindow(terminal_type)
-  local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
-  if target_win and vim.api.nvim_win_is_valid(target_win) then
-    vim.api.nvim_win_close(target_win, true)
-    -- Balance code windows above seamlessly once on close
-    vim.cmd('wincmd =')
-  end
-  if terminal_type == 'monitor' then
-    pio_mon_win = nil
-  else
-    pio_cli_win = nil
+local function SafeCloseTerminal(buf_id)
+  if buf_id and vim.api.nvim_buf_is_valid(buf_id) then
+    local win_id = vim.fn.bufwinid(buf_id)
+    if win_id and win_id ~= -1 and vim.api.nvim_win_is_valid(win_id) then
+      vim.api.nvim_win_close(win_id, true)
+      -- Force standard workspace windows to balance their layout spacing evenly once on close
+      vim.cmd('wincmd =')
+    end
   end
 end
 
@@ -84,27 +81,33 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end
 
-  -- 5. THE GLOBAL GRID FIX:
-  -- FIXED: Changed 'botright' to 'below' and passed 'win = -1' to anchor the split layout
-  -- at the root of the editor window hierarchy tree. This natively spans full width under all sidebars!
+  -- 5. SPAWN STRATEGY: Initialize the window pane layout at the root of the screen grid frame
   local target_height = math.ceil(vim.o.lines * 0.28)
-  local win_opts = {
-    split = 'below', -- Sets the split vector direction [INDEX]
-    win = -1, -- Targets the global frame instead of a local column [INDEX]
-    height = target_height,
-  }
+  vim.cmd('botright ' .. target_height .. 'split')
+  local new_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(new_win, target_buf)
 
-  -- 6. RENDER THE HARD-LOCKED BASELINE LANE
-  local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
   else
     pio_cli_win = new_win
   end
 
+  -- 6. SYSTEM LAYOUT CORRECTION CHECK: Runs exactly ONCE when the window spawns
+  -- A capital 'J' forces the pane out of local vertical columns, flattening it across
+  -- the absolute bottom row of the screen frame underneath BOTH code files and sidebars!
+  vim.schedule(function()
+    if vim.api.nvim_win_is_valid(new_win) then
+      vim.api.nvim_win_call(new_win, function()
+        vim.cmd('wincmd J')
+      end)
+      -- Hardlocks the height so sidebars are forbidden from resizing or shifting it
+      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
+    end
+  end)
+
   -- 7. CLEAN WINDOW SYSTEM FLAGS (Completely free of autocommands or layout loops)
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
   -- 8. VISUAL CUSTOM WINBAR STYLING
   local hl = { bg = '#80a3d4', fg = '#000000' }
@@ -117,7 +120,7 @@ function M.ToggleTerminal(command, terminal_type)
   -----------------------------------------------------------------------------
   vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = target_buf })
   vim.keymap.set('n', 'q', function()
-    HideTerminalWindow(terminal_type)
+    SafeCloseTerminal(target_buf)
   end, { buffer = target_buf })
 
   -- CRASH-FREE UPWARD NAVIGATION KEYMAP
