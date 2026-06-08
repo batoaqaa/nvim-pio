@@ -77,7 +77,6 @@ These are the default keybindings, which you can override in your configuration.
           support = true,
           install = false,
         },
-        debug = false,
         menu_key = '<leader>\\', -- replace this menu key  to your convenience
         menu_name = 'PlatformIO', -- replace this menu name to your convenience
 

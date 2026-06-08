@@ -23,7 +23,7 @@ local M = {}
 local isActivated = false -- Tracks if commands/features are loaded
 
 -- Persistent internal storage for runtime verified properties
-M.config = { pio_runtime_dir = nil, pio_storage_dir = nil}
+M.config = { pio_runtime_dir = nil, pio_storage_dir = nil, debug = true}
 M.options = nil -- This will hold the complete configuration table safely in memory
 
 -- Minimal primitive defaults to ensure the commands can register safely
