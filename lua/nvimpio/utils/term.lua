@@ -125,8 +125,12 @@ function M.ToggleTerminal(cmd, t)
       p_cli_c = jid
     end
   end
+
+  -- 🥇 THE VIRTUAL LAYER ALLOCATOR
+  -- Instead of splits, we allocate layout coordinates directly on the editor surface container boundary.
+  -- This forces the split block to stay attached globally to the application base grid.
   local th = get_h()
-  local r = vim.o.lines - th - 2
+  local r = vim.o.lines - th - 3
   local fw = vim.api.nvim_open_win(tb, true, {
     relative = 'editor',
     row = r,
@@ -175,8 +179,26 @@ function M.ToggleTerminal(cmd, t)
   vim.cmd('startinsert')
 end
 
-vim.keymap.set('n', '<C-h>', '<C-w>h', { silent = true })
-vim.keymap.set('n', '<C-l>', '<C-w>l', { silent = true })
+-- 🛡️ STRUCTURAL BOUNDARY CHECKER
+-- This checks layout modifications without focus dependencies.
+-- The terminal stays anchored to the bottom row, hiding only when splits are explicitly destroyed or added.
+local g = vim.api.nvim_create_augroup('PioVirtualLayoutGuard', { clear = true })
+vim.api.nvim_create_autocmd({ 'WinNew', 'WinClosed' }, {
+  group = g,
+  callback = function()
+    local active_t = nil
+    if p_cli_w and vim.api.nvim_win_is_valid(p_cli_w) then
+      active_t = 'cli'
+    end
+    if p_mon_w and vim.api.nvim_win_is_valid(p_mon_w) then
+      active_t = 'monitor'
+    end
+    if active_t then
+      hide_w(active_t)
+    end
+  end,
+})
+
 vim.keymap.set('n', '<C-j>', function()
   local target = p_cli_w or p_mon_w
   if target and vim.api.nvim_win_is_valid(target) then
@@ -192,8 +214,8 @@ end, { silent = true })
 vim.keymap.set('n', '<leader>\\t', function()
   M.ToggleTerminal('', 'cli')
 end, { silent = true })
-return M
 
+return M
 -- local M = {}
 --
 -- local pio_cli_buf = nil
