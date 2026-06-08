@@ -37,12 +37,14 @@ local function toggle_bottom_pane(track_type, shell_cmd)
   local initial_active_win = vim.api.nvim_get_current_win()
 
   -- =========================================================================
-  -- EDGY.NVIM MECHANICAL LAYOUT BYPASS TECHNIQUE
+  -- FIXED EDGY.NVIM MECHANICAL LAYOUT BYPASS TECHNIQUE (API-SAFE)
   -- =========================================================================
-  -- First, spawn an auxiliary window pane natively out of the user's view
-  vim.cmd('silent noswapfile horizontal split')
-  local temp_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(temp_win, track.buf)
+  -- We open a normal split using the API and attach our pristine buffer DIRECTLY.
+  -- This leaves exactly 0 nanoseconds for external scripts to modify anything.
+  local temp_win = vim.api.nvim_open_win(track.buf, false, {
+    split = 'below',
+    height = 15,
+  })
 
   -- SURGICAL TREE MANIPULATION: Forcefully slice the window across the absolute bottom margin
   pcall(function()
@@ -65,15 +67,8 @@ local function toggle_bottom_pane(track_type, shell_cmd)
 
   -- 3. INTERACTIVE TERMINAL STREAM INITIALIZATION
   if (not track.chan or track.chan <= 0) and shell_cmd and shell_cmd ~= '' then
-    -- =========================================================================
-    -- CRITICAL MODIFICATION SHIELD: Reset the buffer state flags to absolute zero!
-    -- =========================================================================
-    -- This strips any accidental characters and tricks Neovim into knowing
-    -- the buffer is totally clean, completely bypassing the fatal jobstart error.
+    -- Absolute Buffer Cleansing Shield for maximum fallback safety
     vim.bo[track.buf].modified = false
-    vim.api.nvim_buf_set_lines(track.buf, 0, -1, false, {})
-    vim.bo[track.buf].modified = false
-    -- =========================================================================
 
     -- Inject execution path hooks securely via the native channel
     track.chan = vim.fn.termopen(shell_cmd, {
@@ -94,8 +89,7 @@ end
 
 ---The master backwards-compatible gateway function called everywhere in your plugin repository
 ---@param command_string string The absolute PlatformIO command instructions string
-function M.ToggleTerminal(command_string, dir)
-  dir = 'hh'
+function M.ToggleTerminal(command_string)
   if not command_string or type(command_string) ~= 'string' or vim.trim(command_string) == '' then
     return false
   end
