@@ -1,19 +1,19 @@
 local M = {}
 
--- Background memory tracking slots for running shell terminal process buffers
+-- Persistent background storage buffers for running shell processes
 local pio_cli_buf = nil
 local pio_mon_buf = nil
 
--- Display window handles (Kept global inside the file scope)
+-- Display window tracking handles
 local pio_cli_win = nil
 local pio_mon_win = nil
 
--- Memory slots to track the active job channel IDs for streaming commands
+-- Native channel IDs used for streaming PlatformIO commands
 local pio_cli_chan = nil
 local pio_mon_chan = nil
 
 ----------------------------------------------------------------------------------------
--- INFO: Safe Window Closure Logic (Triggered on 'q' or when toggling off)
+-- INFO: Safe Window Closure Logic (Tied to pressing 'q' inside normal mode)
 local function HideTerminalWindow(terminal_type)
   local win_id = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
   if win_id and vim.api.nvim_win_is_valid(win_id) then
@@ -29,7 +29,7 @@ end
 ----------------------------------------------------------------------------------------
 -- INFO: Core Layout Spawner (Global Canvas Layer Architecture)
 function M.ToggleTerminal(command, terminal_type)
-  -- 1. Enforce strict title header assignments immediately at the top
+  -- 1. Normalize variables and titles right at the top
   local title = ''
   if terminal_type == 'monitor' or (command and string.find(command, ' monitor')) then
     title = 'Pio Monitor'
@@ -43,7 +43,7 @@ function M.ToggleTerminal(command, terminal_type)
   local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
 
-  -- 2. MUTUAL EXCLUSION: If the opponent window is visible, hide it first
+  -- 2. MUTUAL EXCLUSION: If the other terminal is open, close its window layer first
   if other_win and vim.api.nvim_win_is_valid(other_win) then
     vim.api.nvim_win_close(other_win, true)
     if terminal_type == 'monitor' then
@@ -53,7 +53,7 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 3. TOGGLE WINDOW ACTION: If this window is open, hide it
+  -- 3. TOGGLE ACTION: If our target window is already open, close it
   if target_win and vim.api.nvim_win_is_valid(target_win) then
     vim.api.nvim_win_close(target_win, true)
     if terminal_type == 'monitor' then
@@ -64,7 +64,8 @@ function M.ToggleTerminal(command, terminal_type)
     return
   end
 
-  -- 4. NEW MODERN PROCESS PERSISTENCE LAYER: Completely free of deprecated APIs
+  -- 4. THE ULTIMATE POWERSHELL PIPELINE FIX:
+  -- Spawns an interactive modern shell using native open_term pipelines
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
     target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
     if terminal_type == 'monitor' then
@@ -73,60 +74,50 @@ function M.ToggleTerminal(command, terminal_type)
       pio_cli_buf = target_buf
     end
 
-    -- Open a modern terminal channel stream natively on the buffer
-    local chan_id = vim.api.nvim_open_term(target_buf, {
-      on_input = function(_, _, _, data)
-        local active_job = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
-        if active_job then
-          vim.api.nvim_chan_send(active_job, data)
-        end
-      end,
-    })
+    -- FIXED TYPING: Set the buffer type explicitly to 'terminal' right away
+    vim.api.nvim_buf_set_option(target_buf, 'buftype', 'terminal')
 
-    -- FIXED POWERSHELL CALL STRUCTURE FOR WINDOWS ENVIRONMENT
-    local spawn_cmd = {}
-
+    -- Determine target windows platform shell engine
+    local target_shell = vim.o.shell
     if vim.fn.has('win32') == 1 then
-      -- HARD-LOCKS POWERSHELL INTERACTIVE PARAMETERS NATIVELY:
-      -- -NoExit keeps the terminal session thread alive
-      -- -NoLogo strips initial shell version clutter text rows
-      spawn_cmd = { 'powershell.exe', '-NoExit', '-NoLogo', '-ExecutionPolicy', 'Bypass' }
-    else
-      -- Fallback cleanly to standard Unix/Mac systems configurations
-      spawn_cmd = { vim.o.shell }
+      target_shell = 'powershell.exe'
     end
 
-    -- Start the background process without { term = true } to prevent buffer conflicts
-    local job_id = vim.fn.jobstart(spawn_cmd, {
-      on_stdout = function(_, data)
-        if vim.api.nvim_buf_is_valid(target_buf) and data then
-          local output = table.concat(data, '\r\n') .. '\r\n'
-          vim.api.nvim_chan_send(chan_id, output)
-        end
-      end,
-      on_stderr = function(_, data)
-        if vim.api.nvim_buf_is_valid(target_buf) and data then
-          local output = table.concat(data, '\r\n') .. '\r\n'
-          vim.api.nvim_chan_send(chan_id, output)
-        end
-      end,
-      on_exit = function()
-        if terminal_type == 'monitor' then
-          pio_mon_chan = nil
-        else
-          pio_cli_chan = nil
-        end
-      end,
-    })
+    vim.api.nvim_buf_call(target_buf, function()
+      -- FIXED: Initialize the terminal using Neovim's modern open_term layout engine
+      -- while separating the jobstart data streams to solve the unmodified buffer error.
+      local chan_id = vim.api.nvim_open_term(target_buf, {})
 
-    -- Cache channel pointers globally for execution sending paths
-    if terminal_type == 'monitor' then
-      pio_mon_chan = job_id
-    else
-      pio_cli_chan = job_id
-    end
+      local job_id = vim.fn.jobstart(target_shell, {
+        on_stdout = function(_, data)
+          if vim.api.nvim_buf_is_valid(target_buf) and data then
+            local output = table.concat(data, '\r\n') .. '\r\n'
+            vim.api.nvim_chan_send(chan_id, output)
+          end
+        end,
+        on_stderr = function(_, data)
+          if vim.api.nvim_buf_is_valid(target_buf) and data then
+            local output = table.concat(data, '\r\n') .. '\r\n'
+            vim.api.nvim_chan_send(chan_id, output)
+          end
+        end,
+        on_exit = function()
+          if terminal_type == 'monitor' then
+            pio_mon_chan = nil
+          else
+            pio_cli_chan = nil
+          end
+        end,
+      })
 
-    -- CLEAN HEADER FILTER: Cleans up the initial PlatformIO verbose boot menu lines dynamically
+      if terminal_type == 'monitor' then
+        pio_mon_chan = job_id
+      else
+        pio_cli_chan = job_id
+      end
+    end)
+
+    -- CLEAN HEADER FILTER: Cleans up initial PlatformIO startup diagnostics menu text rows
     local pio_group = vim.api.nvim_create_augroup('PioCleaner_' .. target_buf, { clear = true })
     vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
       group = pio_group,
@@ -153,6 +144,7 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   -- 5. ABSOLUTE GEOMETRIC GRID CONFIGURATION:
+  -- Locks position securely on a separate overlay layer to prevent vertical pillar splitting
   local target_height = math.ceil(vim.o.lines * 0.28)
   local cmdheight = vim.o.cmdheight or 1
 
@@ -248,7 +240,6 @@ function M.ToggleTerminal(command, terminal_type)
   if command and command ~= '' then
     local active_chan = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
     if active_chan then
-      -- Uses native Lua nvim_chan_send API for terminal execution strings
       vim.api.nvim_chan_send(active_chan, command .. '\r\n')
     end
   end
