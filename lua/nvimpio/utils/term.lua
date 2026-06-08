@@ -1,118 +1,90 @@
 -- File: lua/nvimpio/utils/term.lua
 local M = {}
 
--- Legacy State Variables for Backwards Compatibility
+-- Legacy State Variables for Backwards Compatibility across your files
 M.p_mon_b = nil
 M.p_cli_b = nil
 M.p_mon_c = nil
 M.p_cli_c = nil
 
--- Master Floating State Registry
-local portal_state = {
+-- Edgy-Style Window & Buffer State Cache Registry
+local pane_state = {
   monitor = { buf = nil, win = nil, chan = nil },
   cli = { buf = nil, win = nil, chan = nil },
 }
 
-local layout_group = vim.api.nvim_create_augroup('NvimPioWindowPortalLock', { clear = true })
+local layout_group = vim.api.nvim_create_augroup('NvimPioEdgyLayoutLock', { clear = true })
 
----High-precision calculation engine to map our layout across the absolute edge grid
-local function calculate_bottom_portal_geometry()
-  local total_columns = vim.o.columns
-  local total_lines = vim.o.lines
-  local statusline_height = (vim.o.laststatus > 0) and 1 or 0
-  local cmdline_height = vim.o.cmdheight or 1
-  local target_height = 15
+---Internal processing engine to surgically insert a fixed layout pane at the bottom
+local function toggle_bottom_pane(track_type, shell_cmd)
+  local track = pane_state[track_type]
 
-  local vertical_row_offset = total_lines - target_height - statusline_height - cmdline_height
-
-  return {
-    relative = 'editor',
-    row = vertical_row_offset,
-    col = 0,
-    width = total_columns,
-    height = target_height,
-    style = 'minimal',
-    focusable = true,
-  }
-end
-
----FIXED: Safely adjusts ONLY the currently focused window line to prevent the 4/5 sizing panic
----@param should_shrink boolean True to shrink the code window, False to restore it
-local function adjust_active_workspace_pane(should_shrink)
-  local target_height = 15
-  local current_win = vim.api.nvim_get_current_win()
-
-  if current_win and vim.api.nvim_win_is_valid(current_win) then
-    local config = vim.api.nvim_win_get_config(current_win)
-    -- Verify this is a real code window panel and not a pre-existing float
-    if config.relative == '' then
-      local current_height = vim.api.nvim_win_get_height(current_win)
-      if should_shrink then
-        -- Gently compress the active window down to leave exactly 15 rows clear
-        local new_height = math.max(5, current_height - target_height)
-        pcall(vim.api.nvim_win_set_height, current_win, new_height)
-      else
-        -- Restore it back to full size when the terminal closes
-        pcall(vim.api.nvim_win_set_height, current_win, current_height + target_height)
-      end
-    end
-  end
-end
-
----Internal processing engine to toggle the custom floating window layer
-local function toggle_terminal_portal(track_type, shell_cmd)
-  local track = portal_state[track_type]
-
-  -- 1. IF VISIBLE: Close window layout frame and restore file viewing geometries cleanly
+  -- 1. IF PANE IS VISIBLE: Gracefully close its window frame container and exit
   if track.win and vim.api.nvim_win_is_valid(track.win) then
     pcall(vim.api.nvim_win_close, track.win, true)
     track.win = nil
-    adjust_active_workspace_pane(false) -- Restore the active code layout panel full screen
     return
   end
 
-  -- 2. BUFFER INTEGRITY FILTER: Recycle active text buffer space safely
+  -- 2. BUFFER LIFECYCLE MANAGEMENT: Recycle or spawn the unlisted text buffer space cleanly
   if not track.buf or not vim.api.nvim_buf_is_valid(track.buf) then
-    track.buf = vim.api.nvim_create_buf(false, true)
+    track.buf = vim.api.nvim_create_buf(false, true) -- listed = false, scratchpad = true
     vim.bo[track.buf].filetype = 'nvimpio-terminal'
     track.chan = nil
   end
 
-  -- Shrink the coding view split line BEFORE popping the float window onto the screen
-  adjust_active_workspace_pane(true)
+  -- Cache your active text writing cursor window context safely
+  local initial_active_win = vim.api.nvim_get_current_win()
 
-  -- 3. RENDER PORTAL LAYOUT: Open the absolute positioned overlay frame
-  local geometry = calculate_bottom_portal_geometry()
-  track.win = vim.api.nvim_open_win(track.buf, true, geometry)
+  -- =========================================================================
+  -- EDGY.NVIM MECHANICAL LAYOUT BYPASS TECHNIQUE
+  -- =========================================================================
+  -- First, spawn an auxiliary window pane natively out of the user's view
+  vim.cmd('silent noswapfile horizontal split')
+  local temp_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(temp_win, track.buf)
 
-  -- HARD CONFIG RESIZE GUARD: Force local options to lock the container size
-  -- This tells Neovim's layout engine to freeze this window at 15 lines permanently!
+  -- SURGICAL TREE MANIPULATION: Forcefully slice the window across the absolute
+  -- bottom margin edge of Neovim's layout tree.
+  -- Pass true to tell Neovim to push it to the lowest layout layer row level.
+  pcall(function()
+    vim.api.nvim_win_splitmove(temp_win, 0, { vertical = false, rightbelow = true })
+  end)
+
+  track.win = temp_win
+
+  -- Hard-lock the dimensions of this pane immediately inside the layout grid array
   vim.wo[track.win].winfixheight = true
   vim.wo[track.win].winfixwidth = true
   vim.wo[track.win].wrap = true
-  pcall(vim.api.nvim_win_set_height, track.win, 15) -- Enforce exact row geometry height
+  pcall(vim.api.nvim_win_set_height, track.win, 15) -- Restrict size securely to 15 lines
 
-  -- 4. SPAWN TERMINAL CHANNEL: Run instructions strictly inside fresh buffer streams
+  -- RESTORE FOCUS INSTANTLY: Jump back to the active editing file before the terminal boots up
+  if vim.api.nvim_win_is_valid(initial_active_win) then
+    vim.api.nvim_set_current_win(initial_active_win)
+  end
+  -- =========================================================================
+
+  -- 3. INTERACTIVE TERMINAL STREAM INITIALIZATION
   if (not track.chan or track.chan <= 0) and shell_cmd and shell_cmd ~= '' then
+    -- Inject execution path hooks securely via the native channel
     track.chan = vim.fn.termopen(shell_cmd, {
       on_exit = function(_, exit_code)
+        -- Auto-Cleanup Hook: Wipe the frame automatically if a build task passes cleanly
         vim.schedule(function()
           if track_type == 'cli' and exit_code == 0 then
             if track.win and vim.api.nvim_win_is_valid(track.win) then
               pcall(vim.api.nvim_win_close, track.win, true)
               track.win = nil
-              adjust_active_workspace_pane(false)
             end
           end
         end)
       end,
     })
   end
-
-  vim.cmd('startinsert')
 end
 
----The master backwards-compatible gateway function called everywhere in your plugin
+---The master backwards-compatible gateway function called everywhere in your plugin repository
 ---@param command_string string The absolute PlatformIO command instructions string
 function M.ToggleTerminal(command_string)
   if not command_string or type(command_string) ~= 'string' or vim.trim(command_string) == '' then
@@ -122,6 +94,7 @@ function M.ToggleTerminal(command_string)
   local clean_cmd = vim.trim(command_string)
   local track_type = 'cli'
 
+  -- Automated Execution Router: Distinguish between compile runs and serial hardware streams
   if clean_cmd:find('monitor') or clean_cmd:find('device list') then
     track_type = 'monitor'
   end
@@ -130,9 +103,10 @@ function M.ToggleTerminal(command_string)
     clean_cmd = 'pio ' .. clean_cmd
   end
 
-  toggle_terminal_portal(track_type, clean_cmd)
+  toggle_bottom_pane(track_type, clean_cmd)
 
-  local active = portal_state[track_type]
+  -- Synchronize state changes back to your legacy global tracking variables safely
+  local active = pane_state[track_type]
   if track_type == 'monitor' then
     M.p_mon_b = active.buf
     M.p_mon_c = active.chan
@@ -144,26 +118,26 @@ function M.ToggleTerminal(command_string)
   return true
 end
 
--- Re-adjust coordinates dynamically if the user resizes their screen shell
-vim.api.nvim_create_autocmd('VimResized', {
+-- =========================================================================
+-- STATE MONITOR RESOLUTION LOCK: THE EDGY LAYOUT MONITOR
+-- =========================================================================
+-- This acts as an iron shield. If Neo-tree closes, or if a user opens five
+-- different vertical splits, this listener forces your terminal window
+-- to snap straight back to exactly 15 text lines tall, keeping your text safe!
+vim.api.nvim_create_autocmd({ 'WinResized', 'VimResized' }, {
   group = layout_group,
   callback = function()
     vim.schedule(function()
-      local fresh_geometry = calculate_bottom_portal_geometry()
-      for _, track in pairs(portal_state) do
+      for _, track in pairs(pane_state) do
         if track.win and vim.api.nvim_win_is_valid(track.win) then
-          pcall(vim.api.nvim_win_set_config, track.win, {
-            row = fresh_geometry.row,
-            col = fresh_geometry.col,
-            width = fresh_geometry.width,
-            height = fresh_geometry.height,
-          })
+          -- Explicitly correct the window height whenever a layout shift happens
           pcall(vim.api.nvim_win_set_height, track.win, 15)
         end
       end
     end)
   end,
 })
+-- =========================================================================
 
 return M
 -- local M = {}
