@@ -125,7 +125,6 @@ function M.ToggleTerminal(command, terminal_type)
 
   -- MUTUAL EXCLUSION
   if other_win and vim.api.nvim_win_is_valid(other_win) then
-    vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = other_win })
     vim.api.nvim_win_close(other_win, true)
     if terminal_type == 'monitor' then
       pio_cli_win = nil
@@ -273,7 +272,7 @@ end
 vim.keymap.set('n', '<C-h>', '<C-w>h', { silent = true })
 vim.keymap.set('n', '<C-l>', '<C-w>l', { silent = true })
 
-vim.keymap.set('n', '', function()
+vim.keymap.set('n', '<C-j>', function()
   if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
     vim.api.nvim_set_current_win(pio_cli_win)
     vim.cmd('startinsert')
@@ -284,8 +283,13 @@ vim.keymap.set('n', '', function()
     vim.cmd('wincmd j')
   end
 end, { silent = true })
+vim.keymap.set('n', [[\gm]], function()
+  M.ToggleTerminal('', 'monitor')
+end, { silent = true })
+vim.keymap.set('n', [[\t]], function()
+  M.ToggleTerminal('', 'cli')
+end, { silent = true })
 return M
-
 -- local M = {}
 --
 -- -- Memory slots to preserve running terminal process background buffers
