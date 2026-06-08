@@ -1,16 +1,12 @@
 local M = {}
 
--- Persistent background storage buffers for running shell processes
+-- Memory slots to preserve running terminal process background buffers
 local pio_cli_buf = nil
 local pio_mon_buf = nil
 
--- Display window tracking handles
+-- Memory trackers for the active window IDs
 local pio_cli_win = nil
 local pio_mon_win = nil
-
--- Remembers where the user's main file tree and code splits live
-local original_workspace_tab = nil
-local pio_isolated_tab = nil
 
 ----------------------------------------------------------------------------------------
 -- INFO: Safe Window Closure Logic (Tied to pressing 'q' inside normal mode)
@@ -24,23 +20,10 @@ local function HideTerminalWindow(terminal_type)
   else
     pio_cli_win = nil
   end
-
-  -- Clean up and shut down the isolated tab page if both console panels are closed
-  if pio_isolated_tab and vim.api.nvim_tabpage_is_valid(pio_isolated_tab) then
-    local tab_wins = vim.api.nvim_tabpage_list_wins(pio_isolated_tab)
-    if #tab_wins <= 1 then
-      vim.cmd('tabclose')
-      pio_isolated_tab = nil
-      -- Return user focus safely back to their original workspace file tree
-      if original_workspace_tab and vim.api.nvim_tabpage_is_valid(original_workspace_tab) then
-        vim.api.nvim_set_current_tabpage(original_workspace_tab)
-      end
-    end
-  end
 end
 
 ----------------------------------------------------------------------------------------
--- INFO: Core Layout Spawner (Isolated Tabular Page Architecture)
+-- INFO: Core Layout Spawner (Buffer-Relative Overlay Framework)
 function M.ToggleTerminal(command, terminal_type)
   -- 1. Enforce strict title header assignments immediately at the top
   local title = ''
@@ -56,7 +39,7 @@ function M.ToggleTerminal(command, terminal_type)
   local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
 
-  -- 2. MUTUAL EXCLUSION: If the opponent window is visible, hide it first
+  -- 2. MUTUAL EXCLUSION: If the other terminal panel window is visible, hide it first
   if other_win and vim.api.nvim_win_is_valid(other_win) then
     vim.api.nvim_win_close(other_win, true)
     if terminal_type == 'monitor' then
@@ -74,21 +57,10 @@ function M.ToggleTerminal(command, terminal_type)
     else
       pio_cli_win = nil
     end
-
-    -- Safe return to code view tab if closing the active console
-    if original_workspace_tab and vim.api.nvim_tabpage_is_valid(original_workspace_tab) then
-      vim.api.nvim_set_current_tabpage(original_workspace_tab)
-    end
     return
   end
 
-  -- 4. CACHE ORIGINAL WORKSPACE: Remember exactly where the file-tree cache is healthy
-  local current_tab = vim.api.nvim_get_current_tabpage()
-  if current_tab ~= pio_isolated_tab then
-    original_workspace_tab = current_tab
-  end
-
-  -- 5. PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
+  -- 4. PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
     target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
     if terminal_type == 'monitor' then
@@ -109,27 +81,35 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end
 
-  -- 6. TABPAGE LAYOUT SEPARATION: Safely initialize or hop into our isolated display layer tab
-  if pio_isolated_tab and vim.api.nvim_tabpage_is_valid(pio_isolated_tab) then
-    vim.api.nvim_set_current_tabpage(pio_isolated_tab)
-  else
-    vim.cmd('tabnew')
-    pio_isolated_tab = vim.api.nvim_get_current_tabpage()
-  end
+  -- 5. THE BUFFER-RELATIVE LAYOUT FIX:
+  -- We anchor the float directly to the user's active file pane window handle (win = parent_file_win).
+  -- This makes your terminal completely immune to being smashed or squeezed by Aerial or Neo-tree!
+  local parent_file_win = vim.api.nvim_get_current_win()
+  local file_win_width = vim.api.nvim_win_get_width(parent_file_win)
+  local file_win_height = vim.api.nvim_win_get_height(parent_file_win)
 
-  -- Draw the full-screen width split row partition inside this isolated tab environment
-  local target_height = math.ceil(vim.o.lines * 0.28)
-  vim.cmd('botright ' .. target_height .. 'split')
+  local target_height = math.ceil(file_win_height * 0.32)
 
-  local new_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(new_win, target_buf)
+  local win_opts = {
+    relative = 'win', -- HARD-LOCKS TO THE FILE WINDOW ONLY: Bypasses monitor grid completely
+    win = parent_file_win, -- Binds the coordinate system to their current text document pane
+    style = 'minimal', -- Disables border and padding overheads
+    focusable = true, -- Keeps keyboard layout paths fully operational
+    width = file_win_width, -- Stretches exactly to the margins of their code file pane
+    height = target_height,
+    row = file_win_height - target_height, -- Clamps precisely to the bottom of the file view
+    col = 0, -- Starts flush with the left edge of their text
+  }
+
+  -- 6. RENDER THE SECURE горизонтальный PANEL OVERLAY
+  local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
   else
     pio_cli_win = new_win
   end
 
-  -- 7. HARD-LOCK WINDOW SYSTEM FLAGS
+  -- 7. CLEAN SYSTEM OPTIONS DECORATIONS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
@@ -147,17 +127,15 @@ function M.ToggleTerminal(command, terminal_type)
     HideTerminalWindow(terminal_type)
   end, { buffer = target_buf })
 
-  -- SAFE RE-ROUTING NAVIGATION KEYMAP:
-  -- When the user presses <C-k> to leave the terminal, this macro instantly jumps
-  -- them out of the terminal tab and drops them back into their healthy workspace file tab!
+  -- CRASH-FREE UPWARD NAVIGATION KEYMAP
   vim.keymap.set({ 'n', 't' }, '<C-k>', function()
     if vim.api.nvim_get_mode().mode == 't' then
       local esc = vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true)
       vim.api.nvim_feedkeys(esc, 'n', false)
     end
     vim.schedule(function()
-      if original_workspace_tab and vim.api.nvim_tabpage_is_valid(original_workspace_tab) then
-        vim.api.nvim_set_current_tabpage(original_workspace_tab)
+      if parent_file_win and vim.api.nvim_win_is_valid(parent_file_win) then
+        vim.api.nvim_set_current_win(parent_file_win)
       end
     end)
   end, { buffer = target_buf, silent = true })
@@ -182,16 +160,11 @@ function M.ToggleTerminal(command, terminal_type)
   vim.keymap.set('n', '<C-l>', '<C-w>l')
 
   -- GLOBAL INTERCEPT DOWNWARD MOVEMENT HOOK:
-  -- Focuses your cursor straight down into your active terminal pane natively,
-  -- automatically moving them into the isolated terminal tab view.
+  -- Focuses your cursor straight down into your active terminal pane natively
   vim.keymap.set('n', '<C-j>', function()
-    if pio_isolated_tab and vim.api.nvim_tabpage_is_valid(pio_isolated_tab) then
-      vim.api.nvim_set_current_tabpage(pio_isolated_tab)
-      local cur_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
-      if cur_win and vim.api.nvim_win_is_valid(cur_win) then
-        vim.api.nvim_set_current_win(cur_win)
-        vim.cmd('startinsert')
-      end
+    if new_win and vim.api.nvim_win_is_valid(new_win) then
+      vim.api.nvim_set_current_win(new_win)
+      vim.cmd('startinsert')
     else
       vim.cmd('wincmd j')
     end
@@ -208,7 +181,7 @@ function M.ToggleTerminal(command, terminal_type)
   end
   -----------------------------------------------------------------------------
 
-  -- Pass PlatformIO command strings directly through the background terminal channel
+  -- Automatically run passed command strings via your platformio job channels
   if command and command ~= '' then
     local job_id = vim.b[target_buf].terminal_job_id
     if job_id then
@@ -220,6 +193,7 @@ function M.ToggleTerminal(command, terminal_type)
 end
 
 return M
+
 -- local M = {}
 --
 -- -- Persistent background storage buffers for running shell processes
