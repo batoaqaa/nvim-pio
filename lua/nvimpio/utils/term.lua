@@ -301,7 +301,15 @@ function M.ToggleTerminal(command, terminal_type)
   -- 🔥 THE SHIELD: Rips the split container entirely out of vertical columns
   -- and flattens it horizontally across the absolute bottom row [Index].
   vim.cmd('wincmd J')
-  vim.api.nvim_win_set_height(new_win, target_height)
+  -- vim.api.nvim_win_set_height(new_win, target_height)
+  if new_win and vim.api.nvim_api_win_is_valid(new_win) then
+    pcall(function()
+      vim.api.nvim_win_set_height(new_win, target_height or 15)
+    end)
+  else
+    -- If the window id became invalid, gracefully fail-fast without crashing
+    return false
+  end
 
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
