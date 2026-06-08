@@ -29,21 +29,28 @@ local function toggle_bottom_pane(track_type, shell_cmd)
   -- Cache your active text writing cursor window context safely before any operations
   local initial_active_win = vim.api.nvim_get_current_win()
 
-  -- =========================================================================
-  -- FOLLOW NEOVIM'S RULES: SPAWN CHANNELS AT ATOMIC CREATION TIME
-  -- =========================================================================
   if shell_cmd and shell_cmd ~= '' then
-    -- Rule Step A: Create a brand-new, completely empty scratchpad memory buffer
+    -- Step A: Create a brand-new, completely empty scratchpad memory buffer
     track.buf = vim.api.nvim_create_buf(false, true)
     vim.bo[track.buf].filetype = 'nvimpio-terminal'
 
-    -- Rule Step B: Open an ordinary horizontal window split layout
+    -- =========================================================================
+    -- THE UN-FOCUSABLE SYSTEM PANEL SHIELD
+    -- =========================================================================
+    -- These options tell Neovim's core layout engine and plugins like Neo-tree
+    -- that this buffer is a system panel, forcing them to open files elsewhere!
+    vim.bo[track.buf].buftype = 'nofile'
+    vim.bo[track.buf].bufhidden = 'hide'
+    vim.bo[track.buf].swapfile = false
+    -- =========================================================================
+
+    -- Step B: Open an ordinary horizontal window split layout
     local temp_win = vim.api.nvim_open_win(track.buf, false, {
       split = 'below',
       height = 15,
     })
 
-    -- Rule Step C: Use Neovim's native window splitmove engine to slice it to the absolute bottom row
+    -- Step C: Use Neovim's native window splitmove engine to slice it to the absolute bottom row
     pcall(function()
       vim.api.nvim_win_splitmove(temp_win, 0, { vertical = false, rightbelow = true })
     end)
@@ -55,9 +62,7 @@ local function toggle_bottom_pane(track_type, shell_cmd)
     vim.wo[track.win].wrap = true
     pcall(vim.api.nvim_win_set_height, track.win, 15)
 
-    -- Rule Step D: Execute the terminal stream directly inside the focused pane context layout.
-    -- Because the window is completely settled before termopen runs, it complies
-    -- perfectly with Neovim's unmodified state checks!
+    -- Step D: Execute the terminal stream directly inside the focused pane context layout.
     vim.api.nvim_win_call(track.win, function()
       track.chan = vim.fn.termopen(shell_cmd, {
         on_exit = function(_, exit_code)
@@ -74,7 +79,7 @@ local function toggle_bottom_pane(track_type, shell_cmd)
     end)
   end
 
-  -- RESTORE FOCUS INSTANTLY: Return cursor smoothly to the active code file
+  -- RESTORE FOCUS INSTANTLY: Return cursor smoothly to the active code file or sidebar
   if vim.api.nvim_win_is_valid(initial_active_win) then
     vim.api.nvim_set_current_win(initial_active_win)
   end
