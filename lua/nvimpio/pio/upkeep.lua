@@ -679,30 +679,26 @@ function M.stdoutcallback(_, data, event)
   if data and #data > 0 then
     vim.notify('[PioData Dump]: ' .. table.concat(data, ' | '), vim.log.levels.DEBUG)
   end
-  -----------------------------------------------------------------------------
 
   -----------------------------------------------------------------------------
   -- 🌟 NATIVE TERMINAL ARRAY-TO-STRING FLATTENER ADAPTER
-  -----------------------------------------------------------------------------
-  -- Convert raw Neovim array tables into flat strings to prevent concatenation type crashes
+  -- Converts raw Neovim array tables into flat strings to prevent concatenation type crashes [INDEX]
   local clean_data = {}
   for i, line in ipairs(data) do
     clean_data[i] = line
   end
   local chunk_len = #clean_data
-  -----------------------------------------------------------------------------
 
-  -- Replaces your old concatenation blocks to process standard text strings flawlessly
   if chunk_len > 1 then
     content = content .. pio_buffer .. table.concat(clean_data, '', 1, chunk_len)
     pio_buffer = clean_data[chunk_len]
   else
-    -- FIXED SINGLE-ITEM CRASH: Safely extracts index 1 out of the clean array list
+    -- FIXED SINGLE-ITEM CRASH: Safely extracts index 1 out of the clean array list [INDEX]
     content = content .. pio_buffer .. clean_data[1]
     pio_buffer = clean_data[1]
   end
-
   -----------------------------------------------------------------------------
+
   -- if not data or #data == 0 then
   --   return
   -- end
@@ -771,8 +767,10 @@ function M.stdoutcallback(_, data, event)
       end
 
       -- 🏁 3. FLUSH THE BUFFER CLEAN HERE AT THE END OF THE COMMAND RUN
-      pio_buffer = ''
-      content = ''
+      -- pio_buffer = ''
+      -- content = ''
+      content = content .. pio_buffer .. data
+      pio_buffer = data
       -----------------------------------------------------------------------
     end
 

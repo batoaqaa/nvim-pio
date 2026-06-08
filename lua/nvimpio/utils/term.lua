@@ -68,7 +68,7 @@ function M.ToggleTerminal(command, terminal_type)
     return
   end
 
-  -- 4. PROCESS INITIALIZATION ENGINE: Completely free of deprecated APIs
+  -- 4. NEW HASSLE-FREE PROCESS INITIALIZATION ENGINE: Completely free of deprecated APIs
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
     target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
     if terminal_type == 'monitor' then
@@ -77,22 +77,28 @@ function M.ToggleTerminal(command, terminal_type)
       pio_cli_buf = target_buf
     end
 
-    -- Detect shell engine path natively (Prefers pwsh.exe on modern Windows setups)
-    local target_shell = vim.o.shell
+    -- FIXED PIPELINE: Determine native shell engine and explicit parameter arguments
+    local spawn_cmd = {}
     if vim.fn.has('win32') == 1 then
+      -- If the user has modern PowerShell 7+ installed on their system, use it natively!
       if vim.fn.executable('pwsh.exe') == 1 then
-        target_shell = 'pwsh.exe'
+        -- Runs pwsh as a raw non-interactive text stream pipe matching toggleterm's environment
+        spawn_cmd = { 'pwsh.exe', '-NoLogo', '-NoProfile' }
       else
-        target_shell = 'powershell.exe'
+        -- Fallback cleanly to built-in Windows PowerShell 5 if pwsh isn't found
+        spawn_cmd = { 'powershell.exe', '-NoLogo', '-NoProfile' }
       end
+    else
+      -- Fallback cleanly to standard Unix/Mac systems configurations
+      spawn_cmd = { vim.o.shell }
     end
 
-    -- Launch native pseudoterminal process directly on an unmodified buffer frame
+    -- Launch native background thread channel directly on an unmodified buffer frame
     vim.api.nvim_buf_call(target_buf, function()
-      vim.fn.jobstart(target_shell, {
-        term = true,
+      vim.fn.jobstart(spawn_cmd, {
+        -- MATCHES TOGGLETERM ENVIRONMENT: term = false stops all interactive ANSI clutter
+        term = false,
 
-        -- [FIXED TUNNEL]: Safely captures job parameters and runs your original M.stdoutcallback function as before
         on_stdout = function(job_id, data, event)
           if type(M.stdout_callback) == 'function' then
             M.stdout_callback(job_id, data, event)
@@ -112,29 +118,74 @@ function M.ToggleTerminal(command, terminal_type)
         end,
       })
     end)
-
-    -- 5. AUTOMATED VIEWPORT SCROLL REFLOW ENGINE:
-    local scroll_group = vim.api.nvim_create_augroup('PioAutoScroll_' .. target_buf, { clear = true })
-    vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
-      group = scroll_group,
-      buffer = target_buf,
-      callback = function()
-        local active_term_win = vim.fn.bufwinid(target_buf)
-        if active_term_win and active_term_win ~= -1 and vim.api.nvim_win_is_valid(active_term_win) then
-          vim.schedule(function()
-            if vim.api.nvim_win_is_valid(active_term_win) then
-              vim.api.nvim_win_call(active_term_win, function()
-                local mode = vim.api.nvim_get_mode().mode
-                if mode == 'n' or mode == 'nt' then
-                  vim.cmd('normal! G')
-                end
-              end)
-            end
-          end)
-        end
-      end,
-    })
   end
+  -- -- 4. PROCESS INITIALIZATION ENGINE: Completely free of deprecated APIs
+  -- if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
+  --   target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
+  --   if terminal_type == 'monitor' then
+  --     pio_mon_buf = target_buf
+  --   else
+  --     pio_cli_buf = target_buf
+  --   end
+  --
+  --   -- Detect shell engine path natively (Prefers pwsh.exe on modern Windows setups)
+  --   local target_shell = vim.o.shell
+  --   if vim.fn.has('win32') == 1 then
+  --     if vim.fn.executable('pwsh.exe') == 1 then
+  --       target_shell = 'pwsh.exe'
+  --     else
+  --       target_shell = 'powershell.exe'
+  --     end
+  --   end
+  --
+  --   -- Launch native pseudoterminal process directly on an unmodified buffer frame
+  --   vim.api.nvim_buf_call(target_buf, function()
+  --     vim.fn.jobstart(target_shell, {
+  --       term = true,
+  --
+  --       -- [FIXED TUNNEL]: Safely captures job parameters and runs your original M.stdoutcallback function as before
+  --       on_stdout = function(job_id, data, event)
+  --         if type(M.stdout_callback) == 'function' then
+  --           M.stdout_callback(job_id, data, event)
+  --         end
+  --       end,
+  --
+  --       on_stderr = function(job_id, data, event)
+  --         if type(M.stdout_callback) == 'function' then
+  --           M.stdout_callback(job_id, data, event)
+  --         end
+  --       end,
+  --
+  --       on_exit = function()
+  --         if type(M.exit_callback) == 'function' then
+  --           M.exit_callback()
+  --         end
+  --       end,
+  --     })
+  --   end)
+  --
+  --   -- 5. AUTOMATED VIEWPORT SCROLL REFLOW ENGINE:
+  --   local scroll_group = vim.api.nvim_create_augroup('PioAutoScroll_' .. target_buf, { clear = true })
+  --   vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
+  --     group = scroll_group,
+  --     buffer = target_buf,
+  --     callback = function()
+  --       local active_term_win = vim.fn.bufwinid(target_buf)
+  --       if active_term_win and active_term_win ~= -1 and vim.api.nvim_win_is_valid(active_term_win) then
+  --         vim.schedule(function()
+  --           if vim.api.nvim_win_is_valid(active_term_win) then
+  --             vim.api.nvim_win_call(active_term_win, function()
+  --               local mode = vim.api.nvim_get_mode().mode
+  --               if mode == 'n' or mode == 'nt' then
+  --                 vim.cmd('normal! G')
+  --               end
+  --             end)
+  --           end
+  --         end)
+  --       end
+  --     end,
+  --   })
+  -- end
 
   -- 6. THE GLOBAL GRID TRACKER MATRICES:
   target_panel_height = math.ceil(vim.o.lines * 0.28)
