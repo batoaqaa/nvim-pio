@@ -20,6 +20,8 @@ local function HideTerminalWindow(terminal_type)
   else
     pio_cli_win = nil
   end
+  -- Force an immediate screen refresh when closing to smoothly expand the text lines back
+  vim.cmd('redraw')
 end
 
 ----------------------------------------------------------------------------------------
@@ -51,12 +53,7 @@ function M.ToggleTerminal(command, terminal_type)
 
   -- 3. TOGGLE ACTION: If our target window is already open, close it
   if target_win and vim.api.nvim_win_is_valid(target_win) then
-    vim.api.nvim_win_close(target_win, true)
-    if terminal_type == 'monitor' then
-      pio_mon_win = nil
-    else
-      pio_cli_win = nil
-    end
+    HideTerminalWindow(terminal_type)
     return
   end
 
@@ -109,16 +106,21 @@ function M.ToggleTerminal(command, terminal_type)
     pio_cli_win = new_win
   end
 
-  -- 7. PROGRAMMATIC FOCUS JUMP ENGINE
-  -- This recreates your manual focus action the exact millisecond the overlay mounts.
-  -- It programmatically shifts focus down to the console to force a layout recalculation,
-  -- then bounces cursor control back to the editing file pane instantly.
+  -- 7. THE AUTOMATED PROGRAMMATIC REDRAW PASSTHROUGH
+  -- FIXED: This mimics your exact manual step programmatically. It shifts focus down to
+  -- the terminal to initialize it, forces an immediate deep UI redraw, and bounces focus
+  -- right back up to the code file within a millisecond before the user can see it happen.
   vim.schedule(function()
     if new_win and vim.api.nvim_win_is_valid(new_win) then
       vim.api.nvim_set_current_win(new_win)
 
+      -- Force Neovim to evaluate window boundary structures right now
+      vim.cmd('redraw')
+
       if parent_file_win and vim.api.nvim_win_is_valid(parent_file_win) then
         vim.api.nvim_set_current_win(parent_file_win)
+        -- Run a final redraw to lock the upper code buffer lines neatly above the mask edge
+        vim.cmd('redraw')
       end
     end
   end)
@@ -207,6 +209,7 @@ function M.ToggleTerminal(command, terminal_type)
 end
 
 return M
+
 -- local M = {}
 --
 -- -- Memory slots to preserve running terminal process background buffers
