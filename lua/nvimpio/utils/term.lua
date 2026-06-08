@@ -34,16 +34,6 @@ local function toggle_bottom_pane(track_type, shell_cmd)
     track.buf = vim.api.nvim_create_buf(false, true)
     vim.bo[track.buf].filetype = 'nvimpio-terminal'
 
-    -- =========================================================================
-    -- THE UN-FOCUSABLE SYSTEM PANEL SHIELD
-    -- =========================================================================
-    -- These options tell Neovim's core layout engine and plugins like Neo-tree
-    -- that this buffer is a system panel, forcing them to open files elsewhere!
-    vim.bo[track.buf].buftype = 'nofile'
-    vim.bo[track.buf].bufhidden = 'hide'
-    vim.bo[track.buf].swapfile = false
-    -- =========================================================================
-
     -- Step B: Open an ordinary horizontal window split layout
     local temp_win = vim.api.nvim_open_win(track.buf, false, {
       split = 'below',
@@ -95,6 +85,7 @@ function M.ToggleTerminal(command_string)
   local clean_cmd = vim.trim(command_string)
   local track_type = 'cli'
 
+  -- Automated Execution Router: Distinguish between compile runs and serial hardware streams
   if clean_cmd:find('monitor') or clean_cmd:find('device list') then
     track_type = 'monitor'
   end
@@ -118,18 +109,57 @@ function M.ToggleTerminal(command_string)
 end
 
 -- =========================================================================
--- HIGH-PERFORMANCE EDGY MONITOR RESIZE ENFORCEMENT HOOK
+-- THE ULTIMATE WORKSPACE WINDOW GUARD & LAYOUT LOCK
 -- =========================================================================
-vim.api.nvim_create_autocmd({ 'WinResized', 'VimResized' }, {
+vim.api.nvim_create_autocmd({ 'BufEnter', 'WinResized', 'VimResized' }, {
   group = layout_group,
-  callback = function()
-    vim.schedule(function()
-      for _, track in pairs(pane_state) do
-        if track.win and vim.api.nvim_win_is_valid(track.win) then
-          pcall(vim.api.nvim_win_set_height, track.win, 15)
+  callback = function(args)
+    local current_win = vim.api.nvim_get_current_win()
+
+    -- Loop through our active console tracks to check for hijacked windows
+    for type_name, track in pairs(pane_state) do
+      if track.win and vim.api.nvim_win_is_valid(track.win) then
+        -- 1. WINDOW RESIZE LOCK: Keep the window strictly locked to 15 lines
+        pcall(vim.api.nvim_win_set_height, track.win, 15)
+
+        -- 2. HIJACK PROTECTION INTERCEPTOR:
+        -- If Neo-tree tries to force a normal code file into our terminal window slot,
+        -- intercept it immediately and evict it out of our bottom pane space!
+        if current_win == track.win and args.buf ~= track.buf then
+          local leaked_buf = args.buf
+
+          vim.schedule(function()
+            -- Step A: Put our pristine terminal buffer back into its bottom slot instantly
+            if vim.api.nvim_win_is_valid(track.win) and vim.api.nvim_buf_is_valid(track.buf) then
+              vim.api.nvim_win_set_buf(track.win, track.buf)
+            end
+
+            -- Step B: Find a valid upper code window to open the leaked file cleanly
+            local target_win = nil
+            for _, w in ipairs(vim.api.nvim_list_wins()) do
+              if w ~= pane_state.monitor.win and w ~= pane_state.cli.win then
+                local bo = vim.bo[vim.api.nvim_win_get_buf(w)]
+                if bo.buftype == '' and bo.filetype ~= 'neo-tree' then
+                  target_win = w
+                  break
+                end
+              end
+            end
+
+            -- Step C: Open the code file in the upper panel and shift keyboard focus to it
+            if target_win then
+              vim.api.nvim_set_current_win(target_win)
+              vim.api.nvim_win_set_buf(target_win, leaked_buf)
+            else
+              -- If no upper code split window exists yet, open one cleanly above the terminal box
+              vim.cmd('wincmd k | split')
+              local fresh_win = vim.api.nvim_get_current_win()
+              vim.api.nvim_win_set_buf(fresh_win, leaked_buf)
+            end
+          end)
         end
       end
-    end)
+    end
   end,
 })
 -- =========================================================================
