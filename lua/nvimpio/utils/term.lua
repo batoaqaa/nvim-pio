@@ -15,8 +15,8 @@ local portal_state = {
 
 local layout_group = vim.api.nvim_create_augroup('NvimPioWindowPortalLock', { clear = true })
 
----High-precision calculation engine to map our layout across the absolute edge grid
-local function calculate_bottom_portal_geometry()
+---Calculates precise coordinates relative to the master editor grid
+local function calculate_adaptive_geometry()
   local total_columns = vim.o.columns
   local total_lines = vim.o.lines
   local statusline_height = (vim.o.laststatus > 0) and 1 or 0
@@ -36,14 +36,30 @@ local function calculate_bottom_portal_geometry()
   }
 end
 
+---Dynamically adds a bottom padding margin to the active buffer so text never gets covered
+local function apply_viewport_padding(remove_padding)
+  local current_win = vim.api.nvim_get_current_win()
+  if not vim.api.nvim_win_is_valid(current_win) then
+    return
+  end
+
+  -- We use window-local options to shift text rows up by 15 lines safely
+  if remove_padding then
+    vim.wo[current_win].scrolloff = 0
+  else
+    vim.wo[current_win].scrolloff = 15 -- Forces Neovim to push your active code text ABOVE the terminal float!
+  end
+end
+
 ---Internal processing engine to toggle the custom floating window layer
 local function toggle_terminal_portal(track_type, shell_cmd)
   local track = portal_state[track_type]
 
-  -- 1. IF VISIBLE: Close window layout frame and save running cache handles
+  -- 1. IF VISIBLE: Close window layout frame and restore file viewing margins cleanly
   if track.win and vim.api.nvim_win_is_valid(track.win) then
     pcall(vim.api.nvim_win_close, track.win, true)
     track.win = nil
+    apply_viewport_padding(true) -- Strip text padding to let code expand back down full screen
     return
   end
 
@@ -54,8 +70,11 @@ local function toggle_terminal_portal(track_type, shell_cmd)
     track.chan = nil
   end
 
+  -- Apply the layout text padding right before opening the overlay panel
+  apply_viewport_padding(false)
+
   -- 3. RENDER PORTAL LAYOUT: Open the absolute positioned overlay frame
-  local geometry = calculate_bottom_portal_geometry()
+  local geometry = calculate_adaptive_geometry()
   track.win = vim.api.nvim_open_win(track.buf, true, geometry)
 
   vim.wo[track.win].winfixheight = true
@@ -71,6 +90,7 @@ local function toggle_terminal_portal(track_type, shell_cmd)
             if track.win and vim.api.nvim_win_is_valid(track.win) then
               pcall(vim.api.nvim_win_close, track.win, true)
               track.win = nil
+              apply_viewport_padding(true)
             end
           end
         end)
@@ -91,7 +111,6 @@ function M.ToggleTerminal(command_string)
   local clean_cmd = vim.trim(command_string)
   local track_type = 'cli'
 
-  -- Automated Execution Router: Distinguish between compile runs and serial hardware streams
   if clean_cmd:find('monitor') or clean_cmd:find('device list') then
     track_type = 'monitor'
   end
@@ -100,10 +119,8 @@ function M.ToggleTerminal(command_string)
     clean_cmd = 'pio ' .. clean_cmd
   end
 
-  -- Execute portal rendering workflow
   toggle_terminal_portal(track_type, clean_cmd)
 
-  -- Synchronize state changes back to your legacy global tracking variables safely
   local active = portal_state[track_type]
   if track_type == 'monitor' then
     M.p_mon_b = active.buf
@@ -116,14 +133,12 @@ function M.ToggleTerminal(command_string)
   return true
 end
 
--- =========================================================================
--- HIGH-PERFORMANCE DYNAMIC RE-SNAP LAYER
--- =========================================================================
+-- Re-adjust coordinates dynamically if the user resizes their screen shell
 vim.api.nvim_create_autocmd('VimResized', {
   group = layout_group,
   callback = function()
     vim.schedule(function()
-      local fresh_geometry = calculate_bottom_portal_geometry()
+      local fresh_geometry = calculate_adaptive_geometry()
       for _, track in pairs(portal_state) do
         if track.win and vim.api.nvim_win_is_valid(track.win) then
           pcall(vim.api.nvim_win_set_config, track.win, {
@@ -137,10 +152,8 @@ vim.api.nvim_create_autocmd('VimResized', {
     end)
   end,
 })
--- =========================================================================
 
 return M
-
 -- local M = {}
 --
 -- local pio_cli_buf = nil
