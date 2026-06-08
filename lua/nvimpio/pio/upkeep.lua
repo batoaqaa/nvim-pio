@@ -1205,8 +1205,11 @@ function M.handlePioDB(result, active_env, on_done)
     if #M.queue > 0 then
       pass1 = false
       _G.metadata.isBusy = true
-      trm = term.ToggleTerminal(pop(M.queue), 'float')
+      term.ToggleTerminal(pop(M.queue), 'float')
     end
+  elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
+    OS.notify(string.format('%sls  for %s', fromMsg, active_env), "info")
+    if #M.queue > 0 then term.ToggleTerminal(pop(M.queue), 'float') end
   elseif result == 'DONE' then -- .. current_id then                         -- compiledb PASS1
     vim.schedule(function()
       OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")

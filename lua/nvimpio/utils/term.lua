@@ -1,7 +1,5 @@
 local M = {}
 
-local config = require('nvimpio').config
-
 -- External sub-module assignments (e.g., 'platformio.utils.pio')
 M.stdout_callback = nil
 M.exit_callback = nil
