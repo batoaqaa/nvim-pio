@@ -48,6 +48,41 @@ end
 ----------------------------------------------------------------------------------------
 -- CORE STRUCTURAL RUNNER (PRODUCTION GRADE COORD-FREE TOPOLOGY)
 function M.ToggleTerminal(command, terminal_type)
+  ------------------------------------------------------------------
+  local group = vim.api.nvim_create_augroup('TerminalPositionLock', { clear = true })
+
+  vim.api.nvim_create_autocmd({ 'WinNew', 'WinLeave', 'BufEnter' }, {
+    group = group,
+    callback = function(args) -- 'args' contains data about the event
+      -- 1. Identify which buffer triggered the event
+      local triggering_buf = args.buf
+
+      -- 2. Check if THAT specific buffer is a terminal
+      if vim.bo[triggering_buf].buftype == 'terminal' then
+        -- 3. Safely schedule the position fix for this specific terminal
+        vim.schedule(function()
+          -- Find which window is currently holding our target terminal buffer
+          for _, win in ipairs(vim.api.nvim_list_wins()) do
+            if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == triggering_buf then
+              local current_win = vim.api.nvim_get_current_win()
+
+              -- Jump in, force it down, resize, and jump back
+              vim.api.nvim_set_current_win(win)
+              vim.cmd('wincmd J')
+              vim.cmd('resize 15')
+
+              if vim.api.nvim_win_is_valid(current_win) then
+                vim.api.nvim_set_current_win(current_win)
+              end
+
+              break -- We found it and fixed it, stop looping
+            end
+          end
+        end)
+      end
+    end,
+  })
+  ------------------------------------------------------------------
   local active_win = vim.api.nvim_get_current_win()
   if active_win ~= pio_cli_win and active_win ~= pio_mon_win then
     last_active_editor_win = active_win
