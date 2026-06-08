@@ -667,8 +667,8 @@ local trm
 local pio_buffer = ''
 local content = ''
 
--- function M.stdoutcallback(_, _, data, _)
-function M.stdoutcallback(_, data, event)
+-- [LEAVE OUTSIDE]: Kept completely independent from the internal layout spawner loops
+function M.stdoutcallback(job_id, data, event)
   -----------------------------------------------------------------------------
   -- 🔍 DETECTIVE TRACE HOOKS: Run this snippet to verify active process triggers
   -----------------------------------------------------------------------------
@@ -685,49 +685,77 @@ function M.stdoutcallback(_, data, event)
     return
   end
 
-  if #data > 1 then
-    content = content .. pio_buffer .. table.concat(data, '', 1, #data)
-    pio_buffer = data[#data]
+  -----------------------------------------------------------------------------
+  -- 🌟 NATIVE TERMINAL TABLE ARRAY STANDARDIST UNPACKER & ANSI STRIPPER
+  -----------------------------------------------------------------------------
+  local processed_lines = {}
+  for i, line in ipairs(data) do
+    -- Removes Windows carriage returns (\r) AND strips raw interactive PTY ANSI color strings
+    -- This ensures your core pattern strings stay pristine behind the scenes!
+    processed_lines[i] = line:gsub('\r', ''):gsub('\x1b%[[0-9;]*%a', '')
+  end
+  local chunk_count = #processed_lines
+  -----------------------------------------------------------------------------
+
+  if chunk_count > 1 then
+    content = content .. pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
+    pio_buffer = processed_lines[chunk_count]
   else
-    -- Safe single item array evaluation
-    -- pio_buffer = pio_buffer .. data[1]
-    content = content .. pio_buffer .. data[1]
-    pio_buffer = data[1]
+    content = content .. pio_buffer .. processed_lines[1]
+    pio_buffer = processed_lines[1]
   end
 
   local pass_target = 'PASS' .. current_id
-  local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
-  local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
-  local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
+  local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target, 1, true) ~= nil
+  local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE', 1, true) ~= nil
+  local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL', 1, true) ~= nil
 
   if has_pass or has_fail or has_done then
     local active_cb = callBack
     local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
 
     if has_fail or has_done then
-      -- ✅ SUCCESSFUL RUN DETECTED: Kill the countdown timer immediately!
       callBack = nil
       M.queue = {}
 
-      -----------------------------------------------------------------------
-      -- 🌟 ONE-TIME EXTRACTOR ON TERMINATION (HISTORY COMPLETELY INTACT!)
-      -----------------------------------------------------------------------
       if clangd_check_active then
         clangd_extracted_args = {}
 
-        -- 1. Find boundaries on the raw, un-truncated content string
         local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
-        local _, start_idx = string.find(content, start_pattern, 1, true)
+        local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
 
-        if not start_idx then
-          local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
-          _, start_idx = string.find(content, fallback_echo, 1, true)
+        -- FIXED EXTRACTOR MATCH: We reverse-scan the content buffer using string.match
+        -- or explicit index offsets to ensure we find the true output token line
+        -- at the bottom of the log stream, safely skipping any interactive shell input echoes!
+        local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
+        local end_idx = content:find(end_pattern, 1, true)
+
+        -- Fallback scanner to isolate the boundary coordinates safely
+        local start_idx = nil
+        if end_idx then
+          -- Scan backwards from right before our termination token marker line
+          local search_zone = content:sub(1, end_idx - 1)
+
+          -- Find the last occurrence of the start pattern sequence
+          local current_pos = 1
+          while true do
+            local next_start, next_end = search_zone:find(start_pattern, current_pos, true)
+            if not next_start then
+              if not start_idx then
+                -- Try the fallback echo pattern if the target status hasn't matched yet
+                local fb_start, fb_end = search_zone:find(fallback_echo, current_pos, true)
+                if fb_start then
+                  start_idx = fb_end
+                end
+              end
+              break
+            end
+            start_idx = next_end
+            current_pos = next_start + 1
+          end
         end
 
-        local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
-        local end_idx = string.find(content, end_pattern, 1, true)
-
-        -- 2. Slice and parse the exact fresh run text block
+        -- Slice and parse the isolated fresh compilation logs text block safely
         if start_idx and end_idx and end_idx > start_idx then
           local fresh_run_logs = string.sub(content, start_idx + 1, end_idx - 1)
 
@@ -742,16 +770,17 @@ function M.stdoutcallback(_, data, event)
             end
           end
         else
+          -- Reset stream buffer values cleanly before escaping an un-synchronized token block
+          pio_buffer = ''
+          content = ''
           return
         end
 
         clangd_check_active = false
       end
 
-      -- 🏁 3. FLUSH THE BUFFER CLEAN HERE AT THE END OF THE COMMAND RUN
       pio_buffer = ''
       content = ''
-      -----------------------------------------------------------------------
     end
 
     if final_status and active_cb then
@@ -763,6 +792,101 @@ function M.stdoutcallback(_, data, event)
     return
   end
 end
+-- function M.stdoutcallback(_, _, data, _)
+--   -----------------------------------------------------------------------------
+--   -- 🔍 DETECTIVE TRACE HOOKS: Run this snippet to verify active process triggers
+--   -----------------------------------------------------------------------------
+--   -- Trace Call #1: Logs the unique event name ("stdout") and incoming table length
+--   vim.notify(string.format('[PioTrace] Callback hit! Event: %s, Chunks received: %d', tostring(event), data and #data or 0), vim.log.levels.INFO)
+--
+--   -- Trace Call #2: Dumps the raw log string block content to verify stream integrity
+--   if data and #data > 0 then
+--     vim.notify('[PioData Dump]: ' .. table.concat(data, ' | '), vim.log.levels.DEBUG)
+--   end
+--   -----------------------------------------------------------------------------
+--
+--   if not data or #data == 0 then
+--     return
+--   end
+--
+--   if #data > 1 then
+--     content = content .. pio_buffer .. table.concat(data, '', 1, #data)
+--     pio_buffer = data[#data]
+--   else
+--     -- Safe single item array evaluation
+--     -- pio_buffer = pio_buffer .. data[1]
+--     content = content .. pio_buffer .. data[1]
+--     pio_buffer = data[1]
+--   end
+--
+--   local pass_target = 'PASS' .. current_id
+--   local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
+--   local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
+--   local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
+--
+--   if has_pass or has_fail or has_done then
+--     local active_cb = callBack
+--     local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
+--
+--     if has_fail or has_done then
+--       -- ✅ SUCCESSFUL RUN DETECTED: Kill the countdown timer immediately!
+--       callBack = nil
+--       M.queue = {}
+--
+--       -----------------------------------------------------------------------
+--       -- 🌟 ONE-TIME EXTRACTOR ON TERMINATION (HISTORY COMPLETELY INTACT!)
+--       -----------------------------------------------------------------------
+--       if clangd_check_active then
+--         clangd_extracted_args = {}
+--
+--         -- 1. Find boundaries on the raw, un-truncated content string
+--         local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
+--         local _, start_idx = string.find(content, start_pattern, 1, true)
+--
+--         if not start_idx then
+--           local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
+--           _, start_idx = string.find(content, fallback_echo, 1, true)
+--         end
+--
+--         local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
+--         local end_idx = string.find(content, end_pattern, 1, true)
+--
+--         -- 2. Slice and parse the exact fresh run text block
+--         if start_idx and end_idx and end_idx > start_idx then
+--           local fresh_run_logs = string.sub(content, start_idx + 1, end_idx - 1)
+--
+--           if not string.find(fresh_run_logs, '%.clang%-format') then
+--             local seen = {}
+--             for arg in string.gmatch(fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
+--               local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
+--               if not seen[clean_flag] then
+--                 seen[clean_flag] = true
+--                 table.insert(clangd_extracted_args, clean_flag)
+--               end
+--             end
+--           end
+--         else
+--           return
+--         end
+--
+--         clangd_check_active = false
+--       end
+--
+--       -- 🏁 3. FLUSH THE BUFFER CLEAN HERE AT THE END OF THE COMMAND RUN
+--       pio_buffer = ''
+--       content = ''
+--       -----------------------------------------------------------------------
+--     end
+--
+--     if final_status and active_cb then
+--       vim.schedule(function()
+--         active_cb(final_status)
+--       end)
+--     end
+--
+--     return
+--   end
+-- end
 term.stdout_callback = M.stdoutcallback
 -- =============================================================================
 
