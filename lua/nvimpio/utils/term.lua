@@ -129,20 +129,22 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end
 
-  -- 6. BUFFER-RELATIVE GEOMETRY CONFIGURATION
+  -- 6. DYNAMIC COORDINATE MATRIX GENERATION:
+  -- We fetch the screen-space coordinates of your centered code file viewport.
+  -- win_pos[1] provides the row line, win_pos[2] provides the column start (right after neo-tree)
+  local win_pos = vim.api.nvim_win_get_position(parent_file_win)
   local file_win_width = vim.api.nvim_win_get_width(parent_file_win)
   local file_win_height = vim.api.nvim_win_get_height(parent_file_win)
   local target_height = math.ceil(file_win_height * 0.32)
 
   local win_opts = {
-    relative = 'win', -- Hard-locks strictly to the file window branch
-    win = parent_file_win, -- Anchors coordinate boundaries to the center code file window frame
+    relative = 'editor', -- Locks strictly to the monitor screen grid layout frame
     style = 'minimal', -- Strips margins, gutters, and borders
     focusable = true, -- Keeps keyboard layout inputs active
     width = file_win_width, -- Stretches exactly across the width of the code pane, bypassing sidebars!
     height = target_height,
-    row = file_win_height - target_height, -- Clamps precisely to the bottom of the active file view
-    col = 0,
+    row = win_pos[1] + file_win_height - target_height, -- Places flush with the base line of code
+    col = win_pos[2], -- FIXED: Aligns perfectly right after your left sidebars (Neo-tree)!
   }
 
   -- 7. SHUN OVERLAP SCROLL PADDING: Force file text to compress upward
