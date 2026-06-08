@@ -44,9 +44,7 @@ local function toggle_bottom_pane(track_type, shell_cmd)
   local temp_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(temp_win, track.buf)
 
-  -- SURGICAL TREE MANIPULATION: Forcefully slice the window across the absolute
-  -- bottom margin edge of Neovim's layout tree.
-  -- Pass true to tell Neovim to push it to the lowest layout layer row level.
+  -- SURGICAL TREE MANIPULATION: Forcefully slice the window across the absolute bottom margin
   pcall(function()
     vim.api.nvim_win_splitmove(temp_win, 0, { vertical = false, rightbelow = true })
   end)
@@ -67,6 +65,16 @@ local function toggle_bottom_pane(track_type, shell_cmd)
 
   -- 3. INTERACTIVE TERMINAL STREAM INITIALIZATION
   if (not track.chan or track.chan <= 0) and shell_cmd and shell_cmd ~= '' then
+    -- =========================================================================
+    -- CRITICAL MODIFICATION SHIELD: Reset the buffer state flags to absolute zero!
+    -- =========================================================================
+    -- This strips any accidental characters and tricks Neovim into knowing
+    -- the buffer is totally clean, completely bypassing the fatal jobstart error.
+    vim.bo[track.buf].modified = false
+    vim.api.nvim_buf_set_lines(track.buf, 0, -1, false, {})
+    vim.bo[track.buf].modified = false
+    -- =========================================================================
+
     -- Inject execution path hooks securely via the native channel
     track.chan = vim.fn.termopen(shell_cmd, {
       on_exit = function(_, exit_code)
@@ -86,8 +94,7 @@ end
 
 ---The master backwards-compatible gateway function called everywhere in your plugin repository
 ---@param command_string string The absolute PlatformIO command instructions string
-function M.ToggleTerminal(command_string, dir)
-  dir = 'hhh'
+function M.ToggleTerminal(command_string)
   if not command_string or type(command_string) ~= 'string' or vim.trim(command_string) == '' then
     return false
   end
@@ -122,16 +129,12 @@ end
 -- =========================================================================
 -- STATE MONITOR RESOLUTION LOCK: THE EDGY LAYOUT MONITOR
 -- =========================================================================
--- This acts as an iron shield. If Neo-tree closes, or if a user opens five
--- different vertical splits, this listener forces your terminal window
--- to snap straight back to exactly 15 text lines tall, keeping your text safe!
 vim.api.nvim_create_autocmd({ 'WinResized', 'VimResized' }, {
   group = layout_group,
   callback = function()
     vim.schedule(function()
       for _, track in pairs(pane_state) do
         if track.win and vim.api.nvim_win_is_valid(track.win) then
-          -- Explicitly correct the window height whenever a layout shift happens
           pcall(vim.api.nvim_win_set_height, track.win, 15)
         end
       end
