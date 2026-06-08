@@ -1147,7 +1147,7 @@ end
 -- =============================================================================
 local pass1 = false
 -- stylua: ignore
-function M.handlePioDB(result, active_env, on_done)
+function M.handlePioDBArgs(result, active_env, on_done)
   if result == 'INIT' then
     if #M.queue > 0 then
       pass1 = false
@@ -1194,6 +1194,28 @@ function M.handlePioDB(result, active_env, on_done)
       else on_done(false) end
     end
     if trm then trm:close() end
+    M.cleanSequencer()
+  end
+end
+-- =============================================================================
+
+-- stylua: ignore
+function M.handlePioDB(result, active_env, on_done)
+  if result == 'INIT' then
+    if #M.queue > 0 then
+      pass1 = false
+      _G.metadata.isBusy = true
+      trm = term.ToggleTerminal(pop(M.queue), 'float')
+    end
+  elseif result == 'DONE' then -- .. current_id then                         -- compiledb PASS1
+    vim.schedule(function()
+      OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
+      require('nvimpio.clangd.control').restart()
+      if on_done and type(on_done) == 'function' then on_done(true) end
+    end)
+    M.cleanSequencer()
+  elseif result == 'FAIL' then
+    if on_done and type(on_done) == 'function' then on_done(false) end
     M.cleanSequencer()
   end
 end
