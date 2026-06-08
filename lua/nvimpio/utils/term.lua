@@ -194,29 +194,6 @@ function M.ToggleTerminal(command, terminal_type)
   vim.cmd('startinsert')
 end
 
-local group = vim.api.nvim_create_augroup('PioTerminalLayoutWatchdogEngine', { clear = true })
-
-vim.api.nvim_create_autocmd({ 'WinNew', 'WinClosed', 'TabEnter', 'BufWinEnter' }, {
-  group = group,
-  callback = function(args)
-    local ft = vim.bo[args.buf].filetype
-    if ft == 'neo-tree' or ft == 'aerial' then
-      return
-    end
-
-    local active_type = nil
-    if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
-      active_type = 'cli'
-    elseif pio_mon_win and vim.api.nvim_win_is_valid(pio_mon_win) then
-      active_type = 'monitor'
-    end
-
-    if active_type then
-      HideTerminalWindow(active_type)
-    end
-  end,
-})
-
 vim.keymap.set('n', '<C-h>', '<C-w>h', { silent = true })
 vim.keymap.set('n', '<C-l>', '<C-w>l', { silent = true })
 
