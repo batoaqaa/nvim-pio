@@ -9,7 +9,9 @@ M.p_cli_c = nil
 
 ---Backwards-compatible bridge wrapper function to route old calls to the new floating portal engine
 ---@param command_string string The absolute PlatformIO command to pass to the terminal channel
-function M.ToggleTerminal(command_string)
+function M.ToggleTerminal(command_string, diir)
+  dir = 'horizontal' or ''
+
   -- 1. Safely handle empty arguments to prevent unhandled runtime errors
   if not command_string or type(command_string) ~= 'string' or vim.trim(command_string) == '' then
     return false
