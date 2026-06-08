@@ -667,11 +667,11 @@ local trm
 local pio_buffer = ''
 local content = ''
 
--- [LEAVE OUTSIDE]: Kept completely independent from the internal layout spawner loops
-function M.stdoutcallback(job_id, data, event)
-  if not data or #data == 0 then
-    return
-  end
+-- stylua: ignore
+-- [LEAVE OUTSIDE]: Your unmodified parser logic block remains safely here
+-- function M.stdoutcallback(job_id, data, event)
+function M.stdoutcallback(_, data, _)
+  if not data or #data == 0 then return end
 
   -----------------------------------------------------------------------------
   -- 🌟 NATIVE TERMINAL TABLE ARRAY STANDARDIST UNPACKER & ANSI STRIPPER
@@ -695,23 +695,6 @@ function M.stdoutcallback(job_id, data, event)
   local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
   local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
   local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
-
-  -----------------------------------------------------------------------------
-  -- 🔍 TARGETED DEEP TRACE: Triggered ONLY when a true case occurs!
-  -----------------------------------------------------------------------------
-  if has_pass or has_done or has_fail then
-    vim.notify(
-      string.format(
-        '\n[TRUE CASE DETECTED] Token: %q -> has_pass: %s, has_done: %s, has_fail: %s',
-        tostring(current_token),
-        tostring(has_pass),
-        tostring(has_done),
-        tostring(has_fail)
-      ),
-      vim.log.levels.WARN
-    )
-  end
-  -----------------------------------------------------------------------------
 
   if has_pass or has_fail or has_done then
     local active_cb = callBack
@@ -750,15 +733,8 @@ function M.stdoutcallback(job_id, data, event)
           end
         end
 
-        -----------------------------------------------------------------------------
-        -- 🔍 TARGETED SLICING TRACE: Logs the boundary coordinate checks
-        -----------------------------------------------------------------------------
-        vim.notify(string.format('[TRUE CASE SLICING] Indices -> start_idx: %s, end_idx: %s', tostring(start_idx), tostring(end_idx)), vim.log.levels.WARN)
-        -----------------------------------------------------------------------------
-
         if start_idx and end_idx and end_idx > start_idx then
           local fresh_run_logs = string.sub(content, start_idx + 1, end_idx - 1)
-          vim.notify('[TRUE CASE SUCCESS] Extracted Run Logs successfully sliced!', vim.log.levels.INFO)
 
           if not string.find(fresh_run_logs, '%.clang%-format') then
             local seen = {}
@@ -771,7 +747,6 @@ function M.stdoutcallback(job_id, data, event)
             end
           end
         else
-          vim.notify('[TRUE CASE ABORT] CRITICAL ERROR: Slicing bounds failed. Aborting callback!', vim.log.levels.ERROR)
           pio_buffer = ''
           content = ''
           return
