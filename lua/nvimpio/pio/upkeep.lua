@@ -668,7 +668,8 @@ local trm
 local pio_buffer = ''
 local content = ''
 
-function M.stdoutcallback(_, _, data, _)
+-- function M.stdoutcallback(_, _, data, _)
+function M.stdoutcallback(_, data, _)
   if not data or #data == 0 then
     return
   end
