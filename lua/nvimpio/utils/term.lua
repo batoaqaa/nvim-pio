@@ -178,8 +178,6 @@ function M.ToggleTerminal(command, terminal_type)
     local old_splitbelow = vim.o.splitbelow
     vim.o.splitbelow = true
 
-    -- Using botright as a mod string is the native API alternative for splitmode
-    vim.cmd('vertical default botright')
     final_win = vim.api.nvim_open_win(target_buf, true, {
       split = 'below',
       win = 0,
@@ -187,10 +185,17 @@ function M.ToggleTerminal(command, terminal_type)
     })
 
     vim.o.splitbelow = old_splitbelow
+
+    -- Force the newly spawned window down across all columns using the absolute floor rule
+    vim.api.nvim_set_current_win(final_win)
+    vim.cmd('noautocmd wincmd J')
   else
     vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = final_win })
     vim.api.nvim_win_set_buf(final_win, target_buf)
     vim.api.nvim_win_set_height(final_win, get_target_height())
+
+    vim.api.nvim_set_current_win(final_win)
+    vim.cmd('noautocmd wincmd J')
   end
 
   if terminal_type == 'monitor' then
