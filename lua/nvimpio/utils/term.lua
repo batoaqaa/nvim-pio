@@ -175,26 +175,20 @@ function M.ToggleTerminal(cmd, t)
   vim.cmd('startinsert')
 end
 
-local g = vim.api.nvim_create_augroup('PioFocusWatch', { clear = true })
-vim.api.nvim_create_autocmd('WinLeave', {
+local g = vim.api.nvim_create_augroup('PioLayoutWatch', { clear = true })
+vim.api.nvim_create_autocmd({ 'WinNew', 'WinClosed', 'TabEnter' }, {
   group = g,
   callback = function()
-    vim.schedule(function()
-      local cur_win = vim.api.nvim_get_current_win()
-      local active_t = nil
-      if p_cli_w and vim.api.nvim_win_is_valid(p_cli_w) then
-        active_t = 'cli'
-      end
-      if p_mon_w and vim.api.nvim_win_is_valid(p_mon_w) then
-        active_t = 'monitor'
-      end
-      if active_t then
-        local tw = (active_t == 'monitor') and p_mon_w or p_cli_w
-        if cur_win ~= tw then
-          hide_w(active_t)
-        end
-      end
-    end)
+    local active_t = nil
+    if p_cli_w and vim.api.nvim_win_is_valid(p_cli_w) then
+      active_t = 'cli'
+    end
+    if p_mon_w and vim.api.nvim_win_is_valid(p_mon_w) then
+      active_t = 'monitor'
+    end
+    if active_t then
+      hide_w(active_t)
+    end
   end,
 })
 
