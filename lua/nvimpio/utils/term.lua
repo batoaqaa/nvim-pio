@@ -8,9 +8,12 @@ local pio_mon_buf = nil
 local pio_cli_win = nil
 local pio_mon_win = nil
 
+-- Cache original window values to restore pristine editing environments on close
+local original_scrolloff = 0
+
 ----------------------------------------------------------------------------------------
 -- INFO: Safe Window Closure Logic (Tied to pressing 'q' inside normal mode)
-local function HideTerminalWindow(terminal_type)
+local function HideTerminalWindow(terminal_type, parent_file_win)
   local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
   if target_win and vim.api.nvim_win_is_valid(target_win) then
     vim.api.nvim_win_close(target_win, true)
@@ -20,13 +23,21 @@ local function HideTerminalWindow(terminal_type)
   else
     pio_cli_win = nil
   end
+
+  -- Restore original viewport rendering boundaries to the active code pane
+  if parent_file_win and vim.api.nvim_win_is_valid(parent_file_win) then
+    vim.api.nvim_set_option_value('scrolloff', original_scrolloff, { scope = 'local', win = parent_file_win })
+    vim.api.nvim_set_current_win(parent_file_win)
+  end
   vim.cmd('redraw!')
 end
 
 ----------------------------------------------------------------------------------------
 -- INFO: Core Layout Spawner (Buffer-Relative Overlay Framework)
 function M.ToggleTerminal(command, terminal_type)
-  -- 1. Enforce strict title header assignments immediately at the top
+  local parent_file_win = vim.api.nvim_get_current_win()
+
+  -- Enforce strict title header assignments immediately at the top
   local title = ''
   if terminal_type == 'monitor' or (command and string.find(command, ' monitor')) then
     title = 'Pio Monitor'
@@ -40,7 +51,7 @@ function M.ToggleTerminal(command, terminal_type)
   local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
 
-  -- 2. MUTUAL EXCLUSION: If the other terminal panel window is visible, hide it first
+  -- 1. MUTUAL EXCLUSION: If the other terminal panel window is visible, hide it first
   if other_win and vim.api.nvim_win_is_valid(other_win) then
     vim.api.nvim_win_close(other_win, true)
     if terminal_type == 'monitor' then
@@ -50,54 +61,54 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 3. TOGGLE ACTION: If our target window is already open, close it
+  -- 2. TOGGLE ACTION: If our target window is already open, close it
   if target_win and vim.api.nvim_win_is_valid(target_win) then
-    HideTerminalWindow(terminal_type)
+    HideTerminalWindow(terminal_type, parent_file_win)
     return
   end
 
-  -- Cache the user's active code file window handle right before we spawn the split
-  local parent_file_win = vim.api.nvim_get_current_win()
-
-  -- 4. PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
+  -- 3. PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
-    target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
+    target_buf = vim.api.nvim_create_buf(false, true)
     if terminal_type == 'monitor' then
       pio_mon_buf = target_buf
     else
       pio_cli_buf = target_buf
     end
 
-    -- Determine target windows platform shell engine cleanly
     local target_shell = vim.o.shell
     if vim.fn.has('win32') == 1 then
       target_shell = 'powershell.exe'
     end
 
-    -- Run the shell cleanly. This sets 'buftype' to 'terminal' natively, fixing typing bugs!
     vim.api.nvim_buf_call(target_buf, function()
       vim.fn.termopen(target_shell)
     end)
   end
 
-  -- 5. BUFFER-RELATIVE CONFIGURATION SETUP
+  -- 4. BUFFER-RELATIVE CONFIGURATION SETUP
   local file_win_width = vim.api.nvim_win_get_width(parent_file_win)
   local file_win_height = vim.api.nvim_win_get_height(parent_file_win)
-
   local target_height = math.ceil(file_win_height * 0.32)
 
+  -- 🛡️ THE SCROLLOFF BOUNDARY SHIELD
+  -- Dynamically inject scrolloff space onto your parent text window.
+  -- This instructs Neovim's renderer to block code text lines from scrolling underneath the window panel.
+  original_scrolloff = vim.api.nvim_get_option_value('scrolloff', { scope = 'local', win = parent_file_win })
+  vim.api.nvim_set_option_value('scrolloff', target_height + 2, { scope = 'local', win = parent_file_win })
+
   local win_opts = {
-    relative = 'win', -- HARD-LOCKS TO THE FILE WINDOW ONLY: Bypasses monitor grid completely
-    win = parent_file_win, -- Binds the coordinate system to their current text document pane
-    style = 'minimal', -- Disables border and padding overheads
-    focusable = true, -- Keeps keyboard layout paths fully operational
-    width = file_win_width, -- Stretches exactly to the margins of their code file pane
+    relative = 'win', -- Locks strictly to your central file pane layout boundaries
+    win = parent_file_win, -- Bypasses Neo-Tree and Aerial grids entirely
+    style = 'minimal',
+    focusable = true,
+    width = file_win_width,
     height = target_height,
-    row = file_win_height - target_height, -- Clamps precisely to the bottom of the file view
-    col = 0, -- Starts flush with the left edge of their text
+    row = file_win_height - target_height, -- Flush bottom execution alignment orientation
+    col = 0,
   }
 
-  -- 6. RENDER THE SECURE HORIZONTAL PANEL OVERLAY
+  -- 5. RENDER THE SECURE HORIZONTAL PANEL OVERLAY
   local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
@@ -105,15 +116,11 @@ function M.ToggleTerminal(command, terminal_type)
     pio_cli_win = new_win
   end
 
-  -- 7. THE AUTOMATED RE-RENDERING SYNCHRONIZER
-  -- FIXED: This replicates your exact working manual fix programmatically. It executes a micro-scheduled
-  -- focus swap down to the console to trigger Neovim's layout engine pass, forces a deep screen redraw!,
-  -- and immediately returns cursor control back to your C++ file win handle within a split millisecond.
+  -- 6. THE AUTOMATED RE-RENDERING SYNCHRONIZER
   vim.schedule(function()
     if new_win and vim.api.nvim_win_is_valid(new_win) then
       vim.api.nvim_set_current_win(new_win)
       vim.cmd('redraw!')
-
       if parent_file_win and vim.api.nvim_win_is_valid(parent_file_win) then
         vim.api.nvim_set_current_win(parent_file_win)
         vim.cmd('redraw!')
@@ -121,11 +128,11 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end)
 
-  -- 8. CLEAN SYSTEM OPTIONS DECORATIONS
+  -- 7. CLEAN SYSTEM OPTIONS DECORATIONS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
-  -- 9. VISUAL CUSTOM WINBAR STYLING
+  -- 8. VISUAL CUSTOM WINBAR STYLING
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
   local winBartitle = '%#MyWinBar# ' .. title .. ' [Press ;; to Switch | Press q to hide]%*'
@@ -136,7 +143,7 @@ function M.ToggleTerminal(command, terminal_type)
   -----------------------------------------------------------------------------
   vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = target_buf })
   vim.keymap.set('n', 'q', function()
-    HideTerminalWindow(terminal_type)
+    HideTerminalWindow(terminal_type, parent_file_win)
   end, { buffer = target_buf })
 
   -- CRASH-FREE UPWARD NAVIGATION KEYMAP
@@ -158,40 +165,11 @@ function M.ToggleTerminal(command, terminal_type)
       local esc = vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true)
       vim.api.nvim_feedkeys(esc, 'n', false)
     end
-
     local next_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
     vim.schedule(function()
       M.ToggleTerminal('', next_type)
     end)
   end, { buffer = target_buf, silent = true, desc = 'Switch between PlatformIO terminals' })
-
-  -----------------------------------------------------------------------------
-  -- GLOBAL NAVIGATION & RECALL SHORTCUTS
-  -----------------------------------------------------------------------------
-  vim.keymap.set('n', '<C-h>', '<C-w>h')
-  vim.keymap.set('n', '<C-l>', '<C-w>l')
-
-  -- GLOBAL INTERCEPT DOWNWARD MOVEMENT HOOK:
-  -- Focuses your cursor straight down into your active terminal pane natively
-  vim.keymap.set('n', '<C-j>', function()
-    if new_win and vim.api.nvim_win_is_valid(new_win) then
-      vim.api.nvim_set_current_win(new_win)
-      vim.cmd('startinsert')
-    else
-      vim.cmd('wincmd j')
-    end
-  end, { silent = true })
-
-  if terminal_type == 'monitor' then
-    vim.keymap.set('n', [[<leader>\gm]], function()
-      M.ToggleTerminal('', 'monitor')
-    end, { silent = true })
-  else
-    vim.keymap.set('n', [[<leader>\t]], function()
-      M.ToggleTerminal('', 'cli')
-    end, { silent = true })
-  end
-  -----------------------------------------------------------------------------
 
   -- Automatically run passed command strings via your platformio job channels
   if command and command ~= '' then
@@ -204,8 +182,31 @@ function M.ToggleTerminal(command, terminal_type)
   vim.cmd('startinsert')
 end
 
-return M
+-----------------------------------------------------------------------------
+-- ONE-TIME GLOBAL INITIALIZATIONS (Prevents mapping registry leaks)
+-----------------------------------------------------------------------------
+vim.keymap.set('n', '<C-h>', '<C-w>h', { silent = true })
+vim.keymap.set('n', '<C-l>', '<C-w>l', { silent = true })
 
+-- GLOBAL INTERCEPT DOWNWARD MOVEMENT HOOK
+vim.keymap.set('n', '<C-j>', function()
+  local target_win = pio_cli_win or pio_mon_win
+  if target_win and vim.api.nvim_win_is_valid(target_win) then
+    vim.api.nvim_set_current_win(target_win)
+    vim.cmd('startinsert')
+  else
+    vim.cmd('wincmd j')
+  end
+end, { silent = true })
+
+vim.keymap.set('n', [[<leader>\gm]], function()
+  M.ToggleTerminal('', 'monitor')
+end, { silent = true })
+vim.keymap.set('n', [[<leader>\t]], function()
+  M.ToggleTerminal('', 'cli')
+end, { silent = true })
+
+return M
 -- local M = {}
 --
 -- -- Memory slots to preserve running terminal process background buffers
