@@ -10,7 +10,8 @@ local pio_mon_win = nil
 local last_active_editor_win = nil
 
 ----------------------------------------------------------------------------------------
--- 🥇 DISTRIBUTABLE CONFIG INJECTION LAYER
+-- 🥇 SAFE DISTRIBUTABLE CONFIG INJECTION
+-- Safely seeds edgy configuration tables so it knows how to handle our panels.
 local function inject_edgy_integration()
   local pio_layout_rule = {
     ft = 'nvimpio-terminal',
@@ -22,7 +23,7 @@ local function inject_edgy_integration()
   if has_edgy and edgy.config then
     edgy.config.bottom = edgy.config.bottom or {}
     local is_registered = false
-    for _, item in ipairs(edgy.config.bottom or {}) do
+    for _, item in ipairs(edgy.config.bottom) do
       if item.ft == 'nvimpio-terminal' then
         is_registered = true
         break
@@ -48,6 +49,7 @@ local function inject_edgy_integration()
   end
 end
 
+-- Run injection immediately upon module parse
 inject_edgy_integration()
 
 ----------------------------------------------------------------------------------------
@@ -68,11 +70,10 @@ local function find_valid_editor_window()
 end
 
 ----------------------------------------------------------------------------------------
--- CLEAN EXIT LOGIC: Closes structural splits cleanly and restores focus
+-- CLEAN EXIT LOGIC: Closes windows cleanly and restores center editor focus
 local function HideTerminalWindow(terminal_type)
   local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
   if target_win and vim.api.nvim_win_is_valid(target_win) then
-    vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = target_win })
     vim.api.nvim_win_close(target_win, true)
   end
   if terminal_type == 'monitor' then
@@ -109,7 +110,6 @@ function M.ToggleTerminal(command, terminal_type)
 
   -- MUTUAL EXCLUSION: Close opposition workspace viewports instantly
   if other_win and vim.api.nvim_win_is_valid(other_win) then
-    vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = other_win })
     vim.api.nvim_win_close(other_win, true)
     if terminal_type == 'monitor' then
       pio_cli_win = nil
@@ -133,7 +133,8 @@ function M.ToggleTerminal(command, terminal_type)
       pio_cli_buf = target_buf
     end
 
-    -- Set our custom filetype so edgy recognizes the buffer right away
+    -- 🥇 THE TIMING CORRECTION: Assign the filetype to the buffer memory instantly,
+    -- BEFORE any window splitting commands run. This allows edgy.nvim to intercept it natively.
     vim.api.nvim_set_option_value('filetype', 'nvimpio-terminal', { buf = target_buf })
 
     local target_shell = vim.o.shell
@@ -146,25 +147,24 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end
 
-  -- Move focus away from sidebars to prevent E957 layout crashes
+  -- SPAWN INTERCEPT TRIGGER
+  -- Move focus away from locked sidebars to prevent E957 crashes
   local neutral_win = find_valid_editor_window()
   if neutral_win then
     vim.api.nvim_set_current_win(neutral_win)
   end
 
-  -- 🥇 THE EDGY NATIVE RUNTIME API ENGAGEMENT
-  local has_edgy, edgy = pcall(require, 'edgy')
-  if has_edgy and type(edgy.open) == 'function' then
-    -- PATH A: If edgy is installed, open via their programmatic API hook.
-    -- This natively skips standard layout splits and drops your terminal inside their layout bar.
-    edgy.open('nvimpio-terminal')
+  local target_height = math.ceil(vim.o.lines * 0.28)
+  local has_edgy = pcall(require, 'edgy')
 
-    -- Sync the newly created window handle back into your plugin variables pool
-    local current_win = vim.api.nvim_get_current_win()
-    vim.api.nvim_win_set_buf(current_win, target_buf)
+  if has_edgy then
+    -- PATH A: Edgy is installed. Opening a split with a pre-labeled buffer
+    -- triggers edgy's layout hook instantly, placing it flat along the bottom row.
+    vim.cmd('split')
+    local split_win = vim.api.nvim_get_current_win()
+    vim.api.nvim_win_set_buf(split_win, target_buf)
   else
     -- PATH B: Fallback if edgy is absent
-    local target_height = math.ceil(vim.o.lines * 0.28)
     vim.cmd('botright ' .. target_height .. 'split')
     local fallback_win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(fallback_win, target_buf)
@@ -247,7 +247,15 @@ vim.keymap.set('n', '<C-j>', function()
   end
 end, { silent = true })
 
+vim.keymap.set('n', [[<leader>\gm]], function()
+  M.ToggleTerminal('', 'monitor')
+end, { silent = true })
+vim.keymap.set('n', [[<leader>\t]], function()
+  M.ToggleTerminal('', 'cli')
+end, { silent = true })
+
 return M
+
 -- local M = {}
 --
 -- -- Memory slots to preserve running terminal process background buffers
