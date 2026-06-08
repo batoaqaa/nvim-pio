@@ -47,7 +47,6 @@ function M.validate_all_options(opt)
     vim.validate({
       pio = { opt.pio, 'table' },
       clangd = { opt.clangd, 'table' },
-      debug = { opt.debug, 'boolean' },
       menu_key = { opt.menu_key, is_str },
       menu_name = { opt.menu_name, is_str },
       menu_bindings = { opt.menu_bindings, 'table' },
