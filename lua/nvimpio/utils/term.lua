@@ -176,7 +176,7 @@ function M.ToggleTerminal(cmd, t)
 end
 
 local g = vim.api.nvim_create_augroup('PioLayoutWatch', { clear = true })
-vim.api.nvim_create_autocmd({ 'WinNew', 'WinClosed', 'TabEnter' }, {
+vim.api.nvim_create_autocmd({ 'WinNew', 'WinClosed' }, {
   group = g,
   callback = function()
     local active_t = nil
