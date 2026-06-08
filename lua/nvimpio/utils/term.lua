@@ -17,10 +17,6 @@ local pio_mon_win = nil
 -- HARD-LOCK HEIGHT PROFILE METRIC: Stores the static target height globally
 local target_panel_height = 0
 
--- Text history buffer accumulators scoped safely at the module file-level
-local pio_buffer = ''
-local content = ''
-
 ----------------------------------------------------------------------------------------
 -- INFO: Safe terminal exit routine (Tied to pressing 'q' inside normal mode)
 local function SafeCloseTerminal(buf_id)

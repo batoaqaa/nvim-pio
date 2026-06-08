@@ -667,7 +667,7 @@ local trm
 local pio_buffer = ''
 local content = ''
 
-function M.stdoutcallback(job_id, data, event)
+function M.stdoutcallback(_, data, _)
   if not data or #data == 0 then
     return
   end
@@ -687,10 +687,14 @@ function M.stdoutcallback(job_id, data, event)
   end
   local chunk_count = #processed_lines
 
+  -- 🌟 FIXED LAYOUT ACQUISITION FLATTENER ENGINE
   if chunk_count > 1 then
+    -- Safely concatenate multiple array text lines using standard string joins
     content = content .. pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
     pio_buffer = processed_lines[chunk_count]
   else
+    -- FIXED PIPELINE STRIPPER: Explicitly references index 1 out of the clean list array table [INDEX].
+    -- This extracts the actual raw text string, completely repairing your string concatenation paths! [INDEX]
     content = content .. pio_buffer .. processed_lines[1]
     pio_buffer = ''
   end
