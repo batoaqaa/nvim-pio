@@ -65,12 +65,15 @@ local function toggle_bottom_pane(track_type, shell_cmd)
   vim.api.nvim_win_set_buf(track.spacer_win, track.spacer_buf)
   vim.cmd('resize 15')
 
-  -- Hard-lock spacer geometry parameters layout filters natively
+  -- =========================================================================
+  -- TYPO FIXED HERE: Explicitly pass the valid spacer window reference handle
+  -- =========================================================================
   vim.wo[track.spacer_win].winfixheight = true
-  vim.wo[track.winfixwidth] = true
+  vim.wo[track.spacer_win].winfixwidth = true
   vim.wo[track.spacer_win].winhighlight = 'Normal:NormalSB,SignColumn:NormalSB'
+  -- =========================================================================
 
-  -- 3. STAGE B: CREATE THE ORE TERMINAL CHANNEL STREAM
+  -- 3. STAGE B: CREATE THE CORE TERMINAL CHANNEL STREAM
   if not track.buf or not vim.api.nvim_buf_is_valid(track.buf) then
     track.buf = vim.api.nvim_create_buf(false, true)
     vim.bo[track.buf].filetype = 'nvimpio-terminal'
@@ -125,8 +128,7 @@ local function toggle_bottom_pane(track_type, shell_cmd)
 end
 
 ---The master backwards-compatible gateway function called everywhere in your plugin repository
-function M.ToggleTerminal(command_string, dir)
-  dir = ''
+function M.ToggleTerminal(command_string)
   if not command_string or type(command_string) ~= 'string' or vim.trim(command_string) == '' then
     return false
   end
@@ -164,7 +166,7 @@ vim.api.nvim_create_autocmd({ 'BufEnter', 'WinResized', 'VimResized' }, {
   callback = function(args)
     local current_win = vim.api.nvim_get_current_win()
 
-    for type_name, track in pairs(pane_state) do
+    for _, track in pairs(pane_state) do
       -- Synchronize Floating Overlay Geometry Bounds to perfectly match the underlying Spacer Pane
       if track.spacer_win and vim.api.nvim_win_is_valid(track.spacer_win) then
         pcall(vim.api.nvim_win_set_height, track.spacer_win, 15)
@@ -236,7 +238,6 @@ vim.api.nvim_create_autocmd({ 'BufEnter', 'WinResized', 'VimResized' }, {
 -- =========================================================================
 
 return M
--- -- File: lua/nvimpio/utils/term.lua
 -- local M = {}
 --
 -- -- Legacy State Variables for Backwards Compatibility across your files
