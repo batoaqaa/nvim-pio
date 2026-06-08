@@ -7,62 +7,70 @@ M.p_cli_b = nil
 M.p_mon_c = nil
 M.p_cli_c = nil
 
--- Master Proxy State Cache Registry
+-- Master Window & Buffer State Cache Registry
 local pane_state = {
-  monitor = { buf = nil, win = nil, chan = nil, spacer_win = nil, spacer_buf = nil },
-  cli = { buf = nil, win = nil, chan = nil, spacer_win = nil, spacer_buf = nil },
+  monitor = { buf = nil, win = nil, chan = nil },
+  cli = { buf = nil, win = nil, chan = nil },
 }
 
-local layout_group = vim.api.nvim_create_augroup('NvimPioProxyLayoutEngine', { clear = true })
+local layout_group = vim.api.nvim_create_augroup('NvimPioEdgyStyleLock', { clear = true })
 
----Helper to get exact screen coordinates of a specific window split pane
-local function get_win_geometry(win_id)
-  if not win_id or not vim.api.nvim_win_is_valid(win_id) then
-    return nil
-  end
-  local pos = vim.api.nvim_win_get_position(win_id)
-  local width = vim.api.nvim_win_get_width(win_id)
-  local height = vim.api.nvim_win_get_height(win_id)
-  return { row = pos[1], col = pos[2], width = width, height = height }
-end
-
----Internal processing engine to toggle the layout-locked proxy terminal pane cleanly
+---Internal processing engine to toggle the layout-locked bottom window pane box cleanly
 local function toggle_bottom_pane(track_type, shell_cmd)
   local track = pane_state[track_type]
 
-  -- 1. IF VISIBLE: Gracefully close both the float portal and the structural spacer split
+  -- 1. IF PANE IS VISIBLE: Gracefully close its window frame container and exit
   if track.win and vim.api.nvim_win_is_valid(track.win) then
     pcall(vim.api.nvim_win_close, track.win, true)
     track.win = nil
-    if track.spacer_win and vim.api.nvim_win_is_valid(track.spacer_win) then
-      pcall(vim.api.nvim_win_close, track.spacer_win, true)
-      track.spacer_win = nil
-    end
     return
   end
 
   -- Cache your active text writing cursor window context safely before any operations
   local initial_active_win = vim.api.nvim_get_current_win()
 
-  -- 2. STAGE A: CREATE THE STRUCTURAL SPACER BUFFER
-  if not track.spacer_buf or not vim.api.nvim_buf_is_valid(track.spacer_buf) then
-    track.spacer_buf = vim.api.nvim_create_buf(false, true)
-    vim.bo[track.spacer_buf].buftype = 'nofile'
-    vim.bo[track.spacer_buf].bufhidden = 'hide'
-    vim.bo[track.spacer_buf].swapfile = false
-    vim.api.nvim_buf_set_name(track.spacer_buf, 'PlatformIO_Dock_Spacer_' .. track_type)
+  -- =========================================================================
+  -- ADAPTIVE FALLBACK WORKSPACE SPAWNER (The Edgy Secret)
+  -- =========================================================================
+  -- Check if a normal editing window exists on screen. If only Neo-tree is open,
+  -- we must spawn a placeholder code split first to prevent layout collapse!
+  local has_normal_code_win = false
+  for _, w in ipairs(vim.api.nvim_list_wins()) do
+    local b = vim.api.nvim_win_get_buf(w)
+    if vim.bo[b].buftype == '' and vim.bo[b].filetype ~= 'neo-tree' and vim.bo[b].filetype ~= 'NvimTree' then
+      has_normal_code_win = true
+      break
+    end
   end
 
-  -- Raise the safety shield flag to completely mute background upkeep scripts
-  if _G.metadata then
-    _G.metadata.isShiftingLayout = true
+  if not has_normal_code_win then
+    -- Find the Neo-tree sidebar window handle dynamically
+    local sidebar_win = nil
+    for _, w in ipairs(vim.api.nvim_list_wins()) do
+      if vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' then
+        sidebar_win = w
+        break
+      end
+    end
+
+    -- Surgically open a clean editing workspace window directly to the right of Neo-tree
+    if sidebar_win and vim.api.nvim_win_is_valid(sidebar_win) then
+      local scratch_buf = vim.api.nvim_create_buf(true, false)
+      vim.api.nvim_open_win(scratch_buf, true, { split = 'right', win = sidebar_win })
+    end
+  end
+  -- =========================================================================
+
+  -- 2. BUFFER LIFECYCLE MANAGEMENT: Recycle or spawn the unlisted text buffer space cleanly
+  if not track.buf or not vim.api.nvim_buf_is_valid(track.buf) then
+    track.buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[track.buf].filetype = 'nvimpio-terminal'
+    track.chan = nil
   end
 
-  -- =========================================================================
-  -- LOW-LEVEL TREE ATTACHMENT BYPASS (No more botright split)
-  -- =========================================================================
-  -- Open a pristine split window programmatically to house our spacer buffer
-  local temp_win = vim.api.nvim_open_win(track.spacer_buf, false, {
+  -- 3. LOW-LEVEL TREE ATTACHMENT
+  -- We open a split window programmatically and attach our buffer directly
+  local temp_win = vim.api.nvim_open_win(track.buf, false, {
     split = 'below',
     height = 15,
   })
@@ -72,61 +80,29 @@ local function toggle_bottom_pane(track_type, shell_cmd)
     vim.api.nvim_win_splitmove(temp_win, 0, { vertical = false, rightbelow = true })
   end)
 
-  track.spacer_win = temp_win
+  track.win = temp_win
 
-  -- Hard-lock the spacer height parameters directly on the low-level window container
-  vim.wo[track.spacer_win].winfixheight = true
-  vim.wo[track.spacer_win].winfixwidth = true
-  pcall(vim.api.nvim_win_set_height, track.spacer_win, 15)
-  -- =========================================================================
+  -- Hard-lock the height parameters directly on the low-level window container
+  vim.wo[track.win].winfixheight = true
+  vim.wo[track.win].winfixwidth = true
+  pcall(vim.api.nvim_win_set_height, track.win, 15)
 
-  -- 3. STAGE B: CREATE THE CORE TERMINAL BUFFER
-  if not track.buf or not vim.api.nvim_buf_is_valid(track.buf) then
-    track.buf = vim.api.nvim_create_buf(false, true)
-    vim.bo[track.buf].filetype = 'nvimpio-terminal'
-    track.chan = nil
-  end
-
-  -- 4. STAGE C: DROP OVERLAY PORTAL WINDOW EXACTLY ON TOP OF SPACER
-  local geo = get_win_geometry(track.spacer_win)
-  if geo then
-    track.win = vim.api.nvim_open_win(track.buf, true, {
-      relative = 'editor',
-      row = geo.row,
-      col = geo.col,
-      width = geo.width,
-      height = geo.height,
-      style = 'minimal',
-      focusable = true,
-    })
-  end
-
-  -- Spawn the interactive terminal shell execution channel natively
+  -- 4. INTERACTIVE TERMINAL CHANNEL STREAM INITIALIZATION
   if (not track.chan or track.chan <= 0) and shell_cmd and shell_cmd ~= '' then
     track.chan = vim.fn.termopen(shell_cmd, {
       on_exit = function(_, exit_code)
+        -- Auto-Cleanup Hook: Wipe the frame automatically if a build task passes cleanly
         vim.schedule(function()
           if track_type == 'cli' and exit_code == 0 then
             if track.win and vim.api.nvim_win_is_valid(track.win) then
               pcall(vim.api.nvim_win_close, track.win, true)
               track.win = nil
             end
-            if track.spacer_win and vim.api.nvim_win_is_valid(track.spacer_win) then
-              pcall(vim.api.nvim_win_close, track.spacer_win, true)
-              track.spacer_win = nil
-            end
           end
         end)
       end,
     })
   end
-
-  -- Release the layout state flag lock safely on the next loop tick
-  vim.schedule(function()
-    if _G.metadata then
-      _G.metadata.isShiftingLayout = false
-    end
-  end)
 
   -- RESTORE FOCUS INSTANTLY: Return cursor smoothly to the active code file or sidebar tree
   if vim.api.nvim_win_is_valid(initial_active_win) then
@@ -166,78 +142,18 @@ function M.ToggleTerminal(command_string)
 end
 
 -- =========================================================================
--- THE WORKSPACE WINDOW PROTECTION GUARD & LAYOUT LOCK
+-- MASTER LAYOUT LOCK AUTOCOMMAND
 -- =========================================================================
-vim.api.nvim_create_autocmd({ 'BufEnter', 'WinResized', 'VimResized' }, {
+vim.api.nvim_create_autocmd({ 'WinResized', 'VimResized', 'BufEnter' }, {
   group = layout_group,
-  callback = function(args)
-    local current_win = vim.api.nvim_get_current_win()
-
-    for _, track in pairs(pane_state) do
-      -- Synchronize Floating Overlay Geometry Bounds to perfectly match the underlying Spacer Pane
-      if track.spacer_win and vim.api.nvim_win_is_valid(track.spacer_win) then
-        pcall(vim.api.nvim_win_set_height, track.spacer_win, 15)
-
-        local geo = get_win_geometry(track.spacer_win)
-        if geo and track.win and vim.api.nvim_win_is_valid(track.win) then
-          pcall(vim.api.nvim_win_set_config, track.win, {
-            relative = 'editor',
-            row = geo.row,
-            col = geo.col,
-            width = geo.width,
-            height = geo.height,
-          })
+  callback = function()
+    vim.schedule(function()
+      for _, track in pairs(pane_state) do
+        if track.win and vim.api.nvim_win_is_valid(track.win) then
+          pcall(vim.api.nvim_win_set_height, track.win, 15)
         end
       end
-
-      -- HIJACK INTERCEPTOR GATEWAY:
-      if track.spacer_win and current_win == track.spacer_win and args.buf ~= track.spacer_buf then
-        local leaked_buf = args.buf
-
-        vim.schedule(function()
-          -- Put the structural spacer buffer back into its proper window frame instantly
-          if vim.api.nvim_win_is_valid(track.spacer_win) and vim.api.nvim_buf_is_valid(track.spacer_buf) then
-            vim.api.nvim_win_set_buf(track.spacer_win, track.spacer_buf)
-          end
-
-          -- Evict the leaked file into a valid upper code window split pane
-          local target_win = nil
-          for _, w in ipairs(vim.api.nvim_list_wins()) do
-            if w ~= track.spacer_win and w ~= track.win then
-              local b = vim.api.nvim_win_get_buf(w)
-              local ft = vim.bo[b].filetype
-              local bt = vim.bo[b].buftype
-              if bt == '' and ft ~= 'neo-tree' and ft ~= 'NvimTree' then
-                target_win = w
-                break
-              end
-            end
-          end
-
-          if target_win then
-            vim.api.nvim_set_current_win(target_win)
-            vim.api.nvim_win_set_buf(target_win, leaked_buf)
-          else
-            -- Empty Workspace Fix (Only Neo-Tree and Spacer are active)
-            local neotree_win = nil
-            for _, w in ipairs(vim.api.nvim_list_wins()) do
-              if w ~= track.spacer_win and w ~= track.win then
-                neotree_win = w
-                break
-              end
-            end
-
-            if neotree_win and vim.api.nvim_win_is_valid(neotree_win) then
-              local code_win = vim.api.nvim_open_win(leaked_buf, true, { split = 'right', win = neotree_win })
-              vim.api.nvim_set_current_win(code_win)
-            else
-              vim.cmd('new')
-              pcall(vim.api.nvim_win_set_buf, 0, leaked_buf)
-            end
-          end
-        end)
-      end
-    end
+    end)
   end,
 })
 -- =========================================================================
