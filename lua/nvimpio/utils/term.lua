@@ -36,34 +36,26 @@ local function calculate_bottom_portal_geometry()
   }
 end
 
----CRITICAL MECHANISM: Physically shrinks or expands active split frames to make structural room
----@param should_shrink boolean True to make room, False to restore full heights
-local function adjust_editor_workspace_height(should_shrink)
+---FIXED: Safely adjusts ONLY the currently focused window line to prevent the 4/5 sizing panic
+---@param should_shrink boolean True to shrink the code window, False to restore it
+local function adjust_active_workspace_pane(should_shrink)
   local target_height = 15
   local current_win = vim.api.nvim_get_current_win()
 
-  -- Loop through all open windows on the screen (ignoring floating ones)
-  for _, win in ipairs(vim.api.nvim_list_wins()) do
-    if vim.api.nvim_win_is_valid(win) then
-      local config = vim.api.nvim_win_get_config(win)
-      if config.relative == '' then -- Only manipulate normal code window split panes
-        local current_height = vim.api.nvim_win_get_height(win)
-
-        if should_shrink then
-          -- Dynamically shrink code windows to create a physical gap at the bottom row
-          local new_height = math.max(3, current_height - target_height)
-          pcall(vim.api.nvim_win_set_height, win, new_height)
-        else
-          -- Restore the windows back down to full size when terminal closes
-          pcall(vim.api.nvim_win_set_height, win, current_height + target_height)
-        end
+  if current_win and vim.api.nvim_win_is_valid(current_win) then
+    local config = vim.api.nvim_win_get_config(current_win)
+    -- Verify this is a real code window panel and not a pre-existing float
+    if config.relative == '' then
+      local current_height = vim.api.nvim_win_get_height(current_win)
+      if should_shrink then
+        -- Gently compress the active window down to leave exactly 15 rows clear
+        local new_height = math.max(5, current_height - target_height)
+        pcall(vim.api.nvim_win_set_height, current_win, new_height)
+      else
+        -- Restore it back to full size when the terminal closes
+        pcall(vim.api.nvim_win_set_height, current_win, current_height + target_height)
       end
     end
-  end
-
-  -- Restore user focus point securely
-  if vim.api.nvim_win_is_valid(current_win) then
-    vim.api.nvim_set_current_win(current_win)
   end
 end
 
@@ -75,7 +67,7 @@ local function toggle_terminal_portal(track_type, shell_cmd)
   if track.win and vim.api.nvim_win_is_valid(track.win) then
     pcall(vim.api.nvim_win_close, track.win, true)
     track.win = nil
-    adjust_editor_workspace_height(false) -- Restore code splits to full page height
+    adjust_active_workspace_pane(false) -- Restore the active code layout panel full screen
     return
   end
 
@@ -86,16 +78,19 @@ local function toggle_terminal_portal(track_type, shell_cmd)
     track.chan = nil
   end
 
-  -- Shrink the coding window splits *before* dropping the float onto the grid
-  adjust_editor_workspace_height(true)
+  -- Shrink the coding view split line BEFORE popping the float window onto the screen
+  adjust_active_workspace_pane(true)
 
   -- 3. RENDER PORTAL LAYOUT: Open the absolute positioned overlay frame
   local geometry = calculate_bottom_portal_geometry()
   track.win = vim.api.nvim_open_win(track.buf, true, geometry)
 
+  -- HARD CONFIG RESIZE GUARD: Force local options to lock the container size
+  -- This tells Neovim's layout engine to freeze this window at 15 lines permanently!
   vim.wo[track.win].winfixheight = true
   vim.wo[track.win].winfixwidth = true
   vim.wo[track.win].wrap = true
+  pcall(vim.api.nvim_win_set_height, track.win, 15) -- Enforce exact row geometry height
 
   -- 4. SPAWN TERMINAL CHANNEL: Run instructions strictly inside fresh buffer streams
   if (not track.chan or track.chan <= 0) and shell_cmd and shell_cmd ~= '' then
@@ -106,7 +101,7 @@ local function toggle_terminal_portal(track_type, shell_cmd)
             if track.win and vim.api.nvim_win_is_valid(track.win) then
               pcall(vim.api.nvim_win_close, track.win, true)
               track.win = nil
-              adjust_editor_workspace_height(false)
+              adjust_active_workspace_pane(false)
             end
           end
         end)
@@ -163,6 +158,7 @@ vim.api.nvim_create_autocmd('VimResized', {
             width = fresh_geometry.width,
             height = fresh_geometry.height,
           })
+          pcall(vim.api.nvim_win_set_height, track.win, 15)
         end
       end
     end)
