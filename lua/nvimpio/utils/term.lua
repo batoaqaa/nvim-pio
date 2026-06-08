@@ -1,110 +1,202 @@
 local M = {}
 
--- Memory tracking slots for running background shell process IDs
-local pio_cli_job = nil
-local pio_mon_job = nil
+-- Memory tracking blocks for your two persistent plugin terminal buffers
+local pio_cli_buf = nil
+local pio_mon_buf = nil
 
--- Caches to hold the last visible line output from the streams
-local pio_cli_last_line = 'No active processes running.'
-local pio_mon_last_line = 'No active device trace logs.'
+-- Display window tracking handles
+local pio_cli_win = nil
+local pio_mon_win = nil
 
--- Toggle tracking flags
-local is_panel_open = false
-local active_view = 'cli'
+-- Keeps track of the user's original workspace tab page handle to prevent file-tree crashes
+local original_workspace_tab = nil
+local pio_isolated_tab = nil
 
 ----------------------------------------------------------------------------------------
--- INFO: Core Layout Generator (Global Statusline Winbar Panel Engine)
-function M.ToggleTerminal(command, terminal_type)
-  -- 1. Normalize variables and titles right at the top
-  if terminal_type == 'monitor' or (command and string.find(command, ' monitor')) then
-    terminal_type = 'monitor'
-    active_view = 'monitor'
+-- INFO: Safe Window Closure Logic (Tied to pressing 'q' inside normal mode)
+local function HideTerminalWindow(terminal_type)
+  local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
+  if target_win and vim.api.nvim_win_is_valid(target_win) then
+    vim.api.nvim_win_close(target_win, true)
+  end
+  if terminal_type == 'monitor' then
+    pio_mon_win = nil
   else
-    terminal_type = 'cli'
-    active_view = 'cli'
+    pio_cli_win = nil
   end
 
-  -- 2. TOGGLE ACTION: If the panel is already active, hide it and clear the status row
-  if is_panel_open and command == '' then
-    vim.o.statusline = '' -- Restore native statusline
-    is_panel_open = false
+  -- Clean up and close the isolated tab page if both terminal windows are closed
+  if pio_isolated_tab and vim.api.nvim_tabpage_is_valid(pio_isolated_tab) then
+    local tab_wins = vim.api.nvim_tabpage_list_wins(pio_isolated_tab)
+    if #tab_wins <= 1 then
+      vim.cmd('tabclose')
+      pio_isolated_tab = nil
+      -- Return user focus safely back to their original workspace file tree
+      if original_workspace_tab and vim.api.nvim_tabpage_is_valid(original_workspace_tab) then
+        vim.api.nvim_set_current_tabpage(original_workspace_tab)
+      end
+    end
+  end
+end
+
+----------------------------------------------------------------------------------------
+-- INFO: Unified Full-Width Bottom Terminal Spawner (Isolated Tabular Architecture)
+function M.ToggleTerminal(command, terminal_type)
+  -- 1. Enforce strict title header assignments immediately at the top
+  local title = ''
+  if terminal_type == 'monitor' or (command and string.find(command, ' monitor')) then
+    title = 'Pio Monitor'
+    terminal_type = 'monitor'
+  else
+    title = 'Pio CLI>'
+    terminal_type = 'cli'
+  end
+
+  local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
+  local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
+  local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
+
+  -- 2. MUTUAL EXCLUSION: If the opponent window is visible, hide it first
+  if other_win and vim.api.nvim_win_is_valid(other_win) then
+    vim.api.nvim_win_close(other_win, true)
+    if terminal_type == 'monitor' then
+      pio_cli_win = nil
+    else
+      pio_mon_win = nil
+    end
+  end
+
+  -- 3. TOGGLE ACTION: If our target window is already open, close it
+  if target_win and vim.api.nvim_win_is_valid(target_win) then
+    vim.api.nvim_win_close(target_win, true)
+    if terminal_type == 'monitor' then
+      pio_mon_win = nil
+    else
+      pio_cli_win = nil
+    end
+
+    -- Safe return to code view tab if closing the active console
+    if original_workspace_tab and vim.api.nvim_tabpage_is_valid(original_workspace_tab) then
+      vim.api.nvim_set_current_tabpage(original_workspace_tab)
+    end
     return
   end
 
-  is_panel_open = true
+  -- 4. CACHE ORIGINAL WORKSPACE: Remember exactly where the file-tree is healthy
+  local current_tab = vim.api.nvim_get_current_tabpage()
+  if current_tab ~= pio_isolated_tab then
+    original_workspace_tab = current_tab
+  end
 
-  -- 3. PROCESS BACKGROUND SPARK: Spawn the shell thread if it doesn't exist yet
-  local current_job = (terminal_type == 'monitor') and pio_mon_job or pio_cli_job
+  -- 5. PROCESS PERSISTENCE: Pure native unlisted scratch buffer generation
+  if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
+    target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
+    if terminal_type == 'monitor' then
+      pio_mon_buf = target_buf
+    else
+      pio_cli_buf = target_buf
+    end
 
-  if not current_job then
+    -- Determine target windows platform shell engine cleanly
     local target_shell = vim.o.shell
     if vim.fn.has('win32') == 1 then
       target_shell = 'powershell.exe'
     end
 
-    local job_id = vim.fn.jobstart(target_shell, {
-      term = false, -- Headless background job stream
-      on_stdout = function(_, data)
-        if data and #data > 0 then
-          -- Grab the very last string line emitted by the PlatformIO process
-          for i = #data, 1, -1 do
-            if data[i] ~= '' then
-              local clean = data[i]:gsub('\r', '')
-              if terminal_type == 'monitor' then
-                pio_mon_last_line = clean
-              else
-                pio_cli_last_line = clean
-              end
-              break
-            end
-          end
-
-          -- Automatically force an interface redraw to update the panel text row live
-          if is_panel_open then
-            vim.cmd('redrawstatus')
-          end
-        end
-      end,
-    })
-
-    if terminal_type == 'monitor' then
-      pio_mon_job = job_id
-    else
-      pio_cli_job = job_id
-    end
+    -- Run the shell cleanly. This sets 'buftype' to 'terminal' natively, fixing typing bugs!
+    vim.api.nvim_buf_call(target_buf, function()
+      vim.fn.termopen(target_shell)
+    end)
   end
 
-  -- 4. THE PANEL RENDER ENGINE: Custom global status bar layout block
-  -- This intercepts the editor layout baseline and draws your shell text stream
-  -- across 100% horizontal screen width. Completely immune to sidebars!
-  local function UpdateGlobalPanel()
-    local display_text = (active_view == 'monitor') and pio_mon_last_line or pio_cli_last_line
-    local title = (active_view == 'monitor') and ' Pio Monitor ' or ' Pio CLI> '
-
-    -- Form your custom highlight themes dynamically inside the bar string
-    return '%#MyWinBar#' .. title .. '%* ' .. display_text .. ' %=' .. '[Press ;; to Swap | Toggle off via shortcut]'
+  -- 6. TABPAGE GRID SEPARATION ARCHITECTURE:
+  -- Safely initialize or hop into our isolated display layer tab
+  if pio_isolated_tab and vim.api.nvim_tabpage_is_valid(pio_isolated_tab) then
+    vim.api.nvim_set_current_tabpage(pio_isolated_tab)
+  else
+    vim.cmd('tabnew')
+    pio_isolated_tab = vim.api.nvim_get_current_tabpage()
   end
 
-  -- Mount the layout function to Neovim's global environment
+  -- Draw the full-screen width split row partition inside this isolated tab environment
+  local target_height = math.ceil(vim.o.lines * 0.28)
+  vim.cmd('botright ' .. target_height .. 'split')
+
+  local new_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(new_win, target_buf)
+  if terminal_type == 'monitor' then
+    pio_mon_win = new_win
+  else
+    pio_cli_win = new_win
+  end
+
+  -- 7. HARD-LOCK WINDOW SYSTEM FLAGS
+  vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
+
+  -- 8. VISUAL CUSTOM WINBAR STYLING
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
-
-  _G.PioGlobalConsolePanel = UpdateGlobalPanel
-  vim.o.statusline = '%{%v:lua.PioGlobalConsolePanel()%}'
+  local winBartitle = '%#MyWinBar# ' .. title .. ' [Press ;; to Switch | Press q to hide]%*'
+  vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = new_win })
 
   -----------------------------------------------------------------------------
-  -- GLOBAL NAVIGATION & RECALL SHORTCUT VECTOR OVERRIDES
+  -- LOCAL MAPS (Scoped strictly to this terminal buffer layer instance)
+  -----------------------------------------------------------------------------
+  vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = target_buf })
+  vim.keymap.set('n', 'q', function()
+    HideTerminalWindow(terminal_type)
+  end, { buffer = target_buf })
+
+  -- SAFE RE-ROUTING NAVIGATION KEYMAP:
+  -- When the user presses <C-k> to leave the terminal, this macro instantly jumps
+  -- them out of the terminal tab and drops them back into their healthy workspace file tab!
+  vim.keymap.set({ 'n', 't' }, '<C-k>', function()
+    if vim.api.nvim_get_mode().mode == 't' then
+      local esc = vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true)
+      vim.api.nvim_feedkeys(esc, 'n', false)
+    end
+    vim.schedule(function()
+      if original_workspace_tab and vim.api.nvim_tabpage_is_valid(original_workspace_tab) then
+        vim.api.nvim_set_current_tabpage(original_workspace_tab)
+      end
+    end)
+  end, { buffer = target_buf, silent = true })
+
+  -- DOUBLE SEMI-COLON CROSS SWITCHER LOGIC
+  vim.keymap.set({ 'n', 't' }, ';;', function()
+    if vim.api.nvim_get_mode().mode == 't' then
+      local esc = vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true)
+      vim.api.nvim_feedkeys(esc, 'n', false)
+    end
+
+    local next_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
+    vim.schedule(function()
+      M.ToggleTerminal('', next_type)
+    end)
+  end, { buffer = target_buf, silent = true, desc = 'Switch between PlatformIO terminals' })
+
+  -----------------------------------------------------------------------------
+  -- GLOBAL NAVIGATION & RECALL SHORTCUTS
   -----------------------------------------------------------------------------
   vim.keymap.set('n', '<C-h>', '<C-w>h')
   vim.keymap.set('n', '<C-l>', '<C-w>l')
-  vim.keymap.set('n', '<C-j>', '<C-w>j')
-  vim.keymap.set('n', '<C-k>', '<C-w>k')
 
-  -- HOME-ROW CROSS SWITCHER: Double tap semi-colon (;;) to cross-fade streams instantly!
-  vim.keymap.set('n', ';;', function()
-    active_view = (active_view == 'monitor') and 'cli' or 'monitor'
-    vim.cmd('redrawstatus')
-  end, { silent = true, desc = 'Switch between PlatformIO terminal logs' })
+  -- GLOBAL INTERCEPT DOWNWARD MOVEMENT HOOK:
+  -- Focuses your cursor straight down into your active terminal pane natively,
+  -- automatically moving them into the isolated terminal tab view.
+  vim.keymap.set('n', '<C-j>', function()
+    if pio_isolated_tab and vim.api.nvim_tabpage_is_valid(pio_isolated_tab) then
+      vim.api.nvim_set_current_tabpage(pio_isolated_tab)
+      local cur_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
+      if cur_win and vim.api.nvim_win_is_valid(cur_win) then
+        vim.api.nvim_set_current_win(cur_win)
+        vim.cmd('startinsert')
+      end
+    else
+      vim.cmd('wincmd j')
+    end
+  end, { silent = true })
 
   if terminal_type == 'monitor' then
     vim.keymap.set('n', [[<leader>\gm]], function()
@@ -117,17 +209,18 @@ function M.ToggleTerminal(command, terminal_type)
   end
   -----------------------------------------------------------------------------
 
-  -- Pass PlatformIO macro command strings directly down through the active background stream
+  -- Automatically run passed command strings via your platformio job channels
   if command and command ~= '' then
-    local active_chan = (terminal_type == 'monitor') and pio_mon_job or pio_cli_job
-    if active_chan then
-      vim.api.nvim_chan_send(active_chan, command .. '\n')
+    local job_id = vim.b[target_buf].terminal_job_id
+    if job_id then
+      vim.fn.chansend(job_id, command .. (vim.fn.has('win32') == 1 and '\r\n' or '\n'))
     end
   end
+
+  vim.cmd('startinsert')
 end
 
 return M
-
 -- local M = {}
 --
 -- -- Persistent background storage buffers for running shell processes
