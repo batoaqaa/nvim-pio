@@ -10,46 +10,56 @@ local pio_mon_win = nil
 local last_active_editor_win = nil
 
 ----------------------------------------------------------------------------------------
--- 🥇 DETECT AND DYNAMICALLY INJECT CONFIG INTO EDGY.NVIM
--- This initializes automatically when your module is required. If the user runs edgy,
--- it patches their configurations array to recognize your terminal filetype.
+-- 🥇 DISTRIBUTABLE CONFIG INJECTION LAYER
+-- Safely seeds or patches edgy.nvim definitions without disrupting user setup files.
 local function inject_edgy_integration()
-  -- Check if edgy.nvim has been loaded in the user's current session
+  -- Define your plugin's unified terminal layout spec rule
+  local pio_layout_rule = {
+    ft = 'nvimpio-terminal',
+    title = 'PlatformIO Terminal',
+    size = { height = 14 },
+  }
+
+  -- Target 1: Pre-initialize global variable hooks if edgy hasn't loaded yet
+  vim.g.edgy_config = vim.g.edgy_config or {}
+  vim.g.edgy_config.bottom = vim.g.edgy_config.bottom or {}
+
+  -- Target 2: Read active memory cache to check if edgy is already running
   local has_edgy, edgy = pcall(require, 'edgy')
-  if not has_edgy or not edgy.config then
-    return
-  end
 
-  -- Track if your filetype is already registered inside edgy's bottom panel configuration pool
-  local registered = false
-  for _, item in ipairs(edgy.config.bottom or {}) do
-    if item.ft == 'nvimpio-terminal' then
-      registered = true
-      break
-    end
-  end
-
-  -- Dynamically inject your layout definition if it is missing
-  if not registered then
+  if has_edgy and edgy.config then
+    -- CASE A: Edgy is already loaded. Insert into live operational configuration.
     edgy.config.bottom = edgy.config.bottom or {}
-    table.insert(edgy.config.bottom, {
-      ft = 'nvimpio-terminal',
-      title = 'PlatformIO Terminal',
-      size = { height = 14 },
-    })
-
-    -- Force edgy.nvim to rebuild its internal layout listeners using the patched table
-    if type(edgy.setup) == 'function' then
-      pcall(edgy.setup, edgy.config)
+    local is_registered = false
+    for _, item in ipairs(edgy.config.bottom) do
+      if item.ft == 'nvimpio-terminal' then
+        is_registered = true
+        break
+      end
+    end
+    if not is_registered then
+      table.insert(edgy.config.bottom, pio_layout_rule)
+    end
+  else
+    -- CASE B: Edgy hasn't run setup yet. Seed global table parameters for automatic merge.
+    local is_registered = false
+    for _, item in ipairs(vim.g.edgy_config.bottom) do
+      if item.ft == 'nvimpio-terminal' then
+        is_registered = true
+        break
+      end
+    end
+    if not is_registered then
+      table.insert(vim.g.edgy_config.bottom, pio_layout_rule)
     end
   end
 end
 
--- Execute the injection automatically on runtime module parse
+-- Run injection immediately upon module parse
 inject_edgy_integration()
 
 ----------------------------------------------------------------------------------------
--- SAFELY ESCAPE PANELS: Restores focus to a proper editor frame view
+-- SAFELY ESCAPE PANELS: Finds a normal code window to preserve layout geometry
 local function find_valid_editor_window()
   local wins = vim.api.nvim_tabpage_list_wins(0)
   for _, win in ipairs(wins) do
@@ -66,7 +76,7 @@ local function find_valid_editor_window()
 end
 
 ----------------------------------------------------------------------------------------
--- CLEAN EXIT LOGIC: Handles native tab closure actions smoothly
+-- CLEAN EXIT LOGIC: Closes structural splits and manages buffer status
 local function HideTerminalWindow(terminal_type)
   local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
   if target_win and vim.api.nvim_win_is_valid(target_win) then
@@ -116,7 +126,7 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 
-  -- 2. TOGGLE ACTION: Close active panel if requested
+  -- 2. TOGGLE ACTION: Close active pane if requested
   if target_win and vim.api.nvim_win_is_valid(target_win) then
     HideTerminalWindow(terminal_type)
     return
@@ -131,7 +141,7 @@ function M.ToggleTerminal(command, terminal_type)
       pio_cli_buf = target_buf
     end
 
-    -- Explicitly register custom filetype identifiers for your dynamic hook
+    -- Register unique filetype configuration for user edgy integrations
     vim.api.nvim_set_option_value('filetype', 'nvimpio-terminal', { buf = target_buf })
 
     local target_shell = vim.o.shell
@@ -145,7 +155,6 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   -- 4. SPAWN STRUCTURAL TOPOLOGY LAYOUT PASS
-  -- Shift focus away from locked plugin columns right before creating splits
   local neutral_win = find_valid_editor_window()
   if neutral_win then
     vim.api.nvim_set_current_win(neutral_win)
@@ -153,8 +162,8 @@ function M.ToggleTerminal(command, terminal_type)
 
   local target_height = math.ceil(vim.o.lines * 0.28)
 
-  -- If edgy.nvim is running on the user machine, it catches this standard horizontal split
-  -- and forces it full-width across the bottom window track layer seamlessly.
+  -- Open a standard horizontal split. If edgy.nvim is present, it will automatically
+  -- catch it, pull it out of vertical spaces, and lock it to the full-width bottom layout.
   vim.cmd('botright ' .. target_height .. 'split')
   local new_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(new_win, target_buf)
@@ -169,7 +178,7 @@ function M.ToggleTerminal(command, terminal_type)
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
-  -- The Kernel Shield Contract: Prevents workspace files from hijacking your terminal panel
+  -- Native kernel lock keeps workspace file jumps from occupying your terminal layout split
   vim.api.nvim_set_option_value('winfixbuf', true, { scope = 'local', win = new_win })
 
   local hl = { bg = '#80a3d4', fg = '#000000' }
@@ -220,7 +229,7 @@ function M.ToggleTerminal(command, terminal_type)
 end
 
 -----------------------------------------------------------------------------
--- GLOBAL SHORTCUT INITIALIZATIONS
+-- GLOBAL NAVIGATION REGISTER (Saves memory context layouts)
 -----------------------------------------------------------------------------
 vim.keymap.set('n', '<C-h>', '<C-w>h', { silent = true })
 vim.keymap.set('n', '<C-l>', '<C-w>l', { silent = true })
@@ -245,6 +254,7 @@ vim.keymap.set('n', [[<leader>\t]], function()
 end, { silent = true })
 
 return M
+
 -- local M = {}
 --
 -- -- Memory slots to preserve running terminal process background buffers
