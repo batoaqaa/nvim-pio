@@ -53,8 +53,6 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   -- 3. ALWAYS-OPEN TARGET ENGINE:
-  -- FIXED: Removed the closure code logic path. If a user presses their shortcut hotkey
-  -- while the window is visible, it moves their cursor focus straight inside it instead of hiding it!
   if target_win and vim.api.nvim_win_is_valid(target_win) then
     vim.api.nvim_set_current_win(target_win)
     pcall(vim.api.nvim_win_set_height, target_win, target_panel_height)
@@ -104,9 +102,34 @@ function M.ToggleTerminal(command, terminal_type)
         end,
       })
     end)
+
+    -- 5. FIXED AUTOMATED SCROLL REFLOW ENGINE:
+    -- This autocmd listens for new live log streaming content modifications inside the console.
+    -- The split-second text changes, it runs a micro-scheduled jump to scroll the panel to the baseline.
+    local scroll_group = vim.api.nvim_create_augroup('PioAutoScroll_' .. target_buf, { clear = true })
+    vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
+      group = scroll_group,
+      buffer = target_buf,
+      callback = function()
+        local active_term_win = vim.fn.bufwinid(target_buf)
+        if active_term_win and active_term_win ~= -1 and vim.api.nvim_win_is_valid(active_term_win) then
+          vim.schedule(function()
+            if vim.api.nvim_win_is_valid(active_term_win) then
+              -- Pull the viewport down to the absolute bottom row line item cleanly
+              vim.api.nvim_win_call(active_term_win, function()
+                local mode = vim.api.nvim_get_mode().mode
+                if mode == 'n' or mode == 'nt' then
+                  vim.cmd('normal! G')
+                end
+              end)
+            end
+          end)
+        end
+      end,
+    })
   end
 
-  -- 5. THE GLOBAL GRID TRACKER MATRICES:
+  -- 6. THE GLOBAL GRID TRACKER MATRICES:
   target_panel_height = math.ceil(vim.o.lines * 0.28)
 
   local win_opts = {
@@ -115,7 +138,7 @@ function M.ToggleTerminal(command, terminal_type)
     height = target_panel_height,
   }
 
-  -- 6. RENDER THE STABLE CORE ROW PARTITION
+  -- 7. RENDER THE STABLE CORE ROW PARTITION
   local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
@@ -123,11 +146,11 @@ function M.ToggleTerminal(command, terminal_type)
     pio_cli_win = new_win
   end
 
-  -- 7. CLEAN WINDOW SYSTEM FLAGS
+  -- 8. CLEAN WINDOW SYSTEM FLAGS
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
-  -- 8. FIXED ANTI-SHRINKING VIEWPORT GUARD
+  -- 9. FIXED ANTI-SHRINKING VIEWPORT GUARD
   local pio_group = vim.api.nvim_create_augroup('PioFocusGuard_' .. target_buf, { clear = true })
   vim.api.nvim_create_autocmd('WinEnter', {
     group = pio_group,
@@ -136,11 +159,16 @@ function M.ToggleTerminal(command, terminal_type)
       local term_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
       if term_win and vim.api.nvim_win_is_valid(term_win) then
         pcall(vim.api.nvim_win_set_height, term_win, target_panel_height)
+        -- Instantly align the viewport on manual focus shifts as well
+        local mode = vim.api.nvim_get_mode().mode
+        if mode == 'n' or mode == 'nt' then
+          vim.cmd('normal! G')
+        end
       end
     end,
   })
 
-  -- 9. VISUAL CUSTOM WINBAR STYLING
+  -- 10. VISUAL CUSTOM WINBAR STYLING
   local hl = { bg = '#80a3d4', fg = '#000000' }
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
   local winBartitle = '%#MyWinBar#' .. title .. '%*'
@@ -190,6 +218,11 @@ function M.ToggleTerminal(command, terminal_type)
     if cur_win and vim.api.nvim_win_is_valid(cur_win) then
       vim.api.nvim_set_current_win(cur_win)
       pcall(vim.api.nvim_win_set_height, cur_win, target_panel_height)
+      -- Pull view to bottom line on tracking switch jumps
+      local mode = vim.api.nvim_get_mode().mode
+      if mode == 'n' or mode == 'nt' then
+        vim.cmd('normal! G')
+      end
     else
       vim.cmd('wincmd j')
     end
@@ -270,13 +303,24 @@ return M
 --     SafeCloseTerminal(other_buf)
 --   end
 --
---   -- 3. TOGGLE ACTION: If our target window is already open, close it
+--   -- 3. ALWAYS-OPEN TARGET ENGINE:
+--   -- FIXED: Removed the closure code logic path. If a user presses their shortcut hotkey
+--   -- while the window is visible, it moves their cursor focus straight inside it instead of hiding it!
 --   if target_win and vim.api.nvim_win_is_valid(target_win) then
---     SafeCloseTerminal(target_buf)
+--     vim.api.nvim_set_current_win(target_win)
+--     pcall(vim.api.nvim_win_set_height, target_win, target_panel_height)
+--
+--     -- If an execution string macro was explicitly passed, process it immediately over the channel
+--     if command and command ~= '' then
+--       local job_id = vim.b[target_buf].terminal_job_id
+--       if job_id then
+--         vim.fn.chansend(job_id, command .. (vim.fn.has('win32') == 1 and '\r\n' or '\n'))
+--       end
+--     end
 --     return
 --   end
 --
---   -- 4. NEW HASSLE-FREE PROCESS INITIALIZATION ENGINE: Completely free of deprecated APIs
+--   -- 4. PROCESS INITIALIZATION ENGINE: Completely free of deprecated APIs
 --   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
 --     target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
 --     if terminal_type == 'monitor' then
@@ -295,8 +339,7 @@ return M
 --       end
 --     end
 --
---     -- FIXED FIX: We call jobstart inside a pristine buffer wrapper without nvim_open_term.
---     -- This sets the 'buftype' to 'terminal' cleanly, preventing deprecation warnings and line typing bugs!
+--     -- We call jobstart inside a pristine buffer wrapper without nvim_open_term.
 --     vim.api.nvim_buf_call(target_buf, function()
 --       vim.fn.jobstart(target_shell, {
 --         term = true, -- Attaches a native PTY container natively onto the blank buffer context
@@ -331,7 +374,7 @@ return M
 --     pio_cli_win = new_win
 --   end
 --
---   -- 7. CLEAN WINDOW SYSTEM FLAGS (Completely free of layout loops)
+--   -- 7. CLEAN WINDOW SYSTEM FLAGS
 --   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
 --   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 --
@@ -398,7 +441,6 @@ return M
 --     if cur_win and vim.api.nvim_win_is_valid(cur_win) then
 --       vim.api.nvim_set_current_win(cur_win)
 --       pcall(vim.api.nvim_win_set_height, cur_win, target_panel_height)
---       vim.cmd('startinsert')
 --     else
 --       vim.cmd('wincmd j')
 --     end
@@ -422,8 +464,6 @@ return M
 --       vim.fn.chansend(job_id, command .. (vim.fn.has('win32') == 1 and '\r\n' or '\n'))
 --     end
 --   end
---
---   vim.cmd('startinsert')
 -- end
 --
 -- return M
