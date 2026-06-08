@@ -26,27 +26,23 @@ local function toggle_bottom_pane(track_type, shell_cmd)
     return
   end
 
-  -- 2. BUFFER LIFECYCLE MANAGEMENT: Recycle or spawn the unlisted text buffer space cleanly
-  if not track.buf or not vim.api.nvim_buf_is_valid(track.buf) then
-    track.buf = vim.api.nvim_create_buf(false, true) -- listed = false, scratchpad = true
-    vim.bo[track.buf].filetype = 'nvimpio-terminal'
-    track.chan = nil
-  end
-
-  -- Cache your active text writing cursor window context safely
+  -- Cache your active text writing cursor window context safely before any operations
   local initial_active_win = vim.api.nvim_get_current_win()
 
   -- =========================================================================
-  -- FIXED EDGY.NVIM MECHANICAL LAYOUT BYPASS TECHNIQUE (API-SAFE)
+  -- STAGE 1: CREATE AND POLE-POSITION THE WINDOW VIA A GHOST BUFFER
   -- =========================================================================
-  -- We open a normal split using the API and attach our pristine buffer DIRECTLY.
-  -- This leaves exactly 0 nanoseconds for external scripts to modify anything.
-  local temp_win = vim.api.nvim_open_win(track.buf, false, {
+  -- We create a temporary, throwaway scratchpad buffer to handle layout shifting side effects
+  local ghost_buf = vim.api.nvim_create_buf(false, true)
+
+  -- Open a normal split containing only the temporary ghost buffer
+  local temp_win = vim.api.nvim_open_win(ghost_buf, false, {
     split = 'below',
     height = 15,
   })
 
-  -- SURGICAL TREE MANIPULATION: Forcefully slice the window across the absolute bottom margin
+  -- SURGICAL TREE MANIPULATION: Slice the window safely to the absolute bottom row.
+  -- This forces code splits to shrink upwards cleanly, preventing overlapping text!
   pcall(function()
     vim.api.nvim_win_splitmove(temp_win, 0, { vertical = false, rightbelow = true })
   end)
@@ -57,20 +53,27 @@ local function toggle_bottom_pane(track_type, shell_cmd)
   vim.wo[track.win].winfixheight = true
   vim.wo[track.win].winfixwidth = true
   vim.wo[track.win].wrap = true
-  pcall(vim.api.nvim_win_set_height, track.win, 15) -- Restrict size securely to 15 lines
+  pcall(vim.api.nvim_win_set_height, track.win, 15)
 
-  -- RESTORE FOCUS INSTANTLY: Jump back to the active editing file before the terminal boots up
-  if vim.api.nvim_win_is_valid(initial_active_win) then
-    vim.api.nvim_set_current_win(initial_active_win)
-  end
   -- =========================================================================
+  -- STAGE 2: MOUNT PRISTINE TERMINAL STREAM
+  -- =========================================================================
+  if shell_cmd and shell_cmd ~= '' then
+    -- Create a brand new, completely unlisted, 100% untouched buffer
+    track.buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[track.buf].filetype = 'nvimpio-terminal'
 
-  -- 3. INTERACTIVE TERMINAL STREAM INITIALIZATION
-  if (not track.chan or track.chan <= 0) and shell_cmd and shell_cmd ~= '' then
-    -- Absolute Buffer Cleansing Shield for maximum fallback safety
+    -- Swap the pristine buffer into our perfectly positioned window frame,
+    -- replacing the temporary ghost buffer entirely.
+    vim.api.nvim_win_set_buf(track.win, track.buf)
+
+    -- Explicitly wipe the ghost buffer out of memory to prevent leaks
+    pcall(vim.api.nvim_buf_delete, ghost_buf, { force = true })
+
+    -- Enforce absolute unmodified status right before execution mount
     vim.bo[track.buf].modified = false
 
-    -- Inject execution path hooks securely via the native channel
+    -- Launch terminal shell stream channel safely (GUARANTEED ZERO MODIFICATIONS)
     track.chan = vim.fn.termopen(shell_cmd, {
       on_exit = function(_, exit_code)
         -- Auto-Cleanup Hook: Wipe the frame automatically if a build task passes cleanly
@@ -84,6 +87,11 @@ local function toggle_bottom_pane(track_type, shell_cmd)
         end)
       end,
     })
+  end
+
+  -- RESTORE FOCUS INSTANTLY: Jump back to the active editing file
+  if vim.api.nvim_win_is_valid(initial_active_win) then
+    vim.api.nvim_set_current_win(initial_active_win)
   end
 end
 
