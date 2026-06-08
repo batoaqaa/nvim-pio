@@ -682,29 +682,28 @@ function M.stdoutcallback(_, data, event)
   -----------------------------------------------------------------------------
 
   -----------------------------------------------------------------------------
-  -- 🌟 NATIVE STREAM DATA SANITIZATION ADAPTER
+  -- 🌟 NATIVE TERMINAL TABLE ARRAY STANDARDIST UNPACKER
   -----------------------------------------------------------------------------
-  -- 1. Convert the raw table array into clean, unified text chunks instantly
-  local text_lines = {}
+  -- Processes incoming data lists cleanly to stop table-to-string type crash errors
+  local processed_lines = {}
   for i, line in ipairs(data) do
-    -- Remove Windows return carriages (\r) and trailing PTY control formatting strings
-    local clean_line = line:gsub('\r', ''):gsub('\x1b%[[0-9;]*%a', '')
-    text_lines[i] = clean_line
+    -- Strip trailing Windows carriage returns (\r) to protect find pattern matches
+    processed_lines[i] = line:gsub('\r', '')
   end
-
-  -- 2. Standardize data mapping layout parameters to mirror your original structure
-  local current_chunk_count = #text_lines
+  local chunk_count = #processed_lines
   -----------------------------------------------------------------------------
 
-  -- UPDATED EVALUATION: Processes text_lines array elements flawlessly without syntax crashes
-  if current_chunk_count > 1 then
-    content = content .. pio_buffer .. table.concat(text_lines, '', 1, current_chunk_count)
-    pio_buffer = text_lines[current_chunk_count]
+  -- Replaces your old concatenation blocks to process table arrays safely
+  if chunk_count > 1 then
+    content = content .. pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
+    pio_buffer = processed_lines[chunk_count]
   else
-    -- FIXED SINGLE-ITEM CRASH: Explicitly references index [1] of the clean array table
-    content = content .. pio_buffer .. text_lines[1]
-    pio_buffer = text_lines[1]
+    -- FIXED SINGLE-ITEM CRASH: Safely indexes your formatted array list item
+    content = content .. pio_buffer .. processed_lines[1]
+    pio_buffer = processed_lines[1]
   end
+
+  -----------------------------------------------------------------------------
   -- if not data or #data == 0 then
   --   return
   -- end
