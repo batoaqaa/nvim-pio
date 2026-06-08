@@ -133,8 +133,7 @@ function M.ToggleTerminal(command, terminal_type)
       pio_cli_buf = target_buf
     end
 
-    -- 🥇 THE TIMING CORRECTION: Assign the filetype to the buffer memory instantly,
-    -- BEFORE any window splitting commands run. This allows edgy.nvim to intercept it.
+    -- Set our custom filetype so edgy recognizes the buffer right away
     vim.api.nvim_set_option_value('filetype', 'nvimpio-terminal', { buf = target_buf })
 
     local target_shell = vim.o.shell
@@ -147,24 +146,25 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end
 
-  -- SPAWN INTERCEPT TRIGGER
-  -- Move focus away from locked sidebars to prevent E957 crashes
+  -- Move focus away from sidebars to prevent E957 layout crashes
   local neutral_win = find_valid_editor_window()
   if neutral_win then
     vim.api.nvim_set_current_win(neutral_win)
   end
 
-  local target_height = math.ceil(vim.o.lines * 0.28)
-  local has_edgy = pcall(require, 'edgy')
+  -- 🥇 THE EDGY NATIVE RUNTIME API ENGAGEMENT
+  local has_edgy, edgy = pcall(require, 'edgy')
+  if has_edgy and type(edgy.open) == 'function' then
+    -- PATH A: If edgy is installed, open via their programmatic API hook.
+    -- This natively skips standard layout splits and drops your terminal inside their layout bar.
+    edgy.open('nvimpio-terminal')
 
-  if has_edgy then
-    -- PATH A: Edgy is installed. Opening a split with a pre-labeled buffer
-    -- triggers edgy's layout hook instantly, placing it flat along the bottom row.
-    vim.cmd('split')
-    local split_win = vim.api.nvim_get_current_win()
-    vim.api.nvim_win_set_buf(split_win, target_buf)
+    -- Sync the newly created window handle back into your plugin variables pool
+    local current_win = vim.api.nvim_get_current_win()
+    vim.api.nvim_win_set_buf(current_win, target_buf)
   else
     -- PATH B: Fallback if edgy is absent
+    local target_height = math.ceil(vim.o.lines * 0.28)
     vim.cmd('botright ' .. target_height .. 'split')
     local fallback_win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(fallback_win, target_buf)
@@ -248,7 +248,6 @@ vim.keymap.set('n', '<C-j>', function()
 end, { silent = true })
 
 return M
-
 -- local M = {}
 --
 -- -- Memory slots to preserve running terminal process background buffers
