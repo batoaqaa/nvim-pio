@@ -20,11 +20,7 @@ local function inject_edgy_integration()
     size = { height = 14 },
   }
 
-  -- Target 1: Pre-initialize global variable hooks if edgy hasn't loaded yet
-  vim.g.edgy_config = vim.g.edgy_config or {}
-  vim.g.edgy_config.bottom = vim.g.edgy_config.bottom or {}
-
-  -- Target 2: Read active memory cache to check if edgy is already running
+  -- Target 1: Read active memory cache to check if edgy is already running
   local has_edgy, edgy = pcall(require, 'edgy')
 
   if has_edgy and edgy.config then
@@ -32,7 +28,6 @@ local function inject_edgy_integration()
     edgy.config.bottom = edgy.config.bottom or {}
     local is_registered = false
 
-    -- FIXED: Protected with 'or {}' to prevent bad argument ipairs crashing if bottom config is missing
     for _, item in ipairs(edgy.config.bottom or {}) do
       if item.ft == 'nvimpio-terminal' then
         is_registered = true
@@ -44,17 +39,22 @@ local function inject_edgy_integration()
     end
   else
     -- CASE B: Edgy hasn't run setup yet. Seed global table parameters for automatic merge.
-    local is_registered = false
+    -- FIXED: Extracted to a clean local Lua table context to bypass Neovim's vim.g metatable assignment restrictions
+    local raw_edgy_config = vim.g.edgy_config or {}
+    raw_edgy_config.bottom = raw_edgy_config.bottom or {}
 
-    -- FIXED: Protected with 'or {}' to guarantee crash-free parsing
-    for _, item in ipairs(vim.g.edgy_config.bottom or {}) do
+    local is_registered = false
+    for _, item in ipairs(raw_edgy_config.bottom) do
       if item.ft == 'nvimpio-terminal' then
         is_registered = true
         break
       end
     end
+
     if not is_registered then
-      table.insert(vim.g.edgy_config.bottom, pio_layout_rule)
+      table.insert(raw_edgy_config.bottom, pio_layout_rule)
+      -- Force serialization update back into Neovim's global namespace variables
+      vim.g.edgy_config = raw_edgy_config
     end
   end
 end
@@ -258,6 +258,7 @@ vim.keymap.set('n', [[<leader>\t]], function()
 end, { silent = true })
 
 return M
+
 -- local M = {}
 --
 -- -- Memory slots to preserve running terminal process background buffers
