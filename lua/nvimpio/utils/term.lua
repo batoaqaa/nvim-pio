@@ -175,12 +175,18 @@ function M.ToggleTerminal(command, terminal_type)
   local final_win = shared_win
 
   if not final_win or not vim.api.nvim_win_is_valid(final_win) then
+    local old_splitbelow = vim.o.splitbelow
+    vim.o.splitbelow = true
+
+    -- Using botright as a mod string is the native API alternative for splitmode
+    vim.cmd('vertical default botright')
     final_win = vim.api.nvim_open_win(target_buf, true, {
       split = 'below',
-      splitmode = 'botright',
       win = 0,
       height = get_target_height(),
     })
+
+    vim.o.splitbelow = old_splitbelow
   else
     vim.api.nvim_set_option_value('winfixbuf', false, { scope = 'local', win = final_win })
     vim.api.nvim_win_set_buf(final_win, target_buf)
