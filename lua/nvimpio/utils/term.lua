@@ -15,8 +15,8 @@ local portal_state = {
 
 local layout_group = vim.api.nvim_create_augroup('NvimPioWindowPortalLock', { clear = true })
 
----Calculates precise coordinates relative to the master editor grid
-local function calculate_adaptive_geometry()
+---High-precision calculation engine to map our layout across the absolute edge grid
+local function calculate_bottom_portal_geometry()
   local total_columns = vim.o.columns
   local total_lines = vim.o.lines
   local statusline_height = (vim.o.laststatus > 0) and 1 or 0
@@ -36,18 +36,34 @@ local function calculate_adaptive_geometry()
   }
 end
 
----Dynamically adds a bottom padding margin to the active buffer so text never gets covered
-local function apply_viewport_padding(remove_padding)
+---CRITICAL MECHANISM: Physically shrinks or expands active split frames to make structural room
+---@param should_shrink boolean True to make room, False to restore full heights
+local function adjust_editor_workspace_height(should_shrink)
+  local target_height = 15
   local current_win = vim.api.nvim_get_current_win()
-  if not vim.api.nvim_win_is_valid(current_win) then
-    return
+
+  -- Loop through all open windows on the screen (ignoring floating ones)
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if vim.api.nvim_win_is_valid(win) then
+      local config = vim.api.nvim_win_get_config(win)
+      if config.relative == '' then -- Only manipulate normal code window split panes
+        local current_height = vim.api.nvim_win_get_height(win)
+
+        if should_shrink then
+          -- Dynamically shrink code windows to create a physical gap at the bottom row
+          local new_height = math.max(3, current_height - target_height)
+          pcall(vim.api.nvim_win_set_height, win, new_height)
+        else
+          -- Restore the windows back down to full size when terminal closes
+          pcall(vim.api.nvim_win_set_height, win, current_height + target_height)
+        end
+      end
+    end
   end
 
-  -- We use window-local options to shift text rows up by 15 lines safely
-  if remove_padding then
-    vim.wo[current_win].scrolloff = 0
-  else
-    vim.wo[current_win].scrolloff = 15 -- Forces Neovim to push your active code text ABOVE the terminal float!
+  -- Restore user focus point securely
+  if vim.api.nvim_win_is_valid(current_win) then
+    vim.api.nvim_set_current_win(current_win)
   end
 end
 
@@ -55,11 +71,11 @@ end
 local function toggle_terminal_portal(track_type, shell_cmd)
   local track = portal_state[track_type]
 
-  -- 1. IF VISIBLE: Close window layout frame and restore file viewing margins cleanly
+  -- 1. IF VISIBLE: Close window layout frame and restore file viewing geometries cleanly
   if track.win and vim.api.nvim_win_is_valid(track.win) then
     pcall(vim.api.nvim_win_close, track.win, true)
     track.win = nil
-    apply_viewport_padding(true) -- Strip text padding to let code expand back down full screen
+    adjust_editor_workspace_height(false) -- Restore code splits to full page height
     return
   end
 
@@ -70,11 +86,11 @@ local function toggle_terminal_portal(track_type, shell_cmd)
     track.chan = nil
   end
 
-  -- Apply the layout text padding right before opening the overlay panel
-  apply_viewport_padding(false)
+  -- Shrink the coding window splits *before* dropping the float onto the grid
+  adjust_editor_workspace_height(true)
 
   -- 3. RENDER PORTAL LAYOUT: Open the absolute positioned overlay frame
-  local geometry = calculate_adaptive_geometry()
+  local geometry = calculate_bottom_portal_geometry()
   track.win = vim.api.nvim_open_win(track.buf, true, geometry)
 
   vim.wo[track.win].winfixheight = true
@@ -90,7 +106,7 @@ local function toggle_terminal_portal(track_type, shell_cmd)
             if track.win and vim.api.nvim_win_is_valid(track.win) then
               pcall(vim.api.nvim_win_close, track.win, true)
               track.win = nil
-              apply_viewport_padding(true)
+              adjust_editor_workspace_height(false)
             end
           end
         end)
@@ -138,7 +154,7 @@ vim.api.nvim_create_autocmd('VimResized', {
   group = layout_group,
   callback = function()
     vim.schedule(function()
-      local fresh_geometry = calculate_adaptive_geometry()
+      local fresh_geometry = calculate_bottom_portal_geometry()
       for _, track in pairs(portal_state) do
         if track.win and vim.api.nvim_win_is_valid(track.win) then
           pcall(vim.api.nvim_win_set_config, track.win, {
