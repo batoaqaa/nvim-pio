@@ -51,8 +51,6 @@ function M.ToggleTerminal(command, terminal_type)
   ------------------------------------------------------------------
 
   local group = vim.api.nvim_create_augroup('TerminalPositionLock', { clear = true })
-
-  -- A state flag to prevent the function from re-triggering itself during window jumps
   local is_adjusting_layout = false
 
   vim.api.nvim_create_autocmd({ 'WinNew', 'WinLeave', 'BufEnter' }, {
@@ -60,46 +58,118 @@ function M.ToggleTerminal(command, terminal_type)
     callback = function(args)
       local triggering_buf = args.buf
 
-      -- 1. CRITICAL RACE GUARD: Exit immediately if we are already in the middle of shifting windows
       if is_adjusting_layout then
         return
       end
 
-      -- 2. TARGETED FILETYPE GUARD: Validate that this is strictly an nvimpio terminal
-      -- This ignores all generic system terminals, ToggleTerm panels, and code windows.
+      -- 1. TARGETED FILETYPE GUARD: Only execute for your custom terminal
       if vim.bo[triggering_buf].filetype ~= 'nvimpio-terminal' then
         return
       end
 
-      -- 3. Safely schedule the position fix for this specific terminal profile
-      vim.schedule(function()
-        for _, win in ipairs(vim.api.nvim_list_wins()) do
-          if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == triggering_buf then
-            local current_win = vim.api.nvim_get_current_win()
-
-            -- Activate the layout shield lock right before shifting focus or moving tabs
-            is_adjusting_layout = true
-
-            pcall(function()
-              -- Jump in, force the custom panel to the absolute bottom row workspace alignment, and resize
-              vim.api.nvim_set_current_win(win)
-              vim.cmd('wincmd J')
-              vim.cmd('resize 15')
-
-              -- Return focus seamlessly back to the user's active cursor row split pane
-              if vim.api.nvim_win_is_valid(current_win) then
-                vim.api.nvim_set_current_win(current_win)
-              end
-            end)
-
-            -- Release the layout state flag lock cleanly once the operation completes
-            is_adjusting_layout = false
-            break
-          end
+      -- 2. INSTANT VISUAL HIDE: Find the window and minimize it to a single line instantly
+      for _, win in ipairs(vim.api.nvim_list_wins()) do
+        if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == triggering_buf then
+          pcall(vim.api.nvim_win_set_height, win, 1) -- Drops height to 1 line, effectively hiding it
+          break
         end
-      end)
+      end
+
+      -- =========================================================================
+      -- NON-BLOCKING 1-SECOND ASYNCHRONOUS TIMER
+      -- =========================================================================
+      local timer = vim.uv.new_timer()
+      timer:start(
+        1000,
+        0,
+        vim.schedule_wrap(function()
+          -- Clean up the tracking timer reference from system memory safely
+          timer:stop()
+          timer:close()
+
+          -- Verify the buffer wasn't closed or deleted by the user during that 1 second!
+          if not vim.api.nvim_buf_is_valid(triggering_buf) then
+            return
+          end
+
+          -- 3. Execute the position fix pipeline cleanly
+          for _, win in ipairs(vim.api.nvim_list_wins()) do
+            if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == triggering_buf then
+              local current_win = vim.api.nvim_get_current_win()
+
+              is_adjusting_layout = true
+
+              pcall(function()
+                -- Jump in, force it down to the absolute bottom row workspace alignment, and scale
+                vim.api.nvim_set_current_win(win)
+                vim.cmd('wincmd J')
+                vim.cmd('resize 15')
+
+                -- Return focus seamlessly back to the user's active coding buffer window
+                if vim.api.nvim_win_is_valid(current_win) then
+                  vim.api.nvim_set_current_win(current_win)
+                end
+              end)
+
+              is_adjusting_layout = false
+              break
+            end
+          end
+        end)
+      )
+      -- =========================================================================
     end,
   })
+  -- local group = vim.api.nvim_create_augroup('TerminalPositionLock', { clear = true })
+  --
+  -- -- A state flag to prevent the function from re-triggering itself during window jumps
+  -- local is_adjusting_layout = false
+  --
+  -- vim.api.nvim_create_autocmd({ 'WinNew', 'WinLeave', 'BufEnter' }, {
+  --   group = group,
+  --   callback = function(args)
+  --     local triggering_buf = args.buf
+  --
+  --     -- 1. CRITICAL RACE GUARD: Exit immediately if we are already in the middle of shifting windows
+  --     if is_adjusting_layout then
+  --       return
+  --     end
+  --
+  --     -- 2. TARGETED FILETYPE GUARD: Validate that this is strictly an nvimpio terminal
+  --     -- This ignores all generic system terminals, ToggleTerm panels, and code windows.
+  --     if vim.bo[triggering_buf].filetype ~= 'nvimpio-terminal' then
+  --       return
+  --     end
+  --
+  --     -- 3. Safely schedule the position fix for this specific terminal profile
+  --     vim.schedule(function()
+  --       for _, win in ipairs(vim.api.nvim_list_wins()) do
+  --         if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == triggering_buf then
+  --           local current_win = vim.api.nvim_get_current_win()
+  --
+  --           -- Activate the layout shield lock right before shifting focus or moving tabs
+  --           is_adjusting_layout = true
+  --
+  --           pcall(function()
+  --             -- Jump in, force the custom panel to the absolute bottom row workspace alignment, and resize
+  --             vim.api.nvim_set_current_win(win)
+  --             vim.cmd('wincmd J')
+  --             vim.cmd('resize 15')
+  --
+  --             -- Return focus seamlessly back to the user's active cursor row split pane
+  --             if vim.api.nvim_win_is_valid(current_win) then
+  --               vim.api.nvim_set_current_win(current_win)
+  --             end
+  --           end)
+  --
+  --           -- Release the layout state flag lock cleanly once the operation completes
+  --           is_adjusting_layout = false
+  --           break
+  --         end
+  --       end
+  --     end)
+  --   end,
+  -- })
   -- local group = vim.api.nvim_create_augroup('TerminalPositionLock', { clear = true })
   --
   -- vim.api.nvim_create_autocmd({ 'WinNew', 'WinLeave', 'BufEnter' }, {
