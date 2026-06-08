@@ -32,8 +32,6 @@ local function toggle_bottom_pane(track_type, shell_cmd)
   -- =========================================================================
   -- ADAPTIVE FALLBACK WORKSPACE SPAWNER (The Edgy Secret)
   -- =========================================================================
-  -- Check if a normal editing window exists on screen. If only Neo-tree is open,
-  -- we must spawn a placeholder code split first to prevent layout collapse!
   local has_normal_code_win = false
   for _, w in ipairs(vim.api.nvim_list_wins()) do
     local b = vim.api.nvim_win_get_buf(w)
@@ -44,7 +42,6 @@ local function toggle_bottom_pane(track_type, shell_cmd)
   end
 
   if not has_normal_code_win then
-    -- Find the Neo-tree sidebar window handle dynamically
     local sidebar_win = nil
     for _, w in ipairs(vim.api.nvim_list_wins()) do
       if vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' then
@@ -53,7 +50,6 @@ local function toggle_bottom_pane(track_type, shell_cmd)
       end
     end
 
-    -- Surgically open a clean editing workspace window directly to the right of Neo-tree
     if sidebar_win and vim.api.nvim_win_is_valid(sidebar_win) then
       local scratch_buf = vim.api.nvim_create_buf(true, false)
       vim.api.nvim_open_win(scratch_buf, true, { split = 'right', win = sidebar_win })
@@ -61,21 +57,23 @@ local function toggle_bottom_pane(track_type, shell_cmd)
   end
   -- =========================================================================
 
-  -- 2. BUFFER LIFECYCLE MANAGEMENT: Recycle or spawn the unlisted text buffer space cleanly
-  if not track.buf or not vim.api.nvim_buf_is_valid(track.buf) then
-    track.buf = vim.api.nvim_create_buf(false, true)
-    vim.bo[track.buf].filetype = 'nvimpio-terminal'
-    track.chan = nil
-  end
+  -- =========================================================================
+  -- STAGE 1: POSITION THE WINDOW CONTAINER USING A GHOST BUFFER
+  -- =========================================================================
+  -- Mute global autocommands temporarily so no external plugins can inject modifications
+  local save_eventignore = vim.o.eventignore
+  vim.o.eventignore = 'all'
 
-  -- 3. LOW-LEVEL TREE ATTACHMENT
-  -- We open a split window programmatically and attach our buffer directly
-  local temp_win = vim.api.nvim_open_win(track.buf, false, {
+  -- Create a completely empty disposable throwaway scratchpad buffer
+  local ghost_buf = vim.api.nvim_create_buf(false, true)
+
+  -- Open the window split with the ghost buffer
+  local temp_win = vim.api.nvim_open_win(ghost_buf, false, {
     split = 'below',
     height = 15,
   })
 
-  -- Surgically shift the window frame to the absolute baseline layer of Neovim's layout tree
+  -- Surgically shift the window frame to the absolute baseline layer of the tree
   pcall(function()
     vim.api.nvim_win_splitmove(temp_win, 0, { vertical = false, rightbelow = true })
   end)
@@ -85,24 +83,49 @@ local function toggle_bottom_pane(track_type, shell_cmd)
   -- Hard-lock the height parameters directly on the low-level window container
   vim.wo[track.win].winfixheight = true
   vim.wo[track.win].winfixwidth = true
+  vim.wo[track.win].wrap = true
   pcall(vim.api.nvim_win_set_height, track.win, 15)
 
-  -- 4. INTERACTIVE TERMINAL CHANNEL STREAM INITIALIZATION
-  if (not track.chan or track.chan <= 0) and shell_cmd and shell_cmd ~= '' then
-    track.chan = vim.fn.termopen(shell_cmd, {
-      on_exit = function(_, exit_code)
-        -- Auto-Cleanup Hook: Wipe the frame automatically if a build task passes cleanly
-        vim.schedule(function()
-          if track_type == 'cli' and exit_code == 0 then
-            if track.win and vim.api.nvim_win_is_valid(track.win) then
-              pcall(vim.api.nvim_win_close, track.win, true)
-              track.win = nil
+  -- =========================================================================
+  -- STAGE 2: CREATE AND MOUNT THE UNTOUCHED TERMINAL BUFFER
+  -- =========================================================================
+  if shell_cmd and shell_cmd ~= '' then
+    -- Create a brand new, completely separate untouched terminal buffer
+    track.buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[track.buf].filetype = 'nvimpio-terminal'
+
+    -- Swap the pristine buffer into place, entirely replacing the ghost buffer
+    vim.api.nvim_win_set_buf(track.win, track.buf)
+
+    -- Force delete the ghost buffer to clear up memory
+    pcall(vim.api.nvim_buf_delete, ghost_buf, { force = true })
+
+    -- Enforce absolute unmodified status right before execution mount
+    vim.bo[track.buf].modified = false
+    vim.bo[track.buf].undolevels = -1
+
+    -- Execute terminal initialization within the window's context call
+    vim.api.nvim_win_call(track.win, function()
+      track.chan = vim.fn.termopen(shell_cmd, {
+        on_exit = function(_, exit_code)
+          vim.schedule(function()
+            if track_type == 'cli' and exit_code == 0 then
+              if track.win and vim.api.nvim_win_is_valid(track.win) then
+                pcall(vim.api.nvim_win_close, track.win, true)
+                track.win = nil
+              end
             end
-          end
-        end)
-      end,
-    })
+          end)
+        end,
+      })
+    end)
+
+    -- Restore undo levels safely
+    vim.bo[track.buf].undolevels = vim.o.undolevels
   end
+
+  -- Restore global event tracking rules
+  vim.o.eventignore = save_eventignore
 
   -- RESTORE FOCUS INSTANTLY: Return cursor smoothly to the active code file or sidebar tree
   if vim.api.nvim_win_is_valid(initial_active_win) then
