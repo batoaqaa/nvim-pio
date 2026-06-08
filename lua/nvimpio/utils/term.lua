@@ -64,7 +64,7 @@ function M.ToggleTerminal(command, terminal_type)
     return
   end
 
-  -- 4. NEW MODERN PROCESS PERSISTENCE LAYER: Completely free of deprecated APIs
+  -- 4. PROCESS PERSISTENCE LAYER: Completely free of deprecated APIs
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
     target_buf = vim.api.nvim_create_buf(false, true) -- Unlisted scratch buffer
     if terminal_type == 'monitor' then
@@ -76,7 +76,6 @@ function M.ToggleTerminal(command, terminal_type)
     -- Open a modern terminal channel stream natively on the buffer
     local chan_id = vim.api.nvim_open_term(target_buf, {
       on_input = function(_, _, _, data)
-        -- FIXED: Using native Lua api to send user keypress inputs down to the background channel
         local active_job = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
         if active_job then
           vim.api.nvim_chan_send(active_job, data)
@@ -84,11 +83,17 @@ function M.ToggleTerminal(command, terminal_type)
       end,
     })
 
+    -- FIXED FOR WINDOWS: Determine target system shell path dynamically
+    -- If on a Windows machine, explicitly load PowerShell instead of fallback cmd.exe
+    local target_shell = vim.o.shell
+    if vim.fn.has('win32') == 1 then
+      target_shell = 'powershell.exe'
+    end
+
     -- Start the background process without { term = true } to prevent buffer conflicts
-    local job_id = vim.fn.jobstart(vim.o.shell, {
+    local job_id = vim.fn.jobstart(target_shell, {
       on_stdout = function(_, data)
         if vim.api.nvim_buf_is_valid(target_buf) and data then
-          -- Pipes the shell text lines directly into the open terminal emulator buffer canvas
           local output = table.concat(data, '\r\n') .. '\r\n'
           vim.api.nvim_chan_send(chan_id, output)
         end
@@ -238,8 +243,8 @@ function M.ToggleTerminal(command, terminal_type)
   if command and command ~= '' then
     local active_chan = (terminal_type == 'monitor') and pio_mon_chan or pio_cli_chan
     if active_chan then
-      -- FIXED: Replaced legacy jobsend with native Lua nvim_chan_send API for terminal triggers
-      vim.api.nvim_chan_send(active_chan, command .. (vim.fn.has('win32') == 1 and '\r\n' or '\n'))
+      -- Uses native Lua nvim_chan_send API for terminal execution strings
+      vim.api.nvim_chan_send(active_chan, command .. '\n')
     end
   end
 
