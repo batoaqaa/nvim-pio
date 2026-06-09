@@ -7,7 +7,7 @@ local pio_cli = _G.metadata.pio_cli
 local misc = require('nvimpio.utils.misc')
 
 local function sendCmnd(command)
-  pio_cli = pio_cli or require('nvimpio.utils.term').PioTerminal('', 'cli')
+  pio_cli = pio_cli or require('nvimpio.device.terminal').PioTerminal('', 'cli')
   if pio_cli then
     pio_cli:show()
     pio_cli:send(command)

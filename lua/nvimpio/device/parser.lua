@@ -172,7 +172,7 @@ M.run_sequence = function(tasks)
       ------------------------------------------------------
 
       require('nvimpio.device.terminal').stdout_callback = M.stdoutcallback
-      pio_cli = pio_cli or require('nvimpio.utils.term').PioTerminal("", "cli")
+      pio_cli = pio_cli or require('nvimpio.device.terminal').PioTerminal("", "cli")
       if pio_cli then
         if require('nvimpio').is_active then _G.metadata.isBusy = true end
         callBack('INIT')
