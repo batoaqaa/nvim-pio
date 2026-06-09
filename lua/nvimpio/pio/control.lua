@@ -2,11 +2,8 @@ local M = {}
 
 --stylua: ignore start
 local clangd = require('nvimpio.clangd.control')
-local pio = require('nvimpio.pio.upkeep')
 local misc = require('nvimpio.utils.misc')
 local clangdRestart = clangd.clangdRestart
-local boilerplate = require('nvimpio.boilerplate')
-local boilerplate_gen = boilerplate.boilerplate_gen
 
 --INFO:
 --=============================================================================

@@ -288,10 +288,11 @@ function M.setFormatStyle()
     M.clangdIntall(function(clangdCmd)
       -- using toggleterm for setting clang-format style
       local cmd = string.format('%s --style=%s --dump-config > .clang-format', clangdCmd, choice:lower())
-      local pio = require('nvimpio.pio.upkeep')
-      pio.run_sequence({
+      -- local pio = require('nvimpio.pio.upkeep')
+      local parser = require('nvimpio.device.parser')
+      parser.run_sequence({
         cmnds = { cmd },
-        cb = pio.clangFormat,
+        cb = parser.clangFormat,
         from = 'clangdIntall',
       })
 
@@ -559,9 +560,10 @@ function M.getUnknownArgsGui(from)
     --   check_file,
     --   _G.metadata.query_driver
     -- )
-    local pio = require('nvimpio.pio.upkeep')
+    -- local pio = require('nvimpio.pio.upkeep')
+    local parser = require('nvimpio.device.parser')
     local cb = function(status)
-      pio.handleClangdCheck(status, function(success, args_table)
+      parser.handleClangdCheck(status, function(success, args_table)
         args_table = args_table or {}
         if success then
           boilerplate.args = args_table
@@ -572,7 +574,7 @@ function M.getUnknownArgsGui(from)
         end
       end)
     end
-    pio.run_sequence({ cmnds = { cmd_str }, cb = cb, from = string.format('%s clangdCmd', from) })
+    parser.run_sequence({ cmnds = { cmd_str }, cb = cb, from = string.format('%s clangdCmd', from) })
   end, 'clangd')
 end
 --------------------------------------------------------------------------------
