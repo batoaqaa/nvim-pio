@@ -42,7 +42,6 @@ end
 -- INFO: Core Layout Spawner (Global Edge-Anchored Window Partition Architecture)
 function M.ToggleTerminal(command, terminal_type)
   -- 1. FIXED TYPE RESOLUTION: Enforce type prioritizing explicit string signatures
-  -- This fixes the ';;' switcher by blocking an empty command string from resetting the type!
   if terminal_type ~= 'monitor' and terminal_type ~= 'cli' then
     if command and string.find(command, ' monitor') then
       terminal_type = 'monitor'
@@ -243,8 +242,6 @@ function M.ToggleTerminal(command, terminal_type)
 
     local next_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
     vim.schedule(function()
-      -- FIXED SWITCHER ROUTING: Passes explicit type parameters directly down
-      -- to guarantee that the toggle engine targets your pre-existing buffer session!
       M.ToggleTerminal('', next_type)
     end)
   end, { buffer = target_buf, silent = true, desc = 'Switch between PlatformIO terminals' })
@@ -272,6 +269,7 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end, { silent = true })
 
+  -- CLEAN SHORTCUT REGISTRATION: Fully un-nested to activate keymaps across ALL session states safely
   if terminal_type == 'monitor' then
     vim.keymap.set('n', [[<leader>\gm]], function()
       M.ToggleTerminal('', 'monitor')
@@ -290,6 +288,106 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 end
+-- -- INFO: Your unmodified parser logic block remains safely out here
+-- function M.stdoutcallback(job_id, data, event)
+--   if not data or #data == 0 then
+--     return
+--   end
+--
+--   if not current_token or current_token == "" then
+--     return
+--   end
+--
+--   local processed_lines = {}
+--   for i, line in ipairs(data) do
+--     processed_lines[i] = line:gsub("\r", ""):gsub("\x1b%[[0-9;]*%a", "")
+--   end
+--   local chunk_count = #processed_lines
+--
+--   if chunk_count > 1 then
+--     content = content .. pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
+--     pio_buffer = processed_lines[chunk_count]
+--   else
+--     -- FIXED ARRAY INDEX SLICER: Maps index 1 to safely extract text strings out of array tables
+--     content = content .. pio_buffer .. processed_lines[1]
+--     pio_buffer = processed_lines[1]
+--   end
+--
+--   local pass_target = 'PASS' .. current_id
+--   local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
+--   local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
+--   local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
+--
+--   if has_pass or has_fail or has_done then
+--     local active_cb = callBack
+--     local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
+--
+--     if has_fail or has_done then
+--       callBack = nil
+--       M.queue = {}
+--
+--       if clangd_check_active then
+--         clangd_extracted_args = {}
+--
+--         local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
+--         local end_idx = content:find(end_pattern, 1, true)
+--
+--         local start_idx = nil
+--         if end_idx then
+--           local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
+--           local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
+--           local search_zone = content:sub(1, end_idx - 1)
+--
+--           local current_pos = 1
+--           while true do
+--             local next_start, next_end = search_zone:find(start_pattern, current_pos, true)
+--             if not next_start then
+--               if not start_idx then
+--                 local fb_start, fb_end = search_zone:find(fallback_echo, current_pos, true)
+--                 if fb_start then start_idx = fb_end end
+--               end
+--               break
+--             end
+--             start_idx = next_end
+--             current_pos = next_start + 1
+--           end
+--         end
+--
+--         if start_idx and end_idx and end_idx > start_idx then
+--           local fresh_run_logs = string.sub(content, start_idx + 1, end_idx - 1)
+--
+--           if not string.find(fresh_run_logs, '%.clang%-format') then
+--             local seen = {}
+--             for arg in string.gmatch(fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
+--               local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
+--               if not seen[clean_flag] then
+--                 seen[clean_flag] = true
+--                 table.insert(clangd_extracted_args, clean_flag)
+--               end
+--             end
+--           end
+--         else
+--           pio_buffer = ""
+--           content = ""
+--           return
+--         end
+--
+--         clangd_check_active = false
+--       end
+--
+--       pio_buffer = ''
+--       content = ''
+--     end
+--
+--     if final_status and active_cb then
+--       vim.schedule(function()
+--         active_cb(final_status)
+--       end)
+--     end
+--
+--     return
+--   end
+-- end
 
 return M
 -- INFO: Your unmodified parser logic block remains safely out here
