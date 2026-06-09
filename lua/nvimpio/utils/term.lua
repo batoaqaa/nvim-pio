@@ -1,333 +1,216 @@
+-- stylua: ignore start
 local M = {}
 
-local config = require('nvimpio').config
-
--- to fix require loop, toggleterm is using stdout_callback function in 'platformio.utils.pio'
--- M.stdout_callback will be assigned by 'platformio.utils.pio'
+-- Core Inter-Module Event Callbacks
 M.stdout_callback = nil
 M.exit_callback = nil
 
-------------------------------------------------------
-function M.strsplit(inputstr, del)
-  local t = {}
-  if type(inputstr) == 'string' and inputstr and inputstr ~= '' then
-    for str in string.gmatch(inputstr, '([^' .. del .. ']+)') do
-      table.insert(t, str)
+-- Default Public User Configuration Matrix
+M.config = {
+  panel_height = 0.25,
+  winbar_bg = '#80a3d4',
+  winbar_fg = '#000000',
+  shell = OS.is_win and {
+    'pwsh.exe',
+    '-NoExit',
+    '-NoLogo',
+    '-NoProfile',
+    '-ExecutionPolicy', 'Bypass',
+    '-Command', '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;'
+  } or (function()
+    local default_shell = vim.api.nvim_get_option_value('shell', {})
+    -- If the Mac user defaults to zsh, pass the -f flag to bypass profile script leaks
+    if default_shell:find("zsh") then
+      return { default_shell, "-f" }
     end
-  end
-  return t
+    return default_shell
+  end)(),
+}
+
+-- Isolated State Control Registry
+local state = {
+  cli =     { buf = nil, win = nil, title = " Pio CLI> " },
+  monitor = { buf = nil, win = nil, title = " Pio Monitor " },
+}
+
+-- Absolute truth check to verify if a terminal panel split is actively drawn on screen
+local function IsTerminalWindowOpen(term_type)
+  local s = state[term_type]
+  return s.win and vim.api.nvim_win_is_valid(s.win) and vim.api.nvim_win_get_buf(s.win) == s.buf
 end
 
-function M.check_prefix(str, prefix)
-  return str:sub(1, #prefix) == prefix
-end
+-- Telemetry Engine: Dynamic title generator based strictly on valid background buffers
+local function UpdateWinbarTitles()
+  local cli_alive = state.cli.buf and vim.api.nvim_buf_is_valid(state.cli.buf)
+  local mon_alive = state.monitor.buf and vim.api.nvim_buf_is_valid(state.monitor.buf)
+  local hint = (cli_alive and mon_alive) and " [;; Switch] " or " [; Hide] "
 
-------------------------------------------------------
+  vim.api.nvim_set_hl(0, 'PioWinBar', { bg = M.config.winbar_bg, fg = M.config.winbar_fg })
 
--- 1. Tell the LSP what a "Terminal" object looks like (simplified)
----@class Terminal
----@field id number
----@field bufnr number
----@field window number
----@field close function
----@field toggle function
--- 2. Define your context class
----@class PioPrevContext
----@field term Terminal|nil  -- Handle for horizontal terminal
----@field mon Terminal|nil
----@field cli Terminal|nil
----@field float boolean      -- flag float terminal
----@field orig_window number|nil
--- INFO: get previous window
-local function getPreviousWindow(orig_window)
-  local prev = {
-    orig_window = orig_window,
-    term = nil, --active terminal
-    cli = nil, --cli terminal
-    mon = nil, --mon terminal
-    float = false, --is active terminal direction float
-  }
-  local terms = require('toggleterm.terminal').get_all(true)
-  if #terms ~= 0 then
-    for i = 1, #terms do
-      if terms[i].display_name and terms[i].display_name ~= '' and terms[i].display_name:find('pio', 1) then
-        local name_splt = M.strsplit(terms[i].display_name, ':')
-        if name_splt[1] == 'piocli' then
-          prev.cli = terms[i]
-          if terms[i].window == orig_window then
-            ---@diagnostic disable-next-line: cast-local-type
-            prev.orig_window = tonumber(name_splt[2]) -- set orig_window to the previous terminal onrig_window
-            prev.term = terms[i]
-          end
-          if terms[i].direction == 'float' then
-            prev.float = true
-          end
-        elseif name_splt[1] == 'piomon' then
-          prev.mon = terms[i]
-          if terms[i].window == orig_window then
-            ---@diagnostic disable-next-line: cast-local-type
-            prev.orig_window = tonumber(name_splt[2]) -- set orig_window to the previous terminal onrig_window
-            prev.term = terms[i]
-          end
-          if terms[i].direction == 'float' then
-            prev.float = true
-          end
-        end
-      end
-    end
-  end
-  return prev
-end
-
-------------------------------------------------------
--- INFO: Send command
-local function send(term, cmd)
-  vim.fn.chansend(term.job_id, cmd .. OS.eol)
-  if vim.api.nvim_buf_is_loaded(term.bufnr) and vim.api.nvim_buf_is_valid(term.bufnr) then
-    if term.window and vim.api.nvim_win_is_valid(term.window) then --vim.ui.term_has_open_win(term) then
-      vim.api.nvim_set_current_win(term.window) -- terminal focus
-      vim.api.nvim_buf_call(term.bufnr, function()
-        local mode = vim.api.nvim_get_mode().mode
-        if mode == 'n' or mode == 'nt' then
-          vim.cmd('normal! G') -- normal command to Goto bottom of buffer (scroll)
-        end
-      end)
+  for _, t in pairs({"cli", "monitor"}) do
+    local s = state[t]
+    if s.win and vim.api.nvim_win_is_valid(s.win) then
+      vim.api.nvim_set_option_value('winbar', '%#PioWinBar#' .. s.title .. hint .. '%*', { scope = 'local', win = s.win })
     end
   end
 end
 
-------------------------------------------------------
--- INFO: PioTermClose
-local function PioTermClose(t)
-  local orig_window = tonumber(M.strsplit(t.display_name, ':')[2])
-  -- close terminal window
-  vim.api.nvim_win_close(t.window, true)
-
-  -- go back to previous window
-  if orig_window and vim.api.nvim_win_is_valid(orig_window) then
-    vim.api.nvim_set_current_win(orig_window)
-  else
-    vim.api.nvim_set_current_win(0)
+local function SafeCloseTerminal(term_type)
+  local s = state[term_type]
+  if s.win and vim.api.nvim_win_is_valid(s.win) then
+    vim.api.nvim_win_close(s.win, true)
   end
+  s.win = nil
+  vim.schedule(function()
+    vim.cmd("wincmd =")
+    UpdateWinbarTitles()
+  end)
 end
 
-------------------------------------------------------
--- INFO: ToggleTerminal
-function M.ToggleTerminal(command, direction)
-  local status_ok, _ = pcall(require, 'toggleterm')
-  if not status_ok then
-    vim.api.nvim_echo({ { 'toggleterm not found!', 'ErrorMsg' } }, true, {})
+function M.IsTerminalOpen(term_type) return IsTerminalWindowOpen(term_type) end
+
+function M.ToggleTerminal(command, terminal_type)
+  local cmd_str = tostring(command or "")
+  if terminal_type ~= "monitor" and terminal_type ~= "cli" then
+    terminal_type = cmd_str:find("monitor") and "monitor" or "cli"
+  end
+
+  local opposite_type = (terminal_type == "monitor") and "cli" or "monitor"
+
+  -- Step 2: Mutual Exclusion Pass
+  if IsTerminalWindowOpen(opposite_type) then
+    SafeCloseTerminal(opposite_type)
+    vim.schedule(function() M.ToggleTerminal(command, terminal_type) end)
     return
   end
 
-  local title = ''
-  local pioOpts = {}
+  -- Step 3: Always Open Target View Pass
+  if IsTerminalWindowOpen(terminal_type) then
+    vim.api.nvim_set_current_win(state[terminal_type].win)
+    local target_h = math.ceil(vim.o.lines * M.config.panel_height)
+    pcall(vim.api.nvim_win_set_height, state[terminal_type].win, target_h)
 
-  -- INFO: set orig_window to current window, or if available get current toggleterm previous window
-  local prev = getPreviousWindow(vim.api.nvim_get_current_win())
-  local orig_window = prev.orig_window
-
-  if string.find(command, ' monitor') then
-    if prev.mon then -- INFO: if previous monitor terminal already opened ==> reopen
-      prev.mon.display_name = 'piomon:' .. orig_window
-      local win_type = vim.fn.win_gettype(prev.mon.window)
-      local win_open = win_type == '' or win_type == 'popup'
-      if prev.mon.window and (win_open and vim.api.nvim_win_get_buf(prev.mon.window) == prev.mon.bufnr) then
-        vim.api.nvim_set_current_win(prev.mon.window)
-      else
-        prev.mon:open()
-      end
-      return prev.mon
+    if command and command ~= "" then
+      local job_id = vim.b[state[terminal_type].buf].terminal_job_id
+      if job_id then vim.fn.chansend(job_id, command .. (vim.fn.has("win32") == 1 and '\r\n' or '\n')) end
     end
-    title = 'Pio Monitor: [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
-    pioOpts.display_name = 'piomon:' .. orig_window
-    pioOpts.id = 98
-    pioOpts.on_stdout = nil
-  else -- INFO: if previous cli terminal already opened ==> reopen
-    if prev.cli then
-      prev.cli.display_name = 'piocli:' .. orig_window
-      local win_type = vim.fn.win_gettype(prev.cli.window)
-      local win_open = win_type == '' or win_type == 'popup'
-      if prev.cli.window and (win_open and vim.api.nvim_win_get_buf(prev.cli.window) == prev.cli.bufnr) then
-        vim.api.nvim_set_current_win(prev.cli.window)
-      else
-        prev.cli:open()
-      end
-      vim.defer_fn(function()
-        if command and command ~= '' then
-          send(prev.cli, command)
-        end
-      end, 50) -- 50ms delay, adjust as needed
-      return prev.cli
-    end
-    title = 'Pio CLI> [In normal mode press: q or :q to hide; :q! to quit; :PioTermList to list terminals]'
-    pioOpts.display_name = 'piocli:' .. orig_window
-    pioOpts.id = 99
-
-    -- INFO: on_stdout
-    pioOpts.on_stdout = function(terminal, job, data, name)
-      if type(M.stdout_callback) == 'function' then
-        M.stdout_callback(terminal, job, data, name)
-      end
-    end
-
-    -- INFO: on_stdout
-    pioOpts.on_stderr = function(terminal, job, data, name)
-      if type(M.stdout_callback) == 'function' then
-        M.stdout_callback(terminal, job, data, name)
-      end
-    end
+    return
   end
-  pioOpts.direction = direction
-  ------------------------------------------------------
 
-  -- INFO: termConfig table start
-  local termConfig = {
-    hidden = true, -- Start hidden, we'll open it explicitly
-    hide_numbers = true,
-    -- env = { PATH = vim.env.PATH,},
-    float_opts = {
-      winblend = 0,
-      width = function()
-        return math.ceil(vim.o.columns * 0.85)
+  -- Step 4: Clean Buffer Provision Pass
+  local current = state[terminal_type]
+  local is_new_buffer = false
+  if not current.buf or not vim.api.nvim_buf_is_valid(current.buf) then
+    current.buf = vim.api.nvim_create_buf(false, true)
+    is_new_buffer = true
+  end
+
+  -- Step 5: Screen Canvas Opening Pass
+  local target_h = math.ceil(vim.o.lines * M.config.panel_height)
+  local win_opts = { split = "below", win = -1, height = target_h }
+  current.win = vim.api.nvim_open_win(current.buf, true, win_opts)
+
+  if is_new_buffer then
+    local spawned_job_id = vim.fn.jobstart(M.config.shell, {
+      term = true,
+      on_stdout = function(j, d, e)
+        if terminal_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end
       end,
-      height = function()
-        return math.ceil(vim.o.lines * 0.75)
+      on_stderr = function(j, d, e)
+        if terminal_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end
       end,
-      -- shell = vim.o.shell,
-      shell = OS.shell,
-      highlights = {
-        border = 'FloatBorder',
-        background = 'NormalFloat',
-      },
-    },
-    close_on_exit = false, --closeOnexit,
-
-    -- INFO: on_open()
-    on_open = function(t)
-      -- Get properties of the 'Normal' highlight group (background of main editor)
-      -- local hl = vim.api.nvim_get_hl(0, { name = 'PmenuSel' })
-      -- local hl = { bg = '#e4cf0e', fg = '#0012d9' }
-      local hl = { bg = '#80a3d4', fg = '#000000' }
-
-      if hl then
-        vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
-
-        local winBartitle = '%#MyWinBar#' .. title .. '%*'
-        vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = t.window })
-
-        -- Following necessary to solve that some time winbar not showing
-        vim.schedule(function()
-          vim.api.nvim_set_option_value('winbar', winBartitle, { scope = 'local', win = t.window })
-        end)
+      on_exit = function()
+        if type(M.on_exit) == "function" then M.on_exit() end
       end
-      vim.keymap.set('t', '<Esc>', [[<C-\><C-n>k]], { buffer = t.bufnr })
-      vim.keymap.set('n', '<Esc>', [[<C-\><C-n>a]], { buffer = t.bufnr })
+    })
+    vim.b[current.buf].terminal_job_id = spawned_job_id
 
-      vim.keymap.set('n', 'q', function()
-        PioTermClose(t)
-      end, { desc = 'PioTermClose', buffer = t.bufnr })
-
-      if config.debug then
-        local name_splt = M.strsplit(t.display_name, ':')
-        vim.api.nvim_echo({
-          { 'ToggleTerm ', 'MoreMsg' },
-          { '(Term name: ' .. name_splt[1] .. ')', 'MoreMsg' },
-          { '(Prev win ID: ' .. name_splt[2] .. ')', 'MoreMsg' },
-          { '(Term Win ID: ' .. t.window .. ')', 'MoreMsg' },
-          { '(Term Buffer#: ' .. t.bufnr .. ')', 'MoreMsg' },
-          { '(Term id: ' .. t.id .. ')', 'MoreMsg' },
-          { '(Job ID: ' .. t.job_id .. ')', 'MoreMsg' },
-        }, true, {})
-      end
-    end,
-
-    -- INFO: on_close()
-    on_close = function(t)
-      orig_window = tonumber(M.strsplit(t.display_name, ':')[2])
-      ---@diagnostic disable-next-line: param-type-mismatch
-      if orig_window and vim.api.nvim_win_is_valid(orig_window) then
-        vim.api.nvim_set_current_win(orig_window)
-      else
-        vim.api.nvim_set_current_win(0)
-      end
-    end,
-
-    -- -- INFO: on_exit()
-    -- on_exit = function(_)
-    --   exit_callback()
-    -- end,
-
-    -- INFO: on_create() {
-    on_create = function(t)
-      local platformio = vim.api.nvim_create_augroup(M.strsplit(t.display_name, ':')[1], { clear = true })
-
-      -- INFO: CmdlineLeave
-      vim.api.nvim_create_autocmd('CmdlineLeave', {
-        group = platformio,
-        -- pattern = ':',
-        buffer = t.bufnr,
-        callback = function()
-          if vim.v.event and not vim.v.event.abort and vim.v.event.cmdtype == ':' then
-            local quit = vim.fn.getcmdline() == 'q'
-            local quitbang = vim.fn.getcmdline() == 'q!'
-            if quitbang or quit then
-              local name_splt = M.strsplit(t.display_name, ':')
-              if quitbang then
-                if name_splt[1] == 'piomon' then -- monitor terminal
-                  local exit = vim.api.nvim_replace_termcodes('<C-C>exit', true, true, true)
-                  send(t, exit)
-                else -- cli terminal
-                  send(t, 'exit')
-                end
-              end
-
-              orig_window = tonumber(name_splt[2])
-              vim.schedule(function()
-                -- go back to previous window
-                if orig_window and vim.api.nvim_win_is_valid(orig_window) then
-                  vim.api.nvim_set_current_win(orig_window)
-                else
-                  vim.api.nvim_set_current_win(0)
-                end
+    -- Core Viewport Auto-Scroll Reflow Engine
+    local scroll_group = vim.api.nvim_create_augroup("PioAutoScroll_" .. current.buf, { clear = true })
+    vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
+      group = scroll_group, buffer = current.buf,
+      callback = function()
+        local w = vim.fn.bufwinid(current.buf)
+        if w and w ~= -1 and vim.api.nvim_win_is_valid(w) then
+          vim.schedule(function()
+            if vim.api.nvim_win_is_valid(w) then
+              vim.api.nvim_win_call(w, function()
+                if vim.api.nvim_get_mode().mode:sub(1,1) ~= "t" then vim.cmd("normal! G") end
               end)
             end
-          end
-        end,
-      })
-
-      -- INFO: BufUnload
-      vim.api.nvim_create_autocmd('BufUnload', {
-        group = platformio,
-        desc = 'toggleterm buffer unloaded',
-        buffer = t.bufnr,
-        callback = function(args)
-          vim.keymap.del('t', '<Esc>', { buffer = args.buf })
-          vim.keymap.del('n', '<Esc>', { buffer = args.buf })
-
-          -- clear autommmand when quit
-          vim.api.nvim_clear_autocmds({ group = M.strsplit(t.display_name, ':')[1] })
-        end,
-      })
-    end,
-  }
-  -- INFO: termConfig table end
-
-  termConfig = vim.tbl_deep_extend('force', termConfig, pioOpts or {})
-
-  -- INFO: create new terminal
-  local terminal = require('toggleterm.terminal').Terminal:new(termConfig)
-  if prev.term and prev.float then
-    prev.term.close()
+          end)
+        end
+      end,
+    })
   end
-  terminal:toggle()
-  vim.defer_fn(function()
-    if command and command ~= '' then
-      send(terminal, command)
+
+  -- Step 6: Layout Option Configuration Pass
+  vim.cmd("setlocal nonumber norelativenumber signcolumn=no")
+  vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = current.win })
+
+  local pio_group = vim.api.nvim_create_augroup("PioFocusGuard_" .. current.buf, { clear = true })
+  vim.api.nvim_create_autocmd("WinEnter", {
+    group = pio_group, buffer = current.buf,
+    callback = function()
+      vim.schedule(function()
+        if IsTerminalWindowOpen(terminal_type) then
+          pcall(vim.api.nvim_win_set_height, current.win, target_h)
+          if vim.api.nvim_get_mode().mode:sub(1,1) ~= "t" then vim.cmd("normal! G") end
+        end
+      end)
+    end,
+  })
+
+  UpdateWinbarTitles()
+
+  -- Step 7: Local Hotkey Bundles Registration Pass
+  vim.keymap.set("t", "<Esc>", [[<C-\><C-n>]], { buffer = current.buf })
+  vim.keymap.set("n", "q", function() SafeCloseTerminal(terminal_type) end, { buffer = current.buf })
+
+  vim.keymap.set({"n", "t"}, "<C-k>", function()
+    if vim.api.nvim_get_mode().mode == "t" then vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), "n", false) end
+    vim.schedule(function() vim.cmd("wincmd k") end)
+  end, { buffer = current.buf, silent = true })
+
+  -- State-Title Shield Visibility Cross-Switcher Mapping
+  vim.keymap.set({"n", "t"}, ";;", function()
+    if vim.api.nvim_get_mode().mode == "t" then vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), "n", false) end
+
+    local current_winbar = vim.api.nvim_get_option_value("winbar", { scope = "local" }) or ""
+    if current_winbar:find("%[; Hide%]") then
+      SafeCloseTerminal(terminal_type)
+      return
     end
-  end, 50) -- 50ms delay, adjust as needed sgget
-  return terminal
+
+    SafeCloseTerminal(terminal_type)
+    vim.schedule(function() M.ToggleTerminal("", opposite_type) end)
+  end, { buffer = current.buf, silent = true })
+
+  -- Global Intercept Cross-Movement Navigation Hooks
+  vim.keymap.set("n", "<C-h>", "<C-w>h")
+  vim.keymap.set("n", "<C-l>", "<C-w>l")
+  vim.keymap.set("n", "<C-j>", function()
+    vim.schedule(function()
+      if IsTerminalWindowOpen(terminal_type) then
+        vim.api.nvim_set_current_win(current.win)
+        pcall(vim.api.nvim_win_set_height, current.win, target_h)
+        if vim.api.nvim_get_mode().mode:sub(1,1) ~= "t" then vim.cmd("normal! G") end
+      else vim.cmd("wincmd j") end
+    end)
+  end, { silent = true })
+
+  if command and command ~= "" then
+    local job_id = vim.b[current.buf].terminal_job_id
+    if job_id then vim.fn.chansend(job_id, command .. (vim.fn.has("win32") == 1 and '\r\n' or '\n')) end
+  end
+end
+
+-- Exposed global recall parameters triggers
+vim.keymap.set("n", [[<leader>\gm]], function() M.ToggleTerminal("", "monitor") end, { silent = true })
+vim.keymap.set("n", [[<leader>\t]], function() M.ToggleTerminal("", "cli") end, { silent = true })
+
+function M.setup(opts)
+  M.config = vim.tbl_deep_extend("force", M.config, opts or {})
 end
 
 return M
-----------------------------------------------------------------------------------------
