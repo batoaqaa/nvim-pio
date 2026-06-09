@@ -1,6 +1,5 @@
 local M = {}
 
-local config = require('nvimpio').config
 local current_token -- = tostring(math.random(10000, 99999))
 local session_counter = 1 -- Our high-performance integer counter
 local current_id = -1
@@ -61,6 +60,7 @@ local function SafeCloseTerminal(buf_id)
 end
 
 function M.ToggleTerminal(command, terminal_type)
+  terminal_type = (terminal_type == 'monitor') and 'monitor' or 'cli'
   vim.notify(string.format('[ToggleTerminal ENTRY] command: %q, terminal_type: %q', tostring(command), tostring(terminal_type)), vim.log.levels.INFO)
 
   if terminal_type ~= 'monitor' and terminal_type ~= 'cli' then
