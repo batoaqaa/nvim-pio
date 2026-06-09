@@ -12,7 +12,6 @@ local clangd_check_active = false
 
 local fromMsg = ''
 -- Assigned dynamically by external sub-modules like 'platformio.utils.pio'
-
 M.stdout_callback = nil
 M.exit_callback = nil
 
@@ -27,9 +26,9 @@ local pio_buffer = ''
 local content = ''
 
 local function UpdateWinbarTitles()
-  local cli_visible = pio_cli_buf and vim.fn.bufwinid(pio_cli_buf) ~= -1
-  local mon_visible = pio_mon_buf and vim.fn.bufwinid(pio_mon_buf) ~= -1
-  local hint = (cli_visible and mon_visible) and ' [;; Switch] ' or ' [; Hide] '
+  local cli_alive = pio_cli_buf and vim.api.nvim_buf_is_valid(pio_cli_buf)
+  local mon_alive = pio_mon_buf and vim.api.nvim_buf_is_valid(pio_mon_buf)
+  local hint = (cli_alive and mon_alive) and ' [;; Switch] ' or ' [; Hide] '
 
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = '#80a3d4', fg = '#000000' })
   if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
@@ -61,8 +60,6 @@ end
 
 function M.ToggleTerminal(command, terminal_type)
   terminal_type = (terminal_type == 'monitor') and 'monitor' or 'cli'
-  vim.notify(string.format('[ENTRY] command: %q, type: %q', tostring(command), tostring(terminal_type)), vim.log.levels.INFO)
-
   if terminal_type ~= 'monitor' and terminal_type ~= 'cli' then
     terminal_type = (command and string.find(command, ' monitor')) and 'monitor' or 'cli'
   end
@@ -90,7 +87,6 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   if other_win and vim.api.nvim_win_is_valid(other_win) then
-    vim.notify('[STEP 2] Mutual exclusion matched. Closing opponent split panel frame.', vim.log.levels.INFO)
     SafeCloseTerminal(other_buf)
     vim.schedule(function()
       M.ToggleTerminal(command, terminal_type)
@@ -99,13 +95,10 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   if target_win and vim.api.nvim_win_is_valid(target_win) then
-    vim.notify('[STEP 3] Target view visible. Moving window focus target index.', vim.log.levels.INFO)
     vim.api.nvim_set_current_win(target_win)
     pcall(vim.api.nvim_win_set_height, target_win, target_panel_height)
     return
   end
-
-  vim.notify(string.format('[STEP 4] INITIALIZING SPALSH SPAWNER PATH FOR: %s', terminal_type), vim.log.levels.WARN)
 
   local is_new_buffer = false
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
@@ -207,31 +200,30 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end, { buffer = target_buf, silent = true })
 
-  -- 🔍 KEYMAP TRACER BLOCK: Capture the exact visibility metrics right as keys hit
+  -- 🌟 FIXED DECOUPLED SWITCHER MAPPING 🌟
   vim.keymap.set({ 'n', 't' }, ';;', function()
     if vim.api.nvim_get_mode().mode == 't' then
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
     end
 
-    local nt = (terminal_type == 'monitor') and 'cli' or 'monitor'
-    local nb = (nt == 'monitor') and pio_mon_buf or pio_cli_buf
-    local nw_id = nb and vim.fn.bufwinid(nb) or -1
+    -- Reads the active local winbar string to identify what terminal context your cursor sits in [INDEX]
+    local current_winbar = vim.api.nvim_get_option_value('winbar', { scope = 'local' }) or ''
+    local is_currently_cli = current_winbar:find('CLI>') ~= nil
 
-    vim.notify(
-      string.format('[;; KEYMAP HOOK] Current Panel: %s, Next Target Buffer ID: %s, Screen Window ID (bufwinid): %d', terminal_type, tostring(nb), nw_id),
-      vim.log.levels.INFO
-    )
+    -- Assign the strict alternative counterpart buffer handles based on title telemetry results [INDEX]
+    local next_type = is_currently_cli and 'monitor' or 'cli'
+    local next_buf = is_currently_cli and pio_mon_buf or pio_cli_buf
 
-    if not nb or vim.fn.bufwinid(nb) == -1 then
-      vim.notify("[;; REJECTED TRANSITION] Target window doesn't exist on screen grid canvas! Closing active view.", vim.log.levels.WARN)
+    -- HARD PROTECTION GATES: If the counterpart buffer has not been instantiated uniquely,
+    -- treat ';;' as a safe close shortcut (a single ';') and hide the current window panel cleanly! [INDEX]
+    if not next_buf or not vim.api.nvim_buf_is_valid(next_buf) then
       SafeCloseTerminal(target_buf)
       return
     end
 
-    vim.notify('[;; PASSED SWITCH] Target is open on screen layout! Cross-switching focus lanes.', vim.log.levels.INFO)
     SafeCloseTerminal(target_buf)
     vim.schedule(function()
-      M.ToggleTerminal('', nt)
+      M.ToggleTerminal('', next_type)
     end)
   end, { buffer = target_buf, silent = true })
 
@@ -274,6 +266,13 @@ vim.keymap.set('n', [[<leader>\t]], function()
   M.ToggleTerminal('', 'cli')
 end, { silent = true })
 
+vim.keymap.set('n', [[<leader>\gm]], function()
+  M.ToggleTerminal('', 'monitor')
+end, { silent = true })
+vim.keymap.set('n', [[<leader>\t]], function()
+  M.ToggleTerminal('', 'cli')
+end, { silent = true })
+
 function M.stdoutcallback(job_id, data, event)
   if not data or #data == 0 or not current_token or current_token == '' then
     return
@@ -288,7 +287,7 @@ function M.stdoutcallback(job_id, data, event)
     content = content .. pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
     pio_buffer = processed_lines[chunk_count]
   else
-    -- FIXED INDEX ASSIGNMENT: Pulls the first text row correctly out of your formatted array table [INDEX]
+    -- FIXED ARRAY INDEX ACCESSIBILITY EXTRACTOR PROFILER
     content = content .. pio_buffer .. processed_lines[1]
     pio_buffer = processed_lines[1]
   end
