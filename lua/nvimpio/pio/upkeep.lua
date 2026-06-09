@@ -3,7 +3,7 @@ local M = {}
 
 -- local clangd = require('nvimpio.clangd.control')
 local misc = require('nvimpio.utils.misc')
-local term = require('nvimpio.utils.term')
+-- local term = require('nvimpio.utils.term')
 local boilerplate = require('nvimpio.boilerplate')
 
 local boilerplate_gen = boilerplate.boilerplate_gen
