@@ -79,6 +79,7 @@ local _pio_metadata = {
   originalPath = vim.env.PATH,
   last_projectChecksum = '', -- Used to track changes
   port_parameters = {},
+  pio_clie = nil,
 }
 -- 2. The Reactive Proxy Wrapper
 -- Any write to _G.metadata.key = val triggers this logic

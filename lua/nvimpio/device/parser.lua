@@ -6,7 +6,7 @@ local M = {}
 -- local terminal = require('nvimpio.device.terminal').PioTerminal
 
 ---@type Terminal
-local pio_cli
+local pio_cli = _G.metadata.pio_cli
 
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen

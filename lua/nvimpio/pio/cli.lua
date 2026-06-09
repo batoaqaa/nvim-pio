@@ -1,8 +1,18 @@
 local M = {}
 
+---@type Terminal
+local pio_cli = _G.metadata.pio_cli
 -- local terminal = require('nvimpio.utils.term').terminal
-local terminal = require('nvimpio.device.terminal').terminal
+-- local terminal = require('nvimpio.device.terminal').terminal
 local misc = require('nvimpio.utils.misc')
+
+local function sendCmnd(command)
+  pio_cli = pio_cli or require('nvimpio.utils.term').PioTerminal('', 'cli')
+  if pio_cli then
+    pio_cli:show()
+    pio_cli:send(command)
+  end
+end
 
 --- Handles and formats asynchronous vim.system errors cleanly
 ---@param from string The notification origin tag
@@ -282,12 +292,15 @@ end
 function M.piocmd(cmd_table, direction)
   if not misc.pio_install_check() then return end
 
-  if cmd_table[1] == '' then terminal('', direction)
-  else
-    local cmd = 'pio '
-    for _, v in pairs(cmd_table) do cmd = cmd .. ' ' .. v end
-    terminal(cmd, direction)
-  end
+  local cmd = (cmd_table[1] == '') and '' or ('pio ' .. table.concat(cmd_table, ' '))
+  sendCmnd(cmd)
+  -- cmd = 'pio ' .. cmd
+  -- if cmd_table[1] == '' then terminal('', direction)
+  -- else
+  --   local cmd = 'pio '
+  --   for _, v in pairs(cmd_table) do cmd = cmd .. ' ' .. v end
+  --   terminal(cmd, direction)
+  -- end
 end
 
 --INFO: Piodebug
@@ -297,7 +310,8 @@ function M.piodebug(_)
 
   local command = 'pio debug --interface=gdb -- -x .pioinit'
   -- local command = string.format('pio debug --interface=gdb -- -x .pioinit %s', utils.extra)
-  terminal(command, 'float')
+  -- terminal(command, 'float')
+  sendCmnd(command)
 end
 
 --INFO: Piomon
@@ -317,29 +331,36 @@ function M.piomon(args_table)
   end
 
   if command == nil then vim.misc.notify('Usage: Piomon <baud> <port>', "error")
-  else terminal(command, 'horizontal') end
+  else
+    sendCmnd(command)
+    -- terminal(command, 'horizontal') 
+  end
 end
 
 --INFO: Piorun
 ------------------------------------------------------
 function M.piobuild()
   local command = 'pio run' -- .. utils.extra
-  terminal(command, 'float')
+  sendCmnd(command)
+  -- terminal(command, 'float')
 end
 
 function M.pioupload()
   local command = 'pio run --target upload' -- .. utils.extra
-  terminal(command, 'float')
+  sendCmnd(command)
+  -- terminal(command, 'float')
 end
 
 function M.piouploadfs()
   local command = 'pio run --target uploadfs' -- .. utils.extra
-  terminal(command, 'float')
+  sendCmnd(command)
+  -- terminal(command, 'float')
 end
 
 function M.pioclean()
   local command = 'pio run --target clean' -- .. utils.extra
-  terminal(command, 'float')
+  sendCmnd(command)
+  -- terminal(command, 'float')
 end
 
 function M.piorun(arg_table)

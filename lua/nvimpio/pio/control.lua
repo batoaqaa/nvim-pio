@@ -251,6 +251,8 @@ function M.init(clangd_config)
   require('nvimpio.pio.metadata') --.load_project_config()
   -- require('nvimpio.pio.diagnostic')
 
+  _G.metadata.pio_cli = _G.metadata.pio_cli or require('nvimpio.utils.term').PioTerminal("", "cli")
+
   if clangd_config.support then clangd.init(clangd_config) end
 
   -- Always start the watcher so it can catch a future 'pio init'
