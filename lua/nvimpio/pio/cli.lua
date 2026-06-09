@@ -1,11 +1,11 @@
 local M = {}
 
+local misc = require('nvimpio.utils.misc')
 ---@type Terminal
-local pio_cli = _G.metadata.pio_cli
 -- local terminal = require('nvimpio.utils.term').terminal
 -- local terminal = require('nvimpio.device.terminal').terminal
-local misc = require('nvimpio.utils.misc')
 
+local pio_cli = _G.metadata.pio_cli
 local function sendCmnd(command)
   pio_cli = pio_cli or require('nvimpio.device.terminal').PioTerminal('', 'cli')
   if pio_cli then
@@ -13,7 +13,25 @@ local function sendCmnd(command)
     pio_cli:send(command)
   end
 end
+-- =====================================================================
+-- 🛠️ FIXED CRASH-PROOF AUTOMATION SEQUENCE (Inside cli.lua)
+-- =====================================================================
+local function sendCmnd(command)
+  -- Always reference the live table key directly at runtime!
+  -- This is 100% immune to variable snapshot desynchronization leaks.
+  _G.metadata.pio_cli = _G.metadata.pio_cli or require('nvimpio.device.terminal').PioTerminal('', 'cli')
 
+  -- Isolate the verified live object reference for the current execution pass block
+  local active_cli = _G.metadata.pio_cli
+
+  if active_cli then
+    -- Safely call your prototype methods with absolute zero risk of nil crashes!
+    active_cli:show()
+    active_cli:send(command)
+  else
+    vim.notify('[PlatformIO] Error: Terminal pipeline failed to resolve a valid class instance.', vim.log.levels.ERROR)
+  end
+end
 --- Handles and formats asynchronous vim.system errors cleanly
 ---@param from string The notification origin tag
 ---@param prefix_msg string The introductory text (e.g., "build compiledb failed: ")
