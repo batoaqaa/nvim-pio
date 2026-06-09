@@ -13,7 +13,7 @@ local clangd_extracted_args = {}
 local clangd_check_active = false
 
 local fromMsg = ''
-
+-- Assigned dynamically by external sub-modules like 'platformio.utils.pio'
 M.stdout_callback = nil
 M.exit_callback = nil
 
@@ -27,14 +27,13 @@ local target_panel_height = 0
 local pio_buffer = ""
 local content = ""
 
--- AUTOMATED TITLE FORMATTER: Updates labels dynamically based on active background buffer counts
+-- AUTOMATED TELEMETRY STATE ENGINE: Updates winbar hints based on visible splits presence
 local function UpdateWinbarTitles()
-  local cli_alive = pio_cli_buf and vim.api.nvim_buf_is_valid(pio_cli_buf)
-  local mon_alive = pio_mon_buf and vim.api.nvim_buf_is_valid(pio_mon_buf)
+  local cli_visible = pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win)
+  local mon_visible = pio_mon_win and vim.api.nvim_win_is_valid(pio_mon_win)
 
-  -- If BOTH buffers exist in memory, display a double semicolon (Switch hint)
-  -- If only ONE exists, display a single semicolon (Hide hint)
-  local hint = (cli_alive and mon_alive) and " [;; Switch] " or " [; Hide] "
+  -- Displays [;; Switch] ONLY if both window splits are actively open on screen right now
+  local hint = (cli_visible and mon_visible) and " [;; Switch] " or " [; Hide] "
 
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = '#80a3d4', fg = '#000000' })
   if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
@@ -54,7 +53,10 @@ local function SafeCloseTerminal(buf_id)
   end
   if buf_id == pio_cli_buf then pio_cli_win = nil end
   if buf_id == pio_mon_buf then pio_mon_win = nil end
-  vim.schedule(function() vim.cmd("wincmd =") end)
+  vim.schedule(function()
+    vim.cmd("wincmd =")
+    UpdateWinbarTitles()
+  end)
 end
 
 
@@ -73,7 +75,7 @@ function M.ToggleTerminal(command, terminal_type)
     target_win = nil
   end
   if other_win and not vim.api.nvim_win_is_valid(other_win) then
-    if terminal_type == "monitor" then pio_mon_win = nil else pio_cli_win = nil end
+    if terminal_type == "monitor" then pio_cli_win = nil else pio_mon_win = nil end
     other_win = nil
   end
 
@@ -157,18 +159,17 @@ function M.ToggleTerminal(command, terminal_type)
     vim.schedule(function() vim.cmd("wincmd k") end)
   end, { buffer = target_buf, silent = true })
 
-  -- FIXED SWITCHER LIFECYCLE: Converts to a dynamic safe window hider if only one terminal exists
+  -- FIXED WINDOW CHECK BINDING: Safely prevents creation leaks from thin air on ';;' shortcuts [INDEX]
   vim.keymap.set({'n', 't'}, ';;', function()
     if vim.api.nvim_get_mode().mode == 't' then
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
     end
 
     local nt = (terminal_type == "monitor") and "cli" or "monitor"
-    local nb = (nt == "monitor") and pio_mon_buf or pio_cli_buf
+    local nw = (nt == "monitor") and pio_mon_win or pio_cli_win
 
-    -- SMART FALLBACK SWITCH: If the other terminal doesn't exist yet, 
-    -- treat ';;' as a hide hotkey (a single ';') and close the window cleanly!
-    if not nb or not vim.api.nvim_buf_is_valid(nb) then
+    -- FIXED WINDOW VISIBILITY CHECK: If opposite layout panel isn't open on screen, act as a hide shortcut [INDEX]
+    if not nw or not vim.api.nvim_win_is_valid(nw) then
       SafeCloseTerminal(target_buf)
       return
     end
@@ -201,9 +202,7 @@ function M.ToggleTerminal(command, terminal_type)
     if job_id then vim.fn.chansend(job_id, command .. (vim.fn.has('win32') == 1 and '\r\n' or '\n')) end
   end
 end
-
 -- function M.stdoutcallback(job_id, data, event)
-
 function M.stdoutcallback(_, data, _)
   if not data or #data == 0 or not current_token or current_token == "" then return end
   local processed_lines = {}
@@ -214,6 +213,7 @@ function M.stdoutcallback(_, data, _)
     content = content .. pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
     pio_buffer = processed_lines[chunk_count]
   else
+    -- FIXED INDEX BOUNDARY: Explicitly references index 1 to capture the string text literal
     content = content .. pio_buffer .. processed_lines[1]
     pio_buffer = processed_lines[1]
   end
@@ -354,6 +354,7 @@ function M.cleanSequencer()
   M.stdout_callback = nil -- Careful: make sure this doesn't break other terms
   -- if trm then trm:close() end
 end
+
 return M
 -- local M = {}
 --
