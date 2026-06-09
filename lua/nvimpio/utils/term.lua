@@ -54,9 +54,23 @@ function M.ToggleTerminal(command, terminal_type)
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
   local other_buf = (terminal_type == 'monitor') and pio_cli_buf or pio_mon_buf
 
-  -- 2. MUTUAL EXCLUSION: If the opponent window is visible, hide it first
+  -- 2. MUTUAL EXCLUSION ASYNC BRIDGE:
+  -- FIXED: If the other terminal panel window is visible, close it and delay the creation
+  -- of the new window inside a scheduled callback wrapper. This lets Neovim wipe out
+  -- the old window root nodes completely, preventing panels from stacking on top of each other!
   if other_win and vim.api.nvim_win_is_valid(other_win) then
     SafeCloseTerminal(other_buf)
+    if terminal_type == 'monitor' then
+      pio_cli_win = nil
+    else
+      pio_mon_win = nil
+    end
+
+    -- Defer layout calculations to the next event loop tick to clear space cleanly [INDEX]
+    vim.schedule(function()
+      M.ToggleTerminal(command, terminal_type)
+    end)
+    return
   end
 
   -- 3. ALWAYS-OPEN TARGET ENGINE:
@@ -90,12 +104,12 @@ function M.ToggleTerminal(command, terminal_type)
   target_panel_height = math.ceil(vim.o.lines * 0.28)
 
   local win_opts = {
-    split = 'below', -- Directions token to open the partition beneath upper nodes
-    win = -1, -- HARDLOCK GRID: Breaks out of local columns into top-level monitor screen frame
+    split = 'below', -- Directions token to open the partition beneath upper nodes [INDEX]
+    win = -1, -- HARDLOCK GRID: Breaks out of local columns into top-level monitor screen frame [INDEX]
     height = target_panel_height,
   }
 
-  -- 6. RENDER THE STABLE WINDOW PANE FIRST
+  -- 6. RENDER THE STABLE WINDOW PANE
   local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
@@ -145,7 +159,6 @@ function M.ToggleTerminal(command, terminal_type)
         if active_term_win and active_term_win ~= -1 and vim.api.nvim_win_is_valid(active_term_win) then
           vim.schedule(function()
             if vim.api.nvim_win_is_valid(active_term_win) then
-              vim.api.nvim_win_get_buf(active_term_win)
               vim.api.nvim_win_call(active_term_win, function()
                 local mode = vim.api.nvim_get_mode().mode
                 if mode == 'n' or mode == 'nt' then
@@ -169,7 +182,6 @@ function M.ToggleTerminal(command, terminal_type)
     group = pio_group,
     buffer = target_buf,
     callback = function()
-      -- FIXED: Wrapped entirely inside vim.schedule to prevent E242 splits collisions while closing windows
       vim.schedule(function()
         local term_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
         if term_win and vim.api.nvim_win_is_valid(term_win) then
@@ -263,4 +275,6 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 end
+
 return M
+-- INFO: Your unmodified parser logic block remains safely out here
