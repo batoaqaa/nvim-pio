@@ -10,7 +10,7 @@ M.exit_callback = nil
 local pio_cli_buf = nil
 local pio_mon_buf = nil
 
--- Display window tracking handles
+-- Display window tracking handles (Safely reset to nil on any close)
 local pio_cli_win = nil
 local pio_mon_win = nil
 
@@ -22,18 +22,26 @@ local pio_buffer = ''
 local content = ''
 
 ----------------------------------------------------------------------------------------
--- INFO: Safe terminal exit routine (Tied to pressing 'q' inside normal mode)
+-- INFO: Safe terminal exit routine (Cleans up window IDs to stop duplicate spawning)
 local function SafeCloseTerminal(buf_id)
   if buf_id and vim.api.nvim_buf_is_valid(buf_id) then
     local win_id = vim.fn.bufwinid(buf_id)
     if win_id and win_id ~= -1 and vim.api.nvim_win_is_valid(win_id) then
       vim.api.nvim_win_close(win_id, true)
-      -- Force standard workspace windows to balance their layout spacing evenly once on close
-      vim.schedule(function()
-        vim.cmd('wincmd =')
-      end)
     end
   end
+
+  -- FIXED GLOBAL REFERENCE CLEANUP: Synchronizes variables to prevent duplicate window layers
+  if buf_id == pio_cli_buf then
+    pio_cli_win = nil
+  end
+  if buf_id == pio_mon_buf then
+    pio_mon_win = nil
+  end
+
+  vim.schedule(function()
+    vim.cmd('wincmd =')
+  end)
 end
 
 ----------------------------------------------------------------------------------------
@@ -54,19 +62,29 @@ function M.ToggleTerminal(command, terminal_type)
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
   local other_buf = (terminal_type == 'monitor') and pio_cli_buf or pio_mon_buf
 
-  -- 2. MUTUAL EXCLUSION ASYNC BRIDGE:
-  -- FIXED: If the other terminal panel window is visible, close it and delay the creation
-  -- of the new window inside a scheduled callback wrapper. This lets Neovim wipe out
-  -- the old window root nodes completely, preventing panels from stacking on top of each other!
-  if other_win and vim.api.nvim_win_is_valid(other_win) then
-    SafeCloseTerminal(other_buf)
+  -- Validate tracking references defensively before evaluating layout changes
+  if target_win and not vim.api.nvim_win_is_valid(target_win) then
+    if terminal_type == 'monitor' then
+      pio_mon_win = nil
+    else
+      pio_cli_win = nil
+    end
+    target_win = nil
+  end
+  if other_win and not vim.api.nvim_win_is_valid(other_win) then
     if terminal_type == 'monitor' then
       pio_cli_win = nil
     else
       pio_mon_win = nil
     end
+    other_win = nil
+  end
 
-    -- Defer layout calculations to the next event loop tick to clear space cleanly [INDEX]
+  -- 2. MUTUAL EXCLUSION ASYNC BRIDGE:
+  if other_win and vim.api.nvim_win_is_valid(other_win) then
+    SafeCloseTerminal(other_buf)
+
+    -- Defer layout calculations to the next event loop tick to clear screen space cleanly
     vim.schedule(function()
       M.ToggleTerminal(command, terminal_type)
     end)
@@ -104,12 +122,12 @@ function M.ToggleTerminal(command, terminal_type)
   target_panel_height = math.ceil(vim.o.lines * 0.28)
 
   local win_opts = {
-    split = 'below', -- Directions token to open the partition beneath upper nodes [INDEX]
-    win = -1, -- HARDLOCK GRID: Breaks out of local columns into top-level monitor screen frame [INDEX]
+    split = 'below', -- Directions token to open the partition beneath upper nodes
+    win = -1, -- HARDLOCK GRID: Breaks out of local columns into top-level monitor screen frame
     height = target_panel_height,
   }
 
-  -- 6. RENDER THE STABLE WINDOW PANE
+  -- 6. RENDER THE STABLE WINDOW PANE FIRST
   local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
@@ -130,7 +148,7 @@ function M.ToggleTerminal(command, terminal_type)
     end
 
     -- Running jobstart natively while inside the active terminal window context
-    vim.fn.jobstart(target_shell, {
+    local spawned_job_id = vim.fn.jobstart(target_shell, {
       term = true,
       on_stdout = function(job_id, data, event)
         if type(M.stdout_callback) == 'function' then
@@ -148,6 +166,10 @@ function M.ToggleTerminal(command, terminal_type)
         end
       end,
     })
+
+    -- FIXED JOB ID STORAGE: Manually bind the active job ID pointer to the buffer variables.
+    -- This guarantees that subsequent commands sent via chansend reach the existing shell prompt session!
+    vim.b[target_buf].terminal_job_id = spawned_job_id
 
     -- AUTOMATED VIEWPORT SCROLL REFLOW ENGINE:
     local scroll_group = vim.api.nvim_create_augroup('PioAutoScroll_' .. target_buf, { clear = true })
@@ -265,7 +287,6 @@ function M.ToggleTerminal(command, terminal_type)
       M.ToggleTerminal('', 'cli')
     end, { silent = true })
   end
-  -----------------------------------------------------------------------------
 
   -- Automatically run passed command strings via your platformio job channels
   if command and command ~= '' then
@@ -275,6 +296,5 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 end
-
 return M
 -- INFO: Your unmodified parser logic block remains safely out here
