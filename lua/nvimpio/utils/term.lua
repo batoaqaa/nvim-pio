@@ -8,11 +8,19 @@ M.config = {
   winbar_fg = '#000000',
   shell = vim.fn.has('win32') == 1 and {
     'pwsh.exe',
+    '-NoExit',
     '-NoLogo',
     '-NoProfile',
     '-ExecutionPolicy', 'Bypass',
     '-Command', '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;'
-  } or vim.api.nvim_get_option_value('shell', {}), -- [FIXED]: Returns a flat string, letting Neovim manage arguments natively!
+  } or (function()
+    local default_shell = vim.api.nvim_get_option_value('shell', {})
+    -- If the Mac user defaults to zsh, pass the -f flag to bypass profile script leaks
+    if default_shell:find("zsh") then
+      return { default_shell, "-f" }
+    end
+    return default_shell
+  end)(),
 }
 
 -- Isolated State Control Registry
