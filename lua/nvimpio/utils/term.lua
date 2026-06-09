@@ -44,7 +44,7 @@ local function UpdateWinbarTitles()
 
   -- If BOTH background processes exist in cache, display [;; Switch]
   -- If only ONE background process exists, display [; Hide]
-  local hint = (cli_alive and mon_alive) and ' [;; Switch] ' or ' [; Hide] '
+  local hint = (cli_alive and mon_alive) and ' [;; <==> ] ' or ' [; Hide] '
 
   vim.api.nvim_set_hl(0, 'PioWinBar', { bg = M.config.winbar_bg, fg = M.config.winbar_fg })
 
