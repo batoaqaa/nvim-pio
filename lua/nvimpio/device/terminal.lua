@@ -16,7 +16,7 @@ M.config = {
     '-NoLogo',
     '-NoProfile',
     '-ExecutionPolicy', 'Bypass',
-    -- '-Command', '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;'
+    '-Command', '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;'
   } or (function()
     local default_shell = vim.api.nvim_get_option_value('shell', {})
     -- If the Mac user defaults to zsh, pass the -f flag to bypass profile script leaks
@@ -278,11 +278,6 @@ function M.ToggleTerminal(command, terminal_type)
       on_exit = function() if type(M.exit_callback) == "function" then M.exit_callback() end end
     })
     vim.b[current.buf].terminal_job_id = spawned_job_id
-
-    if vim.fn.has("win32") == 1 then
-      local init_enc = "[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;\r\n"
-      vim.fn.chansend(spawned_job_id, init_enc)
-    end
 
     local scroll_group = vim.api.nvim_create_augroup("PioAutoScroll_" .. current.buf, { clear = true })
     vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
