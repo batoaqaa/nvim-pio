@@ -1,3 +1,4 @@
+-- stylua: ignore start
 local M = {}
 
 M.stdout_callback = nil
@@ -19,24 +20,16 @@ local function SafeCloseTerminal(buf_id)
     end
   end
 
-  if buf_id == pio_cli_buf then
-    pio_cli_win = nil
-  end
-  if buf_id == pio_mon_buf then
-    pio_mon_win = nil
-  end
+  if buf_id == pio_cli_buf then pio_cli_win = nil end
+  if buf_id == pio_mon_buf then pio_mon_win = nil end
 
-  vim.schedule(function()
-    vim.cmd('wincmd =')
-  end)
+  vim.schedule(function() vim.cmd('wincmd =') end)
 end
+
 function M.ToggleTerminal(command, terminal_type)
   if terminal_type ~= 'monitor' and terminal_type ~= 'cli' then
-    if command and string.find(command, ' monitor') then
-      terminal_type = 'monitor'
-    else
-      terminal_type = 'cli'
-    end
+    if command and string.find(command, ' monitor') then terminal_type = 'monitor'
+    else terminal_type = 'cli' end
   end
 
   local title = (terminal_type == 'monitor') and ' Pio Monitor ' or ' Pio CLI> '
@@ -46,27 +39,19 @@ function M.ToggleTerminal(command, terminal_type)
   local other_buf = (terminal_type == 'monitor') and pio_cli_buf or pio_mon_buf
 
   if target_win and not vim.api.nvim_win_is_valid(target_win) then
-    if terminal_type == 'monitor' then
-      pio_mon_win = nil
-    else
-      pio_cli_win = nil
-    end
+    if terminal_type == 'monitor' then pio_mon_win = nil
+    else pio_cli_win = nil end
     target_win = nil
   end
   if other_win and not vim.api.nvim_win_is_valid(other_win) then
-    if terminal_type == 'monitor' then
-      pio_cli_win = nil
-    else
-      pio_mon_win = nil
-    end
+    if terminal_type == 'monitor' then pio_cli_win = nil
+    else pio_mon_win = nil end
     other_win = nil
   end
 
   if other_win and vim.api.nvim_win_is_valid(other_win) then
     SafeCloseTerminal(other_buf)
-    vim.schedule(function()
-      M.ToggleTerminal(command, terminal_type)
-    end)
+    vim.schedule(function() M.ToggleTerminal(command, terminal_type) end)
     return
   end
 
@@ -86,27 +71,21 @@ function M.ToggleTerminal(command, terminal_type)
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
     target_buf = vim.api.nvim_create_buf(false, true)
     is_new_buffer = true
-    if terminal_type == 'monitor' then
-      pio_mon_buf = target_buf
-    else
-      pio_cli_buf = target_buf
-    end
+    if terminal_type == 'monitor' then pio_mon_buf = target_buf
+    else pio_cli_buf = target_buf end
   end
 
   target_panel_height = math.ceil(vim.o.lines * 0.28)
   local win_opts = { split = 'below', win = -1, height = target_panel_height }
 
   local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
-  if terminal_type == 'monitor' then
-    pio_mon_win = new_win
-  else
-    pio_cli_win = new_win
-  end
+  if terminal_type == 'monitor' then pio_mon_win = new_win
+  else pio_cli_win = new_win end
 
   if is_new_buffer then
     local target_shell = vim.o.shell
     if vim.fn.has('win32') == 1 then
-      target_shell = vim.fn.executable('pwsh.exe') == 1 and 'pwsh.exe' or 'powershell.exe'
+      target_shell = vim.fn.executable("pwsh.exe") == 1 and "pwsh.exe" or "powershell.exe"
     end
 
     local spawned_job_id = vim.fn.jobstart(target_shell, {
@@ -170,8 +149,7 @@ function M.ToggleTerminal(command, terminal_type)
     end,
   })
 
-  local hl = { bg = '#80a3d4', fg = '#000000' }
-  vim.api.nvim_set_hl(0, 'MyWinBar', { bg = hl.bg, fg = hl.fg })
+  vim.api.nvim_set_hl(0, 'MyWinBar', { bg = '#80a3d4', fg = '#000000' })
   vim.api.nvim_set_option_value('winbar', '%#MyWinBar#' .. title .. '%*', { scope = 'local', win = new_win })
 
   vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = target_buf })
@@ -188,15 +166,21 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end, { buffer = target_buf, silent = true })
 
+  -- FIXED SWITCHER BINDING: Strictly forbids creating a session out of thin air on ';;'
   vim.keymap.set({ 'n', 't' }, ';;', function()
     if vim.api.nvim_get_mode().mode == 't' then
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
     end
+
     local nt = (terminal_type == 'monitor') and 'cli' or 'monitor'
     local nb = (nt == 'monitor') and pio_mon_buf or pio_cli_buf
+
+    -- HARD PROTECTION BOUNDARY: If the opposite shell buffer does not exist,
+    -- drop out of the keymap completely. It is now physically impossible to create a terminal on ';;'!
     if not nb or not vim.api.nvim_buf_is_valid(nb) then
       return
     end
+
     SafeCloseTerminal(target_buf)
     vim.schedule(function()
       M.ToggleTerminal('', nt)
@@ -237,6 +221,7 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 end
+
 -- function M.stdoutcallback(job_id, data, event)
 --   if not data or #data == 0 or not current_token or current_token == "" then return end
 --
