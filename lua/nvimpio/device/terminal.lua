@@ -76,6 +76,16 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   local opposite_type = (terminal_type == "monitor") and "cli" or "monitor"
+  -----------------------------------------------------------------------------
+  -- 🔍 DEEP TRACE: Log initial worker state configuration metrics
+  -----------------------------------------------------------------------------
+  local is_target_open = IsTerminalWindowOpen(terminal_type)
+  local is_opposite_open = IsTerminalWindowOpen(opposite_type)
+  vim.notify(string.format("[ENTRY] cmd: %q, type: %q | target_open: %s, opp_open: %s (buf: %s, win: %s)",
+    cmd_str, terminal_type, tostring(is_target_open), tostring(is_opposite_open),
+    tostring(state[terminal_type].buf), tostring(state[terminal_type].win)), vim.log.levels.INFO)
+  -----------------------------------------------------------------------------
+
 
   -- Step 2: Mutual Exclusion Pass
   if IsTerminalWindowOpen(opposite_type) then
@@ -100,6 +110,8 @@ function M.ToggleTerminal(command, terminal_type)
     end
     return
   end
+  -- If it misses step 3, it is forced to open a new split window frame layout
+  vim.notify(string.format("[TRACE STEP 4] FALLTHROUGH! Spawning brand-new layout row partition for: %s", terminal_type), vim.log.levels.WARN)
 
   -- Step 4: Clean Buffer Provision Pass
   local current = state[terminal_type]
