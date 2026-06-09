@@ -672,15 +672,12 @@ local content = ''
 -- [LEAVE OUTSIDE]: Your unmodified parser logic block remains safely here
 -- function M.stdoutcallback(job_id, data, event)
 function M.stdoutcallback(_, data, _)
-  if not data or #data == 0 then return end
-  if not current_token or current_token == "" then return end
+  if not data or #data == 0 or not current_token or current_token == "" then return end
   -----------------------------------------------------------------------------
   -- 🌟 NATIVE TERMINAL TABLE ARRAY STANDARDIST UNPACKER & ANSI STRIPPER
   -----------------------------------------------------------------------------
   local processed_lines = {}
-  for i, line in ipairs(data) do
-    processed_lines[i] = line:gsub('\r', ''):gsub('\x1b%[[0-9;]*%a', '')
-  end
+  for i, line in ipairs(data) do processed_lines[i] = line:gsub("\r", ""):gsub("\x1b%[[0-9;]*%a", "") end
   local chunk_count = #processed_lines
   -----------------------------------------------------------------------------
 
