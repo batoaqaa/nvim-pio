@@ -16,8 +16,8 @@ local state = {
 }
 
 -- Core Inter-Module Event Callbacks
-M.on_stdout = nil
-M.on_exit = nil
+M.stdout_callback = nil
+M.exit_callback = nil
 
 -- Absolute truth check to verify if a terminal panel split is actively drawn on screen
 local function IsTerminalWindowOpen(term_type)
@@ -102,10 +102,10 @@ function M.ToggleTerminal(command, terminal_type)
     local spawned_job_id = vim.fn.jobstart(M.config.shell, {
       term = true,
       on_stdout = function(j, d, e)
-        if terminal_type == "cli" and type(M.on_stdout) == "function" then M.on_stdout(j, d, e) end
+        if terminal_type == "cli" and type(M.on_stdout) == "function" then M.on_stdout_callback(j, d, e) end
       end,
       on_stderr = function(j, d, e)
-        if terminal_type == "cli" and type(M.on_stdout) == "function" then M.on_stdout(j, d, e) end
+        if terminal_type == "cli" and type(M.on_stdout) == "function" then M.stdout_callback(j, d, e) end
       end,
       on_exit = function()
         if type(M.on_exit) == "function" then M.on_exit() end
