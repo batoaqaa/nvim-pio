@@ -218,24 +218,25 @@ function M.PioTerminal(command, terminal_type)
 
   if IsTerminalWindowOpen(opposite_type) then
     SafeCloseTerminal(opposite_type)
-    return M.PioTerminal(command, terminal_type)
   end
 
   -- Step 3: Always Open Target View Recycle Pass
   if IsTerminalWindowOpen(terminal_type) then
-    vim.api.nvim_set_current_win(state[terminal_type].win)
-    local target_h = math.ceil(vim.o.lines * M.config.panel_height)
-    pcall(vim.api.nvim_win_set_height, state[terminal_type].win, target_h)
+    local current = state[terminal_type]
+    vim.api.nvim_set_current_win(current.win)
 
-    local job_id = vim.b[state[terminal_type].buf].terminal_job_id
+    local target_h = math.ceil(vim.o.lines * M.config.panel_height)
+    pcall(vim.api.nvim_win_set_height, current.win, target_h)
+
+    local active_job_id = current.buf and vim.b[current.buf] and vim.b[current.buf].terminal_job_id
     if command and command ~= '' then
-      if job_id then
-        vim.fn.chansend(job_id, command .. OS.newline)
+      if active_job_id and active_job_id > 0 then
+        vim.fn.chansend(active_job_id, command .. OS.newline)
       end
     end
-    return (terminal_type == 'cli') and Terminal.new(job_id) or nil
-  end
 
+    return (terminal_type == 'cli') and Terminal.new(active_job_id or 0) or nil
+  end
   -- Step 4: Scratch Buffer Allocation Provision Pass
   local current = state[terminal_type]
   local is_new_buffer = false
