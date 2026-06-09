@@ -108,7 +108,7 @@ function M.ToggleTerminal(command, terminal_type)
   -- 5. Open Bottom Screen Layout Partition Block
   local target_h = math.ceil(vim.o.lines * M.config.panel_height)
   local win_opts = { split = 'below', win = -1, height = target_h }
-  current.win = vim.api.nvim_open_win(current_buf, true, win_opts)
+  current.win = vim.api.nvim_open_win(current.buf, true, win_opts)
 
   if is_new_buffer then
     local target_shell = vim.fn.has('win32') == 1 and 'pwsh.exe' or vim.o.shell
@@ -207,7 +207,7 @@ function M.ToggleTerminal(command, terminal_type)
     vim.schedule(function()
       M.ToggleTerminal('', opposite_type)
     end)
-  end, { buffer = current_buf, silent = true })
+  end, { buffer = current.buf, silent = true })
 
   vim.keymap.set('n', '<C-h>', '<C-w>h')
   vim.keymap.set('n', '<C-l>', '<C-w>l')
