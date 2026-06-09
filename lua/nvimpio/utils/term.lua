@@ -15,8 +15,6 @@ M.stdout_callback = nil
 M.exit_callback = nil
 
 -- Hidden internal storage cells to keep the tracking metrics completely isolated
-local _internal_cli_buf = nil
-local _internal_mon_buf = nil
 
 local pio_cli_win = nil
 local pio_mon_win = nil
@@ -25,52 +23,49 @@ local target_panel_height = 0
 local pio_buffer = ''
 local content = ''
 
-----------------------------------------------------------------------------------------
--- 🔍 ABSOLUTE STATE TRACKING METATABLE PROXY
-----------------------------------------------------------------------------------------
--- This wraps the module keys. The exact millisecond any outside script attempts to
--- overwrite or read your buffer variables, it captures a complete system traceback map!
-setmetatable(M, {
-  __newindex = function(table, key, value)
-    if key == 'pio_cli_buf' or key == 'pio_mon_buf' then
-      local trace = debug.traceback()
-      -- Safely isolate the exact filename and line number row from the stack array
-      local calling_line = trace:match('\n[^\n]+\n\t([^\n]+)') or 'Unknown Caller Layer'
-
-      vim.notify(
-        string.format('\n🚨 [MODULE OVERWRITE DETECTED]\nVariable: %s\nAssigned Value: %s\nCaller Path: %s', key, tostring(value), calling_line),
-        vim.log.levels.WARN
-      )
-
-      if key == 'pio_cli_buf' then
-        _internal_cli_buf = value
-      else
-        _internal_mon_buf = value
-      end
-    else
-      rawset(table, key, value)
-    end
-  end,
-  __index = function(table, key)
-    if key == 'pio_cli_buf' then
-      return _internal_cli_buf
-    elseif key == 'pio_mon_buf' then
-      return _internal_mon_buf
-    else
-      return rawget(table, key)
-    end
-  end,
-})
-
--- Safe bridge mappings to ensure internal visibility functions map cleanly
-local pio_cli_buf = M.pio_cli_buf
-local pio_mon_buf = M.pio_mon_buf
-----------------------------------------------------------------------------------------
-
+-- ----------------------------------------------------------------------------------------
+-- -- 🔍 ABSOLUTE STATE TRACKING METATABLE PROXY
+-- ----------------------------------------------------------------------------------------
+-- -- This wraps the module keys. The exact millisecond any outside script attempts to
+-- -- overwrite or read your buffer variables, it captures a complete system traceback map!
+-- setmetatable(M, {
+--   __newindex = function(table, key, value)
+--     if key == 'pio_cli_buf' or key == 'pio_mon_buf' then
+--       local trace = debug.traceback()
+--       -- Safely isolate the exact filename and line number row from the stack array
+--       local calling_line = trace:match('\n[^\n]+\n\t([^\n]+)') or 'Unknown Caller Layer'
+--
+--       vim.notify(
+--         string.format('\n🚨 [MODULE OVERWRITE DETECTED]\nVariable: %s\nAssigned Value: %s\nCaller Path: %s', key, tostring(value), calling_line),
+--         vim.log.levels.WARN
+--       )
+--
+--       if key == 'pio_cli_buf' then
+--         _internal_cli_buf = value
+--       else
+--         _internal_mon_buf = value
+--       end
+--     else
+--       rawset(table, key, value)
+--     end
+--   end,
+--   __index = function(table, key)
+--     if key == 'pio_cli_buf' then
+--       return _internal_cli_buf
+--     elseif key == 'pio_mon_buf' then
+--       return _internal_mon_buf
+--     else
+--       return rawget(table, key)
+--     end
+--   end,
+-- })
+-- AUTOMATED TELEMETRY: Updates text titles based on true visible split row presences
 local function UpdateWinbarTitles()
-  local cli_alive = M.pio_cli_buf and vim.api.nvim_buf_is_valid(M.pio_cli_buf)
-  local mon_alive = M.pio_mon_buf and vim.api.nvim_buf_is_valid(M.pio_mon_buf)
-  local hint = (cli_alive and mon_alive) and ' [;; Switch] ' or ' [; Hide] '
+  local cli_visible = pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win)
+  local mon_visible = pio_mon_win and vim.api.nvim_win_is_valid(pio_mon_win)
+
+  -- Hardlock rule: Display [;; Switch] ONLY if both panels are open on screen right now
+  local hint = (cli_visible and mon_visible) and ' [;; Switch] ' or ' [; Hide] '
 
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = '#80a3d4', fg = '#000000' })
   if pio_cli_win and vim.api.nvim_win_is_valid(pio_cli_win) then
@@ -102,17 +97,6 @@ end
 
 function M.ToggleTerminal(command, terminal_type)
   terminal_type = (terminal_type == 'monitor') and 'monitor' or 'cli'
-  vim.notify(
-    string.format(
-      '[ENTRY] command: %q, type: %q, pio_cli_buf: %s, pio_mon_buf: %s',
-      tostring(command),
-      tostring(terminal_type),
-      tostring(M.pio_cli_buf),
-      tostring(M.pio_mon_buf)
-    ),
-    vim.log.levels.INFO
-  )
-
   if terminal_type ~= 'monitor' and terminal_type ~= 'cli' then
     terminal_type = (command and string.find(command, ' monitor')) and 'monitor' or 'cli'
   end
@@ -253,25 +237,24 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end, { buffer = target_buf, silent = true })
 
+  -- 🌟 UN-HIJACKABLE STATE-TITLE SWITCHER MAPPING 🌟
   vim.keymap.set({ 'n', 't' }, ';;', function()
     if vim.api.nvim_get_mode().mode == 't' then
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
     end
 
+    -- Explicitly verify your active winbar layout string content directly
     local current_winbar = vim.api.nvim_get_option_value('winbar', { scope = 'local' }) or ''
-    local is_currently_cli = current_winbar:find('CLI>') ~= nil
 
-    local next_type = is_currently_cli and 'monitor' or 'cli'
-    local next_buf = is_currently_cli and M.pio_mon_buf or M.pio_cli_buf
-
-    vim.notify(string.format('[;; KEYMAP] winbar: %q, next_type: %s, next_buf: %s', current_winbar, next_type, tostring(next_buf)), vim.log.levels.INFO)
-
-    if not next_buf or not vim.api.nvim_buf_is_valid(next_buf) then
-      vim.notify('[;; REJECTED] Target buffer not valid. Hiding active view instead.', vim.log.levels.WARN)
+    -- HARD PROTECTION BOUNDARY: If the winbar string contains the active hide parameter text '[; Hide]',
+    -- treat ';;' as a safe window hider (a single ';') and close the current window panel cleanly!
+    -- This makes it physically impossible to pass variables down or trigger a ToggleTerminal spawn!
+    if current_winbar:find('%[; Hide%]') then
       SafeCloseTerminal(target_buf)
       return
     end
 
+    local next_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
     SafeCloseTerminal(target_buf)
     vim.schedule(function()
       M.ToggleTerminal('', next_type)
@@ -295,6 +278,13 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end, { silent = true })
 end
+
+vim.keymap.set('n', [[<leader>\gm]], function()
+  M.ToggleTerminal('', 'monitor')
+end, { silent = true })
+vim.keymap.set('n', [[<leader>\t]], function()
+  M.ToggleTerminal('', 'cli')
+end, { silent = true })
 
 vim.keymap.set('n', [[<leader>\gm]], function()
   M.ToggleTerminal('', 'monitor')
