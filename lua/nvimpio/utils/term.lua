@@ -101,6 +101,7 @@ local function SafeCloseTerminal(buf_id)
 end
 
 function M.ToggleTerminal(command, terminal_type)
+  terminal_type = (terminal_type == 'monitor') and 'monitor' or 'cli'
   vim.notify(
     string.format(
       '[ENTRY] command: %q, type: %q, pio_cli_buf: %s, pio_mon_buf: %s',
