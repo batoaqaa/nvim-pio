@@ -673,7 +673,7 @@ local content = ''
 -- function M.stdoutcallback(job_id, data, event)
 function M.stdoutcallback(_, data, _)
   if not data or #data == 0 then return end
-  -- if not current_token or current_token == "" then return end
+  if not current_token or current_token == "" then return end
   -----------------------------------------------------------------------------
   -- 🌟 NATIVE TERMINAL TABLE ARRAY STANDARDIST UNPACKER & ANSI STRIPPER
   -----------------------------------------------------------------------------
