@@ -359,16 +359,17 @@ function M.PioTerminal(command, terminal_type)
 
   if command and command ~= '' then
     if current.job_id then
-      vim.fn.chansend(current.job_id, command .. OS.newline)
+      vim.fn.chansend(current.job_id, command .. OS.eol)
     end
   end
 end
 
 vim.keymap.set('n', [[<leader>\gm]], function()
-  M.PioTerminal('pio device monitor', 'monitor')
+  M.monitor:show()
+  M.monitor:send('pio device monitor')
 end, { silent = true })
 vim.keymap.set('n', [[<leader>\t]], function()
-  M.PioTerminal('', 'cli')
+  M.monitor:show()
 end, { silent = true })
 
 -- function M.stdout_callback(job_id, data, event)
