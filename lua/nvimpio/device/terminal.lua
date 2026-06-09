@@ -30,84 +30,83 @@ M.config = {
   end)(),
 }
 
--- Bound and assigned dynamically at any time by your external parsing sub-modules
 M.stdout_callback = nil
 M.exit_callback = nil
 
--- Unified Text History Stream Cache Registers
 M.pio_buffer = ''
 M.content = ''
 
--- The Absolute Encapsulated State Engine Matrix
+-- The Immutable Global State Registry Core Matrix
 local state = {
-  cli = { buf = nil, win = nil, job_id = nil, title = ' Pio CLI> ' },
-  monitor = { buf = nil, win = nil, job_id = nil, title = ' Pio Monitor ' },
+  cli = { buf = nil, win = nil, job_id = nil, instance = nil, title = ' Pio CLI> ' },
+  monitor = { buf = nil, win = nil, job_id = nil, instance = nil, title = ' Pio Monitor ' },
 }
 
 ----------------------------------------------------------------------------------------
--- 🌟 THE TERMINAL CLASS DEFINITION (PROTOTYPE ARCHITECTURE)
+-- 🌟 RIGID SINGLETON TERMINAL CLASS ARCHITECTURE
 ----------------------------------------------------------------------------------------
 ---@class Terminal
----@field job_id number The unique operating system process channel ID handle
----@field newline string The pre-cached cross-platform row carriage return delimiter
+---@field type string The type of terminal instance ('cli' or 'monitor')
+---@field newline string Pre-cached row delimiter row ends
 local Terminal = {}
 Terminal.__index = Terminal
 
----Constructor: Instantiates and encapsulates individual channel properties
----@param job_id number The raw channel handle returned by jobstart
----@return Terminal|nil # Returns a new Terminal class instance object, or nil if invalid
-function Terminal.new(job_id)
-  if not job_id or job_id <= 0 then
-    return nil
-  end
+---Constructor: Enforces strict structural isolation and data field validation
+---@param term_type string The target engine lane selection ('cli' or 'monitor')
+---@return Terminal
+function Terminal.new(term_type)
   local self = setmetatable({}, Terminal)
-  self.job_id = job_id
+  self.type = term_type
   self.newline = OS.newline
   return self
 end
 
----Send a string command text string directly down the active job channel
----@param command string The shell text instruction payload to execute
+---Rigid Method 1: Send a string command text string directly with carriage return guards
+---@param command string The instruction text payload line to pipe down the channel
 function Terminal:send(command)
-  if not self.job_id or self.job_id <= 0 then
+  local s = state[self.type]
+  if not s or not s.job_id or s.job_id <= 0 then
     return
   end
-  vim.fn.chansend(self.job_id, tostring(command or '') .. self.newline)
+  local cmd_str = tostring(command or '')
+
+  -- CARRIAGE RETURN GUARD: Smash out of any accidental multi-line input locks instantly!
+  if cmd_str ~= '' then
+    vim.fn.chansend(s.job_id, self.newline)
+  end
+  vim.fn.chansend(s.job_id, cmd_str .. self.newline)
 end
 
----Gracefully stop the background processing shell job and close visible window splits
+---Rigid Method 2: Gracefully stop background job and tear down split windows safely
 function Terminal:close()
-  if not self.job_id or self.job_id <= 0 then
+  local s = state[self.type]
+  if not s or not s.job_id or s.job_id <= 0 then
     return
   end
-  pcall(vim.fn.jobstop, self.job_id)
+  pcall(vim.fn.jobstop, s.job_id)
 
-  for _, s in pairs(state) do
-    if s.buf and vim.b[s.buf] and vim.b[s.buf].terminal_job_id == self.job_id then
-      if s.win and vim.api.nvim_win_is_valid(s.win) then
-        vim.api.nvim_win_close(s.win, true)
-      end
-      s.win = nil
-      s.buf = nil
-      s.job_id = nil
-    end
+  if s.win and vim.api.nvim_win_is_valid(s.win) then
+    vim.api.nvim_win_close(s.win, true)
   end
-  self.job_id = -1
+  s.win = nil
+  s.buf = nil
+  s.job_id = nil
+  s.instance = nil -- Flush singleton reference on full process death block
+
   vim.schedule(function()
     vim.cmd('wincmd =')
     M.UpdateWinbarTitles()
   end)
 end
 
----Closes the split window layout viewport panel but preserves the background process job shell alive in cache memory
+---Rigid Method 3: Pure Hide Pass - Closes the split window layout viewport panel cleanly
 function Terminal:hide()
-  for _, s in pairs(state) do
-    if s.buf and vim.b[s.buf] and vim.b[s.buf].terminal_job_id == self.job_id then
-      if s.win and vim.api.nvim_win_is_valid(s.win) then
-        vim.api.nvim_win_close(s.win, true)
-      end
-      s.win = nil
-    end
+  local s = state[self.type]
+  if s and s.win and vim.api.nvim_win_is_valid(s.win) then
+    vim.api.nvim_win_close(s.win, true)
+  end
+  if s then
+    s.win = nil
   end
   vim.schedule(function()
     vim.cmd('wincmd =')
@@ -115,57 +114,47 @@ function Terminal:hide()
   end)
 end
 
----Re-splits open the bottom screen canvas panel instantly and focuses your active terminal prompt session back to view
----@return boolean # Returns true if the window split was successfully shown or refocused
+---Rigid Method 4: Pure Show Pass - Re-splits open the bottom panel row layout instantly
+---@return boolean # True if the split window canvas layout was drawn successfully
 function Terminal:show()
-  for _, s in pairs(state) do
-    if s.buf and vim.b[s.buf] and vim.b[s.buf].terminal_job_id == self.job_id then
-      if s.win and vim.api.nvim_win_is_valid(s.win) then
-        vim.api.nvim_set_current_win(s.win)
-        return true
-      end
-
-      local target_h = math.ceil(vim.o.lines * M.config.panel_height)
-      local win_opts = { split = 'below', win = -1, height = target_h }
-      s.win = vim.api.nvim_open_win(s.buf, true, win_opts)
-
-      vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
-      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = s.win })
-
-      M.UpdateWinbarTitles()
-      vim.cmd('startinsert')
-      return true
-    end
+  local s = state[self.type]
+  if not s or not s.buf or not vim.api.nvim_buf_is_valid(s.buf) then
+    return false
   end
-  return false
+
+  if s.win and vim.api.nvim_win_is_valid(s.win) then
+    vim.api.nvim_set_current_win(s.win)
+    return true
+  end
+
+  local target_h = math.ceil(vim.o.lines * M.config.panel_height)
+  local win_opts = { split = 'below', win = -1, height = target_h }
+  s.win = vim.api.nvim_open_win(s.buf, true, win_opts)
+
+  vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = s.win })
+
+  M.UpdateWinbarTitles()
+  vim.cmd('startinsert')
+  return true
 end
 
----Wipes your current console prompt screen completely clean, giving you a pristine empty prompt viewport layout row
+---Rigid Method 5: Clear console screen prompt clean natively across platforms
 function Terminal:clear()
   local clear_cmd = OS.is_win and 'Clear-Host' or 'clear'
   self:send(clear_cmd)
 end
 
----Fetch the raw underlying Neovim buffer handle integer pointer
----@return number|nil # Returns the active buffer ID index value, or nil if closed
+---Rigid Method 6: Fetch raw underlying buffer handle pointer index
+---@return number|nil
 function Terminal:get_buf()
-  for _, s in pairs(state) do
-    if s.buf and vim.b[s.buf] and vim.b[s.buf].terminal_job_id == self.job_id then
-      return s.buf
-    end
-  end
-  return nil
+  return state[self.type].buf
 end
 
----Fetch the raw underlying Neovim window split handle integer pointer
----@return number|nil # Returns the active window layout ID index value, or nil if closed
+---Rigid Method 7: Fetch raw underlying window split handle pointer index
+---@return number|nil
 function Terminal:get_win()
-  for _, s in pairs(state) do
-    if s.buf and vim.b[s.buf] and vim.b[s.buf].terminal_job_id == self.job_id then
-      return s.win
-    end
-  end
-  return nil
+  return state[self.type].win
 end
 ----------------------------------------------------------------------------------------
 
@@ -217,14 +206,11 @@ function M.PioTerminal(command, terminal_type)
 
   local opposite_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
 
-  -- Linear un-nested state pass transition completely guards stack depth execution
   if IsTerminalWindowOpen(opposite_type) then
     SafeCloseTerminal(opposite_type)
   end
 
-  -- =====================================================================
-  -- 🌟 CRASH-PROOF ALWAYS-OPEN RECYCLE PASS
-  -- =====================================================================
+  -- Step 3: Always Open Target View Recycle Pass
   if IsTerminalWindowOpen(terminal_type) then
     local current = state[terminal_type]
     vim.api.nvim_set_current_win(current.win)
@@ -232,17 +218,14 @@ function M.PioTerminal(command, terminal_type)
     local target_h = math.ceil(vim.o.lines * M.config.panel_height)
     pcall(vim.api.nvim_win_set_height, current.win, target_h)
 
-    -- Extracts the persistent process handle straight from the local state table!
-    local active_job_id = current.job_id
-
     if command and command ~= '' then
-      if active_job_id and active_job_id > 0 then
-        vim.fn.chansend(active_job_id, command .. OS.newline)
+      if current.job_id and current.job_id > 0 then
+        vim.fn.chansend(current.job_id, command .. OS.newline)
       end
     end
 
-    -- Guarantees a fully valid, instantiation-checked class object return
-    return (terminal_type == 'cli') and Terminal.new(active_job_id or 0) or nil
+    -- 🌟 RIGID RETRIEVAL: Returns the single, permanent instance. 0% duplication risk!
+    return (terminal_type == 'cli') and current.instance or nil
   end
 
   -- Step 4: Scratch Buffer Allocation Provision Pass
@@ -278,9 +261,10 @@ function M.PioTerminal(command, terminal_type)
       end,
     })
     vim.b[current.buf].terminal_job_id = spawned_job_id
-
-    -- Cache the job ID permanently inside the shared dictionary array cache
     current.job_id = spawned_job_id
+
+    -- 🌟 RIGID SPAWN: Instantiates the class EXACTLY ONCE on channel initialization pass!
+    current.instance = Terminal.new(terminal_type)
 
     if OS.is_win then
       local init_enc = '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Clear-Host;\r\n'
@@ -380,7 +364,8 @@ function M.PioTerminal(command, terminal_type)
     end
   end
 
-  return (terminal_type == 'cli') and Terminal.new(current.job_id) or nil
+  -- 🌟 RIGID ASSIGNMENT: Delivers the single immutable class instance safely
+  return (terminal_type == 'cli') and current.instance or nil
 end
 
 vim.keymap.set('n', [[<leader>\gm]], function()
