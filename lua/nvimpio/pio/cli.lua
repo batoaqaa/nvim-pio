@@ -5,14 +5,14 @@ local misc = require('nvimpio.utils.misc')
 -- local terminal = require('nvimpio.utils.term').terminal
 -- local terminal = require('nvimpio.device.terminal').terminal
 
-local pio_cli = _G.metadata.pio_cli
-local function sendCmnd(command)
-  pio_cli = pio_cli or require('nvimpio.device.terminal').PioTerminal('', 'cli')
-  if pio_cli then
-    pio_cli:show()
-    pio_cli:send(command)
-  end
-end
+-- local pio_cli = _G.metadata.pio_cli
+-- local function sendCmnd(command)
+--   pio_cli = pio_cli or require('nvimpio.device.terminal').PioTerminal('', 'cli')
+--   if pio_cli then
+--     pio_cli:show()
+--     pio_cli:send(command)
+--   end
+-- end
 -- =====================================================================
 -- 🛠️ FIXED CRASH-PROOF AUTOMATION SEQUENCE (Inside cli.lua)
 -- =====================================================================
@@ -32,6 +32,7 @@ local function sendCmnd(command)
     vim.notify('[PlatformIO] Error: Terminal pipeline failed to resolve a valid class instance.', vim.log.levels.ERROR)
   end
 end
+
 --- Handles and formats asynchronous vim.system errors cleanly
 ---@param from string The notification origin tag
 ---@param prefix_msg string The introductory text (e.g., "build compiledb failed: ")
