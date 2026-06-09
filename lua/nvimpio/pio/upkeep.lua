@@ -782,31 +782,27 @@ local content = ''
 --     return
 --   end
 -- end
-
+-- stylua: ignore
 -- function M.stdoutcallback(_, _, data, _)
 function M.stdoutcallback( _, data, event)
   -----------------------------------------------------------------------------
   -- 🔍 DETECTIVE TRACE HOOKS: Run this snippet to verify active process triggers
   -----------------------------------------------------------------------------
   -- Trace Call #1: Logs the unique event name ("stdout") and incoming table length
-  vim.notify(string.format('[PioTrace] Callback hit! Event: %s, Chunks received: %d', tostring(event), data and #data or 0), vim.log.levels.INFO)
+  -- vim.notify(string.format('[PioTrace] Callback hit! Event: %s, Chunks received: %d', tostring(event), data and #data or 0), vim.log.levels.INFO)
 
   -- Trace Call #2: Dumps the raw log string block content to verify stream integrity
-  if data and #data > 0 then
-    vim.notify('[PioData Dump]: ' .. table.concat(data, ' | '), vim.log.levels.DEBUG)
-  end
+  -- if data and #data > 0 then
+  --   vim.notify('[PioData Dump]: ' .. table.concat(data, ' | '), vim.log.levels.DEBUG)
+  -- end
   -----------------------------------------------------------------------------
 
-  if not data or #data == 0 then
-    return
-  end
+  if not data or #data == 0 then return end
 
   if #data > 1 then
     content = content .. pio_buffer .. table.concat(data, '', 1, #data)
     pio_buffer = data[#data]
   else
-    -- Safe single item array evaluation
-    -- pio_buffer = pio_buffer .. data[1]
     content = content .. pio_buffer .. data[1]
     pio_buffer = data[1]
   end
@@ -857,23 +853,18 @@ function M.stdoutcallback( _, data, event)
               end
             end
           end
-        else
-          return
-        end
-
+        else return end
         clangd_check_active = false
       end
+      -----------------------------------------------------------------------
 
       -- 🏁 3. FLUSH THE BUFFER CLEAN HERE AT THE END OF THE COMMAND RUN
       pio_buffer = ''
       content = ''
-      -----------------------------------------------------------------------
     end
 
     if final_status and active_cb then
-      vim.schedule(function()
-        active_cb(final_status)
-      end)
+      vim.schedule(function() active_cb(final_status) end)
     end
 
     return
@@ -925,16 +916,14 @@ M.run_sequence = function(tasks)
     table.insert(M.queue, { cmd, step_id, token })
   end
 
-  -- if not nvimpio.is_active then
-  --   require('nvimpio.pio.metadata')
-  -- end
-
   if callBack then
     vim.schedule(function()
       content = ''
       pio_buffer = ''
+      ------------------------------------------------------
       clangd_extracted_args = {} -- Clear the collected flags table
       clangd_check_active = false -- Arm the parsing loop tracker
+      ------------------------------------------------------
 
       term.stdout_callback = M.stdoutcallback
       callBack('INIT')
@@ -949,7 +938,6 @@ end
 function M.cleanSequencer()
   _G.metadata.isBusy = false
   term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
-  -- if trm then trm:close() end
 end
 
 -- stylua: ignore
