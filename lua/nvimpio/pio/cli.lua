@@ -1,6 +1,6 @@
 local M = {}
 
--- local ToggleTerminal = require('nvimpio.utils.term').ToggleTerminal
+-- local terminal = require('nvimpio.utils.term').terminal
 local terminal = require('nvimpio.device.terminal').terminal
 local misc = require('nvimpio.utils.misc')
 
@@ -282,11 +282,11 @@ end
 function M.piocmd(cmd_table, direction)
   if not misc.pio_install_check() then return end
 
-  if cmd_table[1] == '' then ToggleTerminal('', direction)
+  if cmd_table[1] == '' then terminal('', direction)
   else
     local cmd = 'pio '
     for _, v in pairs(cmd_table) do cmd = cmd .. ' ' .. v end
-    ToggleTerminal(cmd, direction)
+    terminal(cmd, direction)
   end
 end
 
@@ -297,7 +297,7 @@ function M.piodebug(_)
 
   local command = 'pio debug --interface=gdb -- -x .pioinit'
   -- local command = string.format('pio debug --interface=gdb -- -x .pioinit %s', utils.extra)
-  ToggleTerminal(command, 'float')
+  terminal(command, 'float')
 end
 
 --INFO: Piomon
@@ -317,29 +317,29 @@ function M.piomon(args_table)
   end
 
   if command == nil then vim.misc.notify('Usage: Piomon <baud> <port>', "error")
-  else ToggleTerminal(command, 'horizontal') end
+  else terminal(command, 'horizontal') end
 end
 
 --INFO: Piorun
 ------------------------------------------------------
 function M.piobuild()
   local command = 'pio run' -- .. utils.extra
-  ToggleTerminal(command, 'float')
+  terminal(command, 'float')
 end
 
 function M.pioupload()
   local command = 'pio run --target upload' -- .. utils.extra
-  ToggleTerminal(command, 'float')
+  terminal(command, 'float')
 end
 
 function M.piouploadfs()
   local command = 'pio run --target uploadfs' -- .. utils.extra
-  ToggleTerminal(command, 'float')
+  terminal(command, 'float')
 end
 
 function M.pioclean()
   local command = 'pio run --target clean' -- .. utils.extra
-  ToggleTerminal(command, 'float')
+  terminal(command, 'float')
 end
 
 function M.piorun(arg_table)
