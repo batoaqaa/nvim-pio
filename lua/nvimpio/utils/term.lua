@@ -90,12 +90,20 @@ function M.ToggleTerminal(command, terminal_type)
     return
   end
 
+  -- 3. Always Open Target View: Move focus straight into pre-existing viewports
   if IsTerminalWindowOpen(terminal_type) then
     vim.api.nvim_set_current_win(state[terminal_type].win)
     local target_h = math.ceil(vim.o.lines * M.config.panel_height)
     pcall(vim.api.nvim_win_set_height, state[terminal_type].win, target_h)
+
+    if command and command ~= '' then
+      local job_id = vim.b[state[terminal_type].buf].terminal_job_id
+      if job_id then
+        vim.fn.chansend(job_id, command .. (vim.fn.has('win32') == 1 and '\r\n' or '\n'))
+      end
+    end
     return
-  end -- 3. Always Open Target View: Move focus straight into pre-existing viewports
+  end
 
   -- 4. Clean Buffer Allocation Provision Pass
   local current = state[terminal_type]
