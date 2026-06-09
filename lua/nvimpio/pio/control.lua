@@ -251,8 +251,6 @@ function M.init(clangd_config)
   require('nvimpio.pio.metadata') --.load_project_config()
   -- require('nvimpio.pio.diagnostic')
 
-  _G.metadata.pio_cli = _G.metadata.pio_cli or require('nvimpio.device.terminal').PioTerminal("", "cli")
-  if(_G.metadata.pio_cli) then _G.metadata.pio_cli:hide() end
 
   if clangd_config.support then clangd.init(clangd_config) end
 
