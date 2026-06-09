@@ -15,9 +15,6 @@ local clangd_check_active = false
 local fromMsg = ''
 local trm
 
-local pio_buffer = ''
-local content = ''
-
 M.stdout_callback = nil
 M.exit_callback = nil
 
@@ -28,6 +25,8 @@ local pio_cli_win = nil
 local pio_mon_win = nil
 
 local target_panel_height = 0
+local pio_buffer = ""
+local content = ""
 
 local function UpdateWinbarTitles()
   local cli_alive = pio_cli_buf and vim.api.nvim_buf_is_valid(pio_cli_buf)
@@ -55,6 +54,7 @@ local function SafeCloseTerminal(buf_id)
   vim.schedule(function() vim.cmd("wincmd =") end)
 end
 
+
 function M.ToggleTerminal(command, terminal_type)
   if terminal_type ~= "monitor" and terminal_type ~= "cli" then
     terminal_type = (command and string.find(command, ' monitor')) and "monitor" or "cli"
@@ -70,7 +70,7 @@ function M.ToggleTerminal(command, terminal_type)
     target_win = nil
   end
   if other_win and not vim.api.nvim_win_is_valid(other_win) then
-    if terminal_type == "monitor" then pio_mon_win = nil else pio_cli_win = nil end
+    if terminal_type == "monitor" then pio_cli_win = nil else pio_mon_win = nil end
     other_win = nil
   end
 
@@ -154,11 +154,14 @@ function M.ToggleTerminal(command, terminal_type)
     vim.schedule(function() vim.cmd("wincmd k") end)
   end, { buffer = target_buf, silent = true })
 
+  -- FIXED SWITCHER ESCAPE: early return blocks execution BEFORE reaching the raw shell chansend commands
   vim.keymap.set({'n', 't'}, ';;', function()
     if vim.api.nvim_get_mode().mode == 't' then vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false) end
     local nt = (terminal_type == "monitor") and "cli" or "monitor"
     local nb = (nt == "monitor") and pio_mon_buf or pio_cli_buf
+
     if not nb or not vim.api.nvim_buf_is_valid(nb) then return end
+
     SafeCloseTerminal(target_buf)
     vim.schedule(function() M.ToggleTerminal("", nt) end)
   end, { buffer = target_buf, silent = true })
@@ -187,7 +190,10 @@ function M.ToggleTerminal(command, terminal_type)
     if job_id then vim.fn.chansend(job_id, command .. (vim.fn.has('win32') == 1 and '\r\n' or '\n')) end
   end
 end
-function M.stdoutcallback(job_id, data, event)
+
+
+-- function M.stdoutcallback(job_id, data, event)
+function M.stdoutcallback(_, data, _)
   if not data or #data == 0 or not current_token or current_token == "" then return end
   local processed_lines = {}
   for i, line in ipairs(data) do processed_lines[i] = line:gsub("\r", ""):gsub("\x1b%[[0-9;]*%a", "") end
