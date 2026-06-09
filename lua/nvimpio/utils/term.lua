@@ -174,7 +174,7 @@ function M.ToggleTerminal(command, terminal_type)
     buffer = current.buf,
     callback = function()
       vim.schedule(function()
-        if IsTerminalOpen(terminal_type) then
+        if IsTerminalWindowOpen(terminal_type) then
           pcall(vim.api.nvim_win_set_height, current.win, target_h)
           if vim.api.nvim_get_mode().mode:sub(1, 1) ~= 't' then
             vim.cmd('normal! G')
@@ -223,7 +223,7 @@ function M.ToggleTerminal(command, terminal_type)
   vim.keymap.set('n', '<C-l>', '<C-w>l')
   vim.keymap.set('n', '<C-j>', function()
     vim.schedule(function()
-      if IsTerminalOpen(terminal_type) then
+      if IsTerminalWindowOpen(terminal_type) then
         vim.api.nvim_set_current_win(current.win)
         pcall(vim.api.nvim_win_set_height, current.win, target_h)
         if vim.api.nvim_get_mode().mode:sub(1, 1) ~= 't' then
