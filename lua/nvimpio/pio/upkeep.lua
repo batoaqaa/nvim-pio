@@ -676,18 +676,28 @@ function M.stdoutcallback(_, data, _)
   -----------------------------------------------------------------------------
   -- 🌟 NATIVE TERMINAL TABLE ARRAY STANDARDIST UNPACKER & ANSI STRIPPER
   -----------------------------------------------------------------------------
-  local processed_lines = {}
-  for i, line in ipairs(data) do processed_lines[i] = line:gsub("\r", ""):gsub("\x1b%[[0-9;]*%a", "") end
-  local chunk_count = #processed_lines
+  -- local processed_lines = {}
+  -- for i, line in ipairs(data) do processed_lines[i] = line:gsub("\r", ""):gsub("\x1b%[[0-9;]*%a", "") end
+  -- local chunk_count = #processed_lines
+  --
+  -- if chunk_count > 1 then
+  --   content = content .. pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
+  --   pio_buffer = processed_lines[chunk_count]
+  -- else
+  --   content = content .. pio_buffer .. processed_lines[1]
+  --   pio_buffer = processed_lines[1]
+  -- end
   -----------------------------------------------------------------------------
-
-  if chunk_count > 1 then
-    content = content .. pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
-    pio_buffer = processed_lines[chunk_count]
+  if #data > 1 then
+    content = content .. pio_buffer .. table.concat(data, '', 1, #data)
+    pio_buffer = data[#data]
   else
-    content = content .. pio_buffer .. processed_lines[1]
-    pio_buffer = processed_lines[1]
+    -- Safe single item array evaluation
+    -- pio_buffer = pio_buffer .. data[1]
+    content = content .. pio_buffer .. data[1]
+    pio_buffer = data[1]
   end
+  -----------------------------------------------------------------------------
 
   local pass_target = 'PASS' .. current_id
   local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
