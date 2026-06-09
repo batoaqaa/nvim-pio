@@ -1,5 +1,7 @@
 local M = {}
 
+local config = require('nvimpio').config
+
 -- Assigned dynamically by external sub-modules like 'platformio.utils.pio'
 M.stdout_callback = nil
 M.exit_callback = nil
@@ -15,6 +17,10 @@ local pio_mon_win = nil
 -- HARD-LOCK HEIGHT PROFILE METRIC: Stores the static target height globally
 local target_panel_height = 0
 
+-- Text history buffer accumulators scoped safely at the module file-level
+local pio_buffer = ''
+local content = ''
+
 ----------------------------------------------------------------------------------------
 -- INFO: Safe terminal exit routine (Tied to pressing 'q' inside normal mode)
 local function SafeCloseTerminal(buf_id)
@@ -23,7 +29,9 @@ local function SafeCloseTerminal(buf_id)
     if win_id and win_id ~= -1 and vim.api.nvim_win_is_valid(win_id) then
       vim.api.nvim_win_close(win_id, true)
       -- Force standard workspace windows to balance their layout spacing evenly once on close
-      vim.cmd('wincmd =')
+      vim.schedule(function()
+        vim.cmd('wincmd =')
+      end)
     end
   end
 end
@@ -137,6 +145,7 @@ function M.ToggleTerminal(command, terminal_type)
         if active_term_win and active_term_win ~= -1 and vim.api.nvim_win_is_valid(active_term_win) then
           vim.schedule(function()
             if vim.api.nvim_win_is_valid(active_term_win) then
+              vim.api.nvim_win_get_buf(active_term_win)
               vim.api.nvim_win_call(active_term_win, function()
                 local mode = vim.api.nvim_get_mode().mode
                 if mode == 'n' or mode == 'nt' then
@@ -154,20 +163,23 @@ function M.ToggleTerminal(command, terminal_type)
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = new_win })
 
-  -- 9. FIXED ANTI-SHRINKING VIEWPORT GUARD
+  -- 9. FIXED ANTI-SHRINKING VIEWPORT GUARD WITH RACE-CONDITION EXCLUSION
   local pio_group = vim.api.nvim_create_augroup('PioFocusGuard_' .. target_buf, { clear = true })
   vim.api.nvim_create_autocmd('WinEnter', {
     group = pio_group,
     buffer = target_buf,
     callback = function()
-      local term_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
-      if term_win and vim.api.nvim_win_is_valid(term_win) then
-        pcall(vim.api.nvim_win_set_height, term_win, target_panel_height)
-        local mode = vim.api.nvim_get_mode().mode
-        if mode == 'n' or mode == 'nt' then
-          vim.cmd('normal! G')
+      -- FIXED: Wrapped entirely inside vim.schedule to prevent E242 splits collisions while closing windows
+      vim.schedule(function()
+        local term_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
+        if term_win and vim.api.nvim_win_is_valid(term_win) then
+          pcall(vim.api.nvim_win_set_height, term_win, target_panel_height)
+          local mode = vim.api.nvim_get_mode().mode
+          if mode == 'n' or mode == 'nt' then
+            vim.cmd('normal! G')
+          end
         end
-      end
+      end)
     end,
   })
 
@@ -217,17 +229,19 @@ function M.ToggleTerminal(command, terminal_type)
 
   -- GLOBAL INTERCEPT DOWNWARD MOVEMENT HOOK:
   vim.keymap.set('n', '<C-j>', function()
-    local cur_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
-    if cur_win and vim.api.nvim_win_is_valid(cur_win) then
-      vim.api.nvim_set_current_win(cur_win)
-      pcall(vim.api.nvim_win_set_height, cur_win, target_panel_height)
-      local mode = vim.api.nvim_get_mode().mode
-      if mode == 'n' or mode == 'nt' then
-        vim.cmd('normal! G')
+    vim.schedule(function()
+      local cur_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
+      if cur_win and vim.api.nvim_win_is_valid(cur_win) then
+        vim.api.nvim_set_current_win(cur_win)
+        pcall(vim.api.nvim_win_set_height, cur_win, target_panel_height)
+        local mode = vim.api.nvim_get_mode().mode
+        if mode == 'n' or mode == 'nt' then
+          vim.cmd('normal! G')
+        end
+      else
+        vim.cmd('wincmd j')
       end
-    else
-      vim.cmd('wincmd j')
-    end
+    end)
   end, { silent = true })
 
   if terminal_type == 'monitor' then
@@ -249,5 +263,4 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 end
-
 return M
