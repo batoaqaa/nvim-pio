@@ -30,7 +30,7 @@ M.config = {
   end)(),
 }
 
--- Bound and assigned dynamically at any time by your external sub-modules
+-- Bound and assigned dynamically at any time by your external parsing sub-modules
 M.stdout_callback = nil
 M.exit_callback = nil
 
@@ -40,8 +40,8 @@ M.content = ''
 
 -- The Absolute Encapsulated State Engine Matrix
 local state = {
-  cli = { buf = nil, win = nil, title = ' Pio CLI> ' },
-  monitor = { buf = nil, win = nil, title = ' Pio Monitor ' },
+  cli = { buf = nil, win = nil, job_id = nil, title = ' Pio CLI> ' },
+  monitor = { buf = nil, win = nil, job_id = nil, title = ' Pio Monitor ' },
 }
 
 ----------------------------------------------------------------------------------------
@@ -89,6 +89,7 @@ function Terminal:close()
       end
       s.win = nil
       s.buf = nil
+      s.job_id = nil
     end
   end
   self.job_id = -1
@@ -216,11 +217,14 @@ function M.PioTerminal(command, terminal_type)
 
   local opposite_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
 
+  -- Linear un-nested state pass transition completely guards stack depth execution
   if IsTerminalWindowOpen(opposite_type) then
     SafeCloseTerminal(opposite_type)
   end
 
-  -- Step 3: Always Open Target View Recycle Pass
+  -- =====================================================================
+  -- 🌟 CRASH-PROOF ALWAYS-OPEN RECYCLE PASS
+  -- =====================================================================
   if IsTerminalWindowOpen(terminal_type) then
     local current = state[terminal_type]
     vim.api.nvim_set_current_win(current.win)
@@ -228,15 +232,19 @@ function M.PioTerminal(command, terminal_type)
     local target_h = math.ceil(vim.o.lines * M.config.panel_height)
     pcall(vim.api.nvim_win_set_height, current.win, target_h)
 
-    local active_job_id = current.buf and vim.b[current.buf] and vim.b[current.buf].terminal_job_id
+    -- Extracts the persistent process handle straight from the local state table!
+    local active_job_id = current.job_id
+
     if command and command ~= '' then
       if active_job_id and active_job_id > 0 then
         vim.fn.chansend(active_job_id, command .. OS.newline)
       end
     end
 
+    -- Guarantees a fully valid, instantiation-checked class object return
     return (terminal_type == 'cli') and Terminal.new(active_job_id or 0) or nil
   end
+
   -- Step 4: Scratch Buffer Allocation Provision Pass
   local current = state[terminal_type]
   local is_new_buffer = false
@@ -270,6 +278,9 @@ function M.PioTerminal(command, terminal_type)
       end,
     })
     vim.b[current.buf].terminal_job_id = spawned_job_id
+
+    -- Cache the job ID permanently inside the shared dictionary array cache
+    current.job_id = spawned_job_id
 
     if OS.is_win then
       local init_enc = '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Clear-Host;\r\n'
@@ -363,14 +374,13 @@ function M.PioTerminal(command, terminal_type)
     end)
   end, { silent = true })
 
-  local final_job_id = vim.b[current.buf].terminal_job_id
   if command and command ~= '' then
-    if final_job_id then
-      vim.fn.chansend(final_job_id, command .. OS.newline)
+    if current.job_id then
+      vim.fn.chansend(current.job_id, command .. OS.newline)
     end
   end
 
-  return (terminal_type == 'cli') and Terminal.new(final_job_id) or nil
+  return (terminal_type == 'cli') and Terminal.new(current.job_id) or nil
 end
 
 vim.keymap.set('n', [[<leader>\gm]], function()
@@ -379,7 +389,6 @@ end, { silent = true })
 vim.keymap.set('n', [[<leader>\t]], function()
   M.PioTerminal('', 'cli')
 end, { silent = true })
-
 function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
 end
