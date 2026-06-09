@@ -60,6 +60,7 @@ local function SafeCloseTerminal(buf_id)
 end
 
 function M.ToggleTerminal(command, terminal_type)
+  terminal_type = (terminal_type == 'monitor') and 'monitor' or 'cli'
   vim.notify(string.format('[ENTRY] command: %q, type: %q', tostring(command), tostring(terminal_type)), vim.log.levels.INFO)
 
   if terminal_type ~= 'monitor' and terminal_type ~= 'cli' then
