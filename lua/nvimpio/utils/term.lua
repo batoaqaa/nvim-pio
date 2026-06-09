@@ -13,7 +13,6 @@ local clangd_extracted_args = {}
 local clangd_check_active = false
 
 local fromMsg = ''
-local trm
 
 M.stdout_callback = nil
 M.exit_callback = nil
@@ -28,9 +27,13 @@ local target_panel_height = 0
 local pio_buffer = ""
 local content = ""
 
+-- AUTOMATED TITLE FORMATTER: Updates labels dynamically based on active background buffer counts
 local function UpdateWinbarTitles()
   local cli_alive = pio_cli_buf and vim.api.nvim_buf_is_valid(pio_cli_buf)
   local mon_alive = pio_mon_buf and vim.api.nvim_buf_is_valid(pio_mon_buf)
+
+  -- If BOTH buffers exist in memory, display a double semicolon (Switch hint)
+  -- If only ONE exists, display a single semicolon (Hide hint)
   local hint = (cli_alive and mon_alive) and " [;; Switch] " or " [; Hide] "
 
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = '#80a3d4', fg = '#000000' })
@@ -70,7 +73,7 @@ function M.ToggleTerminal(command, terminal_type)
     target_win = nil
   end
   if other_win and not vim.api.nvim_win_is_valid(other_win) then
-    if terminal_type == "monitor" then pio_cli_win = nil else pio_mon_win = nil end
+    if terminal_type == "monitor" then pio_mon_win = nil else pio_cli_win = nil end
     other_win = nil
   end
 
@@ -154,13 +157,21 @@ function M.ToggleTerminal(command, terminal_type)
     vim.schedule(function() vim.cmd("wincmd k") end)
   end, { buffer = target_buf, silent = true })
 
-  -- FIXED SWITCHER ESCAPE: early return blocks execution BEFORE reaching the raw shell chansend commands
+  -- FIXED SWITCHER LIFECYCLE: Converts to a dynamic safe window hider if only one terminal exists
   vim.keymap.set({'n', 't'}, ';;', function()
-    if vim.api.nvim_get_mode().mode == 't' then vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false) end
+    if vim.api.nvim_get_mode().mode == 't' then
+      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
+    end
+
     local nt = (terminal_type == "monitor") and "cli" or "monitor"
     local nb = (nt == "monitor") and pio_mon_buf or pio_cli_buf
 
-    if not nb or not vim.api.nvim_buf_is_valid(nb) then return end
+    -- SMART FALLBACK SWITCH: If the other terminal doesn't exist yet, 
+    -- treat ';;' as a hide hotkey (a single ';') and close the window cleanly!
+    if not nb or not vim.api.nvim_buf_is_valid(nb) then
+      SafeCloseTerminal(target_buf)
+      return
+    end
 
     SafeCloseTerminal(target_buf)
     vim.schedule(function() M.ToggleTerminal("", nt) end)
@@ -191,8 +202,8 @@ function M.ToggleTerminal(command, terminal_type)
   end
 end
 
-
 -- function M.stdoutcallback(job_id, data, event)
+
 function M.stdoutcallback(_, data, _)
   if not data or #data == 0 or not current_token or current_token == "" then return end
   local processed_lines = {}
