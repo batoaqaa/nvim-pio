@@ -97,7 +97,7 @@ function M.ToggleTerminal(command, terminal_type)
     return
   end
 
-  -- 4. Clean Buffer Allocation Provison Pass
+  -- 4. Clean Buffer Allocation Provision Pass
   local current = state[terminal_type]
   local is_new_buffer = false
   if not current.buf or not vim.api.nvim_buf_is_valid(current.buf) then
@@ -108,6 +108,8 @@ function M.ToggleTerminal(command, terminal_type)
   -- 5. Open Bottom Screen Layout Partition Block
   local target_h = math.ceil(vim.o.lines * M.config.panel_height)
   local win_opts = { split = 'below', win = -1, height = target_h }
+
+  -- [FIXED]: Saves the newly spawned window handle directly into the structured state tree matrix [INDEX]
   current.win = vim.api.nvim_open_win(current.buf, true, win_opts)
 
   if is_new_buffer then
