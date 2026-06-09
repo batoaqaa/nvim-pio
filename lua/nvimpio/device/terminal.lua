@@ -12,8 +12,8 @@ M.config = {
     '-NoProfile',
     '-ExecutionPolicy',
     'Bypass',
-    '-Command',
-    '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;',
+    -- '-Command',
+    -- '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;',
   } or (function()
     local default_shell = vim.api.nvim_get_option_value('shell', {})
     -- If the Mac user defaults to zsh, pass the -f flag to bypass profile script leaks
