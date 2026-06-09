@@ -85,14 +85,18 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   -- Step 3: Always Open Target View Pass
+
   if IsTerminalWindowOpen(terminal_type) then
     vim.api.nvim_set_current_win(state[terminal_type].win)
     local target_h = math.ceil(vim.o.lines * M.config.panel_height)
     pcall(vim.api.nvim_win_set_height, state[terminal_type].win, target_h)
 
+    -- This block was missing or out of scope! It stops the duplicate leak:
     if command and command ~= "" then
       local job_id = vim.b[state[terminal_type].buf].terminal_job_id
-      if job_id then vim.fn.chansend(job_id, command .. (vim.fn.has("win32") == 1 and '\r\n' or '\n')) end
+      if job_id then
+        vim.fn.chansend(job_id, command .. (vim.fn.has("win32") == 1 and '\r\n' or '\n'))
+      end
     end
     return
   end
