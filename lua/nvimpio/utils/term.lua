@@ -14,8 +14,9 @@ local fromMsg = ''
 M.stdout_callback = nil
 M.exit_callback = nil
 
-local pio_cli_buf = nil
-local pio_mon_buf = nil
+-- Hidden internal storage cells to keep the tracking metrics completely isolated
+local _internal_cli_buf = nil
+local _internal_mon_buf = nil
 
 local pio_cli_win = nil
 local pio_mon_win = nil
@@ -24,9 +25,51 @@ local target_panel_height = 0
 local pio_buffer = ''
 local content = ''
 
+----------------------------------------------------------------------------------------
+-- 🔍 ABSOLUTE STATE TRACKING METATABLE PROXY
+----------------------------------------------------------------------------------------
+-- This wraps the module keys. The exact millisecond any outside script attempts to
+-- overwrite or read your buffer variables, it captures a complete system traceback map!
+setmetatable(M, {
+  __newindex = function(table, key, value)
+    if key == 'pio_cli_buf' or key == 'pio_mon_buf' then
+      local trace = debug.traceback()
+      -- Safely isolate the exact filename and line number row from the stack array
+      local calling_line = trace:match('\n[^\n]+\n\t([^\n]+)') or 'Unknown Caller Layer'
+
+      vim.notify(
+        string.format('\n🚨 [MODULE OVERWRITE DETECTED]\nVariable: %s\nAssigned Value: %s\nCaller Path: %s', key, tostring(value), calling_line),
+        vim.log.levels.WARN
+      )
+
+      if key == 'pio_cli_buf' then
+        _internal_cli_buf = value
+      else
+        _internal_mon_buf = value
+      end
+    else
+      rawset(table, key, value)
+    end
+  end,
+  __index = function(table, key)
+    if key == 'pio_cli_buf' then
+      return _internal_cli_buf
+    elseif key == 'pio_mon_buf' then
+      return _internal_mon_buf
+    else
+      return rawget(table, key)
+    end
+  end,
+})
+
+-- Safe bridge mappings to ensure internal visibility functions map cleanly
+local pio_cli_buf = M.pio_cli_buf
+local pio_mon_buf = M.pio_mon_buf
+----------------------------------------------------------------------------------------
+
 local function UpdateWinbarTitles()
-  local cli_alive = pio_cli_buf and vim.api.nvim_buf_is_valid(pio_cli_buf)
-  local mon_alive = pio_mon_buf and vim.api.nvim_buf_is_valid(pio_mon_buf)
+  local cli_alive = M.pio_cli_buf and vim.api.nvim_buf_is_valid(M.pio_cli_buf)
+  local mon_alive = M.pio_mon_buf and vim.api.nvim_buf_is_valid(M.pio_mon_buf)
   local hint = (cli_alive and mon_alive) and ' [;; Switch] ' or ' [; Hide] '
 
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = '#80a3d4', fg = '#000000' })
@@ -45,10 +88,10 @@ local function SafeCloseTerminal(buf_id)
       vim.api.nvim_win_close(win_id, true)
     end
   end
-  if buf_id == pio_cli_buf then
+  if buf_id == M.pio_cli_buf then
     pio_cli_win = nil
   end
-  if buf_id == pio_mon_buf then
+  if buf_id == M.pio_mon_buf then
     pio_mon_win = nil
   end
   vim.schedule(function()
@@ -58,14 +101,13 @@ local function SafeCloseTerminal(buf_id)
 end
 
 function M.ToggleTerminal(command, terminal_type)
-  terminal_type = (terminal_type == 'monitor') and 'monitor' or 'cli'
   vim.notify(
     string.format(
       '[ENTRY] command: %q, type: %q, pio_cli_buf: %s, pio_mon_buf: %s',
       tostring(command),
       tostring(terminal_type),
-      tostring(pio_cli_buf),
-      tostring(pio_mon_buf)
+      tostring(M.pio_cli_buf),
+      tostring(M.pio_mon_buf)
     ),
     vim.log.levels.INFO
   )
@@ -76,8 +118,8 @@ function M.ToggleTerminal(command, terminal_type)
 
   local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
   local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
-  local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
-  local other_buf = (terminal_type == 'monitor') and pio_cli_buf or pio_mon_buf
+  local target_buf = (terminal_type == 'monitor') and M.pio_mon_buf or M.pio_cli_buf
+  local other_buf = (terminal_type == 'monitor') and M.pio_cli_buf or M.pio_mon_buf
 
   if target_win and not vim.api.nvim_win_is_valid(target_win) then
     if terminal_type == 'monitor' then
@@ -115,9 +157,9 @@ function M.ToggleTerminal(command, terminal_type)
     target_buf = vim.api.nvim_create_buf(false, true)
     is_new_buffer = true
     if terminal_type == 'monitor' then
-      pio_mon_buf = target_buf
+      M.pio_mon_buf = target_buf
     else
-      pio_cli_buf = target_buf
+      M.pio_cli_buf = target_buf
     end
   end
 
@@ -219,7 +261,7 @@ function M.ToggleTerminal(command, terminal_type)
     local is_currently_cli = current_winbar:find('CLI>') ~= nil
 
     local next_type = is_currently_cli and 'monitor' or 'cli'
-    local next_buf = is_currently_cli and pio_mon_buf or pio_cli_buf
+    local next_buf = is_currently_cli and M.pio_mon_buf or M.pio_cli_buf
 
     vim.notify(string.format('[;; KEYMAP] winbar: %q, next_type: %s, next_buf: %s', current_winbar, next_type, tostring(next_buf)), vim.log.levels.INFO)
 
