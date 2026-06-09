@@ -96,7 +96,7 @@ local function SafeCloseTerminal(buf_id)
 end
 
 function M.ToggleTerminal(command, terminal_type)
-  terminal_type = (terminal_type == 'monitor') and 'monitor' or 'cli'
+  terminal_type = ((string.find(command, ' monitor')) or (terminal_type == 'monitor')) and 'monitor' or 'cli'
   if terminal_type ~= 'monitor' and terminal_type ~= 'cli' then
     terminal_type = (command and string.find(command, ' monitor')) and 'monitor' or 'cli'
   end
