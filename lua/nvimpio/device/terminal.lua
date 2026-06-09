@@ -1,11 +1,5 @@
 local M = {}
 
--- Immutable Platform Capabilities Caching Engine
-local OS = {
-  is_win = OS.is_win,
-  newline = OS.eol,
-}
-
 -- 1. Default Public User Configuration Matrix
 M.config = {
   panel_height = 0.25,
@@ -28,13 +22,11 @@ M.config = {
     end
     return default_shell
   end)(),
+  -- shell = (vim.fn.has("win32") == 1) and "pwsh.exe" or vim.api.nvim_get_option_value("shell", {}),
 }
 
 M.stdout_callback = nil
 M.exit_callback = nil
-
-M.pio_buffer = ''
-M.content = ''
 
 -- The Immutable Global State Registry Core Matrix
 local state = {
@@ -57,7 +49,7 @@ Terminal.__index = Terminal
 function Terminal.new(term_type)
   local self = setmetatable({}, Terminal)
   self.type = term_type
-  self.newline = OS.newline
+  self.newline = OS.eol
   return self
 end
 
@@ -191,10 +183,6 @@ function M.UpdateWinbarTitles()
   end
 end
 
-function M.setup(opts)
-  M.config = vim.tbl_deep_extend('force', M.config, opts or {})
-end
-
 local function SafeCloseTerminal(term_type)
   local s = state[term_type]
   if s.win and vim.api.nvim_win_is_valid(s.win) then
@@ -236,7 +224,7 @@ function M.PioTerminal(command, terminal_type)
 
     if command and command ~= '' then
       if current.job_id and current.job_id > 0 then
-        vim.fn.chansend(current.job_id, command .. OS.newline)
+        vim.fn.chansend(current.job_id, command .. OS.eol)
       end
     end
     return
@@ -382,5 +370,90 @@ end, { silent = true })
 vim.keymap.set('n', [[<leader>\t]], function()
   M.PioTerminal('', 'cli')
 end, { silent = true })
+
+-- function M.stdout_callback(job_id, data, event)
+--   if not data or #data == 0 or not current_token or current_token == "" then return end
+--   local processed_lines = {}
+--   for i, line in ipairs(data) do processed_lines[i] = line:gsub("\r", ""):gsub("\x1b%[[0-9;]*%a", "") end
+--   local chunk_count = #processed_lines
+--
+--   if chunk_count > 1 then
+--     M.content = M.content .. M.pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
+--     M.pio_buffer = processed_lines[chunk_count]
+--   else
+--     M.content = M.content .. M.pio_buffer .. processed_lines
+--     M.pio_buffer = processed_lines
+--   end
+--
+--   local pass_target = 'PASS' .. current_id
+--   -- FIXED: Restored underscores to ensure matching against compiler token outputs
+--   local has_pass = M.content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
+--   local has_done = M.content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
+--   local has_fail = M.content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
+--
+--   if has_pass or has_fail or has_done then
+--     local active_cb = callBack
+--     local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
+--
+--     if has_fail or has_done then
+--       callBack = nil
+--       M.queue = {}
+--
+--       if clangd_check_active then
+--         clangd_extracted_args = {}
+--         local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
+--         local end_idx = M.content:find(end_pattern, 1, true)
+--         local start_idx = nil
+--
+--         if end_idx then
+--           local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
+--           local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
+--           local search_zone = M.content:sub(1, end_idx - 1)
+--           local current_pos = 1
+--           while true do
+--             local next_start, next_end = search_zone:find(start_pattern, current_pos, true)
+--             if not next_start then
+--               if not start_idx then
+--                 local fb_start, fb_end = search_zone:find(fallback_echo, current_pos, true)
+--                 if fb_start then start_idx = fb_end end
+--               end
+--               break
+--             end
+--             start_idx = next_end
+--             current_pos = next_start + 1
+--           end
+--         end
+--
+--         if start_idx and end_idx and end_idx > start_idx then
+--           local fresh_run_logs = string.sub(M.content, start_idx + 1, end_idx - 1)
+--           if not string.find(fresh_run_logs, '%.clang%-format') then
+--             local seen = {}
+--             for arg in string.gmatch(fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
+--               local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
+--               if not seen[clean_flag] then
+--                 seen[clean_flag] = true
+--                 table.insert(clangd_extracted_args, clean_flag)
+--               end
+--             end
+--           end
+--         else
+--           M.pio_buffer = ""
+--           M.content = ""
+--           return
+--         end
+--         clangd_check_active = false
+--       end
+--       M.pio_buffer = ''
+--       M.content = ''
+--     end
+--
+--     if final_status and active_cb then vim.schedule(function() active_cb(final_status) end) end
+--     return
+--   end
+-- end
+
+function M.setup(opts)
+  M.config = vim.tbl_deep_extend('force', M.config, opts or {})
+end
 
 return M
