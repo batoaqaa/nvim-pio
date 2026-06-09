@@ -26,13 +26,9 @@ local target_panel_height = 0
 local pio_buffer = ''
 local content = ''
 
--- AUTOMATED TITLE FORMATTER: Updates winbar hints based on active screen visibility
 local function UpdateWinbarTitles()
-  -- FIXED DETECTOR: Queries the active layout canvas grid splits directly
   local cli_visible = pio_cli_buf and vim.fn.bufwinid(pio_cli_buf) ~= -1
   local mon_visible = pio_mon_buf and vim.fn.bufwinid(pio_mon_buf) ~= -1
-
-  -- Displays [;; Switch] only if both splits are open side-by-side on your screen right now
   local hint = (cli_visible and mon_visible) and ' [;; Switch] ' or ' [; Hide] '
 
   vim.api.nvim_set_hl(0, 'MyWinBar', { bg = '#80a3d4', fg = '#000000' })
@@ -64,6 +60,8 @@ local function SafeCloseTerminal(buf_id)
 end
 
 function M.ToggleTerminal(command, terminal_type)
+  vim.notify(string.format('[ENTRY] command: %q, type: %q', tostring(command), tostring(terminal_type)), vim.log.levels.INFO)
+
   if terminal_type ~= 'monitor' and terminal_type ~= 'cli' then
     terminal_type = (command and string.find(command, ' monitor')) and 'monitor' or 'cli'
   end
@@ -91,6 +89,7 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   if other_win and vim.api.nvim_win_is_valid(other_win) then
+    vim.notify('[STEP 2] Mutual exclusion matched. Closing opponent split panel frame.', vim.log.levels.INFO)
     SafeCloseTerminal(other_buf)
     vim.schedule(function()
       M.ToggleTerminal(command, terminal_type)
@@ -99,10 +98,13 @@ function M.ToggleTerminal(command, terminal_type)
   end
 
   if target_win and vim.api.nvim_win_is_valid(target_win) then
+    vim.notify('[STEP 3] Target view visible. Moving window focus target index.', vim.log.levels.INFO)
     vim.api.nvim_set_current_win(target_win)
     pcall(vim.api.nvim_win_set_height, target_win, target_panel_height)
     return
   end
+
+  vim.notify(string.format('[STEP 4] INITIALIZING SPALSH SPAWNER PATH FOR: %s', terminal_type), vim.log.levels.WARN)
 
   local is_new_buffer = false
   if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
@@ -204,7 +206,7 @@ function M.ToggleTerminal(command, terminal_type)
     end)
   end, { buffer = target_buf, silent = true })
 
-  -- 🌟 CRASH-PROOF VISIBILITY GUARANTEED SWITCHER BINDING 🌟
+  -- 🔍 KEYMAP TRACER BLOCK: Capture the exact visibility metrics right as keys hit
   vim.keymap.set({ 'n', 't' }, ';;', function()
     if vim.api.nvim_get_mode().mode == 't' then
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
@@ -212,15 +214,20 @@ function M.ToggleTerminal(command, terminal_type)
 
     local nt = (terminal_type == 'monitor') and 'cli' or 'monitor'
     local nb = (nt == 'monitor') and pio_mon_buf or pio_cli_buf
+    local nw_id = nb and vim.fn.bufwinid(nb) or -1
 
-    -- FIXED VISIBILITY BARRIER: Check the live screen window split layout grid tree directly.
-    -- If the opposite terminal buffer split window layout is missing (bufwinid == -1),
-    -- treat ';;' as a safe window hider (a single ';') and close the window panel cleanly!
+    vim.notify(
+      string.format('[;; KEYMAP HOOK] Current Panel: %s, Next Target Buffer ID: %s, Screen Window ID (bufwinid): %d', terminal_type, tostring(nb), nw_id),
+      vim.log.levels.INFO
+    )
+
     if not nb or vim.fn.bufwinid(nb) == -1 then
+      vim.notify("[;; REJECTED TRANSITION] Target window doesn't exist on screen grid canvas! Closing active view.", vim.log.levels.WARN)
       SafeCloseTerminal(target_buf)
       return
     end
 
+    vim.notify('[;; PASSED SWITCH] Target is open on screen layout! Cross-switching focus lanes.', vim.log.levels.INFO)
     SafeCloseTerminal(target_buf)
     vim.schedule(function()
       M.ToggleTerminal('', nt)
@@ -259,6 +266,13 @@ vim.keymap.set('n', [[<leader>\t]], function()
   M.ToggleTerminal('', 'cli')
 end, { silent = true })
 
+vim.keymap.set('n', [[<leader>\gm]], function()
+  M.ToggleTerminal('', 'monitor')
+end, { silent = true })
+vim.keymap.set('n', [[<leader>\t]], function()
+  M.ToggleTerminal('', 'cli')
+end, { silent = true })
+
 function M.stdoutcallback(job_id, data, event)
   if not data or #data == 0 or not current_token or current_token == '' then
     return
@@ -273,6 +287,7 @@ function M.stdoutcallback(job_id, data, event)
     content = content .. pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
     pio_buffer = processed_lines[chunk_count]
   else
+    -- FIXED INDEX ASSIGNMENT: Pulls the first text row correctly out of your formatted array table [INDEX]
     content = content .. pio_buffer .. processed_lines[1]
     pio_buffer = processed_lines[1]
   end
@@ -350,6 +365,7 @@ function M.stdoutcallback(job_id, data, event)
 end
 
 return M
+
 -- local M = {}
 --
 -- -- -- =============================================================================
