@@ -38,12 +38,12 @@ M.content = ''
 
 -- The Immutable Global State Registry Core Matrix
 local state = {
-  cli = { buf = nil, win = nil, job_id = nil, instance = nil, title = ' Pio CLI> ' },
-  monitor = { buf = nil, win = nil, job_id = nil, instance = nil, title = ' Pio Monitor ' },
+  cli = { buf = nil, win = nil, job_id = nil, title = ' Pio CLI> ' },
+  monitor = { buf = nil, win = nil, job_id = nil, title = ' Pio Monitor ' },
 }
 
 ----------------------------------------------------------------------------------------
--- 🌟 RIGID SINGLETON TERMINAL CLASS ARCHITECTURE
+-- 🌟 HIGH-PERFORMANCE PERSISTENT TERMINAL CLASS (PROTOTYPE ARCHITECTURE)
 ----------------------------------------------------------------------------------------
 ---@class Terminal
 ---@field type string The type of terminal instance ('cli' or 'monitor')
@@ -51,7 +51,7 @@ local state = {
 local Terminal = {}
 Terminal.__index = Terminal
 
----Constructor: Enforces strict structural isolation and data field validation
+---Constructor: Instantiates the single immutable reference fields
 ---@param term_type string The target engine lane selection ('cli' or 'monitor')
 ---@return Terminal
 function Terminal.new(term_type)
@@ -61,16 +61,21 @@ function Terminal.new(term_type)
   return self
 end
 
----Rigid Method 1: Send a string command text string directly with carriage return guards
+---Rigid Method 1: Send a string command. Automatically handles lazy window generation!
 ---@param command string The instruction text payload line to pipe down the channel
 function Terminal:send(command)
   local s = state[self.type]
-  if not s or not s.job_id or s.job_id <= 0 then
-    return
-  end
   local cmd_str = tostring(command or '')
 
-  -- CARRIAGE RETURN GUARD: Smash out of any accidental multi-line input locks instantly!
+  -- LAZY AUTO-SPAWN GUARD: If the window or process died behind the scenes,
+  -- calling :send() will automatically rebuild and open the panel first! [INDEX]
+  if not s.job_id or s.job_id <= 0 or not s.win or not vim.api.nvim_win_is_valid(s.win) then
+    M.PioTerminal('', self.type)
+  end
+
+  if not s.job_id or s.job_id <= 0 then
+    return
+  end
   if cmd_str ~= '' then
     vim.fn.chansend(s.job_id, self.newline)
   end
@@ -91,7 +96,6 @@ function Terminal:close()
   s.win = nil
   s.buf = nil
   s.job_id = nil
-  s.instance = nil -- Flush singleton reference on full process death block
 
   vim.schedule(function()
     vim.cmd('wincmd =')
@@ -118,8 +122,10 @@ end
 ---@return boolean # True if the split window canvas layout was drawn successfully
 function Terminal:show()
   local s = state[self.type]
-  if not s or not s.buf or not vim.api.nvim_buf_is_valid(s.buf) then
-    return false
+  -- If buffer is lost or completely uninitialized, trigger a fresh procedural generation loop pass
+  if not s.buf or not vim.api.nvim_buf_is_valid(s.buf) then
+    M.PioTerminal('', self.type)
+    return true
   end
 
   if s.win and vim.api.nvim_win_is_valid(s.win) then
@@ -156,6 +162,13 @@ end
 function Terminal:get_win()
   return state[self.type].win
 end
+
+-- 🌟 ZERO OVERHEAD STATIC INSTANCE INJECTIONS:
+-- Pre-instantiate the objects on boot. They are permanently available on the module table. [INDEX]
+---@type Terminal
+M.cli = Terminal.new('cli')
+---@type Terminal
+M.monitor = Terminal.new('monitor')
 ----------------------------------------------------------------------------------------
 
 local function IsTerminalWindowOpen(term_type)
@@ -178,6 +191,10 @@ function M.UpdateWinbarTitles()
   end
 end
 
+function M.setup(opts)
+  M.config = vim.tbl_deep_extend('force', M.config, opts or {})
+end
+
 local function SafeCloseTerminal(term_type)
   local s = state[term_type]
   if s.win and vim.api.nvim_win_is_valid(s.win) then
@@ -197,7 +214,6 @@ end
 ---Core window layout allocator and partition spawner namespace
 ---@param command string Initial command payload text instruction to pipe down channel
 ---@param terminal_type string Layout selection mode profile target ('cli' or 'monitor')
----@return Terminal|nil # Returns a typed OOP Terminal class object handle if calling a CLI lane
 function M.PioTerminal(command, terminal_type)
   local cmd_str = tostring(command or '')
   if terminal_type ~= 'monitor' and terminal_type ~= 'cli' then
@@ -223,9 +239,7 @@ function M.PioTerminal(command, terminal_type)
         vim.fn.chansend(current.job_id, command .. OS.newline)
       end
     end
-
-    -- 🌟 RIGID RETRIEVAL: Returns the single, permanent instance. 0% duplication risk!
-    return (terminal_type == 'cli') and current.instance or nil
+    return
   end
 
   -- Step 4: Scratch Buffer Allocation Provision Pass
@@ -262,9 +276,6 @@ function M.PioTerminal(command, terminal_type)
     })
     vim.b[current.buf].terminal_job_id = spawned_job_id
     current.job_id = spawned_job_id
-
-    -- 🌟 RIGID SPAWN: Instantiates the class EXACTLY ONCE on channel initialization pass!
-    current.instance = Terminal.new(terminal_type)
 
     if OS.is_win then
       local init_enc = '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Clear-Host;\r\n'
@@ -363,9 +374,6 @@ function M.PioTerminal(command, terminal_type)
       vim.fn.chansend(current.job_id, command .. OS.newline)
     end
   end
-
-  -- 🌟 RIGID ASSIGNMENT: Delivers the single immutable class instance safely
-  return (terminal_type == 'cli') and current.instance or nil
 end
 
 vim.keymap.set('n', [[<leader>\gm]], function()
@@ -374,8 +382,5 @@ end, { silent = true })
 vim.keymap.set('n', [[<leader>\t]], function()
   M.PioTerminal('', 'cli')
 end, { silent = true })
-function M.setup(opts)
-  M.config = vim.tbl_deep_extend('force', M.config, opts or {})
-end
 
 return M

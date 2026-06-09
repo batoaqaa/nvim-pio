@@ -172,15 +172,11 @@ M.run_sequence = function(tasks)
       ------------------------------------------------------
 
       require('nvimpio.device.terminal').stdout_callback = M.stdoutcallback
-      pio_cli = require('nvimpio.device.terminal').PioTerminal("", "cli")
-      if pio_cli then
+      pio_cli = require('nvimpio.device.terminal').cli
+      -- pio_cli = require('nvimpio.device.terminal').PioTerminal("", "cli")
         if require('nvimpio').is_active then _G.metadata.isBusy = true end
         pio_cli:show()
         callBack('INIT')
-      else
-        OS.notify(fromMsg .. 'project initDb no device terminal', "info")
-        return
-      end
     end)
   end
 end

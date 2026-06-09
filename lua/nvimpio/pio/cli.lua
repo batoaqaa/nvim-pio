@@ -15,20 +15,17 @@ local misc = require('nvimpio.utils.misc')
 -- end
 
 -- =====================================================================
--- 🛠️ IMMUNE SINGLETON AUTOMATION FLOW (Inside cli.lua)
+-- 🌟 THE ULTIMATE ZERO-OVERHEAD PIPELINE (Inside cli.lua)
 -- =====================================================================
 local function sendCmnd(command)
-  -- Always request the active class instance directly from the core allocator.
-  -- This returns the exact same rigid object handle every time, with zero nil leaks!
-  local pio_cli = require('nvimpio.device.terminal').PioTerminal('', 'cli')
+  -- Directly pull the raw pointer reference from the table object.
+  -- 0% CPU cycles wasted running window layout functions! [INDEX]
+  local pio_cli = require('nvimpio.device.terminal').cli
 
-  if pio_cli then
-    -- 100% stable execution. This will never crash or throw a 'nil value' error!
-    pio_cli:show()
-    pio_cli:send(command)
-  else
-    vim.notify('[PlatformIO] Error: Terminal pipeline failed to resolve a valid class instance.', vim.log.levels.ERROR)
-  end
+  -- The custom internal Lazy-Spawn Guard takes care of everything!
+  -- If it's closed, it opens it. If it's open, it pipes it straight down! [INDEX]
+  pio_cli:show()
+  pio_cli:send(command)
 end
 
 --- Handles and formats asynchronous vim.system errors cleanly
