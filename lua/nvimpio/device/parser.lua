@@ -1,8 +1,9 @@
 local M = {}
 
 -- local clangd = require('nvimpio.clangd.control')
-local misc = require('nvimpio.utils.misc')
-local term = require('nvimpio.device.terminal')
+-- local misc = require('nvimpio.utils.misc')
+-- local term = require('nvimpio.device.terminal')
+local terminal = require('nvimpio.device.terminal').terminal
 local boilerplate = require('nvimpio.boilerplate')
 
 local boilerplate_gen = boilerplate.boilerplate_gen
@@ -21,7 +22,7 @@ local fromMsg = ''
 local trm
 local pio_buffer = ''
 local content = ''
--- term.stdout_callback = M.stdoutcallback
+-- require('nvimpio.device.terminal').stdout_callback = M.stdoutcallback
 
 -- stylua: ignore
 -- function M.stdoutcallback(_, _, data, _)
@@ -166,7 +167,7 @@ M.run_sequence = function(tasks)
       clangd_check_active = false -- Arm the parsing loop tracker
       ------------------------------------------------------
 
-      term.stdout_callback = M.stdoutcallback
+      require('nvimpio.device.terminal').stdout_callback = M.stdoutcallback
       callBack('INIT')
     end)
   end
@@ -178,7 +179,7 @@ end
 -- stylua: ignore
 function M.cleanSequencer()
   _G.metadata.isBusy = false
-  term.stdout_callback = nil -- Careful: make sure this doesn't break other terms
+  require('nvimpio.device.terminal').stdout_callback = nil -- Careful: make sure this doesn't break other terms
 end
 
 -- stylua: ignore
@@ -192,7 +193,7 @@ function M.handlePioinitDb(result, board, on_done)
       boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
       boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
 
-      trm = term.ToggleTerminal(pop(M.queue), 'float')
+      trm = terminal(pop(M.queue), 'float')
       -- active_env = M.get_active__env('PIO init+db: ')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
@@ -241,7 +242,7 @@ function M.handlePioinit(result, board, on_done)
       boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
       boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
 
-      trm = term.ToggleTerminal(pop(M.queue), 'float')
+      trm = terminal(pop(M.queue), 'float')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
@@ -271,7 +272,7 @@ function M.handlePioInstall(result, on_done)
     if #M.queue > 0 then
       local nvimpio = require('nvimpio')
       if nvimpio.is_active then _G.metadata.isBusy = true end
-      trm = term.ToggleTerminal(pop(M.queue), 'float')
+      trm = terminal(pop(M.queue), 'float')
       if trm and on_done and type(on_done) == "function" then
         vim.keymap.set('n', '<leader>\\t', function() trm:open() end, { desc = 'open Term' })
       end
@@ -314,7 +315,7 @@ function M.clangFormat(result)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
-      trm = term.ToggleTerminal(pop(M.queue), 'float')
+      trm = terminal(pop(M.queue), 'float')
     end
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify('Clang formatter: Done', "info")
@@ -333,7 +334,7 @@ function M.handleIdedata0(result, active_env, on_done)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
-      trm = term.ToggleTerminal(pop(M.queue), 'float')
+      trm = terminal(pop(M.queue), 'float')
     end
   elseif result == 'PASS' .. current_id then
     OS.notify(string.format('%sidedata  pass%s', fromMsg, current_id), "info")
@@ -364,7 +365,7 @@ function M.handlePioDBArgs(result, active_env, on_done)
     if #M.queue > 0 then
       pass1 = false
       _G.metadata.isBusy = true
-      trm = term.ToggleTerminal(pop(M.queue), 'float')
+      trm = terminal(pop(M.queue), 'float')
     end
   elseif result == 'PASS1' then -- .. current_id then                         -- compiledb PASS1
     OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
@@ -417,11 +418,11 @@ function M.handlePioDB(result, active_env, on_done)
     if #M.queue > 0 then
       pass1 = false
       _G.metadata.isBusy = true
-      term.ToggleTerminal(pop(M.queue), 'float')
+      terminal(pop(M.queue), 'float')
     end
   elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
     OS.notify(string.format('%sls  for %s', fromMsg, active_env), "info")
-    if #M.queue > 0 then term.ToggleTerminal(pop(M.queue), 'float') end
+    if #M.queue > 0 then terminal(pop(M.queue), 'float') end
   elseif result == 'DONE' then -- .. current_id then                         -- compiledb PASS1
     vim.schedule(function()
       OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
@@ -445,7 +446,7 @@ function M.handleIdedata(result, active_env, on_done)
     if #M.queue > 0 then
       pass2 = false
       _G.metadata.isBusy = true
-      trm = term.ToggleTerminal(pop(M.queue), 'float')
+      trm = terminal(pop(M.queue), 'float')
     end
   elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
     OS.notify(string.format('%sidedata  for %s', fromMsg, active_env), "info")
@@ -504,7 +505,7 @@ function M.handleClangdCheck(result, on_done)
       clangd_extracted_args = {}       -- Clear the collected flags table
       clangd_check_active = true     -- Arm the parsing loop tracker
       _G.metadata.isBusy = true
-      trm = term.ToggleTerminal(pop(M.queue), 'float')
+      trm = terminal(pop(M.queue), 'float')
     end
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify(string.format('%sclangd check  done', fromMsg), 'info')
@@ -533,13 +534,13 @@ function M.handlePiolib(result)
   if result == 'INIT' then
     if #M.queue > 0 then
       _G.metadata.isBusy = true
-      trm = term.ToggleTerminal(pop(M.queue), 'float')
+      trm = terminal(pop(M.queue), 'float')
       -- if trm then trm:open() end
     end
   elseif result == 'PASS' then
     OS.notify('PIO lib+db:  pass ' .. current_id, "info")
     -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
-    if #M.queue > 0 then trm = term.ToggleTerminal(table.remove(M.queue, 1), 'float') end
+    if #M.queue > 0 then trm = terminal(table.remove(M.queue, 1), 'float') end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
       OS.notify('PIO lib+db: Done', "info")

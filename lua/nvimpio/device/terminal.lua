@@ -69,7 +69,7 @@ end
 
 function M.IsTerminalOpen(term_type) return IsTerminalWindowOpen(term_type) end
 
--- function M.ToggleTerminal(command, terminal_type)
+-- function M.terminal(command, terminal_type)
 --   local cmd_str = tostring(command or "")
 --   if terminal_type ~= "monitor" and terminal_type ~= "cli" then
 --     terminal_type = cmd_str:find("monitor") and "monitor" or "cli"
@@ -90,7 +90,7 @@ function M.IsTerminalOpen(term_type) return IsTerminalWindowOpen(term_type) end
 --   -- Step 2: Mutual Exclusion Pass
 --   if IsTerminalWindowOpen(opposite_type) then
 --     SafeCloseTerminal(opposite_type)
---     vim.schedule(function() M.ToggleTerminal(command, terminal_type) end)
+--     vim.schedule(function() M.terminal(command, terminal_type) end)
 --     return
 --   end
 --
@@ -199,7 +199,7 @@ function M.IsTerminalOpen(term_type) return IsTerminalWindowOpen(term_type) end
 --     end
 --
 --     SafeCloseTerminal(terminal_type)
---     vim.schedule(function() M.ToggleTerminal("", opposite_type) end)
+--     vim.schedule(function() M.terminal("", opposite_type) end)
 --   end, { buffer = current.buf, silent = true })
 --
 --   -- Global Intercept Cross-Movement Navigation Hooks
@@ -222,7 +222,7 @@ function M.IsTerminalOpen(term_type) return IsTerminalWindowOpen(term_type) end
 -- end
 
 
-function M.ToggleTerminal(command, terminal_type)
+function M.terminal(command, terminal_type)
   local cmd_str = tostring(command or "")
   if terminal_type ~= "monitor" and terminal_type ~= "cli" then
     terminal_type = cmd_str:find("monitor") and "monitor" or "cli"
@@ -232,7 +232,7 @@ function M.ToggleTerminal(command, terminal_type)
 
   if IsTerminalWindowOpen(opposite_type) then
     SafeCloseTerminal(opposite_type)
-    vim.schedule(function() M.ToggleTerminal(command, terminal_type) end)
+    vim.schedule(function() M.terminal(command, terminal_type) end)
     return
   end
 
@@ -323,7 +323,7 @@ function M.ToggleTerminal(command, terminal_type)
       return
     end
     SafeCloseTerminal(terminal_type)
-    vim.schedule(function() M.ToggleTerminal("", opposite_type) end)
+    vim.schedule(function() M.terminal("", opposite_type) end)
   end, { buffer = current.buf, silent = true })
 
   vim.keymap.set("n", "<C-h>", "<C-w>h")
@@ -350,8 +350,8 @@ function M.ToggleTerminal(command, terminal_type)
 end
 
 -- Core User Shortcut Trigger Mappings: Make sure your macro string fields are explicitly passed!
-vim.keymap.set('n', [[<leader>\gm]], function() M.ToggleTerminal("pio device monitor", "monitor") end, { silent = true })
-vim.keymap.set('n', [[<leader>\t]], function() M.ToggleTerminal("", "cli") end, { silent = true })
+vim.keymap.set('n', [[<leader>\gm]], function() M.terminal("pio device monitor", "monitor") end, { silent = true })
+vim.keymap.set('n', [[<leader>\t]], function() M.terminal("", "cli") end, { silent = true })
 -- function M.setup(opts)
 --   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
 -- end

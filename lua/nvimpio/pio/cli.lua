@@ -1,7 +1,7 @@
 local M = {}
 
 -- local ToggleTerminal = require('nvimpio.utils.term').ToggleTerminal
-local ToggleTerminal = require('nvimpio.device.terminal').ToggleTerminal
+local terminal = require('nvimpio.device.terminal').terminal
 local misc = require('nvimpio.utils.misc')
 
 --- Handles and formats asynchronous vim.system errors cleanly
