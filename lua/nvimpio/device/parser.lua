@@ -5,7 +5,7 @@ local M = {}
 -- local term = require('nvimpio.device.terminal')
 -- local terminal = require('nvimpio.device.terminal').PioTerminal
 
----@type Terminal
+--@type Terminal
 local pio_cli = _G.metadata.pio_cli
 
 local boilerplate = require('nvimpio.boilerplate')
@@ -172,7 +172,7 @@ M.run_sequence = function(tasks)
       ------------------------------------------------------
 
       require('nvimpio.device.terminal').stdout_callback = M.stdoutcallback
-      pio_cli = pio_cli or require('nvimpio.device.terminal').PioTerminal("", "cli")
+      pio_cli = require('nvimpio.device.terminal').PioTerminal("", "cli")
       if pio_cli then
         if require('nvimpio').is_active then _G.metadata.isBusy = true end
         pio_cli:show()
