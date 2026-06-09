@@ -13,26 +13,40 @@ local misc = require('nvimpio.utils.misc')
 --     pio_cli:send(command)
 --   end
 -- end
+
 -- =====================================================================
--- 🛠️ FIXED CRASH-PROOF AUTOMATION SEQUENCE (Inside cli.lua)
+-- 🛠️ IMMUNE METHOD GUARD AUTOMATION FLOW (Inside cli.lua)
 -- =====================================================================
 local function sendCmnd(command)
-  -- Always reference the live table key directly at runtime!
-  -- This is 100% immune to variable snapshot desynchronization leaks.
+  -- 1. Grab the current active context instance directly at runtime
   _G.metadata.pio_cli = _G.metadata.pio_cli or require('nvimpio.device.terminal').PioTerminal('', 'cli')
-
-  -- Isolate the verified live object reference for the current execution pass block
   local active_cli = _G.metadata.pio_cli
 
   if active_cli then
-    -- Safely call your prototype methods with absolute zero risk of nil crashes!
-    active_cli:show()
-    active_cli:send(command)
+    -- 2. METATABLE METHOD GUARD: Explicitly verify that the object prototype has the 'show' method.
+    -- If it does not exist due to a script cache lock, use a safe procedural fallback!
+    if type(active_cli.show) == 'function' then
+      active_cli:show()
+    else
+      -- Fallback: Procedurally ensure the viewport layout panel is open on screen rows
+      require('nvimpio.device.terminal').PioTerminal('', 'cli')
+    end
+
+    -- 3. Execute the command string payload natively down the active channel
+    if type(active_cli.send) == 'function' then
+      active_cli:send(command)
+    else
+      -- Fallback: Directly pipe string payload down raw underlying Neovim job handle channel
+      local fallback_job_id = active_cli.job_id
+      if fallback_job_id and fallback_job_id > 0 then
+        local newline = vim.fn.has('win32') == 1 and '\r\n' or '\n'
+        vim.fn.chansend(fallback_job_id, tostring(command or '') .. newline)
+      end
+    end
   else
     vim.notify('[PlatformIO] Error: Terminal pipeline failed to resolve a valid class instance.', vim.log.levels.ERROR)
   end
 end
-
 --- Handles and formats asynchronous vim.system errors cleanly
 ---@param from string The notification origin tag
 ---@param prefix_msg string The introductory text (e.g., "build compiledb failed: ")
