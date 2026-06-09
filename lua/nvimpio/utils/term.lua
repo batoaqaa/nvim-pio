@@ -1,12 +1,16 @@
 -- stylua: ignore start
 local M = {}
 
--- 1. Default Public User Configuration Matrix
+-- Core Inter-Module Event Callbacks
+M.stdout_callback = nil
+M.exit_callback = nil
+
+-- Default Public User Configuration Matrix
 M.config = {
-  panel_height = 0.28,
+  panel_height = 0.25,
   winbar_bg = '#80a3d4',
   winbar_fg = '#000000',
-  shell = vim.fn.has('win32') == 1 and {
+  shell = OS.is_win and {
     'pwsh.exe',
     '-NoExit',
     '-NoLogo',
@@ -28,10 +32,6 @@ local state = {
   cli =     { buf = nil, win = nil, title = " Pio CLI> " },
   monitor = { buf = nil, win = nil, title = " Pio Monitor " },
 }
-
--- Core Inter-Module Event Callbacks
-M.stdout_callback = nil
-M.exit_callback = nil
 
 -- Absolute truth check to verify if a terminal panel split is actively drawn on screen
 local function IsTerminalWindowOpen(term_type)
@@ -67,9 +67,7 @@ local function SafeCloseTerminal(term_type)
   end)
 end
 
-function M.IsTerminalOpen(term_type)
-  return IsTerminalWindowOpen(term_type)
-end
+function M.IsTerminalOpen(term_type) return IsTerminalWindowOpen(term_type) end
 
 function M.ToggleTerminal(command, terminal_type)
   local cmd_str = tostring(command or "")
