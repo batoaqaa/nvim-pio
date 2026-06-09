@@ -1,7 +1,5 @@
 local M = {}
 
-local config = require('nvimpio').config
-
 -- Assigned dynamically by external sub-modules like 'platformio.utils.pio'
 M.stdout_callback = nil
 M.exit_callback = nil
@@ -10,16 +8,12 @@ M.exit_callback = nil
 local pio_cli_buf = nil
 local pio_mon_buf = nil
 
--- Display window tracking handles (Safely reset to nil on any close)
+-- Display window tracking handles
 local pio_cli_win = nil
 local pio_mon_win = nil
 
 -- HARD-LOCK HEIGHT PROFILE METRIC: Stores the static target height globally
 local target_panel_height = 0
-
--- Text history buffer accumulators scoped safely at the module file-level
-local pio_buffer = ''
-local content = ''
 
 ----------------------------------------------------------------------------------------
 -- INFO: Safe terminal exit routine (Cleans up window IDs to stop duplicate spawning)
@@ -31,7 +25,7 @@ local function SafeCloseTerminal(buf_id)
     end
   end
 
-  -- FIXED GLOBAL REFERENCE CLEANUP: Synchronizes variables to prevent duplicate window layers
+  -- Synchronize tracking pointer handles immediately on window destruction
   if buf_id == pio_cli_buf then
     pio_cli_win = nil
   end
@@ -47,16 +41,17 @@ end
 ----------------------------------------------------------------------------------------
 -- INFO: Core Layout Spawner (Global Edge-Anchored Window Partition Architecture)
 function M.ToggleTerminal(command, terminal_type)
-  -- 1. Enforce strict title header assignments immediately at the top
-  local title = ''
-  if terminal_type == 'monitor' or (command and string.find(command, ' monitor')) then
-    title = ' Pio Monitor '
-    terminal_type = 'monitor'
-  else
-    title = ' Pio CLI> '
-    terminal_type = 'cli'
+  -- 1. FIXED TYPE RESOLUTION: Enforce type prioritizing explicit string signatures
+  -- This fixes the ';;' switcher by blocking an empty command string from resetting the type!
+  if terminal_type ~= 'monitor' and terminal_type ~= 'cli' then
+    if command and string.find(command, ' monitor') then
+      terminal_type = 'monitor'
+    else
+      terminal_type = 'cli'
+    end
   end
 
+  local title = (terminal_type == 'monitor') and ' Pio Monitor ' or ' Pio CLI> '
   local target_win = (terminal_type == 'monitor') and pio_mon_win or pio_cli_win
   local other_win = (terminal_type == 'monitor') and pio_cli_win or pio_mon_win
   local target_buf = (terminal_type == 'monitor') and pio_mon_buf or pio_cli_buf
@@ -80,7 +75,7 @@ function M.ToggleTerminal(command, terminal_type)
     other_win = nil
   end
 
-  -- 2. MUTUAL EXCLUSION ASYNC BRIDGE:
+  -- 2. MUTUAL EXCLUSION ASYNC BRIDGE: Hide other panel before rendering target
   if other_win and vim.api.nvim_win_is_valid(other_win) then
     SafeCloseTerminal(other_buf)
 
@@ -91,12 +86,12 @@ function M.ToggleTerminal(command, terminal_type)
     return
   end
 
-  -- 3. ALWAYS-OPEN TARGET ENGINE:
+  -- 3. ALWAYS-OPEN TARGET ENGINE: Focus pre-existing window handle instead of duplicating
   if target_win and vim.api.nvim_win_is_valid(target_win) then
     vim.api.nvim_set_current_win(target_win)
     pcall(vim.api.nvim_win_set_height, target_win, target_panel_height)
 
-    -- If an execution string macro was explicitly passed, process it immediately
+    -- If a new execution command macro was passed, pipe it directly down to the shell channel
     if command and command ~= '' then
       local job_id = vim.b[target_buf].terminal_job_id
       if job_id then
@@ -127,7 +122,7 @@ function M.ToggleTerminal(command, terminal_type)
     height = target_panel_height,
   }
 
-  -- 6. RENDER THE STABLE WINDOW PANE FIRST
+  -- 6. RENDER THE STABLE WINDOW PANE
   local new_win = vim.api.nvim_open_win(target_buf, true, win_opts)
   if terminal_type == 'monitor' then
     pio_mon_win = new_win
@@ -137,7 +132,6 @@ function M.ToggleTerminal(command, terminal_type)
 
   -- 7. PROCESS LAUNCHER: Spawns the shell thread strictly after the layout window is alive
   if is_new_buffer then
-    -- Detect shell path natively (Prefers pwsh.exe on modern Windows setups)
     local target_shell = vim.o.shell
     if vim.fn.has('win32') == 1 then
       if vim.fn.executable('pwsh.exe') == 1 then
@@ -147,7 +141,6 @@ function M.ToggleTerminal(command, terminal_type)
       end
     end
 
-    -- Running jobstart natively while inside the active terminal window context
     local spawned_job_id = vim.fn.jobstart(target_shell, {
       term = true,
       on_stdout = function(job_id, data, event)
@@ -167,8 +160,7 @@ function M.ToggleTerminal(command, terminal_type)
       end,
     })
 
-    -- FIXED JOB ID STORAGE: Manually bind the active job ID pointer to the buffer variables.
-    -- This guarantees that subsequent commands sent via chansend reach the existing shell prompt session!
+    -- Bind job ID to the buffer variables so chansend targets the same persistent terminal shell
     vim.b[target_buf].terminal_job_id = spawned_job_id
 
     -- AUTOMATED VIEWPORT SCROLL REFLOW ENGINE:
@@ -251,6 +243,8 @@ function M.ToggleTerminal(command, terminal_type)
 
     local next_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
     vim.schedule(function()
+      -- FIXED SWITCHER ROUTING: Passes explicit type parameters directly down
+      -- to guarantee that the toggle engine targets your pre-existing buffer session!
       M.ToggleTerminal('', next_type)
     end)
   end, { buffer = target_buf, silent = true, desc = 'Switch between PlatformIO terminals' })
@@ -296,5 +290,6 @@ function M.ToggleTerminal(command, terminal_type)
     end
   end
 end
+
 return M
 -- INFO: Your unmodified parser logic block remains safely out here
