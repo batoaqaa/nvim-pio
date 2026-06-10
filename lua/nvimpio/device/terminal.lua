@@ -1,22 +1,22 @@
 -- stylua: ignore start
+
 local M = {}
 
--- 1. Default Public User Configuration Matrix
+-- Default Public User Configuration Matrix
 M.config = {
-  panel_height = 0.2,
+  panel_height = 0.25,
   winbar_bg = '#80a3d4',
   winbar_fg = '#000000',
-  -- 🌟 ALL KEYMAP SHORTCUT VALUES EXTRACTED HERE FOR USER CONFIGURATION CONTROL
   keymaps = {
-    open_cli      = [[<leader>\t]],   -- Normal mode shortcut to slide open primary panel
-    open_monitor  = [[<leader>\gm]],  -- Normal mode shortcut to slide open hardware monitor
-    hide_pane     = "q",              -- Normal mode shortcut inside panel buffer to hide split
-    switch_pane   = "<Tab>",             -- Interactive modes shortcut to cross-toggle panels
-    escape_term   = "<Esc>",          -- Terminal mode escape key sequence mapping
-    move_up       = "<C-k>",          -- Cross split navigation moving cursor up
-    move_down     = "<C-j>",          -- Cross split navigation moving cursor down
-    move_left     = "<C-h>",          -- Cross split navigation moving cursor left
-    move_right    = "<C-l>",          -- Cross split navigation moving cursor right
+    open_cli      = [[<leader>\t]],   -- Open primary CLI split panel
+    open_monitor  = [[<leader>\gm]],  -- Open secondary hardware monitor
+    hide_pane     = "q",              -- Hide panel split window
+    switch_pane   = ";;",             -- Toggle back and forth between splits
+    escape_term   = "<Esc>",          -- Drop from terminal insert to normal mode
+    move_up       = "<C-k>",          -- Window focus jumps up
+    move_down     = "<C-j>",          -- Window focus jumps down
+    move_left     = "<C-h>",          -- Window focus jumps left
+    move_right    = "<C-l>",          -- Window focus jumps right
   }
 }
 
@@ -33,8 +33,8 @@ local term_registry = {
 local function SafeCloseTerminal(term_type)
   local state = term_registry[term_type]
   if not state then return end
-  if state.win and vim.api.nvim_win_is_valid(state.win) then
-    vim.api.nvim_win_close(state.win, true)
+  if state.win and vim.api.nvim_win_is_valid(state.win) then 
+    vim.api.nvim_win_close(state.win, true) 
   end
   state.win = nil
   vim.schedule(function()
@@ -47,7 +47,8 @@ end
 function M.UpdateWinbarTitles()
   local cli_alive = term_registry.cli.buf and vim.api.nvim_buf_is_valid(term_registry.cli.buf)
   local mon_alive = term_registry.monitor.buf and vim.api.nvim_buf_is_valid(term_registry.monitor.buf)
-  local hint = (cli_alive and mon_alive) and " [" .. M.config.keymaps.switch_pane .. " Switch] " or " [" .. M.config.keymaps.hide_pane .. " Hide] "
+  local maps = M.config.keymaps
+  local hint = (cli_alive and mon_alive) and " [" .. maps.switch_pane .. " Switch] " or " [" .. maps.hide_pane .. " Hide] "
 
   vim.api.nvim_set_hl(0, 'PioWinBar', { bg = M.config.winbar_bg, fg = M.config.winbar_fg })
 
@@ -62,10 +63,10 @@ end
 ----------------------------------------------------------------------------------------
 -- 🌟 THE AUTONOMOUS TERMINAL CLASS ARCHITECTURE
 ----------------------------------------------------------------------------------------
----@class Terminal; @field term_type string; @field newline string; @field shell string|table
+---@class Terminal; @field term_type string; @field newline string; @field shell table
 local Terminal = {
-  term_type = "",
-  newline   = OS.eol,
+  term_type = "",     
+  newline   = OS.eol, 
   shell     = OS.shell,
 }
 Terminal.__index = Terminal
@@ -82,16 +83,13 @@ function Terminal:send(command)
   local state = term_registry[self.term_type]
   if not state then return end
   local cmd_str = tostring(command or "")
-
+  
   if not state.job or state.job <= 0 or not state.win or not vim.api.nvim_win_is_valid(state.win) then
     self:show()
   end
-
+  
   if not state.job or state.job <= 0 then return end
-  if cmd_str ~= "" then
-    vim.fn.chansend(state.job, self.newline)
-  end
-  -- vim.fn.chansend(state.job, cmd_str .. self.newline)
+  vim.fn.chansend(state.job, cmd_str .. self.newline)
 end
 
 -- Hard stop background processes loops safely
@@ -99,14 +97,14 @@ function Terminal:close()
   local state = term_registry[self.term_type]
   if not state or not state.job or state.job <= 0 then return end
   pcall(vim.fn.jobstop, state.job)
-
-  if state.win and vim.api.nvim_win_is_valid(state.win) then
-    vim.api.nvim_win_close(state.win, true)
+  
+  if state.win and vim.api.nvim_win_is_valid(state.win) then 
+    vim.api.nvim_win_close(state.win, true) 
   end
   state.win = nil
   state.buf = nil
   state.job = nil
-
+  
   vim.schedule(function()
     vim.cmd("wincmd =")
     M.UpdateWinbarTitles()
@@ -116,8 +114,8 @@ end
 -- Conceal window views preserving active sessions
 function Terminal:hide()
   local state = term_registry[self.term_type]
-  if state and state.win and vim.api.nvim_win_is_valid(state.win) then
-    vim.api.nvim_win_close(state.win, true)
+  if state and state.win and vim.api.nvim_win_is_valid(state.win) then 
+    vim.api.nvim_win_close(state.win, true) 
   end
   if state then state.win = nil end
   vim.schedule(function()
@@ -125,7 +123,6 @@ function Terminal:hide()
     M.UpdateWinbarTitles()
   end)
 end
-
 
 -- Status check querying layout visibility parameters
 local function IsTerminalOpen(term_type)
@@ -136,6 +133,7 @@ end
 
 function M.IsTerminalOpen(term_type) return IsTerminalOpen(term_type) end
 
+-- High performance view manager layout switcher
 function Terminal:show()
   local state = term_registry[self.term_type]
   if not state then return false end
@@ -185,16 +183,11 @@ function Terminal:_spawn(state, target_height, opposite_type)
   if not channel_id or channel_id <= 0 then return end
   state.job = channel_id
 
-  -- 🌟 THE INDESTRUCTIBLE LIFECYCLE REFRESH HANDSHAKE:
-  -- We use TermRequest to wait until all ConPTY layout tracking row resizes are completely done!
-  -- The exact millisecond the terminal engine stabilizes, we send a single Ctrl+C and Ctrl+L macro.
-  -- This kills the early ghost carriage return stack (\13) and resets the prompt canvas natively!
+  -- Lifecycle reset hook cancels duplicate resize prompt buffers completely [INDEX]
   if OS.is_win then
     local clear_group = vim.api.nvim_create_augroup("PioClearGuard_" .. state.buf, { clear = true })
     vim.api.nvim_create_autocmd("TermRequest", {
-      group = clear_group,
-      buffer = state.buf,
-      once = true,
+      group = clear_group, buffer = state.buf, once = true,
       callback = function()
         vim.schedule(function()
           vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-c><C-l>]], true, true, true), "t", false)
@@ -207,6 +200,7 @@ function Terminal:_spawn(state, target_height, opposite_type)
   self:_attach_keymaps(state, target_height, opposite_type)
 end
 
+-- Encapsulate automated layout focus autocmd listeners
 function Terminal:_attach_events(state, target_height)
   local scroll_group = vim.api.nvim_create_augroup("PioScroll_" .. state.buf, { clear = true })
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
@@ -233,6 +227,7 @@ function Terminal:_attach_events(state, target_height)
   })
 end
 
+-- Encapsulate localized panel navigation keyboard bindings
 function Terminal:_attach_keymaps(state, target_height, opposite_type)
   local maps = M.config.keymaps
   
@@ -287,11 +282,11 @@ local function SetGlobalKeymaps()
   vim.keymap.set("n", M.config.keymaps.open_cli, function() M.cli:show() end, { silent = true })
 end
 SetGlobalKeymaps()
+
+
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
   if opts and opts.shell then Terminal.shell = opts.shell end
-
-  -- 🌟 LIVE UPDATE GATES: Refresh key registration trees instantly upon setup call!
   SetGlobalKeymaps()
 end
 
