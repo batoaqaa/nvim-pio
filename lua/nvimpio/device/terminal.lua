@@ -110,8 +110,14 @@ function Terminal:hide()
 end
 
 -- Re-splits open terminal split windows layouts smoothly
+-- =====================================================================
+-- 🛠️ FIXED: CLEAN SINGLE-PROMPT LIFECYCLE (Inside Part 1)
+-- =====================================================================
 function Terminal:show()
   local target_state = terminal_state_registry[self.terminal_type]
+
+  -- If the buffer is dead or uninitialized, delegate spawning entirely
+  -- to PioTerminal and return early. This prevents duplicate insert calls!
   if not target_state.buffer_id or not vim.api.nvim_buf_is_valid(target_state.buffer_id) then
     M.PioTerminal('', self.terminal_type)
     return true
@@ -130,9 +136,34 @@ function Terminal:show()
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = target_state.window_id })
 
   M.UpdateWinbarTitles()
+
+  -- Only trigger insert mode here for pre-existing hidden tabs
   vim.cmd('startinsert')
   return true
 end
+-- function Terminal:show()
+--   local target_state = terminal_state_registry[self.terminal_type]
+--   if not target_state.buffer_id or not vim.api.nvim_buf_is_valid(target_state.buffer_id) then
+--     M.PioTerminal('', self.terminal_type)
+--     return true
+--   end
+--
+--   if target_state.window_id and vim.api.nvim_win_is_valid(target_state.window_id) then
+--     vim.api.nvim_set_current_win(target_state.window_id)
+--     return true
+--   end
+--
+--   local calculated_panel_height = math.ceil(vim.o.lines * M.config.panel_height)
+--   local window_spawn_options = { split = 'below', win = -1, height = calculated_panel_height }
+--   target_state.window_id = vim.api.nvim_open_win(target_state.buffer_id, true, window_spawn_options)
+--
+--   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+--   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = target_state.window_id })
+--
+--   M.UpdateWinbarTitles()
+--   vim.cmd('startinsert')
+--   return true
+-- end
 
 -- Clears console prompt space clean natively across platforms
 function Terminal:clear()
