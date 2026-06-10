@@ -35,7 +35,7 @@ function M.stdoutcallback(_, raw_incoming_data, _)
     end
   end
   if not raw_incoming_data or #raw_incoming_data == 0 then return end
-  if current_token then
+  -- if current_token then
   -----------------------------------------------------------------------------
   -- 🔍 DETECTIVE TRACE HOOKS: Run this snippet to verify active process triggers
   -----------------------------------------------------------------------------
@@ -116,7 +116,7 @@ function M.stdoutcallback(_, raw_incoming_data, _)
     if final_execution_status and cached_active_callback then
       vim.schedule(function() cached_active_callback(final_execution_status) end)
     end
-    end
+    -- end
     return
   end
 end
