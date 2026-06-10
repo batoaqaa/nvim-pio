@@ -30,106 +30,19 @@ local content = ''
 
 -- stylua: ignore
 -- function M.stdoutcallback(_, _, data, _)
+function M.stdoutcallback( _, data, event)
+  if not data or #data == 0 then return end
   -----------------------------------------------------------------------------
   -- 🔍 DETECTIVE TRACE HOOKS: Run this snippet to verify active process triggers
   -----------------------------------------------------------------------------
   -- Trace Call #1: Logs the unique event name ("stdout") and incoming table length
-  -- vim.notify(string.format('[PioTrace] Callback hit! Event: %s, Chunks received: %d', tostring(event), data and #data or 0), vim.log.levels.INFO)
+  vim.notify(string.format('[PioTrace] Callback hit! Event: %s, Chunks received: %d', tostring(event), data and #data or 0), vim.log.levels.INFO)
 
   -- Trace Call #2: Dumps the raw log string block content to verify stream integrity
-  -- if data and #data > 0 then
-  --   vim.notify('[PioData Dump]: ' .. table.concat(data, ' | '), vim.log.levels.DEBUG)
-  -- end
+  if data and #data > 0 then
+    vim.notify('[PioData Dump]: ' .. table.concat(data, ' | '), vim.log.levels.DEBUG)
+  end
   -----------------------------------------------------------------------------
--- M.debug_history = {}
---
--- function M.stdout_callback(_, raw_incoming_data, _)
---   if not raw_incoming_data or #raw_incoming_data == 0 then
---     return
---   end
---
---   -----------------------------------------------------------------------
---   -- 🔍 SILENT DIAGNOSTIC MONITOR: Intercepts the raw data packets!
---   -- This captures precisely what PowerShell is sending on your first run.
---   -----------------------------------------------------------------------
---   for index, line_text in ipairs(raw_incoming_data) do
---     if line_text ~= '' then
---       -- Strips out invisible raw terminal escape sequences for clean reading
---       local sanitized_line = line_text:gsub('\x1b%[[0-9;]*%a', '')
---       table.insert(M.debug_history, string.format('[PACKET #%d] %q', index, sanitized_line))
---     end
---   end
---   -----------------------------------------------------------------------
---
---   if #raw_incoming_data > 1 then
---     content = content .. pio_buffer .. table.concat(raw_incoming_data, '', 1, #raw_incoming_data)
---     pio_buffer = raw_incoming_data[#raw_incoming_data]
---   else
---     content = content .. pio_buffer .. raw_incoming_data
---     pio_buffer = raw_incoming_data
---   end
---
---   local execution_pass_target = 'PASS' .. current_id
---   local is_build_passed = content:find('_CMMNDS_' .. current_token .. ':' .. execution_pass_target) ~= nil
---   local is_build_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
---   local is_build_failed = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
---
---   if is_build_passed or is_build_failed or is_build_done then
---     local cached_active_callback = callBack
---     local final_execution_status = is_build_failed and 'FAIL' or (is_build_done and 'DONE' or execution_pass_target)
---
---     if is_build_failed or is_build_done then
---       callBack = nil
---       M.queue = {}
---
---       if clangd_check_active then
---         clangd_extracted_args = {}
---
---         local compilation_start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_execution_status
---         local _, extraction_start_index = string.find(content, compilation_start_pattern, 1, true)
---
---         if not extraction_start_index then
---           local compilation_fallback_pattern = '_CMMNDS_' .. current_token .. '":"DONE'
---           _, extraction_start_index = string.find(content, compilation_fallback_pattern, 1, true)
---         end
---
---         local compilation_end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_execution_status
---         local extraction_end_index = string.find(content, compilation_end_pattern, 1, true)
---
---         if extraction_start_index and extraction_end_index and extraction_end_index > extraction_start_index then
---           local isolated_fresh_run_logs = string.sub(content, extraction_start_index + 1, extraction_end_index - 1)
---
---           if not string.find(isolated_fresh_run_logs, '%.clang%-format') then
---             local unique_seen_arguments = {}
---             for single_flag_argument in string.gmatch(isolated_fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
---               local sanitized_clean_flag = string.format('"%s"', single_flag_argument:gsub('[;%.]$', ''))
---               if not unique_seen_arguments[sanitized_clean_flag] then
---                 unique_seen_arguments[sanitized_clean_flag] = true
---                 table.insert(clangd_extracted_args, sanitized_clean_flag)
---               end
---             end
---           end
---         else
---           return
---         end
---         clangd_check_active = false
---       end
---
---       pio_buffer = ''
---       content = ''
---     end
---
---     if final_execution_status and cached_active_callback then
---       vim.schedule(function()
---         cached_active_callback(final_execution_status)
---       end)
---     end
---
---     return
---   end
--- end
-function M.stdoutcallback( _, data, event)
-  if not data or #data == 0 then return end
 
   if #data > 1 then
     content = content .. pio_buffer .. table.concat(data, '', 1, #data)
