@@ -1,18 +1,8 @@
 local M = {}
 
 local misc = require('nvimpio.utils.misc')
----@type Terminal
 -- local terminal = require('nvimpio.utils.term').terminal
 -- local terminal = require('nvimpio.device.terminal').terminal
-
--- local pio_cli = _G.metadata.pio_cli
--- local function sendCmnd(command)
---   pio_cli = pio_cli or require('nvimpio.device.terminal').PioTerminal('', 'cli')
---   if pio_cli then
---     pio_cli:show()
---     pio_cli:send(command)
---   end
--- end
 
 -- =====================================================================
 -- 🌟 THE ULTIMATE ZERO-OVERHEAD PIPELINE (Inside cli.lua)
