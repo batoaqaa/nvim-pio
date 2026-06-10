@@ -1,13 +1,5 @@
 local M = {}
 
--- local clangd = require('nvimpio.clangd.control')
--- local misc = require('nvimpio.utils.misc')
--- local term = require('nvimpio.device.terminal')
--- local terminal = require('nvimpio.device.terminal').PioTerminal
-
---@type Terminal
-local pio_cli = _G.metadata.pio_cli
-
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 
@@ -318,7 +310,6 @@ function M.handlePioinitDb(result, board, on_done)
   end
 end
 
-
 -- stylua: ignore
 function M.handlePioinit(result, board, on_done)
   if result == 'INIT' then
@@ -340,7 +331,6 @@ function M.handlePioinit(result, board, on_done)
     M.cleanSequencer()
   end
 end
-
 
 ------------------------------------------------------
 -- Handle after piolib execution
