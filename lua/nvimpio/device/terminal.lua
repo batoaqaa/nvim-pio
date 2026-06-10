@@ -13,24 +13,24 @@ M.config = {
   panel_height = 0.25,
   winbar_bg = '#80a3d4',
   winbar_fg = '#000000',
-  shell = OS.is_win and {
-    'pwsh.exe',
-    '-NoExit',
-    '-NoLogo',
-    '-NoProfile',
-    '-ExecutionPolicy',
-    'Bypass',
-    -- '-Command',
-    -- '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;',
-  } or (function()
-    local default_shell = vim.api.nvim_get_option_value('shell', {})
-    -- If the Mac user defaults to zsh, pass the -f flag to bypass profile script leaks
-    if default_shell:find('zsh') then
-      return { default_shell, '-f' }
-    end
-    return default_shell
-  end)(),
-  -- shell = (vim.fn.has("win32") == 1) and "pwsh.exe" or vim.api.nvim_get_option_value("shell", {}),
+  -- shell = OS.is_win and {
+  --   'pwsh.exe',
+  --   '-NoExit',
+  --   '-NoLogo',
+  --   '-NoProfile',
+  --   '-ExecutionPolicy',
+  --   'Bypass',
+  --   -- '-Command',
+  --   -- '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;',
+  -- } or (function()
+  --   local default_shell = vim.api.nvim_get_option_value('shell', {})
+  --   -- If the Mac user defaults to zsh, pass the -f flag to bypass profile script leaks
+  --   if default_shell:find('zsh') then
+  --     return { default_shell, '-f' }
+  --   end
+  --   return default_shell
+  -- end)(),
+  shell = (vim.fn.has('win32') == 1) and 'pwsh.exe' or vim.api.nvim_get_option_value('shell', {}),
 }
 
 M.stdout_callback = nil
