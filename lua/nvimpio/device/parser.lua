@@ -36,12 +36,12 @@ function M.stdoutcallback( _, data, event)
   -- 🔍 DETECTIVE TRACE HOOKS: Run this snippet to verify active process triggers
   -----------------------------------------------------------------------------
   -- Trace Call #1: Logs the unique event name ("stdout") and incoming table length
-  vim.notify(string.format('[PioTrace] Callback hit! Event: %s, Chunks received: %d', tostring(event), data and #data or 0), vim.log.levels.INFO)
+  -- vim.notify(string.format('[PioTrace] Callback hit! Event: %s, Chunks received: %d', tostring(event), data and #data or 0), vim.log.levels.INFO)
 
   -- Trace Call #2: Dumps the raw log string block content to verify stream integrity
-  if data and #data > 0 then
-    vim.notify('[PioData Dump]: ' .. table.concat(data, ' | '), vim.log.levels.DEBUG)
-  end
+  -- if data and #data > 0 then
+  --   vim.notify('[PioData Dump]: ' .. table.concat(data, ' | '), vim.log.levels.DEBUG)
+  -- end
   -----------------------------------------------------------------------------
 
   if #data > 1 then
