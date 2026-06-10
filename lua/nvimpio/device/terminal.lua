@@ -65,8 +65,7 @@ end
 ---@class Terminal; @field term_type string; @field newline string; @field shell string|table
 local Terminal = {
   term_type = "",
-  newline   = OS.eol,
-  shell     = OS.shell,
+  newline   = OS.shell,
 }
 Terminal.__index = Terminal
 
@@ -170,15 +169,13 @@ function Terminal:show()
   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = state.win })
   M.UpdateWinbarTitles()
 
-  if not is_new_buffer then
-    vim.cmd("startinsert")
-  end
+  vim.cmd("startinsert")
   return true
 end
 
--- Rebuilt high-performance terminal instantiation layer
+-- Rebuilt high-performance terminal instantiation layer [INDEX]
 function Terminal:_spawn(state, target_height, opposite_type)
-  -- 🌟 FIXED REFACTOR PASS: Calls self.shell directly from the class metatables fallback loops!
+  -- Initialize interactive terminal using fully supported API
   local channel_id = vim.fn.termopen(self.shell, {
     on_stdout = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
     on_stderr = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
@@ -187,15 +184,6 @@ function Terminal:_spawn(state, target_height, opposite_type)
 
   if not channel_id or channel_id <= 0 then return end
   state.job = channel_id
-
-  -- Stable deferred layout flush wheel blocks double prompt resize bugs
-  if OS.is_win then
-    vim.defer_fn(function()
-      if state.win and vim.api.nvim_win_is_valid(state.win) then
-        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-l>]], true, true, true), "t", false)
-      end
-    end, 50)
-  end
 
   self:_attach_events(state, target_height)
   self:_attach_keymaps(state, target_height, opposite_type)
@@ -286,7 +274,6 @@ SetGlobalKeymaps()
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
-  -- Seamless configuration extension hook captures custom overrides dynamically
   if opts and opts.shell then Terminal.shell = opts.shell end
   SetGlobalKeymaps()
 end
