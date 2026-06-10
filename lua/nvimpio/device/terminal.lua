@@ -1,12 +1,6 @@
 -- stylua: ignore start
 local M = {}
 
--- Static Cross-Platform Environmental Cache Matrix
-local OS = {
-  is_win = vim.fn.has("win32") == 1,
-  eol = vim.fn.has("win32") == 1 and "\r\n" or "\n"
-}
-
 -- 1. Default Public User Configuration Matrix
 M.config = {
   panel_height = 0.2,
@@ -72,19 +66,7 @@ end
 local Terminal = {
   term_type = "",
   newline   = OS.eol,
-  shell     = OS.is_win and {
-    'pwsh.exe',
-    '-NoExit',
-    '-NoLogo',
-    '-NoProfile',
-    '-ExecutionPolicy', 'Bypass',
-  } or (function()
-    local default_shell_path = vim.api.nvim_get_option_value('shell', {})
-    if default_shell_path:find('zsh') then
-      return { default_shell_path, '-f' }
-    end
-    return default_shell_path
-  end)(),
+  shell     = OS.shell,
 }
 Terminal.__index = Terminal
 
