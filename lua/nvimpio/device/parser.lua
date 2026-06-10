@@ -41,167 +41,167 @@ local content = ''
   --   vim.notify('[PioData Dump]: ' .. table.concat(data, ' | '), vim.log.levels.DEBUG)
   -- end
   -----------------------------------------------------------------------------
-M.debug_history = {}
-
-function M.stdout_callback(_, raw_incoming_data, _)
-  if not raw_incoming_data or #raw_incoming_data == 0 then
-    return
-  end
-
-  -----------------------------------------------------------------------
-  -- 🔍 SILENT DIAGNOSTIC MONITOR: Intercepts the raw data packets!
-  -- This captures precisely what PowerShell is sending on your first run.
-  -----------------------------------------------------------------------
-  for index, line_text in ipairs(raw_incoming_data) do
-    if line_text ~= '' then
-      -- Strips out invisible raw terminal escape sequences for clean reading
-      local sanitized_line = line_text:gsub('\x1b%[[0-9;]*%a', '')
-      table.insert(M.debug_history, string.format('[PACKET #%d] %q', index, sanitized_line))
-    end
-  end
-  -----------------------------------------------------------------------
-
-  if #raw_incoming_data > 1 then
-    content = content .. pio_buffer .. table.concat(raw_incoming_data, '', 1, #raw_incoming_data)
-    pio_buffer = raw_incoming_data[#raw_incoming_data]
-  else
-    content = content .. pio_buffer .. raw_incoming_data
-    pio_buffer = raw_incoming_data
-  end
-
-  local execution_pass_target = 'PASS' .. current_id
-  local is_build_passed = content:find('_CMMNDS_' .. current_token .. ':' .. execution_pass_target) ~= nil
-  local is_build_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
-  local is_build_failed = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
-
-  if is_build_passed or is_build_failed or is_build_done then
-    local cached_active_callback = callBack
-    local final_execution_status = is_build_failed and 'FAIL' or (is_build_done and 'DONE' or execution_pass_target)
-
-    if is_build_failed or is_build_done then
-      callBack = nil
-      M.queue = {}
-
-      if clangd_check_active then
-        clangd_extracted_args = {}
-
-        local compilation_start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_execution_status
-        local _, extraction_start_index = string.find(content, compilation_start_pattern, 1, true)
-
-        if not extraction_start_index then
-          local compilation_fallback_pattern = '_CMMNDS_' .. current_token .. '":"DONE'
-          _, extraction_start_index = string.find(content, compilation_fallback_pattern, 1, true)
-        end
-
-        local compilation_end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_execution_status
-        local extraction_end_index = string.find(content, compilation_end_pattern, 1, true)
-
-        if extraction_start_index and extraction_end_index and extraction_end_index > extraction_start_index then
-          local isolated_fresh_run_logs = string.sub(content, extraction_start_index + 1, extraction_end_index - 1)
-
-          if not string.find(isolated_fresh_run_logs, '%.clang%-format') then
-            local unique_seen_arguments = {}
-            for single_flag_argument in string.gmatch(isolated_fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
-              local sanitized_clean_flag = string.format('"%s"', single_flag_argument:gsub('[;%.]$', ''))
-              if not unique_seen_arguments[sanitized_clean_flag] then
-                unique_seen_arguments[sanitized_clean_flag] = true
-                table.insert(clangd_extracted_args, sanitized_clean_flag)
-              end
-            end
-          end
-        else
-          return
-        end
-        clangd_check_active = false
-      end
-
-      pio_buffer = ''
-      content = ''
-    end
-
-    if final_execution_status and cached_active_callback then
-      vim.schedule(function()
-        cached_active_callback(final_execution_status)
-      end)
-    end
-
-    return
-  end
-end
--- function M.stdoutcallback( _, data, event)
---   if not data or #data == 0 then return end
+-- M.debug_history = {}
 --
---   if #data > 1 then
---     content = content .. pio_buffer .. table.concat(data, '', 1, #data)
---     pio_buffer = data[#data]
---   else
---     content = content .. pio_buffer .. data[1]
---     pio_buffer = data[1]
+-- function M.stdout_callback(_, raw_incoming_data, _)
+--   if not raw_incoming_data or #raw_incoming_data == 0 then
+--     return
 --   end
 --
---   local pass_target = 'PASS' .. current_id
---   local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
---   local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
---   local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
+--   -----------------------------------------------------------------------
+--   -- 🔍 SILENT DIAGNOSTIC MONITOR: Intercepts the raw data packets!
+--   -- This captures precisely what PowerShell is sending on your first run.
+--   -----------------------------------------------------------------------
+--   for index, line_text in ipairs(raw_incoming_data) do
+--     if line_text ~= '' then
+--       -- Strips out invisible raw terminal escape sequences for clean reading
+--       local sanitized_line = line_text:gsub('\x1b%[[0-9;]*%a', '')
+--       table.insert(M.debug_history, string.format('[PACKET #%d] %q', index, sanitized_line))
+--     end
+--   end
+--   -----------------------------------------------------------------------
 --
---   if has_pass or has_fail or has_done then
---     local active_cb = callBack
---     local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
+--   if #raw_incoming_data > 1 then
+--     content = content .. pio_buffer .. table.concat(raw_incoming_data, '', 1, #raw_incoming_data)
+--     pio_buffer = raw_incoming_data[#raw_incoming_data]
+--   else
+--     content = content .. pio_buffer .. raw_incoming_data
+--     pio_buffer = raw_incoming_data
+--   end
 --
---     if has_fail or has_done then
---       -- ✅ SUCCESSFUL RUN DETECTED: Kill the countdown timer immediately!
+--   local execution_pass_target = 'PASS' .. current_id
+--   local is_build_passed = content:find('_CMMNDS_' .. current_token .. ':' .. execution_pass_target) ~= nil
+--   local is_build_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
+--   local is_build_failed = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
+--
+--   if is_build_passed or is_build_failed or is_build_done then
+--     local cached_active_callback = callBack
+--     local final_execution_status = is_build_failed and 'FAIL' or (is_build_done and 'DONE' or execution_pass_target)
+--
+--     if is_build_failed or is_build_done then
 --       callBack = nil
 --       M.queue = {}
 --
---       -----------------------------------------------------------------------
---       -- 🌟 ONE-TIME EXTRACTOR ON TERMINATION (HISTORY COMPLETELY INTACT!)
---       -----------------------------------------------------------------------
 --       if clangd_check_active then
 --         clangd_extracted_args = {}
 --
---         -- 1. Find boundaries on the raw, un-truncated content string
---         local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
---         local _, start_idx = string.find(content, start_pattern, 1, true)
+--         local compilation_start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_execution_status
+--         local _, extraction_start_index = string.find(content, compilation_start_pattern, 1, true)
 --
---         if not start_idx then
---           local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
---           _, start_idx = string.find(content, fallback_echo, 1, true)
+--         if not extraction_start_index then
+--           local compilation_fallback_pattern = '_CMMNDS_' .. current_token .. '":"DONE'
+--           _, extraction_start_index = string.find(content, compilation_fallback_pattern, 1, true)
 --         end
 --
---         local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
---         local end_idx = string.find(content, end_pattern, 1, true)
+--         local compilation_end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_execution_status
+--         local extraction_end_index = string.find(content, compilation_end_pattern, 1, true)
 --
---         -- 2. Slice and parse the exact fresh run text block
---         if start_idx and end_idx and end_idx > start_idx then
---           local fresh_run_logs = string.sub(content, start_idx + 1, end_idx - 1)
+--         if extraction_start_index and extraction_end_index and extraction_end_index > extraction_start_index then
+--           local isolated_fresh_run_logs = string.sub(content, extraction_start_index + 1, extraction_end_index - 1)
 --
---           if not string.find(fresh_run_logs, '%.clang%-format') then
---             local seen = {}
---             for arg in string.gmatch(fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
---               local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
---               if not seen[clean_flag] then
---                 seen[clean_flag] = true
---                 table.insert(clangd_extracted_args, clean_flag)
+--           if not string.find(isolated_fresh_run_logs, '%.clang%-format') then
+--             local unique_seen_arguments = {}
+--             for single_flag_argument in string.gmatch(isolated_fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
+--               local sanitized_clean_flag = string.format('"%s"', single_flag_argument:gsub('[;%.]$', ''))
+--               if not unique_seen_arguments[sanitized_clean_flag] then
+--                 unique_seen_arguments[sanitized_clean_flag] = true
+--                 table.insert(clangd_extracted_args, sanitized_clean_flag)
 --               end
 --             end
 --           end
---         else return end
+--         else
+--           return
+--         end
 --         clangd_check_active = false
 --       end
---       -----------------------------------------------------------------------
 --
---       -- 🏁 3. FLUSH THE BUFFER CLEAN HERE AT THE END OF THE COMMAND RUN
 --       pio_buffer = ''
 --       content = ''
 --     end
 --
---     if final_status and active_cb then
---       vim.schedule(function() active_cb(final_status) end)
+--     if final_execution_status and cached_active_callback then
+--       vim.schedule(function()
+--         cached_active_callback(final_execution_status)
+--       end)
 --     end
 --
 --     return
 --   end
 -- end
+function M.stdoutcallback( _, data, event)
+  if not data or #data == 0 then return end
+
+  if #data > 1 then
+    content = content .. pio_buffer .. table.concat(data, '', 1, #data)
+    pio_buffer = data[#data]
+  else
+    content = content .. pio_buffer .. data[1]
+    pio_buffer = data[1]
+  end
+
+  local pass_target = 'PASS' .. current_id
+  local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
+  local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
+  local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
+
+  if has_pass or has_fail or has_done then
+    local active_cb = callBack
+    local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
+
+    if has_fail or has_done then
+      -- ✅ SUCCESSFUL RUN DETECTED: Kill the countdown timer immediately!
+      callBack = nil
+      M.queue = {}
+
+      -----------------------------------------------------------------------
+      -- 🌟 ONE-TIME EXTRACTOR ON TERMINATION (HISTORY COMPLETELY INTACT!)
+      -----------------------------------------------------------------------
+      if clangd_check_active then
+        clangd_extracted_args = {}
+
+        -- 1. Find boundaries on the raw, un-truncated content string
+        local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
+        local _, start_idx = string.find(content, start_pattern, 1, true)
+
+        if not start_idx then
+          local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
+          _, start_idx = string.find(content, fallback_echo, 1, true)
+        end
+
+        local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
+        local end_idx = string.find(content, end_pattern, 1, true)
+
+        -- 2. Slice and parse the exact fresh run text block
+        if start_idx and end_idx and end_idx > start_idx then
+          local fresh_run_logs = string.sub(content, start_idx + 1, end_idx - 1)
+
+          if not string.find(fresh_run_logs, '%.clang%-format') then
+            local seen = {}
+            for arg in string.gmatch(fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
+              local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
+              if not seen[clean_flag] then
+                seen[clean_flag] = true
+                table.insert(clangd_extracted_args, clean_flag)
+              end
+            end
+          end
+        else return end
+        clangd_check_active = false
+      end
+      -----------------------------------------------------------------------
+
+      -- 🏁 3. FLUSH THE BUFFER CLEAN HERE AT THE END OF THE COMMAND RUN
+      pio_buffer = ''
+      content = ''
+    end
+
+    if final_status and active_cb then
+      vim.schedule(function() active_cb(final_status) end)
+    end
+
+    return
+  end
+end
 -- =============================================================================
 
 -- =============================================================================
