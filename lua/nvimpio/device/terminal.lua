@@ -170,9 +170,9 @@ function Terminal:show()
   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = state.win })
   M.UpdateWinbarTitles()
 
-  -- if not is_new_buffer then
-  --   vim.cmd("startinsert")
-  -- end
+  if not is_new_buffer then
+    vim.cmd("startinsert")
+  end
   return true
 end
 
