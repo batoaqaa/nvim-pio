@@ -207,10 +207,10 @@ function Terminal:_spawn(state, target_height, opposite_type)
   vim.b[state.buf].terminal_job_id = channel_id
   state.job = channel_id
 
-  if OS.is_win then
-    local init_enc = "[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Clear-Host;"
-    vim.fn.chansend(channel_id, init_enc .. self.newline)
-  end
+  -- if OS.is_win then
+  --   local init_enc = "[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Clear-Host;"
+  --   vim.fn.chansend(channel_id, init_enc .. self.newline)
+  -- end
 
   self:_attach_events(state, target_height)
   self:_attach_keymaps(state, target_height, opposite_type)
