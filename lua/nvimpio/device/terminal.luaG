@@ -1,11 +1,5 @@
 local M = {}
 
--- Platform capability detection table
-local OS_CAPABILITIES = {
-  is_windows_system = vim.fn.has('win32') == 1,
-  line_ending_character = vim.fn.has('win32') == 1 and '\r\n' or '\n',
-}
-
 -- 1. Default Public User Configuration Matrix
 -- -- Inherit global parameters from main plugin table
 -- M.config = require('nvimpio').config
@@ -33,6 +27,7 @@ M.config = {
   -- shell = (vim.fn.has("win32") == 1) and "pwsh.exe" or vim.api.nvim_get_option_value("shell", {}),
 }
 
+-- Asynchronous communication channels hooks definitions
 M.stdout_callback = nil
 M.exit_callback = nil
 
@@ -55,7 +50,7 @@ Terminal.__index = Terminal
 function Terminal.new(target_lane)
   local self = setmetatable({}, Terminal)
   self.terminal_type = target_lane
-  self.newline_delimiter = OS_CAPABILITIES.line_ending_character
+  self.newline_delimiter = OS.eol
   return self
 end
 
@@ -64,6 +59,7 @@ function Terminal:send(command_payload)
   local target_state = terminal_state_registry[self.terminal_type]
   local command_string = tostring(command_payload or '')
 
+  -- Force layout regeneration pass if window was closed manually
   if not target_state.job_id or target_state.job_id <= 0 or not target_state.window_id or not vim.api.nvim_win_is_valid(target_state.window_id) then
     M.PioTerminal('', self.terminal_type)
   end
@@ -114,8 +110,14 @@ function Terminal:hide()
 end
 
 -- Re-splits open terminal split windows layouts smoothly
+-- =====================================================================
+-- 🛠️ FIXED: CLEAN SINGLE-PROMPT LIFECYCLE (Inside Part 1)
+-- =====================================================================
 function Terminal:show()
   local target_state = terminal_state_registry[self.terminal_type]
+
+  -- If the buffer is dead or uninitialized, delegate spawning entirely
+  -- to PioTerminal and return early. This prevents duplicate insert calls!
   if not target_state.buffer_id or not vim.api.nvim_buf_is_valid(target_state.buffer_id) then
     M.PioTerminal('', self.terminal_type)
     return true
@@ -134,13 +136,38 @@ function Terminal:show()
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = target_state.window_id })
 
   M.UpdateWinbarTitles()
+
+  -- Only trigger insert mode here for pre-existing hidden tabs
   vim.cmd('startinsert')
   return true
 end
+-- function Terminal:show()
+--   local target_state = terminal_state_registry[self.terminal_type]
+--   if not target_state.buffer_id or not vim.api.nvim_buf_is_valid(target_state.buffer_id) then
+--     M.PioTerminal('', self.terminal_type)
+--     return true
+--   end
+--
+--   if target_state.window_id and vim.api.nvim_win_is_valid(target_state.window_id) then
+--     vim.api.nvim_set_current_win(target_state.window_id)
+--     return true
+--   end
+--
+--   local calculated_panel_height = math.ceil(vim.o.lines * M.config.panel_height)
+--   local window_spawn_options = { split = 'below', win = -1, height = calculated_panel_height }
+--   target_state.window_id = vim.api.nvim_open_win(target_state.buffer_id, true, window_spawn_options)
+--
+--   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+--   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = target_state.window_id })
+--
+--   M.UpdateWinbarTitles()
+--   vim.cmd('startinsert')
+--   return true
+-- end
 
 -- Clears console prompt space clean natively across platforms
 function Terminal:clear()
-  local system_clear_command = OS_CAPABILITIES.is_windows and 'Clear-Host' or 'clear'
+  local system_clear_command = OS.is_win and 'Clear-Host' or 'clear'
   self:send(system_clear_command)
 end
 
@@ -209,10 +236,12 @@ function M.PioTerminal(command, terminal_type)
 
   local opposite_lane_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
 
+  -- Mutual Exclusion Pass: Shuts opposing windows layout to prevent leaks
   if IsTerminalWindowOpen(opposite_lane_type) then
     SafeCloseTerminal(opposite_lane_type)
   end
 
+  -- Target Recycle Pass: Shorthand refocus logic routes text into alive panels
   if IsTerminalWindowOpen(terminal_type) then
     local active_state = terminal_state_registry[terminal_type]
     vim.api.nvim_set_current_win(active_state.window_id)
@@ -222,12 +251,13 @@ function M.PioTerminal(command, terminal_type)
 
     if command and command ~= '' then
       if active_state.job_id and active_state.job_id > 0 then
-        vim.fn.chansend(active_state.job_id, command .. OS_CAPABILITIES.line_ending_character)
+        vim.fn.chansend(active_state.job_id, command .. OS.eol)
       end
     end
     return
   end
 
+  -- Buffer Allocation Pass: Create empty scratchpad containers securely
   local active_state = terminal_state_registry[terminal_type]
   local is_new_buffer_allocated = false
   if not active_state.buffer_id or not vim.api.nvim_buf_is_valid(active_state.buffer_id) then
@@ -235,10 +265,12 @@ function M.PioTerminal(command, terminal_type)
     is_new_buffer_allocated = true
   end
 
+  -- Spawner Pass: Split window bottom rows grid partition
   local calculated_panel_height = math.ceil(vim.o.lines * M.config.panel_height)
   local window_spawn_options = { split = 'below', win = -1, height = calculated_panel_height }
   active_state.window_id = vim.api.nvim_open_win(active_state.buffer_id, true, window_spawn_options)
 
+  -- Shell Initialization Pass: Boot low-level terminal operating system job loop
   if is_new_buffer_allocated then
     local active_channel_id = vim.fn.jobstart(M.config.shell, {
       term = true,
@@ -261,14 +293,13 @@ function M.PioTerminal(command, terminal_type)
     vim.b[active_state.buffer_id].terminal_job_id = active_channel_id
     active_state.job_id = active_channel_id
 
-    -- 🌟 FIXED WINDOWSHandshake: Cleaned up trailing carriage return characters!
-    -- Removing the raw "\r\n" at the end stops PowerShell from buffering an extra line-break,
-    -- completely eliminating the double chevron bug on your first run!
-    if OS_CAPABILITIES.is_windows then
-      local encoding_initialization_string = '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Clear-Host;'
-      vim.fn.chansend(active_channel_id, encoding_initialization_string .. OS_CAPABILITIES.line_ending_character)
+    -- Windows Character Patch: Forces terminal output logs UTF8 encoding parsing
+    if OS.is_win then
+      local encoding_initialization_string = '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Clear-Host;\r\n'
+      vim.fn.chansend(active_channel_id, encoding_initialization_string)
     end
 
+    -- Scroll Hook Pass: Keeps prompt logs tracking downward on mutations
     local autoscroll_event_group = vim.api.nvim_create_augroup('PioAutoScroll_' .. active_state.buffer_id, { clear = true })
     vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
       group = autoscroll_event_group,
@@ -293,6 +324,7 @@ function M.PioTerminal(command, terminal_type)
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = active_state.window_id })
 
+  -- Focus Protection Guard Pass: Secures split sizes alignment on mouse clicks
   local focus_guard_event_group = vim.api.nvim_create_augroup('PioFocusGuard_' .. active_state.buffer_id, { clear = true })
   vim.api.nvim_create_autocmd('WinEnter', {
     group = focus_guard_event_group,
@@ -311,6 +343,7 @@ function M.PioTerminal(command, terminal_type)
 
   M.UpdateWinbarTitles()
 
+  -- Register shortcut bindings local keyboard map arrays hooks
   vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = active_state.buffer_id })
   vim.keymap.set('n', 'q', function()
     SafeCloseTerminal(terminal_type)
@@ -340,6 +373,7 @@ function M.PioTerminal(command, terminal_type)
     end)
   end, { buffer = active_state.buffer_id, silent = true })
 
+  -- Cross split direction panel jump navigation shortcuts
   vim.keymap.set('n', '<C-h>', '<C-w>h')
   vim.keymap.set('n', '<C-l>', '<C-w>l')
   vim.keymap.set('n', '<C-j>', function()
@@ -358,16 +392,18 @@ function M.PioTerminal(command, terminal_type)
 
   if command and command ~= '' then
     if active_state.job_id then
-      vim.fn.chansend(active_state.job_id, command .. OS_CAPABILITIES.line_ending_character)
+      vim.fn.chansend(active_state.job_id, command .. OS.eol)
     end
   end
 end
 
+-- Permanent Singleton Object Injections declarations
 ---@type Terminal
 M.cli = Terminal.new('cli')
 ---@type Terminal
 M.monitor = Terminal.new('monitor')
 
+-- Global user entry trigger keys mappings registrations
 vim.keymap.set('n', [[<leader>\gm]], function()
   M.monitor:show()
   M.monitor:send('pio device monitor')
