@@ -1,6 +1,8 @@
 local M = {}
 
 -- 1. Default Public User Configuration Matrix
+-- -- Inherit global parameters from main plugin table
+-- M.config = require('nvimpio').config
 M.config = {
   panel_height = 0.25,
   winbar_bg = '#80a3d4',
@@ -25,69 +27,66 @@ M.config = {
   -- shell = (vim.fn.has("win32") == 1) and "pwsh.exe" or vim.api.nvim_get_option_value("shell", {}),
 }
 
+-- Asynchronous communication channels hooks definitions
 M.stdout_callback = nil
 M.exit_callback = nil
 
--- The Immutable Global State Registry Core Matrix
-local state = {
-  cli = { buf = nil, win = nil, job_id = nil, title = ' Pio CLI> ' },
-  monitor = { buf = nil, win = nil, job_id = nil, title = ' Pio Monitor ' },
+-- Central database tracking window states and details
+local terminal_state_registry = {
+  cli = { buffer_id = nil, window_id = nil, job_id = nil, panel_title = ' Pio CLI> ' },
+  monitor = { buffer_id = nil, window_id = nil, job_id = nil, panel_title = ' Pio Monitor ' },
 }
 
 ----------------------------------------------------------------------------------------
--- 🌟 HIGH-PERFORMANCE PERSISTENT TERMINAL CLASS (PROTOTYPE ARCHITECTURE)
+-- 🌟 TERMINAL CORE PROTOTYPE CLASS DECLARATIONS
 ----------------------------------------------------------------------------------------
 ---@class Terminal
----@field type string The type of terminal instance ('cli' or 'monitor')
----@field newline string Pre-cached row delimiter row ends
+---@field terminal_type string Layout track destination ('cli' or 'monitor')
+---@field newline_delimiter string System text ending carriage return
 local Terminal = {}
 Terminal.__index = Terminal
 
----Constructor: Instantiates the single immutable reference fields
----@param term_type string The target engine lane selection ('cli' or 'monitor')
----@return Terminal
-function Terminal.new(term_type)
+-- Factory constructor for new terminal wrapper objects
+function Terminal.new(target_lane)
   local self = setmetatable({}, Terminal)
-  self.type = term_type
-  self.newline = OS.eol
+  self.terminal_type = target_lane
+  self.newline_delimiter = OS.eol
   return self
 end
 
----Rigid Method 1: Send a string command. Automatically handles lazy window generation!
----@param command string The instruction text payload line to pipe down the channel
-function Terminal:send(command)
-  local s = state[self.type]
-  local cmd_str = tostring(command or '')
+-- Pipe a manual string command payload straight down active channels
+function Terminal:send(command_payload)
+  local target_state = terminal_state_registry[self.terminal_type]
+  local command_string = tostring(command_payload or '')
 
-  -- LAZY AUTO-SPAWN GUARD: If the window or process died behind the scenes,
-  -- calling :send() will automatically rebuild and open the panel first! [INDEX]
-  if not s.job_id or s.job_id <= 0 or not s.win or not vim.api.nvim_win_is_valid(s.win) then
-    M.PioTerminal('', self.type)
+  -- Force layout regeneration pass if window was closed manually
+  if not target_state.job_id or target_state.job_id <= 0 or not target_state.window_id or not vim.api.nvim_win_is_valid(target_state.window_id) then
+    M.PioTerminal('', self.terminal_type)
   end
 
-  if not s.job_id or s.job_id <= 0 then
+  if not target_state.job_id or target_state.job_id <= 0 then
     return
   end
-  if cmd_str ~= '' then
-    vim.fn.chansend(s.job_id, self.newline)
+  if command_string ~= '' then
+    vim.fn.chansend(target_state.job_id, self.newline_delimiter)
   end
-  vim.fn.chansend(s.job_id, cmd_str .. self.newline)
+  vim.fn.chansend(target_state.job_id, command_string .. self.newline_delimiter)
 end
 
----Rigid Method 2: Gracefully stop background job and tear down split windows safely
+-- Hard stop background processes and destroy splits windows
 function Terminal:close()
-  local s = state[self.type]
-  if not s or not s.job_id or s.job_id <= 0 then
+  local target_state = terminal_state_registry[self.terminal_type]
+  if not target_state or not target_state.job_id or target_state.job_id <= 0 then
     return
   end
-  pcall(vim.fn.jobstop, s.job_id)
+  pcall(vim.fn.jobstop, target_state.job_id)
 
-  if s.win and vim.api.nvim_win_is_valid(s.win) then
-    vim.api.nvim_win_close(s.win, true)
+  if target_state.window_id and vim.api.nvim_win_is_valid(target_state.window_id) then
+    vim.api.nvim_win_close(target_state.window_id, true)
   end
-  s.win = nil
-  s.buf = nil
-  s.job_id = nil
+  target_state.window_id = nil
+  target_state.buffer_id = nil
+  target_state.job_id = nil
 
   vim.schedule(function()
     vim.cmd('wincmd =')
@@ -95,14 +94,14 @@ function Terminal:close()
   end)
 end
 
----Rigid Method 3: Pure Hide Pass - Closes the split window layout viewport panel cleanly
+-- Tucks the window split away while preserving process states background loops
 function Terminal:hide()
-  local s = state[self.type]
-  if s and s.win and vim.api.nvim_win_is_valid(s.win) then
-    vim.api.nvim_win_close(s.win, true)
+  local target_state = terminal_state_registry[self.terminal_type]
+  if target_state and target_state.window_id and vim.api.nvim_win_is_valid(target_state.window_id) then
+    vim.api.nvim_win_close(target_state.window_id, true)
   end
-  if s then
-    s.win = nil
+  if target_state then
+    target_state.window_id = nil
   end
   vim.schedule(function()
     vim.cmd('wincmd =')
@@ -110,85 +109,83 @@ function Terminal:hide()
   end)
 end
 
----Rigid Method 4: Pure Show Pass - Re-splits open the bottom panel row layout instantly
----@return boolean # True if the split window canvas layout was drawn successfully
+-- Re-splits open terminal split windows layouts smoothly
 function Terminal:show()
-  local s = state[self.type]
-  -- If buffer is lost or completely uninitialized, trigger a fresh procedural generation loop pass
-  if not s.buf or not vim.api.nvim_buf_is_valid(s.buf) then
-    M.PioTerminal('', self.type)
+  local target_state = terminal_state_registry[self.terminal_type]
+  if not target_state.buffer_id or not vim.api.nvim_buf_is_valid(target_state.buffer_id) then
+    M.PioTerminal('', self.terminal_type)
     return true
   end
 
-  if s.win and vim.api.nvim_win_is_valid(s.win) then
-    vim.api.nvim_set_current_win(s.win)
+  if target_state.window_id and vim.api.nvim_win_is_valid(target_state.window_id) then
+    vim.api.nvim_set_current_win(target_state.window_id)
     return true
   end
 
-  local target_h = math.ceil(vim.o.lines * M.config.panel_height)
-  local win_opts = { split = 'below', win = -1, height = target_h }
-  s.win = vim.api.nvim_open_win(s.buf, true, win_opts)
+  local calculated_panel_height = math.ceil(vim.o.lines * M.config.panel_height)
+  local window_spawn_options = { split = 'below', win = -1, height = calculated_panel_height }
+  target_state.window_id = vim.api.nvim_open_win(target_state.buffer_id, true, window_spawn_options)
 
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = s.win })
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = target_state.window_id })
 
   M.UpdateWinbarTitles()
   vim.cmd('startinsert')
   return true
 end
 
----Rigid Method 5: Clear console screen prompt clean natively across platforms
+-- Clears console prompt space clean natively across platforms
 function Terminal:clear()
-  local clear_cmd = OS.is_win and 'Clear-Host' or 'clear'
-  self:send(clear_cmd)
+  local system_clear_command = OS.is_win and 'Clear-Host' or 'clear'
+  self:send(system_clear_command)
 end
 
----Rigid Method 6: Fetch raw underlying buffer handle pointer index
----@return number|nil
+-- Extraction accessors exposing internal variables safely
 function Terminal:get_buf()
-  return state[self.type].buf
+  return terminal_state_registry[self.terminal_type].buffer_id
 end
-
----Rigid Method 7: Fetch raw underlying window split handle pointer index
----@return number|nil
 function Terminal:get_win()
-  return state[self.type].win
+  return terminal_state_registry[self.terminal_type].window_id
 end
 
--- 🌟 ZERO OVERHEAD STATIC INSTANCE INJECTIONS:
--- Pre-instantiate the objects on boot. They are permanently available on the module table. [INDEX]
----@type Terminal
-M.cli = Terminal.new('cli')
----@type Terminal
-M.monitor = Terminal.new('monitor')
-----------------------------------------------------------------------------------------
-
+-- Local verification helper checking layout visibility properties
 local function IsTerminalWindowOpen(term_type)
-  local s = state[term_type]
-  return s.win and vim.api.nvim_win_is_valid(s.win) and vim.api.nvim_win_get_buf(s.win) == s.buf
+  local target_state = terminal_state_registry[term_type]
+  return target_state.window_id
+    and vim.api.nvim_win_is_valid(target_state.window_id)
+    and vim.api.nvim_win_get_buf(target_state.window_id) == target_state.buffer_id
 end
 
+-- Telemetry interface redraw engine handling text title tags
 function M.UpdateWinbarTitles()
-  local cli_alive = state.cli.buf and vim.api.nvim_buf_is_valid(state.cli.buf)
-  local mon_alive = state.monitor.buf and vim.api.nvim_buf_is_valid(state.monitor.buf)
-  local hint = (cli_alive and mon_alive) and ' [;; Switch] ' or ' [; Hide] '
+  local is_cli_buffer_valid = terminal_state_registry.cli.buffer_id and vim.api.nvim_buf_is_valid(terminal_state_registry.cli.buffer_id)
+  local is_monitor_buffer_valid = terminal_state_registry.monitor.buffer_id and vim.api.nvim_buf_is_valid(terminal_state_registry.monitor.buffer_id)
+  local status_hint_string = (is_cli_buffer_valid and is_monitor_buffer_valid) and ' [;; Switch] ' or ' [; Hide] '
 
   vim.api.nvim_set_hl(0, 'PioWinBar', { bg = M.config.winbar_bg, fg = M.config.winbar_fg })
 
-  for _, t in pairs({ 'cli', 'monitor' }) do
-    local s = state[t]
-    if s.win and vim.api.nvim_win_is_valid(s.win) then
-      vim.api.nvim_set_option_value('winbar', '%#PioWinBar#' .. s.title .. hint .. '%*', { scope = 'local', win = s.win })
+  for _, current_lane_type in pairs({ 'cli', 'monitor' }) do
+    local current_state = terminal_state_registry[current_lane_type]
+    if current_state.window_id and vim.api.nvim_win_is_valid(current_state.window_id) then
+      vim.api.nvim_set_option_value(
+        'winbar',
+        '%#PioWinBar#' .. current_state.panel_title .. status_hint_string .. '%*',
+        { scope = 'local', win = current_state.window_id }
+      )
     end
   end
 end
 
+-- Global cleanup function managing window deletion tasks linear passes
 local function SafeCloseTerminal(term_type)
-  local s = state[term_type]
-  if s.win and vim.api.nvim_win_is_valid(s.win) then
-    vim.api.nvim_win_close(s.win, true)
+  local target_state = terminal_state_registry[term_type]
+  if not target_state then
+    return
   end
-  s.win = nil
+  if target_state.window_id and vim.api.nvim_win_is_valid(target_state.window_id) then
+    vim.api.nvim_win_close(target_state.window_id, true)
+  end
+  target_state.window_id = nil
   vim.schedule(function()
     vim.cmd('wincmd =')
     M.UpdateWinbarTitles()
@@ -199,61 +196,61 @@ function M.IsTerminalOpen(term_type)
   return IsTerminalWindowOpen(term_type)
 end
 
----Core window layout allocator and partition spawner namespace
----@param command string Initial command payload text instruction to pipe down channel
----@param terminal_type string Layout selection mode profile target ('cli' or 'monitor')
+-- Baseline allocation window worker generating shell streams splits
 function M.PioTerminal(command, terminal_type)
-  local cmd_str = tostring(command or '')
+  local command_fallback_string = tostring(command or '')
   if terminal_type ~= 'monitor' and terminal_type ~= 'cli' then
-    terminal_type = cmd_str:find('monitor') and 'monitor' or 'cli'
+    terminal_type = command_fallback_string:find('monitor') and 'monitor' or 'cli'
   end
 
-  local opposite_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
+  local opposite_lane_type = (terminal_type == 'monitor') and 'cli' or 'monitor'
 
-  if IsTerminalWindowOpen(opposite_type) then
-    SafeCloseTerminal(opposite_type)
+  -- Mutual Exclusion Pass: Shuts opposing windows layout to prevent leaks
+  if IsTerminalWindowOpen(opposite_lane_type) then
+    SafeCloseTerminal(opposite_lane_type)
   end
 
-  -- Step 3: Always Open Target View Recycle Pass
+  -- Target Recycle Pass: Shorthand refocus logic routes text into alive panels
   if IsTerminalWindowOpen(terminal_type) then
-    local current = state[terminal_type]
-    vim.api.nvim_set_current_win(current.win)
+    local active_state = terminal_state_registry[terminal_type]
+    vim.api.nvim_set_current_win(active_state.window_id)
 
-    local target_h = math.ceil(vim.o.lines * M.config.panel_height)
-    pcall(vim.api.nvim_win_set_height, current.win, target_h)
+    local calculated_panel_height = math.ceil(vim.o.lines * M.config.panel_height)
+    pcall(vim.api.nvim_win_set_height, active_state.window_id, calculated_panel_height)
 
     if command and command ~= '' then
-      if current.job_id and current.job_id > 0 then
-        vim.fn.chansend(current.job_id, command .. OS.eol)
+      if active_state.job_id and active_state.job_id > 0 then
+        vim.fn.chansend(active_state.job_id, command .. OS.eol)
       end
     end
     return
   end
 
-  -- Step 4: Scratch Buffer Allocation Provision Pass
-  local current = state[terminal_type]
-  local is_new_buffer = false
-  if not current.buf or not vim.api.nvim_buf_is_valid(current.buf) then
-    current.buf = vim.api.nvim_create_buf(false, true)
-    is_new_buffer = true
+  -- Buffer Allocation Pass: Create empty scratchpad containers securely
+  local active_state = terminal_state_registry[terminal_type]
+  local is_new_buffer_allocated = false
+  if not active_state.buffer_id or not vim.api.nvim_buf_is_valid(active_state.buffer_id) then
+    active_state.buffer_id = vim.api.nvim_create_buf(false, true)
+    is_new_buffer_allocated = true
   end
 
-  -- Step 5: Screen Split Window Layout Spawner
-  local target_h = math.ceil(vim.o.lines * M.config.panel_height)
-  local win_opts = { split = 'below', win = -1, height = target_h }
-  current.win = vim.api.nvim_open_win(current.buf, true, win_opts)
+  -- Spawner Pass: Split window bottom rows grid partition
+  local calculated_panel_height = math.ceil(vim.o.lines * M.config.panel_height)
+  local window_spawn_options = { split = 'below', win = -1, height = calculated_panel_height }
+  active_state.window_id = vim.api.nvim_open_win(active_state.buffer_id, true, window_spawn_options)
 
-  if is_new_buffer then
-    local spawned_job_id = vim.fn.jobstart(M.config.shell, {
+  -- Shell Initialization Pass: Boot low-level terminal operating system job loop
+  if is_new_buffer_allocated then
+    local active_channel_id = vim.fn.jobstart(M.config.shell, {
       term = true,
-      on_stdout = function(j, d, e)
+      on_stdout = function(_, standard_output_data, _)
         if terminal_type == 'cli' and type(M.stdout_callback) == 'function' then
-          M.stdout_callback(j, d, e)
+          M.stdout_callback(nil, standard_output_data, nil)
         end
       end,
-      on_stderr = function(j, d, e)
+      on_stderr = function(_, standard_error_data, _)
         if terminal_type == 'cli' and type(M.stdout_callback) == 'function' then
-          M.stdout_callback(j, d, e)
+          M.stdout_callback(nil, standard_error_data, nil)
         end
       end,
       on_exit = function()
@@ -262,24 +259,26 @@ function M.PioTerminal(command, terminal_type)
         end
       end,
     })
-    vim.b[current.buf].terminal_job_id = spawned_job_id
-    current.job_id = spawned_job_id
+    vim.b[active_state.buffer_id].terminal_job_id = active_channel_id
+    active_state.job_id = active_channel_id
 
+    -- Windows Character Patch: Forces terminal output logs UTF8 encoding parsing
     if OS.is_win then
-      local init_enc = '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Clear-Host;\r\n'
-      vim.fn.chansend(spawned_job_id, init_enc)
+      local encoding_initialization_string = '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Clear-Host;\r\n'
+      vim.fn.chansend(active_channel_id, encoding_initialization_string)
     end
 
-    local scroll_group = vim.api.nvim_create_augroup('PioAutoScroll_' .. current.buf, { clear = true })
+    -- Scroll Hook Pass: Keeps prompt logs tracking downward on mutations
+    local autoscroll_event_group = vim.api.nvim_create_augroup('PioAutoScroll_' .. active_state.buffer_id, { clear = true })
     vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
-      group = scroll_group,
-      buffer = current.buf,
+      group = autoscroll_event_group,
+      buffer = active_state.buffer_id,
       callback = function()
-        local w = vim.fn.bufwinid(current.buf)
-        if w and w ~= -1 and vim.api.nvim_win_is_valid(w) then
+        local active_window_handle = vim.fn.bufwinid(active_state.buffer_id)
+        if active_window_handle and active_window_handle ~= -1 and vim.api.nvim_win_is_valid(active_window_handle) then
           vim.schedule(function()
-            if vim.api.nvim_win_is_valid(w) then
-              vim.api.nvim_win_call(w, function()
+            if vim.api.nvim_win_is_valid(active_window_handle) then
+              vim.api.nvim_win_call(active_window_handle, function()
                 if vim.api.nvim_get_mode().mode:sub(1, 1) ~= 't' then
                   vim.cmd('normal! G')
                 end
@@ -292,16 +291,17 @@ function M.PioTerminal(command, terminal_type)
   end
 
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = current.win })
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = active_state.window_id })
 
-  local pio_group = vim.api.nvim_create_augroup('PioFocusGuard_' .. current.buf, { clear = true })
+  -- Focus Protection Guard Pass: Secures split sizes alignment on mouse clicks
+  local focus_guard_event_group = vim.api.nvim_create_augroup('PioFocusGuard_' .. active_state.buffer_id, { clear = true })
   vim.api.nvim_create_autocmd('WinEnter', {
-    group = pio_group,
-    buffer = current.buf,
+    group = focus_guard_event_group,
+    buffer = active_state.buffer_id,
     callback = function()
       vim.schedule(function()
         if IsTerminalWindowOpen(terminal_type) then
-          pcall(vim.api.nvim_win_set_height, current.win, target_h)
+          pcall(vim.api.nvim_win_set_height, active_state.window_id, calculated_panel_height)
           if vim.api.nvim_get_mode().mode:sub(1, 1) ~= 't' then
             vim.cmd('normal! G')
           end
@@ -312,10 +312,11 @@ function M.PioTerminal(command, terminal_type)
 
   M.UpdateWinbarTitles()
 
-  vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = current.buf })
+  -- Register shortcut bindings local keyboard map arrays hooks
+  vim.keymap.set('t', '<Esc>', [[<C-\><C-n>]], { buffer = active_state.buffer_id })
   vim.keymap.set('n', 'q', function()
     SafeCloseTerminal(terminal_type)
-  end, { buffer = current.buf })
+  end, { buffer = active_state.buffer_id })
 
   vim.keymap.set({ 'n', 't' }, '<C-k>', function()
     if vim.api.nvim_get_mode().mode == 't' then
@@ -324,30 +325,31 @@ function M.PioTerminal(command, terminal_type)
     vim.schedule(function()
       vim.cmd('wincmd k')
     end)
-  end, { buffer = current.buf, silent = true })
+  end, { buffer = active_state.buffer_id, silent = true })
 
   vim.keymap.set({ 'n', 't' }, ';;', function()
     if vim.api.nvim_get_mode().mode == 't' then
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
     end
-    local current_winbar = vim.api.nvim_get_option_value('winbar', { scope = 'local' }) or ''
-    if current_winbar:find('%[; Hide%]') then
+    local current_winbar_option = vim.api.nvim_get_option_value('winbar', { scope = 'local' }) or ''
+    if current_winbar_option:find('%[; Hide%]') then
       SafeCloseTerminal(terminal_type)
       return
     end
     SafeCloseTerminal(terminal_type)
     vim.schedule(function()
-      M.PioTerminal('', opposite_type)
+      M[opposite_lane_type]:show()
     end)
-  end, { buffer = current.buf, silent = true })
+  end, { buffer = active_state.buffer_id, silent = true })
 
+  -- Cross split direction panel jump navigation shortcuts
   vim.keymap.set('n', '<C-h>', '<C-w>h')
   vim.keymap.set('n', '<C-l>', '<C-w>l')
   vim.keymap.set('n', '<C-j>', function()
     vim.schedule(function()
       if IsTerminalWindowOpen(terminal_type) then
-        vim.api.nvim_set_current_win(current.win)
-        pcall(vim.api.nvim_win_set_height, current.win, target_h)
+        vim.api.nvim_set_current_win(active_state.window_id)
+        pcall(vim.api.nvim_win_set_height, active_state.window_id, calculated_panel_height)
         if vim.api.nvim_get_mode().mode:sub(1, 1) ~= 't' then
           vim.cmd('normal! G')
         end
@@ -358,103 +360,114 @@ function M.PioTerminal(command, terminal_type)
   end, { silent = true })
 
   if command and command ~= '' then
-    if current.job_id then
-      vim.fn.chansend(current.job_id, command .. OS.eol)
+    if active_state.job_id then
+      vim.fn.chansend(active_state.job_id, command .. OS.eol)
     end
   end
 end
 
+-- Permanent Singleton Object Injections declarations
+---@type Terminal
+M.cli = Terminal.new('cli')
+---@type Terminal
+M.monitor = Terminal.new('monitor')
+
+-- Global user entry trigger keys mappings registrations
 vim.keymap.set('n', [[<leader>\gm]], function()
   M.monitor:show()
   M.monitor:send('pio device monitor')
 end, { silent = true })
 vim.keymap.set('n', [[<leader>\t]], function()
-  M.monitor:show()
+  M.cli:show()
 end, { silent = true })
 
--- function M.stdout_callback(job_id, data, event)
---   if not data or #data == 0 or not current_token or current_token == "" then return end
---   local processed_lines = {}
---   for i, line in ipairs(data) do processed_lines[i] = line:gsub("\r", ""):gsub("\x1b%[[0-9;]*%a", "") end
---   local chunk_count = #processed_lines
---
---   if chunk_count > 1 then
---     M.content = M.content .. M.pio_buffer .. table.concat(processed_lines, '', 1, chunk_count)
---     M.pio_buffer = processed_lines[chunk_count]
---   else
---     M.content = M.content .. M.pio_buffer .. processed_lines
---     M.pio_buffer = processed_lines
+-- =============================================================================
+-- 🌟 HIGH-PERFORMANCE ASYNCHRONOUS STDOUT TOKEN PARSER ENGINE
+-- =============================================================================
+-- function M.stdout_callback(_, raw_incoming_data, _)
+--   if not raw_incoming_data or #raw_incoming_data == 0 then
+--     return
 --   end
 --
---   local pass_target = 'PASS' .. current_id
---   -- FIXED: Restored underscores to ensure matching against compiler token outputs
---   local has_pass = M.content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
---   local has_done = M.content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
---   local has_fail = M.content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
+--   -- Concatenate text row segments accurately into system cache rows
+--   if #raw_incoming_data > 1 then
+--     content = content .. pio_buffer .. table.concat(raw_incoming_data, '', 1, #raw_incoming_data)
+--     pio_buffer = raw_incoming_data[#raw_incoming_data]
+--   else
+--     content = content .. pio_buffer .. raw_incoming_data
+--     pio_buffer = raw_incoming_data
+--   end
 --
---   if has_pass or has_fail or has_done then
---     local active_cb = callBack
---     local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
+--   local execution_pass_target = 'PASS' .. current_id
+--   local is_build_passed = content:find('_CMMNDS_' .. current_token .. ':' .. execution_pass_target) ~= nil
+--   local is_build_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
+--   local is_build_failed = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
 --
---     if has_fail or has_done then
+--   -- Evaluate compilation termination tokens matches strings indices
+--   if is_build_passed or is_build_failed or is_build_done then
+--     local cached_active_callback = callBack
+--     local final_execution_status = is_build_failed and 'FAIL' or (is_build_done and 'DONE' or execution_pass_target)
+--
+--     if is_build_failed or is_build_done then
 --       callBack = nil
 --       M.queue = {}
 --
+--       -----------------------------------------------------------------------
+--       -- ONE-TIME RECOMPUTED ARGS EXTRACTOR FROM BUILD TEXT LOGS
+--       -----------------------------------------------------------------------
 --       if clangd_check_active then
 --         clangd_extracted_args = {}
---         local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
---         local end_idx = M.content:find(end_pattern, 1, true)
---         local start_idx = nil
 --
---         if end_idx then
---           local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
---           local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
---           local search_zone = M.content:sub(1, end_idx - 1)
---           local current_pos = 1
---           while true do
---             local next_start, next_end = search_zone:find(start_pattern, current_pos, true)
---             if not next_start then
---               if not start_idx then
---                 local fb_start, fb_end = search_zone:find(fallback_echo, current_pos, true)
---                 if fb_start then start_idx = fb_end end
---               end
---               break
---             end
---             start_idx = next_end
---             current_pos = next_start + 1
---           end
+--         local compilation_start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_execution_status
+--         local _, extraction_start_index = string.find(content, compilation_start_pattern, 1, true)
+--
+--         if not extraction_start_index then
+--           local compilation_fallback_pattern = '_CMMNDS_' .. current_token .. '":"DONE'
+--           _, extraction_start_index = string.find(content, compilation_fallback_pattern, 1, true)
 --         end
 --
---         if start_idx and end_idx and end_idx > start_idx then
---           local fresh_run_logs = string.sub(M.content, start_idx + 1, end_idx - 1)
---           if not string.find(fresh_run_logs, '%.clang%-format') then
---             local seen = {}
---             for arg in string.gmatch(fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
---               local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
---               if not seen[clean_flag] then
---                 seen[clean_flag] = true
---                 table.insert(clangd_extracted_args, clean_flag)
+--         local compilation_end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_execution_status
+--         local extraction_end_index = string.find(content, compilation_end_pattern, 1, true)
+--
+--         -- Slice and map clean compiler flags into micro-controller arrays
+--         if extraction_start_index and extraction_end_index and extraction_end_index > extraction_start_index then
+--           local isolated_fresh_run_logs = string.sub(content, extraction_start_index + 1, extraction_end_index - 1)
+--
+--           if not string.find(isolated_fresh_run_logs, '%.clang%-format') then
+--             local unique_seen_arguments = {}
+--             for single_flag_argument in string.gmatch(isolated_fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
+--               local sanitized_clean_flag = string.format('"%s"', single_flag_argument:gsub('[;%.]$', ''))
+--               if not unique_seen_arguments[sanitized_clean_flag] then
+--                 unique_seen_arguments[sanitized_clean_flag] = true
+--                 table.insert(clangd_extracted_args, sanitized_clean_flag)
 --               end
 --             end
 --           end
 --         else
---           M.pio_buffer = ""
---           M.content = ""
 --           return
 --         end
 --         clangd_check_active = false
 --       end
---       M.pio_buffer = ''
---       M.content = ''
+--       -----------------------------------------------------------------------
+--
+--       -- Wipe data caches to protect editor memory usage allocations
+--       pio_buffer = ''
+--       content = ''
 --     end
 --
---     if final_status and active_cb then vim.schedule(function() active_cb(final_status) end) end
+--     if final_execution_status and cached_active_callback then
+--       vim.schedule(function()
+--         cached_active_callback(final_execution_status)
+--       end)
+--     end
+--
 --     return
 --   end
 -- end
 
-function M.setup(opts)
-  M.config = vim.tbl_deep_extend('force', M.config, opts or {})
+-- User customization extension deep merge framework endpoint
+function M.setup(user_configuration_options)
+  M.config = vim.tbl_deep_extend('force', M.config, user_configuration_options or {})
 end
 
 return M

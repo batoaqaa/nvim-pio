@@ -30,7 +30,6 @@ local content = ''
 
 -- stylua: ignore
 -- function M.stdoutcallback(_, _, data, _)
-function M.stdoutcallback( _, data, event)
   -----------------------------------------------------------------------------
   -- 🔍 DETECTIVE TRACE HOOKS: Run this snippet to verify active process triggers
   -----------------------------------------------------------------------------
@@ -43,6 +42,7 @@ function M.stdoutcallback( _, data, event)
   -- end
   -----------------------------------------------------------------------------
 
+function M.stdoutcallback( _, data, event)
   if not data or #data == 0 then return end
 
   if #data > 1 then
