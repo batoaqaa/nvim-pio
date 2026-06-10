@@ -183,12 +183,12 @@ function Terminal:_spawn(state, target_height, opposite_type)
         end
       end
       -------------------------------------------------------------------------
-      if self.term_type == "cli" and type(M.stdoutcallback) == "function" then 
-        M.stdoutcallback(job_id, data, event_type) 
+      if self.term_type == "cli" and type(M.stdout_callback) == "function" then 
+        M.stdout_callback(job_id, data, event_type) 
       end
     end,
     on_stderr = function(job_id, data, event_type)
-      if self.term_type == "cli" and type(M.stdoutcallback) == "function" then M.stdoutcallback(job_id, data, event_type) end
+      if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(job_id, data, event_type) end
     end,
     on_exit = function() if type(M.exit_callback) == "function" then M.exit_callback() end end
   })
