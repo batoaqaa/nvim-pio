@@ -166,29 +166,37 @@ end
 
 function Terminal:_spawn(state, target_height, opposite_type)
   -- 🌟 PURE LUA LIST REFERENCE TARGET: Passed cleanly to legacy-safe termopen interface!
+  _G.PioTraceLog = _G.PioTraceLog or {}
+
   local channel_id = vim.fn.termopen(self.shell, {
-    -- on_stdout = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
+    term = true,
     on_stdout = function(job_id, data, event_type)
       -------------------------------------------------------------------------
-      -- 🔍 LIGHTWEIGHT SHORE INTERCEPT: Captures raw lines with zero text leaks
+      -- 🔍 BULLETPROOF SHORE INTERCEPT
       -------------------------------------------------------------------------
       if data then
         for index, line_text in ipairs(data) do
           if line_text ~= "" then
-            -- Strips invisible escape characters to make strings perfectly readable
             local clean_line = line_text:gsub("\x1b%[[0-9;]*%a", "")
-            table.insert(M.trace_history, string.format("[LINE %d] %q", index, clean_line))
+            table.insert(_G.PioTraceLog, string.format("[LINE %d] %q", index, clean_line))
           end
         end
       end
       -------------------------------------------------------------------------
-      if self.term_type == "cli" and type(M.stdoutcallback) == "function" then
-        M.stdoutcallback(job_id, data, event_type)
+      if self.term_type == "cli" and type(M.stdoutcallback) == "function" then 
+        M.stdoutcallback(job_id, data, event_type) 
       end
     end,
-    on_stderr = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
+    on_stderr = function(job_id, data, event_type)
+      if self.term_type == "cli" and type(M.stdoutcallback) == "function" then M.stdoutcallback(job_id, data, event_type) end
+    end,
     on_exit = function() if type(M.exit_callback) == "function" then M.exit_callback() end end
   })
+  -- local channel_id = vim.fn.termopen(self.shell, {
+  --   on_stdout = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
+  --   on_stderr = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
+  --   on_exit = function() if type(M.exit_callback) == "function" then M.exit_callback() end end
+  -- })
 
   if not channel_id or channel_id <= 0 then return end
   state.job = channel_id
