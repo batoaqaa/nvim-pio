@@ -188,9 +188,9 @@ function Terminal:show()
   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = state.win })
   M.UpdateWinbarTitles()
 
-  if not is_new_buffer then
-    vim.cmd("startinsert")
-  end
+  -- if not is_new_buffer then
+  --   vim.cmd("startinsert")
+  -- end
   return true
 end
 
@@ -248,7 +248,7 @@ function Terminal:_attach_keymaps(state, target_height, opposite_type)
   local maps = M.config.keymaps
 
   -- 🌟 USER-CONFIGURED DYNAMIC TERMINAL SHORTCUTS MAPS BINDINGS
-  vim.keymap.set("t", maps.escape_term, [[<rm_flag><C-\><C-n>]], { buffer = state.buf })
+  vim.keymap.set("t", maps.escape_term, [[<C-\><C-n>]], { buffer = state.buf })
   vim.keymap.set("n", maps.hide_pane, function() SafeCloseTerminal(self.term_type) end, { buffer = state.buf })
 
   vim.keymap.set({"n", "t"}, maps.move_up, function()
