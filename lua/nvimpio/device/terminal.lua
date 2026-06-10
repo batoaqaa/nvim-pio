@@ -166,17 +166,17 @@ end
 
 function Terminal:_spawn(state, target_height, opposite_type)
   -- 🌟 PURE LUA LIST REFERENCE TARGET: Passed cleanly to legacy-safe termopen interface!
-  _G.PioTraceLog = _G.PioTraceLog or {}
+  _G.PioTraceLog = {}
 
   local channel_id = vim.fn.termopen(self.shell, {
-    term = true,
     on_stdout = function(job_id, data, event_type)
       -------------------------------------------------------------------------
-      -- 🔍 BULLETPROOF SHORE INTERCEPT
+      -- 🔍 LIGHTWEIGHT SHORE INTERCEPT (100% CRASH SAFE)
       -------------------------------------------------------------------------
-      if data then
+      if data and _G.PioTraceLog then
         for index, line_text in ipairs(data) do
           if line_text ~= "" then
+            -- Strip out visual noise escape codes to read raw characters cleanly
             local clean_line = line_text:gsub("\x1b%[[0-9;]*%a", "")
             table.insert(_G.PioTraceLog, string.format("[LINE %d] %q", index, clean_line))
           end
@@ -192,6 +192,7 @@ function Terminal:_spawn(state, target_height, opposite_type)
     end,
     on_exit = function() if type(M.exit_callback) == "function" then M.exit_callback() end end
   })
+ 
   -- local channel_id = vim.fn.termopen(self.shell, {
   --   on_stdout = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
   --   on_stderr = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
