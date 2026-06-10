@@ -1,7 +1,6 @@
 -- stylua: ignore start
 local M = {}
 
--- 1. Default Public User Configuration Matrix
 M.config = {
   panel_height = 0.25,
   winbar_bg = '#80a3d4',
@@ -10,7 +9,7 @@ M.config = {
     open_cli      = [[<leader>\t]],
     open_monitor  = [[<leader>\gm]],
     hide_pane     = "q",
-    switch_pane   = ";;",
+    switch_pane   = "<Tab>",
     escape_term   = "<Esc>",
     move_up       = "<C-k>",
     move_down     = "<C-j>",
@@ -22,13 +21,11 @@ M.config = {
 M.stdout_callback = nil
 M.exit_callback = nil
 
--- Central database tracking window states and details
 local term_registry = {
   cli =     { buf = nil, win = nil, job = nil, title = " Pio CLI> " },
   monitor = { buf = nil, win = nil, job = nil, title = " Pio Monitor " },
 }
 
--- Safe window manager close executor pass routine
 local function SafeCloseTerminal(term_type)
   local state = term_registry[term_type]
   if not state then return end
@@ -42,7 +39,6 @@ local function SafeCloseTerminal(term_type)
   end)
 end
 
--- Visual redrawing loop engine applying winbar header tags
 function M.UpdateWinbarTitles()
   local cli_alive = term_registry.cli.buf and vim.api.nvim_buf_is_valid(term_registry.cli.buf)
   local mon_alive = term_registry.monitor.buf and vim.api.nvim_buf_is_valid(term_registry.monitor.buf)
@@ -60,23 +56,22 @@ function M.UpdateWinbarTitles()
 end
 
 ----------------------------------------------------------------------------------------
--- 🌟 THE AUTONOMOUS TERMINAL CLASS ARCHITECTURE
+-- 🌟 THE TRUE AUTONOMOUS TERMINAL CLASS ARCHITECTURE
 ----------------------------------------------------------------------------------------
----@class Terminal; @field term_type string; @field newline string; @field shell string|table
+---@class Terminal; @field term_type string; @field newline string; @field shell table
 local Terminal = {
   term_type = "",
-  newline   = OS.shell,
+  newline   = OS.eol,
+  shell     = OS.shell,
 }
 Terminal.__index = Terminal
 
--- Class object instance factory constructor
 function Terminal.new(term_type)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
   return self
 end
 
--- Pipe manual strings down channels autonomously
 function Terminal:send(command)
   local state = term_registry[self.term_type]
   if not state then return end
@@ -93,7 +88,6 @@ function Terminal:send(command)
   vim.fn.chansend(state.job, cmd_str .. self.newline)
 end
 
--- Hard stop background processes loops safely
 function Terminal:close()
   local state = term_registry[self.term_type]
   if not state or not state.job or state.job <= 0 then return end
@@ -112,7 +106,6 @@ function Terminal:close()
   end)
 end
 
--- Conceal window views preserving active sessions
 function Terminal:hide()
   local state = term_registry[self.term_type]
   if state and state.win and vim.api.nvim_win_is_valid(state.win) then
@@ -125,7 +118,6 @@ function Terminal:hide()
   end)
 end
 
--- Status check querying layout visibility parameters
 local function IsTerminalOpen(term_type)
   local state = term_registry[term_type]
   if not state then return false end
@@ -134,7 +126,6 @@ end
 
 function M.IsTerminalOpen(term_type) return IsTerminalOpen(term_type) end
 
--- High performance view manager layout switcher
 function Terminal:show()
   local state = term_registry[self.term_type]
   if not state then return false end
@@ -173,9 +164,8 @@ function Terminal:show()
   return true
 end
 
--- Rebuilt high-performance terminal instantiation layer [INDEX]
 function Terminal:_spawn(state, target_height, opposite_type)
-  -- Initialize interactive terminal using fully supported API
+  -- 🌟 PURE LUA LIST REFERENCE TARGET: Passed cleanly to legacy-safe termopen interface!
   local channel_id = vim.fn.termopen(self.shell, {
     on_stdout = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
     on_stderr = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
@@ -189,7 +179,6 @@ function Terminal:_spawn(state, target_height, opposite_type)
   self:_attach_keymaps(state, target_height, opposite_type)
 end
 
--- Encapsulate automated layout focus autocmd listeners
 function Terminal:_attach_events(state, target_height)
   local scroll_group = vim.api.nvim_create_augroup("PioScroll_" .. state.buf, { clear = true })
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
@@ -216,7 +205,6 @@ function Terminal:_attach_events(state, target_height)
   })
 end
 
--- Encapsulate localized panel navigation keyboard bindings
 function Terminal:_attach_keymaps(state, target_height, opposite_type)
   local maps = M.config.keymaps
 
