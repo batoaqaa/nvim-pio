@@ -170,19 +170,9 @@ function Terminal:show()
   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = state.win })
   M.UpdateWinbarTitles()
 
-  if is_new_buffer then
-    vim.schedule(function()
-      if state.win and vim.api.nvim_win_is_valid(state.win) then
-        vim.api.nvim_set_current_win(state.win)
-        vim.cmd("startinsert")
-      end
-    end)
-  else
+  if not is_new_buffer then
     vim.cmd("startinsert")
   end
-  -- if not is_new_buffer then
-  --   vim.cmd("startinsert")
-  -- end
   return true
 end
 
@@ -203,6 +193,20 @@ function Terminal:_spawn(state, target_height, opposite_type)
   --   local init_enc = "[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Clear-Host;"
   --   vim.fn.chansend(channel_id, init_enc .. self.newline)
   -- end
+  if OS.is_win then
+    local clear_event_group = vim.api.nvim_create_augroup("PioClearGuard_" .. state.buf, { clear = true })
+    vim.api.nvim_create_autocmd("TermOpen", {
+      group = clear_event_group,
+      buffer = state.buf,
+      once = true,
+      callback = function()
+        vim.schedule(function()
+          -- Fires a clean screen reset right into your active shell prompt session
+          vim.fn.chansend(channel_id, "Clear-Host;" .. self.newline)
+        end)
+      end
+    })
+  end
 
   self:_attach_events(state, target_height)
   self:_attach_keymaps(state, target_height, opposite_type)
