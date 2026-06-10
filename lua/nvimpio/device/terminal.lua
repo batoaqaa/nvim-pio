@@ -88,10 +88,10 @@ function Terminal:send(command)
   end
 
   if not state.job or state.job <= 0 then return end
-  -- if cmd_str ~= "" then
-  --   vim.fn.chansend(state.job, self.newline)
-  -- end
-  vim.fn.chansend(state.job, cmd_str .. self.newline)
+  if cmd_str ~= "" then
+    vim.fn.chansend(state.job, self.newline)
+  end
+  -- vim.fn.chansend(state.job, cmd_str .. self.newline)
 end
 
 -- Hard stop background processes loops safely
@@ -177,8 +177,8 @@ end
 -- Rebuilt high-performance terminal instantiation layer
 function Terminal:_spawn(state, target_height, opposite_type)
   local channel_id = vim.fn.termopen(self.shell, {
-    on_stdout = function(j, d, e) if self.term_type == "cli" and type(M.stdoutcallback) == "function" then M.stdoutcallback(j, d, e) end end,
-    on_stderr = function(j, d, e) if self.term_type == "cli" and type(M.stdoutcallback) == "function" then M.stdoutcallback(j, d, e) end end,
+    on_stdout = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
+    on_stderr = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
     on_exit = function() if type(M.exit_callback) == "function" then M.exit_callback() end end
   })
   
