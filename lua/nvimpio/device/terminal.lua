@@ -205,8 +205,8 @@ end
 -- Core process spawner mapping pipeline channels
 function Terminal:_spawn(state, target_height, opposite_type)
   local channel_id = vim.fn.termopen(self.shell, {
-    on_stdout = function(j, d, e) if self.term_type == "cli" and type(M.stdoutcallback) == "function" then M.stdoutcallback(j, d, e) end end,
-    on_stderr = function(j, d, e) if self.term_type == "cli" and type(M.stdoutcallback) == "function" then M.stdoutcallback(j, d, e) end end,
+    on_stdout = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
+    on_stderr = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
     on_exit = function() if type(M.exit_callback) == "function" then M.exit_callback() end end
   })
   
