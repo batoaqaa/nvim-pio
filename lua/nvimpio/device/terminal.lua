@@ -88,9 +88,9 @@ function Terminal:send(command)
   end
 
   if not state.job or state.job <= 0 then return end
-  if cmd_str ~= "" then
-    vim.fn.chansend(state.job, self.newline)
-  end
+  -- if cmd_str ~= "" then
+  --   vim.fn.chansend(state.job, self.newline)
+  -- end
   vim.fn.chansend(state.job, cmd_str .. self.newline)
 end
 
