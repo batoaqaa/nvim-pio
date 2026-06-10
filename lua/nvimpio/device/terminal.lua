@@ -1,35 +1,31 @@
 -- stylua: ignore start
 local M = {}
 
--- 1. Default Public User Configuration Matrix
 M.config = {
-  panel_height = 0.2,
+  panel_height = 0.25,
   winbar_bg = '#80a3d4',
   winbar_fg = '#000000',
-  -- 🌟 ALL KEYMAP SHORTCUT VALUES EXTRACTED HERE FOR USER CONFIGURATION CONTROL
   keymaps = {
-    open_cli      = [[<leader>\t]],   -- Normal mode shortcut to slide open primary panel
-    open_monitor  = [[<leader>\gm]],  -- Normal mode shortcut to slide open hardware monitor
-    hide_pane     = "q",              -- Normal mode shortcut inside panel buffer to hide split
-    switch_pane   = "<Tab>",             -- Interactive modes shortcut to cross-toggle panels
-    escape_term   = "<Esc>",          -- Terminal mode escape key sequence mapping
-    move_up       = "<C-k>",          -- Cross split navigation moving cursor up
-    move_down     = "<C-j>",          -- Cross split navigation moving cursor down
-    move_left     = "<C-h>",          -- Cross split navigation moving cursor left
-    move_right    = "<C-l>",          -- Cross split navigation moving cursor right
+    open_cli      = [[<leader>\t]],
+    open_monitor  = [[<leader>\gm]],
+    hide_pane     = "q",
+    switch_pane   = ";;",
+    escape_term   = "<Esc>",
+    move_up       = "<C-k>",
+    move_down     = "<C-j>",
+    move_left     = "<C-h>",
+    move_right    = "<C-l>",
   }
 }
 
 M.stdout_callback = nil
 M.exit_callback = nil
 
--- Central database tracking window states and details
 local term_registry = {
   cli =     { buf = nil, win = nil, job = nil, title = " Pio CLI> " },
   monitor = { buf = nil, win = nil, job = nil, title = " Pio Monitor " },
 }
 
--- Safe window manager close executor pass routine
 local function SafeCloseTerminal(term_type)
   local state = term_registry[term_type]
   if not state then return end
@@ -43,11 +39,11 @@ local function SafeCloseTerminal(term_type)
   end)
 end
 
--- Visual redrawing loop engine applying winbar header tags
 function M.UpdateWinbarTitles()
   local cli_alive = term_registry.cli.buf and vim.api.nvim_buf_is_valid(term_registry.cli.buf)
   local mon_alive = term_registry.monitor.buf and vim.api.nvim_buf_is_valid(term_registry.monitor.buf)
-  local hint = (cli_alive and mon_alive) and " [" .. M.config.keymaps.switch_pane .. " Switch] " or " [" .. M.config.keymaps.hide_pane .. " Hide] "
+  local maps = M.config.keymaps
+  local hint = (cli_alive and mon_alive) and " [" .. maps.switch_pane .. " Switch] " or " [" .. maps.hide_pane .. " Hide] "
 
   vim.api.nvim_set_hl(0, 'PioWinBar', { bg = M.config.winbar_bg, fg = M.config.winbar_fg })
 
@@ -70,14 +66,12 @@ local Terminal = {
 }
 Terminal.__index = Terminal
 
--- Class object instance factory constructor
 function Terminal.new(term_type)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
   return self
 end
 
--- Pipe manual strings down channels autonomously
 function Terminal:send(command)
   local state = term_registry[self.term_type]
   if not state then return end
@@ -94,7 +88,6 @@ function Terminal:send(command)
   vim.fn.chansend(state.job, cmd_str .. self.newline)
 end
 
--- Hard stop background processes loops safely
 function Terminal:close()
   local state = term_registry[self.term_type]
   if not state or not state.job or state.job <= 0 then return end
@@ -113,7 +106,6 @@ function Terminal:close()
   end)
 end
 
--- Conceal window views preserving active sessions
 function Terminal:hide()
   local state = term_registry[self.term_type]
   if state and state.win and vim.api.nvim_win_is_valid(state.win) then
@@ -126,7 +118,7 @@ function Terminal:hide()
   end)
 end
 
--- Status check querying layout visibility parameters
+
 local function IsTerminalOpen(term_type)
   local state = term_registry[term_type]
   if not state then return false end
@@ -135,7 +127,6 @@ end
 
 function M.IsTerminalOpen(term_type) return IsTerminalOpen(term_type) end
 
--- High performance view manager layout switcher
 function Terminal:show()
   local state = term_registry[self.term_type]
   if not state then return false end
@@ -170,49 +161,58 @@ function Terminal:show()
   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = state.win })
   M.UpdateWinbarTitles()
 
-  if not is_new_buffer then
-    vim.cmd("startinsert")
-  end
+  vim.cmd("startinsert")
   return true
 end
 
--- Core process spawner mapping pipeline channels
+-- 🌟 MODERN API PIPELINE SPAWNER:
+-- Uses the modern 'nvim_open_term' channel allocator to handle PTY resizing [INDEX].
+-- Then 'jobstart' pipes data cleanly into your Part 3 parser without any double-prompt layout bugs! [INDEX]
 function Terminal:_spawn(state, target_height, opposite_type)
-  local channel_id = vim.fn.jobstart(self.shell, {
-    term = true,
-    on_stdout = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
-    on_stderr = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
+  -- 1. Allocate a modern native terminal channel bound to your window split buffer [INDEX]
+  local term_channel_id = vim.api.nvim_open_term(state.buf, {
+    on_input = function(_, _, _, input_chars)
+      if state.job and state.job > 0 then
+        vim.fn.chansend(state.job, input_chars)
+      end
+    end
+  })
+
+  -- 2. Spawn the job via modern background jobstart streams [INDEX]
+  local job_channel_id = vim.fn.jobstart(self.shell, {
+    on_stdout = function(job_id, standard_output_data, event_type)
+      if standard_output_data then
+        -- Forward data visually to the allocated modern terminal window screen
+        for _, raw_line in ipairs(standard_output_data) do
+          pcall(vim.api.nvim_chan_send, term_channel_id, raw_line .. "\r\n")
+        end
+        -- Forward data logically straight to your Part 3 parser block
+        if self.term_type == "cli" and type(M.stdout_callback) == "function" then
+          M.stdout_callback(job_id, standard_output_data, event_type)
+        end
+      end
+    end,
+    on_stderr = function(job_id, standard_error_data, event_type)
+      if standard_error_data and self.term_type == "cli" and type(M.stdout_callback) == "function" then
+        M.stdout_callback(job_id, standard_error_data, event_type)
+      end
+    end,
     on_exit = function() if type(M.exit_callback) == "function" then M.exit_callback() end end
   })
 
-  if not channel_id or channel_id <= 0 then return end
-  vim.b[state.buf].terminal_job_id = channel_id
-  state.job = channel_id
+  if not job_channel_id or job_channel_id <= 0 then return end
+  vim.b[state.buf].terminal_job_id = job_channel_id
+  state.job = job_channel_id
 
-  -- if OS.is_win then
-  --   local init_enc = "[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Clear-Host;"
-  --   vim.fn.chansend(channel_id, init_enc .. self.newline)
-  -- end
   if OS.is_win then
-    local clear_event_group = vim.api.nvim_create_augroup("PioClearGuard_" .. state.buf, { clear = true })
-    vim.api.nvim_create_autocmd("TermOpen", {
-      group = clear_event_group,
-      buffer = state.buf,
-      once = true,
-      callback = function()
-        vim.schedule(function()
-          -- Fires a clean screen reset right into your active shell prompt session
-          vim.fn.chansend(channel_id, "Clear-Host;" .. self.newline)
-        end)
-      end
-    })
+    local init_enc = "[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Clear-Host;"
+    vim.fn.chansend(job_channel_id, init_enc .. self.newline)
   end
 
   self:_attach_events(state, target_height)
   self:_attach_keymaps(state, target_height, opposite_type)
 end
 
--- Encapsulate automated layout focus autocmd listeners
 function Terminal:_attach_events(state, target_height)
   local scroll_group = vim.api.nvim_create_augroup("PioScroll_" .. state.buf, { clear = true })
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
@@ -239,11 +239,9 @@ function Terminal:_attach_events(state, target_height)
   })
 end
 
--- Encapsulate localized panel navigation keyboard bindings
 function Terminal:_attach_keymaps(state, target_height, opposite_type)
   local maps = M.config.keymaps
 
-  -- 🌟 USER-CONFIGURED DYNAMIC TERMINAL SHORTCUTS MAPS BINDINGS
   vim.keymap.set("t", maps.escape_term, [[<C-\><C-n>]], { buffer = state.buf })
   vim.keymap.set("n", maps.hide_pane, function() SafeCloseTerminal(self.term_type) end, { buffer = state.buf })
 
@@ -288,7 +286,6 @@ M.cli = Terminal.new("cli")
 ---@type Terminal
 M.monitor = Terminal.new("monitor")
 
--- 🌟 USER CONFIGURABLE GLOBAL TRIGGER SHORTCUT KEYMAPS
 local function SetGlobalKeymaps()
   pcall(vim.keymap.del, "n", [[<leader>\gm]])
   pcall(vim.keymap.del, "n", [[<leader>\t]])
@@ -296,12 +293,8 @@ local function SetGlobalKeymaps()
   vim.keymap.set("n", M.config.keymaps.open_cli, function() M.cli:show() end, { silent = true })
 end
 SetGlobalKeymaps()
-
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
-  if opts and opts.shell then Terminal.shell = opts.shell end
-
-  -- 🌟 LIVE UPDATE GATES: Refresh key registration trees instantly upon setup call!
   SetGlobalKeymaps()
 end
 
