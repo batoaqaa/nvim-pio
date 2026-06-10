@@ -80,7 +80,8 @@ local os_info = {
   project_config = vim.fs.joinpath(nvimpioConfigDir, '.projectConfig.json'),
   nvimpio_config_dir = nvimpioConfigDir,
   shell = OS.is_win and {
-    'pwsh.exe', '-NoExit', '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+    -- 'pwsh.exe', '-NoExit', '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+    'pwsh.exe', '-NoExit', '-NoLogo', '-ExecutionPolicy', 'Bypass',
   } or (function()
     local default_shell = vim.api.nvim_get_option_value('shell', {})
     if default_shell:find('zsh') then return { default_shell, '-f' } end
