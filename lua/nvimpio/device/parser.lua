@@ -35,7 +35,7 @@ function M.stdoutcallback(_, raw_incoming_data, _)
     end
   end
   if not raw_incoming_data or #raw_incoming_data == 0 then return end
-
+  if not current_token then return end
   -----------------------------------------------------------------------------
   -- 🔍 DETECTIVE TRACE HOOKS: Run this snippet to verify active process triggers
   -----------------------------------------------------------------------------
