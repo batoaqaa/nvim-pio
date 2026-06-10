@@ -1,4 +1,4 @@
--- stylua: ignore start
+-- stylua: ignore start 
 
 -- 1. Gather all the data first
 local sysname = vim.uv.os_uname().sysname
@@ -69,7 +69,6 @@ local os_info = {
   folder_sep = is_win and '\\' or '/',
   devNul = is_win and ' nul' or ' /dev/null',
   eol = is_win and '\r\n' or '\n',
-  shell = vim.env.SHELL or (is_win and 'powershell.exe' or 'sh'),
   config_dir = vim.fn.stdpath('config'),
   data_dir = vim.fn.stdpath('data'),
   cache_dir = vim.fn.stdpath('cache'),
@@ -80,6 +79,13 @@ local os_info = {
   clangd_flags = vim.fs.joinpath(nvimpioConfigDir, '.clangdFlags.txt'),
   project_config = vim.fs.joinpath(nvimpioConfigDir, '.projectConfig.json'),
   nvimpio_config_dir = nvimpioConfigDir,
+  shell = OS.is_win and {
+    'pwsh.exe', '-NoExit', '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+  } or (function()
+    local default_shell = vim.api.nvim_get_option_value('shell', {})
+    if default_shell:find('zsh') then return { default_shell, '-f' } end
+    return default_shell
+  end)(),
 
   ---@param msg string The message to display
   ---@param level string|integer|nil
