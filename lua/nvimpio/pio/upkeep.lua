@@ -444,7 +444,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
     meta.cc_path = norm(data.cc_path)
     meta.cxx_path = norm(data.cxx_path)
     meta.gdb_path = norm(data.gdb_path)
-    pcall(M.get_sysroot_triplet, meta.cxx_path)
+    M.get_sysroot_triplet(meta.cxx_path)
+    -- pcall(M.get_sysroot_triplet, meta.cxx_path)
 
     -- 4. Flags & Defines
     meta.cc_flags = map_list(data.cc_flags)
