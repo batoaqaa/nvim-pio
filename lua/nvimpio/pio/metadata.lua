@@ -195,7 +195,7 @@ function M.load_project_config()
   else
     local active_env, metadata = M.get_active_env('meta load: ')
     if active_env and active_env ~= '' then
-      OS.notify(active_env)
+      OS.notify("load_project_config" .. active_env)
       metadata = metadata or {}
       _pio_metadata.core_dir = metadata.core_dir
       _pio_metadata.packages_dir = metadata.packages_dir
