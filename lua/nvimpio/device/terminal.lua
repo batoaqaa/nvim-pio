@@ -45,8 +45,8 @@ function M.UpdateWinbarTitles()
   local maps = M.config.keymaps
 
   local hint = (cli_alive and mon_alive)
-    and " [" .. maps.switch_pane .. " Switch; " .. maps.hide_pane .. " quit] "
-    or " [" .. maps.hide_pane .. " Hide; " .. maps.hide_pane .. " quit] "
+    and " [" .. maps.switch_pane .. " Switch; " .. maps.hide_pane .. " Hide] "
+    or " [" .. maps.hide_pane .. " Hide] "
 
   -- 🌟 UNIFIED LOOKUP LOOK: Winbar now reads directly from the shared class definition! [INDEX]
   vim.api.nvim_set_hl(0, 'PioWinBar', { bg = M.config.winbar_bg, fg = M.config.winbar_fg })
