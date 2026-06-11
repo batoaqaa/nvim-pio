@@ -11,7 +11,7 @@ local function pioCompileDB()
 
   local cb = function(status)
     parser.handlePioDB(status, active_env, function(success)
-      if success then end
+      if success then do end end
     end)
   end
   -- local cb = pio.handlePioDB

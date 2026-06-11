@@ -26,7 +26,7 @@ describe('PlatformIO Configuration & Validation System', function()
           desc = '[A]dvanced',
           shortcut = 'a',
           items = {
-            { node = 'item', desc = '[T]est', shortcut = 't', command = 'Piocmdf test' },
+            { node = 'item', desc = '[T]est', shortcut = 't', command = 'Piocli test' },
           },
         },
       },

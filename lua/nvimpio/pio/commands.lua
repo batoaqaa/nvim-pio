@@ -7,6 +7,18 @@
 -- -1: Zero or one argument (like ?, explicitly).
 
 -- stylua: ignore start
+local pio_mon = require('nvimpio.device.terminal').mon
+local pio_cli = require('nvimpio.device.terminal').cli
+local function sendCmnd(command)
+  -- Directly pull the raw pointer reference from the table object.
+  -- 0% CPU cycles wasted running window layout functions! [INDEX]
+
+  -- The custom internal Lazy-Spawn Guard takes care of everything!
+  -- If it's closed, it opens it. If it's open, it pipes it straight down! [INDEX]
+  pio_cli:show()
+  pio_cli:send(command)
+end
+
 -- INFO: update/generate compileDB
 ----------------------------------------------------------------
 vim.api.nvim_create_user_command('PioCompileDB', function()
@@ -14,41 +26,39 @@ vim.api.nvim_create_user_command('PioCompileDB', function()
   require('nvimpio.pio.ui.pioCompileDB').pioCompileDB()
 end, { desc = "Install PlatformIO Core" })
 
+
 -- INFO: Switch Environment
 vim.api.nvim_create_user_command('PioPickEnv', function()
   require('nvimpio.pio.ui.activeEnvPicker').select_env_picker()
 end, { desc = 'Switch [E]nvironment' })
 
--- vim.keymap.set('n', '<leader>\\e', function()
---   require('nvimpio.pio.ui.activeEnvPicker').select_env_picker()
--- end, { desc = 'Switch [E]nvironment' })
 
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
--- vim.api.nvim_create_user_command('PioInstall', function()
---     require('nvimpio.pio.ui.pioInstall').pioInstall()
--- end, { desc = "Install PlatformIO Core" })
---
 vim.api.nvim_create_user_command('PioInstall', function()
-  vim.g.platformioRootDir = vim.uv.cwd()
-  -- require("nvimpio.core").execute_init(args)
-  require('nvimpio.core').ensure_toolchain_active(
-    -- pioCheck.pioStatus(
-    function(success)
-      if success then
-        ---@type NvimPio
-        local nvimpio = require('nvimpio')
-        nvimpio.activate()
-      else
-      end
-    end,
-    0
-  )
-  -- end, false)
-end, {
-  force = true,
-  desc = 'Start the PlatformIO guided install wizard',
-})
+    require('nvimpio.pio.ui.pioInstall').pioInstall()
+end, { desc = "Install PlatformIO Core" })
+--
+-- vim.api.nvim_create_user_command('PioInstall', function()
+--   vim.g.platformioRootDir = vim.uv.cwd()
+--   -- require("nvimpio.core").execute_init(args)
+--   require('nvimpio.core').ensure_toolchain_active(
+--     -- pioCheck.pioStatus(
+--     function(success)
+--       if success then
+--         ---@type NvimPio
+--         local nvimpio = require('nvimpio')
+--         nvimpio.activate()
+--       else
+--       end
+--     end,
+--     0
+--   )
+--   -- end, false)
+-- end, {
+--   force = true,
+--   desc = 'Start the PlatformIO guided install wizard',
+-- })
 
 
 -- INFO: manage gitignore
@@ -132,16 +142,16 @@ end, {
   nargs = '+',
 })
 
---INFO: Piocmdh    Piocmd horizontal terminal
-vim.api.nvim_create_user_command('Piocmdh', function(opts)
+--INFO: Piomon    Piomon monitor terminal
+vim.api.nvim_create_user_command('Piomon', function(opts)
   local cmd_table = vim.split(opts.args, ' ')
   require('nvimpio.pio.cli').piocmd(cmd_table, 'horizontal')
 end, {
   nargs = '*',
 })
 
---INFO: Piocmdf    Piocmd float terminal
-vim.api.nvim_create_user_command('Piocmdf', function(opts)
+--INFO: Piocli    Piocli cli terminal
+vim.api.nvim_create_user_command('Piocli', function(opts)
   local cmd_table = vim.split(opts.args, ' ')
   require('nvimpio.pio.cli').piocmd(cmd_table, 'float')
 end, {
