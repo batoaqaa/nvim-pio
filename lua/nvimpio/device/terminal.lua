@@ -4,7 +4,7 @@ local M = {}
 
 -- Default Public User Configuration Matrix
 M.config = {
-  panel_height = 0.25,
+  panel_height = 0.2,
   winbar_bg = '#80a3d4',
   winbar_fg = '#000000',
   shell = OS.shell,

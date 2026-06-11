@@ -291,11 +291,11 @@ function M.handleIdedata(result, active_env, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
   elseif result == 'PASS' .. current_id then
-    OS.notify(string.format('%sidedata  pass%s', fromMsg, current_id), "info")
+    OS.notify(string.format('%sidedata handling  pass%s', fromMsg, current_id), "info")
     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the only and the last command
-    OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
+    OS.notify(string.format('%s compiledb handling success for %s.', fromMsg, active_env), "info")
     vim.defer_fn(function()
       require('nvimpio.clangd.control').getUnknownArgsCli(fromMsg)
     end, 50) -- 50ms delay, adjust as needed
