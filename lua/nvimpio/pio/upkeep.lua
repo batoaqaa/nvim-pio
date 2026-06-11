@@ -128,30 +128,22 @@ function M.get_sysroot_triplet(cc_compiler)
   if obj.code == 0 and obj.stdout then
     -- Convert the raw stdout block into an array of lines
     local lines = vim.split(obj.stdout, "\n")
+
     for _, line in ipairs(lines) do
       local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
 
       if macro then
-        local lower_macro = macro:lower()
+        -- GENERIC INCLUSION RULES: Only capture clear target flags
+        -- 1. Keeps short system targets like __ELF__ or __xtensa__
+        local is_short_target = macro:match("^__[a-zA-Z0-9]+__$")
 
-        -- 100% GENERIC ULTRA FILTER (No hardware names)
-        local is_bloat =
-          lower_macro:match("^__builtin")   -- Primitives
-          or lower_macro:match("^__has_")   -- Feature macro tests
-          or lower_macro:match("_type__$")  -- Integer types
-          or lower_macro:match("_width__$") -- Type bit widths
-          or lower_macro:match("_max__$")   -- Max boundaries
-          or lower_macro:match("^__gnuc")   -- Compiler variations
-          or lower_macro:match("^__flt")    -- Floating boundaries
-          or lower_macro:match("^__dbl")    -- Double boundaries
-          or lower_macro:match("^__ldbl")   -- Long double boundaries
-          or lower_macro:match("^__cpp_")   -- Standard C++ capabilities
-          or lower_macro:match("^__atomic") -- Memory boundaries
-          or lower_macro:match("^__sizeof") -- Memory sizes
-          or lower_macro:match("^__order_") -- Endianness structures
-          or macro:match("^__STDC__")       -- C Standards compliance
+        -- 2. Keeps pure standard variables like __cplusplus
+        local is_language_std = macro:match("^__cplusplus$")
 
-        if not is_bloat then
+        -- 3. Keeps clear, readable configuration tokens that do not use internal prefixes
+        local is_clean_token  = not macro:match("^__")
+
+        if is_short_target or is_language_std or is_clean_token then
           value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
 
           if value == "" then
@@ -162,6 +154,8 @@ function M.get_sysroot_triplet(cc_compiler)
         end
       end
     end
+
+
 
     -- for _, line in ipairs(lines) do
     --   local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
