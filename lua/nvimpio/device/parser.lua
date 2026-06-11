@@ -230,6 +230,7 @@ local function pop(queue)
   return full_shell_cmd
 end
 
+local cliTerm
 -- INFO: commands sequencer
 -- stylua: ignore
 -- =============================================================================
@@ -263,10 +264,10 @@ M.run_sequence = function(tasks)
       ------------------------------------------------------
 
       require('nvimpio.device.terminal').stdout_callback = M.stdoutcallback
-      pio_cli = require('nvimpio.device.terminal').cli
-      -- pio_cli = require('nvimpio.device.terminal').PioTerminal("", "cli")
+      cliTerm = require('nvimpio.device.terminal').cli
+      -- cliTerm = require('nvimpio.device.terminal').PioTerminal("", "cli")
         if require('nvimpio').is_active then _G.metadata.isBusy = true end
-        pio_cli:show()
+        cliTerm:show()
         callBack('INIT')
     end)
   end
@@ -287,7 +288,7 @@ function M.handlePioinitDb(result, board, on_done)
   if result == 'INIT' then
     boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
     boilerplate_gen([[platformio.ini]], OS.project_dir)
-    pio_cli:send(pop(M.queue))
+    cliTerm:send(pop(M.queue))
   elseif result == 'PASS1' then -- current_id
     OS.notify('PIO init+db:  pass ' .. current_id, "info")
     local meta = require('nvimpio.pio.metadata')
@@ -297,7 +298,7 @@ function M.handlePioinitDb(result, board, on_done)
     -- boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-    if #M.queue > 0 then pio_cli:send(pop(M.queue)) end
+    if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
     -- else
     --   if on_done and type(on_done) == "function" then on_done(false) end
     --   M.cleanSequencer()
@@ -313,7 +314,7 @@ function M.handlePioinitDb(result, board, on_done)
       if on_done and type(on_done) == "function" then on_done(true) end
       if success then boilerplate.core_dir = _G.metadata.core_dir end
     end, 'PIO init+db: ')
-    pio_cli:hide()
+    cliTerm:hide()
     M.cleanSequencer()
   elseif result == 'FAIL' then
     if on_done and type(on_done) == "function" then on_done(false) end
@@ -327,13 +328,13 @@ function M.handlePioinit(result, board, on_done)
     -- OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
     boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
     boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
-    pio_cli:send(pop(M.queue))
+    cliTerm:send(pop(M.queue))
   -- elseif result == 'PASS1' then
   elseif result == 'DONE' then -- result of the last command
     OS.notify(fromMsg .. 'project init Done', "info")
     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-    pio_cli:hide()
+    cliTerm:hide()
     if on_done and type(on_done) == "function" then on_done(true) end
     _G.metadata.active_env = board
     M.cleanSequencer()
@@ -350,12 +351,12 @@ end
 function M.handlePioInstall(result, on_done)
   if result == 'INIT' then
     if on_done and type(on_done) == "function" then
-      vim.keymap.set('n', '<leader>\\t', function() pio_cli:show() end, { desc = 'open Term' })
+      vim.keymap.set('n', '<leader>\\t', function() cliTerm:show() end, { desc = 'open Term' })
     end
-    pio_cli:send(pop(M.queue))
+    cliTerm:send(pop(M.queue))
   elseif result == 'PASS' .. current_id then
       OS.notify('PIO install:  pass ' .. current_id, "info")
-      if #M.queue > 0 then pio_cli:send(pop(M.queue)) end
+      if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify('PIO install: Done', "info")
@@ -389,10 +390,10 @@ end
 -- stylua: ignore
 function M.clangFormat(result)
   if result == 'INIT' then
-    pio_cli:send(pop(M.queue))
+    cliTerm:send(pop(M.queue))
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify('Clang formatter: Done', "info")
-    if pio_cli then pio_cli:close() end
+    if cliTerm then cliTerm:close() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
     M.cleanSequencer()
@@ -405,10 +406,10 @@ end
 -- stylua: ignore
 function M.handleIdedata(result, active_env, on_done)
   if result == 'INIT' then
-    pio_cli:send(pop(M.queue))
+    cliTerm:send(pop(M.queue))
   elseif result == 'PASS' .. current_id then
     OS.notify(string.format('%sidedata  pass%s', fromMsg, current_id), "info")
-    if #M.queue > 0 then pio_cli:send(pop(M.queue)) end
+    if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
@@ -420,7 +421,7 @@ function M.handleIdedata(result, active_env, on_done)
     --   require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
     --   if on_done and type(on_done) == 'function' then on_done(true) end
     -- end)
-    pio_cli:hide()
+    cliTerm:hide()
     M.cleanSequencer()
   elseif result == 'FAIL' then
     M.cleanSequencer()
@@ -432,7 +433,7 @@ local pass1 = false
 -- stylua: ignore
 function M.handlePioDBArgs(result, active_env, on_done)
   if result == 'INIT' then
-    pio_cli:send(pop(M.queue))
+    cliTerm:send(pop(M.queue))
   elseif result == 'PASS1' then -- .. current_id then                         -- compiledb PASS1
     OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
     pass1  = true
@@ -444,7 +445,7 @@ function M.handlePioDBArgs(result, active_env, on_done)
     clangd_check_active = true
     -- vim.defer_fn(function()
       -- require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
-      if #M.queue > 0 then pio_cli:send(pop(M.queue)) end
+      if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
     -- end, 50) -- 50ms delay, adjust as needed
   elseif result == 'DONE' then -- result of the only and the last command
     if on_done and type(on_done) == 'function' then
@@ -458,7 +459,7 @@ function M.handlePioDBArgs(result, active_env, on_done)
         end, 500) -- 50ms delay, adjust as needed
       end
     end
-    pio_cli:hide()
+    cliTerm:hide()
     M.cleanSequencer()
   elseif result == 'FAIL' then
     if on_done and type(on_done) == 'function' then
@@ -472,7 +473,7 @@ function M.handlePioDBArgs(result, active_env, on_done)
         on_done(true)
       else on_done(false) end
     end
-    pio_cli:hide()
+    cliTerm:hide()
     M.cleanSequencer()
   end
 end
@@ -483,10 +484,10 @@ end
 function M.handlePioDB(result, active_env, on_done)
   if result == 'INIT' then
     pass1 = false
-    pio_cli:send(pop(M.queue))
+    cliTerm:send(pop(M.queue))
   elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
     OS.notify(string.format('%sls  for %s', fromMsg, active_env), "info")
-    if #M.queue > 0 then pio_cli:send(pop(M.queue)) end
+    if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   elseif result == 'DONE' then -- .. current_id then                         -- compiledb PASS1
     vim.schedule(function()
       OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
@@ -507,10 +508,10 @@ local pass2 = false
 -- stylua: ignore
 function M.handleIdedata1(result, active_env, on_done)
   if result == 'INIT' then
-    pio_cli:send(pop(M.queue))
+    cliTerm:send(pop(M.queue))
   elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
     OS.notify(string.format('%sidedata  for %s', fromMsg, active_env), "info")
-    if #M.queue > 0 then pio_cli:send(pop(M.queue)) end
+    if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   elseif result == 'PASS2' then -- .. current_id then                         -- compiledb PASS1
     OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
     pass2  = true
@@ -522,7 +523,7 @@ function M.handleIdedata1(result, active_env, on_done)
     clangd_check_active = true
     -- vim.defer_fn(function()
       -- require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
-      if #M.queue > 0 then pio_cli:send(pop(M.queue)) end
+      if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
     -- end, 50) -- 50ms delay, adjust as needed
   elseif result == 'DONE' then                                       -- unknown args DONE
     if on_done and type(on_done) == 'function' then
@@ -561,14 +562,14 @@ end
 -- stylua: ignore
 function M.handleClangdCheck(result, on_done)
   if result == 'INIT' then
-    pio_cli:send(pop(M.queue))
+    cliTerm:send(pop(M.queue))
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify(string.format('%sclangd check  done', fromMsg), 'info')
     local final_args = clangd_extracted_args -- Hold the pointer reference for the scheduled function
     vim.schedule(function()
       if on_done and type(on_done) == 'function' then on_done(true, final_args) end
     end)
-    pio_cli:hide()
+    cliTerm:hide()
     M.cleanSequencer()
   elseif result == 'FAIL' then
     OS.notify(string.format('%s clangd check  fail', fromMsg), 'info')
@@ -576,7 +577,7 @@ function M.handleClangdCheck(result, on_done)
     vim.schedule(function()
       if on_done and type(on_done) == 'function' then on_done(true, final_args) end
     end)
-    pio_cli:hide()
+    cliTerm:hide()
     M.cleanSequencer()
   end
 end
@@ -587,11 +588,11 @@ end
 -- stylua: ignore
 function M.handlePiolib(result)
   if result == 'INIT' then
-    pio_cli:send(pop(M.queue))
+    cliTerm:send(pop(M.queue))
   elseif result == 'PASS' then
     OS.notify('PIO lib+db:  pass ' .. current_id, "info")
     -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
-    if #M.queue > 0 then pio_cli:send(pop(M.queue)) end
+    if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
       OS.notify('PIO lib+db: Done', "info")
@@ -599,7 +600,7 @@ function M.handlePiolib(result)
         if success then require('nvimpio.clangd.control').getUnknownArgsCli('PIO lib+db: ') end
       end, 'PIO lib+db: ')
     end)
-    pio_cli:hide()
+    cliTerm:hide()
     M.cleanSequencer()
   elseif result == 'FAIL' then
     M.cleanSequencer()

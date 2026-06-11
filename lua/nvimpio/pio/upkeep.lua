@@ -44,19 +44,10 @@ function M.get_sysroot_triplet(cc_compiler)
 
   if compiler_prefix and vim.fn.isdirectory(toolchain_root .. "/" .. compiler_prefix) == 1 then
     triplet = compiler_prefix
+    print('tripletA=' .. triplet)
   end
 
-  -- Strategy B: Fallback to the layout where the folder mirrors the package name wrapper
-  if not triplet then
-    local folder_name = vim.fn.fnamemodify(toolchain_root, ':t') -- e.g., "toolchain-xtensa-esp-elf"
-    local package_prefix = string.match(folder_name, "^toolchain%-(.+)$")
-
-    if package_prefix and vim.fn.isdirectory(toolchain_root .. "/" .. package_prefix) == 1 then
-      triplet = package_prefix
-    end
-  end
-
-  -- Strategy C: Absolute dynamic lookup matching sibling compiler names
+  -- Strategy B: Absolute dynamic lookup matching sibling compiler names
   if not triplet then
     local files = vim.fn.readdir(bin_path)
     for _, name in ipairs(files) do
@@ -65,9 +56,21 @@ function M.get_sysroot_triplet(cc_compiler)
         local sibling_triplet = string.match(match, "^([^-]+-[^-]+-[^-]+)")
         if sibling_triplet and vim.fn.isdirectory(toolchain_root .. "/" .. sibling_triplet) == 1 then
           triplet = sibling_triplet
+          print('tripletB=' .. triplet)
           break
         end
       end
+    end
+  end
+
+  -- Strategy C: Fallback to the layout where the folder mirrors the package name wrapper
+  if not triplet then
+    local folder_name = vim.fn.fnamemodify(toolchain_root, ':t') -- e.g., "toolchain-xtensa-esp-elf"
+    local package_prefix = string.match(folder_name, "^toolchain%-(.+)$")
+
+    if package_prefix and vim.fn.isdirectory(toolchain_root .. "/" .. package_prefix) == 1 then
+      triplet = package_prefix
+      print('tripletC=' .. triplet)
     end
   end
 
@@ -78,12 +81,12 @@ function M.get_sysroot_triplet(cc_compiler)
       local parent_folder = vim.fn.fnamemodify(vim.fs.normalize(inc_path), ':h:t')
       if parent_folder:match('-elf$') then
         triplet = parent_folder
+        print('tripletD=' .. triplet)
         break
       end
     end
   end
   if not triplet then return nil end
-  print('triplet=' .. triplet)
 
 
   -- sysroot folder is expected to have the same name as the triplet
