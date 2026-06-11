@@ -458,7 +458,10 @@ fetch_metadata = function(callback, active_env, from, attempts)
       if attempts > 0 then
         local cb = function(status)
           require('nvimpio.device.parser').handlePioDB(status, active_env, function(success)
-            if success then do end end
+            -- if success then do end end
+            if success then
+              do OS.notify("Db created") end
+            end
           end)
         end
 
