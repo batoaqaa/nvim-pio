@@ -59,10 +59,7 @@ function M.get_sysroot_triplet(cc_compiler)
     local include_dirs = vim.fs.find('include', { path = toolchain_root, type = 'directory', limit = 3 })
     for _, inc_path in ipairs(include_dirs) do
       local parent_folder = vim.fn.fnamemodify(vim.fs.normalize(inc_path), ':h:t')
-      if parent_folder:match('-elf$') then
-        triplet = parent_folder
-        break
-      end
+      if parent_folder:match('-elf$') then triplet = parent_folder; break; end
     end
   end
   -- if not triplet then return nil end
@@ -80,65 +77,41 @@ function M.get_sysroot_triplet(cc_compiler)
   if vim.fn.isdirectory(sysroot) == 1 then _G.metadata.sysroot = sysroot
   else _G.metadata.sysroot = toolchain_root end
 
-  -- Extract the macros using the correct platform null device destination
+  -- 1. Essential: Normalize slashes to match the host system style
+  local normalized_compiler = vim.fs.normalize(cc_compiler)
   local auto_defines = {}
-  local cmd = string.format('"%s" -dM -E -x c++ %s', cc_compiler, OS.devNul)
-  local handle = io.popen(cmd)
-
-  if handle then
-    for line in handle:lines() do
-      local macro, value = line:match("#define%s+([%w_]+)%s+(.*)")
-      if macro and value ~= "" then
-        local lower_macro = macro:lower()
-        -- Generic pattern matchers that capture all major embedded ecosystems
-        local is_arch    = lower_macro:match("xtensa") or lower_macro:match("arm") or lower_macro:match("riscv") or lower_macro:match("avr")
-        local is_vendor  = lower_macro:match("esp") or lower_macro:match("stm") or lower_macro:match("nrf") or lower_macro:match("samd") or lower_macro:match("rp20")
-        local is_version = macro == "__GNUC__" or macro == "__cplusplus" or macro == "__GNUC_MINOR__"
-        if is_arch or is_vendor or is_version then
-          -- Clean up trailing comments or whitespace from the compiler value
-          value = value:gsub("%s*//.*$", ""):gsub("%s*$", "")
-          table.insert(auto_defines, "-D" .. macro .. "=" .. value)
+  -- 2. Pass the arguments as an isolated Lua array table. 
+  -- This completely shields the flags from PowerShell's parser!
+  local obj = vim.system({ normalized_compiler, "-dM", "-E", "-x", "c++", "-" }, {
+    stdin = "\n" -- Clean input stream data
+  }):wait()
+  -- 3. Check if the direct process returned data
+  if obj.code == 0 and obj.stdout then
+    -- Convert the raw stdout block into an array of lines
+    local lines = vim.split(obj.stdout, "\n")
+    for _, line in ipairs(lines) do
+      local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
+      if macro then
+        -- GENERIC INCLUSION RULES: Only capture clear target flags
+        -- 1. Keeps short system targets like __ELF__ or __xtensa__
+        local is_short_target = macro:match("^__[a-zA-Z0-9]+__$")
+        -- 2. Keeps pure standard variables like __cplusplus
+        local is_language_std = macro:match("^__cplusplus$")
+        -- 3. Keeps clear, readable configuration tokens that do not use internal prefixes
+        local is_clean_token  = not macro:match("^__")
+        if is_short_target or is_language_std or is_clean_token then
+          value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
+          if value == "" then table.insert(auto_defines, "-D" .. macro)
+          else table.insert(auto_defines, "-D" .. macro .. "=" .. value) end
         end
       end
     end
-    handle:close()
+    _G.metadata.auto_defines = auto_defines
+  -- else
+  --   print("Compiler process execution failed.")
+  --   if obj.stderr and obj.stderr ~= "" then print("Error details: " .. obj.stderr) end
   end
 
-  -- -- 1. Essential: Normalize slashes to match the host system style
-  -- local normalized_compiler = vim.fs.normalize(cc_compiler)
-  -- local auto_defines = {}
-  -- -- 2. Pass the arguments as an isolated Lua array table. 
-  -- -- This completely shields the flags from PowerShell's parser!
-  -- local obj = vim.system({ normalized_compiler, "-dM", "-E", "-x", "c++", "-" }, {
-  --   stdin = "\n" -- Clean input stream data
-  -- }):wait()
-  -- -- 3. Check if the direct process returned data
-  -- if obj.code == 0 and obj.stdout then
-  --   -- Convert the raw stdout block into an array of lines
-  --   local lines = vim.split(obj.stdout, "\n")
-  --   for _, line in ipairs(lines) do
-  --     local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
-  --     if macro then
-  --       -- GENERIC INCLUSION RULES: Only capture clear target flags
-  --       -- 1. Keeps short system targets like __ELF__ or __xtensa__
-  --       local is_short_target = macro:match("^__[a-zA-Z0-9]+__$")
-  --       -- 2. Keeps pure standard variables like __cplusplus
-  --       local is_language_std = macro:match("^__cplusplus$")
-  --       -- 3. Keeps clear, readable configuration tokens that do not use internal prefixes
-  --       local is_clean_token  = not macro:match("^__")
-  --       if is_short_target or is_language_std or is_clean_token then
-  --         value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
-  --         if value == "" then table.insert(auto_defines, "-D" .. macro)
-  --         else table.insert(auto_defines, "-D" .. macro .. "=" .. value) end
-  --       end
-  --     end
-  --   end
-  -- -- else
-  -- --   print("Compiler process execution failed.")
-  -- --   if obj.stderr and obj.stderr ~= "" then print("Error details: " .. obj.stderr) end
-  -- end
-
-  _G.metadata.auto_defines = auto_defines
 
   return {
     triplet = triplet,
