@@ -1,5 +1,4 @@
 -- stylua: ignore start
-
 local M = {}
 
 -- Default Public User Configuration Matrix
@@ -188,33 +187,41 @@ end
 ---@param opposite_instance Terminal The alternative lane object singleton reference.
 ---@return nil
 function Terminal:_spawn(target_height, opposite_instance)
-  -- 1. 🌟 Allocate a modern native terminal channel bound to your window split buffer [INDEX]
-  -- This replaces the deprecated legacy termopen code completely [INDEX]!
+  -- 1. Initialize a raw headless terminal channel inside that buffer
   local term_channel_id = vim.api.nvim_open_term(self.buf, {
-    -- on_input = function(_, _, _, input_chars)
-    --   if self.job and self.job > 0 then
-    --     vim.fn.chansend(self.job, input_chars)
-    --   end
-    -- end
+    on_input = function(_, _, _, input_chars)
+      if self.job and self.job > 0 then
+        vim.fn.chansend(self.job, input_chars)
+      end
+    end
   })
 
-  -- 2. Spawn the interactive job via background jobstart streams cleanly [INDEX]
+  -- 2. Spawn the background job using standard jobstart streams cleanly
   local job_channel_id = vim.fn.jobstart(self.shell, {
     on_stdout = function(job_id, standard_output_data, event_type)
       if standard_output_data then
-        -- Forward data visually to the allocated modern terminal window screen [INDEX]
-        for _, raw_line in ipairs(standard_output_data) do
-          pcall(vim.api.nvim_chan_send, term_channel_id, raw_line .. "\r\n")
-        end
+        -- Gather and concatenate layout packets cleanly before rendering
+        local raw_text_block = table.concat(standard_output_data, "\n")
+
+        -- Send raw data to be rendered (supports \n for lines, and \27 for ANSI coloring)
+        -- Convert standard Unix newlines to terminal carriage returns to keep text blocks linear
+        local sanitized_block = raw_text_block:gsub("\n", "\r\n")
+        pcall(vim.api.nvim_chan_send, term_channel_id, sanitized_block)
+
         -- Forward data logically straight to your Part 3 parser block
-        if self.term_type == "cli" and type(M.stdoutcallback) == "function" then
-          M.stdoutcallback(job_id, standard_output_data, event_type)
+        if self.term_type == "cli" and type(M.stdout_callback) == "function" then
+          M.stdout_callback(job_id, standard_output_data, event_type)
         end
       end
     end,
     on_stderr = function(job_id, standard_error_data, event_type)
-      if standard_error_data and self.term_type == "cli" and type(M.stdoutcallback) == "function" then
-        M.stdoutcallback(job_id, standard_error_data, event_type)
+      if standard_error_data then
+        local raw_error_block = table.concat(standard_error_data, "\n"):gsub("\n", "\r\n")
+        pcall(vim.api.nvim_chan_send, term_channel_id, raw_error_block)
+
+        if self.term_type == "cli" and type(M.stdout_callback) == "function" then
+          M.stdout_callback(job_id, standard_error_data, event_type)
+        end
       end
     end,
     on_exit = function() if type(M.exit_callback) == "function" then M.exit_callback() end end
@@ -242,10 +249,7 @@ function Terminal:_spawn(target_height, opposite_instance)
   self:_attach_keymaps(target_height, opposite_instance)
 end
 
---- Encapsulate automated layout focus autocmd listeners.
----@method
----@param target_height number Calculated layout scaling pixel limits constraints.
----@return nil
+-- Encapsulate automated layout focus autocmd listeners
 function Terminal:_attach_events(target_height)
   local scroll_group = vim.api.nvim_create_augroup("PioScroll_" .. self.buf, { clear = true })
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
@@ -272,11 +276,7 @@ function Terminal:_attach_events(target_height)
   })
 end
 
---- Encapsulate localized panel navigation keyboard bindings.
----@method
----@param target_height number The specific screen boundary height constraints.
----@param opposite_instance Terminal The mirror panel object target tracker.
----@return nil
+-- Encapsulate localized panel navigation keyboard bindings
 function Terminal:_attach_keymaps(target_height, opposite_instance)
   local maps = M.config.keymaps
 
@@ -331,6 +331,7 @@ local function SetGlobalKeymaps()
   vim.keymap.set("n", M.config.keymaps.open_cli, function() M.cli:show() end, { silent = true })
 end
 SetGlobalKeymaps()
+
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
