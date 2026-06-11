@@ -191,11 +191,11 @@ function Terminal:_spawn(target_height, opposite_instance)
   -- 1. 🌟 Allocate a modern native terminal channel bound to your window split buffer [INDEX]
   -- This replaces the deprecated legacy termopen code completely [INDEX]!
   local term_channel_id = vim.api.nvim_open_term(self.buf, {
-    on_input = function(_, _, _, input_chars)
-      if self.job and self.job > 0 then
-        vim.fn.chansend(self.job, input_chars)
-      end
-    end
+    -- on_input = function(_, _, _, input_chars)
+    --   if self.job and self.job > 0 then
+    --     vim.fn.chansend(self.job, input_chars)
+    --   end
+    -- end
   })
 
   -- 2. Spawn the interactive job via background jobstart streams cleanly [INDEX]
