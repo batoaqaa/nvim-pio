@@ -1,0 +1,28 @@
+--- @class Terminal
+--- @field newline_chr string
+--- @field cmd string
+--- @field direction string the layout style for the terminal
+--- @field id number
+--- @field bufnr number
+--- @field window number
+--- @field job_id number
+--- @field highlights table<string, table<string, string>>
+--- @field dir string the directory for the terminal
+--- @field name string the name of the terminal
+--- @field count number the count that triggers that specific terminal
+--- @field hidden boolean whether or not to include this terminal in the terminals list
+--- @field close_on_exit boolean? whether or not to close the terminal window when the process exits
+--- @field auto_scroll boolean? whether or not to scroll down on terminal output
+--- @field float_opts table<string, any>?
+--- @field display_name string?
+--- @field env table<string, string> environmental variables passed to jobstart()
+--- @field clear_env boolean use clean job environment, passed to jobstart()
+--- @field on_stdout fun(t: Terminal, job: number, data: string[]?, name: string?)?
+--- @field on_stderr fun(t: Terminal, job: number, data: string[], name: string)?
+--- @field on_exit fun(t: Terminal, job: number, exit_code: number?, name: string?)?
+--- @field on_create fun(term:Terminal)?
+--- @field on_open fun(term:Terminal)?
+--- @field on_close fun(term:Terminal)?
+--- @field _display_name fun(term: Terminal): string
+--- @field __state TerminalState
+local Terminal = {}
