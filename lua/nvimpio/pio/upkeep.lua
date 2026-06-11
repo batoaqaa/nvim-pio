@@ -22,6 +22,7 @@ function M.get_sysroot_triplet(cc_compiler)
   local files = vim.fn.readdir(bin_path)
   local triplet = nil
 
+  print(cc_compiler)
   -- Loop through files to find the compiler and extract the triplet
   for _, name in ipairs(files) do
     -- Pattern: ^(.*) matches triplet, %- matches dash, g[c%+][c%+] matches gcc/g++
@@ -364,7 +365,6 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
     -- 3. Base Paths & Compilers
     meta.cc_path = norm(data.cc_path)
-    print(data.cc_path)
     meta.cxx_path = norm(data.cxx_path)
     meta.gdb_path = norm(data.gdb_path)
     pcall(M.get_sysroot_triplet, meta.cxx_path)
