@@ -35,7 +35,7 @@ function M.get_sysroot_triplet(cc_compiler)
   -- local query_driver = misc.normalizePath(bin_path .. '/' .. triplet .. '-*')
   local query_driver = vim.fs.normalizePath(bin_path .. '/*')
 
-  _G.metadata = _G.metadata or {}
+  -- _G.metadata = _G.metadata or {}
   _G.metadata.triplet = triplet
   _G.metadata.toolchain_root = toolchain_root
   _G.metadata.query_driver = query_driver
