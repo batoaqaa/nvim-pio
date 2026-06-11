@@ -24,7 +24,6 @@ function M.get_sysroot_triplet(cc_compiler)
   local files = vim.fn.readdir(bin_path)
   local triplet = nil
 
-  print(next(files))
   -- Loop through files to find the compiler and extract the triplet
   -- for _, name in ipairs(files) do
   --   -- Pattern: ^(.*) matches triplet, %- matches dash, g[c%+][c%+] matches gcc/g++
@@ -35,7 +34,8 @@ function M.get_sysroot_triplet(cc_compiler)
   --   end
   -- end
 
-  local match = ff.match("(.-)-[^-]+$")
+  local match = string.match(ff, "(.-)-[^-]+$")
+  -- local match = ff.match("(.-)-[^-]+$")
   -- local match = ff:match('^(.*)%-g[c%+][c%+]')
   if match then
     triplet = vim.fs.normalizePath(match)
