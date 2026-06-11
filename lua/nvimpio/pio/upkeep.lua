@@ -128,12 +128,12 @@ function M.get_sysroot_triplet(cc_compiler)
   local normalized_compiler = vim.fs.normalize(cc_compiler)
 
   -- 2. Build the command string safely wrapping the path in double quotes
-  local cmd = string.format('"%s" -dM -E -x c++ -', normalized_compiler)
+  local cmd = string.format('"%s" -dM -E -x c++ %s', normalized_compiler, OS.devNul)
 
   local auto_defines = {}
 
   -- 3. Execute directly. Passing "" feeds a clean cross-platform empty stdin.
-  local lines = vim.fn.systemlist(cmd, "")
+  local lines = vim.fn.systemlist(cmd, "i\n")
 
   -- DEBUG CHECK: If the compiler failed, print why to help troubleshoot
   if vim.v.shell_error == 0 and lines and #lines > 0 then
