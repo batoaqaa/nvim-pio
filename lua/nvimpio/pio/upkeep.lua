@@ -13,7 +13,7 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 -- stylua: ignore
 function M.get_sysroot_triplet(cc_compiler)
   local bin_path = vim.fn.fnamemodify(cc_compiler, ':h')
-  local ff = vim.fn.fnamemodify(cc_compiler, ':p')
+  local ff = vim.fn.fnamemodify(cc_compiler, ':t:r')
   print(ff)
 
   -- Early exit if path is nil or not a directory
