@@ -15,18 +15,18 @@ function M.get_sysroot_triplet(cc_compiler)
   local bin_path = vim.fn.fnamemodify(cc_compiler, ':h')
   local ff = vim.fn.fnamemodify(cc_compiler, ':t:r')
   print(ff)
-
--- 1. Get "xtensa-esp32s3-elf-g++.exe"
-local filename = vim.fs.basename(cc_compiler)
--- 2. Strip "-g++.exe" from the end
-local prefix = string.match(filename, "(.-)-g%+%+%.exe$")
-print(prefix) --> "xtensa-esp32s3-elf"
-
-  local triplet = nil
-  local match = string.match(ff, "(.-)-[^-]+$")
-  if match then
-    triplet = vim.fs.normalizePath(match)
-  end
+local triplet = string.match(ff, "^([^-]+-[^-]+-[^-]+)")
+-- -- 1. Get "xtensa-esp32s3-elf-g++.exe"
+-- local filename = vim.fs.basename(cc_compiler)
+-- -- 2. Strip "-g++.exe" from the end
+-- local prefix = string.match(filename, "(.-)-g%+%+%.exe$")
+-- print(prefix) --> "xtensa-esp32s3-elf"
+--
+--   local triplet = nil
+--   local match = string.match(ff, "(.-)-[^-]+$")
+--   if match then
+--     triplet = vim.fs.normalizePath(match)
+--   end
   print(triplet)
 
   -- Early exit if path is nil or not a directory
