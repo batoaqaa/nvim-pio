@@ -459,15 +459,14 @@ fetch_metadata = function(callback, active_env, from, attempts)
     if cok and apply_metadata(decoded) then
       if (from == 'Meta active_env change: ')then
       -- cli
-      -- require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
-      --   if is_successful then
-      --     -- OS.notify('Database is ready. Proceeding with analysis...')
-      --     -- clangd.getUnknownArgsCli(from)
-      --   else
-      --     OS.notify('Skipping next steps due to compilation database failure.', 'error')
-      --   end
-      -- end)
-
+      require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
+        if is_successful then
+          -- OS.notify('Database is ready. Proceeding with analysis...')
+          -- clangd.getUnknownArgsCli(from)
+        else
+          OS.notify('Skipping next steps due to compilation database failure.', 'error')
+        end
+      end)
       else
       -- gui
       if attempts > 0 then
