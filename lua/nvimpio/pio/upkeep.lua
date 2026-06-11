@@ -123,25 +123,32 @@ function M.get_sysroot_triplet(cc_compiler)
   -- end
 
 
-  local cmd = string.format('"%s" -dM -E -x c++ -', cc_compiler)
+
+  -- 1. Essential: Normalize slashes to match the host system style
+  local normalized_compiler = vim.fs.normalize(cc_compiler)
+
+  -- 2. Build the command string safely wrapping the path in double quotes
+  local cmd = string.format('"%s" -dM -E -x c++ -', normalized_compiler)
+
   local auto_defines = {}
 
+  -- 3. Execute directly. Passing "" feeds a clean cross-platform empty stdin.
   local lines = vim.fn.systemlist(cmd, "")
-  if vim.v.shell_error == 0 and lines then
+
+  -- DEBUG CHECK: If the compiler failed, print why to help troubleshoot
+  if vim.v.shell_error == 0 and lines and #lines > 0 then
+
     for _, line in ipairs(lines) do
       local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
 
       if macro then
-        -- GENERIC FILTER: Exclude internal compiler implementation clutter.
-        -- This blocks things like '__builtin_something' or '__has_attribute'.
-        -- It safely KEEPS target flags like '__XTENSA__', '__esp32s3__', '__linux__', '__GNUC__', etc.
+        -- Exclude internal compiler builtins starting with double underscores and lowercase (e.g. __builtin_)
         local is_internal_builtin = macro:match("^__%l")
 
         if not is_internal_builtin then
           -- Clean up trailing comments, carriage returns (\r), or whitespace
           value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
 
-          -- Safe append: handle value-less macro flags natively
           if value == "" then
             table.insert(auto_defines, "-D" .. macro)
           else
@@ -150,7 +157,42 @@ function M.get_sysroot_triplet(cc_compiler)
         end
       end
     end
+  else
+    print("Compiler failed with exit code: " .. tostring(vim.v.shell_error))
+    print("Attempted command: " .. cmd)
+    return {}
   end
+
+
+
+  -- local cmd = string.format('"%s" -dM -E -x c++ -', cc_compiler)
+  -- local auto_defines = {}
+  --
+  -- local lines = vim.fn.systemlist(cmd, "")
+  -- if vim.v.shell_error == 0 and lines then
+  --   for _, line in ipairs(lines) do
+  --     local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
+  --
+  --     if macro then
+  --       -- GENERIC FILTER: Exclude internal compiler implementation clutter.
+  --       -- This blocks things like '__builtin_something' or '__has_attribute'.
+  --       -- It safely KEEPS target flags like '__XTENSA__', '__esp32s3__', '__linux__', '__GNUC__', etc.
+  --       local is_internal_builtin = macro:match("^__%l")
+  --
+  --       if not is_internal_builtin then
+  --         -- Clean up trailing comments, carriage returns (\r), or whitespace
+  --         value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
+  --
+  --         -- Safe append: handle value-less macro flags natively
+  --         if value == "" then
+  --           table.insert(auto_defines, "-D" .. macro)
+  --         else
+  --           table.insert(auto_defines, "-D" .. macro .. "=" .. value)
+  --         end
+  --       end
+  --     end
+  --   end
+  -- end
 
   _G.metadata.auto_defines = auto_defines
 
