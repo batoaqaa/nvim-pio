@@ -184,7 +184,7 @@ function Terminal:show()
   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = self.win })
   M.UpdateWinbarTitles()
 
-  vim.cmd("startinsert")
+  -- vim.cmd("startinsert")
   return true
 end
 
@@ -207,12 +207,12 @@ function Terminal:_spawn(target_height, opposite_instance)
     local clear_group = vim.api.nvim_create_augroup("PioClearGuard_" .. self.buf, { clear = true })
     vim.api.nvim_create_autocmd("TermRequest", {
       group = clear_group, buffer = self.buf, once = true,
-      callback = function()
-        vim.schedule(function()
-          vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-c><C-l>]], true, true, true), "t", false)
-          vim.cmd("startinsert")
-        end)
-      end
+      -- callback = function()
+      --   vim.schedule(function()
+      --     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-c><C-l>]], true, true, true), "t", false)
+      --     vim.cmd("startinsert")
+      --   end)
+      -- end
     })
   end
 
