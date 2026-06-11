@@ -2,12 +2,11 @@ local M = {}
 
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
-local diagnostic = require('nvimpio.clangd.diagnostic')
+local diagnosticClangd = require('nvimpio.clangd.diagnostic')
 
 --- stylua: ignore start
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
--- stylua: ignore
 -----------------------------------------------------------------------------------------
 function M.clangdIntall(callback, package_name)
   package_name = package_name or 'clangd'
@@ -63,29 +62,11 @@ end
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
-
 -----------------------------------------------------------------------------------------
---- stylua: ignore
 function M.getClangdConfig()
   -- Safe defaults (Standard clangd behavior)
   local q_driver, merged_json = '**', ''
-  -- local f_flags = [["-std=c++17", "-xc++"]]
 
-  -- Run your toolchain detection
-  -- if _G.metadata and _G.metadata.cc_path and _G.metadata.cc_path ~= '' then
-  --   if _G.metadata.triplet and _G.metadata.triplet ~= '' then
-  --     -- local include_flags = table.concat(vim.tbl_map(function(item)
-  --     --   return '"' .. item .. '"'
-  --     -- end, _G.metadata.fallbackFlags), ", ")
-  --
-  --     -- local includes_toolchain = table.concat(vim.tbl_map(function(item)
-  --     --   return '"' .. item .. '"'
-  --     -- end, _G.metadata.includes_toolchain), ", ")
-  --
-  --     -- f_flags = string.format([["-std=gnu++17", "-xc++", "-D__cplusplus=201703L", "--target=%s", "--sysroot=%s", %s, %s]], _G.metadata.triplet, _G.metadata.sysroot, includes_toolchain, include_flags)
-  --   end
-  -- end
-  --
   if _G.metadata and _G.metadata.query_driver and _G.metadata.query_driver ~= '' then
     q_driver = _G.metadata.query_driver
   end
@@ -123,33 +104,6 @@ function M.getClangdConfig()
       compilationDatabasePath = project_root,
       fallbackFlags = { '-ferror-limit=0' },
     }
-    -- -- 🟢 DATA-DRIVEN INCLUDE INJECTION MATRIX (NO DISK FILTERS OR IO POPENS)
-    -- --  to write inclued path to fallbackFlags
-    -- if _G.metadata then
-    --   -- Combine both include groups into one sweep sequence
-    --
-    --   local include_pools = {
-    --     _G.metadata.includes_build,
-    --     _G.metadata.includes_toolchain,
-    --     _G.metadata.includes_compatlib,
-    --   }
-    --
-    --   for _, pool in ipairs(include_pools) do
-    --     for _, raw_flag in ipairs(pool or {}) do
-    --       if type(raw_flag) == 'string' and raw_flag ~= '' then
-    --         local clean_flag = vim.fs.normalize(raw_flag)
-    --         table.insert(config.init_options.fallbackFlags, clean_flag)
-    --       end
-    --     end
-    --   end
-    --   --
-    --   -- Inject pre-parsed macro definitions safely from memory
-    --   if type(_G.metadata.auto_defines) == 'table' then
-    --     for _, define in ipairs(_G.metadata.auto_defines) do
-    --       table.insert(config.init_options.fallbackFlags, define)
-    --     end
-    --   end
-    -- end
 
     -- Step 1: Parse database into an isolated local table variable first
     local local_flags_cache = {}
@@ -255,7 +209,6 @@ end
 
 -- INFO: clangdRestart()
 --------------------------------------------------------------------------------
---- stylua: ignore
 function M.restart()
   vim.schedule(function()
     local name = 'clangd'
@@ -273,191 +226,51 @@ end
 
 -- INFO: set_clang_format_style()
 --------------------------------------------------------------------------------
--- stylua: ignore
 function M.setFormatStyle()
   local styles = { 'LLVM', 'Google', 'Chromium', 'Mozilla', 'WebKit', 'Microsoft', 'GNU' }
-
   vim.ui.select(styles, {
     prompt = 'Select Clang-Format base style:',
   }, function(choice)
-    if not choice then return end
-
-    -- Define the command as a table for cleaner execution
-    -- We use cmd /c only because of the '>' redirect
-
+    if not choice then
+      return
+    end
     M.clangdIntall(function(clangdCmd)
-      -- using toggleterm for setting clang-format style
-      local cmd = string.format('%s --style=%s --dump-config > .clang-format', clangdCmd, choice:lower())
-      -- local pio = require('nvimpio.pio.upkeep')
-      local parser = require('nvimpio.device.parser')
-      parser.run_sequence({
-        cmnds = { cmd },
-        cb = parser.clangFormat,
-        from = 'clangdIntall',
-      })
+      -- gui using terminal for setting clang-format style
+      -- local cmd = string.format('%s --style=%s --dump-config > .clang-format', clangdCmd, choice:lower())
+      -- local parser = require('nvimpio.device.parser')
+      -- parser.run_sequence({
+      --   cmnds = { cmd },
+      --   cb = parser.clangFormat,
+      --   from = 'clangdIntall',
+      -- })
 
-      -- using hidden system command for setting clang-format style
-      -- local cmd = { clangdCmd, string.format('--style=%s --dump-config > .clang-format', choice:lower()) }
-      -- Execute asynchronously
-      -- vim.system(cmd, { text = true }, function(obj)
-      --   -- This callback runs when the process finishes
-      --   -- Use vim.schedule to perform UI tasks/API calls on the main thread
-      --   vim.schedule(function()
-      --     if obj.code == 0 then
-      --       OS.notify('Created .clang-format (' .. choice .. ')', "info")
-      --
-      --       -- Restart clangd to apply the new rules
-      --       M.restart()
-      --       print('LSP Reloaded: Using ' .. choice .. ' style.')
-      --     else
-      --       OS.notify('Failed to generate .clang-format. Error: ' .. (obj.stderr or "Unknown"), "error")
-      --     end
-      --   end)
-      -- end)
+      -- cli using hidden system asynchronous command for setting clang-format style
+      local cmd = { clangdCmd, string.format('--style=%s --dump-config > .clang-format', choice:lower()) }
+      vim.system(cmd, { text = true }, function(obj)
+        -- This callback runs when the process finishes
+        -- Use vim.schedule to perform UI tasks/API calls on the main thread
+        vim.schedule(function()
+          if obj.code == 0 then
+            OS.notify('Created .clang-format (' .. choice .. ')', 'info')
+            -- Restart clangd to apply the new rules
+            M.restart()
+            print('LSP Reloaded: Using ' .. choice .. ' style.')
+          else
+            OS.notify('Failed to generate .clang-format. Error: ' .. (obj.stderr or 'Unknown'), 'error')
+          end
+        end)
+      end)
     end, 'clang-format')
   end)
 end
 
--- local diagnosticClangd = require('nvimpio.clangd.diagnosticAutoClangd')
--- ---@param from string
--- function M.blockUnknownArgsCli(from)
---   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
---
---   -- 1. TARGET ACTIVE BUFFER: Run the automation on the file you are currently looking at
---   local target_buf = vim.api.nvim_get_current_buf()
---   local file_name = vim.api.nvim_buf_get_name(target_buf)
---
---   -- Safety check to ensure we don't run on NvimTree or empty windows
---   local norm_name = vim.fs.normalize(file_name):gsub('%s+$', ''):lower()
---   if file_name == '' or not (norm_name:match('%.cpp$') or norm_name:match('%.c$') or norm_name:match('%.hpp$') or norm_name:match('%.h$')) then
---     OS.notify('Automation aborted: Focus a valid C/C++ source code file first.')
---     return
---   end
---
---   -- Create a unique namespace for our active automated pipeline group
---   local au_group = vim.api.nvim_create_augroup('NvimPioLiveSweepGroup', { clear = true })
---
---   -- 2. Define the structural loop data compiler scraper
---   local function run_live_analysis_pass()
---     -- Directly inspect the live diagnostics loaded onto your visible workspace screen
---     local raw_nodes = vim.diagnostic.get(target_buf)
---     local new_discoveries = false
---
---     for _, diag in ipairs(raw_nodes) do
---       local msg = diag.message or ''
---       local code_name = diag.code
---
---       -- Pass A: Multi-Flag Extractor (Decoupled & colon-immune via %p?)
---       for unknown_arg in string.gmatch(msg, 'argument%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
---         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
---         if not diagnosticClangd.removed_flags[clean_flag] then
---           diagnosticClangd.removed_flags[clean_flag] = true
---           new_discoveries = true
---         end
---       end
---
---       for unknown_arg in string.gmatch(msg, 'option%s*%p?%s*[\'"]?(%-[%w%-]+)[\'"]?') do
---         local clean_flag = unknown_arg:gsub('[\'"%?]', ''):gsub('%s+$', '')
---         if not diagnosticClangd.removed_flags[clean_flag] then
---           diagnosticClangd.removed_flags[clean_flag] = true
---           new_discoveries = true
---         end
---       end
---
---       -- Pass B: Code Suppression (Pulls codes like pp_file_not_found out of the active engine memory)
---       if code_name and type(code_name) == 'string' and code_name ~= '' then
---         if not diagnosticClangd.blocked_codes[code_name] then
---           diagnosticClangd.blocked_codes[code_name] = true
---           new_discoveries = true
---         end
---       end
---     end
---
---     -- 3 & 4. Execution Flow Branching & Transition Shielding
---     if new_discoveries then
---       OS.notify('Layer discovered! Updating .clangd and cycling compiler targets...')
---
---       -- Save accumulated states directly to .filter.json and rewrite the updated .clangd file
---       diagnosticClangd.save_from_cli()
---
---       -- Kill and restart clangd
---       M.restart()
---
---       -- Force a hard buffer reload on screen to push the next layer of errors out
---       vim.defer_fn(function()
---         if vim.api.nvim_buf_is_valid(target_buf) then
---           vim.cmd('checktime')
---           vim.cmd('edit!')
---         end
---       end, 150)
---     else
---       -- Verify if raw_nodes is empty AND make sure we aren't caught in an LSP boot transition.
---       local has_active_errors = false
---       for _, node in ipairs(raw_nodes) do
---         if node.severity == vim.diagnostic.severity.ERROR or node.severity == vim.diagnostic.severity.WARN then
---           has_active_errors = true
---           break
---         end
---       end
---
---       -- Only self-destruct the automation group if the file has been processed
---       -- AND contains absolutely zero outstanding warnings or error objects.
---       if not has_active_errors and #raw_nodes > 0 then
---         vim.api.nvim_del_augroup_by_id(au_group)
---         OS.notify(from .. ' Clangd Automation ✅ Complete baseline sync done! Remaining errors are raw code typos.')
---       elseif #raw_nodes == 0 then
---         -- LSP Boot/Reset transition guard: Do nothing and preserve the group to catch incoming server data
---         return
---       else
---         -- Errors remain but no new filter targets extracted (valid user source typos)
---         vim.api.nvim_del_augroup_by_id(au_group)
---         OS.notify(from .. ' Clangd Automation ✅ Dynamic blocks synchronized. Remaining errors are valid source typos.')
---       end
---     end
---   end
---
---   -- 5. THE DEBOUNCED AUTOMATION HOOK: Run automatically whenever fresh diagnostics land on your screen
---   local debounce_timer = nil
---   vim.api.nvim_create_autocmd('DiagnosticChanged', {
---     group = au_group,
---     buffer = target_buf,
---     callback = function()
---       if debounce_timer then
---         vim.uv.timer_stop(debounce_timer)
---       end
---       debounce_timer = vim.uv.new_timer()
---       if debounce_timer then
---         debounce_timer:start(
---           400,
---           0,
---           vim.schedule_wrap(function()
---             run_live_analysis_pass()
---           end)
---         )
---       end
---     end,
---   })
---
---   -- Kick off the very first automation loop pass instantly
---   OS.notify('Starting live cascading sweep for: ' .. vim.fs.basename(file_name))
---   run_live_analysis_pass()
--- end
-
-local diagnosticClangd = require('nvimpio.clangd.diagnostic')
--- pio/control 160
--- pio/upkeep 170, 1001, 1178
 -- INFO: get_clangd_unknown_args
 --------------------------------------------------------------------------------
 ---@param from string
 function M.getUnknownArgsCli(from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
-  -- 1. RESET: Clear flags and rebuild .clangd (removes old 'Remove' block)
-  -- boilerplate.args = {}
 
-  -- Strip out any previous dynamic blocks to prevent endless growing
-  -- boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
-
-  -- 2. FIND: Grab the first .cpp or .c file in /src
+  -- 1. FIND: Grab the first .cpp or .c file in /src
   local check_file = vim.fs.find(function(name)
     return name:match('%.cpp$') or name:match('%.c$')
   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
@@ -468,7 +281,7 @@ function M.getUnknownArgsCli(from)
     check_file = vim.uv.cwd() .. '/src/main.cpp'
   end
 
-  -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
+  -- 2. SCAN: Run clangd (it will see all errors because .clangd is now empty)
   M.clangdIntall(function(clangdCmd)
     -- local output_chunks = {}
     -- local clangd_cmd = { "clangd", "--compile-commands-dir=.", "--check=" .. check_file, "--log=error" }
@@ -488,9 +301,6 @@ function M.getUnknownArgsCli(from)
 
     OS.notify('getting unknown arguments for file ' .. check_file)
     --------------------------------------------------------------------------------
-    -- cli
-    -- local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--query-driver=**', '--log=error' }
-    -- local cmd = { { _G.metadata.cxx_path, '-E', '-dM', '-xc++' }, _G.metadata.cxx_flags, OS.devNul }
     local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
     vim.system(cmd, { text = true }, function(obj)
       vim.schedule(function()
@@ -508,7 +318,6 @@ function M.getUnknownArgsCli(from)
             if not seen[clean_flag] then
               seen[clean_flag] = true
               table.insert(args_table, clean_flag)
-
               if not diagnosticClangd.removed_flags[clean_flag] then
                 diagnosticClangd.removed_flags[clean_flag] = true
               end

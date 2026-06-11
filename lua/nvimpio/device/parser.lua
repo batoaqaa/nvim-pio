@@ -1,5 +1,6 @@
 local M = {}
 
+-- stylua: ignore start
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 
@@ -20,33 +21,10 @@ local pio_buffer = ''
 local content = ''
 
 -- require('nvimpio.device.terminal').stdout_callback = M.stdoutcallback
--- stylua: ignore
 function M.stdoutcallback(_, raw_incoming_data, _)
 -- function M.stdoutcallback(job_id, raw_incoming_data, event)
-  -- _G.PioTraceLog = _G.PioTraceLog or {}
-  --
-  -- if raw_incoming_data and #raw_incoming_data > 0 then
-  --   for index, raw_text_row in ipairs(raw_incoming_data) do
-  --     if raw_text_row ~= "" then
-  --       -- Strips hidden ANSI control sequences to leave the characters pristine
-  --       local sanitized_row = tostring(raw_text_row):gsub("\x1b%[[0-9;]*%a", "")
-  --       table.insert(_G.PioTraceLog, string.format("[PACKET SLOT %d] %q", index, sanitized_row))
-  --     end
-  --   end
-  -- end
   if not raw_incoming_data or #raw_incoming_data == 0 then return end
   if not current_token then return end
-  -----------------------------------------------------------------------------
-  -- 🔍 DETECTIVE TRACE HOOKS: Run this snippet to verify active process triggers
-  -----------------------------------------------------------------------------
-  -- Trace Call #1: Logs the unique event name ("stdout") and incoming table length
-  -- vim.notify(string.format('[PioTrace] Callback hit! Event: %s, Chunks received: %d', tostring(event), data and #data or 0), vim.log.levels.INFO)
-
-  -- Trace Call #2: Dumps the raw log string block content to verify stream integrity
-  -- if data and #data > 0 then
-  --   vim.notify('[PioData Dump]: ' .. table.concat(data, ' | '), vim.log.levels.DEBUG)
-  -- end
-  -----------------------------------------------------------------------------
 
   if #raw_incoming_data > 1 then
     content = content .. pio_buffer .. table.concat(raw_incoming_data, '', 1, #raw_incoming_data)
@@ -120,94 +98,6 @@ function M.stdoutcallback(_, raw_incoming_data, _)
     return
   end
 end
--- function M.stdoutcallback(_ , data, _)
--- -- function M.stdoutcallback(job_id , data, event)
---
---   if not data or #data == 0 then return end
---   -----------------------------------------------------------------------------
---   -- 🔍 DETECTIVE TRACE HOOKS: Run this snippet to verify active process triggers
---   -----------------------------------------------------------------------------
---   -- Trace Call #1: Logs the unique event name ("stdout") and incoming table length
---   -- vim.notify(string.format('[PioTrace] Callback hit! Event: %s, Chunks received: %d', tostring(event), data and #data or 0), vim.log.levels.INFO)
---
---   -- Trace Call #2: Dumps the raw log string block content to verify stream integrity
---   -- if data and #data > 0 then
---   --   vim.notify('[PioData Dump]: ' .. table.concat(data, ' | '), vim.log.levels.DEBUG)
---   -- end
---   -----------------------------------------------------------------------------
---
---   if #data > 1 then
---     content = content .. pio_buffer .. table.concat(data, '', 1, #data)
---     pio_buffer = data[#data]
---   else
---     content = content .. pio_buffer .. data[1]
---     pio_buffer = data[1]
---   end
---
---   local pass_target = 'PASS' .. current_id
---   local has_pass = content:find('_CMMNDS_' .. current_token .. ':' .. pass_target) ~= nil
---   local has_done = content:find('_CMMNDS_' .. current_token .. ':DONE') ~= nil
---   local has_fail = content:find('_CMMNDS_' .. current_token .. ':FAIL') ~= nil
---
---   if has_pass or has_fail or has_done then
---     local active_cb = callBack
---     local final_status = has_fail and 'FAIL' or (has_done and 'DONE' or pass_target)
---
---     if has_fail or has_done then
---       -- ✅ SUCCESSFUL RUN DETECTED: Kill the countdown timer immediately!
---       callBack = nil
---       M.queue = {}
---
---       -----------------------------------------------------------------------
---       -- 🌟 ONE-TIME EXTRACTOR ON TERMINATION (HISTORY COMPLETELY INTACT!)
---       -----------------------------------------------------------------------
---       if clangd_check_active then
---         clangd_extracted_args = {}
---
---         -- 1. Find boundaries on the raw, un-truncated content string
---         local start_pattern = '_CMMNDS_' .. current_token .. '":"' .. final_status
---         local _, start_idx = string.find(content, start_pattern, 1, true)
---
---         if not start_idx then
---           local fallback_echo = '_CMMNDS_' .. current_token .. '":"DONE'
---           _, start_idx = string.find(content, fallback_echo, 1, true)
---         end
---
---         local end_pattern = '_CMMNDS_' .. current_token .. ':' .. final_status
---         local end_idx = string.find(content, end_pattern, 1, true)
---
---         -- 2. Slice and parse the exact fresh run text block
---         if start_idx and end_idx and end_idx > start_idx then
---           local fresh_run_logs = string.sub(content, start_idx + 1, end_idx - 1)
---
---           if not string.find(fresh_run_logs, '%.clang%-format') then
---             local seen = {}
---             for arg in string.gmatch(fresh_run_logs, "unknown argument[:%s]+'([^']+)'") do
---               local clean_flag = string.format('"%s"', arg:gsub('[;%.]$', ''))
---               if not seen[clean_flag] then
---                 seen[clean_flag] = true
---                 table.insert(clangd_extracted_args, clean_flag)
---               end
---             end
---           end
---         else return end
---         clangd_check_active = false
---       end
---       -----------------------------------------------------------------------
---
---       -- 🏁 3. FLUSH THE BUFFER CLEAN HERE AT THE END OF THE COMMAND RUN
---       pio_buffer = ''
---       content = ''
---     end
---
---     if final_status and active_cb then
---       vim.schedule(function() active_cb(final_status) end)
---     end
---
---     return
---   end
--- end
--- =============================================================================
 
 -- =============================================================================
 local function pop(queue)
@@ -232,7 +122,6 @@ end
 
 local cliTerm
 -- INFO: commands sequencer
--- stylua: ignore
 -- =============================================================================
 -- local nvimpio = require('nvimpio')
 M.run_sequence = function(tasks)
@@ -276,13 +165,11 @@ end
 ------------------------------------------------------
 -- Handle after pioinit execution
 -- *=============================================================================
--- stylua: ignore
 function M.cleanSequencer()
   _G.metadata.isBusy = false
   require('nvimpio.device.terminal').stdout_callback = nil -- Careful: make sure this doesn't break other terms
 end
 
--- stylua: ignore
 function M.handlePioinitDb(result, board, on_done)
   local active_env
   if result == 'INIT' then
@@ -322,7 +209,6 @@ function M.handlePioinitDb(result, board, on_done)
   end
 end
 
--- stylua: ignore
 function M.handlePioinit(result, board, on_done)
   if result == 'INIT' then
     -- OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
@@ -347,7 +233,6 @@ end
 ------------------------------------------------------
 -- Handle after piolib execution
 -- =============================================================================
--- stylua: ignore
 function M.handlePioInstall(result, on_done)
   if result == 'INIT' then
     if on_done and type(on_done) == "function" then
@@ -387,7 +272,6 @@ end
 ------------------------------------------------------
 -- Handle create clang-format
 -- =============================================================================
--- stylua: ignore
 function M.clangFormat(result)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
@@ -403,7 +287,6 @@ end
 ------------------------------------------------------
 -- Handle command
 -- =============================================================================
--- stylua: ignore
 function M.handleIdedata(result, active_env, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
@@ -430,7 +313,6 @@ end
 
 -- =============================================================================
 local pass1 = false
--- stylua: ignore
 function M.handlePioDBArgs(result, active_env, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
@@ -479,7 +361,6 @@ function M.handlePioDBArgs(result, active_env, on_done)
 end
 -- =============================================================================
 
--- stylua: ignore
 -- *=============================================================================
 function M.handlePioDB(result, active_env, on_done)
   if result == 'INIT' then
@@ -505,7 +386,6 @@ end
 -- Handle command
 -- =============================================================================
 local pass2 = false
--- stylua: ignore
 function M.handleIdedata1(result, active_env, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
@@ -559,7 +439,6 @@ end
 ------------------------------------------------------
 -- Handle command
 -- =============================================================================
--- stylua: ignore
 function M.handleClangdCheck(result, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
@@ -585,7 +464,6 @@ end
 ------------------------------------------------------
 -- Handle after piolib execution
 -- =============================================================================
--- stylua: ignore
 function M.handlePiolib(result)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
