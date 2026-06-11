@@ -128,35 +128,41 @@ function M.get_sysroot_triplet(cc_compiler)
   if obj.code == 0 and obj.stdout then
     -- Convert the raw stdout block into an array of lines
     local lines = vim.split(obj.stdout, "\n")
+    for _, line in ipairs(lines) do
+      local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
 
-  for _, line in ipairs(lines) do
-    local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
+      if macro then
+        local lower_macro = macro:lower()
 
-    if macro then
-      local lower_macro = macro:lower()
-      -- GENERIC EXCLUSION RULES (Removes pure compiler/language clutter)
-      local is_compiler_clutter =
-        lower_macro:match("^__builtin")   -- Compiler internal functions
-        or lower_macro:match("^__has_")   -- Feature checking macros
-        or lower_macro:match("_type__$")  -- Primitive types (__INT32_TYPE__)
-        or lower_macro:match("_width__$") -- Bit widths (__INT_LEAST8_WIDTH__)
-        or lower_macro:match("_max__$")   -- Max value limits (__INT_MAX__)
-        or lower_macro:match("^__gnuc")   -- Core compiler engine version strings
-        or lower_macro:match("^__flt")    -- Floating point internal specs
-        or lower_macro:match("^__dbl")    -- Double precision internal specs
-        or macro:match("^__STDC__")       -- Language compliance standards
+        -- 100% GENERIC ULTRA FILTER (No hardware names)
+        local is_bloat =
+          lower_macro:match("^__builtin")   -- Primitives
+          or lower_macro:match("^__has_")   -- Feature macro tests
+          or lower_macro:match("_type__$")  -- Integer types
+          or lower_macro:match("_width__$") -- Type bit widths
+          or lower_macro:match("_max__$")   -- Max boundaries
+          or lower_macro:match("^__gnuc")   -- Compiler variations
+          or lower_macro:match("^__flt")    -- Floating boundaries
+          or lower_macro:match("^__dbl")    -- Double boundaries
+          or lower_macro:match("^__ldbl")   -- Long double boundaries
+          or lower_macro:match("^__cpp_")   -- Standard C++ capabilities
+          or lower_macro:match("^__atomic") -- Memory boundaries
+          or lower_macro:match("^__sizeof") -- Memory sizes
+          or lower_macro:match("^__order_") -- Endianness structures
+          or macro:match("^__STDC__")       -- C Standards compliance
 
-      if not is_compiler_clutter then
-        -- Clean up trailing comments, carriage returns (\r), or whitespace
-        value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
-        if value == "" then
-          table.insert(auto_defines, "-D" .. macro)
-        else
-          table.insert(auto_defines, "-D" .. macro .. "=" .. value)
+        if not is_bloat then
+          value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
+
+          if value == "" then
+            table.insert(auto_defines, "-D" .. macro)
+          else
+            table.insert(auto_defines, "-D" .. macro .. "=" .. value)
+          end
         end
       end
     end
-  end
+
     -- for _, line in ipairs(lines) do
     --   local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
     --
