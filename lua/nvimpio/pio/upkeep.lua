@@ -22,7 +22,7 @@ function M.get_sysroot_triplet(cc_compiler)
   local files = vim.fn.readdir(bin_path)
   local triplet = nil
 
-  print(bin_path)
+  print(next(files))
   -- Loop through files to find the compiler and extract the triplet
   for _, name in ipairs(files) do
     -- Pattern: ^(.*) matches triplet, %- matches dash, g[c%+][c%+] matches gcc/g++
