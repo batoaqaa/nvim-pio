@@ -13,6 +13,8 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 -- stylua: ignore
 function M.get_sysroot_triplet(cc_compiler)
   local bin_path = vim.fn.fnamemodify(cc_compiler, ':h')
+  if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
+
   local ff = vim.fn.fnamemodify(cc_compiler, ':t:r')
   print(ff)
 local triplet = string.match(ff, "^([^-]+-[^-]+-[^-]+)")
@@ -30,7 +32,6 @@ local triplet = string.match(ff, "^([^-]+-[^-]+-[^-]+)")
   print(triplet)
 
   -- Early exit if path is nil or not a directory
-  if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
 
   -- Normalize backslashes to forward slashes for cross-platform consistency
   bin_path = bin_path:gsub('\\', '/')
