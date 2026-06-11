@@ -120,11 +120,13 @@ function M.setup(user_opts)
       function(success)
         if success then
           M.activate()
-          require('nvimpio.pio.ui.pioInit').pioInit(function(done)
-            -- if done then
-            --   -- vim.clangd.getUnknownArgs()
-            --   -- if M.config.clangd.install then require('nvimpio.clangd.config') end
-            -- end
+          vim.schedule(function()
+            require('nvimpio.pio.ui.pioInit').pioInit(function(done)
+              -- if done then
+              --   -- vim.clangd.getUnknownArgs()
+              --   -- if M.config.clangd.install then require('nvimpio.clangd.config') end
+              -- end
+            end)
           end)
         else
         end
