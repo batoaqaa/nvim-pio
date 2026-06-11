@@ -134,11 +134,10 @@ function M.get_sysroot_triplet(cc_compiler)
   local auto_defines = {}
 
   -- 3. Execute directly. Passing "" feeds a clean cross-platform empty stdin.
-  local lines = vim.fn.systemlist(cmd, "i\n")
+  local lines = vim.fn.systemlist(cmd, "\n")
 
   -- DEBUG CHECK: If the compiler failed, print why to help troubleshoot
-  if vim.v.shell_error == 0 and lines and #lines > 0 then
-
+  if lines and #lines > 0 then
     for _, line in ipairs(lines) do
       local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
 
