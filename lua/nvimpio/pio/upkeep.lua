@@ -13,23 +13,18 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 -- stylua: ignore
 function M.get_sysroot_triplet(cc_compiler)
   local bin_path = vim.fs.normalize(vim.fn.fnamemodify(cc_compiler, ':h'))
-  print('bin_path=' .. bin_path)
   if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
-
-
-  print('cc_compiler=' .. cc_compiler)
-
   if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
 
   -- 1. toolchain_root is the parent of the 'bin' folder
   local toolchain_root = vim.fs.normalize(vim.fn.fnamemodify(bin_path, ':h'))
 
-  local triplet = nil
 
   -- Strategy A: Check if a folder named after the compiler target exists inside toolchain_root
   local fname = vim.fn.fnamemodify(cc_compiler, ':t:r') -- e.g., "xtensa-esp32s3-elf-g++"
   local compiler_prefix = string.match(fname, "^([^-]+-[^-]+-[^-]+)") -- e.g., "xtensa-esp32s3-elf"
 
+  local triplet = nil
   if compiler_prefix and vim.fn.isdirectory(toolchain_root .. "/" .. compiler_prefix) == 1 then
     triplet = compiler_prefix
   end
@@ -70,15 +65,10 @@ function M.get_sysroot_triplet(cc_compiler)
       end
     end
   end
-  if not triplet then return nil end
+  -- if not triplet then return nil end
 
-
-
-  -- local query_driver = vim.fs.joinpath(bin_path, triplet) .. '-*'
-  -- local query_driver = misc.normalizePath(bin_path .. '/' .. triplet .. '-*')
   local query_driver = vim.fs.normalize(bin_path .. '/*')
 
-  -- _G.metadata = _G.metadata or {}
   _G.metadata.triplet = triplet
   _G.metadata.toolchain_root = toolchain_root
   _G.metadata.query_driver = query_driver
@@ -87,11 +77,8 @@ function M.get_sysroot_triplet(cc_compiler)
   local sysroot = vim.fs.joinpath(toolchain_root, triplet)
   -- Check if sysroot folder actually exists on disk (Optional fallback validation)
   -- If it doesn't exist, we fall back to toolchain_root so your metadata never breaks!
-  if vim.fn.isdirectory(sysroot) == 1 then
-    _G.metadata.sysroot = sysroot
-  else
-    _G.metadata.sysroot = toolchain_root
-  end
+  if vim.fn.isdirectory(sysroot) == 1 then _G.metadata.sysroot = sysroot
+  else _G.metadata.sysroot = toolchain_root end
 
   -- local sysname = vim.uv.os_uname().sysname
   -- local is_win = (sysname:find('Windows') or vim.fn.has('win32') == 1 or vim.fn.has("win64") == 1)
@@ -124,26 +111,27 @@ function M.get_sysroot_triplet(cc_compiler)
 
 
 
+
   -- 1. Essential: Normalize slashes to match the host system style
   local normalized_compiler = vim.fs.normalize(cc_compiler)
 
   -- 2. Build the command string safely wrapping the path in double quotes
   local cmd = string.format('"%s" -dM -E -x c++ -', normalized_compiler)
-  -- local cmd = string.format('"%s" -dM -E -x c++ %s', normalized_compiler, OS.devNul)
 
   local auto_defines = {}
 
-  -- 3. Execute directly. Passing "" feeds a clean cross-platform empty stdin.
+  -- 3. Execute directly. Passing a clean newline string "\n" represents blank line input
   local lines = vim.fn.systemlist(cmd, "\n")
 
-  -- DEBUG CHECK: If the compiler failed, print why to help troubleshoot
   if lines and #lines > 0 then
     for _, line in ipairs(lines) do
       local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
 
       if macro then
-        -- Exclude internal compiler builtins starting with double underscores and lowercase (e.g. __builtin_)
-        local is_internal_builtin = macro:match("^__%l")
+        -- FIX: Targeted generic filter. 
+        -- This discards noisy compiler built-ins (like __builtin_ or __has_include)
+        -- but safely PRESERVES lowercase targets like __xtensa__ and __esp32s3__
+        local is_internal_builtin = macro:match("^__builtin") or macro:match("^__has_")
 
         if not is_internal_builtin then
           -- Clean up trailing comments, carriage returns (\r), or whitespace
@@ -161,7 +149,6 @@ function M.get_sysroot_triplet(cc_compiler)
     print("Compiler failed with exit code: " .. tostring(vim.v.shell_error))
     print("Attempted command: " .. cmd)
   end
-
 
 
   -- local cmd = string.format('"%s" -dM -E -x c++ -', cc_compiler)
