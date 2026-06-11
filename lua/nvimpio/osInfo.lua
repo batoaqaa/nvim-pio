@@ -34,7 +34,7 @@ local nvimpioConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
 ---@field path_sep string
 ---@field devNul string
 ---@field eol string
----@field shell string
+---@field shell table
 ---@field config_dir string
 ---@field data_dir string
 ---@field cache_dir string
@@ -80,7 +80,12 @@ local os_info = {
   project_config = vim.fs.joinpath(nvimpioConfigDir, '.projectConfig.json'),
   nvimpio_config_dir = nvimpioConfigDir,
   shell = OS.is_win and {
-    'pwsh.exe', '-NoExit', '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+    'pwsh.exe',
+    '-NoExit',
+    '-NoLogo',
+    '-NoProfile',
+    '-ExecutionPolicy', 'Bypass',
+    '-Command', '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;'
   } or (function()
     local default_shell = vim.api.nvim_get_option_value('shell', {})
     if default_shell:find('zsh') then return { default_shell, '-f' } end

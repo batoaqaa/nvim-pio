@@ -1,6 +1,5 @@
 -- stylua: ignore start
 
-
 local M = {}
 
 -- Default Public User Configuration Matrix
@@ -8,29 +7,29 @@ M.config = {
   panel_height = 0.25,
   winbar_bg = '#80a3d4',
   winbar_fg = '#000000',
+  shell = OS.shell,
   keymaps = {
-    open_cli      = [[<leader>\t]],   -- Open primary CLI split panel
-    open_monitor  = [[<leader>\gm]],  -- Open secondary hardware monitor
-    hide_pane     = "q",              -- Hide panel split window
-    switch_pane   = ";;",             -- Toggle back and forth between splits
-    escape_term   = "<Esc>",          -- Drop from terminal insert to normal mode
-    move_up       = "<C-k>",          -- Window focus jumps up
-    move_down     = "<C-j>",          -- Window focus jumps down
-    move_left     = "<C-h>",          -- Window focus jumps left
-    move_right    = "<C-l>",          -- Window focus jumps right
+    open_cli      = [[<leader>\t]],
+    open_monitor  = [[<leader>\gm]],
+    hide_pane     = "q",
+    switch_pane   = "<Tab>",
+    escape_term   = "<Esc>",
+    move_up       = "<C-k>",
+    move_down     = "<C-j>",
+    move_left     = "<C-h>",
+    move_right    = "<C-l>",
   }
 }
 
 M.stdout_callback = nil
 M.exit_callback = nil
 
-
 --- Safe window manager close executor pass routine
 ---@param instance Terminal The specific object handle to clear down.
 local function SafeCloseTerminal(instance)
   if not instance then return end
-  if instance.win and vim.api.nvim_win_is_valid(instance.win) then 
-    vim.api.nvim_win_close(instance.win, true) 
+  if instance.win and vim.api.nvim_win_is_valid(instance.win) then
+    vim.api.nvim_win_close(instance.win, true)
   end
   instance.win = nil
   vim.schedule(function()
@@ -44,8 +43,10 @@ function M.UpdateWinbarTitles()
   local cli_alive = M.cli.buf and vim.api.nvim_buf_is_valid(M.cli.buf)
   local mon_alive = M.monitor.buf and vim.api.nvim_buf_is_valid(M.monitor.buf)
   local maps = M.config.keymaps
+
   local hint = (cli_alive and mon_alive) and " [" .. maps.switch_pane .. " Switch] " or " [" .. maps.hide_pane .. " Hide] "
 
+  -- 🌟 UNIFIED LOOKUP LOOK: Winbar now reads directly from the shared class definition! [INDEX]
   vim.api.nvim_set_hl(0, 'PioWinBar', { bg = M.config.winbar_bg, fg = M.config.winbar_fg })
 
   for _, instance in pairs({ M.cli, M.monitor }) do
@@ -56,7 +57,7 @@ function M.UpdateWinbarTitles()
 end
 
 ----------------------------------------------------------------------------------------
--- 🌟 THE AUTONOMOUS TERMINAL CLASS ARCHITECTURE
+-- 🌟 THE TRUE UNIFIED SELF-CONTAINED TERMINAL CLASS ARCHITECTURE
 ----------------------------------------------------------------------------------------
 ---@class Terminal
 ---@field term_type string Unique lane configuration tracking tag ('cli' or 'monitor')
@@ -65,15 +66,17 @@ end
 ---@field win number|nil The native Neovim window ID layout viewport handle
 ---@field job number|nil The asynchronous terminal channel ID backend process loop handle
 ---@field newline string Pre-cached cross-platform row end carriage return delimiter
----@field shell string The sequential array list configuration running the shell executable
+---@field shell table The sequential array list configuration running the shell executable
+---@field keymaps table The user configurable map table schema containing shortcuts [INDEX]
 local Terminal = {
-  term_type = "",     
+  term_type = "",
   title     = "",
   buf       = nil,
   win       = nil,
   job       = nil,
-  newline   = OS.eol, 
-  shell     = OS.shell,
+  newline   = OS.eol,
+  shell     = {},
+  keymaps   = {}, -- Both configuration states live fully encapsulated inside the prototype block [INDEX]!
 }
 Terminal.__index = Terminal
 
@@ -88,22 +91,18 @@ function Terminal.new(term_type, panel_title)
   return self
 end
 
---- 🌟 THE UNBREAKABLE INTERACTIVE SEND INTERFACE:
---- Pipe manual string payloads straight down active channels autonomously.
+--- Pipe manual strings down channels autonomously.
 ---@method
 ---@param command string|number The raw text instruction string payload to evaluate.
 ---@return nil
 function Terminal:send(command)
   local cmd_str = tostring(command or "")
-  
-  -- Auto-spawn the interactive window if it was closed or killed
+
   if not self.job or self.job <= 0 or not self.win or not vim.api.nvim_win_is_valid(self.win) then
     self:show()
   end
-  
+
   if not self.job or self.job <= 0 then return end
-  
-  -- Send the text command string followed by a single carriage-return newline
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 end
 
@@ -113,14 +112,14 @@ end
 function Terminal:close()
   if not self.job or self.job <= 0 then return end
   pcall(vim.fn.jobstop, self.job)
-  
-  if self.win and vim.api.nvim_win_is_valid(self.win) then 
-    vim.api.nvim_win_close(self.win, true) 
+
+  if self.win and vim.api.nvim_win_is_valid(self.win) then
+    vim.api.nvim_win_close(self.win, true)
   end
   self.win = nil
   self.buf = nil
   self.job = nil
-  
+
   vim.schedule(function()
     vim.cmd("wincmd =")
     M.UpdateWinbarTitles()
@@ -131,8 +130,8 @@ end
 ---@method
 ---@return nil
 function Terminal:hide()
-  if self.win and vim.api.nvim_win_is_valid(self.win) then 
-    vim.api.nvim_win_close(self.win, true) 
+  if self.win and vim.api.nvim_win_is_valid(self.win) then
+    vim.api.nvim_win_close(self.win, true)
   end
   self.win = nil
   vim.schedule(function()
@@ -185,9 +184,7 @@ function Terminal:show()
   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = self.win })
   M.UpdateWinbarTitles()
 
-  if not is_new_buffer then
-    vim.cmd("startinsert")
-  end
+  vim.cmd("startinsert")
   return true
 end
 
@@ -197,20 +194,15 @@ end
 ---@param opposite_instance Terminal The alternative lane object singleton reference.
 ---@return nil
 function Terminal:_spawn(target_height, opposite_instance)
-  -- Initialize an interactive terminal shell via native, high-level termopen
   local channel_id = vim.fn.termopen(self.shell, {
     on_stdout = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
     on_stderr = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
     on_exit = function() if type(M.exit_callback) == "function" then M.exit_callback() end end
   })
-  
+
   if not channel_id or channel_id <= 0 then return end
   self.job = channel_id
 
-  -- 🌟 THE INDESTRUCTIBLE ZERO-BOUNCE ALIGNMENT GATE:
-  -- We use TermRequest to wait until ConPTY window dimension updates settle 100%.
-  -- Then we push a clean Ctrl+C and Ctrl+L macro down the interactive pipe.
-  -- This purges any duplicate startup chevrons, leaving exactly ONE prompt line!
   if OS.is_win then
     local clear_group = vim.api.nvim_create_augroup("PioClearGuard_" .. self.buf, { clear = true })
     vim.api.nvim_create_autocmd("TermRequest", {
@@ -257,8 +249,9 @@ end
 
 -- Encapsulate localized panel navigation keyboard bindings
 function Terminal:_attach_keymaps(target_height, opposite_instance)
-  local maps = M.config.keymaps
-  
+  -- 🌟 PROTOTYPE REFACTOR LOOP: Nav maps now read straight from self.keymaps! [INDEX]
+  local maps = self.keymaps
+
   vim.keymap.set("t", maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
   vim.keymap.set("n", maps.hide_pane, function() SafeCloseTerminal(self) end, { buffer = self.buf })
 
@@ -290,24 +283,35 @@ function Terminal:_attach_keymaps(target_height, opposite_instance)
   end, { buffer = self.buf, silent = true })
 end
 
+-- Prime the prototype class template with initial baseline specifications layout [INDEX]
+Terminal.shell = M.config.shell
+Terminal.keymaps = M.config.keymaps
+
 ---@type Terminal
 M.cli = Terminal.new("cli", " Pio CLI> ")
 ---@type Terminal
 M.monitor = Terminal.new("monitor", " Pio Monitor ")
 
-local function SetGlobalKeymaps()
+-- Global hotkey binder pass loop
+local function BindGlobalTriggers()
   pcall(vim.keymap.del, "n", [[<leader>\gm]])
   pcall(vim.keymap.del, "n", [[<leader>\t]])
-  vim.keymap.set("n", M.config.keymaps.open_monitor, function() M.monitor:show() M.monitor:send("pio device monitor") end, { silent = true })
-  vim.keymap.set("n", M.config.keymaps.open_cli, function() M.cli:show() end, { silent = true })
+  vim.keymap.set("n", Terminal.keymaps.open_monitor, function() M.monitor:show() M.monitor:send("pio device monitor") end, { silent = true })
+  vim.keymap.set("n", Terminal.keymaps.open_cli, function() M.cli:show() end, { silent = true })
 end
-SetGlobalKeymaps()
-
+BindGlobalTriggers()
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
+
+  -- 🌟 THE ULTIMATE UNIFIED PROTOTYPE ASSIGNMENT GATEWAY:
+  -- We pass BOTH user parameters directly straight onto the parent prototype master class [INDEX]!
+  -- Metatable inheritance fallback handles updating all shortcuts and shells identically and cleanly [INDEX]!
   if opts and opts.shell then Terminal.shell = opts.shell end
-  SetGlobalKeymaps()
+  if opts and opts.keymaps then Terminal.keymaps = M.config.keymaps end
+
+  -- Re-register global hotkey shortcuts mapping arrays seamlessly [INDEX]
+  BindGlobalTriggers()
 end
 
 return M
