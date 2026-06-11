@@ -403,7 +403,7 @@ end
 -- Handle command
 -- =============================================================================
 -- stylua: ignore
-function M.handleIdedata0(result, active_env, on_done)
+function M.handleIdedata(result, active_env, on_done)
   if result == 'INIT' then
     pio_cli:send(pop(M.queue))
   elseif result == 'PASS' .. current_id then
@@ -505,7 +505,7 @@ end
 -- =============================================================================
 local pass2 = false
 -- stylua: ignore
-function M.handleIdedata(result, active_env, on_done)
+function M.handleIdedata1(result, active_env, on_done)
   if result == 'INIT' then
     pio_cli:send(pop(M.queue))
   elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
