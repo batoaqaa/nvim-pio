@@ -117,16 +117,14 @@ function M.setup(user_opts)
     vim.g.platformioRootDir = vim.uv.cwd()
     -- require("nvimpio.core").execute_init(args)
     require('nvimpio.core').ensure_toolchain_active(
-      -- pioCheck.pioStatus(
       function(success)
         if success then
-          -- pioCheck.pioPathUpdate()
+          M.activate()
           require('nvimpio.pio.ui.pioInit').pioInit(function(done)
-            if done then
-              -- vim.clangd.getUnknownArgs()
-              -- if M.config.clangd.install then require('nvimpio.clangd.config') end
-              M.activate()
-            end
+            -- if done then
+            --   -- vim.clangd.getUnknownArgs()
+            --   -- if M.config.clangd.install then require('nvimpio.clangd.config') end
+            -- end
           end)
         else
         end
@@ -143,7 +141,6 @@ function M.setup(user_opts)
   if vim.fn.filereadable('platformio.ini') == 1 then
     vim.g.platformioRootDir = vim.uv.cwd()
     vim.schedule(function()
-      -- pioCheck.pioStatus(
       require('nvimpio.core').ensure_toolchain_active(function(success)
         if success then
           M.activate()

@@ -12,24 +12,79 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 -- =============================================================================
 -- stylua: ignore
 function M.get_sysroot_triplet(cc_compiler)
-  print('cc_compiler=' .. cc_compiler)
-  local bin_path = vim.fn.fnamemodify(cc_compiler, ':h')
-  print('bin_path=' .. bin_path)
-  bin_path = vim.fs.normalize(bin_path)
+  local bin_path = vim.fs.normalize(vim.fn.fnamemodify(cc_compiler, ':h'))
   print('bin_path=' .. bin_path)
   if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
 
+  -- local triplet = nil
+  -- local fname = vim.fn.fnamemodify(cc_compiler, ':t:r')
+  -- triplet = string.match(fname, "^([^-]+-[^-]+-[^-]+)")
+  -- if not triplet then return nil end
+  -- print('triplet=' .. triplet)
+
+  -- Return nil if no compiler was found in the bin directory
+  -- toolchain_root is the parent of the 'bin' folder
+  -- local toolchain_root = vim.fs.normalize(vim.fn.fnamemodify(bin_path, ':h'))
+  -- print('toolchain_root=' .. toolchain_root)
+
+
+  print('cc_compiler=' .. cc_compiler)
+
+  if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
+
+  -- 1. toolchain_root is the parent of the 'bin' folder
+  local toolchain_root = vim.fs.normalize(vim.fn.fnamemodify(bin_path, ':h'))
+  print('toolchain_root=' .. toolchain_root)
+
   local triplet = nil
-  local fname = vim.fn.fnamemodify(cc_compiler, ':t:r')
-  triplet = string.match(fname, "^([^-]+-[^-]+-[^-]+)")
+
+  -- Strategy A: Check if a folder named after the compiler target exists inside toolchain_root
+  local fname = vim.fn.fnamemodify(cc_compiler, ':t:r') -- e.g., "xtensa-esp32s3-elf-g++"
+  local compiler_prefix = string.match(fname, "^([^-]+-[^-]+-[^-]+)") -- e.g., "xtensa-esp32s3-elf"
+
+  if compiler_prefix and vim.fn.isdirectory(toolchain_root .. "/" .. compiler_prefix) == 1 then
+    triplet = compiler_prefix
+  end
+
+  -- Strategy B: Fallback to the layout where the folder mirrors the package name wrapper
+  if not triplet then
+    local folder_name = vim.fn.fnamemodify(toolchain_root, ':t') -- e.g., "toolchain-xtensa-esp-elf"
+    local package_prefix = string.match(folder_name, "^toolchain%-(.+)$")
+
+    if package_prefix and vim.fn.isdirectory(toolchain_root .. "/" .. package_prefix) == 1 then
+      triplet = package_prefix
+    end
+  end
+
+  -- Strategy C: Absolute dynamic lookup matching sibling compiler names
+  if not triplet then
+    local files = vim.fn.readdir(bin_path)
+    for _, name in ipairs(files) do
+      local match = vim.fn.fnamemodify(name, ':t:r') -- e.g., "xtensa-esp32-elf-gcc"
+      if match then
+        local sibling_triplet = string.match(match, "^([^-]+-[^-]+-[^-]+)")
+        if sibling_triplet and vim.fn.isdirectory(toolchain_root .. "/" .. sibling_triplet) == 1 then
+          triplet = sibling_triplet
+          break
+        end
+      end
+    end
+  end
+
+  -- Strategy D: Absolute dynamic lookup (Scans the folder structure for standard header locations)
+  if not triplet then
+    local include_dirs = vim.fs.find('include', { path = toolchain_root, type = 'directory', limit = 3 })
+    for _, inc_path in ipairs(include_dirs) do
+      local parent_folder = vim.fn.fnamemodify(vim.fs.normalize(inc_path), ':h:t')
+      if parent_folder:match('-elf$') then
+        triplet = parent_folder
+        break
+      end
+    end
+  end
   if not triplet then return nil end
   print('triplet=' .. triplet)
 
-  -- Return nil if no compiler was found in the bin directory
-
-  -- toolchain_root is the parent of the 'bin' folder
-  local toolchain_root = vim.fs.normalize(vim.fn.fnamemodify(bin_path, ':h'))
-  print('toolchain_root=' .. toolchain_root)
 
   -- sysroot folder is expected to have the same name as the triplet
   local sysroot = vim.fs.joinpath(toolchain_root, triplet)
