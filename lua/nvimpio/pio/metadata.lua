@@ -92,7 +92,7 @@ _G.metadata = setmetatable({}, {
     _pio_metadata[key] = value
 
     -- Trigger background actions
-    vim.schedule(function()
+    -- vim.schedule(function()
       -- M.save_project_config(true)
       -------------------------------------------------------------------------------
       if key == 'toolchain_root' then
@@ -135,7 +135,7 @@ _G.metadata = setmetatable({}, {
         vim.cmd('redrawstatus')
       -- elseif key == 'last_projectChecksum' then
       end
-    end)
+    -- end)
   end,
 })
 
