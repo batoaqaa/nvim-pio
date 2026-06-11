@@ -99,7 +99,6 @@ function M.activate()
   local menu = require('nvimpio.menu')
   menu.buildUserMenu(M.options)
   require('nvimpio.pio.control').init(M.options.clangd)
-
   isActivated = true
   -- end)
 end
@@ -120,14 +119,12 @@ function M.setup(user_opts)
     require('nvimpio.core').ensure_toolchain_active(
       function(success)
         if success then
-          M.activate()
-          vim.schedule(function()
-            require('nvimpio.pio.ui.pioInit').pioInit(function(done)
-              -- if done then
-              --   -- vim.clangd.getUnknownArgs()
-              --   -- if M.config.clangd.install then require('nvimpio.clangd.config') end
-              -- end
-            end)
+          require('nvimpio.pio.ui.pioInit').pioInit(function(done)
+            if done then
+              -- vim.clangd.getUnknownArgs()
+              -- if M.config.clangd.install then require('nvimpio.clangd.config') end
+              M.activate()
+            end
           end)
         else
         end
