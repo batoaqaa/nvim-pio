@@ -112,6 +112,7 @@ function M.get_sysroot_triplet(cc_compiler)
 
 
 
+
   -- 1. Essential: Normalize slashes to match the host system style
   local normalized_compiler = vim.fs.normalize(cc_compiler)
 
@@ -124,17 +125,18 @@ function M.get_sysroot_triplet(cc_compiler)
   local lines = vim.fn.systemlist(cmd, "\n")
 
   if lines and #lines > 0 then
+    -- We track if we successfully parsed at least one macro line
+    local parsed_any = false
+
     for _, line in ipairs(lines) do
       local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
 
       if macro then
-        -- FIX: Targeted generic filter. 
-        -- This discards noisy compiler built-ins (like __builtin_ or __has_include)
-        -- but safely PRESERVES lowercase targets like __xtensa__ and __esp32s3__
+        parsed_any = true
+        -- Targeted generic filter to discard noisy built-ins 
         local is_internal_builtin = macro:match("^__builtin") or macro:match("^__has_")
 
         if not is_internal_builtin then
-          -- Clean up trailing comments, carriage returns (\r), or whitespace
           value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
 
           if value == "" then
@@ -145,11 +147,18 @@ function M.get_sysroot_triplet(cc_compiler)
         end
       end
     end
-  else
-    print("Compiler failed with exit code: " .. tostring(vim.v.shell_error))
-    print("Attempted command: " .. cmd)
-  end
 
+    -- IF WE GOT LINES BUT ZERO MACROS: The compiler threw an error!
+    if not parsed_any then
+      print("Compiler returned output but NO defines were parsed. Error from compiler:")
+      for i = 1, math.min(5, #lines) do
+        print("  " .. lines[i])
+      end
+    end
+
+  else
+    print("Compiler completely failed to return any data.")
+  end
 
   -- local cmd = string.format('"%s" -dM -E -x c++ -', cc_compiler)
   -- local auto_defines = {}
