@@ -128,7 +128,8 @@ function M.get_sysroot_triplet(cc_compiler)
   local normalized_compiler = vim.fs.normalize(cc_compiler)
 
   -- 2. Build the command string safely wrapping the path in double quotes
-  local cmd = string.format('"%s" -dM -E -x c++ %s', normalized_compiler, OS.devNul)
+  local cmd = string.format('"%s" -dM -E -x c++ -', normalized_compiler)
+  -- local cmd = string.format('"%s" -dM -E -x c++ %s', normalized_compiler, OS.devNul)
 
   local auto_defines = {}
 
@@ -160,7 +161,6 @@ function M.get_sysroot_triplet(cc_compiler)
   else
     print("Compiler failed with exit code: " .. tostring(vim.v.shell_error))
     print("Attempted command: " .. cmd)
-    return {}
   end
 
 
