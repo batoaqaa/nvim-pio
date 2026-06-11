@@ -118,8 +118,7 @@ function M.get_sysroot_triplet(cc_compiler)
 
   local auto_defines = {}
 
-  -- 2. FIX: Use vim.system instead of systemlist.
-  -- Pass the arguments as an isolated Lua array table. 
+  -- 2. Pass the arguments as an isolated Lua array table. 
   -- This completely shields the flags from PowerShell's parser!
   local obj = vim.system({ normalized_compiler, "-dM", "-E", "-x", "c++", "-" }, {
     stdin = "\n" -- Clean input stream data
@@ -130,25 +129,53 @@ function M.get_sysroot_triplet(cc_compiler)
     -- Convert the raw stdout block into an array of lines
     local lines = vim.split(obj.stdout, "\n")
 
-    for _, line in ipairs(lines) do
-      local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
+  for _, line in ipairs(lines) do
+    local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
 
-      if macro then
-        -- Targeted generic filter to discard noisy built-ins 
-        local is_internal_builtin = macro:match("^__builtin") or macro:match("^__has_")
+    if macro then
+      local lower_macro = macro:lower()
+      -- GENERIC EXCLUSION RULES (Removes pure compiler/language clutter)
+      local is_compiler_clutter =
+        lower_macro:match("^__builtin")   -- Compiler internal functions
+        or lower_macro:match("^__has_")   -- Feature checking macros
+        or lower_macro:match("_type__$")  -- Primitive types (__INT32_TYPE__)
+        or lower_macro:match("_width__$") -- Bit widths (__INT_LEAST8_WIDTH__)
+        or lower_macro:match("_max__$")   -- Max value limits (__INT_MAX__)
+        or lower_macro:match("^__gnuc")   -- Core compiler engine version strings
+        or lower_macro:match("^__flt")    -- Floating point internal specs
+        or lower_macro:match("^__dbl")    -- Double precision internal specs
+        or macro:match("^__STDC__")       -- Language compliance standards
 
-        if not is_internal_builtin then
-          -- Clean up trailing comments, carriage returns (\r), or whitespace
-          value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
-
-          if value == "" then
-            table.insert(auto_defines, "-D" .. macro)
-          else
-            table.insert(auto_defines, "-D" .. macro .. "=" .. value)
-          end
+      if not is_compiler_clutter then
+        -- Clean up trailing comments, carriage returns (\r), or whitespace
+        value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
+        if value == "" then
+          table.insert(auto_defines, "-D" .. macro)
+        else
+          table.insert(auto_defines, "-D" .. macro .. "=" .. value)
         end
       end
     end
+  end
+    -- for _, line in ipairs(lines) do
+    --   local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
+    --
+    --   if macro then
+    --     -- Targeted generic filter to discard noisy built-ins 
+    --     local is_internal_builtin = macro:match("^__builtin") or macro:match("^__has_")
+    --
+    --     if not is_internal_builtin then
+    --       -- Clean up trailing comments, carriage returns (\r), or whitespace
+    --       value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
+    --
+    --       if value == "" then
+    --         table.insert(auto_defines, "-D" .. macro)
+    --       else
+    --         table.insert(auto_defines, "-D" .. macro .. "=" .. value)
+    --       end
+    --     end
+    --   end
+    -- end
   else
     print("Compiler process execution failed.")
     if obj.stderr and obj.stderr ~= "" then
