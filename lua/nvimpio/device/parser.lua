@@ -23,19 +23,19 @@ local content = ''
 -- stylua: ignore
 function M.stdoutcallback(_, raw_incoming_data, _)
 -- function M.stdoutcallback(job_id, raw_incoming_data, event)
-  _G.PioTraceLog = _G.PioTraceLog or {}
-  
-  if raw_incoming_data and #raw_incoming_data > 0 then
-    for index, raw_text_row in ipairs(raw_incoming_data) do
-      if raw_text_row ~= "" then
-        -- Strips hidden ANSI control sequences to leave the characters pristine
-        local sanitized_row = tostring(raw_text_row):gsub("\x1b%[[0-9;]*%a", "")
-        table.insert(_G.PioTraceLog, string.format("[PACKET SLOT %d] %q", index, sanitized_row))
-      end
-    end
-  end
+  -- _G.PioTraceLog = _G.PioTraceLog or {}
+  --
+  -- if raw_incoming_data and #raw_incoming_data > 0 then
+  --   for index, raw_text_row in ipairs(raw_incoming_data) do
+  --     if raw_text_row ~= "" then
+  --       -- Strips hidden ANSI control sequences to leave the characters pristine
+  --       local sanitized_row = tostring(raw_text_row):gsub("\x1b%[[0-9;]*%a", "")
+  --       table.insert(_G.PioTraceLog, string.format("[PACKET SLOT %d] %q", index, sanitized_row))
+  --     end
+  --   end
+  -- end
   if not raw_incoming_data or #raw_incoming_data == 0 then return end
-  if current_token then
+  if not current_token then return end
   -----------------------------------------------------------------------------
   -- 🔍 DETECTIVE TRACE HOOKS: Run this snippet to verify active process triggers
   -----------------------------------------------------------------------------
@@ -116,7 +116,7 @@ function M.stdoutcallback(_, raw_incoming_data, _)
     if final_execution_status and cached_active_callback then
       vim.schedule(function() cached_active_callback(final_execution_status) end)
     end
-    end
+
     return
   end
 end
