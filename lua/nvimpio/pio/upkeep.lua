@@ -6,11 +6,11 @@ local misc = require('nvimpio.utils.misc')
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 
+-- stylua: ignore start
 -- INFO:
 -- =============================================================================
 -- UNIVERSAL TOOLCHAIN DETECTION
 -- =============================================================================
--- stylua: ignore
 function M.get_sysroot_triplet(cc_compiler)
   local bin_path = vim.fs.normalize(vim.fn.fnamemodify(cc_compiler, ':h'))
   if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
@@ -122,7 +122,6 @@ function M.get_sysroot_triplet(cc_compiler)
   }
 end
 
--- stylua: ignore
 --=============================================================================
 --INFO: setup up device port
 ---Scans the hardware bus for active microcontrollers and returns a sorted list array of strings
@@ -319,7 +318,6 @@ end
 --INFO:get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
 local refreshBusy = false
--- stylua: ignore
 fetch_metadata = function(callback, active_env, from, attempts)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
@@ -334,9 +332,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
   local function fire_callback(status)
     refreshBusy = false
-    vim.schedule(function()
-      if type(callback) == 'function' then callback(status) end
-    end)
+    vim.schedule(function() if type(callback) == 'function' then callback(status) end end)
   end
   if not active_env or active_env == '' then fire_callback(false) return end
 
@@ -361,31 +357,19 @@ fetch_metadata = function(callback, active_env, from, attempts)
       return res
     end
 
-    -- Sort final mapping tokens by path length descending to guarantee longest match branches slice first
-    -- table.sort(discovered_roots, function(a, b)
-    --   if type(a) == "string" and type(b) == "string" then
-    --     return #a > #b
-    --   end
-    --   return false
-    -- end)
-
     -- 2. RIGID WORKSPACE INCLUDE PATH SORTER (Zero Naming Assumptions)
     local map_includes = function(list)
       local res = {}
       for _, v in ipairs(list or {}) do
         local clean_path = norm(v)
         if clean_path ~= "" then
-
           -- DETERMINISTIC RULE LAYER:
           -- Check if the include path physically initiates inside your active project directory tree
           local is_under_project = clean_path:sub(1, #norm_project_root) == norm_project_root
-
           -- Check if it belongs to the temporary downloaded vendor packages registry folder
           local is_managed_lib = clean_path:match("%.pio/libdeps")
-
           -- If it's outside your project repo, or inside the downloaded library cache, it's third-party!
           local prefix = (not is_under_project or is_managed_lib) and "-isystem" or "-I"
-
           -- Direct concatenation optimization
           table.insert(res, prefix .. clean_path)
         end
@@ -397,8 +381,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
     meta.cc_path = norm(data.cc_path)
     meta.cxx_path = norm(data.cxx_path)
     meta.gdb_path = norm(data.gdb_path)
-    M.get_sysroot_triplet(meta.cxx_path)
-    -- pcall(M.get_sysroot_triplet, meta.cxx_path)
+    -- M.get_sysroot_triplet(meta.cxx_path)
+    pcall(M.get_sysroot_triplet, meta.cxx_path)
 
     -- 4. Flags & Defines
     meta.cc_flags = map_list(data.cc_flags)
@@ -465,7 +449,6 @@ fetch_metadata = function(callback, active_env, from, attempts)
     return true
   end
 
-
   -- ----------------------------------------------------------------
   -- -- STEP 1: Cache Path (idedata.json exists )
   -- ----------------------------------------------------------------
@@ -474,7 +457,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   if idok and content ~= '' then
     local cok, decoded = pcall(vim.json.decode, content)
     if cok and apply_metadata(decoded) then
-      -- if (from ~= 'Meta active_env change: ')then
+      if (from == 'Meta active_env change: ')then
       -- cli
       -- require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
       --   if is_successful then
@@ -485,7 +468,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
       --   end
       -- end)
 
-      -- else
+      else
       -- gui
       if attempts > 0 then
         local cb = function(status)
@@ -515,7 +498,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
         --   require('nvimpio.device.parser').run_sequence({ cmnds = { dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ', from) })
         -- end, 'clangd')
       end
-      -- end
+      end
 
       OS.notify(from .. 'Metadata synced from cache', 'info')
       require('nvimpio.pio.metadata').save_project_config(from)
@@ -583,7 +566,6 @@ end
 
 -------------------------------------------------------------------------------
 --INFO:
--- stylua: ignore
 function M.pio_refresh(callback, from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
@@ -610,7 +592,6 @@ end
 -------------------------------------------------------------------------------
 -- INFO:
 -- Fix compile_commands.json file with absoulute paths
--- stylua: ignore
 function M.compile_commandsFix() --M.dbPathsFix()
   local filename = vim.fs.joinpath(vim.uv.cwd(), 'compile_commands.json')
   local content = vim.fn.readfile(filename)
