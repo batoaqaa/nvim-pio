@@ -26,8 +26,7 @@ function M.get_sysroot_triplet(cc_compiler)
   for _, name in ipairs(files) do
     -- Pattern: ^(.*) matches triplet, %- matches dash, g[c%+][c%+] matches gcc/g++
     local match = name:match('^(.*)%-g[c%+][c%+]')
-    if match then triplet = vim.fs.normalizePath(match) break
-    end
+    if match then triplet = vim.fs.normalizePath(match); break; end
   end
   print(triplet)
 
