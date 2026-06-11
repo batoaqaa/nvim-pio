@@ -75,7 +75,7 @@ local Terminal = {
 --Create a new terminal object
 function Terminal.new(term_type)
   local self = setmetatable({}, Terminal)
-  self.__index = self
+  -- self.__index = self
   self.term_type = term_type
   return self
 end
