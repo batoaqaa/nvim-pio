@@ -98,65 +98,65 @@ function M.get_sysroot_triplet(cc_compiler)
   -- local OS ={
   --   devNul = is_win and ' nul' or ' /dev/null',
   -- }
-  -- -- Extract the macros using the correct platform null device destination
-  -- local auto_defines = {}
-  -- local cmd = string.format('"%s" -dM -E -x c++ %s', cc_compiler, OS.devNul)
-  -- local handle = io.popen(cmd)
-  --
-  -- if handle then
-  --   for line in handle:lines() do
-  --     local macro, value = line:match("#define%s+([%w_]+)%s+(.*)")
-  --     if macro and value ~= "" then
-  --       local lower_macro = macro:lower()
-  --       -- Generic pattern matchers that capture all major embedded ecosystems
-  --       local is_arch    = lower_macro:match("xtensa") or lower_macro:match("arm") or lower_macro:match("riscv") or lower_macro:match("avr")
-  --       local is_vendor  = lower_macro:match("esp") or lower_macro:match("stm") or lower_macro:match("nrf") or lower_macro:match("samd") or lower_macro:match("rp20")
-  --       local is_version = macro == "__GNUC__" or macro == "__cplusplus" or macro == "__GNUC_MINOR__"
-  --       if is_arch or is_vendor or is_version then
-  --         -- Clean up trailing comments or whitespace from the compiler value
-  --         value = value:gsub("%s*//.*$", ""):gsub("%s*$", "")
-  --         table.insert(auto_defines, "-D" .. macro .. "=" .. value)
-  --       end
-  --     end
-  --   end
-  --   handle:close()
-  -- end
-
-  -- 1. Construct a clean command telling the compiler to read from an empty stdin (-)
-  local cmd = string.format('"%s" -dM -E -x c++ -', cc_compiler)
+  -- Extract the macros using the correct platform null device destination
   local auto_defines = {}
+  local cmd = string.format('"%s" -dM -E -x c++ %s', cc_compiler, OS.devNul)
+  local handle = io.popen(cmd)
 
-  -- 2. Execute directly. Passing "" as the second arg provides a safe, cross-platform stdin stream.
-  local lines = vim.fn.systemlist(cmd, "")
-
-  -- 3. Check for shell errors before processing
-  if vim.v.shell_error == 0 and not lines then
-    for _, line in ipairs(lines) do
-      -- Matches #define macro, allowing the value block to be completely empty
-      local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
-
-      if macro then
+  if handle then
+    for line in handle:lines() do
+      local macro, value = line:match("#define%s+([%w_]+)%s+(.*)")
+      if macro and value ~= "" then
         local lower_macro = macro:lower()
-
-        -- Generic pattern matchers capturing major embedded ecosystems
+        -- Generic pattern matchers that capture all major embedded ecosystems
         local is_arch    = lower_macro:match("xtensa") or lower_macro:match("arm") or lower_macro:match("riscv") or lower_macro:match("avr")
         local is_vendor  = lower_macro:match("esp") or lower_macro:match("stm") or lower_macro:match("nrf") or lower_macro:match("samd") or lower_macro:match("rp20")
         local is_version = macro == "__GNUC__" or macro == "__cplusplus" or macro == "__GNUC_MINOR__"
-
         if is_arch or is_vendor or is_version then
-          -- Strip out hidden Windows carriage returns (\r), inline comments, and spaces
-          value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
-
-          -- Safe append: if it has no value (like #define __XTENSA__), don't append a dangling '='
-          if value == "" then
-            table.insert(auto_defines, "-D" .. macro)
-          else
-            table.insert(auto_defines, "-D" .. macro .. "=" .. value)
-          end
+          -- Clean up trailing comments or whitespace from the compiler value
+          value = value:gsub("%s*//.*$", ""):gsub("%s*$", "")
+          table.insert(auto_defines, "-D" .. macro .. "=" .. value)
         end
       end
     end
+    handle:close()
   end
+
+  -- 1. Construct a clean command telling the compiler to read from an empty stdin (-)
+  -- local cmd = string.format('"%s" -dM -E -x c++ -', cc_compiler)
+  -- local auto_defines = {}
+  --
+  -- -- 2. Execute directly. Passing "" as the second arg provides a safe, cross-platform stdin stream.
+  -- local lines = vim.fn.systemlist(cmd, "")
+  --
+  -- -- 3. Check for shell errors before processing
+  -- if vim.v.shell_error == 0 and not lines then
+  --   for _, line in ipairs(lines) do
+  --     -- Matches #define macro, allowing the value block to be completely empty
+  --     local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
+  --
+  --     if macro then
+  --       local lower_macro = macro:lower()
+  --
+  --       -- Generic pattern matchers capturing major embedded ecosystems
+  --       local is_arch    = lower_macro:match("xtensa") or lower_macro:match("arm") or lower_macro:match("riscv") or lower_macro:match("avr")
+  --       local is_vendor  = lower_macro:match("esp") or lower_macro:match("stm") or lower_macro:match("nrf") or lower_macro:match("samd") or lower_macro:match("rp20")
+  --       local is_version = macro == "__GNUC__" or macro == "__cplusplus" or macro == "__GNUC_MINOR__"
+  --
+  --       if is_arch or is_vendor or is_version then
+  --         -- Strip out hidden Windows carriage returns (\r), inline comments, and spaces
+  --         value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
+  --
+  --         -- Safe append: if it has no value (like #define __XTENSA__), don't append a dangling '='
+  --         if value == "" then
+  --           table.insert(auto_defines, "-D" .. macro)
+  --         else
+  --           table.insert(auto_defines, "-D" .. macro .. "=" .. value)
+  --         end
+  --       end
+  --     end
+  --   end
+  -- end
 
   _G.metadata.auto_defines = auto_defines
 
