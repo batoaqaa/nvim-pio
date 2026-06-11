@@ -456,17 +456,18 @@ fetch_metadata = function(callback, active_env, from, attempts)
       -- else
       -- gui
       if attempts > 0 then
-        local cb = function(status)
-          require('nvimpio.device.parser').handlePioDB(status, active_env, function(success)
-            -- if success then do end end
-            if success then
-              do OS.notify("Db created") end
-            end
-          end)
-        end
+        -- local cb = function(status)
+        --   require('nvimpio.device.parser').handlePioDB(status, active_env, function(success)
+        --     -- if success then do end end
+        --     if success then
+        --       do OS.notify("Db created") end
+        --     end
+        --   end)
+        -- end
+        --
+        -- local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+        -- require('nvimpio.device.parser').run_sequence({ cmnds = { dbcmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
 
-        local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-        require('nvimpio.device.parser').run_sequence({ cmnds = { dbcmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
         -- clangd.clangdIntall(function(clangdCmd)
         --   local check_file = vim.fs.find(function(name)
         --     return name:match('%.cpp$') or name:match('%.c$')
