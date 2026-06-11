@@ -16,13 +16,19 @@ function M.get_sysroot_triplet(cc_compiler)
   local ff = vim.fn.fnamemodify(cc_compiler, ':t:r')
   print(ff)
 
+  local triplet = nil
+  local match = string.match(ff, "(.-)-[^-]+$")
+  if match then
+    triplet = vim.fs.normalizePath(match)
+  end
+  print(triplet)
+
   -- Early exit if path is nil or not a directory
   if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
 
   -- Normalize backslashes to forward slashes for cross-platform consistency
   bin_path = bin_path:gsub('\\', '/')
   local files = vim.fn.readdir(bin_path)
-  local triplet = nil
 
   -- Loop through files to find the compiler and extract the triplet
   -- for _, name in ipairs(files) do
@@ -34,13 +40,6 @@ function M.get_sysroot_triplet(cc_compiler)
   --   end
   -- end
 
-  local match = string.match(ff, "(.-)-[^-]+$")
-  -- local match = ff.match("(.-)-[^-]+$")
-  -- local match = ff:match('^(.*)%-g[c%+][c%+]')
-  if match then
-    triplet = vim.fs.normalizePath(match)
-  end
-  print(triplet)
 
   -- Return nil if no compiler was found in the bin directory
   if not triplet then return nil end
