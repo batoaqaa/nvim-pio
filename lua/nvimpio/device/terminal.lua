@@ -69,11 +69,12 @@ local Terminal = {
   newline   = OS.eol, 
   shell     = OS.shell,
 }
--- Terminal.__index = Terminal
+Terminal.__index = Terminal
 
 -- Class object instance factory constructor
 --Create a new terminal object
 function Terminal.new(term_type)
+
   local self = setmetatable({}, Terminal)
   -- self.__index = self
   self.term_type = term_type
