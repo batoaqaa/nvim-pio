@@ -16,36 +16,9 @@ function M.get_sysroot_triplet(cc_compiler)
   bin_path = vim.fs.normalize(bin_path)
   if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
 
-  local ff = vim.fn.fnamemodify(cc_compiler, ':t:r')
-  print(ff)
-local triplet = string.match(ff, "^([^-]+-[^-]+-[^-]+)")
--- -- 1. Get "xtensa-esp32s3-elf-g++.exe"
--- local filename = vim.fs.basename(cc_compiler)
--- -- 2. Strip "-g++.exe" from the end
--- local prefix = string.match(filename, "(.-)-g%+%+%.exe$")
--- print(prefix) --> "xtensa-esp32s3-elf"
---
---   local triplet = nil
---   local match = string.match(ff, "(.-)-[^-]+$")
---   if match then
---     triplet = vim.fs.normalizePath(match)
---   end
-
-  -- Early exit if path is nil or not a directory
-
-  -- Normalize backslashes to forward slashes for cross-platform consistency
-  local files = vim.fn.readdir(bin_path)
-
-  -- Loop through files to find the compiler and extract the triplet
-  -- for _, name in ipairs(files) do
-  --   -- Pattern: ^(.*) matches triplet, %- matches dash, g[c%+][c%+] matches gcc/g++
-  --   local match = name:match('^(.*)%-g[c%+][c%+]')
-  --   if match then
-  --     triplet = vim.fs.normalizePath(match)
-  --     break
-  --   end
-  -- end
-
+  local triplet = nil
+  local fname = vim.fn.fnamemodify(cc_compiler, ':t:r')
+  triplet = string.match(fname, "^([^-]+-[^-]+-[^-]+)")
 
   -- Return nil if no compiler was found in the bin directory
   if not triplet then return nil end
@@ -53,6 +26,7 @@ local triplet = string.match(ff, "^([^-]+-[^-]+-[^-]+)")
 
   -- toolchain_root is the parent of the 'bin' folder
   local toolchain_root = vim.fs.normalizePath(vim.fn.fnamemodify(bin_path, ':h'))
+  print(toolchain_root)
 
   -- sysroot folder is expected to have the same name as the triplet
   local sysroot = vim.fs.joinpath(toolchain_root, triplet)
