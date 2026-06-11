@@ -25,7 +25,7 @@ function M.get_sysroot_triplet(cc_compiler)
   print(triplet)
 
   -- toolchain_root is the parent of the 'bin' folder
-  local toolchain_root = vim.fs.normalizePath(vim.fn.fnamemodify(bin_path, ':h'))
+  local toolchain_root = vim.fs.normalize(vim.fn.fnamemodify(bin_path, ':h'))
   print(toolchain_root)
 
   -- sysroot folder is expected to have the same name as the triplet
