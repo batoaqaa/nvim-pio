@@ -26,8 +26,8 @@ M.exit_callback = nil
 -- Safe window manager close executor pass routine
 local function SafeCloseTerminal(instance)
   if not instance then return end
-  if instance.win and vim.api.nvim_win_is_valid(instance.win) then 
-    vim.api.nvim_win_close(instance.win, true) 
+  if instance.win and vim.api.nvim_win_is_valid(instance.win) then
+    vim.api.nvim_win_close(instance.win, true)
   end
   instance.win = nil
   vim.schedule(function()
@@ -91,11 +91,11 @@ end
 ---@return nil
 function Terminal:send(command)
   local cmd_str = tostring(command or "")
-  
+
   if not self.job or self.job <= 0 or not self.win or not vim.api.nvim_win_is_valid(self.win) then
     self:show()
   end
-  
+
   if not self.job or self.job <= 0 then return end
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 end
@@ -106,14 +106,14 @@ end
 function Terminal:close()
   if not self.job or self.job <= 0 then return end
   pcall(vim.fn.jobstop, self.job)
-  
-  if self.win and vim.api.nvim_win_is_valid(self.win) then 
-    vim.api.nvim_win_close(self.win, true) 
+
+  if self.win and vim.api.nvim_win_is_valid(self.win) then
+    vim.api.nvim_win_close(self.win, true)
   end
   self.win = nil
   self.buf = nil
   self.job = nil
-  
+
   vim.schedule(function()
     vim.cmd("wincmd =")
     M.UpdateWinbarTitles()
@@ -124,8 +124,8 @@ end
 ---@method
 ---@return nil
 function Terminal:hide()
-  if self.win and vim.api.nvim_win_is_valid(self.win) then 
-    vim.api.nvim_win_close(self.win, true) 
+  if self.win and vim.api.nvim_win_is_valid(self.win) then
+    vim.api.nvim_win_close(self.win, true)
   end
   self.win = nil
   vim.schedule(function()
@@ -188,14 +188,40 @@ end
 ---@param opposite_instance Terminal The alternative lane object singleton reference.
 ---@return nil
 function Terminal:_spawn(target_height, opposite_instance)
-  local channel_id = vim.fn.termopen(self.shell, {
-    on_stdout = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
-    on_stderr = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
+  -- 1. 🌟 Allocate a modern native terminal channel bound to your window split buffer [INDEX]
+  -- This replaces the deprecated legacy termopen code completely [INDEX]!
+  local term_channel_id = vim.api.nvim_open_term(self.buf, {
+    on_input = function(_, _, _, input_chars)
+      if self.job and self.job > 0 then
+        vim.fn.chansend(self.job, input_chars)
+      end
+    end
+  })
+
+  -- 2. Spawn the interactive job via background jobstart streams cleanly [INDEX]
+  local job_channel_id = vim.fn.jobstart(self.shell, {
+    on_stdout = function(job_id, standard_output_data, event_type)
+      if standard_output_data then
+        -- Forward data visually to the allocated modern terminal window screen [INDEX]
+        for _, raw_line in ipairs(standard_output_data) do
+          pcall(vim.api.nvim_chan_send, term_channel_id, raw_line .. "\r\n")
+        end
+        -- Forward data logically straight to your Part 3 parser block
+        if self.term_type == "cli" and type(M.stdoutcallback) == "function" then
+          M.stdoutcallback(job_id, standard_output_data, event_type)
+        end
+      end
+    end,
+    on_stderr = function(job_id, standard_error_data, event_type)
+      if standard_error_data and self.term_type == "cli" and type(M.stdoutcallback) == "function" then
+        M.stdoutcallback(job_id, standard_error_data, event_type)
+      end
+    end,
     on_exit = function() if type(M.exit_callback) == "function" then M.exit_callback() end end
   })
-  
-  if not channel_id or channel_id <= 0 then return end
-  self.job = channel_id
+
+  if not job_channel_id or job_channel_id <= 0 then return end
+  self.job = job_channel_id
 
   -- TermRequest catches the exact moment ConPTY finishes layout dimension resizes
   if OS.is_win then
@@ -204,6 +230,7 @@ function Terminal:_spawn(target_height, opposite_instance)
       group = clear_group, buffer = self.buf, once = true,
       callback = function()
         vim.schedule(function()
+          -- Wipes hidden carriage returns and drops safely into insert mode
           vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-c><C-l>]], true, true, true), "t", false)
           vim.cmd("startinsert")
         end)
@@ -252,7 +279,7 @@ end
 ---@return nil
 function Terminal:_attach_keymaps(target_height, opposite_instance)
   local maps = M.config.keymaps
-  
+
   vim.keymap.set("t", maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
   vim.keymap.set("n", maps.hide_pane, function() SafeCloseTerminal(self) end, { buffer = self.buf })
 
@@ -304,7 +331,6 @@ local function SetGlobalKeymaps()
   vim.keymap.set("n", M.config.keymaps.open_cli, function() M.cli:show() end, { silent = true })
 end
 SetGlobalKeymaps()
-
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
