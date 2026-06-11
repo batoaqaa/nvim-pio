@@ -16,17 +16,6 @@ function M.get_sysroot_triplet(cc_compiler)
   print('bin_path=' .. bin_path)
   if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
 
-  -- local triplet = nil
-  -- local fname = vim.fn.fnamemodify(cc_compiler, ':t:r')
-  -- triplet = string.match(fname, "^([^-]+-[^-]+-[^-]+)")
-  -- if not triplet then return nil end
-  -- print('triplet=' .. triplet)
-
-  -- Return nil if no compiler was found in the bin directory
-  -- toolchain_root is the parent of the 'bin' folder
-  -- local toolchain_root = vim.fs.normalize(vim.fn.fnamemodify(bin_path, ':h'))
-  -- print('toolchain_root=' .. toolchain_root)
-
 
   print('cc_compiler=' .. cc_compiler)
 
@@ -34,7 +23,6 @@ function M.get_sysroot_triplet(cc_compiler)
 
   -- 1. toolchain_root is the parent of the 'bin' folder
   local toolchain_root = vim.fs.normalize(vim.fn.fnamemodify(bin_path, ':h'))
-  print('toolchain_root=' .. toolchain_root)
 
   local triplet = nil
 
@@ -44,7 +32,6 @@ function M.get_sysroot_triplet(cc_compiler)
 
   if compiler_prefix and vim.fn.isdirectory(toolchain_root .. "/" .. compiler_prefix) == 1 then
     triplet = compiler_prefix
-    print('tripletA=' .. triplet)
   end
 
   -- Strategy B: Absolute dynamic lookup matching sibling compiler names
@@ -56,7 +43,6 @@ function M.get_sysroot_triplet(cc_compiler)
         local sibling_triplet = string.match(match, "^([^-]+-[^-]+-[^-]+)")
         if sibling_triplet and vim.fn.isdirectory(toolchain_root .. "/" .. sibling_triplet) == 1 then
           triplet = sibling_triplet
-          print('tripletB=' .. triplet)
           break
         end
       end
@@ -70,7 +56,6 @@ function M.get_sysroot_triplet(cc_compiler)
 
     if package_prefix and vim.fn.isdirectory(toolchain_root .. "/" .. package_prefix) == 1 then
       triplet = package_prefix
-      print('tripletC=' .. triplet)
     end
   end
 
@@ -81,7 +66,6 @@ function M.get_sysroot_triplet(cc_compiler)
       local parent_folder = vim.fn.fnamemodify(vim.fs.normalize(inc_path), ':h:t')
       if parent_folder:match('-elf$') then
         triplet = parent_folder
-        print('tripletD=' .. triplet)
         break
       end
     end
@@ -89,8 +73,6 @@ function M.get_sysroot_triplet(cc_compiler)
   if not triplet then return nil end
 
 
-  -- sysroot folder is expected to have the same name as the triplet
-  local sysroot = vim.fs.joinpath(toolchain_root, triplet)
 
   -- local query_driver = vim.fs.joinpath(bin_path, triplet) .. '-*'
   -- local query_driver = misc.normalizePath(bin_path .. '/' .. triplet .. '-*')
@@ -101,6 +83,8 @@ function M.get_sysroot_triplet(cc_compiler)
   _G.metadata.toolchain_root = toolchain_root
   _G.metadata.query_driver = query_driver
 
+  -- sysroot folder is expected to have the same name as the triplet
+  local sysroot = vim.fs.joinpath(toolchain_root, triplet)
   -- Check if sysroot folder actually exists on disk (Optional fallback validation)
   -- If it doesn't exist, we fall back to toolchain_root so your metadata never breaks!
   if vim.fn.isdirectory(sysroot) == 1 then
@@ -109,28 +93,69 @@ function M.get_sysroot_triplet(cc_compiler)
     _G.metadata.sysroot = toolchain_root
   end
 
-  -- Extract the macros using the correct platform null device destination
-  local auto_defines = {}
-  local cmd = string.format('"%s" -E -dM -xc++ %s', cc_compiler, OS.devNul)
-  local handle = io.popen(cmd)
+  -- local sysname = vim.uv.os_uname().sysname
+  -- local is_win = (sysname:find('Windows') or vim.fn.has('win32') == 1 or vim.fn.has("win64") == 1)
+  -- local OS ={
+  --   devNul = is_win and ' nul' or ' /dev/null',
+  -- }
+  -- -- Extract the macros using the correct platform null device destination
+  -- local auto_defines = {}
+  -- local cmd = string.format('"%s" -dM -E -x c++ %s', cc_compiler, OS.devNul)
+  -- local handle = io.popen(cmd)
+  --
+  -- if handle then
+  --   for line in handle:lines() do
+  --     local macro, value = line:match("#define%s+([%w_]+)%s+(.*)")
+  --     if macro and value ~= "" then
+  --       local lower_macro = macro:lower()
+  --       -- Generic pattern matchers that capture all major embedded ecosystems
+  --       local is_arch    = lower_macro:match("xtensa") or lower_macro:match("arm") or lower_macro:match("riscv") or lower_macro:match("avr")
+  --       local is_vendor  = lower_macro:match("esp") or lower_macro:match("stm") or lower_macro:match("nrf") or lower_macro:match("samd") or lower_macro:match("rp20")
+  --       local is_version = macro == "__GNUC__" or macro == "__cplusplus" or macro == "__GNUC_MINOR__"
+  --       if is_arch or is_vendor or is_version then
+  --         -- Clean up trailing comments or whitespace from the compiler value
+  --         value = value:gsub("%s*//.*$", ""):gsub("%s*$", "")
+  --         table.insert(auto_defines, "-D" .. macro .. "=" .. value)
+  --       end
+  --     end
+  --   end
+  --   handle:close()
+  -- end
 
-  if handle then
-    for line in handle:lines() do
-      local macro, value = line:match("#define%s+([%w_]+)%s+(.*)")
-      if macro and value ~= "" then
+  -- 1. Construct a clean command telling the compiler to read from an empty stdin (-)
+  local cmd = string.format('"%s" -dM -E -x c++ -', cc_compiler)
+  local auto_defines = {}
+
+  -- 2. Execute directly. Passing "" as the second arg provides a safe, cross-platform stdin stream.
+  local lines = vim.fn.systemlist(cmd, "")
+
+  -- 3. Check for shell errors before processing
+  if vim.v.shell_error == 0 and not lines then
+    for _, line in ipairs(lines) do
+      -- Matches #define macro, allowing the value block to be completely empty
+      local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
+
+      if macro then
         local lower_macro = macro:lower()
-        -- Generic pattern matchers that capture all major embedded ecosystems
+
+        -- Generic pattern matchers capturing major embedded ecosystems
         local is_arch    = lower_macro:match("xtensa") or lower_macro:match("arm") or lower_macro:match("riscv") or lower_macro:match("avr")
         local is_vendor  = lower_macro:match("esp") or lower_macro:match("stm") or lower_macro:match("nrf") or lower_macro:match("samd") or lower_macro:match("rp20")
         local is_version = macro == "__GNUC__" or macro == "__cplusplus" or macro == "__GNUC_MINOR__"
+
         if is_arch or is_vendor or is_version then
-          -- Clean up trailing comments or whitespace from the compiler value
-          value = value:gsub("%s*//.*$", ""):gsub("%s*$", "")
-          table.insert(auto_defines, "-D" .. macro .. "=" .. value)
+          -- Strip out hidden Windows carriage returns (\r), inline comments, and spaces
+          value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
+
+          -- Safe append: if it has no value (like #define __XTENSA__), don't append a dangling '='
+          if value == "" then
+            table.insert(auto_defines, "-D" .. macro)
+          else
+            table.insert(auto_defines, "-D" .. macro .. "=" .. value)
+          end
         end
       end
     end
-    handle:close()
   end
 
   _G.metadata.auto_defines = auto_defines
