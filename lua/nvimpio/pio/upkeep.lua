@@ -116,27 +116,29 @@ function M.get_sysroot_triplet(cc_compiler)
   -- 1. Essential: Normalize slashes to match the host system style
   local normalized_compiler = vim.fs.normalize(cc_compiler)
 
-  -- 2. Build the command string safely wrapping the path in double quotes
-  local cmd = string.format('"%s" -dM -E -x c++ -', normalized_compiler)
-
   local auto_defines = {}
 
-  -- 3. Execute directly. Passing a clean newline string "\n" represents blank line input
-  local lines = vim.fn.systemlist(cmd, "\n")
+  -- 2. FIX: Use vim.system instead of systemlist.
+  -- Pass the arguments as an isolated Lua array table. 
+  -- This completely shields the flags from PowerShell's parser!
+  local obj = vim.system({ normalized_compiler, "-dM", "-E", "-x", "c++", "-" }, {
+    stdin = "\n" -- Clean input stream data
+  }):wait()
 
-  if lines and #lines > 0 then
-    -- We track if we successfully parsed at least one macro line
-    local parsed_any = false
+  -- 3. Check if the direct process returned data
+  if obj.code == 0 and obj.stdout then
+    -- Convert the raw stdout block into an array of lines
+    local lines = vim.split(obj.stdout, "\n")
 
     for _, line in ipairs(lines) do
       local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
 
       if macro then
-        parsed_any = true
         -- Targeted generic filter to discard noisy built-ins 
         local is_internal_builtin = macro:match("^__builtin") or macro:match("^__has_")
 
         if not is_internal_builtin then
+          -- Clean up trailing comments, carriage returns (\r), or whitespace
           value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
 
           if value == "" then
@@ -147,18 +149,16 @@ function M.get_sysroot_triplet(cc_compiler)
         end
       end
     end
-
-    -- IF WE GOT LINES BUT ZERO MACROS: The compiler threw an error!
-    if not parsed_any then
-      print("Compiler returned output but NO defines were parsed. Error from compiler:")
-      for i = 1, math.min(5, #lines) do
-        print("  " .. lines[i])
-      end
-    end
-
   else
-    print("Compiler completely failed to return any data.")
+    print("Compiler process execution failed.")
+    if obj.stderr and obj.stderr ~= "" then
+      print("Error details: " .. obj.stderr)
+    end
   end
+
+
+
+
 
   -- local cmd = string.format('"%s" -dM -E -x c++ -', cc_compiler)
   -- local auto_defines = {}
