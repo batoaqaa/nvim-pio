@@ -13,6 +13,7 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 -- stylua: ignore
 function M.get_sysroot_triplet(cc_compiler)
   local bin_path = vim.fn.fnamemodify(cc_compiler, ':h')
+  bin_path = bin_path:gsub('\\', '/')
   if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
 
   local ff = vim.fn.fnamemodify(cc_compiler, ':t:r')
@@ -29,12 +30,10 @@ local triplet = string.match(ff, "^([^-]+-[^-]+-[^-]+)")
 --   if match then
 --     triplet = vim.fs.normalizePath(match)
 --   end
-  print(triplet)
 
   -- Early exit if path is nil or not a directory
 
   -- Normalize backslashes to forward slashes for cross-platform consistency
-  bin_path = bin_path:gsub('\\', '/')
   local files = vim.fn.readdir(bin_path)
 
   -- Loop through files to find the compiler and extract the triplet
@@ -50,6 +49,7 @@ local triplet = string.match(ff, "^([^-]+-[^-]+-[^-]+)")
 
   -- Return nil if no compiler was found in the bin directory
   if not triplet then return nil end
+  print(triplet)
 
   -- toolchain_root is the parent of the 'bin' folder
   local toolchain_root = vim.fs.normalizePath(vim.fn.fnamemodify(bin_path, ':h'))
