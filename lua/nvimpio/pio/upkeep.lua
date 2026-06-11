@@ -34,7 +34,9 @@ function M.get_sysroot_triplet(cc_compiler)
   --     break
   --   end
   -- end
-  local match = ff:match('^(.*)%-g[c%+][c%+]')
+
+  local match = ff.match("(.-)-[^-]+$")
+  -- local match = ff:match('^(.*)%-g[c%+][c%+]')
   if match then
     triplet = vim.fs.normalizePath(match)
   end
