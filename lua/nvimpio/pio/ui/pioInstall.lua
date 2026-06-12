@@ -39,6 +39,7 @@ local function pioInstall(runtime_dir, on_done)
     install_cmd = string.format('PLATFORMIO_PENV_DIR=%q %s %s', custom_penv_dir, python, script_path)
   end
 
+  local upgrade_cmd = 'python -m pip install -U platformio'
   -- 6. Establish downstream update pipeline connections
   -- local pio = require('nvimpio.pio.upkeep')
   local cb = function(status)
@@ -48,7 +49,7 @@ local function pioInstall(runtime_dir, on_done)
 
   -- 7. open toggleterm and install platformio
   -- require('nvimpio.pio.upkeep').run_sequence({ cmnds = { download_cmd, install_cmd }, cb = cb, from = 'PioInstall:' })
-  require('nvimpio.device.parser').run_sequence({ cmnds = { download_cmd, install_cmd }, cb = cb, from = 'PioInstall:' })
+  require('nvimpio.device.parser').run_sequence({ cmnds = { download_cmd, install_cmd, upgrade_cmd }, cb = cb, from = 'PioInstall:' })
 end
 
 return {
