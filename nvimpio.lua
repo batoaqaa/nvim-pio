@@ -275,7 +275,7 @@ local plugins = {
                 -- 2. Clean up any broken references and append the uncrashable proxy to your statusline
                 -- get_nvimpio_status()
                 -- return pcall(require, 'nvimpio.statusline') and require('nvimpio.statusline').get_status_string()
-                -- return require('nvimpio.statusline').get_status_string()
+                return require('nvimpio.statusline').get_status_string()
               end,
               'filetype',
             },
