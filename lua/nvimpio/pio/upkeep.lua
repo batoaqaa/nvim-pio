@@ -176,57 +176,65 @@ function M.configure_hardware_parameters()
   local function inject_into_ini()
     _G.metadata.isBusy = true
     local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
-    local f = io.open(path, 'r')
-    if not f then return end
-    local content = f:read('*a')
-    f:close()
+    if vim.fn.filereadable(path) ~= 1 then return end
 
-    -- 1. Identify the file's original line endings, then normalize completely to \n
-    local use_windows_lines = content:find('\r\n') ~= nil
-    content = content:gsub('\r\n', '\n')
+    -- 1. Read file as a clean Lua array of lines (handles \r\n automatically)
+    local lines = vim.fn.readfile(path)
+    local filtered_lines = {}
 
-    -- 2. Build the hardware configuration parameters block
-    local patches = { 'monitor_filters = direct, send_on_enter' }
+    -- 2. Clean out old entries and completely strip any existing [env] section
+    local skip = false
+    for _, line in ipairs(lines) do
+      if line:match('^%s*%[%s*env%s*%]%s*$') then
+        skip = true -- Start skipping lines when we hit [env]
+      elseif line:match('^%s*%[[^%]]+%s*%]%s*$') then
+        skip = false -- Stop skipping when we hit any OTHER section (like [env:seeed])
+      end
+
+      -- If we aren't in the [env] block, and it's not an old leftover parameter, keep it
+      if not skip and not line:match('^%s*(monitor_|upload_)[%w_]+%s*=') then
+        table.insert(filtered_lines, line)
+      end
+    end
+
+    -- 3. Build your fresh [env] parameters array
+    local patches = {
+      '', -- Force a clean empty space line right before the section
+      '[env]',
+      'monitor_filters = direct, send_on_enter'
+    }
     if p_state.selected_port and p_state.selected_port ~= 'Auto Detect' then
       table.insert(patches, 'upload_port = ' .. p_state.selected_port)
       table.insert(patches, 'monitor_port = ' .. p_state.selected_port)
     end
-    if p_state.upload_speed then table.insert(patches, 'upload_speed = ' .. p_state.upload_speed) end
+    if p_state.upload_speed  then table.insert(patches, 'upload_speed = ' .. p_state.upload_speed) end
     if p_state.monitor_speed then table.insert(patches, 'monitor_speed = ' .. p_state.monitor_speed) end
     if p_state.monitor_rts   then table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts) end
     if p_state.monitor_dtr   then table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr) end
+    table.insert(patches, '') -- Force a clean empty space line right after the section
 
-    local new_params = table.concat(patches, '\n')
-
-    -- 3. Strip any legacy duplicate hardware keys safely
-    for _, key in ipairs({'upload_port', 'monitor_port', 'upload_speed', 'monitor_speed', 'monitor_filters', 'monitor_rts', 'monitor_dtr'}) do
-      content = content:gsub('\n%s*' .. key .. '%s*=[^\n]*', '')
+    -- 4. Inject the new [env] block at the very top right after [platformio]
+    -- (Or append it to the bottom if [platformio] doesn't exist)
+    local insert_idx = 1
+    for idx, line in ipairs(filtered_lines) do
+      if line:match('^%s*%[%s*platformio%s*%]%s*$') then
+        insert_idx = idx + 1
+        -- Find where the platformio section ends to insert right after it
+        while filtered_lines[insert_idx] and not filtered_lines[insert_idx]:match('^%s*%[') do
+          insert_idx = insert_idx + 1
+        end
+        break
+      end
     end
 
-    -- 4. Insert parameters right under [env] heading block
-    if content:find('%[env%]') then
-      content = content:gsub('%[env%]', '[env]\n' .. new_params)
-    else
-      content = content .. '\n\n[env]\n' .. new_params .. '\n'
+    -- Insert the patches into our array
+    for i = #patches, 1, -1 do
+      table.insert(filtered_lines, insert_idx, patches[i])
     end
 
-    -- 5. THE FIX: Force beautiful empty spaces before every single section header [header]
-    content = content:gsub('%s*\n%s*(%[[^%]]+%\r?%])', '\n\n%1')
-
-    -- Clean up any accidental triple newlines back to clean single double breaks
-    content = content:gsub('\n\n\n+', '\n\n')
-    content = content:gsub('^\n+', '') -- Strip any accidental leading space from top of file
-
-    -- 6. Restore original file structure layout line endings
-    if use_windows_lines then
-      content = content:gsub('\n', '\r\n')
-    end
-
-    local f_out = io.open(path, 'w')
-    if f_out then f_out:write(content); f_out:close() end
-
-    -- Live refresh the buffer layout inside Neovim so you see changes instantly
-    vim.schedule(function() vim.cmd('checktime') end)
+    -- 5. Save the file and reload the buffer layout inside Neovim
+    vim.fn.writefile(filtered_lines, path)
+    vim.cmd('checktime')
 
     vim.defer_fn(function() _G.metadata.isBusy = false end, 500)
   end
@@ -238,7 +246,11 @@ function M.configure_hardware_parameters()
   --   local content = f:read('*a')
   --   f:close()
   --
-  --   -- 1. Build the clean block of hardware parameters
+  --   -- 1. Identify the file's original line endings, then normalize completely to \n
+  --   local use_windows_lines = content:find('\r\n') ~= nil
+  --   content = content:gsub('\r\n', '\n')
+  --
+  --   -- 2. Build the hardware configuration parameters block
   --   local patches = { 'monitor_filters = direct, send_on_enter' }
   --   if p_state.selected_port and p_state.selected_port ~= 'Auto Detect' then
   --     table.insert(patches, 'upload_port = ' .. p_state.selected_port)
@@ -251,23 +263,36 @@ function M.configure_hardware_parameters()
   --
   --   local new_params = table.concat(patches, '\n')
   --
-  --   -- 2. Strip any existing keys inside [env] to prevent duplicates
+  --   -- 3. Strip any legacy duplicate hardware keys safely
   --   for _, key in ipairs({'upload_port', 'monitor_port', 'upload_speed', 'monitor_speed', 'monitor_filters', 'monitor_rts', 'monitor_dtr'}) do
   --     content = content:gsub('\n%s*' .. key .. '%s*=[^\n]*', '')
   --   end
   --
-  --   -- 3. Short & Clean: Insert parameters with explicit newlines for beautiful spacing
+  --   -- 4. Insert parameters right under [env] heading block
   --   if content:find('%[env%]') then
   --     content = content:gsub('%[env%]', '[env]\n' .. new_params)
   --   else
   --     content = content .. '\n\n[env]\n' .. new_params .. '\n'
   --   end
   --
-  --   -- 4. Clean up any accidental triple newlines back to clean double breaks
+  --   -- 5. THE FIX: Force beautiful empty spaces before every single section header [header]
+  --   content = content:gsub('%s*\n%s*(%[[^%]]+%\r?%])', '\n\n%1')
+  --
+  --   -- Clean up any accidental triple newlines back to clean single double breaks
   --   content = content:gsub('\n\n\n+', '\n\n')
+  --   content = content:gsub('^\n+', '') -- Strip any accidental leading space from top of file
+  --
+  --   -- 6. Restore original file structure layout line endings
+  --   if use_windows_lines then
+  --     content = content:gsub('\n', '\r\n')
+  --   end
   --
   --   local f_out = io.open(path, 'w')
   --   if f_out then f_out:write(content); f_out:close() end
+  --
+  --   -- Live refresh the buffer layout inside Neovim so you see changes instantly
+  --   vim.schedule(function() vim.cmd('checktime') end)
+  --
   --   vim.defer_fn(function() _G.metadata.isBusy = false end, 500)
   -- end
 
@@ -285,160 +310,6 @@ function M.configure_hardware_parameters()
 
   run(1)
 end
--- function M.configure_hardware_parameters()
---   local p_state = _G.metadata.port_parameters
---   local speeds = { '9600', '19200', '38400', '57600', '115200', '230400', '460800', '921600' }
---
---   -- 1. Instantly gather ports using our new unified scanner function helper
---   local ports = M.get_connected_ports()
---   if #ports == 0 then
---     ports = { 'Auto Detect' }
---   end
---
---   -- Define the steps mapping sequence arrays
---   local steps = {
---     {
---       p = ' [1/5] Select Targeted Serial Port ',
---       c = ports,
---       s = function(x)
---         p_state.selected_port = x
---         vim.g.platformio_selected_port = x
---       end,
---     },
---     {
---       p = ' [2/5] Select Upload Speed (Baud) ',
---       c = speeds,
---       s = function(x)
---         p_state.upload_speed = x
---       end,
---     },
---     {
---       p = ' [3/5] Select Serial Monitor Speed ',
---       c = speeds,
---       s = function(x)
---         p_state.monitor_speed = x
---       end,
---     },
---     {
---       p = ' [4/5] Set Monitor RTS Pin State ',
---       c = { '0', '1' },
---       s = function(x)
---         p_state.monitor_rts = x
---       end,
---     },
---     {
---       p = ' [5/5] Set Monitor DTR Pin State ',
---       c = { '0', '1' },
---       s = function(x)
---         p_state.monitor_dtr = x
---       end,
---     },
---   }
---
---   -- Defensive, Context-Aware File System Injector Engine
---   local function inject_into_ini()
---     _G.metadata.isBusy = true
---     local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
---     if vim.fn.filereadable(path) ~= 1 then
---       return
---     end
---
---     local lines, eol = {}, '\n'
---     local f_in = io.open(path, 'rb')
---     if f_in then
---       local src = f_in:read('*all') or ''
---       f_in:close()
---       if src:find('\r\n') then
---         eol = '\r\n'
---       end
---       for line in src:gmatch('[^\r\n]+') do
---         if
---           not line:match('^%s*upload_port%s*=')
---           and not line:match('^%s*monitor_port%s*=')
---           and not line:match('^%s*upload_speed%s*=')
---           and not line:match('^%s*monitor_speed%s*=')
---           and not line:match('^%s*monitor_filters%s*=')
---           and not line:match('^%s*monitor_rts%s*=')
---           and not line:match('^%s*monitor_dtr%s*=')
---         then
---           table.insert(lines, line)
---         end
---       end
---     end
---
---     local patches = { 'monitor_filters = direct, send_on_enter' }
---     if p_state.selected_port and p_state.selected_port ~= 'Auto Detect' then
---       table.insert(patches, 'upload_port = ' .. p_state.selected_port)
---       table.insert(patches, 'monitor_port = ' .. p_state.selected_port)
---     end
---     if p_state.upload_speed then
---       table.insert(patches, 'upload_speed = ' .. p_state.upload_speed)
---     end
---     if p_state.monitor_speed then
---       table.insert(patches, 'monitor_speed = ' .. p_state.monitor_speed)
---     end
---     if p_state.monitor_rts then
---       table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts)
---     end
---     if p_state.monitor_dtr then
---       table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr)
---     end
---
---     local env_idx = nil
---     for idx, line in ipairs(lines) do
---       if line:match('^%s*%[%s*env%s*%]%s*$') then
---         env_idx = idx
---         break
---       end
---     end
---
---     if env_idx then
---       for i, cfg in ipairs(patches) do
---         table.insert(lines, env_idx + i, cfg)
---       end
---     else
---       table.insert(lines, '')
---       table.insert(lines, '[env]')
---       for _, cfg in ipairs(patches) do
---         table.insert(lines, cfg)
---       end
---     end
---
---     local f_out = io.open(path, 'wb')
---     if f_out then
---       f_out:write(table.concat(lines, eol) .. eol)
---       f_out:close()
---     end
---     vim.defer_fn(function()
---       _G.metadata.isBusy = false
---     end, 500)
---   end
---
---   -- Linear Execution Wizard Runner Loop
---   local function run(step_idx)
---     if not steps[step_idx] then
---       inject_into_ini()
---       local msg = string.format(
---         'Injected: Port: %s | Upload: %s baud | Monitor: %s baud',
---         p_state.selected_port or 'Auto',
---         p_state.upload_speed or 'Ini',
---         p_state.monitor_speed or 'Ini'
---       )
---       return _G.OS and type(_G.OS.notify) == 'function' and _G.OS.notify(msg, 'info') or vim.notify(msg, 2)
---     end
---
---     vim.ui.select(steps[step_idx].c, { prompt = steps[step_idx].p }, function(sel)
---       if not sel then
---         return vim.notify('NVIM-PIO: Configuration wizard aborted.', 3)
---       end
---       steps[step_idx].s(sel)
---       run(step_idx + 1)
---     end)
---   end
---
---   -- Run the wizard sequence directly using instantaneous parsed arrays
---   run(1)
--- end
 
 --=============================================================================
 --INFO:get pio project metadata info
