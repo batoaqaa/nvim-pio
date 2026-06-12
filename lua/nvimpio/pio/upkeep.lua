@@ -173,16 +173,14 @@ function M.configure_hardware_parameters()
     { p = ' [4/5] Monitor RTS ', c = { '0', '1' }, s = function(x) p_state.monitor_rts = x end },
     { p = ' [5/5] Monitor DTR ', c = { '0', '1' }, s = function(x) p_state.monitor_dtr = x end },
   }
-
   local function inject_into_ini()
     _G.metadata.isBusy = true
     local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
-    
     if vim.fn.filereadable(path) ~= 1 then return end
-    local raw_lines = vim.fn.readfile(path)
-  
-    -- 1. Build the fresh hardware parameter block
-    local patches = { 'monitor_filters = direct, send_on_enter' }
+    local content = table.concat(vim.fn.readfile(path), '\n'):gsub('\r\n', '\n')
+
+    -- 1. Build the clean block of hardware parameters
+    local patches = { '[env]', 'monitor_filters = direct, send_on_enter' }
     if p_state.selected_port and p_state.selected_port ~= 'Auto Detect' then
       table.insert(patches, 'upload_port = ' .. p_state.selected_port)
       table.insert(patches, 'monitor_port = ' .. p_state.selected_port)
@@ -191,92 +189,45 @@ function M.configure_hardware_parameters()
     if p_state.monitor_speed then table.insert(patches, 'monitor_speed = ' .. p_state.monitor_speed) end
     if p_state.monitor_rts   then table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts) end
     if p_state.monitor_dtr   then table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr) end
-  
-    -- 2. State Machine Containers
-    local pre_header = {}
-    local sections = {}
-    local current_section = nil
-  
-    for _, line in ipairs(raw_lines) do
-      local trimmed = line:match("^%s*(.-)%s*$")
-      local section_match = trimmed:match("^%s*%[%s*([^%]]+)%s*%]%s*$")
-      
-      if section_match then
-        current_section = section_match:gsub("%s", "")
-        if not sections[current_section] then
-          sections[current_section] = {}
-        end
+
+    -- 2. Strip any legacy duplicate hardware keys safely
+    for _, key in ipairs({'upload_port', 'monitor_port', 'upload_speed', 'monitor_speed', 'monitor_filters', 'monitor_rts', 'monitor_dtr'}) do
+      content = content:gsub('\n%s*' .. key .. '%s*=[^\n]*', '')
+    end
+
+    -- 3. Extract the [env] section body if it exists, or handle injection cleanly
+    local has_env = content:find('%[env%]') ~= nil
+    if has_env then
+      -- Strip the old [env] header out to prevent duplicate header markers later
+      content = content:gsub('%[env%]', '')
+    end
+
+    -- 4. Split the file cleanly by section boundaries to guarantee layout spacing
+    -- This match pattern grabs any text wrapped inside brackets like [platformio] or [env:seeed]
+    local sections = vim.split(content, '\n%s*(%[[^%]]+%])')
+    local headers = {}
+    for h in content:gmatch('\n%s*(%[[^%]]+%])') do table.insert(headers, h) end
+
+    -- 5. Build final content with strict layout structures
+    local output = { sections[1]:gsub('%s*$', '') } -- Add pre-header data and strip its trailing lines
+
+    -- Force insert the fresh [env] block right after the pre-header / [platformio] section
+    table.insert(output, table.concat(patches, '\n'))
+
+    -- Loop through the rest of the existing sections and re-append them cleanly
+    for i, header in ipairs(headers) do
+      local body = sections[i + 1]:gsub('^%s*', ''):gsub('%s*$', '')
+      if body ~= "" then
+        table.insert(output, header .. '\n' .. body)
       else
-        if current_section == nil then
-          -- Keep pre-header data exactly as it is
-          table.insert(pre_header, line)
-        else
-          -- FIX: Completely ignore any blank spacing lines during parsing.
-          -- This stops the spacing accordion from growing across multiple runs.
-          if trimmed ~= "" then
-            local is_target_key = trimmed:match("^%s*(monitor_|upload_)[%w_]+%s*=") ~= nil
-            if current_section ~= "env" or not is_target_key then
-              table.insert(sections[current_section], line)
-            end
-          end
-        end
+        table.insert(output, header)
       end
     end
-  
-    -- 3. Update the [env] data structure explicitly
-    sections["env"] = patches
-  
-    -- 4. Dynamic Order Management Framework
-    local final_output_lines = {}
-    
-    -- Clean up and insert Pre-Header data
-    if #pre_header > 0 then
-      -- Strip any trailing blank rows captured inside the pre-header array
-      while #pre_header > 0 and pre_header[#pre_header]:match("^%s*$") do
-        table.remove(pre_header)
-      end
-      for _, line in ipairs(pre_header) do
-        table.insert(final_output_lines, line)
-      end
-      table.insert(final_output_lines, "") -- Guarantee exactly 1 space right after pre-header
-    end
-    
-    -- Track original section order sequencing
-    local order = {}
-    local seen = {}
-    
-    for _, line in ipairs(raw_lines) do
-      local match = line:match("^%s*%[%s*([^%]]+)%s*%]%s*$")
-      if match then
-        local sec_name = match:gsub("%s", "")
-        if not seen[sec_name] then
-          table.insert(order, sec_name)
-          seen[sec_name] = true
-        end
-      end
-    end
-    
-    if not seen["env"] then
-      table.insert(order, 1, "env")
-    end
-  
-    -- 5. Strict Linear Assembly (Forces exactly one empty line between blocks)
-    for idx, section in ipairs(order) do
-      if sections[section] and #sections[section] > 0 then
-        table.insert(final_output_lines, "[" .. section .. "]")
-        for _, line in ipairs(sections[section]) do
-          table.insert(final_output_lines, line)
-        end
-        -- Safely place exactly a single spacing line, unless it is the last item
-        if idx < #order then
-          table.insert(final_output_lines, "")
-        end
-      end
-    end
-  
-    -- 6. Direct Stream Flush to Disk
-    vim.fn.writefile(final_output_lines, path)
-    
+
+    -- 6. Save back to disk ensuring exactly 1 clean empty line between sections
+    local final_string = table.concat(output, '\n\n'):gsub('\n\n\n+', '\n\n') .. '\n'
+    vim.fn.writefile(vim.split(final_string, '\n'), path)
+
     vim.schedule(function() vim.cmd('checktime') end)
     vim.defer_fn(function() _G.metadata.isBusy = false end, 500)
   end
@@ -284,11 +235,10 @@ function M.configure_hardware_parameters()
   --   _G.metadata.isBusy = true
   --   local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
   --
-  --   -- 1. Use native Neovim file readers to automatically strip line-ending clutter (\r\n)
   --   if vim.fn.filereadable(path) ~= 1 then return end
   --   local raw_lines = vim.fn.readfile(path)
   --
-  --   -- 2. Build the new hardware parameter block
+  --   -- 1. Build the fresh hardware parameter block
   --   local patches = { 'monitor_filters = direct, send_on_enter' }
   --   if p_state.selected_port and p_state.selected_port ~= 'Auto Detect' then
   --     table.insert(patches, 'upload_port = ' .. p_state.selected_port)
@@ -299,68 +249,91 @@ function M.configure_hardware_parameters()
   --   if p_state.monitor_rts   then table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts) end
   --   if p_state.monitor_dtr   then table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr) end
   --
-  --   -- 3. Robust Line-by-Line State Machine Parsing
+  --   -- 2. State Machine Containers
+  --   local pre_header = {}
   --   local sections = {}
-  --   local current_section = "root"
+  --   local current_section = nil
   --
   --   for _, line in ipairs(raw_lines) do
-  --     -- Trim whitespace to accurately inspect the line content
   --     local trimmed = line:match("^%s*(.-)%s*$")
-  --
-  --     -- Check for a valid, un-commented section header block
-  --     local section_match = trimmed:match("^%[([^%]]+)%]$")
+  --     local section_match = trimmed:match("^%s*%[%s*([^%]]+)%s*%]%s*$")
   --
   --     if section_match then
-  --       current_section = section_match:gsub("%s", "") -- Normalize section string name
+  --       current_section = section_match:gsub("%s", "")
   --       if not sections[current_section] then
   --         sections[current_section] = {}
   --       end
-  --     elseif trimmed ~= "" and not trimmed:match("^%s*[;#]") then
-  --       -- If inside a section, strip out old hardware parameter duplicate keys safely
-  --       local is_target_key = trimmed:match("^%s*(monitor_|upload_)[%w_]+%s*=") ~= nil
-  --       if current_section ~= "env" or not is_target_key then
-  --         if current_section ~= "root" then
-  --           table.insert(sections[current_section], line)
+  --     else
+  --       if current_section == nil then
+  --         -- Keep pre-header data exactly as it is
+  --         table.insert(pre_header, line)
+  --       else
+  --         -- FIX: Completely ignore any blank spacing lines during parsing.
+  --         -- This stops the spacing accordion from growing across multiple runs.
+  --         if trimmed ~= "" then
+  --           local is_target_key = trimmed:match("^%s*(monitor_|upload_)[%w_]+%s*=") ~= nil
+  --           if current_section ~= "env" or not is_target_key then
+  --             table.insert(sections[current_section], line)
+  --           end
   --         end
   --       end
   --     end
   --   end
   --
-  --   -- 4. Overwrite or append the fresh parameters directly to the [env] block structure
+  --   -- 3. Update the [env] data structure explicitly
   --   sections["env"] = patches
   --
-  --   -- 5. Linear Layout Assembly Engine (Guarantees exactly one space line between sections)
+  --   -- 4. Dynamic Order Management Framework
   --   local final_output_lines = {}
   --
-  --   -- Explicitly define the sequence layout logic to keep [platformio] and [env] right at the top
-  --   local order = { "platformio", "env" }
-  --   local seen = { platformio = true, env = true }
+  --   -- Clean up and insert Pre-Header data
+  --   if #pre_header > 0 then
+  --     -- Strip any trailing blank rows captured inside the pre-header array
+  --     while #pre_header > 0 and pre_header[#pre_header]:match("^%s*$") do
+  --       table.remove(pre_header)
+  --     end
+  --     for _, line in ipairs(pre_header) do
+  --       table.insert(final_output_lines, line)
+  --     end
+  --     table.insert(final_output_lines, "") -- Guarantee exactly 1 space right after pre-header
+  --   end
   --
-  --   -- Gather any other custom target build blocks (e.g. [env:seeed_xiao_esp32c3])
-  --   for section, _ in pairs(sections) do
-  --     if not seen[section] and section ~= "root" then
-  --       table.insert(order, section)
+  --   -- Track original section order sequencing
+  --   local order = {}
+  --   local seen = {}
+  --
+  --   for _, line in ipairs(raw_lines) do
+  --     local match = line:match("^%s*%[%s*([^%]]+)%s*%]%s*$")
+  --     if match then
+  --       local sec_name = match:gsub("%s", "")
+  --       if not seen[sec_name] then
+  --         table.insert(order, sec_name)
+  --         seen[sec_name] = true
+  --       end
   --     end
   --   end
   --
-  --   -- Assemble the lines back together cleanly
+  --   if not seen["env"] then
+  --     table.insert(order, 1, "env")
+  --   end
+  --
+  --   -- 5. Strict Linear Assembly (Forces exactly one empty line between blocks)
   --   for idx, section in ipairs(order) do
   --     if sections[section] and #sections[section] > 0 then
   --       table.insert(final_output_lines, "[" .. section .. "]")
   --       for _, line in ipairs(sections[section]) do
   --         table.insert(final_output_lines, line)
   --       end
-  --       -- Force exactly one empty spacing line, unless it is the absolute end of the file
+  --       -- Safely place exactly a single spacing line, unless it is the last item
   --       if idx < #order then
   --         table.insert(final_output_lines, "")
   --       end
   --     end
   --   end
   --
-  --   -- 6. Direct Stream Flush to Disk (Preserves target system line configuration properties)
+  --   -- 6. Direct Stream Flush to Disk
   --   vim.fn.writefile(final_output_lines, path)
   --
-  --   -- Live refresh the editing layout view inside Neovim instantly
   --   vim.schedule(function() vim.cmd('checktime') end)
   --   vim.defer_fn(function() _G.metadata.isBusy = false end, 500)
   -- end
