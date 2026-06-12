@@ -256,14 +256,14 @@ function Terminal:_attach_keymaps(target_height, opposite_instance)
   local maps = self.keymaps
 
   vim.keymap.set("t", maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
-  vim.keymap.set({"n", "nt"}, maps.hide_pane, function() SafeCloseTerminal(self) end, { buffer = self.buf })
+  vim.keymap.set("n", maps.hide_pane, function() SafeCloseTerminal(self) end, { buffer = self.buf })
 
   vim.keymap.set({"n", "t"}, maps.move_up, function()
     if vim.api.nvim_get_mode().mode == "t" then vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), "n", false) end
     vim.schedule(function() vim.cmd("wincmd k") end)
   end, { buffer = self.buf, silent = true })
 
-  vim.keymap.set({"n", "nt"}, maps.switch_pane, function()
+  vim.keymap.set("n", maps.switch_pane, function()
     if vim.api.nvim_get_mode().mode == "t" then vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), "n", false) end
     local current_winbar = vim.api.nvim_get_option_value("winbar", { scope = "local" }) or ""
     if current_winbar:find("%[; Hide%]") or current_winbar:find("%[" .. maps.hide_pane .. " Hide%]") then
