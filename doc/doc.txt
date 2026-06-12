@@ -52,26 +52,18 @@ Commands:
 
 :PioInstall                                                      *:PioInstall*
     Downloads the official PlatformIO installer and sets up a virtual 
-    environment in `~/.platformio/penv`. This runs asynchronously.
-
-:checkhealth pio                                            *:checkhealth-pio*
-    Runs a diagnostic suite to ensure Python, the core directory, and 
-    the `pio` executable are working correctly.
-
-:ClangdFilter                                                  *:ClangdFilter*
-    Launches the interactive dropdown selection picker panel window viewport
-    inside your current active code buffer view frame.
-    This command key mapped to <leader>\\b
+    environment in `~/.platformio/penv`. This runs asynchronously as needed
+    by nvimpio.    mapped to <leader>\\pi
 
 :Piorun [arg]                                                        *:Piorun*
     This command builds and uploads the code. Optional arguments: 
     build, upload, clean. If no argument is provided, it defaults
     to build and upload.
-                         Examples:
-                            `:Piorun`
-                            `:Piorun build`
-                            `:Piorun upload`
-                            `:Piorun clean`
+    Examples:
+        `:Piorun`         This command key mapped to <leader>\\gb
+        `:Piorun build`   This command key mapped to <leader>\\gb
+        `:Piorun upload`  This command key mapped to <leader>\\gu
+        `:Piorun clean`   This command key mapped to <leader>\\gc
 
 :Piocli [cmd]                                                        *:Piocli*
     Run PlatformIO commands either in float or horizontal direction.
@@ -79,37 +71,64 @@ Commands:
     The command argument is optional. If not provided, it opens a floating
     toggleterm in the project root where you can execute commands.
     Note: `pio` keyword is not required in the command.
-                         Examples:
-                            `:Piocli`
-                            `:Piocli run -e uno -t upload`
-                            `:Piocli device list`
-                            `:Piocli boards arduinouno --json-output`
+    Examples:
+       `:Piocli`                     This command key mapped to <leader>\\c
+       `:Piocli run -e uno -t upload`
+       `:Piocli device list`
 
 :Piolib [libname]                                                    *:Piolib*
     Install a library by providing a keyword for search. A telescope picker
     will show available libraries. Pick one and press enter to install.
-                         Examples:
-                            `:Piolib arduino json`
-                            `:Piolib keyboard`
+    Examples:
+       `:Piolib arduino json`
+       `:Piolib keyboard`
 
 :Piomon [baud_rate]                                                  *:Piomon*
     Open a serial monitor. Specify a baud rate as an optional argument.
     If not provided, it uses the default baud rate (9600)
     or the one specified in platformio.ini.
-                         Examples:
-                            `:Piomon`
-                            `:Piomon 115200`
+    Examples:
+       `:Piomon`       This command key mapped to <leader>\\m
+       `:Piomon 115200`
 
-:Piolsserial                                                    *:Piolsserial*
+:PiocompileDB                                                  *:PiocompileDB*
+    Generate compile_commands.json file, which done as needed by nvimpio.
+    mapped to <leader>\\ab
+
+:PioDbFixPaths                                                *:PioDbFixPaths*
+    Used to re-write compile_commands.json file with !!!!!!!!
+
+:PioGitIgnore                                                  *:PioGitIgnore*
+    A menu that will ease adding/remving files/directories form
+    .gitignore file.  mapped to <leader>\\pg
+
+:PioSelectPort                                                *:PioSelectPort*
     List out all the serial devices connected with their description
+
+:PioPickEnv                                                      *:PioPickEnv*
+    A picker to setup active environment. mapped to <leader>\\e
 
 :Pidebug                                                           *:Piodebug*
     Starts the default PlatformIO debugger with gdb
 
-:PioTermList                                                    *:PioTermList*
-    You can see a list of pio terminals using :PioTermList command in normal mode.
-    It is mapped to <leader>pl
+:checkhealth pio                                            *:checkhealth-pio*
+    Runs a diagnostic suite to ensure Python, the core directory, and 
+    the `pio` executable are working correctly.
 
+:ClangdFilter                                                  *:ClangdFilter*
+    Launches dropdown selection picker to filter/block clangd unwanted
+    diagnostic errors or warnings
+    This command key mapped to <leader>\\b
+
+:ClangdFormatterPick                                    *:ClangdFormatterPick*
+    Launches the interactive dropdown selection picker for clang formatter 
+
+:ClangdCheckArgs                                        *:ClangdFormatterPick*
+    check for unknown clangd compiler arguments used by cross-platform
+    compiler. This runs automatically when new booar installed.
+
+:Clangdrestart                                                *:Clangdrestart*
+    This command restart clangd LSP. mapped to <leader>\\s
 ==============================================================================
 INTERACTIVE VIEW CONTROL                                   *nvimpio-interface*
 

@@ -32,33 +32,39 @@ vim.api.nvim_create_user_command('PioPickEnv', function()
   require('nvimpio.pio.ui.activeEnvPicker').select_env_picker()
 end, { desc = 'Switch [E]nvironment' })
 
+-- INFO: PlatformIO installation
+----------------------------------------------------------------
+vim.api.nvim_create_user_command('pioUpgrade', function()
+    require('nvimpio.pio.ui.pioUpgrade').pioUpgrade()
+end, { desc = "upgrade PlatformIO Core" })
+
 
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
-vim.api.nvim_create_user_command('PioInstall', function()
-    require('nvimpio.pio.ui.pioInstall').pioInstall()
-end, { desc = "Install PlatformIO Core" })
---
 -- vim.api.nvim_create_user_command('PioInstall', function()
---   vim.g.platformioRootDir = vim.uv.cwd()
---   -- require("nvimpio.core").execute_init(args)
---   require('nvimpio.core').ensure_toolchain_active(
---     -- pioCheck.pioStatus(
---     function(success)
---       if success then
---         ---@type NvimPio
---         local nvimpio = require('nvimpio')
---         nvimpio.activate()
---       else
---       end
---     end,
---     0
---   )
---   -- end, false)
--- end, {
---   force = true,
---   desc = 'Start the PlatformIO guided install wizard',
--- })
+--     require('nvimpio.pio.ui.pioInstall').pioInstall()
+-- end, { desc = "Install PlatformIO Core" })
+--
+vim.api.nvim_create_user_command('PioInstall', function()
+  vim.g.platformioRootDir = vim.uv.cwd()
+  -- require("nvimpio.core").execute_init(args)
+  require('nvimpio.core').ensure_toolchain_active(
+    -- pioCheck.pioStatus(
+    function(success)
+      if success then
+        ---@type NvimPio
+        local nvimpio = require('nvimpio')
+        nvimpio.activate()
+      else
+      end
+    end,
+    0
+  )
+  -- end, false)
+end, {
+  force = true,
+  desc = 'Start the PlatformIO guided install wizard',
+})
 
 
 -- INFO: manage gitignore
