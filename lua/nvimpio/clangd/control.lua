@@ -245,6 +245,7 @@ function M.setFormatStyle()
       -- })
 
       -- cli using hidden system asynchronous command for setting clang-format style
+      print(clangdCmd)
       local cmd = { clangdCmd, string.format('--style=%s', choice:lower()), '--dump-config', '>', '.clang-format' }
       vim.system(cmd, { text = true }, function(obj)
         -- This callback runs when the process finishes
