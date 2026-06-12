@@ -60,10 +60,12 @@ Commands:
     build, upload, clean. If no argument is provided, it defaults
     to build and upload.
     Examples:
-        `:Piorun`         This command key mapped to <leader>\\gb
-        `:Piorun build`   This command key mapped to <leader>\\gb
-        `:Piorun upload`  This command key mapped to <leader>\\gu
-        `:Piorun clean`   This command key mapped to <leader>\\gc
+        `:Piorun`           This command key mapped to <leader>\\gb
+        `:Piorun build`     This command key mapped to <leader>\\gb
+        `:Piorun clean`     This command key mapped to <leader>\\gc
+        `:Piorun upload`    This command key mapped to <leader>\\gu
+        `:Piorun buildfs`   This command key mapped to <leader>\\fb
+        `:Piorun uploadfs`  This command key mapped to <leader>\\fu
 
 :Piocli [cmd]                                                        *:Piocli*
     Run PlatformIO commands either in float or horizontal direction.
@@ -74,7 +76,7 @@ Commands:
     Examples:
        `:Piocli`                     This command key mapped to <leader>\\c
        `:Piocli run -e uno -t upload`
-       `:Piocli device list`
+       `:Piocli device list` This command key mapped to <leader>\\gd
 
 :Piolib [libname]                                                    *:Piolib*
     Install a library by providing a keyword for search. A telescope picker
@@ -104,6 +106,7 @@ Commands:
 
 :PioDevList                                                      *:PioDevList*
     List out all the serial devices connected with their description
+        This command key mapped to <leader>\\gd
 
 :PioSelectPort                                                *:PioSelectPort*
     Select serial port for mnitor/upload setup its parameters.

@@ -145,7 +145,7 @@ function M.pioclean()
 end
 
 function M.piorun(arg_table)
-  if arg_table[1] == '' then M.pioupload()
+  if arg_table[1] == '' then M.piobuild()
   elseif arg_table[1] == 'upload' then M.pioupload()
   elseif arg_table[1] == 'uploadfs' then M.piouploadfs()
   elseif arg_table[1] == 'build' then M.piobuild()
