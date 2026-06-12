@@ -25,7 +25,6 @@ A high-performance, lightweight Neovim plugin that seamlessly bridges **Platform
 
 ```
 
-````
 ### Minimal nvim full features
 
 Try the plugin with minimal standalone neovim config without modifying your existing
@@ -39,9 +38,10 @@ nvim -u nvimpio.lua .
 # Now run :Pioinit
 ```
 
-````
+```
 
-````
+```
+
 ### 📦 Packaged Configuration (`lazy.nvim`)
 
 ```lua
@@ -79,7 +79,7 @@ return {
     })
   end,
 }
-````
+```
 
 #### Keybinds
 
