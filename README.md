@@ -21,6 +21,24 @@ A high-performance, lightweight Neovim plugin that seamlessly bridges **Platform
 - **Neovim** ≥ 0.11.0
 - **PlatformIO Core CLI** (`pio`) verified in your system environment paths
 
+```sh
+
+```
+
+### Minimal nvim full features
+
+Try the plugin with minimal standalone neovim config without modifying your existing
+nvim setup. With this minmal cofiguration you can ful featured nvimpio.
+**This is especially useful if you're encountering errors during installation or usage**.
+
+```sh
+wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/mini_nvimpio.lua
+nvim -u nvimpio.lua .
+
+# Now run :Pioinit
+```
+
+````
 ### 📦 Packaged Configuration (`lazy.nvim`)
 
 ```lua
@@ -58,7 +76,7 @@ return {
     })
   end,
 }
-```
+````
 
 #### Keybinds
 
