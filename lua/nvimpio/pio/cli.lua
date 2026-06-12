@@ -110,7 +110,7 @@ function M.piomon(args_table)
     command = string.format('pio device monitor -b %s -p %s', baud_rate, port)
   end
 
-  if command == nil then vim.misc.notify('Usage: Piomon <baud> <port>', "error")
+  if command == nil then OS.notify('Usage: Piomon <baud> <port>', "error")
   else
     pio_mon:show()
     pio_mon:send(command)
