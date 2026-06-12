@@ -28,7 +28,6 @@ return {
   'batoaqaa/nvim-pio',
   lazy = false,
   dependencies = {
-    { 'akinsho/toggleterm.nvim' },
     { 'nvim-telescope/telescope.nvim' },
     { 'nvim-telescope/telescope-ui-select.nvim' },
     { 'nvim-lua/plenary.nvim' },
@@ -82,11 +81,12 @@ These are the default keybindings, which you can override in your configuration.
 
         menu_bindings = {
           { node = 'item', desc = '[B]lock diagnostic', shortcut = 'b', command = 'ClangdFilter' },
+          { node = 'item', desc = '[C]li terminal', shortcut = 't', command = 'Piocli' },
           { node = 'item', desc = 'Switch [E]nv', shortcut = 'e', command = 'PioPickEnv' },
           { node = 'item', desc = '[I]nitiate project', shortcut = 'i', command = 'Pioinit' },
           { node = 'item', desc = '[L]ist terminals', shortcut = 'l', command = 'PioTermList' },
+          { node = 'item', desc = '[M]onitor terminal', shortcut = 'm', command = 'Piomon run -t monitor' },
           { node = 'item', desc = 're[S]art clangd', shortcut = 's', command = 'Clangdrestart' },
-          { node = 'item', desc = '[T]erminal Core CLI', shortcut = 't', command = 'Piocli' },
           {
             node = 'menu',
             desc = '[A]dvanced',
@@ -140,7 +140,7 @@ These are the default keybindings, which you can override in your configuration.
               { node = 'item', desc = '[C]lean', shortcut = 'c', command = 'Piocli run -t clean' },
               { node = 'item', desc = '[D]evice list', shortcut = 'd', command = 'Piocli device list' },
               { node = 'item', desc = '[F]ull clean', shortcut = 'f', command = 'Piocli run -t fullclean' },
-              { node = 'item', desc = '[M]onitor', shortcut = 'm', command = 'Piomon run -t monitor' },
+              { node = 'item', desc = '[P]arameters hardware setup', shortcut = 'p', command = 'PioSelectPort' },
               { node = 'item', desc = '[U]pload', shortcut = 'u', command = 'Piocli run -t upload' },
             },
           },
