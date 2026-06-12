@@ -166,7 +166,7 @@ end
 -- Handle after pioinit execution
 -- *=============================================================================
 function M.cleanSequencer()
-  _G.metadata.isBusy = false
+  if require('nvimpio').is_active then _G.metadata.isBusy = false end
   require('nvimpio.device.terminal').stdout_callback = nil -- Careful: make sure this doesn't break other terms
 end
 
