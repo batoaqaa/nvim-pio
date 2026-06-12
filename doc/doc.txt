@@ -58,15 +58,11 @@ Commands:
     Runs a diagnostic suite to ensure Python, the core directory, and 
     the `pio` executable are working correctly.
 
-
 :ClangdFilter                                                  *:ClangdFilter*
     Launches the interactive dropdown selection picker panel window viewport
     inside your current active code buffer view frame.
     This command key mapped to <leader>\\b
->lua
-<
 
-==============================================================================
 :Piorun [arg]                                                        *:Piorun*
     This command builds and uploads the code. Optional arguments: 
     build, upload, clean. If no argument is provided, it defaults
@@ -113,7 +109,6 @@ Commands:
 :PioTermList                                                    *:PioTermList*
     You can see a list of pio terminals using :PioTermList command in normal mode.
     It is mapped to <leader>pl
-
 
 ==============================================================================
 INTERACTIVE VIEW CONTROL                                   *nvimpio-interface*
