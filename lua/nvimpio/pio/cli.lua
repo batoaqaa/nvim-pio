@@ -1,5 +1,6 @@
 local M = {}
 
+local pio_mon = require('nvimpio.device.terminal').mon
 local pio_cli = require('nvimpio.device.terminal').cli
 local function sendCmnd(command)
   -- Directly pull the raw pointer reference from the table object.
@@ -111,7 +112,8 @@ function M.piomon(args_table)
 
   if command == nil then vim.misc.notify('Usage: Piomon <baud> <port>', "error")
   else
-    sendCmnd(command)
+    pio_mon:show()
+    pio_mon:send(command)
     -- terminal(command, 'horizontal') 
   end
 end
