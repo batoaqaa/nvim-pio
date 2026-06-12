@@ -149,7 +149,5 @@ Created by [Ahmed A. Batoaq].
 Repo:    https://github.com/batoaqaa/nvim-pio
 
 Distributed under the MIT license.
-
-vim:tw=78:ts=8:ft=help:norl:
 ==============================================================================
  vim:tw=78:ts=8:ft=help:norl:
