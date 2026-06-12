@@ -270,7 +270,8 @@ local plugins = {
           sections = {
             lualine_x = {
               function()
-                return require('nvimpio.statusline').get_status_string()
+                return pcall(require, 'nvimpio.statusline') and require('nvimpio.statusline').get_status_string()
+                -- return require('nvimpio.statusline').get_status_string()
               end,
               'filetype',
             },
