@@ -173,6 +173,7 @@ function M.configure_hardware_parameters()
     { p = ' [4/5] Monitor RTS ', c = { '0', '1' }, s = function(x) p_state.monitor_rts = x end },
     { p = ' [5/5] Monitor DTR ', c = { '0', '1' }, s = function(x) p_state.monitor_dtr = x end },
   }
+
   local function inject_into_ini()
     _G.metadata.isBusy = true
     local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
@@ -181,19 +182,13 @@ function M.configure_hardware_parameters()
     local raw_lines = vim.fn.readfile(path)
     local clean_lines = {}
 
-    -- 1. Create a strict dictionary lookup set for the targets we want to strip
     local hardware_keys = {
-      upload_port = true,
-      monitor_port = true,
-      upload_speed = true,
-      monitor_speed = true,
-      monitor_filters = true,
-      monitor_rts = true,
-      monitor_dtr = true
+      upload_port = true, monitor_port = true, upload_speed = true,
+      monitor_speed = true, monitor_filters = true, monitor_rts = true, monitor_dtr = true
     }
 
-    -- 2. Scan lines structurally
     local env_idx = nil
+    local platformio_end_idx = nil -- Tracks where the [platformio] block ends
     local current_section = "root"
 
     for _, line in ipairs(raw_lines) do
@@ -207,20 +202,20 @@ function M.configure_hardware_parameters()
         end
       end
 
-      -- Extract the key name explicitly by splitting on the equal sign
       local key_name = trimmed:match("^%s*([%w_]+)%s*=")
       local is_hardware_key = key_name and hardware_keys[key_name] ~= nil
-
-      --: Only discard the line if we are actively sitting INSIDE the [env] block 
-      -- AND the key explicitly matches our deletion dictionary set!
       local should_skip = (current_section == "env") and is_hardware_key
 
       if not should_skip then
         table.insert(clean_lines, line)
+
+        -- Track where the [platformio] section fields finish
+        if current_section == "platformio" then
+          platformio_end_idx = #clean_lines
+        end
       end
     end
 
-    -- 3. Build the clean, isolated block of parameters
     local patches = { 'monitor_filters = direct, send_on_enter' }
     if p_state.selected_port and p_state.selected_port ~= 'Auto Detect' then
       table.insert(patches, 'upload_port = ' .. p_state.selected_port)
@@ -231,27 +226,37 @@ function M.configure_hardware_parameters()
     if p_state.monitor_rts   then table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts) end
     if p_state.monitor_dtr   then table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr) end
 
-    -- 4. Inject right below the existing [env] block, or append cleanly to the bottom
     if env_idx then
+      -- If [env] already exists, inject right inside it
       for i = #patches, 1, -1 do
         table.insert(clean_lines, env_idx + 1, patches[i])
       end
     else
-      table.insert(clean_lines, '')
-      table.insert(clean_lines, '[env]')
-      for _, patch in ipairs(patches) do
-        table.insert(clean_lines, patch)
+      -- If [env] doesn't exist, safely inject it right under [platformio] instead of the bottom!
+      local insert_pos = platformio_end_idx or #clean_lines
+      local new_block = { '', '[env]' }
+      for _, patch in ipairs(patches) do table.insert(new_block, patch) end
+
+      for i = #new_block, 1, -1 do
+        table.insert(clean_lines, insert_pos + 1, new_block[i])
       end
-      table.insert(clean_lines, '')
     end
 
-    -- 5. Directly flush lines back to disk and prompt Neovim to refresh the viewport buffer
-    vim.fn.writefile(clean_lines, path)
+    -- Guard: Clean up any accidental double empty lines created by insertion logic
+    local final_lines = {}
+    local last_was_empty = false
+    for _, line in ipairs(clean_lines) do
+      local is_empty = (line:match('^%s*$') ~= nil)
+      if not is_empty or not last_was_empty then
+        table.insert(final_lines, line)
+      end
+      last_was_empty = is_empty
+    end
 
+    vim.fn.writefile(final_lines, path)
     vim.schedule(function() vim.cmd('checktime') end)
     vim.defer_fn(function() _G.metadata.isBusy = false end, 500)
   end
-
   -- local function inject_into_ini()
   --   _G.metadata.isBusy = true
   --   local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
