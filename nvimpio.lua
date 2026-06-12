@@ -35,9 +35,7 @@ vim.opt.foldlevel = 99
 vim.opt.foldlevelstart = 99
 vim.opt.foldnestmax = 3
 
-vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_string()}")
--- 2. Clean up any broken references and append the uncrashable proxy to your statusline
--- vim.opt.statusline:append('%{v:lua.get_nvimpio_status()}')
+-- vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_string()}")
 
 vim.g.have_nerd_font = true
 vim.g.mapleader = ' '
