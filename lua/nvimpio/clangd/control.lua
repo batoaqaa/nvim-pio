@@ -29,6 +29,7 @@ function M.clangdIntall(callback, package_name)
       if pkg:is_installed() and vim.fn.executable(mason_exe) == 1 then
         if check_count > 0 then
           vim.schedule(function()
+            vim.cmd('echo "Mason: ' .. package_name .. ' installed... "')
             OS.notify(package_name .. ' installed', 'info')
           end)
         end
