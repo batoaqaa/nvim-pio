@@ -116,12 +116,11 @@ vim.api.nvim_create_user_command('PioSelectPort', function()
 end, { force = true })
 
 
---INFO: Piomon    Piomon monitor terminal
+--INFO: Piomon
 -- piolsserial.sync_ttylist()
 vim.api.nvim_create_user_command('Piomon', function(opts)
   local args = opts.fargs
-  pio_mon:show()
-  pio_mon:send(args)
+  require('nvimpio.pio.cli').piomon(args)
 end, {
   nargs = '*',
   complete = function(_, cmd_line)
@@ -137,8 +136,7 @@ end, {
 --INFO: Piolsserial
 vim.api.nvim_create_user_command('PioDevList', function()
   local cmd_table = {'device', 'list'}
-  sendCmnd(cmd_table)
-  -- require('nvimpio.pio.cli').piocmd(cmd_table)
+  require('nvimpio.pio.cli').piocmd(cmd_table)
   -- print(vim.inspect(require('nvimpio.pio.upkeep').get_connected_ports()))
 end, {})
 
@@ -150,11 +148,18 @@ end, {
   nargs = '+',
 })
 
+--INFO: Piomon    Piomon monitor terminal
+vim.api.nvim_create_user_command('Piomon', function(opts)
+  local cmd_table = vim.split(opts.args, ' ')
+  require('nvimpio.pio.cli').piocmd(cmd_table)
+end, {
+  nargs = '*',
+})
+
 --INFO: Piocli    Piocli cli terminal
 vim.api.nvim_create_user_command('Piocli', function(opts)
   local cmd_table = vim.split(opts.args, ' ')
-  sendCmnd(cmd_table)
-  -- require('nvimpio.pio.cli').piocli(cmd_table)
+  require('nvimpio.pio.cli').piocmd(cmd_table)
 end, {
   nargs = '*',
 })
