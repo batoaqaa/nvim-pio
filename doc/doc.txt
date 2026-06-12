@@ -102,8 +102,11 @@ Commands:
     A menu that will ease adding/remving files/directories form
     .gitignore file.  mapped to <leader>\\pg
 
-:PioSelectPort                                                *:PioSelectPort*
+:PioDevList                                                      *:PioDevList*
     List out all the serial devices connected with their description
+
+:PioSelectPort                                                *:PioSelectPort*
+    Select serial port for mnitor/upload setup its parameters.
 
 :PioPickEnv                                                      *:PioPickEnv*
     A picker to setup active environment. mapped to <leader>\\e
@@ -123,7 +126,7 @@ Commands:
 :ClangdFormatterPick                                    *:ClangdFormatterPick*
     Launches the interactive dropdown selection picker for clang formatter 
 
-:ClangdCheckArgs                                        *:ClangdFormatterPick*
+:ClangdCheckArgs                                            *:ClangdCheckArgs*
     check for unknown clangd compiler arguments used by cross-platform
     compiler. This runs automatically when new booar installed.
 
