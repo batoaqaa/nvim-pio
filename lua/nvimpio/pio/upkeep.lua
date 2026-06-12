@@ -173,36 +173,17 @@ function M.configure_hardware_parameters()
     { p = ' [4/5] Monitor RTS ', c = { '0', '1' }, s = function(x) p_state.monitor_rts = x end },
     { p = ' [5/5] Monitor DTR ', c = { '0', '1' }, s = function(x) p_state.monitor_dtr = x end },
   }
+
   local function inject_into_ini()
     _G.metadata.isBusy = true
     local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
+
+    -- 1. Use native Neovim file readers to automatically strip line-ending clutter (\r\n)
     if vim.fn.filereadable(path) ~= 1 then return end
+    local raw_lines = vim.fn.readfile(path)
 
-    -- 1. Read file as a clean Lua array of lines
-    local lines = vim.fn.readfile(path)
-    local filtered_lines = {}
-
-    -- 2. Clean out old entries and completely strip any existing [env] section
-    local skip = false
-    for _, line in ipairs(lines) do
-      if line:match('^%s*%[%s*env%s*%]%s*$') then
-        skip = true -- Start skipping lines when we hit [env]
-      elseif line:match('^%s*%[[^%]]+%s*%]%s*$') then
-        skip = false -- Stop skipping when we hit any OTHER section
-      end
-
-      -- If we aren't in the [env] block, and it's not an old leftover parameter, keep it
-      if not skip and not line:match('^%s*(monitor_|upload_)[%w_]+%s*=') then
-        table.insert(filtered_lines, line)
-      end
-    end
-
-    -- 3. Build your fresh [env] parameters array with clear markers
-    local patches = {
-      '', -- Clean empty space line right before the section
-      '[env]',
-      'monitor_filters = direct, send_on_enter'
-    }
+    -- 2. Build the new hardware parameter block
+    local patches = { 'monitor_filters = direct, send_on_enter' }
     if p_state.selected_port and p_state.selected_port ~= 'Auto Detect' then
       table.insert(patches, 'upload_port = ' .. p_state.selected_port)
       table.insert(patches, 'monitor_port = ' .. p_state.selected_port)
@@ -211,102 +192,72 @@ function M.configure_hardware_parameters()
     if p_state.monitor_speed then table.insert(patches, 'monitor_speed = ' .. p_state.monitor_speed) end
     if p_state.monitor_rts   then table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts) end
     if p_state.monitor_dtr   then table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr) end
-    table.insert(patches, '') -- Clean empty space line right after the section
 
-    -- 4. Find the position right after [platformio] section to insert
-    local insert_idx = 1
-    for idx, line in ipairs(filtered_lines) do
-      if line:match('^%s*%[%s*platformio%s*%]%s*$') then
-        insert_idx = idx + 1
-        while filtered_lines[insert_idx] and not filtered_lines[insert_idx]:match('^%s*%[') do
-          insert_idx = insert_idx + 1
+    -- 3. Robust Line-by-Line State Machine Parsing
+    local sections = {}
+    local current_section = "root"
+
+    for _, line in ipairs(raw_lines) do
+      -- Trim whitespace to accurately inspect the line content
+      local trimmed = line:match("^%s*(.-)%s*$")
+
+      -- Check for a valid, un-commented section header block
+      local section_match = trimmed:match("^%[([^%]]+)%]$")
+
+      if section_match then
+        current_section = section_match:gsub("%s", "") -- Normalize section string name
+        if not sections[current_section] then
+          sections[current_section] = {}
         end
-        break
+      elseif trimmed ~= "" and not trimmed:match("^%s*[;#]") then
+        -- If inside a section, strip out old hardware parameter duplicate keys safely
+        local is_target_key = trimmed:match("^%s*(monitor_|upload_)[%w_]+%s*=") ~= nil
+        if current_section ~= "env" or not is_target_key then
+          if current_section ~= "root" then
+            table.insert(sections[current_section], line)
+          end
+        end
       end
     end
 
-    -- Inject the patches into our array backwards to preserve ordering
-    for i = #patches, 1, -1 do
-      table.insert(filtered_lines, insert_idx, patches[i])
-    end
+    -- 4. Overwrite or append the fresh parameters directly to the [env] block structure
+    sections["env"] = patches
 
-    -- 5. THE CURE: Collapse any accidental double/triple empty lines down to exactly 1
-    local final_lines = {}
-    local last_was_empty = false
-    
-    for _, line in ipairs(filtered_lines) do
-      local is_empty = (line:match('^%s*$') ~= nil)
-      
-      -- Only keep the line if it has content, OR if it's the FIRST empty line we hit
-      if not is_empty or not last_was_empty then
-        table.insert(final_lines, line)
+    -- 5. Linear Layout Assembly Engine (Guarantees exactly one space line between sections)
+    local final_output_lines = {}
+
+    -- Explicitly define the sequence layout logic to keep [platformio] and [env] right at the top
+    local order = { "platformio", "env" }
+    local seen = { platformio = true, env = true }
+
+    -- Gather any other custom target build blocks (e.g. [env:seeed_xiao_esp32c3])
+    for section, _ in pairs(sections) do
+      if not seen[section] and section ~= "root" then
+        table.insert(order, section)
       end
-      last_was_empty = is_empty
     end
 
-    -- 6. Save the file and reload the buffer layout inside Neovim
-    vim.fn.writefile(final_lines, path)
-    vim.cmd('checktime')
-    
+    -- Assemble the lines back together cleanly
+    for idx, section in ipairs(order) do
+      if sections[section] and #sections[section] > 0 then
+        table.insert(final_output_lines, "[" .. section .. "]")
+        for _, line in ipairs(sections[section]) do
+          table.insert(final_output_lines, line)
+        end
+        -- Force exactly one empty spacing line, unless it is the absolute end of the file
+        if idx < #order then
+          table.insert(final_output_lines, "")
+        end
+      end
+    end
+
+    -- 6. Direct Stream Flush to Disk (Preserves target system line configuration properties)
+    vim.fn.writefile(final_output_lines, path)
+
+    -- Live refresh the editing layout view inside Neovim instantly
+    vim.schedule(function() vim.cmd('checktime') end)
     vim.defer_fn(function() _G.metadata.isBusy = false end, 500)
   end
-  -- local function inject_into_ini()
-  --   _G.metadata.isBusy = true
-  --   local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
-  --   local f = io.open(path, 'r')
-  --   if not f then return end
-  --   local content = f:read('*a')
-  --   f:close()
-  --
-  --   -- 1. Identify the file's original line endings, then normalize completely to \n
-  --   local use_windows_lines = content:find('\r\n') ~= nil
-  --   content = content:gsub('\r\n', '\n')
-  --
-  --   -- 2. Build the hardware configuration parameters block
-  --   local patches = { 'monitor_filters = direct, send_on_enter' }
-  --   if p_state.selected_port and p_state.selected_port ~= 'Auto Detect' then
-  --     table.insert(patches, 'upload_port = ' .. p_state.selected_port)
-  --     table.insert(patches, 'monitor_port = ' .. p_state.selected_port)
-  --   end
-  --   if p_state.upload_speed then table.insert(patches, 'upload_speed = ' .. p_state.upload_speed) end
-  --   if p_state.monitor_speed then table.insert(patches, 'monitor_speed = ' .. p_state.monitor_speed) end
-  --   if p_state.monitor_rts   then table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts) end
-  --   if p_state.monitor_dtr   then table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr) end
-  --
-  --   local new_params = table.concat(patches, '\n')
-  --
-  --   -- 3. Strip any legacy duplicate hardware keys safely
-  --   for _, key in ipairs({'upload_port', 'monitor_port', 'upload_speed', 'monitor_speed', 'monitor_filters', 'monitor_rts', 'monitor_dtr'}) do
-  --     content = content:gsub('\n%s*' .. key .. '%s*=[^\n]*', '')
-  --   end
-  --
-  --   -- 4. Insert parameters right under [env] heading block
-  --   if content:find('%[env%]') then
-  --     content = content:gsub('%[env%]', '[env]\n' .. new_params)
-  --   else
-  --     content = content .. '\n\n[env]\n' .. new_params .. '\n'
-  --   end
-  --
-  --   -- 5. THE FIX: Force beautiful empty spaces before every single section header [header]
-  --   content = content:gsub('%s*\n%s*(%[[^%]]+%\r?%])', '\n\n%1')
-  --
-  --   -- Clean up any accidental triple newlines back to clean single double breaks
-  --   content = content:gsub('\n\n\n+', '\n\n')
-  --   content = content:gsub('^\n+', '') -- Strip any accidental leading space from top of file
-  --
-  --   -- 6. Restore original file structure layout line endings
-  --   if use_windows_lines then
-  --     content = content:gsub('\n', '\r\n')
-  --   end
-  --
-  --   local f_out = io.open(path, 'w')
-  --   if f_out then f_out:write(content); f_out:close() end
-  --
-  --   -- Live refresh the buffer layout inside Neovim so you see changes instantly
-  --   vim.schedule(function() vim.cmd('checktime') end)
-  --
-  --   vim.defer_fn(function() _G.metadata.isBusy = false end, 500)
-  -- end
 
   local function run(idx)
     if not steps[idx] then
