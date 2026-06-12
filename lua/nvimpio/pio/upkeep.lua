@@ -163,28 +163,68 @@ function M.configure_hardware_parameters()
   local p_state = _G.metadata.port_parameters
   local speeds = { '9600', '19200', '38400', '57600', '115200', '230400', '460800', '921600' }
 
+  -- Gather ports dynamically using your unified scanner function helper
   local ports = M.get_connected_ports()
-  if #ports == 0 then ports = { 'Auto Detect' } end
+  if #ports == 0 then
+    ports = { 'Auto Detect' }
+  end
 
+  -- Define the steps mapping sequence arrays (Expanded to 6 steps)
   local steps = {
-    { p = ' [1/5] Select Port ', c = ports,  s = function(x) p_state.selected_port = x; vim.g.platformio_selected_port = x end },
-    { p = ' [2/5] Upload Speed ', c = speeds, s = function(x) p_state.upload_speed = x end },
-    { p = ' [3/5] Monitor Speed ', c = speeds, s = function(x) p_state.monitor_speed = x end },
-    { p = ' [4/5] Monitor RTS ', c = { '0', '1' }, s = function(x) p_state.monitor_rts = x end },
-    { p = ' [5/5] Monitor DTR ', c = { '0', '1' }, s = function(x) p_state.monitor_dtr = x end },
+    {
+      p = ' [1/6] Select Targeted Serial Port ',
+      c = ports,
+      s = function(x)
+        p_state.selected_port = x
+        vim.g.platformio_selected_port = x
+      end,
+    },
+    {
+      p = ' [2/6] Select Upload Speed (Baud) ',
+      c = speeds,
+      s = function(x)
+        p_state.upload_speed = x
+      end,
+    },
+    {
+      p = ' [3/6] Select Serial Monitor Speed ',
+      c = speeds,
+      s = function(x)
+        p_state.monitor_speed = x
+      end,
+    },
+    {
+      p = ' [4/6] Set Monitor RTS Pin State ',
+      c = { '0', '1' },
+      s = function(x)
+        p_state.monitor_rts = x
+      end,
+    },
+    {
+      p = ' [5/6] Set Monitor DTR Pin State ',
+      c = { '0', '1' },
+      s = function(x)
+        p_state.monitor_dtr = x
+      end,
+    },
+    {
+      p = ' [6/6] Select Serial Monitor Filter ',
+      c = { 'default (none)', 'direct', 'send_on_enter', 'direct, send_on_enter' },
+      s = function(x)
+        p_state.monitor_filters = x
+      end,
+    },
   }
 
-
+  -- Defensive, Context-Aware File System Injector Engine
   local function inject_into_ini()
     _G.metadata.isBusy = true
     local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
     if vim.fn.filereadable(path) ~= 1 then return end
     local raw_lines = vim.fn.readfile(path)
 
-    -- 1. Build our target parameter items cleanly
-    local patches = {
-      'monitor_filters = direct, send_on_enter'
-    }
+    -- Build our fresh patches table dynamically based on user selections
+    local patches = {}
     if p_state.selected_port and p_state.selected_port ~= 'Auto Detect' then
       table.insert(patches, 'upload_port = ' .. p_state.selected_port)
       table.insert(patches, 'monitor_port = ' .. p_state.selected_port)
@@ -193,13 +233,18 @@ function M.configure_hardware_parameters()
     if p_state.monitor_speed then table.insert(patches, 'monitor_speed = ' .. p_state.monitor_speed) end
     if p_state.monitor_rts   then table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts) end
     if p_state.monitor_dtr   then table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr) end
+    
+    -- HERE IS THE PLACE: Inserted dynamically right after your pin states
+    if p_state.monitor_filters and p_state.monitor_filters ~= 'default (none)' then
+      table.insert(patches, 'monitor_filters = ' .. p_state.monitor_filters)
+    end
 
     local hardware_keys = {
       upload_port = true, monitor_port = true, upload_speed = true,
       monitor_speed = true, monitor_filters = true, monitor_rts = true, monitor_dtr = true
     }
 
-    -- 2. Categorize the file structure line-by-line
+    -- Categorize the file structure line-by-line
     local structured_lines = {}
     local current_section = "pre_header"
     local env_section_exists = false
@@ -219,19 +264,18 @@ function M.configure_hardware_parameters()
       else
         local key_name = trimmed:match("^%s*([%w_]+)%s*=")
         if current_section == "env" and key_name and hardware_keys[key_name] then
-          -- This is an old target port key inside [env]. Skip it (deletes duplicates).
+          -- Skip historical port configurations to cleanly overwrite them
         else
           table.insert(structured_lines, { type = "property", section = current_section, text = line })
         end
       end
     end
 
-    -- 3. If [env] didn't exist at all, find [platformio] and insert the header structure
+    -- If [env] didn't exist at all, find [platformio] and insert the header structure
     if not env_section_exists then
       local insert_idx = #structured_lines + 1
       for idx, l in ipairs(structured_lines) do
         if l.type == "header" and l.name == "platformio" then
-          -- Look for the end of the platformio section
           insert_idx = idx + 1
           while structured_lines[insert_idx] and structured_lines[insert_idx].section == "platformio" do
             insert_idx = insert_idx + 1
@@ -242,7 +286,7 @@ function M.configure_hardware_parameters()
       table.insert(structured_lines, insert_idx, { type = "header", name = "env", text = "[env]" })
     end
 
-    -- 4. Inject our new parameters directly underneath the [env] header entry row
+    -- Inject our new parameters directly underneath the [env] header entry row
     for idx, l in ipairs(structured_lines) do
       if l.type == "header" and l.name == "env" then
         for i = #patches, 1, -1 do
@@ -252,19 +296,17 @@ function M.configure_hardware_parameters()
       end
     end
 
-    -- 5. Final Assembly: Enforce clean formatting and spacing rules
+    -- Final Assembly: Enforce clean formatting and spacing rules
     local final_lines = {}
     local last_line_type = "empty"
 
     for _, l in ipairs(structured_lines) do
-      -- If we hit a new section header, force exactly one empty line before it
       if l.type == "header" and l.name ~= "platformio" and last_line_type ~= "empty" then
         if #final_lines > 0 and final_lines[#final_lines] ~= "" then
           table.insert(final_lines, "")
         end
       end
 
-      -- Skip arbitrary consecutive empty lines to prevent spacing accordion expansion bugs
       if l.type == "empty" then
         if last_line_type ~= "empty" and last_line_type ~= "header" then
           table.insert(final_lines, l.text)
@@ -276,34 +318,39 @@ function M.configure_hardware_parameters()
       end
     end
 
-    -- Trim any extra empty trailing lines from the absolute bottom of the file
     while #final_lines > 0 and final_lines[#final_lines]:match("^%s*$") do
       table.remove(final_lines)
     end
 
-    -- 6. Write to disk
     vim.fn.writefile(final_lines, path)
-
     vim.schedule(function() vim.cmd('checktime') end)
     vim.defer_fn(function() _G.metadata.isBusy = false end, 500)
   end
 
-
-  local function run(idx)
-    if not steps[idx] then
+  -- Linear Execution Wizard Runner Loop
+  local function run(step_idx)
+    if not steps[step_idx] then
       inject_into_ini()
-      local msg = string.format('Injected settings for port: %s', p_state.selected_port or 'Auto')
+      local msg = string.format(
+        'Injected: Port: %s | Upload: %s baud | Filter: %s',
+        p_state.selected_port or 'Auto',
+        p_state.upload_speed or 'Ini',
+        p_state.monitor_filters or 'None'
+      )
       return _G.OS and type(_G.OS.notify) == 'function' and _G.OS.notify(msg, 'info') or vim.notify(msg, 2)
     end
-    vim.ui.select(steps[idx].c, { prompt = steps[idx].p }, function(sel)
-      if not sel then return vim.notify('NVIM-PIO: Aborted.', 3) end
-      steps[idx].s(sel); run(idx + 1)
+
+    vim.ui.select(steps[step_idx].c, { prompt = steps[step_idx].p }, function(sel)
+      if not sel then
+        return vim.notify('NVIM-PIO: Configuration wizard aborted.', 3)
+      end
+      steps[step_idx].s(sel)
+      run(step_idx + 1)
     end)
   end
 
   run(1)
 end
-
 --=============================================================================
 --INFO:get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
