@@ -173,7 +173,6 @@ function M.configure_hardware_parameters()
     { p = ' [4/5] Monitor RTS ', c = { '0', '1' }, s = function(x) p_state.monitor_rts = x end },
     { p = ' [5/5] Monitor DTR ', c = { '0', '1' }, s = function(x) p_state.monitor_dtr = x end },
   }
-
   local function inject_into_ini()
     _G.metadata.isBusy = true
     local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
@@ -182,7 +181,11 @@ function M.configure_hardware_parameters()
     local content = f:read('*a')
     f:close()
 
-    -- 1. Build the clean block of hardware parameters
+    -- 1. Identify the file's original line endings, then normalize completely to \n
+    local use_windows_lines = content:find('\r\n') ~= nil
+    content = content:gsub('\r\n', '\n')
+
+    -- 2. Build the hardware configuration parameters block
     local patches = { 'monitor_filters = direct, send_on_enter' }
     if p_state.selected_port and p_state.selected_port ~= 'Auto Detect' then
       table.insert(patches, 'upload_port = ' .. p_state.selected_port)
@@ -195,25 +198,78 @@ function M.configure_hardware_parameters()
 
     local new_params = table.concat(patches, '\n')
 
-    -- 2. Strip any existing keys inside [env] to prevent duplicates
+    -- 3. Strip any legacy duplicate hardware keys safely
     for _, key in ipairs({'upload_port', 'monitor_port', 'upload_speed', 'monitor_speed', 'monitor_filters', 'monitor_rts', 'monitor_dtr'}) do
       content = content:gsub('\n%s*' .. key .. '%s*=[^\n]*', '')
     end
 
-    -- 3. Short & Clean: Insert parameters with explicit newlines for beautiful spacing
+    -- 4. Insert parameters right under [env] heading block
     if content:find('%[env%]') then
       content = content:gsub('%[env%]', '[env]\n' .. new_params)
     else
       content = content .. '\n\n[env]\n' .. new_params .. '\n'
     end
 
-    -- 4. Clean up any accidental triple newlines back to clean double breaks
+    -- 5. THE FIX: Force beautiful empty spaces before every single section header [header]
+    content = content:gsub('%s*\n%s*(%[[^%]]+%\r?%])', '\n\n%1')
+
+    -- Clean up any accidental triple newlines back to clean single double breaks
     content = content:gsub('\n\n\n+', '\n\n')
+    content = content:gsub('^\n+', '') -- Strip any accidental leading space from top of file
+
+    -- 6. Restore original file structure layout line endings
+    if use_windows_lines then
+      content = content:gsub('\n', '\r\n')
+    end
 
     local f_out = io.open(path, 'w')
     if f_out then f_out:write(content); f_out:close() end
+
+    -- Live refresh the buffer layout inside Neovim so you see changes instantly
+    vim.schedule(function() vim.cmd('checktime') end)
+
     vim.defer_fn(function() _G.metadata.isBusy = false end, 500)
   end
+  -- local function inject_into_ini()
+  --   _G.metadata.isBusy = true
+  --   local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
+  --   local f = io.open(path, 'r')
+  --   if not f then return end
+  --   local content = f:read('*a')
+  --   f:close()
+  --
+  --   -- 1. Build the clean block of hardware parameters
+  --   local patches = { 'monitor_filters = direct, send_on_enter' }
+  --   if p_state.selected_port and p_state.selected_port ~= 'Auto Detect' then
+  --     table.insert(patches, 'upload_port = ' .. p_state.selected_port)
+  --     table.insert(patches, 'monitor_port = ' .. p_state.selected_port)
+  --   end
+  --   if p_state.upload_speed then table.insert(patches, 'upload_speed = ' .. p_state.upload_speed) end
+  --   if p_state.monitor_speed then table.insert(patches, 'monitor_speed = ' .. p_state.monitor_speed) end
+  --   if p_state.monitor_rts   then table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts) end
+  --   if p_state.monitor_dtr   then table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr) end
+  --
+  --   local new_params = table.concat(patches, '\n')
+  --
+  --   -- 2. Strip any existing keys inside [env] to prevent duplicates
+  --   for _, key in ipairs({'upload_port', 'monitor_port', 'upload_speed', 'monitor_speed', 'monitor_filters', 'monitor_rts', 'monitor_dtr'}) do
+  --     content = content:gsub('\n%s*' .. key .. '%s*=[^\n]*', '')
+  --   end
+  --
+  --   -- 3. Short & Clean: Insert parameters with explicit newlines for beautiful spacing
+  --   if content:find('%[env%]') then
+  --     content = content:gsub('%[env%]', '[env]\n' .. new_params)
+  --   else
+  --     content = content .. '\n\n[env]\n' .. new_params .. '\n'
+  --   end
+  --
+  --   -- 4. Clean up any accidental triple newlines back to clean double breaks
+  --   content = content:gsub('\n\n\n+', '\n\n')
+  --
+  --   local f_out = io.open(path, 'w')
+  --   if f_out then f_out:write(content); f_out:close() end
+  --   vim.defer_fn(function() _G.metadata.isBusy = false end, 500)
+  -- end
 
   local function run(idx)
     if not steps[idx] then
