@@ -133,10 +133,10 @@ end, {
   end,
 })
 
---INFO: Piolsserial
+--INFO: PioDevList
 vim.api.nvim_create_user_command('PioDevList', function()
   local cmd_table = {'device', 'list'}
-  require('nvimpio.pio.cli').piocmd(cmd_table)
+  require('nvimpio.pio.cli').pioccli(cmd_table)
   -- print(vim.inspect(require('nvimpio.pio.upkeep').get_connected_ports()))
 end, {})
 
@@ -151,7 +151,7 @@ end, {
 -- --INFO: Piomon    Piomon monitor terminal
 -- vim.api.nvim_create_user_command('Piomon', function(opts)
 --   local cmd_table = vim.split(opts.args, ' ')
---   require('nvimpio.pio.cli').piocmd(cmd_table)
+--   require('nvimpio.pio.cli').piocli(cmd_table)
 -- end, {
 --   nargs = '*',
 -- })
