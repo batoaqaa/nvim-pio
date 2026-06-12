@@ -28,7 +28,10 @@ function M.clangdIntall(callback, package_name)
       -- 1. SUCCESS: Installed and file is ready
       if pkg:is_installed() and vim.fn.executable(mason_exe) == 1 then
         if check_count > 0 then
-          OS.notify(package_name .. ' installed', 'info')
+          vim.schedule(function()
+            OS.notify(package_name .. ' installed', 'info')
+            vim.cmd('echo "Mason: ' .. mason_exe .. ' installed ')
+          end)
         end
         callback(mason_exe)
         return
