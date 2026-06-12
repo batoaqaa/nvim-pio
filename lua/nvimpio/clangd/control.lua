@@ -326,7 +326,8 @@ function M.getUnknownArgsCli(from)
         end
         -- 4. UPDATE: Rebuild with the new discovered flags
         -- boilerplate.args = args_table
-        boilerplate_gen('.clangd', vim.g.platformioRootDir)
+        -- boilerplate_gen('.clangd', vim.g.platformioRootDir)
+        require('nvimpio.clangd.diagnostic').unknownArgs()
 
         OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
         M.restart()

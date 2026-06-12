@@ -43,7 +43,6 @@ end
 
 -- 2. Pure local JSON reading loop (Strictly separates codes from compiler flags)
 local function parse_db_file_pure(db_path)
-  -- 🟢 SELF-HEALING INTERCEPTION: Guarantee a pristine file template exists on disk
   ensure_default_db_exists(db_path)
 
   local blocked_codes = {}
@@ -123,6 +122,24 @@ function M.clean_project_wide_flags(project_root, diagnostics)
     if boiler and boiler.boilerplate_gen then
       pcall(boiler.boilerplate_gen, '.clangd', project_root, 'diagnostics wipe flags')
     end
+  end
+end
+
+function M.unknownArgs()
+  local filter_db_path = OS.clangd_filter --get_db_path(project_root)
+  local current_blocked = parse_db_file_pure(filter_db_path)
+
+  local f = io.open(filter_db_path, 'wb')
+  if f then
+    local payload = { codes = current_blocked, flags = M.removed_flags }
+    f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+    f:close()
+  end
+
+  -- Trigger the boilerplate generation process
+  local boiler = require('nvimpio.boilerplate')
+  if boiler and boiler.boilerplate_gen then
+    pcall(boiler.boilerplate_gen, '.clangd', OS.project_dir, 'diagnostics wipe flags')
   end
 end
 
