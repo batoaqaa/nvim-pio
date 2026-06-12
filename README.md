@@ -1,4 +1,4 @@
-markdown# 🚀 nvim-pio
+# 🚀 nvim-pio
 
 A high-performance, lightweight Neovim plugin that seamlessly bridges **PlatformIO toolchains** with **`clangd`** for embedded development. It automatically discovers your build includes, synchronizes board macro definitions, and eliminates cross-compiler argument errors asynchronously on both Windows and Linux.
 
@@ -207,6 +207,14 @@ require('lualine').setup({
     }
   }
 })
+```
+
+### Native Statusline Integration
+
+If you don't have lualine, use this native nvim statusline.
+
+```lua
+vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_string()}")
 ```
 
 ---

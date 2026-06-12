@@ -1,17 +1,17 @@
-*nvimpio.txt*  PlatformIO Toolchain Integration & Clangd Optimizer
+*nvimpio.txt  PlatformIO Toolchain Integration & Clangd Optimizer
 
 ==============================================================================
 NVIM-PIO                                                             *nvimpio*
 
 A lightweight manager for PlatformIO Core within Neovim.
 
-`nvim-pio` is a cross-platform Neovim plugin designed to bridge PlatformIO
+nvim-pio is cross-platform Neovim plugin designed to bridge PlatformIO
 toolchains with the `clangd` Language Server smoothly. It handles asynchronous
 build environment extractions, synchronizes complex board hardware macro
-definitions, and intercepts and corrects non-standard compiler argument
+definitions. Also, intercepts and corrects non-standard compiler argument
 diagnostics.
 
-`nvim-pio` automates the installation and environment configuration of
+nvim-pio automates the installation and environment configuration of
 PlatformIO. It ensures that the `pio` executable is available in your 
 Neovim session's PATH regardless of your system's global configuration.
 
@@ -21,7 +21,8 @@ Neovim session's PATH regardless of your system's global configuration.
 CONFIGURATION                                                 *nvimpio-config*
 
 To initialize the plugin, invoke the setup call inside your configuration
-scripts frame. 
+scripts frame. This registers the Early Lifecycle Invalidation Seeder hooks
+and routes your network stream diagnostic traffic patterns natively.
 
 Minimal Initialization Example:
 >lua
@@ -34,10 +35,9 @@ Minimal Initialization Example:
       support = true,
       install = false,
     },
-    menu_key = '<leader>\\',  -- Replace this menu key to your convenience
-    menu_name = 'PlatformIO', -- Replace this menu name to your convenience
+    menu_key = '<leader>\\', -- replace this menu key  to your convenience
+    menu_name = 'PlatformIO', -- replace this menu name to your convenience
   })
-<
 
 ==============================================================================
 USAGE                                                        *nvimpio-commands*
@@ -49,94 +49,92 @@ Commands:
     initialize a project. A telescope picker will appear for selecting
     the board, and then another for choosing the framework.
     Press enter to complete the initialization.
-    Mapped to: |<leader>\i|
 
 :PioInstall                                                      *:PioInstall*
     Downloads the official PlatformIO installer and sets up a virtual 
-    environment in `~/.platformio/penv` asynchronously. 
-    Mapped to: |<leader>\pi|
+    environment in `~/.platformio/penv`. This runs asynchronously as needed
+    by nvimpio.    mapped to <leader>\\pi
 
 :Piorun [arg]                                                        *:Piorun*
-    Builds, cleans, or uploads your code. If no argument is provided, 
-    it defaults to building the active environment.
+    This command builds and uploads the code. Optional arguments: 
+    build, upload, clean. If no argument is provided, it defaults
+    to build and upload.
     Examples:
-        `:Piorun`           Mapped to: |<leader>\gb|
-        `:Piorun build`     Mapped to: |<leader>\gb|
-        `:Piorun clean`     Mapped to: |<leader>\gc|
-        `:Piorun upload`    Mapped to: |<leader>\gu|
-        `:Piorun buildfs`   Mapped to: |<leader>\fb|
-        `:Piorun uploadfs`  Mapped to: |<leader>\fu|
+        `:Piorun`           This command key mapped to <leader>\\gb
+        `:Piorun build`     This command key mapped to <leader>\\gb
+        `:Piorun clean`     This command key mapped to <leader>\\gc
+        `:Piorun upload`    This command key mapped to <leader>\\gu
+        `:Piorun buildfs`   This command key mapped to <leader>\\fb
+        `:Piorun uploadfs`  This command key mapped to <leader>\\fu
 
 :Piocli [cmd]                                                        *:Piocli*
-    Run arbitrary PlatformIO commands inside a floating terminal window.
-    If no command argument is provided, it opens an interactive terminal prompt
-    at your project root folder. Note: the `pio` prefix word is omitted.
+    Run PlatformIO commands either in float or horizontal direction.
+                         Example: `:Piocli device list`.
+    The command argument is optional. If not provided, it opens a floating
+    toggleterm in the project root where you can execute commands.
+    Note: `pio` keyword is not required in the command.
     Examples:
-       `:Piocli`                     Mapped to: |<leader>\c|
+       `:Piocli`                     This command key mapped to <leader>\\c
        `:Piocli run -e uno -t upload`
-       `:Piocli device list`         Mapped to: |<leader>\gd|
+       `:Piocli device list` This command key mapped to <leader>\\gd
 
 :Piolib [libname]                                                    *:Piolib*
-    Search and install libraries interactively. A telescope picker
-    displays matches; pick one and press enter to install.
+    Install a library by providing a keyword for search. A telescope picker
+    will show available libraries. Pick one and press enter to install.
     Examples:
        `:Piolib arduino json`
        `:Piolib keyboard`
 
 :Piomon [baud_rate]                                                  *:Piomon*
-    Open the serial monitor communications shell. Specify a baud rate
-    as an optional argument. If omitted, it falls back to 9600 or the
-    rate defined inside your local `platformio.ini` file.
-    Mapped to: |<leader>\m|
+    Open a serial monitor. Specify a baud rate as an optional argument.
+    If not provided, it uses the default baud rate (9600)
+    or the one specified in platformio.ini.
+    Examples:
+       `:Piomon`       This command key mapped to <leader>\\m
+       `:Piomon 115200`
 
-:PioCompileDB                                                  *:PioCompileDB*
-    Generates a localized compilation database (`compile_commands.json`).
-    Mapped to: |<leader>\ab|
+:PiocompileDB                                                  *:PiocompileDB*
+    Generate compile_commands.json file, which done as needed by nvimpio.
+    mapped to <leader>\\ab
 
 :PioDbFixPaths                                                *:PioDbFixPaths*
-    Forcefully rewrites target references inside `compile_commands.json` to
-    resolve cross-platform host mapping path shifts.
+    Used to re-write compile_commands.json file with !!!!!!!!
 
 :PioGitIgnore                                                  *:PioGitIgnore*
-    Launches an interactive menu framework to easily toggle files or 
-    folders inside your repository's `.gitignore` file. 
-    Mapped to: |<leader>\pg|
+    A menu that will ease adding/remving files/directories form
+    .gitignore file.  mapped to <leader>\\pg
 
-:PioDeviceList                                                *:PioDeviceList*
-    Scans and lists all active microcontroller hardware serial devices
-    connected to your machine along with descriptions.
-    Mapped to: |<leader>\gd|
+:PioDevList                                                      *:PioDevList*
+    List out all the serial devices connected with their description
+        This command key mapped to <leader>\\gd
 
 :PioSelectPort                                                *:PioSelectPort*
-    Launches an interface selection picker to map specific serial ports 
-    and customize configuration flags for upload and monitor routines.
+    Select serial port for mnitor/upload setup its parameters.
 
 :PioPickEnv                                                      *:PioPickEnv*
-    Launches a telescope option selection panel to change your active 
-    PlatformIO environment target framework. 
-    Mapped to: |<leader>\e|
+    A picker to setup active environment. mapped to <leader>\\e
 
-:PioDebug                                                           *:PioDebug*
-    Launches the default integrated PlatformIO hardware debugger using GDB.
-    Mapped to: |<leader>\ad|
+:Pidebug                                                           *:Piodebug*
+    Starts the default PlatformIO debugger with gdb
+
+:checkhealth pio                                            *:checkhealth-pio*
+    Runs a diagnostic suite to ensure Python, the core directory, and 
+    the `pio` executable are working correctly.
 
 :ClangdFilter                                                  *:ClangdFilter*
-    Launches an interactive dropdown checklist selection menu to mask or block
-    unwanted diagnostic errors or warnings emitted by clangd.
-    Mapped to: |<leader>\b|
+    Launches dropdown selection picker to filter/block clangd unwanted
+    diagnostic errors or warnings
+    This command key mapped to <leader>\\b
 
 :ClangdFormatterPick                                    *:ClangdFormatterPick*
-    Launches an interactive dropdown configuration picker to generate standard
-    code style rules (like LLVM, Google, or Mozilla) to a `.clang-format` file.
+    Launches the interactive dropdown selection picker for clang formatter 
 
 :ClangdCheckArgs                                            *:ClangdCheckArgs*
-    Validates flags and handles real-time stripping of incompatible cross-compiler 
-    arguments that can trigger standard desktop language server crashes.
+    check for unknown clangd compiler arguments used by cross-platform
+    compiler. This runs automatically when new booar installed.
 
 :Clangdrestart                                                *:Clangdrestart*
-    Forcefully restarts the active `clangd` LSP language server client instance.
-    Mapped to: |<leader>\s|
-
+    This command restart clangd LSP. mapped to <leader>\\s
 ==============================================================================
 INTERACTIVE VIEW CONTROL                                   *nvimpio-interface*
 
@@ -153,31 +151,26 @@ with their live status markers:
 ==============================================================================
 STATUSLINE COMPONENTS                                     *nvimpio-statusline*
 
-Integrate the status string tracking hook safely within your configuration.
+Integrate the status string tracking hook natively or via modern custom plugins:
 
 lualine.nvim configuration snippet:
-The implementation utilizes a safe execution proxy wrapper block to guarantee
-the editor UI never crashes if the statusline redraws before `lazy.nvim` completes
-its initialization loops:
 >lua
   sections = {
     lualine_x = {
-      function()
-        local ok, statusline = pcall(require, 'nvimpio.statusline')
-        if ok and type(statusline.get_status_string) == 'function' then
-          return statusline.get_status_string()
-        end
-        return ""
-      end,
+      function() return require("nvimpio.statusline").get_status_string() end,
       'filetype'
     }
   }
 <
 
+Native Neovim statusline string assignment:
+>lua
+  vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_string()}")
+
 ==============================================================================
 AUTHORS                                                      *nvimpio-authors*
 
-Created by Ahmed A. Batoaq.
+Created by [Ahmed A. Batoaq].
 Repo:    https://github.com/batoaqaa/nvim-pio
 
 Distributed under the MIT license.
