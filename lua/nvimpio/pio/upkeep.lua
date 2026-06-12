@@ -173,24 +173,49 @@ function M.configure_hardware_parameters()
     { p = ' [4/5] Monitor RTS ', c = { '0', '1' }, s = function(x) p_state.monitor_rts = x end },
     { p = ' [5/5] Monitor DTR ', c = { '0', '1' }, s = function(x) p_state.monitor_dtr = x end },
   }
-
   local function inject_into_ini()
     _G.metadata.isBusy = true
     local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
     if vim.fn.filereadable(path) ~= 1 then return end
 
-    -- 1. Read file as an array of lines (automatically handles line ending styles)
     local raw_lines = vim.fn.readfile(path)
     local clean_lines = {}
 
-    -- 2. Strip any old hardware keys and locate the exact index of [env]
+    -- 1. Create a strict dictionary lookup set for the targets we want to strip
+    local hardware_keys = {
+      upload_port = true,
+      monitor_port = true,
+      upload_speed = true,
+      monitor_speed = true,
+      monitor_filters = true,
+      monitor_rts = true,
+      monitor_dtr = true
+    }
+
+    -- 2. Scan lines structurally
     local env_idx = nil
+    local current_section = "root"
+
     for _, line in ipairs(raw_lines) do
-      if line:match('^%s*%[%s*env%s*%]%s*$') then
-        env_idx = #clean_lines + 1
+      local trimmed = line:match("^%s*(.-)%s*$")
+      local section_match = trimmed:match("^%s*%[%s*([^%]]+)%s*%]%s*$")
+
+      if section_match then
+        current_section = section_match:gsub("%s", "")
+        if current_section == "env" then
+          env_idx = #clean_lines + 1
+        end
       end
-      -- Keep the line only if it's not a legacy hardware option we are replacing
-      if not line:match('^%s*(monitor_|upload_)[%w_]+%s*=') then
+
+      -- Extract the key name explicitly by splitting on the equal sign
+      local key_name = trimmed:match("^%s*([%w_]+)%s*=")
+      local is_hardware_key = key_name and hardware_keys[key_name] ~= nil
+
+      --: Only discard the line if we are actively sitting INSIDE the [env] block 
+      -- AND the key explicitly matches our deletion dictionary set!
+      local should_skip = (current_section == "env") and is_hardware_key
+
+      if not should_skip then
         table.insert(clean_lines, line)
       end
     end
@@ -226,6 +251,7 @@ function M.configure_hardware_parameters()
     vim.schedule(function() vim.cmd('checktime') end)
     vim.defer_fn(function() _G.metadata.isBusy = false end, 500)
   end
+
   -- local function inject_into_ini()
   --   _G.metadata.isBusy = true
   --   local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
