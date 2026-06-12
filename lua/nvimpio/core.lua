@@ -106,7 +106,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
 
     if not found_in_path then
       vim.env.PATH = main.config.pio_runtime_dir .. OS.path_sep .. current_path
-      OS.notify("penv bin pat added to PATH")
+      OS.notify("penv bin path added to PATH")
     end
 
     local raw_storage_dir = M.resolve_user_path(current_pio_opts.pio_storage_dir) or vim.env.PLATFORMIO_CORE_DIR or base_runtime
