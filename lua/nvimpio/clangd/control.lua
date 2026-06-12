@@ -30,7 +30,6 @@ function M.clangdIntall(callback, package_name)
         if check_count > 0 then
           vim.schedule(function()
             OS.notify(package_name .. ' installed', 'info')
-            OS.notify('Mason: ' .. mason_exe .. ' installed ')
           end)
         end
         callback(mason_exe)
@@ -50,8 +49,7 @@ function M.clangdIntall(callback, package_name)
         -- Visual feedback for long installs
         if check_count % 5 == 0 then
           vim.schedule(function()
-            -- vim.cmd('echo "Mason: Waiting for ' .. package_name .. ' installation... ' .. check_count .. 's"')
-            OS.notify('echo "Mason: Waiting for ' .. package_name .. ' installation... ' .. check_count .. 's"')
+            vim.cmd('echo "Mason: Waiting for ' .. package_name .. ' installation... ' .. check_count .. 's"')
           end)
         end
         vim.defer_fn(poll, 1000)
@@ -264,30 +262,32 @@ function M.setFormatStyle()
 
       -- local cmd = { clangdCmd, string.format('--style=%s', choice:lower()), '--dump-config', '>', '.clang-format' }
       local cmd = { clangdCmd, string.format('--style=%s', choice:lower()), '--dump-config' }
-      vim.system(cmd, { text = true }, function(obj)
-        -- This callback runs when the process finishes
-        -- Use vim.schedule to perform UI tasks/API calls on the main thread
-        vim.schedule(function()
-          -- if obj.code == 0 then
-          if obj.code == 0 and obj.stdout and obj.stdout ~= '' then
-            local file = io.open('.clang-format', 'w')
-            if file then
-              file:write(obj.stdout)
-              file:close()
 
-              OS.notify('Created .clang-format (' .. choice .. ')', 'info')
-              M.restart()
-              print('LSP Reloaded: Using ' .. choice .. ' style.')
-            else
-              OS.notify('Failed to save .clang-format to disk (Permission error?)', 'error')
-            end
-          else
-            -- If the tool failed, print out its actual stderr reason
-            local err_msg = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Unknown configuration failure'
-            OS.notify('Failed to generate .clang-format. Error: ' .. err_msg, 'error')
-          end
-        end)
-      end)
+      --1 -- Synchronously wait for completion (avoids callbacks and scheduling)
+      local obj = vim.system(cmd, { text = true }):wait()
+      --2 -- asynchronous way
+      --2 vim.system(cmd, { text = true }, function(obj)
+      -- Use vim.schedule to perform UI tasks/API calls on the main thread
+      --2 vim.schedule(function()
+      if obj.code == 0 and obj.stdout and obj.stdout ~= '' then
+        local file = io.open('.clang-format', 'w')
+        if file then
+          file:write(obj.stdout)
+          file:close()
+
+          OS.notify('Created .clang-format (' .. choice .. ')', 'info')
+          M.restart()
+          OS.notify('LSP Reloaded: Using ' .. choice .. ' style.')
+        else
+          OS.notify('Failed to save .clang-format to disk (Permission error?)', 'error')
+        end
+      else
+        -- If the tool failed, print out its actual stderr reason
+        local err_msg = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Unknown configuration failure'
+        OS.notify('Failed to generate .clang-format. Error: ' .. err_msg, 'error')
+      end
+      --2 end)
+      --2 end)
     end, 'clang-format')
   end)
 end
