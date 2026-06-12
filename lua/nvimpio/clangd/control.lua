@@ -262,18 +262,29 @@ function M.setFormatStyle()
       --   end
       -- end
 
-      local cmd = { clangdCmd, string.format('--style=%s', choice:lower()), '--dump-config', '>', '.clang-format' }
+      -- local cmd = { clangdCmd, string.format('--style=%s', choice:lower()), '--dump-config', '>', '.clang-format' }
+      local cmd = { clangdCmd, string.format('--style=%s', choice:lower()), '--dump-config' }
       vim.system(cmd, { text = true }, function(obj)
         -- This callback runs when the process finishes
         -- Use vim.schedule to perform UI tasks/API calls on the main thread
         vim.schedule(function()
-          if obj.code == 0 then
-            OS.notify('Created .clang-format (' .. choice .. ')', 'info')
-            -- Restart clangd to apply the new rules
-            M.restart()
-            print('LSP Reloaded: Using ' .. choice .. ' style.')
+          -- if obj.code == 0 then
+          if obj.code == 0 and obj.stdout and obj.stdout ~= '' then
+            local file = io.open('.clang-format', 'w')
+            if file then
+              file:write(obj.stdout)
+              file:close()
+
+              OS.notify('Created .clang-format (' .. choice .. ')', 'info')
+              M.restart()
+              print('LSP Reloaded: Using ' .. choice .. ' style.')
+            else
+              OS.notify('Failed to save .clang-format to disk (Permission error?)', 'error')
+            end
           else
-            OS.notify('Failed to generate .clang-format. Error: ' .. (obj.stderr or 'Unknown'), 'error')
+            -- If the tool failed, print out its actual stderr reason
+            local err_msg = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Unknown configuration failure'
+            OS.notify('Failed to generate .clang-format. Error: ' .. err_msg, 'error')
           end
         end)
       end)
