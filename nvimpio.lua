@@ -273,18 +273,12 @@ local plugins = {
         sections = {
           lualine_x = {
             function()
-              -- 1. Safely attempt to load the module without throwing errors
               local ok, statusline = pcall(require, 'nvimpio.statusline')
-              -- 2. Check if the module loaded and contains the expected function
               if ok and type(statusline.get_status_string) == 'function' then
                 return statusline.get_status_string()
               end
-              -- 3. Return an empty string silently if nvimpio is not yet loaded
               return ''
             end,
-            -- function()
-            --   return require('nvimpio.statusline').get_status_string()
-            -- end,
             'filetype',
           },
         },
