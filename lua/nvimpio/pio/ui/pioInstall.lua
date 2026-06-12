@@ -36,11 +36,11 @@ local function pioInstall(runtime_dir, on_done)
   if OS.is_win then
     install_cmd = string.format('$env:PLATFORMIO_PENV_DIR=%q; %s %s', custom_penv_dir, python, script_path)
     pipUpgrade_cmd = string.format('%s/Scripts/python.exe -m pip install -U pip', custom_penv_dir)
-    pioUpgrade_cmd = string.format('%s/Scripts/pip.exe -m pip install -U platformio', custom_penv_dir)
+    pioUpgrade_cmd = string.format('%s/Scripts/pip.exe install -U platformio', custom_penv_dir)
   else
     install_cmd = string.format('PLATFORMIO_PENV_DIR=%q %s %s', custom_penv_dir, python, script_path)
     pipUpgrade_cmd = string.format('%s/bin/python3 -m pip install -U pip', custom_penv_dir)
-    pioUpgrade_cmd = string.format('%s/bin/pip -m pip install -U platformio', custom_penv_dir)
+    pioUpgrade_cmd = string.format('%s/bin/pip install -U platformio', custom_penv_dir)
   end
 
   -- 6. Establish downstream update pipeline connections
