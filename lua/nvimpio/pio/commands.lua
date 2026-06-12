@@ -34,7 +34,7 @@ end, { desc = 'Switch [E]nvironment' })
 
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
-vim.api.nvim_create_user_command('pioUpgrade', function()
+vim.api.nvim_create_user_command('PioUpgrade', function()
     require('nvimpio.pio.ui.pioUpgrade').pioUpgrade()
 end, { desc = "upgrade PlatformIO Core" })
 
