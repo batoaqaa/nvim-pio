@@ -178,7 +178,7 @@ function M.configure_hardware_parameters()
     local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
     if vim.fn.filereadable(path) ~= 1 then return end
 
-    -- 1. Read file as a clean Lua array of lines (handles \r\n automatically)
+    -- 1. Read file as a clean Lua array of lines
     local lines = vim.fn.readfile(path)
     local filtered_lines = {}
 
@@ -188,7 +188,7 @@ function M.configure_hardware_parameters()
       if line:match('^%s*%[%s*env%s*%]%s*$') then
         skip = true -- Start skipping lines when we hit [env]
       elseif line:match('^%s*%[[^%]]+%s*%]%s*$') then
-        skip = false -- Stop skipping when we hit any OTHER section (like [env:seeed])
+        skip = false -- Stop skipping when we hit any OTHER section
       end
 
       -- If we aren't in the [env] block, and it's not an old leftover parameter, keep it
@@ -197,9 +197,9 @@ function M.configure_hardware_parameters()
       end
     end
 
-    -- 3. Build your fresh [env] parameters array
+    -- 3. Build your fresh [env] parameters array with clear markers
     local patches = {
-      '', -- Force a clean empty space line right before the section
+      '', -- Clean empty space line right before the section
       '[env]',
       'monitor_filters = direct, send_on_enter'
     }
@@ -211,15 +211,13 @@ function M.configure_hardware_parameters()
     if p_state.monitor_speed then table.insert(patches, 'monitor_speed = ' .. p_state.monitor_speed) end
     if p_state.monitor_rts   then table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts) end
     if p_state.monitor_dtr   then table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr) end
-    table.insert(patches, '') -- Force a clean empty space line right after the section
+    table.insert(patches, '') -- Clean empty space line right after the section
 
-    -- 4. Inject the new [env] block at the very top right after [platformio]
-    -- (Or append it to the bottom if [platformio] doesn't exist)
+    -- 4. Find the position right after [platformio] section to insert
     local insert_idx = 1
     for idx, line in ipairs(filtered_lines) do
       if line:match('^%s*%[%s*platformio%s*%]%s*$') then
         insert_idx = idx + 1
-        -- Find where the platformio section ends to insert right after it
         while filtered_lines[insert_idx] and not filtered_lines[insert_idx]:match('^%s*%[') do
           insert_idx = insert_idx + 1
         end
@@ -227,15 +225,29 @@ function M.configure_hardware_parameters()
       end
     end
 
-    -- Insert the patches into our array
+    -- Inject the patches into our array backwards to preserve ordering
     for i = #patches, 1, -1 do
       table.insert(filtered_lines, insert_idx, patches[i])
     end
 
-    -- 5. Save the file and reload the buffer layout inside Neovim
-    vim.fn.writefile(filtered_lines, path)
-    vim.cmd('checktime')
+    -- 5. THE CURE: Collapse any accidental double/triple empty lines down to exactly 1
+    local final_lines = {}
+    local last_was_empty = false
+    
+    for _, line in ipairs(filtered_lines) do
+      local is_empty = (line:match('^%s*$') ~= nil)
+      
+      -- Only keep the line if it has content, OR if it's the FIRST empty line we hit
+      if not is_empty or not last_was_empty then
+        table.insert(final_lines, line)
+      end
+      last_was_empty = is_empty
+    end
 
+    -- 6. Save the file and reload the buffer layout inside Neovim
+    vim.fn.writefile(final_lines, path)
+    vim.cmd('checktime')
+    
     vim.defer_fn(function() _G.metadata.isBusy = false end, 500)
   end
   -- local function inject_into_ini()
