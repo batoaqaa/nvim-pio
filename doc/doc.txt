@@ -69,8 +69,8 @@ Commands:
 ==============================================================================
 :Piorun [arg]                                                        *:Piorun*
     This command builds and uploads the code. Optional arguments: 
-    build, upload, clean. If no argument is provided, 
-    it defaults to build and upload.
+    build, upload, clean. If no argument is provided, it defaults
+    to build and upload.
                          Examples:
                             `:Piorun`
                             `:Piorun build`
@@ -97,9 +97,9 @@ Commands:
                             `:Piolib keyboard`
 
 :Piomon [baud_rate]                                                  *:Piomon*
-    Open a serial monitor. Specify a baud rate as an
-                         optional argument. If not provided, it uses the default
-                         baud rate (9600) or the one specified in platformio.ini.
+    Open a serial monitor. Specify a baud rate as an optional argument.
+    If not provided, it uses the default baud rate (9600)
+    or the one specified in platformio.ini.
                          Examples:
                             `:Piomon`
                             `:Piomon 115200`
