@@ -39,7 +39,7 @@ local function pioInstall(runtime_dir, on_done)
     install_cmd = string.format('PLATFORMIO_PENV_DIR=%q %s %s', custom_penv_dir, python, script_path)
   end
 
-  local upgrade_cmd = 'python -m pip install -U platformio'
+  local upgrade_cmd = string.format('%s -m pip install -U platformio', python)
   -- 6. Establish downstream update pipeline connections
   -- local pio = require('nvimpio.pio.upkeep')
   local cb = function(status)
