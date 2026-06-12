@@ -45,10 +45,11 @@ USAGE                                                        *nvimpio-commands*
 Commands:
 
 :Pioinit                                                     *:Pioinit*
-    Open Neovim in a fresh directory, run `:Pioinit`, and follow the prompt to initialize a project. A telescope
-    picker will appear for selecting the board, and then
-                         another for choosing the framework. Press enter to
-                         complete the initialization.
+    Open Neovim in a fresh directory, run `:Pioinit`, and follow the prompt to
+    initialize a project. A telescope picker will appear for selecting
+    the board, and then another for choosing the framework.
+    Press enter to complete the initialization.
+
 :PioInstall                                                      *:PioInstall*
     Downloads the official PlatformIO installer and sets up a virtual 
     environment in `~/.platformio/penv`. This runs asynchronously.
