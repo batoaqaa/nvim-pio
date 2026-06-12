@@ -7,7 +7,6 @@ end, {})
 
 -- INFO: ClangdCheckArgs
 vim.api.nvim_create_user_command('ClangdCheckArgs', function()
-  -- control.getUnknownArgsGui('userCommand: ')
   control.getUnknownArgsCli('userCommand: ')
 end, {})
 
