@@ -105,7 +105,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     end
 
     if not found_in_path then
-      -- vim.env.PATH = main.config.pio_runtime_dir .. OS.path_sep .. current_path
+      vim.env.PATH = main.config.pio_runtime_dir .. OS.path_sep .. current_path
       OS.notify("penv bin pat added to PATH")
     end
 
