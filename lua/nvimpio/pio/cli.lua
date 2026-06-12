@@ -82,7 +82,8 @@ end
 
 --INFO: Piocli
 ------------------------------------------------------
-function M.piocmd(cmd_table)
+function M.piocli(cmd_table)
+  OS.notify("piocli ......")
   local cmd = (cmd_table[1] == '') and '' or ('pio ' .. table.concat(cmd_table, ' '))
   sendCmnd(cmd)
 end

@@ -159,7 +159,7 @@ end, {
 --INFO: Piocli    Piocli cli terminal
 vim.api.nvim_create_user_command('Piocli', function(opts)
   local cmd_table = vim.split(opts.args, ' ')
-  require('nvimpio.pio.cli').piocmd(cmd_table)
+  require('nvimpio.pio.cli').piocli(cmd_table)
 end, {
   nargs = '*',
 })
