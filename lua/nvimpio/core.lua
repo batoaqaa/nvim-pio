@@ -1,30 +1,30 @@
+--stylua: ignore start
 local M = {}
-
-local pio_term = nil
 
 ---Defensively isolates and locks the correct active python path boundaries into Neovim's environment
 function M.enforce_virtualenv_isolation()
   -- 1. Read the environment path strings safely from active system variables
   local active_venv = vim.env.VIRTUAL_ENV
-  if not active_venv or active_venv == '' then
-    return
-  end
+  if not active_venv or active_venv == '' then return end
 
-  -- 2. Construct the absolute binary path structure (Windows uses \Scripts, Unix uses /bin)
-  local path_separator = _G.OS and _G.OS.folder_sep or '\\'
-  local bin_folder = (_G.OS and _G.OS.is_win) and 'Scripts' or 'bin'
-  local venv_bin_path = active_venv .. path_separator .. bin_folder
+  -- 2. Fully self-contained platform detection (removes reliance on external global tables)
+  local bin_folder = OS.is_win and 'Scripts' or 'bin'
 
-  -- 3. Verify that the targeting scripts directory physically exists on their hard drive
-  if vim.fn.isdirectory(venv_bin_path) == 1 then
-    local current_path_registry = vim.env.PATH or ''
-    local variable_delimiter = (_G.OS and _G.OS.is_win) and ';' or ':'
+  -- Force forward slashes inside Neovim for clean parsing, or stick to native system layouts
+  -- 3. Enforce clean forward slashes for the venv target path
+  local venv_bin_path = vim.fs.normalize(active_venv .. '/' .. bin_folder)
+  local current_path_registry = vim.env.PATH or ''
 
-    -- 4. Check if the environment bin folder is already at the very front of the path string
-    -- If it isn't, prepend it to guarantee highest evaluation priority across all subshells!
-    if not current_path_registry:match('^' .. vim.pesc(venv_bin_path)) then
-      vim.env.PATH = venv_bin_path .. variable_delimiter .. current_path_registry
-    end
+  -- 4. Normalize the entire PATH string to forward slashes just for the comparison check.
+  -- This ensures matching succeeds even if Windows mixed the slash styles up!
+  local normalized_registry = vim.fs.normalize(current_path_registry)
+
+  -- 5. Perform the raw text search on the matched slash types
+  local is_already_in_path = string.find(normalized_registry, venv_bin_path, 1, true) ~= nil
+
+  if not is_already_in_path then
+    -- Prepend using your system's original string format to maintain stability
+    vim.env.PATH = venv_bin_path .. OS.path_sep .. current_path_registry
   end
 end
 
@@ -150,44 +150,44 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   end
 end
 
-function M.execute_cmd_clean(target_command)
-  local main = require('nvimpio')
-  -- local pio = require('nvimpio.pioCheck')
-  main.initialize_full_options()
-
-  local status, ToggleTerm = pcall(require, 'toggleterm.terminal')
-  if not status then
-    return OS.notify('ToggleTerm is required but missing.', 'error')
-  end
-
-  local pio_bin = main.config.pio_bin_dir or (M.clean(main.options.pio.pio_runtime_dir) .. OS.folder_sep .. 'penv' .. OS.folder_sep .. OS.bin_dir)
-
-  if pio_term then
-    pio_term:shutdown()
-  end
-
-  pio_term = ToggleTerm.Terminal:new({
-    id = 99,
-    cmd = target_command,
-    direction = 'float',
-    float_opts = { border = 'rounded' },
-    close_on_exit = false,
-    env = {
-      PATH = pio_bin .. OS.folder_sep .. (vim.env.PATH or ''),
-    },
-  })
-  pio_term:open()
-end
-
-function M.execute_init(args)
-  M.ensure_toolchain_active(function()
-    local full_cmd = 'pio project init'
-    if args and args.fargs and #args.fargs > 0 then
-      full_cmd = full_cmd .. ' ' .. table.concat(args.fargs, ' ')
-    end
-    M.execute_cmd_clean(full_cmd)
-  end)
-end
+-- function M.execute_cmd_clean(target_command)
+--   local main = require('nvimpio')
+--   -- local pio = require('nvimpio.pioCheck')
+--   main.initialize_full_options()
+--
+--   local status, ToggleTerm = pcall(require, 'toggleterm.terminal')
+--   if not status then
+--     return OS.notify('ToggleTerm is required but missing.', 'error')
+--   end
+--
+--   local pio_bin = main.config.pio_bin_dir or (M.clean(main.options.pio.pio_runtime_dir) .. OS.folder_sep .. 'penv' .. OS.folder_sep .. OS.bin_dir)
+--
+--   if pio_term then
+--     pio_term:shutdown()
+--   end
+--
+--   pio_term = ToggleTerm.Terminal:new({
+--     id = 99,
+--     cmd = target_command,
+--     direction = 'float',
+--     float_opts = { border = 'rounded' },
+--     close_on_exit = false,
+--     env = {
+--       PATH = pio_bin .. OS.folder_sep .. (vim.env.PATH or ''),
+--     },
+--   })
+--   pio_term:open()
+-- end
+--
+-- function M.execute_init(args)
+--   M.ensure_toolchain_active(function()
+--     local full_cmd = 'pio project init'
+--     if args and args.fargs and #args.fargs > 0 then
+--       full_cmd = full_cmd .. ' ' .. table.concat(args.fargs, ' ')
+--     end
+--     M.execute_cmd_clean(full_cmd)
+--   end)
+-- end
 
 function M.configure_paths()
   local main = require('nvimpio')
