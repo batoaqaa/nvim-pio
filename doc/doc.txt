@@ -44,7 +44,7 @@ USAGE                                                        *nvimpio-commands*
 
 Commands:
 
-:Pioinit                                                     *:Pioinit*
+:Pioinit                                                            *:Pioinit*
     Open Neovim in a fresh directory, run `:Pioinit`, and follow the prompt to
     initialize a project. A telescope picker will appear for selecting
     the board, and then another for choosing the framework.
@@ -66,7 +66,8 @@ Commands:
 >lua
 <
 
-:Piorun [arg]                                  *:Piorun*
+==============================================================================
+:Piorun [arg]                                                        *:Piorun*
     This command builds and uploads the code. Optional arguments: 
     build, upload, clean. If no argument is provided, 
     it defaults to build and upload.
@@ -76,7 +77,7 @@ Commands:
                             `:Piorun upload`
                             `:Piorun clean`
 
-:Piocli [cmd]                                  *:Piocli*
+:Piocli [cmd]                                                        *:Piocli*
     Run PlatformIO commands either in float or horizontal direction.
                          Example: `:Piocli device list`.
     The command argument is optional. If not provided, it opens a floating
@@ -88,14 +89,14 @@ Commands:
                             `:Piocli device list`
                             `:Piocli boards arduinouno --json-output`
 
-:Piolib [libname]                                  *:Piolib*
+:Piolib [libname]                                                    *:Piolib*
     Install a library by providing a keyword for search. A telescope picker
     will show available libraries. Pick one and press enter to install.
                          Examples:
                             `:Piolib arduino json`
                             `:Piolib keyboard`
 
-:Piomon [baud_rate]                                  *:Piomon*
+:Piomon [baud_rate]                                                  *:Piomon*
     Open a serial monitor. Specify a baud rate as an
                          optional argument. If not provided, it uses the default
                          baud rate (9600) or the one specified in platformio.ini.
@@ -103,13 +104,13 @@ Commands:
                             `:Piomon`
                             `:Piomon 115200`
 
-:Piolsserial                                  *:Piolsserial*
+:Piolsserial                                                    *:Piolsserial*
     List out all the serial devices connected with their description
 
-:Pidebug                                  *:Piodebug*
+:Pidebug                                                           *:Piodebug*
     Starts the default PlatformIO debugger with gdb
 
-:PioTermList                                  *:PioTermList
+:PioTermList                                                    *:PioTermList*
     You can see a list of pio terminals using :PioTermList command in normal mode.
     It is mapped to <leader>pl
 
@@ -150,8 +151,10 @@ Native Neovim statusline string assignment:
 AUTHORS                                                      *nvimpio-authors*
 
 Created by [Ahmed A. Batoaq].
+Repo:    https://github.com/batoaqaa/nvim-pio
+
 Distributed under the MIT license.
-:helptags doc/
- vim:tw=78:ts=8:ft=help:norl:
+
+vim:tw=78:ts=8:ft=help:norl:
 ==============================================================================
  vim:tw=78:ts=8:ft=help:norl:

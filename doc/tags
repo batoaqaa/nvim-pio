@@ -1,5 +1,6 @@
 :ClangdFilter	doc.txt	/*:ClangdFilter*
 :PioInstall	doc.txt	/*:PioInstall*
+:PioTermList	doc.txt	/*:PioTermList*
 :Piocli	doc.txt	/*:Piocli*
 :Piodebug	doc.txt	/*:Piodebug*
 :Pioinit	doc.txt	/*:Pioinit*
