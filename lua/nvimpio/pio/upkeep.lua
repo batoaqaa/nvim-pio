@@ -173,14 +173,30 @@ function M.configure_hardware_parameters()
     { p = ' [4/5] Monitor RTS ', c = { '0', '1' }, s = function(x) p_state.monitor_rts = x end },
     { p = ' [5/5] Monitor DTR ', c = { '0', '1' }, s = function(x) p_state.monitor_dtr = x end },
   }
+
   local function inject_into_ini()
     _G.metadata.isBusy = true
     local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
     if vim.fn.filereadable(path) ~= 1 then return end
-    local content = table.concat(vim.fn.readfile(path), '\n'):gsub('\r\n', '\n')
 
-    -- 1. Build the clean block of hardware parameters
-    local patches = { '[env]', 'monitor_filters = direct, send_on_enter' }
+    -- 1. Read file as an array of lines (automatically handles line ending styles)
+    local raw_lines = vim.fn.readfile(path)
+    local clean_lines = {}
+
+    -- 2. Strip any old hardware keys and locate the exact index of [env]
+    local env_idx = nil
+    for _, line in ipairs(raw_lines) do
+      if line:match('^%s*%[%s*env%s*%]%s*$') then
+        env_idx = #clean_lines + 1
+      end
+      -- Keep the line only if it's not a legacy hardware option we are replacing
+      if not line:match('^%s*(monitor_|upload_)[%w_]+%s*=') then
+        table.insert(clean_lines, line)
+      end
+    end
+
+    -- 3. Build the clean, isolated block of parameters
+    local patches = { 'monitor_filters = direct, send_on_enter' }
     if p_state.selected_port and p_state.selected_port ~= 'Auto Detect' then
       table.insert(patches, 'upload_port = ' .. p_state.selected_port)
       table.insert(patches, 'monitor_port = ' .. p_state.selected_port)
@@ -190,43 +206,22 @@ function M.configure_hardware_parameters()
     if p_state.monitor_rts   then table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts) end
     if p_state.monitor_dtr   then table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr) end
 
-    -- 2. Strip any legacy duplicate hardware keys safely
-    for _, key in ipairs({'upload_port', 'monitor_port', 'upload_speed', 'monitor_speed', 'monitor_filters', 'monitor_rts', 'monitor_dtr'}) do
-      content = content:gsub('\n%s*' .. key .. '%s*=[^\n]*', '')
-    end
-
-    -- 3. Extract the [env] section body if it exists, or handle injection cleanly
-    local has_env = content:find('%[env%]') ~= nil
-    if has_env then
-      -- Strip the old [env] header out to prevent duplicate header markers later
-      content = content:gsub('%[env%]', '')
-    end
-
-    -- 4. Split the file cleanly by section boundaries to guarantee layout spacing
-    -- This match pattern grabs any text wrapped inside brackets like [platformio] or [env:seeed]
-    local sections = vim.split(content, '\n%s*(%[[^%]]+%])')
-    local headers = {}
-    for h in content:gmatch('\n%s*(%[[^%]]+%])') do table.insert(headers, h) end
-
-    -- 5. Build final content with strict layout structures
-    local output = { sections[1]:gsub('%s*$', '') } -- Add pre-header data and strip its trailing lines
-
-    -- Force insert the fresh [env] block right after the pre-header / [platformio] section
-    table.insert(output, table.concat(patches, '\n'))
-
-    -- Loop through the rest of the existing sections and re-append them cleanly
-    for i, header in ipairs(headers) do
-      local body = sections[i + 1]:gsub('^%s*', ''):gsub('%s*$', '')
-      if body ~= "" then
-        table.insert(output, header .. '\n' .. body)
-      else
-        table.insert(output, header)
+    -- 4. Inject right below the existing [env] block, or append cleanly to the bottom
+    if env_idx then
+      for i = #patches, 1, -1 do
+        table.insert(clean_lines, env_idx + 1, patches[i])
       end
+    else
+      table.insert(clean_lines, '')
+      table.insert(clean_lines, '[env]')
+      for _, patch in ipairs(patches) do
+        table.insert(clean_lines, patch)
+      end
+      table.insert(clean_lines, '')
     end
 
-    -- 6. Save back to disk ensuring exactly 1 clean empty line between sections
-    local final_string = table.concat(output, '\n\n'):gsub('\n\n\n+', '\n\n') .. '\n'
-    vim.fn.writefile(vim.split(final_string, '\n'), path)
+    -- 5. Directly flush lines back to disk and prompt Neovim to refresh the viewport buffer
+    vim.fn.writefile(clean_lines, path)
 
     vim.schedule(function() vim.cmd('checktime') end)
     vim.defer_fn(function() _G.metadata.isBusy = false end, 500)
