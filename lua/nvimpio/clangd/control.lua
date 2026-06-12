@@ -246,6 +246,12 @@ function M.setFormatStyle()
 
       -- cli using hidden system asynchronous command for setting clang-format style
       print(clangdCmd)
+      local mason_bin = vim.fs.joinpath(OS.data_dir, 'mason', 'bin')
+      local pioEnv = string.format('PATH="%s/bin:$PATH"', mason_bin)
+      if (not OS.is_win) then
+      local obj = vim.system({ 'export', pioEnv }, { text = true }):wait()
+      if obj.code ~= 0 then return end
+
       local cmd = { clangdCmd, string.format('--style=%s', choice:lower()), '--dump-config', '>', '.clang-format' }
       vim.system(cmd, { text = true }, function(obj)
         -- This callback runs when the process finishes
