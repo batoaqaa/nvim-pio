@@ -236,30 +236,30 @@ function M.setFormatStyle()
     end
     M.clangdIntall(function(clangdCmd)
       -- gui using terminal for setting clang-format style
-      local cmd = string.format('%s --style=%s --dump-config > .clang-format', clangdCmd, choice:lower())
-      local parser = require('nvimpio.device.parser')
-      parser.run_sequence({
-        cmnds = { cmd },
-        cb = parser.clangFormat,
-        from = 'clangdIntall',
-      })
+      -- local cmd = string.format('%s --style=%s --dump-config > .clang-format', clangdCmd, choice:lower())
+      -- local parser = require('nvimpio.device.parser')
+      -- parser.run_sequence({
+      --   cmnds = { cmd },
+      --   cb = parser.clangFormat,
+      --   from = 'clangdIntall',
+      -- })
 
       -- cli using hidden system asynchronous command for setting clang-format style
-      -- local cmd = { clangdCmd, string.format('--style=%s --dump-config > .clang-format', choice:lower()) }
-      -- vim.system(cmd, { text = true }, function(obj)
-      --   -- This callback runs when the process finishes
-      --   -- Use vim.schedule to perform UI tasks/API calls on the main thread
-      --   vim.schedule(function()
-      --     if obj.code == 0 then
-      --       OS.notify('Created .clang-format (' .. choice .. ')', 'info')
-      --       -- Restart clangd to apply the new rules
-      --       M.restart()
-      --       print('LSP Reloaded: Using ' .. choice .. ' style.')
-      --     else
-      --       OS.notify('Failed to generate .clang-format. Error: ' .. (obj.stderr or 'Unknown'), 'error')
-      --     end
-      --   end)
-      -- end)
+      local cmd = { clangdCmd, string.format('--style=%s --dump-config > .clang-format', choice:lower()) }
+      vim.system(cmd, { text = true }, function(obj)
+        -- This callback runs when the process finishes
+        -- Use vim.schedule to perform UI tasks/API calls on the main thread
+        vim.schedule(function()
+          if obj.code == 0 then
+            OS.notify('Created .clang-format (' .. choice .. ')', 'info')
+            -- Restart clangd to apply the new rules
+            M.restart()
+            print('LSP Reloaded: Using ' .. choice .. ' style.')
+          else
+            OS.notify('Failed to generate .clang-format. Error: ' .. (obj.stderr or 'Unknown'), 'error')
+          end
+        end)
+      end)
     end, 'clang-format')
   end)
 end
