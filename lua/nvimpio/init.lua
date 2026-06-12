@@ -1,17 +1,18 @@
 -- -- =========================================================================
 -- -- GLOBAL LEAK SNIFFER HOOK: Place this at Line 1 of lua/nvimpio/init.lua
 -- -- =========================================================================
--- local original_require = _G.require
--- _G.require = function(modname)
---   -- Intercept right when the metadata background runner is pulled into memory
---   -- if modname == 'nvimpio.pio.metadata' or modname == 'nvimpio.pio.upkeep' then
---   if modname == 'nvimpio.pio.metadata' or modname == 'nvimpio.pio.metadata' then
---     print('\n[CRITICAL HOOK] DETECTED WHO REQUIRED: ' .. modname)
---     print(debug.traceback())
---     print('==================================================\n')
---   end
---   return original_require(modname)
--- end
+local original_require = _G.require
+_G.require = function(modname)
+  -- Intercept right when the metadata background runner is pulled into memory
+  -- if modname == 'nvimpio.pio.metadata' or modname == 'nvimpio.pio.upkeep' then
+  -- if modname == 'nvimpio.pio.metadata' or modname == 'nvimpio.pio.metadata' then
+  if modname == 'nvimpio.statusline' or modname == 'nvimpio.statusline' then
+    print('\n[CRITICAL HOOK] DETECTED WHO REQUIRED: ' .. modname)
+    print(debug.traceback())
+    print('==================================================\n')
+  end
+  return original_require(modname)
+end
 -- -- =========================================================================
 
 -- stylua: ignore start
