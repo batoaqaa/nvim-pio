@@ -7,17 +7,6 @@
 -- -1: Zero or one argument (like ?, explicitly).
 
 -- stylua: ignore start
-local pio_mon = require('nvimpio.device.terminal').mon
-local pio_cli = require('nvimpio.device.terminal').cli
-local function sendCmnd(command)
-  -- Directly pull the raw pointer reference from the table object.
-  -- 0% CPU cycles wasted running window layout functions! [INDEX]
-
-  -- The custom internal Lazy-Spawn Guard takes care of everything!
-  -- If it's closed, it opens it. If it's open, it pipes it straight down! [INDEX]
-  pio_cli:show()
-  pio_cli:send(command)
-end
 
 -- INFO: update/generate compileDB
 ----------------------------------------------------------------
@@ -79,17 +68,17 @@ vim.api.nvim_create_user_command('PioGitIgnore',
   }
 )
 
--- INFO: List ToggleTerminals
-------------------------------------------------------
-vim.api.nvim_create_user_command('PioTermList',
-  function()
-    require('nvimpio.pio.ui.pioTermList').pioTermList()
-  end,
-  {
-    force = true,
-    desc = 'Start the PlatformIO Terminals list'
-  }
-)
+-- -- INFO: List ToggleTerminals
+-- ------------------------------------------------------
+-- vim.api.nvim_create_user_command('PioTermList',
+--   function()
+--     require('nvimpio.pio.ui.pioTermList').pioTermList()
+--   end,
+--   {
+--     force = true,
+--     desc = 'Start the PlatformIO Terminals list'
+--   }
+-- )
 
 --INFO: fix paths in compile_commands.json
 ------------------------------------------------------
