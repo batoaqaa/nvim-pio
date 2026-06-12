@@ -63,6 +63,7 @@ return {
 
 These are the default keybindings, which you can override in your configuration.
 
+```lua
     local pok, nvimpio = pcall(require, 'nvimpio')
     if pok then
       nvimpio.setup({
@@ -170,7 +171,7 @@ These are the default keybindings, which you can override in your configuration.
 end,
 }
 
-````
+```
 
 ---
 
@@ -184,7 +185,7 @@ nvim -u nvimpio.lua .
 
 # Inside Neovim, kickstart your environment using:
 # :Pioinit
-````
+```
 
 ---
 
