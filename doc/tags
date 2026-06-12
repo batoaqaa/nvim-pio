@@ -1,0 +1,16 @@
+:ClangdFilter	doc.txt	/*:ClangdFilter*
+:PioInstall	doc.txt	/*:PioInstall*
+:Piocli	doc.txt	/*:Piocli*
+:Piodebug	doc.txt	/*:Piodebug*
+:Pioinit	doc.txt	/*:Pioinit*
+:Piolib	doc.txt	/*:Piolib*
+:Piolsserial	doc.txt	/*:Piolsserial*
+:Piomon	doc.txt	/*:Piomon*
+:Piorun	doc.txt	/*:Piorun*
+:checkhealth-pio	doc.txt	/*:checkhealth-pio*
+nvimpio	doc.txt	/*nvimpio*
+nvimpio-authors	doc.txt	/*nvimpio-authors*
+nvimpio-commands	doc.txt	/*nvimpio-commands*
+nvimpio-config	doc.txt	/*nvimpio-config*
+nvimpio-interface	doc.txt	/*nvimpio-interface*
+nvimpio-statusline	doc.txt	/*nvimpio-statusline*

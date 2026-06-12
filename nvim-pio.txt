@@ -12,15 +12,14 @@ A plugin for wrapping PlatformIO commands with user-friendly Neovim commands.
 
 USAGE                                                    *nvim-pio-usage*
 
-                                   *:Pioinit*
-:Pioinit                 Open Neovim in a fresh directory, run `:Pioinit`, and
-                         follow the prompt to initialize a project. A telescope
-                         picker will appear for selecting the board, and then
+:Pioinit                                                     *:Pioinit*
+    Open Neovim in a fresh directory, run `:Pioinit`, and follow the prompt to initialize a project. A telescope
+    picker will appear for selecting the board, and then
                          another for choosing the framework. Press enter to
                          complete the initialization.
 
-                                   *:Piorun*
-:Piorun [arg]            This command builds and uploads the code. Optional
+:Piorun [arg]                                  *:Piorun*
+            This command builds and uploads the code. Optional
                          arguments: build, upload, clean. If no argument is
                          provided, it defaults to build and upload.
                          Examples:
@@ -29,8 +28,8 @@ USAGE                                                    *nvim-pio-usage*
                             `:Piorun upload`
                             `:Piorun clean`
 
-                                   *:Piocli*
-:Piocli [cmd]       Run PlatformIO commands either in float or horizontal direction.
+:Piocli [cmd]                                  *:Piocli*
+       Run PlatformIO commands either in float or horizontal direction.
                          Example: `:Piocli device list`.
                          The command argument is optional. If not provided, it
                          opens a floating toggleterm in the project root where
@@ -42,31 +41,31 @@ USAGE                                                    *nvim-pio-usage*
                             `:Piocli device list`
                             `:Piocli boards arduinouno --json-output`
 
-                                   *:Piolib*
-:Piolib [libname]       Install a library by providing a keyword for search. A
+:Piolib [libname]                                  *:Piolib*
+       Install a library by providing a keyword for search. A
                          telescope picker will show available libraries. Pick
                          one and press enter to install.
                          Examples:
                             `:Piolib arduino json`
                             `:Piolib keyboard`
 
-                                   *:Piomon*
-:Piomon [baud_rate]     Open a serial monitor. Specify a baud rate as an
+:Piomon [baud_rate]                                  *:Piomon*
+     Open a serial monitor. Specify a baud rate as an
                          optional argument. If not provided, it uses the default
                          baud rate (9600) or the one specified in platformio.ini.
                          Examples:
                             `:Piomon`
                             `:Piomon 115200`
 
-                                   *:Piolsserial*
-:Piolsserial		List out all the serial devices connected with their
+:Piolsserial                                  *:Piolsserial*
+		List out all the serial devices connected with their
 			description
 
-                                   *:Piodebug*
-:Pidebug		 Starts the default PlatformIO debugger with gdb
+:Pidebug                                  *:Piodebug*
+		 Starts the default PlatformIO debugger with gdb
 
-                                   *:PioTermList
-:PioTermList             You can see a list of pio terminals using :PioTermList
+:PioTermList                                  *:PioTermList
+             You can see a list of pio terminals using :PioTermList
                          command in normal mode. It is mapped to <leader>pl
 
 

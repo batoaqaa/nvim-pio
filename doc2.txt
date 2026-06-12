@@ -1,0 +1,56 @@
+*pio.txt*      For Neovim version 0.10+      Last change: 2026 May 22
+
+==============================================================================
+NVIM-PIO                                                        *nvim-pio*
+
+A lightweight manager for PlatformIO Core within Neovim.
+
+==============================================================================
+INTRODUCTION                                             *pio-introduction*
+
+nvim-pio automates the installation and environment configuration of
+PlatformIO. It ensures that the `pio` executable is available in your 
+Neovim session's PATH regardless of your system's global configuration.
+
+==============================================================================
+USAGE                                                           *pio-usage*
+
+Commands:
+
+:PioInstall                                                  *:PioInstall*
+    Downloads the official PlatformIO installer and sets up a virtual 
+    environment in `~/.platformio/penv`. This runs asynchronously.
+
+:checkhealth pio                                        *:checkhealth-pio*
+    Runs a diagnostic suite to ensure Python, the core directory, and 
+    the `pio` executable are working correctly.
+
+==============================================================================
+CONFIGURATION                                           *pio-configuration*
+
+In your init.lua:
+>lua
+
+    vim.g.pioConfig ={
+      pio = {
+        auto_update_path = true,
+        notify_on_missing = true,
+      },
+      clangd = {
+        support = true,
+        install = true,
+      },
+      menu_key = '<leader>\\', -- replace this menu key  to your convenience
+      menu_name = 'PlatformIO', -- replace this menu name to your convenience
+    }
+    local pok, nvimpio = pcall(require, 'nvimpio')
+    if pok then nvimpio.setup(vim.g.pioConfig) end
+<
+
+==============================================================================
+AUTHORS                                                       *pio-authors*
+
+Created by [Your Name/Username].
+Distributed under the MIT license.
+:helptags doc/
+ vim:tw=78:ts=8:ft=help:norl:
