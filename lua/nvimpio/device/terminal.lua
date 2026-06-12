@@ -41,7 +41,7 @@ end
 --- Visual redrawing loop engine applying winbar header tags
 function M.UpdateWinbarTitles()
   local cli_alive = M.cli.buf and vim.api.nvim_buf_is_valid(M.cli.buf)
-  local mon_alive = M.monitor.buf and vim.api.nvim_buf_is_valid(M.monitor.buf)
+  local mon_alive = M.mon.buf and vim.api.nvim_buf_is_valid(M.mon.buf)
   local maps = M.config.keymaps
 
   local hint = (cli_alive and mon_alive)
@@ -52,7 +52,7 @@ function M.UpdateWinbarTitles()
   -- 🌟 UNIFIED LOOKUP LOOK: Winbar now reads directly from the shared class definition! [INDEX]
   vim.api.nvim_set_hl(0, 'PioWinBar', { bg = M.config.winbar_bg, fg = M.config.winbar_fg })
 
-  for _, instance in pairs({ M.cli, M.monitor }) do
+  for _, instance in pairs({ M.cli, M.mon }) do
     if instance and instance.win and vim.api.nvim_win_is_valid(instance.win) then
       vim.api.nvim_set_option_value('winbar', '%#PioWinBar#' .. instance.title .. hint .. '%*', { scope = 'local', win = instance.win })
     end
@@ -150,7 +150,7 @@ local function IsTerminalOpen(instance)
 end
 
 function M.IsTerminalOpen(term_type)
-  local instance = (term_type == "monitor") and M.monitor or M.cli
+  local instance = (term_type == "monitor") and M.mon or M.cli
   return IsTerminalOpen(instance)
 end
 
@@ -158,7 +158,7 @@ end
 ---@method
 ---@return boolean # True if the split window canvas layout was drawn successfully.
 function Terminal:show()
-  local opposite_instance = (self.term_type == "monitor") and M.cli or M.monitor
+  local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
 
   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
     vim.api.nvim_win_close(opposite_instance.win, true)
@@ -293,13 +293,13 @@ Terminal.keymaps = M.config.keymaps
 ---@type Terminal
 M.cli = Terminal.new("cli", " Pio CLI> ")
 ---@type Terminal
-M.monitor = Terminal.new("monitor", " Pio Monitor ")
+M.mon = Terminal.new("monitor", " Pio Monitor ")
 
 -- Global hotkey binder pass loop
 local function BindGlobalTriggers()
   pcall(vim.keymap.del, "n", [[<leader>\gm]])
   pcall(vim.keymap.del, "n", [[<leader>\t]])
-  vim.keymap.set("n", Terminal.keymaps.open_monitor, function() M.monitor:show() M.monitor:send("pio device monitor") end, { silent = true })
+  vim.keymap.set("n", Terminal.keymaps.open_monitor, function() M.mon:show() M.mon:send("pio device monitor") end, { silent = true })
   vim.keymap.set("n", Terminal.keymaps.open_cli, function() M.cli:show() end, { silent = true })
 end
 BindGlobalTriggers()
