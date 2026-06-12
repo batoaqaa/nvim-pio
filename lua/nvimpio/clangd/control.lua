@@ -29,7 +29,6 @@ function M.clangdIntall(callback, package_name)
       if pkg:is_installed() and vim.fn.executable(mason_exe) == 1 then
         if check_count > 0 then
           vim.schedule(function()
-            vim.cmd('echo "Mason: ' .. package_name .. ' installed... "')
             OS.notify(package_name .. ' installed', 'info')
           end)
         end
@@ -50,7 +49,7 @@ function M.clangdIntall(callback, package_name)
         -- Visual feedback for long installs
         if check_count % 5 == 0 then
           vim.schedule(function()
-            vim.cmd('echo "Mason: Waiting for ' .. package_name .. ' installation... ' .. check_count .. 's"')
+            OS.notify('Mason: Waiting for ' .. package_name .. ' installation... ' .. check_count .. 'sec')
           end)
         end
         vim.defer_fn(poll, 1000)
