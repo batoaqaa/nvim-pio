@@ -125,13 +125,15 @@ function M.IsTerminalOpen(term_type)
   return IsTerminalOpen(instance)
 end
 
+
+
 --- Pure Show Pass - Handles allocation, smooth buffer reuse, and spawning natively.
 ---@method
 ---@return boolean # True if the split window canvas layout was drawn successfully.
 function Terminal:show()
   local active_win = vim.api.nvim_get_current_win()
 
-  -- 1. 🌟 CAPTURE WORKSPACE RIGIDLY: Only remember code files, completely ignore sidebars
+  -- 1. CAPTURE WORKSPACE RIGIDLY: Only remember code files, completely ignore sidebars
   if vim.api.nvim_win_is_valid(active_win) then
     local active_buf = vim.api.nvim_win_get_buf(active_win)
     local active_ft = vim.api.nvim_get_option_value("filetype", { buf = active_buf })
@@ -144,24 +146,23 @@ function Terminal:show()
 
   local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
 
-  -- 2. 🌟 FLICKER-FREE LOCKOUT: If sibling viewport is open, hijack its window space directly
+  -- 2. FLICKER-FREE REUSE LAYER: Take over the sibling window space directly
   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
     self.win = opposite_instance.win
     self.last_win = opposite_instance.last_win or self.last_win
     opposite_instance.win = nil -- Sever sibling window reference safely
 
-    -- Ensure our targeted buffer exists before injection
+    -- Check if the target buffer needs to be created from scratch
     if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
       self.buf = vim.api.nvim_create_buf(false, true)
       vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.buf })
 
-      -- Native split creation directly under the currently active workspace layout focus window
+      -- 🌟 FIX: Spawn and run termopen while the buffer is perfectly pristine and unmodified
       local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
       self:_spawn(target_height, opposite_instance)
     end
 
-    -- 🌟 THE MAGIC PRO MOVE: Swap the buffer inside the same window boundary layout instantly!
-    -- This keeps focus locked inside the pane, completely ignoring Neo-tree's triggers.
+    -- 🌟 Now it is perfectly safe to swap the running buffer into the window split
     vim.api.nvim_win_set_buf(self.win, self.buf)
     M.UpdateWinbarTitles()
     vim.cmd("startinsert")
@@ -199,6 +200,7 @@ function Terminal:show()
   vim.cmd("startinsert")
   return true
 end
+
 -- function Terminal:show()
 --   -- Inspect active window tree structure dynamically prior to splitting
 --   local active_win = vim.api.nvim_get_current_win()
