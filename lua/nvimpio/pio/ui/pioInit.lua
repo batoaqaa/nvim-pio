@@ -147,179 +147,123 @@ local function pick_board(json_data)
           }
         end,
       }),
+
       previewer = previewers.new_buffer_previewer({
         title = 'Board Details',
         define_preview = function(self, entry)
-          -- 1. WINDOW HANDLE VALVE: Guard against late async callbacks during active resizes
-          if not self.state or not self.state.winid or not vim.api.nvim_win_is_valid(self.state.winid) then
-            return
+          -- 1. Atomic Window Guard (Blocks late async resize race condition crashes)
+          if not self.state or not self.state.winid or not vim.api.nvim_win_is_valid(self.state.winid) then return end
+
+          -- 2. Clean out empty internal dict proxies from the data object
+          local function clean(t)
+            if type(t) ~= "table" then return t end
+            if rawequal(t, vim.empty_dict) then return nil end
+            local res = {}
+            for k, v in pairs(t) do res[k] = clean(v) end
+            return res
           end
 
-          local b = entry.value
-          local lines = { " 📋 " .. (b.name or "Unknown Board"), " ──────────────────────────────────────" }
-          local specs = {}
+          -- 3. Industry Trick: Encode to clean JSON text and split it into an array of lines
+          local board_data = clean(entry.value)
+          local content = vim.split(vim.json.encode(board_data), "\n")
 
-          -- 2. DYNAMIC FLAT PARSER: Automatically extract every property key in the JSON root
-          for k, v in pairs(b) do
-            -- Skip complex arrays because they display below in lists
-            if k ~= "frameworks" and k ~= "connectivity" and k ~= "debug" and k ~= "name" then
-              if type(v) ~= "table" and v ~= nil and v ~= "" and not rawequal(v, vim.empty_dict) then
-                -- Format and capitalize the key dynamically (e.g., "mcu" -> "Mcu")
-                local label = k:sub(1,1):upper() .. k:sub(2)
+          -- Beautify and pretty-print the JSON using a quick internal indentation formatter
+          content = vim.split(vim.inspect(board_data), "\n")
 
-                -- Format big clock numbers nicely
-                if label == "Fcpu" and tonumber(v) then
-                  local num = tostring(v)
-                  while true do
-                    local new_num, k_sub = string.gsub(num, "^(-?%d+)(%d%d%d)", '%1 %2')
-                    if k_sub == 0 then break end
-                    num = new_num
-                  end
-                  v = num .. " Hz"
-                end
-                table.insert(specs, { label = label, val = tostring(v) })
+          -- 4. Direct Safe Injection to Telescope Viewport
+          if vim.api.nvim_buf_is_valid(self.state.bufnr) then
+            vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, content)
 
-              -- Flatten second-level vendor metadata objects (Flash, RAM, etc.)
-              elseif k == "vendor" and type(v) == "table" then
-                for vk, vv in pairs(v) do
-                  if type(vv) ~= "table" and vv ~= "" and not rawequal(vv, vim.empty_dict) then
-                    local label = "Vendor " .. vk:sub(1,1):upper() .. vk:sub(2)
-                    table.insert(specs, { label = label, val = tostring(vv) })
-                  end
-                end
-              end
-            end
-          end
-
-          -- 3. DYNAMIC WIRELESS EXTRACTION: Read connectivity lists for flags on the fly
-          local conn_str = type(b.connectivity) == "table" and table.concat(b.connectivity, " "):lower() or tostring(b.connectivity or ""):lower()
-          if conn_str ~= "" then
-            table.insert(specs, { label = "Wi-Fi",     val = (conn_str:match("wifi") or conn_str:match("wireless")) and "Yes" or "-" })
-            table.insert(specs, { label = "Bluetooth", val = (conn_str:match("blue") or conn_str:match("ble")) and "Yes" or "-" })
-          end
-
-          -- Sort alphabetically so fields don't jump around randomly when navigating boards
-          table.sort(specs, function(a, b_item) return a.label < b_item.label end)
-
-          -- 4. COLUMN WIDTH TRACKER: Calculate alignment dynamically based on discovered keys
-          local max_len = 0
-          for _, s in ipairs(specs) do max_len = math.max(max_len, string.len(s.label)) end
-          local format_str = string.format("  %%-%ds │  %%s", max_len)
-
-          for _, s in ipairs(specs) do
-            table.insert(lines, string.format(format_str, s.label, s.val))
-          end
-
-          -- 5. Safe Multi-line List Appender Helper
-          local function add_list(title, data)
-            if data and not rawequal(data, vim.empty_dict) and (type(data) ~= "table" or not vim.tbl_isempty(data)) then
-              table.insert(lines, "")
-              table.insert(lines, " " .. title)
-              table.insert(lines, " ──────────────────────────────────────")
-              for _, item in ipairs(type(data) == "table" and data or { data }) do
-                table.insert(lines, "   • " .. tostring(item))
-              end
-            end
-          end
-
-          add_list("🛠️  Supported Frameworks", b.frameworks)
-          add_list("🔌  Debug Protocols", b.debug and b.debug.protocols)
-          add_list("📡  Connectivity Variants", b.connectivity)
-
-          -- 6. ATOMIC WRITE GATEWAY: Direct render to Telescope buffer
-          if vim.api.nvim_win_is_valid(self.state.winid) and vim.api.nvim_buf_is_valid(self.state.bufnr) then
-            vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
-            vim.api.nvim_set_option_value('filetype', 'help', { buf = self.state.bufnr })
+            -- Setting the filetype to 'lua' or 'json' lets Neovim color the brackets,
+            -- strings, and numbers perfectly using the user's active theme.
+            vim.api.nvim_set_option_value('filetype', 'lua', { buf = self.state.bufnr })
           end
         end,
       }),
-      -- ... Keep your uncrashable previewer section exactly as it is ...
       -- previewer = previewers.new_buffer_previewer({
       --   title = 'Board Details',
       --   define_preview = function(self, entry)
-      --     local board = entry.value
-      --     local lines = {
-      --       ' 📋 ' .. (board.name or 'Unknown Board'),
-      --       ' ──────────────────────────────────────────────────',
-      --     }
+      --     -- 1. WINDOW HANDLE VALVE: Guard against late async callbacks during active resizes
+      --     if not self.state or not self.state.winid or not vim.api.nvim_win_is_valid(self.state.winid) then
+      --       return
+      --     end
       --
-      --     -- 1. Gather all core properties into a clean raw array
-      --     local raw_specs = {
-      --       { label = 'Board ID', val = board.id },
-      --       { label = 'Platform', val = board.platform },
-      --       { label = 'MCU Type', val = board.mcu },
-      --     }
+      --     local b = entry.value
+      --     local lines = { " 📋 " .. (b.name or "Unknown Board"), " ──────────────────────────────────────" }
+      --     local specs = {}
       --
-      --     -- Parse frequency with clean space separators
-      --     if board.fcpu then
-      --       local formatted_num = tostring(board.fcpu)
-      --       while true do
-      --         local new_num, k = string.gsub(formatted_num, '^(-?%d+)(%d%d%d)', '%1 %2')
-      --         if k == 0 then
-      --           break
+      --     -- 2. DYNAMIC FLAT PARSER: Automatically extract every property key in the JSON root
+      --     for k, v in pairs(b) do
+      --       -- Skip complex arrays because they display below in lists
+      --       if k ~= "frameworks" and k ~= "connectivity" and k ~= "debug" and k ~= "name" then
+      --         if type(v) ~= "table" and v ~= nil and v ~= "" and not rawequal(v, vim.empty_dict) then
+      --           -- Format and capitalize the key dynamically (e.g., "mcu" -> "Mcu")
+      --           local label = k:sub(1,1):upper() .. k:sub(2)
+      --
+      --           -- Format big clock numbers nicely
+      --           if label == "Fcpu" and tonumber(v) then
+      --             local num = tostring(v)
+      --             while true do
+      --               local new_num, k_sub = string.gsub(num, "^(-?%d+)(%d%d%d)", '%1 %2')
+      --               if k_sub == 0 then break end
+      --               num = new_num
+      --             end
+      --             v = num .. " Hz"
+      --           end
+      --           table.insert(specs, { label = label, val = tostring(v) })
+      --
+      --         -- Flatten second-level vendor metadata objects (Flash, RAM, etc.)
+      --         elseif k == "vendor" and type(v) == "table" then
+      --           for vk, vv in pairs(v) do
+      --             if type(vv) ~= "table" and vv ~= "" and not rawequal(vv, vim.empty_dict) then
+      --               local label = "Vendor " .. vk:sub(1,1):upper() .. vk:sub(2)
+      --               table.insert(specs, { label = label, val = tostring(vv) })
+      --             end
+      --           end
       --         end
-      --         formatted_num = new_num
-      --       end
-      --       table.insert(raw_specs, { label = 'Frequency', val = formatted_num .. ' Hz' })
-      --     end
-      --
-      --     -- Append vendor storage specs if they exist
-      --     if board.vendor then
-      --       if board.vendor.flash then
-      --         table.insert(raw_specs, { label = 'Flash Size', val = board.vendor.flash })
-      --       end
-      --       if board.vendor.ram then
-      --         table.insert(raw_specs, { label = 'RAM Size', val = board.vendor.ram })
       --       end
       --     end
       --
-      --     -- 2. SMART DELIMITER: Find the length of the longest label to calculate padding width
-      --     local max_label_len = 0
-      --     for _, spec in ipairs(raw_specs) do
-      --       if spec.val and not rawequal(spec.val, vim.empty_dict) then
-      --         max_label_len = math.max(max_label_len, string.len(spec.label))
-      --       end
+      --     -- 3. DYNAMIC WIRELESS EXTRACTION: Read connectivity lists for flags on the fly
+      --     local conn_str = type(b.connectivity) == "table" and table.concat(b.connectivity, " "):lower() or tostring(b.connectivity or ""):lower()
+      --     if conn_str ~= "" then
+      --       table.insert(specs, { label = "Wi-Fi",     val = (conn_str:match("wifi") or conn_str:match("wireless")) and "Yes" or "-" })
+      --       table.insert(specs, { label = "Bluetooth", val = (conn_str:match("blue") or conn_str:match("ble")) and "Yes" or "-" })
       --     end
       --
-      --     -- 3. Build perfectly aligned property rows
-      --     for _, spec in ipairs(raw_specs) do
-      --       local val = spec.val
-      --       if val and not rawequal(val, vim.empty_dict) and (type(val) ~= 'table' or not vim.tbl_isempty(val)) then
-      --         -- Calculate exact space padding needed for this specific row
-      --         local padding = string.rep(' ', max_label_len - string.len(spec.label))
-      --         table.insert(lines, string.format('  %s%s  │  %s', spec.label, padding, tostring(val)))
-      --       end
+      --     -- Sort alphabetically so fields don't jump around randomly when navigating boards
+      --     table.sort(specs, function(a, b_item) return a.label < b_item.label end)
+      --
+      --     -- 4. COLUMN WIDTH TRACKER: Calculate alignment dynamically based on discovered keys
+      --     local max_len = 0
+      --     for _, s in ipairs(specs) do max_len = math.max(max_len, string.len(s.label)) end
+      --     local format_str = string.format("  %%-%ds │  %%s", max_len)
+      --
+      --     for _, s in ipairs(specs) do
+      --       table.insert(lines, string.format(format_str, s.label, s.val))
       --     end
       --
-      --     table.insert(lines, '') -- Visual break separator
-      --
-      --     -- Helper function to render arrays/tables safely into clean bullet lists
-      --     local function append_list_section(title, data)
-      --       if not data or rawequal(data, vim.empty_dict) or (type(data) == 'table' and vim.tbl_isempty(data)) then
-      --         return
-      --       end
-      --       table.insert(lines, ' ' .. title)
-      --       table.insert(lines, ' ──────────────────────────────────────')
-      --       if type(data) == 'table' then
-      --         for _, item in ipairs(data) do
-      --           table.insert(lines, '   • ' .. tostring(item))
+      --     -- 5. Safe Multi-line List Appender Helper
+      --     local function add_list(title, data)
+      --       if data and not rawequal(data, vim.empty_dict) and (type(data) ~= "table" or not vim.tbl_isempty(data)) then
+      --         table.insert(lines, "")
+      --         table.insert(lines, " " .. title)
+      --         table.insert(lines, " ──────────────────────────────────────")
+      --         for _, item in ipairs(type(data) == "table" and data or { data }) do
+      --           table.insert(lines, "   • " .. tostring(item))
       --         end
-      --       else
-      --         table.insert(lines, '   • ' .. tostring(data))
       --       end
-      --       table.insert(lines, '') -- Trailing section space divider
       --     end
       --
-      --     -- 4. Append nested layouts cleanly as distinct sub-blocks
-      --     append_list_section('🛠️  Supported Frameworks', board.frameworks)
-      --     append_list_section('🔌  Debug Protocols', board.debug and board.debug.protocols)
-      --     append_list_section('📡  Connectivity Options', board.connectivity)
+      --     add_list("🛠️  Supported Frameworks", b.frameworks)
+      --     add_list("🔌  Debug Protocols", b.debug and b.debug.protocols)
+      --     add_list("📡  Connectivity Variants", b.connectivity)
       --
-      --     -- 5. Flush the generated strings directly into the telescope preview buffer
-      --     vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
-      --
-      --     -- Swapping to 'help' filetype loads a minimalist text renderer with beautiful boundary markers
-      --     vim.api.nvim_set_option_value('filetype', 'help', { buf = self.state.bufnr })
+      --     -- 6. ATOMIC WRITE GATEWAY: Direct render to Telescope buffer
+      --     if vim.api.nvim_win_is_valid(self.state.winid) and vim.api.nvim_buf_is_valid(self.state.bufnr) then
+      --       vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+      --       vim.api.nvim_set_option_value('filetype', 'help', { buf = self.state.bufnr })
+      --     end
       --   end,
       -- }),
       sorter = telescope_conf.generic_sorter({}),
