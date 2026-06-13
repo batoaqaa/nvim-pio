@@ -85,7 +85,7 @@ These are the default keybindings, which you can override in your configuration.
         { node = 'item', desc = 'Switch [E]nv', shortcut = 'e', command = 'PioPickEnv' },
         { node = 'item', desc = '[I]nitiate project', shortcut = 'i', command = 'Pioinit' },
         { node = 'item', desc = '[L]ist terminals', shortcut = 'l', command = 'PioTermList' },
-        { node = 'item', desc = '[M]onitor terminal', shortcut = 'm', command = 'Piomon run -t monitor' },
+        { node = 'item', desc = '[M]onitor terminal', shortcut = 'm', command = 'Piomon' },
         { node = 'item', desc = 're[S]art clangd', shortcut = 's', command = 'Clangdrestart' },
         {
           node = 'menu',
