@@ -233,7 +233,7 @@ function M.configure_hardware_parameters()
     if p_state.monitor_speed then table.insert(patches, 'monitor_speed = ' .. p_state.monitor_speed) end
     if p_state.monitor_rts   then table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts) end
     if p_state.monitor_dtr   then table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr) end
-    
+
     -- HERE IS THE PLACE: Inserted dynamically right after your pin states
     if p_state.monitor_filters and p_state.monitor_filters ~= 'default (none)' then
       table.insert(patches, 'monitor_filters = ' .. p_state.monitor_filters)

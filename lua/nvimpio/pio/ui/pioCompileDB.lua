@@ -15,10 +15,9 @@ local function pioCompileDB()
     end)
   end
   -- local cb = pio.handlePioDB
-  local cmd1 = 'ls'
   local cmd = 'pio run -t compiledb -e ' .. active_env
 
-  parser.run_sequence({ cmnds = { cmd1, cmd }, cb = cb , from = 'PioCompileDB:'})
+  parser.run_sequence({ cmnds = { cmd }, cb = cb , from = 'PioCompileDB:'})
 end
 
 return {
