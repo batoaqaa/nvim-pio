@@ -99,6 +99,7 @@ local function pick_board(json_data)
       layout_config = {
         width = 0.9, -- Overall width of the Telescope window (90% of screen)
         preview_width = 0.70, -- 65% of the window goes to "Board Details", leaving 25% for results
+        preview_cutoff = 120,
       },
       finder = finders.new_table({
         results = json_data,
