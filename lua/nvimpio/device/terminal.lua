@@ -78,6 +78,7 @@ local Terminal = {
   win       = nil,
   job       = nil,
   newline   = OS.eol,
+  filetype  = "pio_terminal",
   shell     = {},
   keymaps   = {}, -- Both configuration states live fully encapsulated inside the prototype block [INDEX]!
 }
@@ -174,6 +175,10 @@ function Terminal:show()
   if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
     self.buf = vim.api.nvim_create_buf(false, true)
     is_new_buffer = true
+  end
+
+  if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
+    vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.buf })
   end
 
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
