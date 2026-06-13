@@ -169,9 +169,17 @@ local function pick_board(json_data)
           add_list("🔌  Debug Protocols", b.debug and b.debug.protocols)
           add_list("📡  Connectivity Options", b.connectivity)
 
-          -- 5. Flush lines to buffer safely
-          vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
-          vim.api.nvim_set_option_value('filetype', 'help', { buf = self.state.bufnr })
+          -- 5.Added safety check to verify buffer and window stability during resizes
+          if self.state and self.state.bufnr and vim.api.nvim_buf_is_valid(self.state.bufnr) then
+            -- Verify that the window id is still active before doing anything
+            if self.state.winid and vim.api.nvim_win_is_valid(self.state.winid) then
+
+              -- Perform the write operation safely
+              vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+              vim.api.nvim_set_option_value('filetype', 'help', { buf = self.state.bufnr })
+
+            end
+          end
         end,
       }),
       -- previewer = previewers.new_buffer_previewer({
