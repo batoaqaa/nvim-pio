@@ -98,7 +98,7 @@ end
 
 --- Spawn process channels strictly inside our pre-rendered split window container
 function Terminal:_spawn(target_height)
-  -- Run termopen natively inside the already allocated window viewport context
+  -- Run termopen natively inside our completely isolated buffer container
   local channel_id = vim.fn.termopen(M.config.shell, {
     on_stdout = function(j, d, e)
       if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
@@ -210,19 +210,17 @@ function Terminal:show()
     self.last_win = opposite_instance.last_win or self.last_win
     opposite_instance.win = nil
 
-    -- 🌟 BUG FIX: If our own buffer hasn't been instantiated yet, generate it now!
-    -- This enforces that self.buf is a valid Lua number before win_set_buf runs.
+    -- Guarantee our buffer exists *before* putting it in the window frame
     if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
-      -- Temporarily swap layout focus into our sibling window so botright split runs safely inside it
+      self.buf = vim.api.nvim_create_buf(false, true)
+      -- Force current layout context focus onto the sibling window to spawn cleanly
+      local prev_win = vim.api.nvim_get_current_win()
       vim.api.nvim_set_current_win(self.win)
-      vim.cmd('botright ' .. target_height .. 'split')
-      local temp_win = vim.api.nvim_get_current_win()
-      self.buf = vim.api.nvim_get_current_buf()
       self:_spawn(target_height)
-      vim.api.nvim_win_close(temp_win, true) -- Tear down the temporary creation lane
+      vim.api.nvim_set_current_win(prev_win)
     end
 
-    -- Swap buffer seamlessly without destroying or altering any window splits
+    -- Swap buffer seamlessly inside the existing window split frame
     vim.api.nvim_win_set_buf(self.win, self.buf)
     M.UpdateWinbarTitles()
     vim.cmd('startinsert')
@@ -235,20 +233,19 @@ function Terminal:show()
     return true
   end
 
-  -- Bulletproof Native Window Split Allocation Creation Routine
-  vim.cmd('botright ' .. target_height .. 'split')
-  self.win = vim.api.nvim_get_current_win()
-
+  -- 🌟 ARCHITECTURAL CERTAINTY: Generate isolated scratch buffer FIRST
+  -- This makes clangd and other LSPs 100% blind to it.
   local is_new_buffer = false
   if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
-    self.buf = vim.api.nvim_get_current_buf()
+    self.buf = vim.api.nvim_create_buf(false, true)
     is_new_buffer = true
   end
 
+  -- Render the window layout using precise api options under the active code file window
+  self.win = vim.api.nvim_open_win(self.buf, true, { split = 'below', win = -1, height = target_height })
+
   if is_new_buffer then
     self:_spawn(target_height)
-  else
-    vim.api.nvim_win_set_buf(self.win, self.buf)
   end
 
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
