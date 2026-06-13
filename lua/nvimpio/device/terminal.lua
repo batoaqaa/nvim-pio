@@ -154,15 +154,15 @@ function Terminal:show()
 
     -- Check if the target buffer needs to be created from scratch
     if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
+      -- Keep this buffer 100% pristine: no options, no filetypes set yet
       self.buf = vim.api.nvim_create_buf(false, true)
-      vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.buf })
 
-      -- 🌟 FIX: Spawn and run termopen while the buffer is perfectly pristine and unmodified
+      -- Spawn and run termopen immediately while it is entirely unmodified
       local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
       self:_spawn(target_height, opposite_instance)
     end
 
-    -- 🌟 Now it is perfectly safe to swap the running buffer into the window split
+    -- Now swap the running terminal buffer into the active window split
     vim.api.nvim_win_set_buf(self.win, self.buf)
     M.UpdateWinbarTitles()
     vim.cmd("startinsert")
@@ -178,12 +178,9 @@ function Terminal:show()
   -- 3. Standard split layout creator branch if no panels are open yet
   local is_new_buffer = false
   if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
+    -- Keep buffer pristine for termopen
     self.buf = vim.api.nvim_create_buf(false, true)
     is_new_buffer = true
-  end
-
-  if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
-    vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.buf })
   end
 
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
@@ -259,6 +256,7 @@ end
 
 
 function Terminal:_spawn(target_height, opposite_instance)
+  -- Execute channel connection while buffer is unmutated
   local channel_id = vim.fn.termopen(self.shell, {
     on_stdout = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
     on_stderr = function(j, d, e) if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end end,
@@ -268,8 +266,12 @@ function Terminal:_spawn(target_height, opposite_instance)
   if not channel_id or channel_id <= 0 then return end
   self.job = channel_id
 
-  -- 🌟 INTERCEPT :q AND :q! COMMANDS
-  -- Redirects native manual exits back to your true code window split
+  -- 🌟 SAFE INJECTION LAYER: Set filetype safely now that termopen is active
+  if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
+    vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.buf })
+  end
+
+  -- Intercept manual exits via :q or :q! 
   local quit_group = vim.api.nvim_create_augroup("PioQuit_" .. self.buf, { clear = true })
   vim.api.nvim_create_autocmd("BufWinLeave", {
     group = quit_group,
