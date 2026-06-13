@@ -102,6 +102,7 @@ function Terminal:send(command)
   if not self.job or self.job <= 0 then
     return
   end
+  vim.cmd('startinsert')
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 end
 
