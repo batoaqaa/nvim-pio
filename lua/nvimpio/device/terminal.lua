@@ -30,15 +30,36 @@ M.exit_callback = nil
 ---@param instance Terminal The specific object handle to clear down.
 local function SafeCloseTerminal(instance)
   if not instance then return end
+
+  -- Restore the shared workspace context before window destruction
+  if M.previous_buf and vim.api.nvim_buf_is_valid(M.previous_buf) then
+    local current_win = vim.api.nvim_get_current_win()
+    if vim.api.nvim_win_is_valid(current_win) then
+      pcall(vim.api.nvim_win_set_buf, current_win, M.previous_buf)
+    end
+  end
+
   if instance.win and vim.api.nvim_win_is_valid(instance.win) then
     vim.api.nvim_win_close(instance.win, true)
   end
   instance.win = nil
+
   vim.schedule(function()
     vim.cmd("wincmd =")
     M.UpdateWinbarTitles()
   end)
 end
+-- local function SafeCloseTerminal(instance)
+--   if not instance then return end
+--   if instance.win and vim.api.nvim_win_is_valid(instance.win) then
+--     vim.api.nvim_win_close(instance.win, true)
+--   end
+--   instance.win = nil
+--   vim.schedule(function()
+--     vim.cmd("wincmd =")
+--     M.UpdateWinbarTitles()
+--   end)
+-- end
 
 --- Visual redrawing loop engine applying winbar header tags
 function M.UpdateWinbarTitles()
@@ -119,6 +140,14 @@ function Terminal:close()
   if not self.job or self.job <= 0 then return end
   pcall(vim.fn.jobstop, self.job)
 
+  -- Restore workspace context
+  if M.previous_buf and vim.api.nvim_buf_is_valid(M.previous_buf) then
+    local current_win = vim.api.nvim_get_current_win()
+    if vim.api.nvim_win_is_valid(current_win) then
+      pcall(vim.api.nvim_win_set_buf, current_win, M.previous_buf)
+    end
+  end
+
   if self.win and vim.api.nvim_win_is_valid(self.win) then
     vim.api.nvim_win_close(self.win, true)
   end
@@ -131,21 +160,35 @@ function Terminal:close()
     M.UpdateWinbarTitles()
   end)
 end
+-- function Terminal:close()
+--   if not self.job or self.job <= 0 then return end
+--   pcall(vim.fn.jobstop, self.job)
+--
+--   if self.win and vim.api.nvim_win_is_valid(self.win) then
+--     vim.api.nvim_win_close(self.win, true)
+--   end
+--   self.win = nil
+--   self.buf = nil
+--   self.job = nil
+--
+--   vim.schedule(function()
+--     vim.cmd("wincmd =")
+--     M.UpdateWinbarTitles()
+--   end)
+-- end
 
 --- Pure Hide Pass - Closes the split window layout viewport panel cleanly.
 ---@method
 ---@return nil
 function Terminal:hide()
-  -- 🌟 RESTORE ROUTINE: Jump window viewport focus back to the shared source context
+  -- Restore workspace context
   if M.previous_buf and vim.api.nvim_buf_is_valid(M.previous_buf) then
-    local target_win = vim.api.nvim_get_current_win()
-    pcall(vim.api.nvim_win_set_buf, target_win, M.previous_buf)
-  else
-    -- Standard structural fallback if the workspace history was entirely wiped
-    vim.cmd("wincmd k")
+    local current_win = vim.api.nvim_get_current_win()
+    if vim.api.nvim_win_is_valid(current_win) then
+      pcall(vim.api.nvim_win_set_buf, current_win, M.previous_buf)
+    end
   end
 
-  -- Safe window teardown
   if self.win and vim.api.nvim_win_is_valid(self.win) then
     vim.api.nvim_win_close(self.win, true)
   end
@@ -156,6 +199,28 @@ function Terminal:hide()
     M.UpdateWinbarTitles()
   end)
 end
+
+-- function Terminal:hide()
+--   -- 🌟 RESTORE ROUTINE: Jump window viewport focus back to the shared source context
+--   if M.previous_buf and vim.api.nvim_buf_is_valid(M.previous_buf) then
+--     local target_win = vim.api.nvim_get_current_win()
+--     pcall(vim.api.nvim_win_set_buf, target_win, M.previous_buf)
+--   else
+--     -- Standard structural fallback if the workspace history was entirely wiped
+--     vim.cmd("wincmd k")
+--   end
+--
+--   -- Safe window teardown
+--   if self.win and vim.api.nvim_win_is_valid(self.win) then
+--     vim.api.nvim_win_close(self.win, true)
+--   end
+--   self.win = nil
+--
+--   vim.schedule(function()
+--     vim.cmd("wincmd =")
+--     M.UpdateWinbarTitles()
+--   end)
+-- end
 -- function Terminal:hide()
 --   if self.win and vim.api.nvim_win_is_valid(self.win) then
 --     vim.api.nvim_win_close(self.win, true)
