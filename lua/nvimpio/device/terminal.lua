@@ -82,7 +82,7 @@ local Terminal = {
   win = nil,
   last_win = nil,
   job = nil,
-  newline = '\r\n', -- 🌟 Cross-platform native terminal line terminator
+  newline = OS.eol, -- 🌟 Cross-platform native terminal line terminator
   filetype = 'pio_terminal',
 }
 Terminal.__index = Terminal
