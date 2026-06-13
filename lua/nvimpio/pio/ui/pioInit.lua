@@ -90,28 +90,64 @@ local function pick_framework(board_details)
 end
 
 -- Step 1: Board (Entry Point)
+-- local function pick_board(json_data)
+--   pickers
+--     .new({}, {
+--       prompt_title = 'Select Board',
+--       -- Define the layout behavior
+--       layout_strategy = 'horizontal',
+--       layout_config = {
+--         width = 0.9, -- Overall width of the Telescope window (90% of screen)
+--         preview_width = 0.70, -- 65% of the window goes to "Board Details", leaving 25% for results
+--         preview_cutoff = 120,
+--       },
+--       finder = finders.new_table({
+--         results = json_data,
+--         entry_maker = function(entry)
+--           return {
+--             value = entry,
+--             display = entry.name or entry.id,
+--             ordinal = (entry.name or '') .. ' ' .. (entry.id or ''),
+--           }
+--         end,
+--       }),
+
+-- Step 1: Board (Entry Point)
 local function pick_board(json_data)
+  -- 1. Deduplicate the source json array cleanly before feeding it to Telescope
+  local unique_boards = {}
+  local seen_ids = {}
+  for _, board in ipairs(json_data) do
+    if board.id and not seen_ids[board.id] then
+      seen_ids[board.id] = true
+      table.insert(unique_boards, board)
+    end
+  end
+
   pickers
     .new({}, {
       prompt_title = 'Select Board',
-      -- Define the layout behavior
       layout_strategy = 'horizontal',
       layout_config = {
-        width = 0.9, -- Overall width of the Telescope window (90% of screen)
-        preview_width = 0.70, -- 65% of the window goes to "Board Details", leaving 25% for results
+        width = 0.9,
+        preview_width = 0.70,
         preview_cutoff = 120,
       },
       finder = finders.new_table({
-        results = json_data,
+        results = unique_boards, -- Use the deduplicated table array
         entry_maker = function(entry)
+          -- 2. Strictly define distinct values to prevent caching row overlaps
+          local board_name = entry.name or entry.id
           return {
             value = entry,
-            display = entry.name or entry.id,
-            ordinal = (entry.name or '') .. ' ' .. (entry.id or ''),
+            display = board_name,
+            -- Enforcing an explicit unique identifier prevents row duplication bugs!
+            ordinal = string.format("%s %s", tostring(board_name), tostring(entry.id)),
+            id = entry.id,
           }
         end,
       }),
-
+      -- ... Keep your uncrashable previewer section exactly as it is ...
       previewer = previewers.new_buffer_previewer({
         title = 'Board Details',
         define_preview = function(self, entry)
