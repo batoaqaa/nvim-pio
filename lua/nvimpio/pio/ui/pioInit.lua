@@ -109,36 +109,97 @@ local function pick_board(json_data)
           }
         end,
       }),
+
       previewer = previewers.new_buffer_previewer({
         title = 'Board Details',
         define_preview = function(self, entry)
-          -- Helper function to clean up vim.empty_dict() artifacts recursively
-          local function sanitize(t)
-            if type(t) ~= 'table' then
-              return t
+          local board = entry.value
+          local lines = {
+            '# 📋 ' .. (board.name or 'Unknown Board'),
+            '',
+            '| Parameter | Value |',
+            '| :--- | :--- |',
+          }
+
+          -- Core fields to display at the top of the table
+          local core_fields = {
+            { id = 'ID', key = 'id' },
+            { id = 'Platform', key = 'platform' },
+            { id = 'Mcu', key = 'mcu' },
+            { id = 'Frequency', key = 'fcpu', suffix = ' Hz' },
+          }
+
+          -- 1. Build the primary markdown table rows
+          for _, field in ipairs(core_fields) do
+            local val = board[field.key]
+            if val == nil or rawequal(val, vim.empty_dict) or (type(val) == 'table' and vim.tbl_isempty(val)) then
+              val = '-'
+            elseif type(val) == 'number' and field.suffix then
+              val = string.format('%s%,d%s', '', val, field.suffix):gsub(',', ' ') -- Format large numbers neatly
             end
-            -- If it's the specific Neovim empty dict userdatum, swap it for a clean empty table
-            if rawequal(t, vim.empty_dict) then
-              return {}
-            end
-            local cleaned = {}
-            for k, v in pairs(t) do
-              cleaned[k] = sanitize(v)
-            end
-            return cleaned
+            table.insert(lines, string.format('| **%s** | %s |', field.id, tostring(val)))
           end
-          -- 1. Sanitize the entry value before inspecting it
-          local clean_value = sanitize(entry.value)
-          -- 2. Format the lines cleanly into the buffer
-          local content = vim.split(vim.inspect(clean_value), '\n')
-          vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, content)
-          vim.api.nvim_set_option_value('filetype', 'lua', { buf = self.state.bufnr })
+
+          -- 2. Build the memory specs if they exist inside the vendor dictionary
+          if board.vendor then
+            local flash = board.vendor.flash or '-'
+            local ram = board.vendor.ram or '-'
+            table.insert(lines, string.format('| **Flash Size** | %s |', tostring(flash)))
+            table.insert(lines, string.format('| **RAM Size** | %s |', tostring(ram)))
+          end
+
+          table.insert(lines, '') -- Spacer break before list items
+
+          -- Helper function to render arrays/tables safely into clean bullet lists
+          local function append_list_section(title, data)
+            if not data or rawequal(data, vim.empty_dict) or (type(data) == 'table' and vim.tbl_isempty(data)) then
+              return
+            end
+            table.insert(lines, '### ' .. title)
+            if type(data) == 'table' then
+              for _, item in ipairs(data) do
+                table.insert(lines, ' - `' .. tostring(item) .. '`')
+              end
+            else
+              table.insert(lines, ' - `' .. tostring(data) .. '`')
+            end
+            table.insert(lines, '') -- Trailing section space divider
+          end
+
+          -- 3. Append nested layout details cleanly as markdown sections
+          append_list_section('🛠️ Supported Frameworks', board.frameworks)
+          append_list_section('🔌 Debug Protocols', board.debug and board.debug.protocols)
+          append_list_section('📡 Connectivity Options', board.connectivity)
+
+          -- 4. Flush the generated strings directly into the telescope preview buffer
+          vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+
+          -- Setting filetype to 'markdown' makes Neovim render font styles and tables automatically!
+          vim.api.nvim_set_option_value('filetype', 'markdown', { buf = self.state.bufnr })
         end,
       }),
       -- previewer = previewers.new_buffer_previewer({
       --   title = 'Board Details',
       --   define_preview = function(self, entry)
-      --     local content = vim.split(vim.inspect(entry.value), '\n')
+      --     -- Helper function to clean up vim.empty_dict() artifacts recursively
+      --     local function sanitize(t)
+      --       if type(t) ~= 'table' then
+      --         return t
+      --       end
+      --       -- If it's the specific Neovim empty dict userdatum, swap it for a clean empty table
+      --       if rawequal(t, vim.empty_dict) then
+      --         return {}
+      --       end
+      --       local cleaned = {}
+      --       for k, v in pairs(t) do
+      --         cleaned[k] = sanitize(v)
+      --       end
+      --       return cleaned
+      --     end
+      --     -- 1. Sanitize the entry value before inspecting it
+      --     local clean_value = sanitize(entry.value)
+      --     -- 2. Format the lines cleanly into the buffer
+      --     local content = vim.split(vim.inspect(clean_value), '\n')
       --     vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, content)
       --     vim.api.nvim_set_option_value('filetype', 'lua', { buf = self.state.bufnr })
       --   end,
