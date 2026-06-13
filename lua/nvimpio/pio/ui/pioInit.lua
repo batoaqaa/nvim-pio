@@ -115,76 +115,87 @@ local function pick_board(json_data)
         define_preview = function(self, entry)
           local board = entry.value
           local lines = {
-            '# 📋 ' .. (board.name or 'Unknown Board'),
-            '',
-            '| Parameter | Value |',
-            '| :--- | :--- |',
+            ' 📋 ' .. (board.name or 'Unknown Board'),
+            ' ──────────────────────────────────────────────────',
           }
 
-          -- Core fields to display at the top of the table
-          local core_fields = {
-            { id = 'ID', key = 'id' },
-            { id = 'Platform', key = 'platform' },
-            { id = 'Mcu', key = 'mcu' },
-            { id = 'Frequency', key = 'fcpu', suffix = ' Hz' },
+          -- 1. Gather all core properties into a clean raw array
+          local raw_specs = {
+            { label = 'Board ID', val = board.id },
+            { label = 'Platform', val = board.platform },
+            { label = 'MCU Type', val = board.mcu },
           }
 
-          -- 1. Build the primary markdown table rows
-          for _, field in ipairs(core_fields) do
-            local val = board[field.key]
-            if val == nil or rawequal(val, vim.empty_dict) or (type(val) == 'table' and vim.tbl_isempty(val)) then
-              val = '-'
-            elseif type(val) == 'number' and field.suffix then
-              -- FIX: Replaced the broken '%,d' format with a clean Lua reverse matching regex loop
-              local formatted_num = tostring(val)
-              while true do
-                local new_num, k = string.gsub(formatted_num, '^(-?%d+)(%d%d%d)', '%1 %2')
-                if k == 0 then
-                  break
-                end
-                formatted_num = new_num
+          -- Parse frequency with clean space separators
+          if board.fcpu then
+            local formatted_num = tostring(board.fcpu)
+            while true do
+              local new_num, k = string.gsub(formatted_num, '^(-?%d+)(%d%d%d)', '%1 %2')
+              if k == 0 then
+                break
               end
-              val = formatted_num .. field.suffix
+              formatted_num = new_num
             end
-            table.insert(lines, string.format('| **%s** | %s |', field.id, tostring(val)))
+            table.insert(raw_specs, { label = 'Frequency', val = formatted_num .. ' Hz' })
           end
 
-          -- 2. Build the memory specs if they exist inside the vendor dictionary
+          -- Append vendor storage specs if they exist
           if board.vendor then
-            local flash = board.vendor.flash or '-'
-            local ram = board.vendor.ram or '-'
-            table.insert(lines, string.format('| **Flash Size** | %s |', tostring(flash)))
-            table.insert(lines, string.format('| **RAM Size** | %s |', tostring(ram)))
+            if board.vendor.flash then
+              table.insert(raw_specs, { label = 'Flash Size', val = board.vendor.flash })
+            end
+            if board.vendor.ram then
+              table.insert(raw_specs, { label = 'RAM Size', val = board.vendor.ram })
+            end
           end
 
-          table.insert(lines, '') -- Spacer break before list items
+          -- 2. SMART DELIMITER: Find the length of the longest label to calculate padding width
+          local max_label_len = 0
+          for _, spec in ipairs(raw_specs) do
+            if spec.val and not rawequal(spec.val, vim.empty_dict) then
+              max_label_len = math.max(max_label_len, string.len(spec.label))
+            end
+          end
+
+          -- 3. Build perfectly aligned property rows
+          for _, spec in ipairs(raw_specs) do
+            local val = spec.val
+            if val and not rawequal(val, vim.empty_dict) and (type(val) ~= 'table' or not vim.tbl_isempty(val)) then
+              -- Calculate exact space padding needed for this specific row
+              local padding = string.rep(' ', max_label_len - string.len(spec.label))
+              table.insert(lines, string.format('  %s%s  │  %s', spec.label, padding, tostring(val)))
+            end
+          end
+
+          table.insert(lines, '') -- Visual break separator
 
           -- Helper function to render arrays/tables safely into clean bullet lists
           local function append_list_section(title, data)
             if not data or rawequal(data, vim.empty_dict) or (type(data) == 'table' and vim.tbl_isempty(data)) then
               return
             end
-            table.insert(lines, '### ' .. title)
+            table.insert(lines, ' ' .. title)
+            table.insert(lines, ' ──────────────────────────────────────')
             if type(data) == 'table' then
               for _, item in ipairs(data) do
-                table.insert(lines, ' - `' .. tostring(item) .. '`')
+                table.insert(lines, '   • ' .. tostring(item))
               end
             else
-              table.insert(lines, ' - `' .. tostring(data) .. '`')
+              table.insert(lines, '   • ' .. tostring(data))
             end
             table.insert(lines, '') -- Trailing section space divider
           end
 
-          -- 3. Append nested layout details cleanly as markdown sections
-          append_list_section('🛠️ Supported Frameworks', board.frameworks)
-          append_list_section('🔌 Debug Protocols', board.debug and board.debug.protocols)
-          append_list_section('📡 Connectivity Options', board.connectivity)
+          -- 4. Append nested layouts cleanly as distinct sub-blocks
+          append_list_section('🛠️  Supported Frameworks', board.frameworks)
+          append_list_section('🔌  Debug Protocols', board.debug and board.debug.protocols)
+          append_list_section('📡  Connectivity Options', board.connectivity)
 
-          -- 4. Flush the generated strings directly into the telescope preview buffer
+          -- 5. Flush the generated strings directly into the telescope preview buffer
           vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
 
-          -- Setting filetype to 'markdown' makes Neovim render font styles and tables automatically!
-          vim.api.nvim_set_option_value('filetype', 'markdown', { buf = self.state.bufnr })
+          -- Swapping to 'help' filetype loads a minimalist text renderer with beautiful boundary markers
+          vim.api.nvim_set_option_value('filetype', 'help', { buf = self.state.bufnr })
         end,
       }),
       -- previewer = previewers.new_buffer_previewer({
