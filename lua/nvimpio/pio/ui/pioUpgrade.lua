@@ -1,43 +1,31 @@
-local function install_platformio_in_venv()
-  -- 1. Create a safe path for the venv inside Neovim's standard data directory
-  local data_dir = vim.fn.stdpath('data')
-  local venv_path = vim.fs.normalize(data_dir .. '/pio_venv')
+local function pioUpgrade()
+  local runtime_dir = require('nvimpio').config.pio_runtime_dir
+  local custom_penv_dir = require('nvimpio.core').clean(runtime_dir .. OS.folder_sep .. 'penv')
 
-  -- 2. Detect OS to map the correct Python binary location
-  local is_win = vim.uv.os_uname().sysname:find('Windows') ~= nil
-  local python_bin = is_win and venv_path .. '/Scripts/python.exe' or venv_path .. '/bin/python3'
-  local pip_bin = is_win and venv_path .. '/Scripts/pip.exe' or venv_path .. '/bin/pip'
-
-  print('Starting PlatformIO installation in isolated venv...')
-
-  -- 3. Phase A: Create the virtual environment if it doesn't exist
-  if vim.fn.isdirectory(venv_path) == 0 then
-    print('Creating Python virtual environment...')
-    vim.system({ 'python3', '-m', 'venv', venv_path }):wait()
-  end
-
-  -- 4. Phase B: Upgrade pip inside the venv to avoid warning logs
-  print('Upgrading pip...')
-  vim.system({ python_bin, '-m', 'pip', 'install', '-U', 'pip' }):wait()
-
-  -- 5. Phase C: Run the core platformio installation synchronously
-  print('Installing PlatformIO core packages...')
-  local obj = vim.system({ pip_bin, 'install', '-U', 'platformio' }):wait()
-
-  -- 6. Verify result
-  if obj.code == 0 then
-    print('PlatformIO successfully installed inside Neovim venv!')
-    print('Binary path: ' .. python_bin)
+  local pioUpgrade_cmd, pioEnv
+  if OS.is_win then
+    pioUpgrade_cmd = string.format('%s/Scripts/pip.exe install -U platformio', custom_penv_dir)
+    pioEnv = string.format('$env:PATH = "%s/Scripts;" + $env:PATH', custom_penv_dir)
   else
-    print('PlatformIO setup failed with exit code: ' .. obj.code)
-    if obj.stderr then
-      print('Error details: ' .. obj.stderr)
-    end
+    pioUpgrade_cmd = string.format('%s/bin/pip install -U platformio', custom_penv_dir)
+    pioEnv = string.format('export PATH="%s/bin:$PATH"', custom_penv_dir)
   end
+
+  -- 6. Establish downstream update pipeline connections
+  -- local pio = require('nvimpio.pio.upkeep')
+  local cb = function(status)
+    require('nvimpio.device.parser').handlePioUpgrade(status, function(success)
+      if success then
+        do
+        end
+      end
+    end)
+  end
+  require('nvimpio.device.parser').run_sequence({ cmnds = { pioUpgrade_cmd, pioEnv }, cb = cb, from = 'pioUpgrade:' })
 end
 
 return {
-  pioUpgrade = install_platformio_in_venv,
+  pioUpgrade = pioUpgrade,
 }
 -- Create a user command so you can trigger it via `:InstallPIO`
 -- vim.api.nvim_create_user_command("InstallPIO", install_platformio_in_venv, {})

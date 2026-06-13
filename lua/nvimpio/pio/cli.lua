@@ -84,7 +84,6 @@ end
 --INFO: Piocli
 ------------------------------------------------------
 function M.piocli(cmd_table)
-  OS.notify("piocli ......")
   local cmd = (cmd_table[1] == '') and '' or ('pio ' .. table.concat(cmd_table, ' '))
   if cmd ~= '' then sendCmnd(cmd)
   else pio_cli:show() end

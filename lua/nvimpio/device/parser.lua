@@ -230,9 +230,6 @@ function M.handlePioinit(result, board, on_done)
   end
 end
 
-------------------------------------------------------
--- Handle after piolib execution
--- =============================================================================
 function M.handlePioInstall(result, on_done)
   if result == 'INIT' then
     if on_done and type(on_done) == "function" then
@@ -264,6 +261,26 @@ function M.handlePioInstall(result, on_done)
     -- trm:shutdown()
   elseif result == 'FAIL' then
      OS.notify('Installation failed! Check logs and press :q to close.', 'error')
+    if on_done and type(on_done) == "function" then on_done(false) end
+    M.cleanSequencer()
+  end
+end
+
+function M.handlePioUpgrade(result, on_done)
+  if result == 'INIT' then
+    cliTerm:send(pop(M.queue))
+  elseif result == 'PASS' .. current_id then
+     OS.notify(string.format('%s:  pass %s', fromMsg, current_id), "info")
+     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
+  -- elseif result == 'PASS2' then
+  elseif result == 'DONE' then -- result of the only and the last command
+     OS.notify(string.format('%s:  Done', fromMsg), "info")
+    if on_done and type(on_done) == "function" then on_done(true) end
+    -- if trm then trm:close() end
+    M.cleanSequencer()
+    -- trm:shutdown()
+  elseif result == 'FAIL' then
+    OS.notify(string.format('%s:  Upgrade Failed', fromMsg), "info")
     if on_done and type(on_done) == "function" then on_done(false) end
     M.cleanSequencer()
   end
