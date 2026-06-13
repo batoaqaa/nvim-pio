@@ -125,18 +125,18 @@ function M.IsTerminalOpen(term_type)
   return IsTerminalOpen(instance)
 end
 
---- Pure Show Pass - Handles allocation and spawning natively.
+--- Pure Show Pass - Handles allocation, smooth buffer reuse, and spawning natively.
 ---@method
 ---@return boolean # True if the split window canvas layout was drawn successfully.
 function Terminal:show()
-  -- Inspect active window tree structure dynamically prior to splitting
   local active_win = vim.api.nvim_get_current_win()
+
+  -- 1. 🌟 CAPTURE WORKSPACE RIGIDLY: Only remember code files, completely ignore sidebars
   if vim.api.nvim_win_is_valid(active_win) then
     local active_buf = vim.api.nvim_win_get_buf(active_win)
     local active_ft = vim.api.nvim_get_option_value("filetype", { buf = active_buf })
     local win_type = vim.fn.win_gettype(active_win)
 
-    -- Cache target window ONLY if it is a standard file viewport (skips float popups & neo-tree sidebars)
     if active_ft ~= self.filetype and win_type == "" and active_ft ~= "neo-tree" then
       self.last_win = active_win
     end
@@ -144,11 +144,28 @@ function Terminal:show()
 
   local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
 
-  -- Tear down sibling viewport if open to avoid visual layout pollution
+  -- 2. 🌟 FLICKER-FREE LOCKOUT: If sibling viewport is open, hijack its window space directly
   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
+    self.win = opposite_instance.win
     self.last_win = opposite_instance.last_win or self.last_win
-    vim.api.nvim_win_close(opposite_instance.win, true)
-    opposite_instance.win = nil
+    opposite_instance.win = nil -- Sever sibling window reference safely
+
+    -- Ensure our targeted buffer exists before injection
+    if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
+      self.buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.buf })
+
+      -- Native split creation directly under the currently active workspace layout focus window
+      local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
+      self:_spawn(target_height, opposite_instance)
+    end
+
+    -- 🌟 THE MAGIC PRO MOVE: Swap the buffer inside the same window boundary layout instantly!
+    -- This keeps focus locked inside the pane, completely ignoring Neo-tree's triggers.
+    vim.api.nvim_win_set_buf(self.win, self.buf)
+    M.UpdateWinbarTitles()
+    vim.cmd("startinsert")
+    return true
   end
 
   -- Fast path return: If this exact viewport window is already alive, jump focus directly
@@ -157,18 +174,17 @@ function Terminal:show()
     return true
   end
 
+  -- 3. Standard split layout creator branch if no panels are open yet
   local is_new_buffer = false
   if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
     self.buf = vim.api.nvim_create_buf(false, true)
     is_new_buffer = true
   end
 
-  -- Explicitly bind the custom filetype from your class architecture
   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
     vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.buf })
   end
 
-  -- Native split creation directly under the currently active workspace layout focus window
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   self.win = vim.api.nvim_open_win(self.buf, true, { split = "below", win = -1, height = target_height })
 
@@ -180,9 +196,64 @@ function Terminal:show()
   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = self.win })
   M.UpdateWinbarTitles()
 
-  -- vim.cmd("startinsert")
+  vim.cmd("startinsert")
   return true
 end
+-- function Terminal:show()
+--   -- Inspect active window tree structure dynamically prior to splitting
+--   local active_win = vim.api.nvim_get_current_win()
+--   if vim.api.nvim_win_is_valid(active_win) then
+--     local active_buf = vim.api.nvim_win_get_buf(active_win)
+--     local active_ft = vim.api.nvim_get_option_value("filetype", { buf = active_buf })
+--     local win_type = vim.fn.win_gettype(active_win)
+--
+--     -- Cache target window ONLY if it is a standard file viewport (skips float popups & neo-tree sidebars)
+--     if active_ft ~= self.filetype and win_type == "" and active_ft ~= "neo-tree" then
+--       self.last_win = active_win
+--     end
+--   end
+--
+--   local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
+--
+--   -- Tear down sibling viewport if open to avoid visual layout pollution
+--   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
+--     self.last_win = opposite_instance.last_win or self.last_win
+--     vim.api.nvim_win_close(opposite_instance.win, true)
+--     opposite_instance.win = nil
+--   end
+--
+--   -- Fast path return: If this exact viewport window is already alive, jump focus directly
+--   if self.win and vim.api.nvim_win_is_valid(self.win) then
+--     vim.api.nvim_set_current_win(self.win)
+--     return true
+--   end
+--
+--   local is_new_buffer = false
+--   if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
+--     self.buf = vim.api.nvim_create_buf(false, true)
+--     is_new_buffer = true
+--   end
+--
+--   -- Explicitly bind the custom filetype from your class architecture
+--   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
+--     vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.buf })
+--   end
+--
+--   -- Native split creation directly under the currently active workspace layout focus window
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
+--   self.win = vim.api.nvim_open_win(self.buf, true, { split = "below", win = -1, height = target_height })
+--
+--   if is_new_buffer then
+--     self:_spawn(target_height, opposite_instance)
+--   end
+--
+--   vim.cmd("setlocal nonumber norelativenumber signcolumn=no")
+--   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = self.win })
+--   M.UpdateWinbarTitles()
+--
+--   -- vim.cmd("startinsert")
+--   return true
+-- end
 
 
 function Terminal:_spawn(target_height, opposite_instance)
@@ -279,12 +350,12 @@ function Terminal:_attach_keymaps(target_height, opposite_instance)
       return
     end
 
-    opposite_instance.last_win = self.last_win
-
-    if self.win and vim.api.nvim_win_is_valid(self.win) then
-      vim.api.nvim_win_close(self.win, true)
-    end
-    self.win = nil
+    -- opposite_instance.last_win = self.last_win
+    --
+    -- if self.win and vim.api.nvim_win_is_valid(self.win) then
+    --   vim.api.nvim_win_close(self.win, true)
+    -- end
+    -- self.win = nil
 
     vim.schedule(function() opposite_instance:show() end)
   end, { buffer = self.buf, silent = true })
