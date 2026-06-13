@@ -212,6 +212,9 @@ function Terminal:show()
   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = self.win })
   M.UpdateWinbarTitles()
 
+  -- 🌟 Place it here if you want it to trigger ONLY on deliberate panel opens:
+  -- vim.cmd("startinsert")
+
   return true
 end
 
@@ -263,7 +266,7 @@ function Terminal:_attach_events(target_height)
         local current_win = vim.api.nvim_get_current_win()
         if current_win == self.win and IsTerminalOpen(self) then
           pcall(vim.api.nvim_win_set_height, self.win, target_height)
-          if vim.api.nvim_get_mode().mode:sub(1,1) ~= "t" then vim.cmd("normal! G") end
+          -- if vim.api.nvim_get_mode().mode:sub(1,1) ~= "t" then vim.cmd("normal! G") end
         end
       end)
     end,
