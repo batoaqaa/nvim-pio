@@ -202,12 +202,25 @@ function Terminal:show()
   end
 
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
+  local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
 
-  -- FLICKER-FREE REUSE MECHANISM: If sibling window split is open, steal it instantly
+  -- 🌟 FLICKER-FREE REUSE MECHANISM
   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
     self.win = opposite_instance.win
     self.last_win = opposite_instance.last_win or self.last_win
-    opposite_instance.win = nil -- Dissolve sibling window property binding
+    opposite_instance.win = nil
+
+    -- 🌟 BUG FIX: If our own buffer hasn't been instantiated yet, generate it now!
+    -- This enforces that self.buf is a valid Lua number before win_set_buf runs.
+    if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
+      -- Temporarily swap layout focus into our sibling window so botright split runs safely inside it
+      vim.api.nvim_set_current_win(self.win)
+      vim.cmd('botright ' .. target_height .. 'split')
+      local temp_win = vim.api.nvim_get_current_win()
+      self.buf = vim.api.nvim_get_current_buf()
+      self:_spawn(target_height)
+      vim.api.nvim_win_close(temp_win, true) -- Tear down the temporary creation lane
+    end
 
     -- Swap buffer seamlessly without destroying or altering any window splits
     vim.api.nvim_win_set_buf(self.win, self.buf)
@@ -223,16 +236,12 @@ function Terminal:show()
   end
 
   -- Bulletproof Native Window Split Allocation Creation Routine
-  local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   vim.cmd('botright ' .. target_height .. 'split')
-
-  -- Record the newly created bottom window ID handle securely
   self.win = vim.api.nvim_get_current_win()
 
-  -- Check if this specific instance process needs to be built from scratch
   local is_new_buffer = false
   if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
-    self.buf = vim.api.nvim_get_current_buf() -- Takes over the fresh blank split buffer context
+    self.buf = vim.api.nvim_get_current_buf()
     is_new_buffer = true
   end
 
