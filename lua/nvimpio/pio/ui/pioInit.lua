@@ -113,115 +113,134 @@ local function pick_board(json_data)
       previewer = previewers.new_buffer_previewer({
         title = 'Board Details',
         define_preview = function(self, entry)
-          local board = entry.value
+          local b = entry.value
           local lines = {
-            ' 📋 ' .. (board.name or 'Unknown Board'),
-            ' ──────────────────────────────────────────────────',
+            ' 📋 ' .. (b.name or 'Unknown'),
+            ' ──────────────────────────────────────',
           }
 
-          -- 1. Gather all core properties into a clean raw array
-          local raw_specs = {
-            { label = 'Board ID', val = board.id },
-            { label = 'Platform', val = board.platform },
-            { label = 'MCU Type', val = board.mcu },
-          }
-
-          -- Parse frequency with clean space separators
-          if board.fcpu then
-            local formatted_num = tostring(board.fcpu)
-            while true do
-              local new_num, k = string.gsub(formatted_num, '^(-?%d+)(%d%d%d)', '%1 %2')
-              if k == 0 then
-                break
-              end
-              formatted_num = new_num
-            end
-            table.insert(raw_specs, { label = 'Frequency', val = formatted_num .. ' Hz' })
-          end
-
-          -- Append vendor storage specs if they exist
-          if board.vendor then
-            if board.vendor.flash then
-              table.insert(raw_specs, { label = 'Flash Size', val = board.vendor.flash })
-            end
-            if board.vendor.ram then
-              table.insert(raw_specs, { label = 'RAM Size', val = board.vendor.ram })
-            end
-          end
-
-          -- 2. SMART DELIMITER: Find the length of the longest label to calculate padding width
-          local max_label_len = 0
-          for _, spec in ipairs(raw_specs) do
-            if spec.val and not rawequal(spec.val, vim.empty_dict) then
-              max_label_len = math.max(max_label_len, string.len(spec.label))
-            end
-          end
-
-          -- 3. Build perfectly aligned property rows
-          for _, spec in ipairs(raw_specs) do
-            local val = spec.val
+          -- 1. Inline helper to format and append rows with 12-space alignment padding
+          local function add(label, val)
             if val and not rawequal(val, vim.empty_dict) and (type(val) ~= 'table' or not vim.tbl_isempty(val)) then
-              -- Calculate exact space padding needed for this specific row
-              local padding = string.rep(' ', max_label_len - string.len(spec.label))
-              table.insert(lines, string.format('  %s%s  │  %s', spec.label, padding, tostring(val)))
+              table.insert(lines, string.format('  %-12s │  %s', label, tostring(val)))
             end
           end
 
-          table.insert(lines, '') -- Visual break separator
+          -- 2. Add properties instantly
+          add('Board ID', b.id)
+          add('Platform', b.platform)
+          add('MCU Type', b.mcu)
+          add('Frequency', b.fcpu and (tostring(b.fcpu):gsub('^(-?%d+)(%d%d%d)', '%1 %2') .. ' Hz'))
+          add('Flash Size', b.vendor and b.vendor.flash)
+          add('RAM Size', b.vendor and b.vendor.ram)
 
-          -- Helper function to render arrays/tables safely into clean bullet lists
-          local function append_list_section(title, data)
-            if not data or rawequal(data, vim.empty_dict) or (type(data) == 'table' and vim.tbl_isempty(data)) then
-              return
-            end
-            table.insert(lines, ' ' .. title)
-            table.insert(lines, ' ──────────────────────────────────────')
-            if type(data) == 'table' then
-              for _, item in ipairs(data) do
+          -- 3. Inline helper to append lists
+          local function add_list(title, data)
+            if data and not rawequal(data, vim.empty_dict) and (type(data) ~= 'table' or not vim.tbl_isempty(data)) then
+              table.insert(
+                lines,
+                '\n ' .. title .. '\n ──────────────────────────────────────'
+              )
+              for _, item in ipairs(type(data) == 'table' and data or { data }) do
                 table.insert(lines, '   • ' .. tostring(item))
               end
-            else
-              table.insert(lines, '   • ' .. tostring(data))
             end
-            table.insert(lines, '') -- Trailing section space divider
           end
 
-          -- 4. Append nested layouts cleanly as distinct sub-blocks
-          append_list_section('🛠️  Supported Frameworks', board.frameworks)
-          append_list_section('🔌  Debug Protocols', board.debug and board.debug.protocols)
-          append_list_section('📡  Connectivity Options', board.connectivity)
+          add_list('🛠️  Supported Frameworks', b.frameworks)
+          add_list('🔌  Debug Protocols', b.debug and b.debug.protocols)
 
-          -- 5. Flush the generated strings directly into the telescope preview buffer
+          -- 4. Flush lines to buffer
           vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
-
-          -- Swapping to 'help' filetype loads a minimalist text renderer with beautiful boundary markers
           vim.api.nvim_set_option_value('filetype', 'help', { buf = self.state.bufnr })
         end,
       }),
       -- previewer = previewers.new_buffer_previewer({
       --   title = 'Board Details',
       --   define_preview = function(self, entry)
-      --     -- Helper function to clean up vim.empty_dict() artifacts recursively
-      --     local function sanitize(t)
-      --       if type(t) ~= 'table' then
-      --         return t
+      --     local board = entry.value
+      --     local lines = {
+      --       ' 📋 ' .. (board.name or 'Unknown Board'),
+      --       ' ──────────────────────────────────────────────────',
+      --     }
+      --
+      --     -- 1. Gather all core properties into a clean raw array
+      --     local raw_specs = {
+      --       { label = 'Board ID', val = board.id },
+      --       { label = 'Platform', val = board.platform },
+      --       { label = 'MCU Type', val = board.mcu },
+      --     }
+      --
+      --     -- Parse frequency with clean space separators
+      --     if board.fcpu then
+      --       local formatted_num = tostring(board.fcpu)
+      --       while true do
+      --         local new_num, k = string.gsub(formatted_num, '^(-?%d+)(%d%d%d)', '%1 %2')
+      --         if k == 0 then
+      --           break
+      --         end
+      --         formatted_num = new_num
       --       end
-      --       -- If it's the specific Neovim empty dict userdatum, swap it for a clean empty table
-      --       if rawequal(t, vim.empty_dict) then
-      --         return {}
-      --       end
-      --       local cleaned = {}
-      --       for k, v in pairs(t) do
-      --         cleaned[k] = sanitize(v)
-      --       end
-      --       return cleaned
+      --       table.insert(raw_specs, { label = 'Frequency', val = formatted_num .. ' Hz' })
       --     end
-      --     -- 1. Sanitize the entry value before inspecting it
-      --     local clean_value = sanitize(entry.value)
-      --     -- 2. Format the lines cleanly into the buffer
-      --     local content = vim.split(vim.inspect(clean_value), '\n')
-      --     vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, content)
-      --     vim.api.nvim_set_option_value('filetype', 'lua', { buf = self.state.bufnr })
+      --
+      --     -- Append vendor storage specs if they exist
+      --     if board.vendor then
+      --       if board.vendor.flash then
+      --         table.insert(raw_specs, { label = 'Flash Size', val = board.vendor.flash })
+      --       end
+      --       if board.vendor.ram then
+      --         table.insert(raw_specs, { label = 'RAM Size', val = board.vendor.ram })
+      --       end
+      --     end
+      --
+      --     -- 2. SMART DELIMITER: Find the length of the longest label to calculate padding width
+      --     local max_label_len = 0
+      --     for _, spec in ipairs(raw_specs) do
+      --       if spec.val and not rawequal(spec.val, vim.empty_dict) then
+      --         max_label_len = math.max(max_label_len, string.len(spec.label))
+      --       end
+      --     end
+      --
+      --     -- 3. Build perfectly aligned property rows
+      --     for _, spec in ipairs(raw_specs) do
+      --       local val = spec.val
+      --       if val and not rawequal(val, vim.empty_dict) and (type(val) ~= 'table' or not vim.tbl_isempty(val)) then
+      --         -- Calculate exact space padding needed for this specific row
+      --         local padding = string.rep(' ', max_label_len - string.len(spec.label))
+      --         table.insert(lines, string.format('  %s%s  │  %s', spec.label, padding, tostring(val)))
+      --       end
+      --     end
+      --
+      --     table.insert(lines, '') -- Visual break separator
+      --
+      --     -- Helper function to render arrays/tables safely into clean bullet lists
+      --     local function append_list_section(title, data)
+      --       if not data or rawequal(data, vim.empty_dict) or (type(data) == 'table' and vim.tbl_isempty(data)) then
+      --         return
+      --       end
+      --       table.insert(lines, ' ' .. title)
+      --       table.insert(lines, ' ──────────────────────────────────────')
+      --       if type(data) == 'table' then
+      --         for _, item in ipairs(data) do
+      --           table.insert(lines, '   • ' .. tostring(item))
+      --         end
+      --       else
+      --         table.insert(lines, '   • ' .. tostring(data))
+      --       end
+      --       table.insert(lines, '') -- Trailing section space divider
+      --     end
+      --
+      --     -- 4. Append nested layouts cleanly as distinct sub-blocks
+      --     append_list_section('🛠️  Supported Frameworks', board.frameworks)
+      --     append_list_section('🔌  Debug Protocols', board.debug and board.debug.protocols)
+      --     append_list_section('📡  Connectivity Options', board.connectivity)
+      --
+      --     -- 5. Flush the generated strings directly into the telescope preview buffer
+      --     vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+      --
+      --     -- Swapping to 'help' filetype loads a minimalist text renderer with beautiful boundary markers
+      --     vim.api.nvim_set_option_value('filetype', 'help', { buf = self.state.bufnr })
       --   end,
       -- }),
       sorter = telescope_conf.generic_sorter({}),
