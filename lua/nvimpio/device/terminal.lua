@@ -1,13 +1,13 @@
--- stylua: ignore start
+--- stylua: ignore start
 
 local M = {}
 
--- Default Public User Configuration Matrix
+-- Default User Configurations Matrix
 M.config = {
   panel_height = 0.2,
   winbar_bg = '#80a3d4',
   winbar_fg = '#000000',
-  shell = OS.shell,
+  shell = vim.o.shell,
   keymaps = {
     hide_pane = 'q',
     switch_pane = '<Tab>',
@@ -22,21 +22,20 @@ M.config = {
 M.stdout_callback = nil
 M.exit_callback = nil
 
---- Safe window manager close executor pass routine
----@param instance Terminal The specific object handle to clear down.
+--- Safe window teardown coordinator
+---@param instance Terminal Target object to close down cleanly.
 local function SafeCloseTerminal(instance)
   if not instance then
     return
   end
 
-  -- Move focus back to the code window first to prevent Neovim from dropping into Neo-tree
+  -- Restore active cursor to the originating code file split before window destruction
   if instance.last_win and vim.api.nvim_win_is_valid(instance.last_win) then
     vim.api.nvim_set_current_win(instance.last_win)
   else
     vim.cmd('wincmd k')
   end
 
-  -- Close the terminal split window pane safely
   if instance.win and vim.api.nvim_win_is_valid(instance.win) then
     vim.api.nvim_win_close(instance.win, true)
   end
@@ -49,7 +48,7 @@ local function SafeCloseTerminal(instance)
   end)
 end
 
---- Visual redrawing loop engine applying winbar header tags
+--- Structural Winbar Title Renderer
 function M.UpdateWinbarTitles()
   local cli_alive = M.cli.buf and vim.api.nvim_buf_is_valid(M.cli.buf)
   local mon_alive = M.mon.buf and vim.api.nvim_buf_is_valid(M.mon.buf)
@@ -68,18 +67,17 @@ function M.UpdateWinbarTitles()
 end
 
 ----------------------------------------------------------------------------------------
--- 🌟 THE TRUE UNIFIED SELF-CONTAINED TERMINAL CLASS ARCHITECTURE
+-- OBJECT ORIENTED TERMINAL CLASS ENCAPSULATION
 ----------------------------------------------------------------------------------------
 ---@class Terminal
----@field term_type string Unique lane configuration tracking tag ('cli' or 'monitor')
----@field title string The visual string printed on the window winbar header
----@field buf number|nil The native Neovim buffer ID handle for this panel split
----@field win number|nil The native Neovim window ID layout viewport handle
----@field last_win number|nil The exact originating window ID handle prior to open routines
----@field job number|nil The asynchronous terminal channel ID backend process loop handle
----@field newline string Pre-cached cross-platform row end carriage return delimiter
----@field shell table The sequential array list configuration running the shell executable
----@field keymaps table The user configurable map table schema containing shortcuts
+---@field term_type string Tracking tag ('cli' or 'monitor')
+---@field title string The visual text drawn on the winbar header
+---@field buf number|nil Native Neovim buffer ID handle
+---@field win number|nil Native Neovim window ID layout handle
+---@field last_win number|nil Originating code split window ID pointer
+---@field job number|nil Asynchronous process stream channel ID handle
+---@field newline string Pre-cached newline carriage return delimiter
+---@field filetype string Fixed text-domain category tracking tag
 local Terminal = {
   term_type = '',
   title = '',
@@ -87,14 +85,12 @@ local Terminal = {
   win = nil,
   last_win = nil,
   job = nil,
-  newline = OS.eol,
+  newline = '\n',
   filetype = 'pio_terminal',
-  shell = {},
-  keymaps = {},
 }
 Terminal.__index = Terminal
 
---- Factory constructor for new terminal wrapper objects.
+--- Constructor Factory
 function Terminal.new(term_type, panel_title)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
@@ -102,17 +98,17 @@ function Terminal.new(term_type, panel_title)
   return self
 end
 
---- Lazy-load process initializer to spawn the terminal process cleanly in the background
+--- Lazy Spawner: Guarantees termopen attaches ONLY to a completely unmutated buffer
 function Terminal:_lazy_init()
-  if self.buf and vim.api.nvim_buf_is_valid(self.buf) and self.job and self.job > 0 then
-    return -- Process is already safely running in the background
+  if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
+    return
   end
 
-  -- Create a completely isolated, pristine buffer
+  -- Create a completely isolated, unlisted, scratch buffer
   self.buf = vim.api.nvim_create_buf(false, true)
 
-  -- Execute termopen immediately while the buffer is 100% unmodified and detached from any window
-  local channel_id = vim.fn.termopen(self.shell, {
+  -- Run termopen instantly while the buffer is completely pristine
+  local channel_id = vim.fn.termopen(M.config.shell, {
     on_stdout = function(j, d, e)
       if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
         M.stdout_callback(j, d, e)
@@ -135,21 +131,17 @@ function Terminal:_lazy_init()
   end
   self.job = channel_id
 
-  -- Stamp the filetype safely now that the process is bound
+  -- Stamp the custom filetype class tag safely now that the process is bound
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
 
-  -- Setup hooks and hotkeys
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   self:_attach_events(target_height)
-
-  -- Look up sibling instance dynamically to tie keymaps together
-  local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
-  self:_attach_keymaps(target_height, opposite_instance)
+  self:_attach_keymaps(target_height)
 end
 
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
-  self:_lazy_init() -- Ensure backend process is active
+  self:_lazy_init()
   if not self.win or not vim.api.nvim_win_is_valid(self.win) then
     self:show()
   end
@@ -204,24 +196,12 @@ function Terminal:hide()
   end)
 end
 
-local function IsTerminalOpen(instance)
-  if not instance then
-    return false
-  end
-  return instance.win and vim.api.nvim_win_is_valid(instance.win) and vim.api.nvim_win_get_buf(instance.win) == instance.buf
-end
-
-function M.IsTerminalOpen(term_type)
-  local instance = (term_type == 'monitor') and M.mon or M.cli
-  return IsTerminalOpen(instance)
-end
-
---- Pure Show Pass - Handles window rendering and instantaneous buffer swapping.
----@method
----@return boolean # True if the layout was drawn successfully.
+--- Native Layout Renderer and Smooth Buffer Swapper
+---@return boolean
 function Terminal:show()
-  -- Capture workspace context dynamically, avoiding sidebar/popup focus contamination
   local active_win = vim.api.nvim_get_current_win()
+
+  -- Rigid Workspace Capture: Lock focus window to real files, ignoring sidebar layouts
   if vim.api.nvim_win_is_valid(active_win) then
     local active_buf = vim.api.nvim_win_get_buf(active_win)
     local active_ft = vim.api.nvim_get_option_value('filetype', { buf = active_buf })
@@ -232,31 +212,31 @@ function Terminal:show()
     end
   end
 
-  -- Ensure this specific instance process has initialized its unmodified buffer safely
+  -- Ensure backend stream process channels are fully established
   self:_lazy_init()
 
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- 🌟 INSTANT SWAP LAYER: If sibling window is open, replace its buffer immediately
+  -- FLICKER-FREE REUSE MECHANISM: If sibling window split is open, steal it instantly
   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
     self.win = opposite_instance.win
     self.last_win = opposite_instance.last_win or self.last_win
-    opposite_instance.win = nil -- Detach sibling reference safely
+    opposite_instance.win = nil -- Dissolve sibling window property binding
 
-    -- Swap buffer instantly inside the same split window block. No layout flickers.
+    -- Swap buffer seamlessly without destroying or altering any window splits
     vim.api.nvim_win_set_buf(self.win, self.buf)
     M.UpdateWinbarTitles()
     vim.cmd('startinsert')
     return true
   end
 
-  -- Fast path return: If this exact window pane is already open, focus it
+  -- Fast-path return if target canvas split viewport is already open and valid
   if self.win and vim.api.nvim_win_is_valid(self.win) then
     vim.api.nvim_set_current_win(self.win)
     return true
   end
 
-  -- Fallback: Create a brand new split window beneath the workspace
+  -- Fallback Branch: Generate standard clean bottom-split canvas window container
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   self.win = vim.api.nvim_open_win(self.buf, true, { split = 'below', win = -1, height = target_height })
 
@@ -296,7 +276,7 @@ function Terminal:_attach_events(target_height)
     callback = function()
       vim.schedule(function()
         local current_win = vim.api.nvim_get_current_win()
-        if current_win == self.win and IsTerminalOpen(self) then
+        if current_win == self.win and self.win and vim.api.nvim_win_is_valid(self.win) then
           pcall(vim.api.nvim_win_set_height, self.win, target_height)
           if vim.api.nvim_get_mode().mode:sub(1, 1) ~= 't' then
             vim.cmd('normal! G')
@@ -307,7 +287,7 @@ function Terminal:_attach_events(target_height)
     end,
   })
 
-  -- Intercept native manual command exits via :q or :q!
+  -- Catch explicit typed manual command layout escapes like :q or :q!
   local quit_group = vim.api.nvim_create_augroup('PioQuit_' .. self.buf, { clear = true })
   vim.api.nvim_create_autocmd('BufWinLeave', {
     group = quit_group,
@@ -324,8 +304,9 @@ function Terminal:_attach_events(target_height)
   })
 end
 
-function Terminal:_attach_keymaps(target_height, opposite_instance)
-  local maps = self.keymaps
+function Terminal:_attach_keymaps(target_height)
+  local maps = M.config.keymaps
+  local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
   vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
   vim.keymap.set('n', maps.hide_pane, function()
@@ -352,22 +333,19 @@ function Terminal:_attach_keymaps(target_height, opposite_instance)
       return
     end
 
-    -- Pass focus pointer safely over to sibling before swapping buffers
     opposite_instance.last_win = self.last_win
-
-    -- Instantly swap view to sibling pane without destroying the split window container
     vim.schedule(function()
       opposite_instance:show()
     end)
   end, { buffer = self.buf, silent = true })
 
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
-  local target_buf = self.buf
-  vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = target_buf })
+  vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 
   vim.keymap.set('n', maps.move_down, function()
     vim.schedule(function()
-      if IsTerminalOpen(self) then
+      local open_check = self.win and vim.api.nvim_win_is_valid(self.win) and vim.api.nvim_win_get_buf(self.win) == self.buf
+      if open_check then
         vim.api.nvim_set_current_win(self.win)
         pcall(vim.api.nvim_win_set_height, self.win, target_height)
         if vim.api.nvim_get_mode().mode:sub(1, 1) ~= 't' then
@@ -380,30 +358,13 @@ function Terminal:_attach_keymaps(target_height, opposite_instance)
   end, { buffer = self.buf, silent = true })
 end
 
-Terminal.shell = M.config.shell
-Terminal.keymaps = M.config.keymaps
-
----@type Terminal
+--- Singletons Instantiations
 M.cli = Terminal.new('cli', ' Pio CLI> ')
----@type Terminal
 M.mon = Terminal.new('monitor', ' Pio Monitor ')
 
+--- Core Plugin Configuration Merging Setup Gateway
 function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
-  if opts and opts.shell then
-    Terminal.shell = opts.shell
-  end
-  if opts and opts.keymaps then
-    Terminal.keymaps = M.config.keymaps
-  end
-
-  -- Pre-initialize shell processes cleanly in background, completely clearing out unmodified buffer errors
-  if M.cli then
-    M.cli:_lazy_init()
-  end
-  if M.mon then
-    M.mon:_lazy_init()
-  end
 end
 
 return M
