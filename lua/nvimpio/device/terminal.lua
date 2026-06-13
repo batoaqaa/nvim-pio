@@ -337,12 +337,12 @@ function Terminal:_attach_keymaps(target_height, opposite_instance)
       return
     end
 
-    opposite_instance.last_win = self.last_win
-
-    if self.win and vim.api.nvim_win_is_valid(self.win) then
-      vim.api.nvim_win_close(self.win, true)
-    end
-    self.win = nil
+    -- opposite_instance.last_win = self.last_win
+    --
+    -- if self.win and vim.api.nvim_win_is_valid(self.win) then
+    --   vim.api.nvim_win_close(self.win, true)
+    -- end
+    -- self.win = nil
 
     vim.schedule(function() opposite_instance:show() end)
   end, { buffer = self.buf, silent = true })
