@@ -1,5 +1,3 @@
---- stylua: ignore start
-
 local M = {}
 
 -- Default User Configurations Matrix
@@ -98,16 +96,9 @@ function Terminal.new(term_type, panel_title)
   return self
 end
 
---- Lazy Spawner: Guarantees termopen attaches ONLY to a completely unmutated buffer
-function Terminal:_lazy_init()
-  if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
-    return
-  end
-
-  -- Create a completely isolated, unlisted, scratch buffer
-  self.buf = vim.api.nvim_create_buf(false, true)
-
-  -- Run termopen instantly while the buffer is completely pristine
+--- Spawn process channels strictly inside our pre-rendered split window container
+function Terminal:_spawn(target_height)
+  -- Run termopen natively inside the already allocated window viewport context
   local channel_id = vim.fn.termopen(M.config.shell, {
     on_stdout = function(j, d, e)
       if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
@@ -131,17 +122,15 @@ function Terminal:_lazy_init()
   end
   self.job = channel_id
 
-  -- Stamp the custom filetype class tag safely now that the process is bound
+  -- Stamp properties safely
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
 
-  local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   self:_attach_events(target_height)
   self:_attach_keymaps(target_height)
 end
 
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
-  self:_lazy_init()
   if not self.win or not vim.api.nvim_win_is_valid(self.win) then
     self:show()
   end
@@ -212,9 +201,6 @@ function Terminal:show()
     end
   end
 
-  -- Ensure backend stream process channels are fully established
-  self:_lazy_init()
-
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
   -- FLICKER-FREE REUSE MECHANISM: If sibling window split is open, steal it instantly
@@ -236,9 +222,25 @@ function Terminal:show()
     return true
   end
 
-  -- Fallback Branch: Generate standard clean bottom-split canvas window container
+  -- Bulletproof Native Window Split Allocation Creation Routine
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
-  self.win = vim.api.nvim_open_win(self.buf, true, { split = 'below', win = -1, height = target_height })
+  vim.cmd('botright ' .. target_height .. 'split')
+
+  -- Record the newly created bottom window ID handle securely
+  self.win = vim.api.nvim_get_current_win()
+
+  -- Check if this specific instance process needs to be built from scratch
+  local is_new_buffer = false
+  if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
+    self.buf = vim.api.nvim_get_current_buf() -- Takes over the fresh blank split buffer context
+    is_new_buffer = true
+  end
+
+  if is_new_buffer then
+    self:_spawn(target_height)
+  else
+    vim.api.nvim_win_set_buf(self.win, self.buf)
+  end
 
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   pcall(vim.api.nvim_set_option_value, 'winfixheight', true, { scope = 'local', win = self.win })
