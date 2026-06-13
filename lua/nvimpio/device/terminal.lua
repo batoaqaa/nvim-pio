@@ -1,5 +1,3 @@
---- stylua: ignore start
-
 local M = {}
 
 -- Default Public User Configuration Matrix
@@ -35,7 +33,7 @@ local function SafeCloseTerminal(instance)
   end
   instance.win = nil
 
-  -- 2. Force focus back to your actual code window split, bypassing Neo-tree
+  -- 2. Explicitly force focus back to your actual code window split, bypassing Neo-tree
   if instance.last_win and vim.api.nvim_win_is_valid(instance.last_win) then
     vim.api.nvim_set_current_win(instance.last_win)
   end
@@ -66,7 +64,7 @@ function M.UpdateWinbarTitles()
 end
 
 ----------------------------------------------------------------------------------------
--- 🌟 THE TRUE UNIFIED SELF-CONTAINED TERMINAL CLASS ARCHITECTURE
+-- OBJECT ORIENTED TERMINAL CLASS BLUEPRINT
 ----------------------------------------------------------------------------------------
 ---@class Terminal
 ---@field term_type string Unique lane configuration tracking tag ('cli' or 'monitor')
@@ -96,8 +94,8 @@ function Terminal.new(term_type, panel_title)
   return self
 end
 
--- 🌟 STABLE PIPELINE ENFORCEMENT ROUTINE
--- Forces Terminal-Insert mode before text insertion, ensuring execution works seamlessly
+-- 🌟 ROBUST EXECUTION TRACKING PIPELINE
+-- Feeds text inputs through an isolated execution routine, ensuring carriage returns activate natively
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
   if not self.win or not vim.api.nvim_win_is_valid(self.win) then
@@ -107,15 +105,22 @@ function Terminal:send(command)
     return
   end
 
-  -- Temporarily force terminal focus out of normal mode boundaries so chansend can fire natively
-  vim.api.nvim_set_current_win(self.win)
-  vim.cmd('startinsert')
-
-  -- Schedule the text carriage feed to guarantee mode synchronization executes first
+  -- Scheduled wrapper ensures Neovim window creation transitions settle fully
+  -- before feeding data to the channel, eliminating continuation prompt '>>' hanging bugs
   vim.schedule(function()
-    vim.fn.chansend(self.job, cmd_str .. self.newline)
-    -- Instantly snap back into clean Normal mode context right after submission
-    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
+    if self.job and self.job > 0 then
+      vim.fn.chansend(self.job, cmd_str .. self.newline)
+
+      -- Instantly snap the terminal back into clean Normal Mode layout after submission
+      vim.schedule(function()
+        if self.win and vim.api.nvim_win_is_valid(self.win) then
+          vim.api.nvim_win_call(self.win, function()
+            vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
+            vim.cmd('normal! G')
+          end)
+        end
+      end)
+    end
   end)
 end
 
@@ -233,7 +238,7 @@ function Terminal:show()
   pcall(vim.api.nvim_set_option_value, 'winfixheight', true, { scope = 'local', win = self.win })
   M.UpdateWinbarTitles()
 
-  -- INITIAL OPEN ENTRY STYLE: Drop cleanly into Normal mode immediately upon panel drawing
+  -- INITIAL OPEN STYLE: Drop cleanly into Normal mode immediately upon panel drawing
   vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
   return true
 end
@@ -280,7 +285,7 @@ function Terminal:_attach_events(target_height, opposite_instance)
     end,
   })
 
-  -- Clean Automatic Scroll Tracker: Follows terminal prints down safely without forcing mode shifts
+  -- Clean Automatic Scroll Tracker: Follows terminal prints down safely
   vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
     group = platformio,
     buffer = self.buf,
@@ -300,7 +305,7 @@ function Terminal:_attach_events(target_height, opposite_instance)
     end,
   })
 
-  -- ALWAYS GAIN FOCUS WINDOW ENTRY STATE: Enforces normal mode on physical window entry focus transitions
+  -- ALWAYS GAIN FOCUS WINDOW ENTRY STATE: Enforces normal mode on physical window entry clicks
   vim.api.nvim_create_autocmd('WinEnter', {
     group = platformio,
     buffer = self.buf,
