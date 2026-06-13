@@ -8,7 +8,7 @@ local function sendCmnd(command)
 
   -- The custom internal Lazy-Spawn Guard takes care of everything!
   -- If it's closed, it opens it. If it's open, it pipes it straight down! [INDEX]
-  pio_cli:show()
+  -- pio_cli:show()
   pio_cli:send(command)
 end
 
@@ -86,7 +86,11 @@ end
 function M.piocli(cmd_table)
   OS.notify("piocli ......")
   local cmd = (cmd_table[1] == '') and '' or ('pio ' .. table.concat(cmd_table, ' '))
-  sendCmnd(cmd)
+  if cmd ~= '' then
+    sendCmnd(cmd)
+  else
+    pio_cli:show()
+  end
 end
 
 --INFO: Piodebug
