@@ -297,8 +297,8 @@ M.mon = Terminal.new("monitor", " Pio Monitor ")
 
 -- Global hotkey binder pass loop
 local function BindGlobalTriggers()
-  pcall(vim.keymap.del, "n", [[<leader>\gm]])
-  pcall(vim.keymap.del, "n", [[<leader>\t]])
+  -- pcall(vim.keymap.del, "n", [[<leader>\m]])
+  -- pcall(vim.keymap.del, "n", [[<leader>\t]])
   -- vim.keymap.set("n", Terminal.keymaps.open_monitor, function() M.mon:show() M.mon:send("pio device monitor") end, { silent = true })
   -- vim.keymap.set("n", Terminal.keymaps.open_cli, function() M.cli:show() end, { silent = true })
 end
