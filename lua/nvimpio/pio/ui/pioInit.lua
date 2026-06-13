@@ -115,24 +115,45 @@ local function pick_board(json_data)
         title = 'Board Details',
         define_preview = function(self, entry)
           local b = entry.value
-          local lines = { " 📋 " .. (b.name or "Unknown"), " ──────────────────────────────────────" }
+          local lines = { " 📋 " .. (b.name or "Unknown Board"), " ──────────────────────────────────────" }
 
-          -- 1. Inline helper to format and append rows with 12-space alignment padding
-          local function add(label, val)
-            if val and not rawequal(val, vim.empty_dict) and (type(val) ~= "table" or not vim.tbl_isempty(val)) then
-              table.insert(lines, string.format("  %-12s │  %s", label, tostring(val)))
+          -- Flatten deeply nested metadata structures into single-depth rows
+          local properties = {}
+          local function extract_all_properties(t, prefix)
+            if type(t) ~= "table" or rawequal(t, vim.empty_dict) then return end
+            prefix = prefix or ""
+
+            for k, v in pairs(t) do
+              -- Ignore frameworks and debugging protocols here as they display below in lists
+              if k ~= "frameworks" and k ~= "protocols" and k ~= "connectivity" then
+                local label = prefix .. k:sub(1,1):upper() .. k:sub(2)
+                if type(v) == "table" and not vim.tbl_isempty(v) then
+                  extract_all_properties(v, label .. " ")
+                elseif type(v) ~= "table" and v ~= nil and v ~= "" and not rawequal(v, vim.empty_dict) then
+                  table.insert(properties, { label = label, val = tostring(v) })
+                end
+              end
             end
           end
 
-          -- 2. Add properties instantly
-          add("Board ID", b.id)
-          add("Platform", b.platform)
-          add("MCU Type", b.mcu)
-          add("Frequency", b.fcpu and (tostring(b.fcpu):gsub("^(-?%d+)(%d%d%d)", "%1 %2") .. " Hz"))
-          add("Flash Size", b.vendor and b.vendor.flash)
-          add("RAM Size",   b.vendor and b.vendor.ram)
+          -- 1. Recursively digest the entire JSON object payload
+          extract_all_properties(b)
 
-          -- 3. FIX: Safely append headers without embedding raw \n characters
+          -- 2. SMART DELIMITER: Dynamically calculate padding based on the longest key name discovered
+          local max_len = 0
+          for _, p in ipairs(properties) do max_len = math.max(max_len, string.len(p.label)) end
+          local format_str = string.format("  %%-%ds │  %%s", max_len)
+
+          -- 3. Append all formatted, perfectly-aligned core data variables
+          for _, p in ipairs(properties) do
+            -- Format large numbers like CPU clock frequencies nicely with spaces
+            if p.label:match("Fcpu") and tonumber(p.val) then
+              p.val = tostring(p.val):gsub("^(-?%d+)(%d%d%d)", "%1 %2") .. " Hz"
+            end
+            table.insert(lines, string.format(format_str, p.label, p.val))
+          end
+
+          -- 4. Helper to append array list components as distinct sub-blocks
           local function add_list(title, data)
             if data and not rawequal(data, vim.empty_dict) and (type(data) ~= "table" or not vim.tbl_isempty(data)) then
               table.insert(lines, "") -- Safe empty spacing row
@@ -146,8 +167,9 @@ local function pick_board(json_data)
 
           add_list("🛠️  Supported Frameworks", b.frameworks)
           add_list("🔌  Debug Protocols", b.debug and b.debug.protocols)
+          add_list("📡  Connectivity Options", b.connectivity)
 
-          -- 4. Flush lines to buffer safely
+          -- 5. Flush lines to buffer safely
           vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
           vim.api.nvim_set_option_value('filetype', 'help', { buf = self.state.bufnr })
         end,
