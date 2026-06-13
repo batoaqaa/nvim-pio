@@ -2,6 +2,8 @@
 
 local M = {}
 
+M.previous_buf = nil
+
 -- Default Public User Configuration Matrix
 M.config = {
   panel_height = 0.2,
@@ -134,15 +136,36 @@ end
 ---@method
 ---@return nil
 function Terminal:hide()
+  -- 🌟 RESTORE ROUTINE: Jump window viewport focus back to the shared source context
+  if M.previous_buf and vim.api.nvim_buf_is_valid(M.previous_buf) then
+    local target_win = vim.api.nvim_get_current_win()
+    pcall(vim.api.nvim_win_set_buf, target_win, M.previous_buf)
+  else
+    -- Standard structural fallback if the workspace history was entirely wiped
+    vim.cmd("wincmd k")
+  end
+
+  -- Safe window teardown
   if self.win and vim.api.nvim_win_is_valid(self.win) then
     vim.api.nvim_win_close(self.win, true)
   end
   self.win = nil
+
   vim.schedule(function()
     vim.cmd("wincmd =")
     M.UpdateWinbarTitles()
   end)
 end
+-- function Terminal:hide()
+--   if self.win and vim.api.nvim_win_is_valid(self.win) then
+--     vim.api.nvim_win_close(self.win, true)
+--   end
+--   self.win = nil
+--   vim.schedule(function()
+--     vim.cmd("wincmd =")
+--     M.UpdateWinbarTitles()
+--   end)
+-- end
 
 -- Status check querying layout visibility parameters
 local function IsTerminalOpen(instance)
@@ -155,46 +178,112 @@ function M.IsTerminalOpen(term_type)
   return IsTerminalOpen(instance)
 end
 
---- Pure Show Pass - Handles allocation and spawning natively.
+--- Pure Show Pass - Handles allocation, shared history capture, and spawning natively.
 ---@method
 ---@return boolean # True if the split window canvas layout was drawn successfully.
 function Terminal:show()
+  --------------------------------------------------------------------------------------
+  -- 🌟 SHARED WORKSPACE HISTORICAL CONTEXT CAPTURE
+  --------------------------------------------------------------------------------------
+  local current_win = vim.api.nvim_get_current_win()
+  if vim.api.nvim_win_is_valid(current_win) then
+    local source_buf = vim.api.nvim_win_get_buf(current_win)
+    local source_ft = vim.api.nvim_get_option_value("filetype", { buf = source_buf })
+
+    -- Only overwrite the true previous buffer if we came from outside the terminal subsystem
+    -- This ignores sibling jumps (cli <-> monitor) and locks down your real workspace view
+    if source_ft ~= self.filetype then
+      M.previous_buf = source_buf
+    end
+  end
+  --------------------------------------------------------------------------------------
+  -- 🌟 SIBLING PANE RE-ALLOCATION MANAGEMENT
+  --------------------------------------------------------------------------------------
   local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
 
+  -- Tear down sibling viewport if open to avoid visual layout pollution
   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
     vim.api.nvim_win_close(opposite_instance.win, true)
     opposite_instance.win = nil
   end
 
+  -- Fast path return: If this exact viewport window is already alive, jump focus directly
   if self.win and vim.api.nvim_win_is_valid(self.win) then
     vim.api.nvim_set_current_win(self.win)
     return true
   end
-
+  --------------------------------------------------------------------------------------
+  -- 🌟 BUFFER ALLOCATION & UNIFIED FILETYPE INJECTION
+  --------------------------------------------------------------------------------------
   local is_new_buffer = false
   if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
     self.buf = vim.api.nvim_create_buf(false, true)
     is_new_buffer = true
   end
 
+  -- Explicitly bind the custom filetype from your class architecture into the active buffer options
   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
     vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.buf })
   end
-
+  --------------------------------------------------------------------------------------
+  -- 🌟 WINDOW VIEWPORT RENDERING & INITIALIZATION
+  --------------------------------------------------------------------------------------
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   self.win = vim.api.nvim_open_win(self.buf, true, { split = "below", win = -1, height = target_height })
 
+  -- If the allocated buffer is pristine, trigger the asynchronous stream channel pipe loops
   if is_new_buffer then
     self:_spawn(target_height, opposite_instance)
   end
 
+  -- Enforce clean, minimalist terminal window styling configurations
   vim.cmd("setlocal nonumber norelativenumber signcolumn=no")
   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = self.win })
   M.UpdateWinbarTitles()
 
-  -- vim.cmd("startinsert")
-  return true
+  -- vim.cmd("startinsert") -- Uncomment if you want immediate insert mode on focus trigger
+
+  return true -- 🌟 Fixed: Explicit boolean pass-back for the main execution pipeline path
 end
+
+-- function Terminal:show()
+--   local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
+--
+--   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
+--     vim.api.nvim_win_close(opposite_instance.win, true)
+--     opposite_instance.win = nil
+--   end
+--
+--   if self.win and vim.api.nvim_win_is_valid(self.win) then
+--     vim.api.nvim_set_current_win(self.win)
+--     return true
+--   end
+--
+--   local is_new_buffer = false
+--   if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
+--     self.buf = vim.api.nvim_create_buf(false, true)
+--     is_new_buffer = true
+--   end
+--
+--   -- set filetype for pio_terminal
+--   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
+--     vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.buf })
+--   end
+--
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
+--   self.win = vim.api.nvim_open_win(self.buf, true, { split = "below", win = -1, height = target_height })
+--
+--   if is_new_buffer then
+--     self:_spawn(target_height, opposite_instance)
+--   end
+--
+--   vim.cmd("setlocal nonumber norelativenumber signcolumn=no")
+--   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = self.win })
+--   M.UpdateWinbarTitles()
+--
+--   -- vim.cmd("startinsert")
+--   return true
+-- end
 
 --- Internal process spawner mapping pipeline channels natively.
 ---@method
