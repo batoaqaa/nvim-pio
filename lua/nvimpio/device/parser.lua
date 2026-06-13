@@ -307,6 +307,7 @@ function M.handleIdedata(result, active_env, on_done)
     cliTerm:hide()
     M.cleanSequencer()
   elseif result == 'FAIL' then
+    if on_done and type(on_done) == 'function' then on_done(false) end
     M.cleanSequencer()
   end
 end
