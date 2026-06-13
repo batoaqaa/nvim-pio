@@ -130,7 +130,7 @@ local function pick_board(json_data)
       layout_strategy = 'horizontal',
       layout_config = {
         width = 0.9,
-        preview_width = 0.70,
+        preview_width = 0.50,
         preview_cutoff = 120,
       },
       finder = finders.new_table({
