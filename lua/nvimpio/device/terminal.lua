@@ -44,6 +44,13 @@ local function SafeCloseTerminal(instance)
   end
   instance.win = nil
 
+  -- 🌟 CLEAR GUARD: Reset the shared variable if both panels are now closed
+  local cli_open = M.cli and M.cli.win and vim.api.nvim_win_is_valid(M.cli.win)
+  local mon_open = M.mon and M.mon.win and vim.api.nvim_win_is_valid(M.mon.win)
+  if not cli_open and not mon_open then
+    M.previous_buf = nil
+  end
+
   vim.schedule(function()
     vim.cmd("wincmd =")
     M.UpdateWinbarTitles()
@@ -155,6 +162,13 @@ function Terminal:close()
   self.buf = nil
   self.job = nil
 
+  -- 🌟 CLEAR GUARD: Reset the shared variable if both panels are now closed
+  local cli_open = M.cli and M.cli.win and vim.api.nvim_win_is_valid(M.cli.win)
+  local mon_open = M.mon and M.mon.win and vim.api.nvim_win_is_valid(M.mon.win)
+  if not cli_open and not mon_open then
+    M.previous_buf = nil
+  end
+
   vim.schedule(function()
     vim.cmd("wincmd =")
     M.UpdateWinbarTitles()
@@ -193,6 +207,13 @@ function Terminal:hide()
     vim.api.nvim_win_close(self.win, true)
   end
   self.win = nil
+
+  -- 🌟 CLEAR GUARD: Reset the shared variable if both panels are now closed
+  local cli_open = M.cli and M.cli.win and vim.api.nvim_win_is_valid(M.cli.win)
+  local mon_open = M.mon and M.mon.win and vim.api.nvim_win_is_valid(M.mon.win)
+  if not cli_open and not mon_open then
+    M.previous_buf = nil
+  end
 
   vim.schedule(function()
     vim.cmd("wincmd =")
