@@ -129,8 +129,8 @@ local function pick_board(json_data)
       prompt_title = 'Select Board',
       layout_strategy = 'horizontal',
       layout_config = {
-        width = 0.9,
-        preview_width = 0.50,
+        width = 0.7,
+        preview_width = 0.60,
         preview_cutoff = 120,
       },
       finder = finders.new_table({
