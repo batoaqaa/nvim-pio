@@ -115,49 +115,47 @@ local function pick_board(json_data)
       previewer = previewers.new_buffer_previewer({
         title = 'Board Details',
         define_preview = function(self, entry)
+          -- 1. CRITICAL SAFETY GUARD: Instantly bail out if Telescope's core 
+          -- window handles are invalidated mid-resize before doing any allocations
+          if not self.state or not self.state.winid or vim.api.nvim_win_is_valid(self.state.winid) == false then
+            return
+          end
+
           local b = entry.value
           local lines = { " 📋 " .. (b.name or "Unknown Board"), " ──────────────────────────────────────" }
 
-          -- Flatten deeply nested metadata structures into single-depth rows
-          local properties = {}
-          local function extract_all_properties(t, prefix)
-            if type(t) ~= "table" or rawequal(t, vim.empty_dict) then return end
-            prefix = prefix or ""
-
-            for k, v in pairs(t) do
-              -- Ignore frameworks and debugging protocols here as they display below in lists
-              if k ~= "frameworks" and k ~= "protocols" and k ~= "connectivity" then
-                local label = prefix .. k:sub(1,1):upper() .. k:sub(2)
-                if type(v) == "table" and not vim.tbl_isempty(v) then
-                  extract_all_properties(v, label .. " ")
-                elseif type(v) ~= "table" and v ~= nil and v ~= "" and not rawequal(v, vim.empty_dict) then
-                  table.insert(properties, { label = label, val = tostring(v) })
-                end
-              end
+          -- 2. Structured Layout Mapping Strategy (Fastest Execution Profile)
+          local function add(label, val)
+            if val and not rawequal(val, vim.empty_dict) and val ~= "" then
+              table.insert(lines, string.format("  %-14s │  %s", label, tostring(val)))
             end
           end
 
-          -- 1. Recursively digest the entire JSON object payload
-          extract_all_properties(b)
+          add("Board ID",     b.id)
+          add("Platform",     b.platform)
+          add("MCU Type",     b.mcu)
+          add("Vendor",       b.vendor and b.vendor.name)
+          add("Flash Size",   b.vendor and b.vendor.flash)
+          add("RAM Size",     b.vendor and b.vendor.ram)
+          add("URL Documentation", b.url)
 
-          -- 2. SMART DELIMITER: Dynamically calculate padding based on the longest key name discovered
-          local max_len = 0
-          for _, p in ipairs(properties) do max_len = math.max(max_len, string.len(p.label)) end
-          local format_str = string.format("  %%-%ds │  %%s", max_len)
-
-          -- 3. Append all formatted, perfectly-aligned core data variables
-          for _, p in ipairs(properties) do
-            -- Format large numbers like CPU clock frequencies nicely with spaces
-            if p.label:match("Fcpu") and tonumber(p.val) then
-              p.val = tostring(p.val):gsub("^(-?%d+)(%d%d%d)", "%1 %2") .. " Hz"
-            end
-            table.insert(lines, string.format(format_str, p.label, p.val))
+          -- Format big CPU numbers using native string patterns safely
+          if b.fcpu then
+            local freq = tostring(b.fcpu):gsub("^(-?%d+)(%d%d%d)", "%1 %2") .. " Hz"
+            add("Frequency", freq)
           end
 
-          -- 4. Helper to append array list components as distinct sub-blocks
+          -- Extract Wireless parameters via lightning-fast local scan loop
+          local conn_str = tostring(b.connectivity or ""):lower()
+          local has_wifi = conn_str:match("wifi") or conn_str:match("wireless")
+          local has_ble  = conn_str:match("blue") or conn_str:match("ble")
+          add("Wi-Fi",     has_wifi and "Yes" or nil)
+          add("Bluetooth", has_ble and "Yes" or nil)
+
+          -- 3. Array List Components Assembly Helper
           local function add_list(title, data)
             if data and not rawequal(data, vim.empty_dict) and (type(data) ~= "table" or not vim.tbl_isempty(data)) then
-              table.insert(lines, "") -- Safe empty spacing row
+              table.insert(lines, "")
               table.insert(lines, " " .. title)
               table.insert(lines, " ──────────────────────────────────────")
               for _, item in ipairs(type(data) == "table" and data or { data }) do
@@ -168,18 +166,12 @@ local function pick_board(json_data)
 
           add_list("🛠️  Supported Frameworks", b.frameworks)
           add_list("🔌  Debug Protocols", b.debug and b.debug.protocols)
-          add_list("📡  Connectivity Options", b.connectivity)
 
-          -- 5.Added safety check to verify buffer and window stability during resizes
-          if self.state and self.state.bufnr and vim.api.nvim_buf_is_valid(self.state.bufnr) then
-            -- Verify that the window id is still active before doing anything
-            if self.state.winid and vim.api.nvim_win_is_valid(self.state.winid) then
-
-              -- Perform the write operation safely
-              vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
-              vim.api.nvim_set_option_value('filetype', 'help', { buf = self.state.bufnr })
-
-            end
+          -- 4. FINAL SAFETY LOCK: Double-verify window state handles a final time 
+          -- right before executing the core buffer modifications
+          if vim.api.nvim_win_is_valid(self.state.winid) and vim.api.nvim_buf_is_valid(self.state.bufnr) then
+            vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+            vim.api.nvim_set_option_value('filetype', 'help', { buf = self.state.bufnr })
           end
         end,
       }),
