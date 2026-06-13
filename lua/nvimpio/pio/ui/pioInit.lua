@@ -135,7 +135,16 @@ local function pick_board(json_data)
             if val == nil or rawequal(val, vim.empty_dict) or (type(val) == 'table' and vim.tbl_isempty(val)) then
               val = '-'
             elseif type(val) == 'number' and field.suffix then
-              val = string.format('%s%,d%s', '', val, field.suffix):gsub(',', ' ') -- Format large numbers neatly
+              -- FIX: Replaced the broken '%,d' format with a clean Lua reverse matching regex loop
+              local formatted_num = tostring(val)
+              while true do
+                local new_num, k = string.gsub(formatted_num, '^(-?%d+)(%d%d%d)', '%1 %2')
+                if k == 0 then
+                  break
+                end
+                formatted_num = new_num
+              end
+              val = formatted_num .. field.suffix
             end
             table.insert(lines, string.format('| **%s** | %s |', field.id, tostring(val)))
           end
