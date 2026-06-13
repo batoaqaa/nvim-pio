@@ -165,54 +165,34 @@ function M.configure_hardware_parameters()
 
   -- Gather ports dynamically using your unified scanner function helper
   local ports = M.get_connected_ports()
-  if #ports == 0 then
-    ports = { 'Auto Detect' }
-  end
+  if #ports == 0 then ports = { 'Auto Detect' } end
 
   -- Define the steps mapping sequence arrays (Expanded to 6 steps)
   local steps = {
     {
-      p = ' [1/6] Select Targeted Serial Port ',
-      c = ports,
-      s = function(x)
-        p_state.selected_port = x
-        vim.g.platformio_selected_port = x
-      end,
+      p = ' [1/6] Select Targeted Serial Port ', c = ports,
+      s = function(x) p_state.selected_port = x vim.g.platformio_selected_port = x end,
     },
     {
-      p = ' [2/6] Select Upload Speed (Baud) ',
-      c = speeds,
-      s = function(x)
-        p_state.upload_speed = x
-      end,
+      p = ' [2/6] Select Upload Speed (Baud) ', c = speeds,
+      s = function(x) p_state.upload_speed = x end,
     },
     {
-      p = ' [3/6] Select Serial Monitor Speed ',
-      c = speeds,
-      s = function(x)
-        p_state.monitor_speed = x
-      end,
+      p = ' [3/6] Select Serial Monitor Speed ', c = speeds,
+      s = function(x) p_state.monitor_speed = x end,
     },
     {
-      p = ' [4/6] Set Monitor RTS Pin State ',
-      c = { '0', '1' },
-      s = function(x)
-        p_state.monitor_rts = x
-      end,
+      p = ' [4/6] Set Monitor RTS Pin State ', c = { '0', '1' },
+      s = function(x) p_state.monitor_rts = x end,
     },
     {
-      p = ' [5/6] Set Monitor DTR Pin State ',
-      c = { '0', '1' },
-      s = function(x)
-        p_state.monitor_dtr = x
-      end,
+      p = ' [5/6] Set Monitor DTR Pin State ', c = { '0', '1' },
+      s = function(x) p_state.monitor_dtr = x end,
     },
     {
       p = ' [6/6] Select Serial Monitor Filter ',
       c = { 'default (none)', 'direct', 'send_on_enter', 'direct, send_on_enter' },
-      s = function(x)
-        p_state.monitor_filters = x
-      end,
+      s = function(x) p_state.monitor_filters = x end,
     },
   }
 
@@ -351,6 +331,7 @@ function M.configure_hardware_parameters()
 
   run(1)
 end
+
 --=============================================================================
 --INFO:get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
