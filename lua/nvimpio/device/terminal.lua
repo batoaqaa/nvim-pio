@@ -30,11 +30,17 @@ M.exit_callback = nil
 local function SafeCloseTerminal(instance)
   if not instance then return end
 
-  -- Professionally close the split window; Neovim natively returns focus where it belongs
+  -- 1. Close the dedicated terminal window pane viewport layout
   if instance.win and vim.api.nvim_win_is_valid(instance.win) then
     vim.api.nvim_win_close(instance.win, true)
   end
   instance.win = nil
+
+  -- 2. 🌟 FORCE NATIVE WORKSPACE JUMP: Return focus back to your actual code window split
+  if instance.last_win and vim.api.nvim_win_is_valid(instance.last_win) then
+    vim.api.nvim_set_current_win(instance.last_win)
+  end
+  instance.last_win = nil
 
   vim.schedule(function()
     vim.cmd("wincmd =")
@@ -69,6 +75,7 @@ end
 ---@field title string The visual string printed on the window winbar header
 ---@field buf number|nil The native Neovim buffer ID handle for this panel split
 ---@field win number|nil The native Neovim window ID layout viewport handle
+---@field last_win number|nil The exact originating window ID handle prior to open routines
 ---@field job number|nil The asynchronous terminal channel ID backend process loop handle
 ---@field newline string Pre-cached cross-platform row end carriage return delimiter
 ---@field shell table The sequential array list configuration running the shell executable
@@ -78,6 +85,7 @@ local Terminal = {
   title     = "",
   buf       = nil,
   win       = nil,
+  last_win  = nil, -- 🌟 Added here: Holds the exact window ID context of your code file
   job       = nil,
   newline   = OS.eol,
   filetype  = "pio_terminal",
@@ -113,6 +121,11 @@ function Terminal:close()
   self.buf = nil
   self.job = nil
 
+  if self.last_win and vim.api.nvim_win_is_valid(self.last_win) then
+    vim.api.nvim_set_current_win(self.last_win)
+  end
+  self.last_win = nil
+
   vim.schedule(function()
     vim.cmd("wincmd =")
     M.UpdateWinbarTitles()
@@ -124,6 +137,11 @@ function Terminal:hide()
     vim.api.nvim_win_close(self.win, true)
   end
   self.win = nil
+
+  if self.last_win and vim.api.nvim_win_is_valid(self.last_win) then
+    vim.api.nvim_set_current_win(self.last_win)
+  end
+  self.last_win = nil
 
   vim.schedule(function()
     vim.cmd("wincmd =")
@@ -141,15 +159,28 @@ function M.IsTerminalOpen(term_type)
   return IsTerminalOpen(instance)
 end
 
-
 --- Pure Show Pass - Handles allocation and spawning natively.
 ---@method
 ---@return boolean # True if the split window canvas layout was drawn successfully.
 function Terminal:show()
+  -- 🌟 WINDOW HISTORY CONTEXT CAPTURE
+  local active_win = vim.api.nvim_get_current_win()
+  if vim.api.nvim_win_is_valid(active_win) then
+    local active_buf = vim.api.nvim_win_get_buf(active_win)
+    local active_ft = vim.api.nvim_get_option_value("filetype", { buf = active_buf })
+
+    -- Only capture if we aren't currently jumping from a terminal pane or neo-tree sidebar
+    if active_ft ~= self.filetype and active_ft ~= "neo-tree" then
+      self.last_win = active_win
+    end
+  end
+
   local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
 
   -- Tear down sibling viewport if open to avoid visual layout pollution
   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
+    -- Transfer the code window focus pointer over to the sibling before teardown
+    self.last_win = opposite_instance.last_win or self.last_win
     vim.api.nvim_win_close(opposite_instance.win, true)
     opposite_instance.win = nil
   end
@@ -166,12 +197,10 @@ function Terminal:show()
     is_new_buffer = true
   end
 
-  -- Explicitly bind the custom filetype from your class architecture
   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
     vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.buf })
   end
 
-  -- Native split creation directly under the currently active workspace layout focus window
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   self.win = vim.api.nvim_open_win(self.buf, true, { split = "below", win = -1, height = target_height })
 
@@ -260,13 +289,14 @@ function Terminal:_attach_keymaps(target_height, opposite_instance)
       return
     end
 
-    -- Close current split cleanly
+    -- Pass core code window pointer context to sibling before pane teardown
+    opposite_instance.last_win = self.last_win
+
     if self.win and vim.api.nvim_win_is_valid(self.win) then
       vim.api.nvim_win_close(self.win, true)
     end
     self.win = nil
 
-    -- Open the sibling split cleanly
     vim.schedule(function() opposite_instance:show() end)
   end, { buffer = self.buf, silent = true })
 
@@ -289,7 +319,6 @@ Terminal.keymaps = M.config.keymaps
 M.cli = Terminal.new("cli", " Pio CLI> ")
 ---@type Terminal
 M.mon = Terminal.new("monitor", " Pio Monitor ")
-
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
