@@ -264,6 +264,7 @@ function M.IsTerminalOpen(term_type)
   return IsTerminalOpen(instance)
 end
 
+
 --- Pure Show Pass - Handles allocation, shared history capture, and spawning natively.
 ---@method
 ---@return boolean # True if the split window canvas layout was drawn successfully.
@@ -277,11 +278,11 @@ function Terminal:show()
     local source_ft = vim.api.nvim_get_option_value("filetype", { buf = source_buf })
 
     -- Only overwrite the true previous buffer if we came from outside the terminal subsystem
-    -- This ignores sibling jumps (cli <-> monitor) and locks down your real workspace view
     if source_ft ~= self.filetype then
       M.previous_buf = source_buf
     end
   end
+
   --------------------------------------------------------------------------------------
   -- 🌟 SIBLING PANE RE-ALLOCATION MANAGEMENT
   --------------------------------------------------------------------------------------
@@ -298,6 +299,7 @@ function Terminal:show()
     vim.api.nvim_set_current_win(self.win)
     return true
   end
+
   --------------------------------------------------------------------------------------
   -- 🌟 BUFFER ALLOCATION & UNIFIED FILETYPE INJECTION
   --------------------------------------------------------------------------------------
@@ -311,6 +313,7 @@ function Terminal:show()
   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
     vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.buf })
   end
+
   --------------------------------------------------------------------------------------
   -- 🌟 WINDOW VIEWPORT RENDERING & INITIALIZATION
   --------------------------------------------------------------------------------------
@@ -327,49 +330,8 @@ function Terminal:show()
   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = self.win })
   M.UpdateWinbarTitles()
 
-  -- vim.cmd("startinsert") -- Uncomment if you want immediate insert mode on focus trigger
-
-  return true -- 🌟 Fixed: Explicit boolean pass-back for the main execution pipeline path
+  return true
 end
-
--- function Terminal:show()
---   local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
---
---   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
---     vim.api.nvim_win_close(opposite_instance.win, true)
---     opposite_instance.win = nil
---   end
---
---   if self.win and vim.api.nvim_win_is_valid(self.win) then
---     vim.api.nvim_set_current_win(self.win)
---     return true
---   end
---
---   local is_new_buffer = false
---   if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
---     self.buf = vim.api.nvim_create_buf(false, true)
---     is_new_buffer = true
---   end
---
---   -- set filetype for pio_terminal
---   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
---     vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.buf })
---   end
---
---   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
---   self.win = vim.api.nvim_open_win(self.buf, true, { split = "below", win = -1, height = target_height })
---
---   if is_new_buffer then
---     self:_spawn(target_height, opposite_instance)
---   end
---
---   vim.cmd("setlocal nonumber norelativenumber signcolumn=no")
---   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = self.win })
---   M.UpdateWinbarTitles()
---
---   -- vim.cmd("startinsert")
---   return true
--- end
 
 --- Internal process spawner mapping pipeline channels natively.
 ---@method
@@ -393,7 +355,6 @@ function Terminal:_spawn(target_height, opposite_instance)
       callback = function()
         vim.schedule(function()
           vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-c><C-l>]], true, true, true), "t", false)
-          -- vim.cmd("startinsert")
         end)
       end
     })
@@ -422,17 +383,20 @@ function Terminal:_attach_events(target_height)
   vim.api.nvim_create_autocmd("WinEnter", {
     group = guard_group, buffer = self.buf,
     callback = function()
-      vim.schedule(function() if IsTerminalOpen(self) then
-        pcall(vim.api.nvim_win_set_height, self.win, target_height)
-        if vim.api.nvim_get_mode().mode:sub(1,1) ~= "t" then vim.cmd("normal! G") end
-      end end)
+      vim.schedule(function()
+        -- 🌟 FIX: Only alter height if the active window is strictly our terminal viewport!
+        local current_win = vim.api.nvim_get_current_win()
+        if current_win == self.win and IsTerminalOpen(self) then
+          pcall(vim.api.nvim_win_set_height, self.win, target_height)
+          if vim.api.nvim_get_mode().mode:sub(1,1) ~= "t" then vim.cmd("normal! G") end
+        end
+      end)
     end,
   })
 end
 
 -- Encapsulate localized panel navigation keyboard bindings
 function Terminal:_attach_keymaps(target_height, opposite_instance)
-  -- 🌟 PROTOTYPE REFACTOR LOOP: Nav maps now read straight from self.keymaps! [INDEX]
   local maps = self.keymaps
 
   vim.keymap.set("t", maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
@@ -450,7 +414,13 @@ function Terminal:_attach_keymaps(target_height, opposite_instance)
       SafeCloseTerminal(self)
       return
     end
-    SafeCloseTerminal(self)
+
+    -- 🌟 FIX: Bypasses the file buffer restore phase when swapping siblings to prevent state overwrite leaks
+    if self.win and vim.api.nvim_win_is_valid(self.win) then
+      vim.api.nvim_win_close(self.win, true)
+    end
+    self.win = nil
+
     vim.schedule(function() opposite_instance:show() end)
   end, { buffer = self.buf, silent = true })
 
@@ -466,7 +436,7 @@ function Terminal:_attach_keymaps(target_height, opposite_instance)
   end, { buffer = self.buf, silent = true })
 end
 
--- Prime the prototype class template with initial baseline specifications layout [INDEX]
+-- Prime the prototype class template with initial baseline specifications layout
 Terminal.shell = M.config.shell
 Terminal.keymaps = M.config.keymaps
 
@@ -474,7 +444,6 @@ Terminal.keymaps = M.config.keymaps
 M.cli = Terminal.new("cli", " Pio CLI> ")
 ---@type Terminal
 M.mon = Terminal.new("monitor", " Pio Monitor ")
-
 -- Global hotkey binder pass loop
 local function BindGlobalTriggers()
   -- pcall(vim.keymap.del, "n", [[<leader>\m]])
