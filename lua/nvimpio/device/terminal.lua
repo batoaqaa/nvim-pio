@@ -219,7 +219,7 @@ function Terminal:show()
   pcall(vim.api.nvim_set_option_value, 'winfixheight', true, { scope = 'local', win = self.win })
   M.UpdateWinbarTitles()
 
-  vim.cmd('startinsert')
+  -- vim.cmd('startinsert')
   return true
 end
 
@@ -297,7 +297,7 @@ function Terminal:_attach_events(target_height, opposite_instance)
           pcall(vim.api.nvim_win_set_height, self.win, target_height)
           if vim.api.nvim_get_mode().mode:sub(1, 1) ~= 't' then
             vim.cmd('normal! G')
-            vim.cmd('startinsert')
+            -- vim.cmd('startinsert')
           end
         end
       end)
