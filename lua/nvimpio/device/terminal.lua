@@ -33,7 +33,7 @@ local function SafeCloseTerminal(instance)
   end
   instance.win = nil
 
-  -- 2. Explicitly force focus back to your actual code window split, bypassing Neo-tree
+  -- 2. Force focus back to your actual code window split, bypassing Neo-tree
   if instance.last_win and vim.api.nvim_win_is_valid(instance.last_win) then
     vim.api.nvim_set_current_win(instance.last_win)
   end
@@ -82,7 +82,7 @@ local Terminal = {
   win = nil,
   last_win = nil,
   job = nil,
-  newline = '\n',
+  newline = '\r\n', -- 🌟 Cross-platform native terminal line terminator
   filetype = 'pio_terminal',
 }
 Terminal.__index = Terminal
@@ -94,8 +94,8 @@ function Terminal.new(term_type, panel_title)
   return self
 end
 
--- 🌟 ROBUST EXECUTION TRACKING PIPELINE
--- Feeds text inputs through an isolated execution routine, ensuring carriage returns activate natively
+-- 🌟 FIXED EXECUTION ROUTINE
+-- Guarantees the channel accepts inputs cleanly and triggers execution without hanging
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
   if not self.win or not vim.api.nvim_win_is_valid(self.win) then
@@ -105,19 +105,20 @@ function Terminal:send(command)
     return
   end
 
-  -- Scheduled wrapper ensures Neovim window creation transitions settle fully
-  -- before feeding data to the channel, eliminating continuation prompt '>>' hanging bugs
   vim.schedule(function()
     if self.job and self.job > 0 then
+      -- Clear any normal-mode locks inside the execution scheduler frame
+      vim.api.nvim_set_current_win(self.win)
+      vim.cmd('startinsert')
+
+      -- Feed the text command payload with the native return break sequence
       vim.fn.chansend(self.job, cmd_str .. self.newline)
 
-      -- Instantly snap the terminal back into clean Normal Mode layout after submission
+      -- Automatically return to Normal Mode safely after execution begins
       vim.schedule(function()
         if self.win and vim.api.nvim_win_is_valid(self.win) then
-          vim.api.nvim_win_call(self.win, function()
-            vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
-            vim.cmd('normal! G')
-          end)
+          vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
+          vim.cmd('normal! G')
         end
       end)
     end
@@ -285,7 +286,7 @@ function Terminal:_attach_events(target_height, opposite_instance)
     end,
   })
 
-  -- Clean Automatic Scroll Tracker: Follows terminal prints down safely
+  -- Clean Automatic Scroll Tracker: Follows terminal prints down safely without changing mode states
   vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
     group = platformio,
     buffer = self.buf,
