@@ -1,7 +1,4 @@
 -- stylua: ignore start
---
-
--- stylua: ignore start
 
 local M = {}
 
@@ -30,22 +27,11 @@ M.exit_callback = nil
 local function SafeCloseTerminal(instance)
   if not instance then return end
 
-  -- 1. Close the dedicated terminal window pane viewport layout
+  -- If our custom keymap is pressed, simply close the window viewport split.
+  -- Our localized WinLeave autocommand handles the focus redirection automatically!
   if instance.win and vim.api.nvim_win_is_valid(instance.win) then
     vim.api.nvim_win_close(instance.win, true)
   end
-  instance.win = nil
-
-  -- 2. 🌟 FORCE NATIVE WORKSPACE JUMP: Return focus back to your actual code window split
-  if instance.last_win and vim.api.nvim_win_is_valid(instance.last_win) then
-    vim.api.nvim_set_current_win(instance.last_win)
-  end
-  instance.last_win = nil
-
-  vim.schedule(function()
-    vim.cmd("wincmd =")
-    M.UpdateWinbarTitles()
-  end)
 end
 
 --- Visual redrawing loop engine applying winbar header tags
@@ -85,7 +71,7 @@ local Terminal = {
   title     = "",
   buf       = nil,
   win       = nil,
-  last_win  = nil, -- 🌟 Added here: Holds the exact window ID context of your code file
+  last_win  = nil,
   job       = nil,
   newline   = OS.eol,
   filetype  = "pio_terminal",
@@ -120,16 +106,6 @@ function Terminal:close()
   self.win = nil
   self.buf = nil
   self.job = nil
-
-  if self.last_win and vim.api.nvim_win_is_valid(self.last_win) then
-    vim.api.nvim_set_current_win(self.last_win)
-  end
-  self.last_win = nil
-
-  vim.schedule(function()
-    vim.cmd("wincmd =")
-    M.UpdateWinbarTitles()
-  end)
 end
 
 function Terminal:hide()
@@ -137,16 +113,6 @@ function Terminal:hide()
     vim.api.nvim_win_close(self.win, true)
   end
   self.win = nil
-
-  if self.last_win and vim.api.nvim_win_is_valid(self.last_win) then
-    vim.api.nvim_set_current_win(self.last_win)
-  end
-  self.last_win = nil
-
-  vim.schedule(function()
-    vim.cmd("wincmd =")
-    M.UpdateWinbarTitles()
-  end)
 end
 
 local function IsTerminalOpen(instance)
@@ -163,14 +129,15 @@ end
 ---@method
 ---@return boolean # True if the split window canvas layout was drawn successfully.
 function Terminal:show()
-  -- 🌟 WINDOW HISTORY CONTEXT CAPTURE
+  -- Inspect active window tree structure dynamically prior to splitting
   local active_win = vim.api.nvim_get_current_win()
   if vim.api.nvim_win_is_valid(active_win) then
     local active_buf = vim.api.nvim_win_get_buf(active_win)
     local active_ft = vim.api.nvim_get_option_value("filetype", { buf = active_buf })
+    local win_type = vim.fn.win_gettype(active_win)
 
-    -- Only capture if we aren't currently jumping from a terminal pane or neo-tree sidebar
-    if active_ft ~= self.filetype and active_ft ~= "neo-tree" then
+    -- Cache target window ONLY if it is a standard file viewport (skips float popups & neo-tree sidebars)
+    if active_ft ~= self.filetype and win_type == "" and active_ft ~= "neo-tree" then
       self.last_win = active_win
     end
   end
@@ -179,7 +146,6 @@ function Terminal:show()
 
   -- Tear down sibling viewport if open to avoid visual layout pollution
   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
-    -- Transfer the code window focus pointer over to the sibling before teardown
     self.last_win = opposite_instance.last_win or self.last_win
     vim.api.nvim_win_close(opposite_instance.win, true)
     opposite_instance.win = nil
@@ -197,10 +163,12 @@ function Terminal:show()
     is_new_buffer = true
   end
 
+  -- Explicitly bind the custom filetype from your class architecture
   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
     vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.buf })
   end
 
+  -- Native split creation directly under the currently active workspace layout focus window
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   self.win = vim.api.nvim_open_win(self.buf, true, { split = "below", win = -1, height = target_height })
 
@@ -212,11 +180,10 @@ function Terminal:show()
   pcall(vim.api.nvim_set_option_value, "winfixheight", true, { scope = "local", win = self.win })
   M.UpdateWinbarTitles()
 
-  -- 🌟 Place it here if you want it to trigger ONLY on deliberate panel opens:
-  -- vim.cmd("startinsert")
-
+  vim.cmd("startinsert")
   return true
 end
+
 
 function Terminal:_spawn(target_height, opposite_instance)
   local channel_id = vim.fn.termopen(self.shell, {
@@ -227,6 +194,23 @@ function Terminal:_spawn(target_height, opposite_instance)
 
   if not channel_id or channel_id <= 0 then return end
   self.job = channel_id
+
+  -- 🌟 INTERCEPT :q AND :q! COMMANDS
+  -- Redirects native manual exits back to your true code window split
+  local quit_group = vim.api.nvim_create_augroup("PioQuit_" .. self.buf, { clear = true })
+  vim.api.nvim_create_autocmd("BufWinLeave", {
+    group = quit_group,
+    buffer = self.buf,
+    callback = function()
+      vim.schedule(function()
+        if self.last_win and vim.api.nvim_win_is_valid(self.last_win) then
+          vim.api.nvim_set_current_win(self.last_win)
+        end
+        self.win = nil
+        self.last_win = nil
+      end)
+    end,
+  })
 
   if OS.is_win then
     local clear_group = vim.api.nvim_create_augroup("PioClearGuard_" .. self.buf, { clear = true })
@@ -266,7 +250,10 @@ function Terminal:_attach_events(target_height)
         local current_win = vim.api.nvim_get_current_win()
         if current_win == self.win and IsTerminalOpen(self) then
           pcall(vim.api.nvim_win_set_height, self.win, target_height)
-          -- if vim.api.nvim_get_mode().mode:sub(1,1) ~= "t" then vim.cmd("normal! G") end
+          if vim.api.nvim_get_mode().mode:sub(1,1) ~= "t" then
+            vim.cmd("normal! G")
+            vim.cmd("startinsert")
+          end
         end
       end)
     end,
@@ -292,7 +279,6 @@ function Terminal:_attach_keymaps(target_height, opposite_instance)
       return
     end
 
-    -- Pass core code window pointer context to sibling before pane teardown
     opposite_instance.last_win = self.last_win
 
     if self.win and vim.api.nvim_win_is_valid(self.win) then
@@ -326,6 +312,7 @@ M.mon = Terminal.new("monitor", " Pio Monitor ")
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
   if opts and opts.shell then Terminal.shell = opts.shell end
+  if opts and opts.keymaps then Terminal.keymaps = M.config.keymaps end
 end
 
 return M
