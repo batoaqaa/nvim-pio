@@ -1,3 +1,4 @@
+-- stylua: ignore start
 local pickers = require('telescope.pickers')
 local finders = require('telescope.finders')
 local actions = require('telescope.actions')
@@ -114,43 +115,39 @@ local function pick_board(json_data)
         title = 'Board Details',
         define_preview = function(self, entry)
           local b = entry.value
-          local lines = {
-            ' 📋 ' .. (b.name or 'Unknown'),
-            ' ──────────────────────────────────────',
-          }
+          local lines = { " 📋 " .. (b.name or "Unknown"), " ──────────────────────────────────────" }
 
           -- 1. Inline helper to format and append rows with 12-space alignment padding
           local function add(label, val)
-            if val and not rawequal(val, vim.empty_dict) and (type(val) ~= 'table' or not vim.tbl_isempty(val)) then
-              table.insert(lines, string.format('  %-12s │  %s', label, tostring(val)))
+            if val and not rawequal(val, vim.empty_dict) and (type(val) ~= "table" or not vim.tbl_isempty(val)) then
+              table.insert(lines, string.format("  %-12s │  %s", label, tostring(val)))
             end
           end
 
           -- 2. Add properties instantly
-          add('Board ID', b.id)
-          add('Platform', b.platform)
-          add('MCU Type', b.mcu)
-          add('Frequency', b.fcpu and (tostring(b.fcpu):gsub('^(-?%d+)(%d%d%d)', '%1 %2') .. ' Hz'))
-          add('Flash Size', b.vendor and b.vendor.flash)
-          add('RAM Size', b.vendor and b.vendor.ram)
+          add("Board ID", b.id)
+          add("Platform", b.platform)
+          add("MCU Type", b.mcu)
+          add("Frequency", b.fcpu and (tostring(b.fcpu):gsub("^(-?%d+)(%d%d%d)", "%1 %2") .. " Hz"))
+          add("Flash Size", b.vendor and b.vendor.flash)
+          add("RAM Size",   b.vendor and b.vendor.ram)
 
-          -- 3. Inline helper to append lists
+          -- 3. FIX: Safely append headers without embedding raw \n characters
           local function add_list(title, data)
-            if data and not rawequal(data, vim.empty_dict) and (type(data) ~= 'table' or not vim.tbl_isempty(data)) then
-              table.insert(
-                lines,
-                '\n ' .. title .. '\n ──────────────────────────────────────'
-              )
-              for _, item in ipairs(type(data) == 'table' and data or { data }) do
-                table.insert(lines, '   • ' .. tostring(item))
+            if data and not rawequal(data, vim.empty_dict) and (type(data) ~= "table" or not vim.tbl_isempty(data)) then
+              table.insert(lines, "") -- Safe empty spacing row
+              table.insert(lines, " " .. title)
+              table.insert(lines, " ──────────────────────────────────────")
+              for _, item in ipairs(type(data) == "table" and data or { data }) do
+                table.insert(lines, "   • " .. tostring(item))
               end
             end
           end
 
-          add_list('🛠️  Supported Frameworks', b.frameworks)
-          add_list('🔌  Debug Protocols', b.debug and b.debug.protocols)
+          add_list("🛠️  Supported Frameworks", b.frameworks)
+          add_list("🔌  Debug Protocols", b.debug and b.debug.protocols)
 
-          -- 4. Flush lines to buffer
+          -- 4. Flush lines to buffer safely
           vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
           vim.api.nvim_set_option_value('filetype', 'help', { buf = self.state.bufnr })
         end,
