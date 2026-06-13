@@ -147,48 +147,70 @@ local function pick_board(json_data)
           }
         end,
       }),
-      -- ... Keep your uncrashable previewer section exactly as it is ...
       previewer = previewers.new_buffer_previewer({
         title = 'Board Details',
         define_preview = function(self, entry)
-          -- 1. CRITICAL SAFETY GUARD: Instantly bail out if Telescope's core 
-          -- window handles are invalidated mid-resize before doing any allocations
-          if not self.state or not self.state.winid or vim.api.nvim_win_is_valid(self.state.winid) == false then
+          -- 1. WINDOW HANDLE VALVE: Guard against late async callbacks during active resizes
+          if not self.state or not self.state.winid or not vim.api.nvim_win_is_valid(self.state.winid) then
             return
           end
 
           local b = entry.value
           local lines = { " 📋 " .. (b.name or "Unknown Board"), " ──────────────────────────────────────" }
+          local specs = {}
 
-          -- 2. Structured Layout Mapping Strategy (Fastest Execution Profile)
-          local function add(label, val)
-            if val and not rawequal(val, vim.empty_dict) and val ~= "" then
-              table.insert(lines, string.format("  %-14s │  %s", label, tostring(val)))
+          -- 2. DYNAMIC FLAT PARSER: Automatically extract every property key in the JSON root
+          for k, v in pairs(b) do
+            -- Skip complex arrays because they display below in lists
+            if k ~= "frameworks" and k ~= "connectivity" and k ~= "debug" and k ~= "name" then
+              if type(v) ~= "table" and v ~= nil and v ~= "" and not rawequal(v, vim.empty_dict) then
+                -- Format and capitalize the key dynamically (e.g., "mcu" -> "Mcu")
+                local label = k:sub(1,1):upper() .. k:sub(2)
+
+                -- Format big clock numbers nicely
+                if label == "Fcpu" and tonumber(v) then
+                  local num = tostring(v)
+                  while true do
+                    local new_num, k_sub = string.gsub(num, "^(-?%d+)(%d%d%d)", '%1 %2')
+                    if k_sub == 0 then break end
+                    num = new_num
+                  end
+                  v = num .. " Hz"
+                end
+                table.insert(specs, { label = label, val = tostring(v) })
+
+              -- Flatten second-level vendor metadata objects (Flash, RAM, etc.)
+              elseif k == "vendor" and type(v) == "table" then
+                for vk, vv in pairs(v) do
+                  if type(vv) ~= "table" and vv ~= "" and not rawequal(vv, vim.empty_dict) then
+                    local label = "Vendor " .. vk:sub(1,1):upper() .. vk:sub(2)
+                    table.insert(specs, { label = label, val = tostring(vv) })
+                  end
+                end
+              end
             end
           end
 
-          add("Board ID",     b.id)
-          add("Platform",     b.platform)
-          add("MCU Type",     b.mcu)
-          add("Vendor",       b.vendor and b.vendor.name)
-          add("Flash Size",   b.vendor and b.vendor.flash)
-          add("RAM Size",     b.vendor and b.vendor.ram)
-          add("URL Documentation", b.url)
-
-          -- Format big CPU numbers using native string patterns safely
-          if b.fcpu then
-            local freq = tostring(b.fcpu):gsub("^(-?%d+)(%d%d%d)", "%1 %2") .. " Hz"
-            add("Frequency", freq)
+          -- 3. DYNAMIC WIRELESS EXTRACTION: Read connectivity lists for flags on the fly
+          local conn_str = type(b.connectivity) == "table" and table.concat(b.connectivity, " "):lower() or tostring(b.connectivity or ""):lower()
+          if conn_str ~= "" then
+            table.insert(specs, { label = "Wi-Fi",     val = (conn_str:match("wifi") or conn_str:match("wireless")) and "Yes" or "-" })
+            table.insert(specs, { label = "Bluetooth", val = (conn_str:match("blue") or conn_str:match("ble")) and "Yes" or "-" })
           end
 
-          -- Extract Wireless parameters via lightning-fast local scan loop
-          local conn_str = tostring(b.connectivity or ""):lower()
-          local has_wifi = conn_str:match("wifi") or conn_str:match("wireless")
-          local has_ble  = conn_str:match("blue") or conn_str:match("ble")
-          add("Wi-Fi",     has_wifi and "Yes" or nil)
-          add("Bluetooth", has_ble and "Yes" or nil)
+          -- Sort alphabetically so fields don't jump around randomly when navigating boards
+          table.sort(specs, function(a, b_item) return a.label < b_item.label end)
 
-          -- 3. Array List Components Assembly Helper
+          -- 4. COLUMN WIDTH TRACKER: Calculate alignment dynamically based on discovered keys
+          local max_len = 0
+          for _, s in ipairs(specs) do max_len = math.max(max_len, string.len(s.label)) end
+          local format_str = string.format("  %%-%ds │  %%s", max_len)
+
+          for _, s in ipairs(specs) do
+            table.insert(lines, string.format(format_str, s.label, s.val))
+          end
+
+          -- 5. Safe Multi-line List Appender Helper
           local function add_list(title, data)
             if data and not rawequal(data, vim.empty_dict) and (type(data) ~= "table" or not vim.tbl_isempty(data)) then
               table.insert(lines, "")
@@ -202,15 +224,16 @@ local function pick_board(json_data)
 
           add_list("🛠️  Supported Frameworks", b.frameworks)
           add_list("🔌  Debug Protocols", b.debug and b.debug.protocols)
+          add_list("📡  Connectivity Variants", b.connectivity)
 
-          -- 4. FINAL SAFETY LOCK: Double-verify window state handles a final time 
-          -- right before executing the core buffer modifications
+          -- 6. ATOMIC WRITE GATEWAY: Direct render to Telescope buffer
           if vim.api.nvim_win_is_valid(self.state.winid) and vim.api.nvim_buf_is_valid(self.state.bufnr) then
             vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
             vim.api.nvim_set_option_value('filetype', 'help', { buf = self.state.bufnr })
           end
         end,
       }),
+      -- ... Keep your uncrashable previewer section exactly as it is ...
       -- previewer = previewers.new_buffer_previewer({
       --   title = 'Board Details',
       --   define_preview = function(self, entry)
