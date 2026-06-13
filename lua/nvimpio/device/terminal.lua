@@ -9,8 +9,8 @@ M.config = {
   winbar_fg = '#000000',
   shell = OS.shell,
   keymaps = {
-    open_cli      = [[<leader>\t]],
-    open_monitor  = [[<leader>\gm]],
+    -- open_cli      = [[<leader>\t]],
+    -- open_monitor  = [[<leader>\m]],
     hide_pane     = "q",
     switch_pane   = "<Tab>",
     escape_term   = "<Esc>",
@@ -299,8 +299,8 @@ M.mon = Terminal.new("monitor", " Pio Monitor ")
 local function BindGlobalTriggers()
   pcall(vim.keymap.del, "n", [[<leader>\gm]])
   pcall(vim.keymap.del, "n", [[<leader>\t]])
-  vim.keymap.set("n", Terminal.keymaps.open_monitor, function() M.mon:show() M.mon:send("pio device monitor") end, { silent = true })
-  vim.keymap.set("n", Terminal.keymaps.open_cli, function() M.cli:show() end, { silent = true })
+  -- vim.keymap.set("n", Terminal.keymaps.open_monitor, function() M.mon:show() M.mon:send("pio device monitor") end, { silent = true })
+  -- vim.keymap.set("n", Terminal.keymaps.open_cli, function() M.cli:show() end, { silent = true })
 end
 BindGlobalTriggers()
 
