@@ -207,6 +207,10 @@ function Terminal:show()
         if type(M.exit_callback) == 'function' then
           M.exit_callback()
         end
+        -- 🌟 NATIVE COMMAND FINISHED TRIGGER: Drops into Normal mode the millisecond a shell process stops running
+        vim.schedule(function()
+          vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
+        end)
       end,
     })
     if channel_id and channel_id > 0 then
@@ -219,7 +223,7 @@ function Terminal:show()
   pcall(vim.api.nvim_set_option_value, 'winfixheight', true, { scope = 'local', win = self.win })
   M.UpdateWinbarTitles()
 
-  -- INITIAL OPEN: Drop cleanly into Normal mode immediately upon panel drawing
+  -- ALWAYS GAIN FOCUS INITIAL STATE: Asserts clean normal mode entry when opened
   vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
   return true
 end
@@ -266,7 +270,7 @@ function Terminal:_attach_events(target_height, opposite_instance)
     end,
   })
 
-  -- 🌟 COMMAND FINISHED TRACKING LAYER: Monitor active stream state updates
+  -- Clean Automatic Scroll Tracker: Follows terminal prints down safely without interfering with text injection
   vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
     group = platformio,
     buffer = self.buf,
@@ -276,13 +280,9 @@ function Terminal:_attach_events(target_height, opposite_instance)
         vim.schedule(function()
           if vim.api.nvim_win_is_valid(win_handle) then
             vim.api.nvim_win_call(win_handle, function()
-              -- Scroll to the bottom as the data finishes drawing
               if vim.api.nvim_get_mode().mode:sub(1, 1) ~= 't' then
                 vim.cmd('normal! G')
               end
-
-              -- Force shell context back to Normal mode if a background process task settles down
-              vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
             end)
           end
         end)
@@ -290,7 +290,7 @@ function Terminal:_attach_events(target_height, opposite_instance)
     end,
   })
 
-  -- 🌟 FOCUS GAIN LAYER: Always strike Normal mode boundaries when entering
+  -- ALWAYS GAIN FOCUS WINDOW ENTRY STATE: Enforces normal mode on physical window entry clicks
   vim.api.nvim_create_autocmd('WinEnter', {
     group = platformio,
     buffer = self.buf,
@@ -300,7 +300,7 @@ function Terminal:_attach_events(target_height, opposite_instance)
         if current_win == self.win and self.win and vim.api.nvim_win_is_valid(self.win) then
           pcall(vim.api.nvim_win_set_height, self.win, target_height)
 
-          -- Strip terminal mode completely and align view at scroll-row baseline
+          -- Forces your cursor into clean Normal layout mode on every active window entry focus shift
           vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
           vim.cmd('normal! G')
         end
