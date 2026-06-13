@@ -112,11 +112,37 @@ local function pick_board(json_data)
       previewer = previewers.new_buffer_previewer({
         title = 'Board Details',
         define_preview = function(self, entry)
-          local content = vim.split(vim.inspect(entry.value), '\n')
+          -- Helper function to clean up vim.empty_dict() artifacts recursively
+          local function sanitize(t)
+            if type(t) ~= 'table' then
+              return t
+            end
+            -- If it's the specific Neovim empty dict userdatum, swap it for a clean empty table
+            if rawequal(t, vim.empty_dict) then
+              return {}
+            end
+            local cleaned = {}
+            for k, v in pairs(t) do
+              cleaned[k] = sanitize(v)
+            end
+            return cleaned
+          end
+          -- 1. Sanitize the entry value before inspecting it
+          local clean_value = sanitize(entry.value)
+          -- 2. Format the lines cleanly into the buffer
+          local content = vim.split(vim.inspect(clean_value), '\n')
           vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, content)
           vim.api.nvim_set_option_value('filetype', 'lua', { buf = self.state.bufnr })
         end,
       }),
+      -- previewer = previewers.new_buffer_previewer({
+      --   title = 'Board Details',
+      --   define_preview = function(self, entry)
+      --     local content = vim.split(vim.inspect(entry.value), '\n')
+      --     vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, content)
+      --     vim.api.nvim_set_option_value('filetype', 'lua', { buf = self.state.bufnr })
+      --   end,
+      -- }),
       sorter = telescope_conf.generic_sorter({}),
       attach_mappings = function(prompt_bufnr)
         actions.select_default:replace(function()
