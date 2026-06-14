@@ -211,15 +211,79 @@ function M.load_project_config()
 end
 
 -- ///////////////////// get_active_env /////////////////////
--- stylua: ignore start
+
+
 -- 1. Helper: Converts raw string properties to numbers, string arrays, or defaults
 local function normalize_value(key, value)
   if not value or value == "" then
-    return (key == "extra_scripts" or key == "default_envs") and {} or ""
+    -- Use key pattern matching to return the correct empty structure dynamically
+    if key:match("_[ed]nvs$") or key:match("_deps$") or key:match("_scripts$") or key:match("_filters$") or key:match("flags$") then
+      return {}
+    end
+    return ""
   end
-  if key == "default_envs" or key == "extra_scripts" then
-    return vim.split(value, "[%s,]+", { trimempty = true })
+
+  local str_val = tostring(value)
+  local clean_text = str_val:gsub("^%s*", "")
+
+  -- =========================================================================
+  -- RULE 1: COMPILER FLAGS MATRIX ENGINE
+  -- Triggered if the key ends in "flags" or if the data starts with a hyphen (-D, -I)
+  -- =========================================================================
+  local is_flag_key = key:match("flags$") or key:match("options$")
+  local has_flag_prefix = clean_text:match("^%-[DIOw]") ~= nil
+
+  if is_flag_key or has_flag_prefix then
+    local working_str = str_val:gsub("\\%s*\n", " ")
+    local tokens = {}
+    local current_token = {}
+    local in_quotes = false
+    local quote_char = nil
+
+    for i = 1, #working_str do
+      local char = working_str:sub(i, i)
+      if (char == '"' or char == "'") then
+        if not in_quotes then
+          in_quotes = true
+          quote_char = char
+        elseif char == quote_char then
+          in_quotes = false
+          quote_char = nil
+        end
+        table.insert(current_token, char)
+      elseif (char == ' ' or char == '\t' or char == '\n' or char == '\r') and not in_quotes then
+        if #current_token > 0 then
+          local t_str = table.concat(current_token)
+          if t_str ~= "" and not t_str:match("^[;#]") then table.insert(tokens, t_str) end
+          current_token = {}
+        end
+      else
+        table.insert(current_token, char)
+      end
+    end
+    if #current_token > 0 then
+      local t_str = table.concat(current_token)
+      if t_str ~= "" and not t_str:match("^[;#]") then table.insert(tokens, t_str) end
+    end
+    return tokens
   end
+
+  -- =========================================================================
+  -- RULE 2: LIST ARCHITECTURE ENGINE
+  -- Triggered if the key matches PlatformIO list suffixes, or contains internal newlines
+  -- =========================================================================
+  local is_list_key = key:match("_[ed]nvs$") or key:match("_deps$") or key:match("_scripts$") or key:match("_filters$")
+  local is_multiline = str_val:find("\n") ~= nil
+
+  if is_list_key or is_multiline then
+    -- Handles values separated by commas, spaces, or raw newlines dynamically
+    local separators = is_multiline and "[\r\n]+" or "[%s,]+"
+    return vim.split(str_val, separators, { trimempty = true })
+  end
+
+  -- =========================================================================
+  -- RULE 3: SCALAR FALLBACK (Numbers or basic strings)
+  -- =========================================================================
   return tonumber(value) or value
 end
 
@@ -241,7 +305,7 @@ local function interpolate(text, current_env, pio_vars, base_env, raw_envs)
   return (resolved ~= text) and interpolate(resolved, current_env, pio_vars, base_env, raw_envs) or resolved
 end
 
--- 3. Pure Data Pipeline (No Global Side-Effects)
+-- 3. Pure Data Pipeline (Multiline & Indentation Aware)
 function M.get_active_env(from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
   local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
@@ -257,23 +321,78 @@ function M.get_active_env(from)
     return nil, {}
   end
 
-  local pio_vars, base_env, raw_envs, current_sec = {}, {}, {}, nil
+  local pio_vars = {}
+  local base_env = {}
+  local raw_envs = {}
+  local ordered_sections = {} -- FIX 1: Initialized local tracker array cleanly
+  local current_sec = nil
+  local last_key = nil
 
-  -- Parse configuration line-by-line without collapsing spaces
+  -- Parse configuration line-by-line cleanly
   for line in vim.gsplit(content, '\n') do
-    line = line:gsub('\r$', ''):gsub('^%s+', ''):gsub('%s+$', ''):gsub('%s*[;#].*$', '')
-    local sec = line:match('^%[(.+)%]$')
+    line = line:gsub('\r$', '') -- Strip carriage returns
+
+    -- 1. Check if the line is purely a comment line BEFORE doing anything else
+    local is_pure_comment = line:match("^%s*[;#]") ~= nil
+
+    -- Filter out trailing inline comments safely
+    local comment_start = line:find('%s*[;#]')
+    if comment_start then
+      line = line:sub(1, comment_start - 1)
+    end
+
+    local trimmed = line:match('^%s*(.-)%s*$') or ""
+    local sec = trimmed:match('^%[(.+)%]$')
 
     if sec then
-      current_sec = sec
-      local env_name = sec:match('^env:(.+)$')
-      if env_name then raw_envs[env_name] = raw_envs[env_name] or {} end
-    elseif current_sec and line ~= '' then
-      local k, v = line:match('^%s*([%w_%-]+)%s*=%s*(.-)%s*$')
-      if k and v then
-        if current_sec == 'platformio' then pio_vars[k] = vim.trim(v)
-        elseif current_sec == 'env' then base_env[k] = vim.trim(v)
-        elseif current_sec:match('^env:') then raw_envs[current_sec:match('^env:(.+)$')][k] = vim.trim(v) end
+      current_sec = sec:gsub("%s", "") -- Normalize section name spaces
+      last_key = nil
+      local env_name = current_sec:match('^env:(.+)$')
+      if env_name then
+        raw_envs[env_name] = raw_envs[env_name] or {}
+        -- Safely append the environment section name preserving sequence order
+        if not vim.tbl_contains(ordered_sections, env_name) then
+          table.insert(ordered_sections, env_name)
+        end
+
+      end
+
+    -- 2. If it's a pure comment line, skip it completely but DO NOT clear last_key!
+    -- This keeps the multiline bridge open for the build flags beneath it.
+    elseif not is_pure_comment and current_sec and trimmed ~= '' then
+
+      local k, v = trimmed:match('^([%w_%-%.]+)%s*=%s*(.*)$')
+
+      -- Enforce key rules: Keys cannot start with minus signs or numbers
+      if k and k:match('^%a[%w_%-%.]*$') then
+        last_key = k
+        v = vim.trim(v)
+        if current_sec == 'platformio' then pio_vars[k] = v
+        elseif current_sec == 'env' then base_env[k] = v
+        elseif current_sec:match('^env:') then
+          local env_name = current_sec:match('^env:(.+)$')
+          if env_name then raw_envs[env_name][k] = v end
+        end
+
+      -- 3. If it's a value block with no key match, map it to the active multi-line stack
+      elseif last_key then
+        local current_val = ""
+        if current_sec == 'platformio' then current_val = pio_vars[last_key] or ""
+        elseif current_sec == 'env' then current_val = base_env[last_key] or ""
+        elseif current_sec:match('^env:') then
+          local env_name = current_sec:match('^env:(.+)$')
+          current_val = env_name and raw_envs[env_name] and raw_envs[env_name][last_key] or ""
+        end
+
+        local sep = (current_val == "") and "" or "\n"
+        local updated_val = current_val .. sep .. trimmed
+
+        if current_sec == 'platformio' then pio_vars[last_key] = updated_val
+        elseif current_sec == 'env' then base_env[last_key] = updated_val
+        elseif current_sec:match('^env:') then
+          local env_name = current_sec:match('^env:(.+)$')
+          if env_name then raw_envs[env_name][last_key] = updated_val end
+        end
       end
     end
   end
@@ -288,15 +407,12 @@ function M.get_active_env(from)
   -- =========================================================================
   local storage_fallback = require('nvimpio').config.pio_storage_dir or "~/.platformio"
 
-  -- Resolve core_dir first so it exists inside pio_vars for packages/platforms loops
   pio_vars.core_dir = pcall(function()
     return interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs)
   end) and interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs) or storage_fallback
 
-  -- Update your plugin core config storage layer synchronously
   require('nvimpio').config.pio_storage_dir = pio_vars.core_dir
 
-  -- Construct final metadata response schema cleanly using pre-seeded variables
   local metadata = {
     core_dir = pio_vars.core_dir,
     packages_dir = interpolate(pio_vars.packages_dir or "${platformio.core_dir}/packages", nil, pio_vars, base_env, raw_envs),
@@ -315,22 +431,57 @@ function M.get_active_env(from)
     metadata.envs[env].extra_scripts = metadata.envs[env].extra_scripts or {}
   end
 
-  -- Determine active environment order target (INI Default -> First Valid)
-  local target = nil
-  local def_envs = metadata.default_envs -- Extract to a local variable
 
-  if type(def_envs) == 'table' then
-    for _, env_name in ipairs(def_envs) do -- LSP knows 'def_envs' is safely a table here
-      if metadata.envs[env_name] then target = env_name break
+  -- =========================================================================
+  -- DETERMINISTIC TARGET RESOLUTION ENGINE
+  -- =========================================================================
+  local target = nil
+  local def_envs = metadata.default_envs
+
+  -- RULE 1: FIX 3: Check live User Preference FIRST for LSP context consistency
+  if _G.metadata and _G.metadata.active_env and metadata.envs[_G.metadata.active_env] then
+    target = _G.metadata.active_env
+  end
+
+  -- RULE 2: Fall back to default_envs line SECOND if the user hasn't forced a selection
+  if not target then
+    -- 1. If default_envs is a table list, clean each string and look for an exact match
+    if type(def_envs) == 'table' then
+      for _, name in ipairs(def_envs) do
+        local clean_name = vim.trim(tostring(name)):gsub('\r$', '')
+        if metadata.envs[clean_name] then
+          target = clean_name
+          break
+        end
+      end
+    -- 2. If default_envs broke out as a raw single string, check it directly
+    elseif type(def_envs) == 'string' then
+      local clean_name = vim.trim(def_envs):gsub('\r$', '')
+      if metadata.envs[clean_name] then
+        target = clean_name
       end
     end
   end
 
-  target = target or (metadata.envs[_G.metadata.active_env] and _G.metadata.active_env) or next(metadata.envs)
+  -- 3. If all else fails, read the absolute first environment found in the file order array
+  if not target and #ordered_sections > 0 then
+    target = ordered_sections[1]
+  end
+  -- =========================================================================
+
+  -- local target = nil
+  -- local def_envs = metadata.default_envs
+  --
+  -- if type(def_envs) == 'table' then
+  --   for _, env_name in ipairs(def_envs) do
+  --     if metadata.envs[env_name] then target = env_name break end
+  --   end
+  -- end
+  --
+  -- target = target or (metadata.envs[_G.metadata.active_env] and _G.metadata.active_env) or next(metadata.envs)
 
   return target, metadata
 end
--- stylua: ignore end
 -- ///////////////////// get_active_env /////////////////////
 
 --========================================================================================
