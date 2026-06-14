@@ -216,13 +216,26 @@ end
 
 local function normalize_value(key, value)
   if not value or value == "" then
-    return (key == "extra_scripts" or key == "default_envs") and {} or ""
+    return (key == "extra_scripts" or key == "default_envs" or key == "lib_deps") and {} or ""
   end
-  if key == "default_envs" or key == "extra_scripts" then
-    return vim.split(value, "[%s,]+", { trimempty = true })
+
+  -- Automatically split multiline libraries and build flags into clean lists
+  if key == "default_envs" or key == "extra_scripts" or key == "lib_deps" then
+    -- Splits on newlines, trims whitespace from every entry, and drops empty rows
+    return vim.split(value, "[\r\n]+", { trimempty = true })
   end
+
   return tonumber(value) or value
 end
+-- local function normalize_value(key, value)
+--   if not value or value == "" then
+--     return (key == "extra_scripts" or key == "default_envs") and {} or ""
+--   end
+--   if key == "default_envs" or key == "extra_scripts" then
+--     return vim.split(value, "[%s,]+", { trimempty = true })
+--   end
+--   return tonumber(value) or value
+-- end
 
 -- 2. Helper: Recursively interpolates ${platformio.core_dir} or ${this.board} tokens
 local function interpolate(text, current_env, pio_vars, base_env, raw_envs)
