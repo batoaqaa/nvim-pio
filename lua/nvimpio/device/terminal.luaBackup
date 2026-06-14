@@ -82,7 +82,7 @@ local Terminal = {
   win = nil,
   last_win = nil,
   job = nil,
-  newline = '\r\n',
+  newline = OS.eol, -- 🌟 Cross-platform native terminal line terminator
   filetype = 'pio_terminal',
 }
 Terminal.__index = Terminal
@@ -94,6 +94,8 @@ function Terminal.new(term_type, panel_title)
   return self
 end
 
+-- 🌟 FIXED EXECUTION ROUTINE
+-- Guarantees the channel accepts inputs cleanly and triggers execution without hanging
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
   if not self.win or not vim.api.nvim_win_is_valid(self.win) then
@@ -105,17 +107,18 @@ function Terminal:send(command)
 
   vim.schedule(function()
     if self.job and self.job > 0 then
+      -- Clear any normal-mode locks inside the execution scheduler frame
       vim.api.nvim_set_current_win(self.win)
       vim.cmd('startinsert')
 
+      -- Feed the text command payload with the native return break sequence
       vim.fn.chansend(self.job, cmd_str .. self.newline)
 
+      -- Automatically return to Normal Mode safely after execution begins
       vim.schedule(function()
         if self.win and vim.api.nvim_win_is_valid(self.win) then
           vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
-          -- Safe programmatic bottom snap scroll mapping instead of vim.cmd modes
-          local line_count = vim.api.nvim_buf_line_count(self.buf)
-          pcall(vim.api.nvim_win_set_cursor, self.win, { line_count, 0 })
+          vim.cmd('normal! G')
         end
       end)
     end
@@ -283,8 +286,7 @@ function Terminal:_attach_events(target_height, opposite_instance)
     end,
   })
 
-  -- 🌟 ELITE PROGRAMMATIC SCROLL INTERCEPTOR
-  -- Replaced vim.cmd with atomic buffer line count tracking to completely avoid re-entry panics
+  -- Clean Automatic Scroll Tracker: Follows terminal prints down safely without changing mode states
   vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
     group = platformio,
     buffer = self.buf,
@@ -293,8 +295,11 @@ function Terminal:_attach_events(target_height, opposite_instance)
       if win_handle and win_handle ~= -1 and vim.api.nvim_win_is_valid(win_handle) then
         vim.schedule(function()
           if vim.api.nvim_win_is_valid(win_handle) then
-            local lines = vim.api.nvim_buf_line_count(self.buf)
-            pcall(vim.api.nvim_win_set_cursor, win_handle, { lines, 0 })
+            vim.api.nvim_win_call(win_handle, function()
+              if vim.api.nvim_get_mode().mode:sub(1, 1) ~= 't' then
+                vim.cmd('normal! G')
+              end
+            end)
           end
         end)
       end
@@ -311,9 +316,9 @@ function Terminal:_attach_events(target_height, opposite_instance)
         if current_win == self.win and self.win and vim.api.nvim_win_is_valid(self.win) then
           pcall(vim.api.nvim_win_set_height, self.win, target_height)
 
+          -- Forces your cursor into clean Normal layout mode on every active window entry focus shift
           vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
-          local lines = vim.api.nvim_buf_line_count(self.buf)
-          pcall(vim.api.nvim_win_set_cursor, self.win, { lines, 0 })
+          vim.cmd('normal! G')
         end
       end)
     end,
@@ -370,8 +375,7 @@ function Terminal:_attach_keymaps(target_height, opposite_instance)
         vim.api.nvim_set_current_win(self.win)
         pcall(vim.api.nvim_win_set_height, self.win, target_height)
         vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
-        local lines = vim.api.nvim_buf_line_count(self.buf)
-        pcall(vim.api.nvim_win_set_cursor, self.win, { lines, 0 })
+        vim.cmd('normal! G')
       else
         vim.cmd('wincmd j')
       end
