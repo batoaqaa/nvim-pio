@@ -213,24 +213,29 @@ end
 -- ///////////////////// get_active_env /////////////////////
 
 
+
 local function normalize_value(key, value)
+  -- 1. Ensure empty blocks evaluate to a clean empty array list structure
   if not value or value == "" then
-    return (key == "extra_scripts" or key == "default_envs" or key == "lib_deps" or key == "build_flags") and {} or ""
+    local array_keys = { default_envs = true, extra_scripts = true, lib_deps = true, build_flags = true }
+    return array_keys[key] and {} or ""
   end
 
-  -- Split arrays by standard newlines or commas
+  -- 2. Handle standard line-separated lists
   if key == "default_envs" or key == "extra_scripts" or key == "lib_deps" then
     return vim.split(value, "[\r\n]+", { trimempty = true })
   end
 
-  --Dynamically token-split build_flags by BOTH spaces and newlines!
+  -- 3. THE Explicitly capture "build_flags" and token-split it by newlines or whitespaces
   if key == "build_flags" then
     local tokens = {}
-    -- Loop through every string chunk that isn't a space or newline character
-    for token in value:gmatch("%s*([%-%w_%d%.%=%/%\\]+)%s*") do
-      -- Filter out inline comments or loose carriage returns that survived parsing
-      if token ~= "" and not token:match("^[;#]") then
-        table.insert(tokens, token)
+    -- Iterate through each separate text line or block chunk
+    for line in vim.gsplit(value, "[\r\n]+") do
+      -- Trim whitespaces from individual rows
+      local trimmed = vim.trim(line)
+      -- Skip empty lines or stray comments that might have snuck into the value data
+      if trimmed ~= "" and not trimmed:match("^[;#]") then
+        table.insert(tokens, trimmed)
       end
     end
     return tokens
@@ -238,7 +243,6 @@ local function normalize_value(key, value)
 
   return tonumber(value) or value
 end
-
 -- local function normalize_value(key, value)
 --   if not value or value == "" then
 --     return (key == "extra_scripts" or key == "default_envs") and {} or ""
