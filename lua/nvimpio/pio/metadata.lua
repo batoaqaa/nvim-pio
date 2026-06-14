@@ -111,7 +111,7 @@ _G.metadata = setmetatable({}, {
         -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
         OS.notify(string.format('%s %s added to path',from, binPath), 'info')
 
-      elseif key == 'isBusy' then
+      -- elseif key == 'isBusy' then
         -- 1. Grab the current execution stack call trace
         local trace = debug.traceback()
 
