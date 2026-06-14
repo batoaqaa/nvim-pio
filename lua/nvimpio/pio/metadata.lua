@@ -258,13 +258,20 @@ function M.get_active_env(from)
     return nil, {}
   end
 
-  local pio_vars, base_env, raw_envs, current_sec = {}, {}, {}, nil
+  local pio_vars = {}
+  local base_env = {}
+  local raw_envs = {}
+  local current_sec = nil
   local last_key = nil
 
+  -- Parse configuration line-by-line cleanly
   for line in vim.gsplit(content, '\n') do
     line = line:gsub('\r$', '') -- Strip carriage returns
 
-    -- 1. Strip comments cleanly ensuring comment dividers inside URLs are ignored
+    -- 1. Check if the line is purely a comment line BEFORE doing anything else
+    local is_pure_comment = line:match("^%s*[;#]") ~= nil
+
+    -- Filter out trailing inline comments safely
     local comment_start = line:find('%s*[;#]')
     if comment_start then
       line = line:sub(1, comment_start - 1)
@@ -274,39 +281,51 @@ function M.get_active_env(from)
     local sec = trimmed:match('^%[(.+)%]$')
 
     if sec then
-      current_sec = sec
-      last_key = nil -- Reset multiline state on new section boundaries
-      local env_name = sec:match('^env:(.+)$')
+      current_sec = sec:gsub("%s", "") -- Normalize section name spaces
+      last_key = nil
+      local env_name = current_sec:match('^env:(.+)$')
       if env_name then raw_envs[env_name] = raw_envs[env_name] or {} end
-    elseif current_sec and trimmed ~= '' then
 
-      -- 2. ST_RE_CHECK: Look for equal sign markers strictly for valid variable names
-      -- Valid INI keys cannot start with a minus sign '-' or special characters!
-      local k, v = trimmed:match('^([%w_%-]+)%s*=%s*(.*)$')
+    -- 2. FIX: If it's a pure comment line, skip it completely but DO NOT clear last_key!
+    -- This keeps the multiline bridge open for the build flags beneath it.
+    elseif not is_pure_comment and current_sec and trimmed ~= '' then
 
-      -- Validate that the key name doesn't start with a minus sign or number flag
-      if k and not k:match('^%-') then
+      local k, v = trimmed:match('^([%w_%-%.]+)%s*=%s*(.*)$')
+
+      -- Enforce key rules: Keys cannot start with minus signs or numbers
+      if k and k:match('^%a[%w_%-%.]*$') then
         last_key = k
+        v = vim.trim(v)
         if current_sec == 'platformio' then pio_vars[k] = v
         elseif current_sec == 'env' then base_env[k] = v
-        elseif current_sec:match('^env:') then raw_envs[current_sec:match('^env:(.+)$')][k] = v end
+        elseif current_sec:match('^env:') then
+          local env_name = current_sec:match('^env:(.+)$')
+          if env_name then raw_envs[env_name][k] = v end
+        end
 
-      -- 3. If it doesn't match a clean key structure, it MUST be a multiline value continuation!
+      -- 3. If it's a value block with no key match, map it to the active multi-line stack
       elseif last_key then
         local current_val = ""
         if current_sec == 'platformio' then current_val = pio_vars[last_key] or ""
         elseif current_sec == 'env' then current_val = base_env[last_key] or ""
-        elseif current_sec:match('^env:') then current_val = raw_envs[current_sec:match('^env:(.+)$')][last_key] or "" end
+        elseif current_sec:match('^env:') then
+          local env_name = current_sec:match('^env:(.+)$')
+          current_val = env_name and raw_envs[env_name] and raw_envs[env_name][last_key] or ""
+        end
 
         local sep = (current_val == "") and "" or "\n"
         local updated_val = current_val .. sep .. trimmed
 
         if current_sec == 'platformio' then pio_vars[last_key] = updated_val
         elseif current_sec == 'env' then base_env[last_key] = updated_val
-        elseif current_sec:match('^env:') then raw_envs[current_sec:match('^env:(.+)$')][last_key] = updated_val end
+        elseif current_sec:match('^env:') then
+          local env_name = current_sec:match('^env:(.+)$')
+          if env_name then raw_envs[env_name][last_key] = updated_val end
+        end
       end
     end
   end
+
   -- local pio_vars, base_env, raw_envs, current_sec = {}, {}, {}, nil
   -- local last_key = nil -- Tracks multiline property states safely
 
