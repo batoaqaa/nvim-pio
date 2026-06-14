@@ -214,9 +214,9 @@ function M.load_project_config()
       if ok and type(table_data) == 'table' then
         for k, v in pairs(table_data) do
           -- _G.metadata[k] = v
-          _pio_metadata[k] = v
-          -- if k == 'toolchain_root' then _G.metadata[k] = v
-          -- else _pio_metadata[k] = v end
+          -- _pio_metadata[k] = v
+          if k == 'toolchain_root' then _G.metadata[k] = v
+          else _pio_metadata[k] = v end
         end
         last_saved_hash = vim.fn.sha256(json_data)
         -- return
