@@ -115,6 +115,7 @@ _G.metadata = setmetatable({}, {
       elseif key == 'active_env' then
         local from = 'Meta active_env change: '
 
+        OS.notify("in active_env change")
         -- local pio = require('nvimpio.pio.upkeep')
         local active_env, metadata = M.get_active_env(from)
         if active_env and active_env ~= '' then
