@@ -236,6 +236,8 @@ function M.load_project_config()
     if _pio_metadata.active_env ~= active_env then
       _G.metadata.active_env = active_env
     end
+  else
+      _G.metadata.toolchain_root = _pio_metadata.toolchain_root
   end
   -- end
 
@@ -244,7 +246,6 @@ function M.load_project_config()
 end
 
 -- ///////////////////// get_active_env /////////////////////
-
 
 -- 1. Helper: Converts raw string properties to numbers, string arrays, or defaults
 local function normalize_value(key, value)
@@ -312,6 +313,7 @@ local function normalize_value(key, value)
   -- =========================================================================
   return tonumber(value) or value
 end
+
 -- 2. Helper: Recursively interpolates ${platformio.core_dir} or ${this.board} tokens
 local function interpolate(text, current_env, pio_vars, base_env, raw_envs)
   if type(text) ~= "string" or not text:match("%$%{.-%}") then return text end
@@ -456,7 +458,6 @@ function M.get_active_env(from)
     metadata.envs[env].extra_scripts = metadata.envs[env].extra_scripts or {}
   end
 
-
   -- =========================================================================
   -- DETERMINISTIC TARGET RESOLUTION ENGINE
   -- =========================================================================
@@ -496,17 +497,6 @@ function M.get_active_env(from)
     target = ordered_sections[1]
   end
   -- =========================================================================
-
-  -- local target = nil
-  -- local def_envs = metadata.default_envs
-  --
-  -- if type(def_envs) == 'table' then
-  --   for _, env_name in ipairs(def_envs) do
-  --     if metadata.envs[env_name] then target = env_name break end
-  --   end
-  -- end
-  --
-  -- target = target or (metadata.envs[_G.metadata.active_env] and _G.metadata.active_env) or next(metadata.envs)
 
   return target, metadata
 end
