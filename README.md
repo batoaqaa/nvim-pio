@@ -226,7 +226,10 @@ vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_stri
 
 ## </details>
 
+<details>
+  <summary>
 ## 🎮 Usage & Interface
+  </summary>
 
 Run **`:ClangdFilter`** (or press your custom user `<leader>\b` shortcut key mapping) inside any active C++ source file buffer to launch your filter options dropdown picker window panel.
 
@@ -241,5 +244,7 @@ Run **`:ClangdFilter`** (or press your custom user `<leader>\b` shortcut key map
 
 - **Toggle Filters:** Select any warning row entry item to toggle its state. `[*]` items represent lints that are permanently blocked from cluttering your viewport screen display layout view.
 - **Commit Actions:** Press **`Escape`** to close out the menu layout view panel. The compiler state machine will instantly merge your selections in RAM, flush your settings to disk, and issue an atomic background buffer re-lint pass instantly.
+
+## </details>
 
 ---
