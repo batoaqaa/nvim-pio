@@ -61,7 +61,10 @@ return {
 
 #### Keybinds
 
-These are the default keybindings, which you can override in your configuration.
+<details>
+  <summary>
+    These are the default keybindings, which you can override in your configuration.
+  </summary>
 
 ```lua
   local pok, nvimpio = pcall(require, 'nvimpio')
@@ -167,6 +170,8 @@ These are the default keybindings, which you can override in your configuration.
         },
       },
   })
+
+</details>
 
 ```
 
