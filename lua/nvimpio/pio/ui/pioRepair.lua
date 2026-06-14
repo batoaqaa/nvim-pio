@@ -1,26 +1,26 @@
 local function pioRepair()
   local runtime_dir = require('nvimpio').config.pio_runtime_dir
 
-  local pioUpgrade_cmd --, pioEnv
+  local pioRepair_cmd --, pioEnv
   if OS.is_win then
-    pioUpgrade_cmd = string.format('%s/pip.exe install -U platformio', runtime_dir)
+    pioRepair_cmd = string.format('%s/pip.exe install -U platformio', runtime_dir)
     -- pioEnv = string.format('$env:PATH = "%s;" + $env:PATH', runtime_dir)
   else
-    pioUpgrade_cmd = string.format('%s/pip install -U platformio', runtime_dir)
+    pioRepair_cmd = string.format('%s/pip install -U platformio', runtime_dir)
     -- pioEnv = string.format('export PATH="%s:$PATH"', runtime_dir)
   end
 
   -- 6. Establish downstream update pipeline connections
   -- local pio = require('nvimpio.pio.upkeep')
   local cb = function(status)
-    require('nvimpio.device.parser').handlePioUpgrade(status, function(success)
+    require('nvimpio.device.parser').handlePioRepair(status, function(success)
       if success then
         do
         end
       end
     end)
   end
-  require('nvimpio.device.parser').run_sequence({ cmnds = { pioUpgrade_cmd }, cb = cb, from = 'pioUpgrade:' })
+  require('nvimpio.device.parser').run_sequence({ cmnds = { pioRepair_cmd }, cb = cb, from = 'pioRepair:' })
 end
 
 return {

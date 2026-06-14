@@ -25,7 +25,7 @@ end, { desc = 'Switch [E]nvironment' })
 ----------------------------------------------------------------
 vim.api.nvim_create_user_command('PioRepair', function()
     require('nvimpio.pio.ui.pioRepair').pioRepair()
-end, { desc = "upgrade PlatformIO Core" })
+end, { desc = "repair PlatformIO Core" })
 
 --INFO: PioUpgrade
 vim.api.nvim_create_user_command('PioUpgrade', function()

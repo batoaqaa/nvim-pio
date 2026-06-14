@@ -266,13 +266,13 @@ function M.handlePioInstall(result, on_done)
   end
 end
 
-function M.handlePioUpgrade(result, on_done)
+function M.handlePioRepair(result, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
-  elseif result == 'PASS' .. current_id then
-     OS.notify(string.format('%s:  pass %s', fromMsg, current_id), "info")
-     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
-  -- elseif result == 'PASS2' then
+  -- elseif result == 'PASS' .. current_id then
+  --    OS.notify(string.format('%s:  pass %s', fromMsg, current_id), "info")
+  --    if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
+  -- -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the only and the last command
      OS.notify(string.format('%s:  Done', fromMsg), "info")
     if on_done and type(on_done) == "function" then on_done(true) end
