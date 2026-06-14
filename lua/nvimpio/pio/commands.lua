@@ -23,10 +23,16 @@ end, { desc = 'Switch [E]nvironment' })
 
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
-vim.api.nvim_create_user_command('PioUpgrade', function()
-    require('nvimpio.pio.ui.pioUpgrade').pioRepair()
+vim.api.nvim_create_user_command('PioRepair', function()
+    require('nvimpio.pio.ui.pioRepair').pioRepair()
 end, { desc = "upgrade PlatformIO Core" })
 
+--INFO: PioUpgrade
+vim.api.nvim_create_user_command('PioUpgrade', function()
+  local cmd_table = {'upgrade'}
+  require('nvimpio.pio.cli').piocli(cmd_table)
+  -- print(vim.inspect(require('nvimpio.pio.upkeep').get_connected_ports()))
+end, {})
 
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------

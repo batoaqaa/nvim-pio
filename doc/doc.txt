@@ -56,6 +56,12 @@ Commands:
     environment in `~/.platformio/penv` asynchronously. 
     Mapped to: |<leader>\pi|
 
+:PioUpgrade                                                      *:PioUpgrade*
+    Upgrades the official PlatformIO to the latest release.
+    Mapped to: |<leader>\pu|
+
+:PioRepair                                                        *:PioRepair*
+    Repair/reinstall PlatformIO      Mapped to: |<leader>\pr|
 :Piorun [arg]                                                        *:Piorun*
     Builds, cleans, or uploads your code. If no argument is provided, 
     it defaults to building the active environment.
