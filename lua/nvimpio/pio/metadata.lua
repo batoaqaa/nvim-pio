@@ -213,20 +213,32 @@ end
 -- ///////////////////// get_active_env /////////////////////
 
 
-
 local function normalize_value(key, value)
   if not value or value == "" then
-    return (key == "extra_scripts" or key == "default_envs" or key == "lib_deps") and {} or ""
+    return (key == "extra_scripts" or key == "default_envs" or key == "lib_deps" or key == "build_flags") and {} or ""
   end
 
-  -- Automatically split multiline libraries and build flags into clean lists
+  -- Split arrays by standard newlines or commas
   if key == "default_envs" or key == "extra_scripts" or key == "lib_deps" then
-    -- Splits on newlines, trims whitespace from every entry, and drops empty rows
     return vim.split(value, "[\r\n]+", { trimempty = true })
+  end
+
+  --Dynamically token-split build_flags by BOTH spaces and newlines!
+  if key == "build_flags" then
+    local tokens = {}
+    -- Loop through every string chunk that isn't a space or newline character
+    for token in value:gmatch("%s*([%-%w_%d%.%=%/%\\]+)%s*") do
+      -- Filter out inline comments or loose carriage returns that survived parsing
+      if token ~= "" and not token:match("^[;#]") then
+        table.insert(tokens, token)
+      end
+    end
+    return tokens
   end
 
   return tonumber(value) or value
 end
+
 -- local function normalize_value(key, value)
 --   if not value or value == "" then
 --     return (key == "extra_scripts" or key == "default_envs") and {} or ""
