@@ -92,8 +92,8 @@ local function watch_file(target, callback)
             last_mtime = stat.mtime.sec
 
             -- Set Busy flags before entering the heavy callback
-            target.isBusy = true
-            if _G.metadata then _G.metadata.isBusy = true end
+            -- target.isBusy = true
+            -- if _G.metadata then _G.metadata.isBusy = true end
 
             callback(target)
           end
@@ -143,6 +143,8 @@ function M.start_watchers()
           return
         end
 
+        self.isBusy = true
+        if _G.metadata then _G.metadata.isBusy = true end
         misc.notify('PIO platformio.ini change: compiledb update ...', 'info')
         vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
           vim.schedule(function()
@@ -151,9 +153,10 @@ function M.start_watchers()
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function(success)
                 if success then
+                  do end
                   -- clangd.getUnknownArgsCli('PIO platformio.ini  change: ')
-                  if _G.metadata then _G.metadata.isBusy = false end
                 end
+                if _G.metadata then _G.metadata.isBusy = false end
                 self.isBusy = false
                 -- clangdRestart()
               end, 'PIO platformio.ini  change: ')
@@ -181,6 +184,8 @@ function M.start_watchers()
             return
           end
           vim.schedule(function()
+            self.isBusy = true
+            if _G.metadata then _G.metadata.isBusy = true end
             local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
             pio_refresh(function(success)
               if success then

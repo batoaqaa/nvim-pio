@@ -198,10 +198,10 @@ function M.configure_hardware_parameters()
 
   -- Defensive, Context-Aware File System Injector Engine
   local function inject_into_ini()
-    _G.metadata.isBusy = true
     local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
     if vim.fn.filereadable(path) ~= 1 then return end
     local raw_lines = vim.fn.readfile(path)
+    _G.metadata.isBusy = true
 
     -- Build our fresh patches table dynamically based on user selections
     local patches = {}
