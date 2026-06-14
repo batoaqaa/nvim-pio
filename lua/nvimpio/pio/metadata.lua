@@ -111,6 +111,35 @@ _G.metadata = setmetatable({}, {
         -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
         OS.notify(string.format('%s %s added to path',from, binPath), 'info')
 
+      elseif key == 'isBusy' then
+        -- 1. Grab the current execution stack call trace
+        local trace = debug.traceback()
+
+        -- 2. Format a highly detailed visual report string
+        local log_msg = string.format(
+          "\n=================== PIO TRACE: isBusy changed ===================\n" ..
+          "Time: %s\n" ..
+          "Mutation: %s -> %s\n" ..
+          "Call Stack:\n%s\n" ..
+          "===============================================================\n",
+          os.date("%Y-%m-%d %H:%M:%S"),
+          tostring(oldValue),
+          tostring(value),
+          trace
+        )
+
+        -- 3. CHOOSE AN OUTPUT TARGET:
+
+        -- Option A: Print directly to Neovim's system logs (Read via typing :messages)
+        -- vim.schedule(function() print(log_msg) end)
+
+        -- Option B: Write to a dedicated file in your project directory (Recommended!)
+        local log_file_path = vim.fn.stdpath("data") .. "/pio_isBusy_trace.log"
+        local file = io.open(log_file_path, "a")
+        if file then
+          file:write(log_msg)
+          file:close()
+        end
       -------------------------------------------------------------------------------
       elseif key == 'active_env' then
         local from = 'Meta active_env change: '
