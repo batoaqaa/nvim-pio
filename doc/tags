@@ -9,6 +9,7 @@
 :PioGitIgnore	doc.txt	/*:PioGitIgnore*
 :PioInstall	doc.txt	/*:PioInstall*
 :PioPickEnv	doc.txt	/*:PioPickEnv*
+:PioRefreshData	doc.txt	/*:PioRefreshData*
 :PioRepair	doc.txt	/*:PioRepair*
 :PioSelectPort	doc.txt	/*:PioSelectPort*
 :PioUpgrade	doc.txt	/*:PioUpgrade*

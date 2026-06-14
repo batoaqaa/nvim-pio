@@ -63,6 +63,9 @@ Commands:
 :PioRepair                                                        *:PioRepair*
     Repair/reinstall PlatformIO      Mapped to: |<leader>\pr|
 
+:PioRefreshData                                              *:PioRefreshData*
+    Repair PlatformIO project metadata
+
 :Piorun [arg]                                                        *:Piorun*
     Builds, cleans, or uploads your code. If no argument is provided, 
     it defaults to building the active environment. Piorun = 'pio run '
