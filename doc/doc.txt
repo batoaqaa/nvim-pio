@@ -65,7 +65,7 @@ Commands:
 
 :Piorun [arg]                                                        *:Piorun*
     Builds, cleans, or uploads your code. If no argument is provided, 
-    it defaults to building the active environment.
+    it defaults to building the active environment. Piorun = 'pio run '
     Examples:
         `:Piorun`           Mapped to: |<leader>\gb|
         `:Piorun build`     Mapped to: |<leader>\gb|
@@ -78,6 +78,7 @@ Commands:
     Run arbitrary PlatformIO commands inside a floating terminal window.
     If no command argument is provided, it opens an interactive terminal prompt
     at your project root folder. Note: the `pio` prefix word is omitted.
+    Piocli = 'pio '
     Examples:
        `:Piocli`                     Mapped to: |<leader>\c|
        `:Piocli run -e uno -t upload`
@@ -90,10 +91,13 @@ Commands:
        `:Piolib arduino json`
        `:Piolib keyboard`
 
-:Piomon [baud_rate]                                                  *:Piomon*
+:Piomon [baud_rate][port]                                               *:Piomon*
     Open the serial monitor communications shell. Specify a baud rate
     as an optional argument. If omitted, it falls back to 9600 or the
     rate defined inside your local `platformio.ini` file.
+    Examples:
+       `:Piomon`                     Mapped to: |<leader>\m|
+       `:Piomon 9600 COM40
     Mapped to: |<leader>\m|
 
 :PioCompileDB                                                  *:PioCompileDB*
