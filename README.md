@@ -195,6 +195,8 @@ nvim -u nvimpio.lua .
 > dependencies. It can also check that your config table looks correct. This is
 > still in its early stages, so please file issues if you'd like to see more
 > checks added or a check isn't working properly.
+>
+> `:h nvimpio` for help
 
 <details>
   <summary>
