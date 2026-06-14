@@ -225,7 +225,7 @@ function M.restart()
     vim.lsp.enable(name, false)
     vim.lsp.enable(name, true)
 
-    _G.metadata.isBusy = false
+    _G.isBusy = false
   end)
 end
 

@@ -1,5 +1,6 @@
 local M = {}
 
+_G.isBusy = false
 -------------------------------------------------------------------------------------------------------
 local last_saved_hash = ''
 
@@ -157,11 +158,11 @@ _G.metadata = setmetatable({}, {
         end
 
         vim.schedule(function()
-          _G.metadata.isBusy = true
+          _G.isBusy = true
           local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
           pio_refresh(function(_)
             -- if (suscess) then require('nvimpio.clangd.control').getUnknownArgs(from) end
-            _G.metadata.isBusy = false
+            _G.isBusy = false
           end, from)
           vim.cmd('redrawstatus')
         end)

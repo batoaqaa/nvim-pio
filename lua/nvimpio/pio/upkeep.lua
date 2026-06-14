@@ -201,7 +201,7 @@ function M.configure_hardware_parameters()
     local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
     if vim.fn.filereadable(path) ~= 1 then return end
     local raw_lines = vim.fn.readfile(path)
-    _G.metadata.isBusy = true
+    _G.isBusy = true
 
     -- Build our fresh patches table dynamically based on user selections
     local patches = {}
@@ -304,7 +304,7 @@ function M.configure_hardware_parameters()
 
     vim.fn.writefile(final_lines, path)
     vim.schedule(function() vim.cmd('checktime') end)
-    vim.defer_fn(function() _G.metadata.isBusy = false end, 500)
+    vim.defer_fn(function() _G.isBusy = false end, 500)
   end
 
   -- Linear Execution Wizard Runner Loop
@@ -682,6 +682,6 @@ function M.compile_commandsFix() --M.dbPathsFix()
     -- clangd.restart()
   end
   OS.notify("no need to fixPaths")
-  _G.metadata.isBusy = false
+  _G.isBusy = false
 end
 return M
