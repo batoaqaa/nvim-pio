@@ -17,7 +17,7 @@ end, { desc = "Install PlatformIO Core" })
 
 
 -- INFO: Refresh PIO Data
-vim.api.nvim_create_user_command('PioRfreshData', function ()
+vim.api.nvim_create_user_command('PioRefreshData', function ()
    _G.isBusy = true
    local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
    pio_refresh(function(success)
