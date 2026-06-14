@@ -213,7 +213,8 @@ end
 -- ///////////////////// get_active_env /////////////////////
 
 
-local function normalize_value(key, value)
+-- 1. Helper: Converts raw string properties to numbers, string arrays, or defaults
+local function normalize_value(_, value)
   -- 1. Handle empty inputs cleanly
   if not value or value == "" then return "" end
 
@@ -278,46 +279,6 @@ local function normalize_value(key, value)
   return tonumber(value) or value
 end
 
--- local function normalize_value(key, value)
---   -- 1. Ensure empty blocks evaluate to a clean empty array list structure
---   if not value or value == "" then
---     local array_keys = { default_envs = true, extra_scripts = true, lib_deps = true, build_flags = true }
---     return array_keys[key] and {} or ""
---   end
---
---   -- 2. Handle standard line-separated lists
---   if key == "default_envs" or key == "extra_scripts" or key == "lib_deps" then
---     return vim.split(value, "[\r\n]+", { trimempty = true })
---   end
---
---   -- 3. THE Explicitly capture "build_flags" and token-split it by newlines or whitespaces
---   if key == "build_flags" then
---     local tokens = {}
---     -- Iterate through each separate text line or block chunk
---     for line in vim.gsplit(value, "[\r\n]+") do
---       -- Trim whitespaces from individual rows
---       local trimmed = vim.trim(line)
---       -- Skip empty lines or stray comments that might have snuck into the value data
---       if trimmed ~= "" and not trimmed:match("^[;#]") then
---         table.insert(tokens, trimmed)
---       end
---     end
---     return tokens
---   end
---
---   return tonumber(value) or value
--- end
-
--- local function normalize_value(key, value)
---   if not value or value == "" then
---     return (key == "extra_scripts" or key == "default_envs") and {} or ""
---   end
---   if key == "default_envs" or key == "extra_scripts" then
---     return vim.split(value, "[%s,]+", { trimempty = true })
---   end
---   return tonumber(value) or value
--- end
-
 -- 2. Helper: Recursively interpolates ${platformio.core_dir} or ${this.board} tokens
 local function interpolate(text, current_env, pio_vars, base_env, raw_envs)
   if type(text) ~= "string" or not text:match("%$%{.-%}") then return text end
@@ -380,7 +341,7 @@ function M.get_active_env(from)
       local env_name = current_sec:match('^env:(.+)$')
       if env_name then raw_envs[env_name] = raw_envs[env_name] or {} end
 
-    -- 2. FIX: If it's a pure comment line, skip it completely but DO NOT clear last_key!
+    -- 2. If it's a pure comment line, skip it completely but DO NOT clear last_key!
     -- This keeps the multiline bridge open for the build flags beneath it.
     elseif not is_pure_comment and current_sec and trimmed ~= '' then
 
@@ -419,57 +380,6 @@ function M.get_active_env(from)
       end
     end
   end
-
-  -- local pio_vars, base_env, raw_envs, current_sec = {}, {}, {}, nil
-  -- local last_key = nil -- Tracks multiline property states safely
-
-  -- Parse configuration line-by-line preserving indentation markers
-
-  -- for line in vim.gsplit(content, '\n') do
-  --   line = line:gsub('\r$', '') -- Clean trailing carriage returns
-  --
-  --   -- Check indentation flags BEFORE applying any trims or alterations
-  --   local is_indented = line:match('^[%s\t]+') ~= nil
-  --
-  --   -- Strip comments safely ensuring strings inside URLs don't trip equal signs
-  --   line = line:gsub('%s*[;#].*$', '')
-  --   local trimmed = line:match('^%s*(.-)%s*$') or ""
-  --
-  --   local sec = trimmed:match('^%[(.+)%]$')
-  --
-  --   if sec then
-  --     current_sec = sec
-  --     last_key = nil -- Reset multiline state on new section
-  --     local env_name = sec:match('^env:(.+)$')
-  --     if env_name then raw_envs[env_name] = raw_envs[env_name] or {} end
-  --   elseif current_sec and trimmed ~= '' then
-  --     -- Parse properties containing explicit key-value assignments
-  --     local k, v = trimmed:match('^([%w_%-]+)%s*=%s*(.*)$')
-  --
-  --     if k then
-  --       last_key = k
-  --       v = vim.trim(v)
-  --       if current_sec == 'platformio' then pio_vars[k] = v
-  --       elseif current_sec == 'env' then base_env[k] = v
-  --       elseif current_sec:match('^env:') then raw_envs[current_sec:match('^env:(.+)$')][k] = v end
-  --
-  --     -- If the row is indented with no equal sign, it is part of a multiline block!
-  --     elseif is_indented and last_key then
-  --       local current_val = ""
-  --       if current_sec == 'platformio' then current_val = pio_vars[last_key] or ""
-  --       elseif current_sec == 'env' then current_val = base_env[last_key] or ""
-  --       elseif current_sec:match('^env:') then current_val = raw_envs[current_sec:match('^env:(.+)$')][last_key] or "" end
-  --
-  --       -- Append lines with standard clean newlines
-  --       local sep = (current_val == "") and "" or "\n"
-  --       local updated_val = current_val .. sep .. trimmed
-  --
-  --       if current_sec == 'platformio' then pio_vars[last_key] = updated_val
-  --       elseif current_sec == 'env' then base_env[last_key] = updated_val
-  --       elseif current_sec:match('^env:') then raw_envs[current_sec:match('^env:(.+)$')][last_key] = updated_val end
-  --     end
-  --   end
-  -- end
 
   if not next(raw_envs) then
     OS.notify(from .. 'No active environments found in platformio.ini', 'warn')
@@ -518,127 +428,6 @@ function M.get_active_env(from)
 
   return target, metadata
 end
-
--- -- stylua: ignore start
--- -- 1. Helper: Converts raw string properties to numbers, string arrays, or defaults
--- local function normalize_value(key, value)
---   if not value or value == "" then
---     return (key == "extra_scripts" or key == "default_envs") and {} or ""
---   end
---   if key == "default_envs" or key == "extra_scripts" then
---     return vim.split(value, "[%s,]+", { trimempty = true })
---   end
---   return tonumber(value) or value
--- end
---
--- -- 2. Helper: Recursively interpolates ${platformio.core_dir} or ${this.board} tokens
--- local function interpolate(text, current_env, pio_vars, base_env, raw_envs)
---   if type(text) ~= "string" or not text:match("%$%{.-%}") then return text end
---
---   local resolved = (text:gsub("%$%{([^}]+)%}", function(token)
---     if token:match("^platformio%.") then
---       return pio_vars[token:gsub("^platformio%.", "")] or ""
---     end
---     if token:match("^this%.") and current_env and raw_envs[current_env] then
---       local key = token:gsub("^this%.", "")
---       return raw_envs[current_env][key] or base_env[key] or ""
---     end
---     return "${" .. token .. "}"
---   end))
---
---   return (resolved ~= text) and interpolate(resolved, current_env, pio_vars, base_env, raw_envs) or resolved
--- end
---
--- -- 3. Pure Data Pipeline (No Global Side-Effects)
--- function M.get_active_env(from)
---   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
---   local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
---
---   if vim.fn.filereadable(path) == 0 then
---     OS.notify(from .. 'platformio.ini not found in workspace.', 'error')
---     return nil, {}
---   end
---   local misc = require('nvimpio.utils.misc')
---   local ok, content = misc.readFile(path)
---   if not ok or not content then
---     OS.notify(from .. 'Could not read platformio.ini at ' .. path, 'warn')
---     return nil, {}
---   end
---
---   local pio_vars, base_env, raw_envs, current_sec = {}, {}, {}, nil
---
---   -- Parse configuration line-by-line without collapsing spaces
---   for line in vim.gsplit(content, '\n') do
---     line = line:gsub('\r$', ''):gsub('^%s+', ''):gsub('%s+$', ''):gsub('%s*[;#].*$', '')
---     local sec = line:match('^%[(.+)%]$')
---
---     if sec then
---       current_sec = sec
---       local env_name = sec:match('^env:(.+)$')
---       if env_name then raw_envs[env_name] = raw_envs[env_name] or {} end
---     elseif current_sec and line ~= '' then
---       local k, v = line:match('^%s*([%w_%-]+)%s*=%s*(.-)%s*$')
---       if k and v then
---         if current_sec == 'platformio' then pio_vars[k] = vim.trim(v)
---         elseif current_sec == 'env' then base_env[k] = vim.trim(v)
---         elseif current_sec:match('^env:') then raw_envs[current_sec:match('^env:(.+)$')][k] = vim.trim(v) end
---       end
---     end
---   end
---
---   if not next(raw_envs) then
---     OS.notify(from .. 'No active environments found in platformio.ini', 'warn')
---     return nil, {}
---   end
---
---   -- =========================================================================
---   -- Pre-calculate core_dir directly inside pio_vars
---   -- =========================================================================
---   local storage_fallback = require('nvimpio').config.pio_storage_dir or "~/.platformio"
---
---   -- Resolve core_dir first so it exists inside pio_vars for packages/platforms loops
---   pio_vars.core_dir = pcall(function()
---     return interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs)
---   end) and interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs) or storage_fallback
---
---   -- Update your plugin core config storage layer synchronously
---   require('nvimpio').config.pio_storage_dir = pio_vars.core_dir
---
---   -- Construct final metadata response schema cleanly using pre-seeded variables
---   local metadata = {
---     core_dir = pio_vars.core_dir,
---     packages_dir = interpolate(pio_vars.packages_dir or "${platformio.core_dir}/packages", nil, pio_vars, base_env, raw_envs),
---     platforms_dir = interpolate(pio_vars.platforms_dir or "${platformio.core_dir}/platforms", nil, pio_vars, base_env, raw_envs),
---     default_envs = normalize_value('default_envs', pio_vars.default_envs),
---     envs = {}
---   }
---   -- =========================================================================
---
---   -- Merge [env] defaults down into each specific profile block
---   for env, locals in pairs(raw_envs) do
---     metadata.envs[env] = vim.tbl_deep_extend("force", base_env, locals)
---     for k, v in pairs(metadata.envs[env]) do
---       metadata.envs[env][k] = normalize_value(k, interpolate(v, env, pio_vars, base_env, raw_envs))
---     end
---     metadata.envs[env].extra_scripts = metadata.envs[env].extra_scripts or {}
---   end
---
---   -- Determine active environment order target (INI Default -> First Valid)
---   local target = nil
---   local def_envs = metadata.default_envs -- Extract to a local variable
---
---   if type(def_envs) == 'table' then
---     for _, env_name in ipairs(def_envs) do -- LSP knows 'def_envs' is safely a table here
---       if metadata.envs[env_name] then target = env_name break
---       end
---     end
---   end
---
---   target = target or (metadata.envs[_G.metadata.active_env] and _G.metadata.active_env) or next(metadata.envs)
---
---   return target, metadata
--- end
--- stylua: ignore end
 -- ///////////////////// get_active_env /////////////////////
 
 --========================================================================================
