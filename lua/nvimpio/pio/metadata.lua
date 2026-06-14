@@ -441,9 +441,12 @@ function M.get_active_env(from)
   local target = nil
   local def_envs = metadata.default_envs
 
-  -- RULE 1: FIX 3: Check live User Preference FIRST for LSP context consistency
-  if _G.metadata and _G.metadata.active_env and metadata.envs[_G.metadata.active_env] then
-    target = _G.metadata.active_env
+  -- RULE 1: Check live User Preference FIRST for LSP context consistency
+  if _G.metadata and _G.metadata.active_env and _G.metadata.active_env ~= "" then
+    local clean_active = vim.trim(tostring(_G.metadata.active_env)):gsub('\r$', '')
+    if metadata.envs[clean_active] then
+      target = clean_active
+    end
   end
 
   -- RULE 2: Fall back to default_envs line SECOND if the user hasn't forced a selection
