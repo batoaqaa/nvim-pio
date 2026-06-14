@@ -190,6 +190,12 @@ nvim -u nvimpio.lua .
 
 ---
 
+> [!TIP]
+> You can `:checkhealth nvimpio` to ensure you have all the required
+> dependencies. It can also check that your config table looks correct. This is
+> still in its early stages, so please file issues if you'd like to see more
+> checks added or a check isn't working properly.
+
 <details>
   <summary>
 ## 📊 Statusline Integrations
