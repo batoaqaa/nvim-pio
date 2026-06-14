@@ -52,7 +52,6 @@ end
 ]]
 
 local _pio_metadata = {
-  isBusy = false,
   envs = {},
   active_env = '',
   default_envs = {},
