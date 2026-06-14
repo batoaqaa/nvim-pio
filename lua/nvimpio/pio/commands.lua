@@ -23,7 +23,7 @@ vim.api.nvim_create_user_command('PioRfreshData', function ()
    pio_refresh(function(success)
      if success then do end end
      _G.isBusy = false
-   end, 'PIO platformio.ini  change: ')
+   end, 'PIO refresh command: ')
 end, {desc = 'Refresh PIO metadata'})
 
 -- INFO: Switch Environment
