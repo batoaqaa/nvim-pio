@@ -190,7 +190,10 @@ nvim -u nvimpio.lua .
 
 ---
 
+<details>
+  <summary>
 ## 📊 Statusline Integrations
+  </summary>
 
 ### lualine.nvim Integration
 
@@ -221,7 +224,7 @@ If you don't have lualine, use this native nvim statusline.
 vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_string()}")
 ```
 
----
+## </details>
 
 ## 🎮 Usage & Interface
 
