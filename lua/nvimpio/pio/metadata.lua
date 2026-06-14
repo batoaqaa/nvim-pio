@@ -259,45 +259,45 @@ function M.get_active_env(from)
   end
 
   local pio_vars, base_env, raw_envs, current_sec = {}, {}, {}, nil
-  local last_key = nil -- Tracks multiline property states safely
+  local last_key = nil
 
-  -- Parse configuration line-by-line preserving indentation markers
   for line in vim.gsplit(content, '\n') do
-    line = line:gsub('\r$', '') -- Clean trailing carriage returns
+    line = line:gsub('\r$', '') -- Strip carriage returns
 
-    -- Check indentation flags BEFORE applying any trims or alterations
-    local is_indented = line:match('^[%s\t]+') ~= nil
+    -- 1. Strip comments cleanly ensuring comment dividers inside URLs are ignored
+    local comment_start = line:find('%s*[;#]')
+    if comment_start then
+      line = line:sub(1, comment_start - 1)
+    end
 
-    -- Strip comments safely ensuring strings inside URLs don't trip equal signs
-    line = line:gsub('%s*[;#].*$', '')
     local trimmed = line:match('^%s*(.-)%s*$') or ""
-
     local sec = trimmed:match('^%[(.+)%]$')
 
     if sec then
       current_sec = sec
-      last_key = nil -- Reset multiline state on new section
+      last_key = nil -- Reset multiline state on new section boundaries
       local env_name = sec:match('^env:(.+)$')
       if env_name then raw_envs[env_name] = raw_envs[env_name] or {} end
     elseif current_sec and trimmed ~= '' then
-      -- Parse properties containing explicit key-value assignments
+
+      -- 2. ST_RE_CHECK: Look for equal sign markers strictly for valid variable names
+      -- Valid INI keys cannot start with a minus sign '-' or special characters!
       local k, v = trimmed:match('^([%w_%-]+)%s*=%s*(.*)$')
 
-      if k then
+      -- Validate that the key name doesn't start with a minus sign or number flag
+      if k and not k:match('^%-') then
         last_key = k
-        v = vim.trim(v)
         if current_sec == 'platformio' then pio_vars[k] = v
         elseif current_sec == 'env' then base_env[k] = v
         elseif current_sec:match('^env:') then raw_envs[current_sec:match('^env:(.+)$')][k] = v end
 
-      -- If the row is indented with no equal sign, it is part of a multiline block!
-      elseif is_indented and last_key then
+      -- 3. If it doesn't match a clean key structure, it MUST be a multiline value continuation!
+      elseif last_key then
         local current_val = ""
         if current_sec == 'platformio' then current_val = pio_vars[last_key] or ""
         elseif current_sec == 'env' then current_val = base_env[last_key] or ""
         elseif current_sec:match('^env:') then current_val = raw_envs[current_sec:match('^env:(.+)$')][last_key] or "" end
 
-        -- Append lines with standard clean newlines
         local sep = (current_val == "") and "" or "\n"
         local updated_val = current_val .. sep .. trimmed
 
@@ -307,6 +307,56 @@ function M.get_active_env(from)
       end
     end
   end
+  -- local pio_vars, base_env, raw_envs, current_sec = {}, {}, {}, nil
+  -- local last_key = nil -- Tracks multiline property states safely
+
+  -- Parse configuration line-by-line preserving indentation markers
+
+  -- for line in vim.gsplit(content, '\n') do
+  --   line = line:gsub('\r$', '') -- Clean trailing carriage returns
+  --
+  --   -- Check indentation flags BEFORE applying any trims or alterations
+  --   local is_indented = line:match('^[%s\t]+') ~= nil
+  --
+  --   -- Strip comments safely ensuring strings inside URLs don't trip equal signs
+  --   line = line:gsub('%s*[;#].*$', '')
+  --   local trimmed = line:match('^%s*(.-)%s*$') or ""
+  --
+  --   local sec = trimmed:match('^%[(.+)%]$')
+  --
+  --   if sec then
+  --     current_sec = sec
+  --     last_key = nil -- Reset multiline state on new section
+  --     local env_name = sec:match('^env:(.+)$')
+  --     if env_name then raw_envs[env_name] = raw_envs[env_name] or {} end
+  --   elseif current_sec and trimmed ~= '' then
+  --     -- Parse properties containing explicit key-value assignments
+  --     local k, v = trimmed:match('^([%w_%-]+)%s*=%s*(.*)$')
+  --
+  --     if k then
+  --       last_key = k
+  --       v = vim.trim(v)
+  --       if current_sec == 'platformio' then pio_vars[k] = v
+  --       elseif current_sec == 'env' then base_env[k] = v
+  --       elseif current_sec:match('^env:') then raw_envs[current_sec:match('^env:(.+)$')][k] = v end
+  --
+  --     -- If the row is indented with no equal sign, it is part of a multiline block!
+  --     elseif is_indented and last_key then
+  --       local current_val = ""
+  --       if current_sec == 'platformio' then current_val = pio_vars[last_key] or ""
+  --       elseif current_sec == 'env' then current_val = base_env[last_key] or ""
+  --       elseif current_sec:match('^env:') then current_val = raw_envs[current_sec:match('^env:(.+)$')][last_key] or "" end
+  --
+  --       -- Append lines with standard clean newlines
+  --       local sep = (current_val == "") and "" or "\n"
+  --       local updated_val = current_val .. sep .. trimmed
+  --
+  --       if current_sec == 'platformio' then pio_vars[last_key] = updated_val
+  --       elseif current_sec == 'env' then base_env[last_key] = updated_val
+  --       elseif current_sec:match('^env:') then raw_envs[current_sec:match('^env:(.+)$')][last_key] = updated_val end
+  --     end
+  --   end
+  -- end
 
   if not next(raw_envs) then
     OS.notify(from .. 'No active environments found in platformio.ini', 'warn')
