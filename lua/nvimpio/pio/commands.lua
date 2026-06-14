@@ -16,6 +16,16 @@ vim.api.nvim_create_user_command('PioCompileDB', function()
 end, { desc = "Install PlatformIO Core" })
 
 
+-- INFO: Refresh PIO Data
+vim.api.nvim_create_user_command('PioRfreshData', function ()
+   _G.isBusy = true
+   local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+   pio_refresh(function(success)
+     if success then do end end
+     _G.isBusy = false
+   end, 'PIO platformio.ini  change: ')
+end, {desc = 'Refresh PIO metadata'})
+
 -- INFO: Switch Environment
 vim.api.nvim_create_user_command('PioPickEnv', function()
   require('nvimpio.pio.ui.activeEnvPicker').select_env_picker()
