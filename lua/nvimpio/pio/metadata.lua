@@ -238,6 +238,7 @@ function M.load_project_config()
     end
   else
       _G.metadata.toolchain_root = _pio_metadata.toolchain_root
+      OS.notify("here ......")
   end
   -- end
 
