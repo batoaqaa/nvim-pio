@@ -80,6 +80,7 @@ local defConfig = {
       shortcut = 'p',
       items = {
         { node = 'item', desc = '[U]pgrade PlatformIO Core', shortcut = 'u', command = 'Piocli upgrade' },
+        { node = 'item', desc = '[R]epair PlatformIO Core', shortcut = 'r', command = 'PioRepair' },
         { node = 'item', desc = '[I]nstall PlatformIO Core', shortcut = 'i', command = 'PioInstall' },
         { node = 'item', desc = '[G]it ignore', shortcut = 'g', command = 'PioGitIgnore' },
       },
