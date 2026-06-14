@@ -219,8 +219,8 @@ end
 -- 1. Helper: Converts raw string properties to numbers, string arrays, or defaults
 local function normalize_value(key, value)
   if not value or value == "" then
-    -- Use key pattern matching to return the correct empty structure dynamically
-    if key:match("_[ed]nvs$") or key:match("_deps$") or key:match("_scripts$") or key:match("_filters$") or key:match("flags$") then
+    -- FIX 1: Enforce clean matching on 'envs$' without the rigid leading underscore crash blocker
+    if key:match("envs$") or key:match("_deps$") or key:match("_scripts$") or key:match("_filters$") or key:match("flags$") then
       return {}
     end
     return ""
@@ -231,7 +231,6 @@ local function normalize_value(key, value)
 
   -- =========================================================================
   -- RULE 1: COMPILER FLAGS MATRIX ENGINE
-  -- Triggered if the key ends in "flags" or if the data starts with a hyphen (-D, -I)
   -- =========================================================================
   local is_flag_key = key:match("flags$") or key:match("options$")
   local has_flag_prefix = clean_text:match("^%-[DIOw]") ~= nil
@@ -246,13 +245,8 @@ local function normalize_value(key, value)
     for i = 1, #working_str do
       local char = working_str:sub(i, i)
       if (char == '"' or char == "'") then
-        if not in_quotes then
-          in_quotes = true
-          quote_char = char
-        elseif char == quote_char then
-          in_quotes = false
-          quote_char = nil
-        end
+        if not in_quotes then in_quotes = true; quote_char = char
+        elseif char == quote_char then in_quotes = false; quote_char = nil end
         table.insert(current_token, char)
       elseif (char == ' ' or char == '\t' or char == '\n' or char == '\r') and not in_quotes then
         if #current_token > 0 then
@@ -273,13 +267,12 @@ local function normalize_value(key, value)
 
   -- =========================================================================
   -- RULE 2: LIST ARCHITECTURE ENGINE
-  -- Triggered if the key matches PlatformIO list suffixes, or contains internal newlines
   -- =========================================================================
-  local is_list_key = key:match("_[ed]nvs$") or key:match("_deps$") or key:match("_scripts$") or key:match("_filters$")
+  -- FIX 2: Corrected matching pattern to capture default_envs perfectly
+  local is_list_key = key:match("envs$") or key:match("_deps$") or key:match("_scripts$") or key:match("_filters$")
   local is_multiline = str_val:find("\n") ~= nil
 
   if is_list_key or is_multiline then
-    -- Handles values separated by commas, spaces, or raw newlines dynamically
     local separators = is_multiline and "[\r\n]+" or "[%s,]+"
     return vim.split(str_val, separators, { trimempty = true })
   end
@@ -289,7 +282,6 @@ local function normalize_value(key, value)
   -- =========================================================================
   return tonumber(value) or value
 end
-
 -- 2. Helper: Recursively interpolates ${platformio.core_dir} or ${this.board} tokens
 local function interpolate(text, current_env, pio_vars, base_env, raw_envs)
   if type(text) ~= "string" or not text:match("%$%{.-%}") then return text end
