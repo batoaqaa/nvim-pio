@@ -213,36 +213,101 @@ end
 -- ///////////////////// get_active_env /////////////////////
 
 
-
 local function normalize_value(key, value)
-  -- 1. Ensure empty blocks evaluate to a clean empty array list structure
-  if not value or value == "" then
-    local array_keys = { default_envs = true, extra_scripts = true, lib_deps = true, build_flags = true }
-    return array_keys[key] and {} or ""
-  end
+  -- 1. Handle empty inputs cleanly
+  if not value or value == "" then return "" end
 
-  -- 2. Handle standard line-separated lists
-  if key == "default_envs" or key == "extra_scripts" or key == "lib_deps" then
-    return vim.split(value, "[\r\n]+", { trimempty = true })
-  end
+  -- 2. Detect Multi-Line Blocks (e.g., lib_deps, build_flags, default_envs)
+  local is_multiline = tostring(value):find("\n") ~= nil
 
-  -- 3. THE Explicitly capture "build_flags" and token-split it by newlines or whitespaces
-  if key == "build_flags" then
+  -- 3. Detect Compiler Flags (Looks for leading compiler hyphens like -D, -I, -O)
+  -- We trim it first to check the actual starting character safely
+  local clean_text = tostring(value):gsub("^%s*", "")
+  local is_compiler_flag = clean_text:match("^%-[DIOw]") ~= nil
+
+  -- =========================================================================
+  -- COMPILER FLAG TOKENIZER (Triggers dynamically if -D, -I, etc., are found)
+  -- =========================================================================
+  if is_compiler_flag then
+    -- Clean up trailing backslash multi-line continuations first
+    local working_str = tostring(value):gsub("\\%s*\n", " ")
     local tokens = {}
-    -- Iterate through each separate text line or block chunk
-    for line in vim.gsplit(value, "[\r\n]+") do
-      -- Trim whitespaces from individual rows
-      local trimmed = vim.trim(line)
-      -- Skip empty lines or stray comments that might have snuck into the value data
-      if trimmed ~= "" and not trimmed:match("^[;#]") then
-        table.insert(tokens, trimmed)
+    local current_token = {}
+    local in_quotes = false
+    local quote_char = nil
+
+    for i = 1, #working_str do
+      local char = working_str:sub(i, i)
+      if (char == '"' or char == "'") then
+        if not in_quotes then
+          in_quotes = true
+          quote_char = char
+        elseif char == quote_char then
+          in_quotes = false
+          quote_char = nil
+        end
+        table.insert(current_token, char)
+      elseif (char == ' ' or char == '\t' or char == '\n' or char == '\r') and not in_quotes then
+        if #current_token > 0 then
+          local t_str = table.concat(current_token)
+          if t_str ~= "" and not t_str:match("^[;#]") then table.insert(tokens, t_str) end
+          current_token = {}
+        end
+      else
+        table.insert(current_token, char)
       end
+    end
+    if #current_token > 0 then
+      local t_str = table.concat(current_token)
+      if t_str ~= "" and not t_str:match("^[;#]") then table.insert(tokens, t_str) end
     end
     return tokens
   end
 
+  -- =========================================================================
+  -- GENERIC ARRAY SPLITTER (Triggers dynamically on any multi-line layout)
+  -- =========================================================================
+  if is_multiline then
+    -- Split purely by newlines, automatically trim spaces, and drop empty rows
+    return vim.split(tostring(value), "[\r\n]+", { trimempty = true })
+  end
+
+  -- =========================================================================
+  -- SCALAR RETRIEVAL (Numbers or Standard single-line strings)
+  -- =========================================================================
   return tonumber(value) or value
 end
+
+-- local function normalize_value(key, value)
+--   -- 1. Ensure empty blocks evaluate to a clean empty array list structure
+--   if not value or value == "" then
+--     local array_keys = { default_envs = true, extra_scripts = true, lib_deps = true, build_flags = true }
+--     return array_keys[key] and {} or ""
+--   end
+--
+--   -- 2. Handle standard line-separated lists
+--   if key == "default_envs" or key == "extra_scripts" or key == "lib_deps" then
+--     return vim.split(value, "[\r\n]+", { trimempty = true })
+--   end
+--
+--   -- 3. THE Explicitly capture "build_flags" and token-split it by newlines or whitespaces
+--   if key == "build_flags" then
+--     local tokens = {}
+--     -- Iterate through each separate text line or block chunk
+--     for line in vim.gsplit(value, "[\r\n]+") do
+--       -- Trim whitespaces from individual rows
+--       local trimmed = vim.trim(line)
+--       -- Skip empty lines or stray comments that might have snuck into the value data
+--       if trimmed ~= "" and not trimmed:match("^[;#]") then
+--         table.insert(tokens, trimmed)
+--       end
+--     end
+--     return tokens
+--   end
+--
+--   return tonumber(value) or value
+-- end
+
 -- local function normalize_value(key, value)
 --   if not value or value == "" then
 --     return (key == "extra_scripts" or key == "default_envs") and {} or ""
