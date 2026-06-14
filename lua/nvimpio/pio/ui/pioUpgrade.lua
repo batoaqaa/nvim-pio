@@ -1,14 +1,13 @@
 local function pioUpgrade()
   local runtime_dir = require('nvimpio').config.pio_runtime_dir
-  local custom_penv_dir = require('nvimpio.core').clean(runtime_dir .. OS.folder_sep .. 'penv')
 
   local pioUpgrade_cmd, pioEnv
   if OS.is_win then
-    pioUpgrade_cmd = string.format('%s/Scripts/pip.exe install -U platformio', custom_penv_dir)
-    pioEnv = string.format('$env:PATH = "%s/Scripts;" + $env:PATH', custom_penv_dir)
+    pioUpgrade_cmd = string.format('%s/pip.exe install -U platformio', runtime_dir)
+    pioEnv = string.format('$env:PATH = "%s;" + $env:PATH', runtime_dir)
   else
-    pioUpgrade_cmd = string.format('%s/bin/pip install -U platformio', custom_penv_dir)
-    pioEnv = string.format('export PATH="%s/bin:$PATH"', custom_penv_dir)
+    pioUpgrade_cmd = string.format('%s/pip install -U platformio', runtime_dir)
+    pioEnv = string.format('export PATH="%s:$PATH"', runtime_dir)
   end
 
   -- 6. Establish downstream update pipeline connections
