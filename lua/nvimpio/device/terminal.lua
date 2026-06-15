@@ -2,7 +2,7 @@ local M = {}
 
 -- Enterprise User Configuration Specification Matrix
 M.config = {
-  panel_height = 0.2,
+  panel_height = 0.2, -- Height percentage factor relative to global screen rows
   winbar_bg = '#80a3d4',
   winbar_fg = '#000000',
   shell = vim.o.shell,
@@ -20,9 +20,9 @@ M.config = {
 M.stdout_callback = nil
 M.exit_callback = nil
 
--- The Layout Node Matrix: Encapsulates all layout states natively into a clean tracker block
+-- The Layout Node Matrix: Encapsulates all layout states natively
 M.layout = {
-  container_win = nil, -- The single, immutable window split anchor at the bottom
+  container_win = nil, -- The single, absolute window split anchor at the bottom
   active_type = nil, -- Tracks which terminal instance is physically visible ('cli'|'monitor')
 }
 
@@ -43,8 +43,28 @@ function M.UpdateWinbarTitles()
   end
 end
 
+function M.RestoreWorkspaceFocus()
+  local target_win = nil
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local win_type = vim.fn.win_gettype(win)
+
+      if ft ~= 'pio_terminal' and win_type == '' and ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' then
+        target_win = win
+        break
+      end
+    end
+  end
+
+  if target_win then
+    vim.api.nvim_set_current_win(target_win)
+  end
+end
+
 ----------------------------------------------------------------------------------------
--- 🌟 THE RIGID OOP TERMINAL CLASS ARCHITECTURE
+-- 🌟 THE INDESTRUCTIBLE OOP TERMINAL CLASS ARCHITECTURE
 ----------------------------------------------------------------------------------------
 ---@class Terminal
 ---@field term_type string Unique lane tag ('cli' or 'monitor')
@@ -104,7 +124,7 @@ function Terminal:on_close()
 end
 
 function Terminal:enter_insert_mode()
-  vim.cmd('startinsert')
+  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<Cmd>startinsert<CR>]], true, true, true), 'nt', false)
 end
 
 function Terminal:send(command)
@@ -142,7 +162,7 @@ end
 function Terminal:_register_lifecycle_events()
   local platformio = vim.api.nvim_create_augroup('PioEvents_' .. self.buf, { clear = true })
 
-  -- Scroll Tracker: Automatically scrolls terminal view to the absolute bottom row context safely
+  -- Scroll Tracker: Automatically scrolls terminal view to the absolute bottom context safely
   vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
     group = platformio,
     buffer = self.buf,
@@ -159,13 +179,9 @@ function Terminal:_register_lifecycle_events()
 end
 
 
+
 -- stylua: ignore start
 
---- 🌟 REFACTOR BACKWARD-COMPATIBILITY BRIDGE:
---- Maps the legacy 'show' method directly to the enterprise singleton window manager.
---- This completely eliminates the nil method crash inside your cli.lua file on line 89.
----@method
----@return boolean
 function Terminal:show()
   M.ShowTerminal(self.term_type)
   return true
@@ -177,9 +193,9 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set("t", maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
   vim.keymap.set("n", maps.hide_pane, function() M.ToggleTerminal() end, { buffer = self.buf })
 
-  -- Native, rock-solid layout tree jumps that can never break or trap your focus
-  vim.keymap.set("t", maps.move_up, [[<C-\><C-n><C-w>k]], { buffer = self.buf, silent = true })
-  vim.keymap.set("n", maps.move_up, "<C-w>k", { buffer = self.buf, silent = true })
+  -- Absolute navigation commands that bypass layout variables entirely
+  vim.keymap.set("t", maps.move_up, function() M.RestoreWorkspaceFocus() end, { buffer = self.buf, silent = true })
+  vim.keymap.set("n", maps.move_up, function() M.RestoreWorkspaceFocus() end, { buffer = self.buf, silent = true })
 
   vim.keymap.set("t", maps.switch_pane, function() M.SwitchTerminalPane() end, { buffer = self.buf, silent = true })
   vim.keymap.set("n", maps.switch_pane, function() M.SwitchTerminalPane() end, { buffer = self.buf, silent = true })
@@ -189,7 +205,7 @@ function Terminal:_register_viewport_mappings()
 end
 
 ----------------------------------------------------------------------------------------
--- 🌟 THE GLOBAL SINGLETON WORKSPACE MANAGER (PROFESSIONAL STANDARD)
+-- 🌟 THE GLOBAL LAYER OVERRIDE MANAGER (THE DECOUPLED SOLUTION)
 ----------------------------------------------------------------------------------------
 
 function M.ShowTerminal(term_type)
@@ -200,7 +216,15 @@ function M.ShowTerminal(term_type)
     target_instance:on_create()
   end
 
-  -- 1. If the single horizontal container window is open, simply switch buffers cleanly inside it!
+  -- Compute explicit geometric bounds matching the total screen resolution matrix
+  local total_cols = vim.o.columns
+  local total_lines = vim.o.lines
+  local target_height = math.ceil(total_lines * (M.config.panel_height or 0.2))
+
+  -- Calculate placement directly on top of the native statusline row boundary
+  local row_placement = total_lines - target_height - (vim.o.laststatus > 0 and 2 or 1) - vim.o.cmdheight
+
+  -- 1. If the single horizontal container window is open, switch buffers cleanly inside it!
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
     M.layout.active_type = term_type
@@ -211,19 +235,24 @@ function M.ShowTerminal(term_type)
     return
   end
 
-  -- 2. Otherwise, draw ONE clean horizontal layout split at the very bottom row boundary.
-  local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  vim.cmd("silent! botright " .. target_height .. "split")
-  
-  M.layout.container_win = vim.api.nvim_get_current_win()
+  -- 2. Allocate an explicit absolute window node context container at the base boundary.
+  -- Setting relative = "editor" makes it completely immune to Neo-tree closures.
+  M.layout.container_win = vim.api.nvim_open_win(target_instance.buf, true, {
+    relative = "editor",
+    row = row_placement,
+    col = 0,
+    width = total_cols,
+    height = target_height,
+    style = "minimal",
+    border = "none"
+  })
   M.layout.active_type = term_type
 
-  -- Enforce styling directly to the single container window split node context
-  vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
+  -- 🌟 FIXED PROPERTY NODE SPECIFICATION:
+  -- Correctly references M.layout.container_win instead of the undefined global 'self'
   vim.api.nvim_set_option_value("number", false, { scope = "local", win = M.layout.container_win })
   vim.api.nvim_set_option_value("relativenumber", false, { scope = "local", win = M.layout.container_win })
   vim.api.nvim_set_option_value("signcolumn", "no", { scope = "local", win = M.layout.container_win })
-  vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = M.layout.container_win })
 
   target_instance:on_spawn()
   target_instance:_register_viewport_mappings()
@@ -259,6 +288,17 @@ end
 --- Singletons Instantiations
 M.cli = Terminal.new("cli", " Pio CLI> ")
 M.mon = Terminal.new("monitor", " Pio Monitor ")
+
+-- UNIVERSAL INTERACTIVE DIRECTIONAL ROUTER
+vim.keymap.set({"n", "i", "v"}, M.config.keymaps.move_down, function()
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    vim.api.nvim_set_current_win(M.layout.container_win)
+    local active_instance = (M.layout.active_type == "monitor") and M.mon or M.cli
+    active_instance:enter_insert_mode()
+  else
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-w>j", true, true, true), "n", false)
+  end
+end, { silent = true, desc = "Universal Edge-Pinned Panel Down Navigation Router" })
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
