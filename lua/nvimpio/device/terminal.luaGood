@@ -1,5 +1,3 @@
---- stylua: ignore start
-
 local M = {}
 
 -- Default Public User Configuration Matrix
@@ -22,18 +20,61 @@ M.config = {
 M.stdout_callback = nil
 M.exit_callback = nil
 
+--- Safe window manager close executor pass routine
+---@param instance Terminal The specific object handle to clear down.
+local function SafeCloseTerminal(instance)
+  if not instance then
+    return
+  end
+
+  -- 1. Close the dedicated terminal window pane viewport layout
+  if instance.win and vim.api.nvim_win_is_valid(instance.win) then
+    vim.api.nvim_win_close(instance.win, true)
+  end
+  instance.win = nil
+
+  -- 2. Force focus back to your actual code window split, bypassing Neo-tree
+  if instance.last_win and vim.api.nvim_win_is_valid(instance.last_win) then
+    vim.api.nvim_set_current_win(instance.last_win)
+  end
+  instance.last_win = nil
+
+  vim.schedule(function()
+    vim.cmd('wincmd =')
+    M.UpdateWinbarTitles()
+  end)
+end
+
+--- Visual redrawing loop engine applying winbar header tags
+function M.UpdateWinbarTitles()
+  local cli_alive = M.cli.buf and vim.api.nvim_buf_is_valid(M.cli.buf)
+  local mon_alive = M.mon.buf and vim.api.nvim_buf_is_valid(M.mon.buf)
+  local maps = M.config.keymaps
+
+  local hint = (cli_alive and mon_alive) and string.format('[ %s  Switch;  %s  Hide; :q! Quit ] ', maps.switch_pane, maps.hide_pane)
+    or string.format('[ %s  Hide; :q! Quit ] ', maps.hide_pane)
+
+  vim.api.nvim_set_hl(0, 'PioWinBar', { bg = M.config.winbar_bg, fg = M.config.winbar_fg })
+
+  for _, instance in pairs({ M.cli, M.mon }) do
+    if instance and instance.win and vim.api.nvim_win_is_valid(instance.win) then
+      vim.api.nvim_set_option_value('winbar', '%#PioWinBar#' .. instance.title .. hint .. '%*', { scope = 'local', win = instance.win })
+    end
+  end
+end
+
 ----------------------------------------------------------------------------------------
--- 🌟 THE FULLY EVENT-DRIVEN TERMINAL CLASS ARCHITECTURE
+-- OBJECT ORIENTED TERMINAL CLASS BLUEPRINT
 ----------------------------------------------------------------------------------------
 ---@class Terminal
----@field term_type string Unique lane tag ('cli' or 'monitor')
----@field title string The text drawn onto the window winbar header
----@field buf number|nil The native Neovim buffer ID handle
----@field win number|nil The native Neovim window ID viewport handle
----@field last_win number|nil Originating file split window ID context handle
----@field job number|nil Asynchronous process stream channel ID handle
----@field newline string Pre-cached newline carriage return delimiter
----@field filetype string Fixed text-domain category category tag
+---@field term_type string Unique lane configuration tracking tag ('cli' or 'monitor')
+---@field title string The visual string printed on the window winbar header
+---@field buf number|nil The native Neovim buffer ID handle for this panel split
+---@field win number|nil The native Neovim window ID layout viewport handle
+---@field last_win number|nil The exact originating window ID handle prior to open routines
+---@field job number|nil The asynchronous terminal channel ID backend process loop handle
+---@field newline string Pre-cached cross-platform row end carriage return delimiter
+---@field filetype string Fixed text-domain category tracking tag
 local Terminal = {
   term_type = '',
   title = '',
@@ -46,65 +87,11 @@ local Terminal = {
 }
 Terminal.__index = Terminal
 
---- Factory Constructor
 function Terminal.new(term_type, panel_title)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
   self.title = panel_title
   return self
-end
-
---- Hook: Fires ONCE when the buffer context is completely pristine [INDEX]
----@method
-function Terminal:on_create()
-  self.buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
-
-  -- Setup structural workspace automation listeners
-  local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
-  self:_attach_events(target_height)
-end
-
---- Hook: Process backend stdout streams natively
----@method
-function Terminal:on_stdout(j, d, e)
-  if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
-    M.stdout_callback(j, d, e)
-  end
-end
-
---- Hook: Process backend stderr streams natively
----@method
-function Terminal:on_stderr(j, d, e)
-  if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
-    M.stdout_callback(j, d, e)
-  end
-end
-
---- Hook: Fires the millisecond the backend process task finishes or dies
----@method
-function Terminal:on_exit()
-  if type(M.exit_callback) == 'function' then
-    M.exit_callback()
-  end
-  -- Automatically push view to stable normal mode context upon execution completion
-  vim.schedule(function()
-    if self.win and vim.api.nvim_win_is_valid(self.win) then
-      vim.api.nvim_win_call(self.win, function()
-        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
-      end)
-    end
-  end)
-end
-
---- Hook: Handles core platform process teardown routines cleanly
----@method
-function Terminal:on_close()
-  if self.job and self.job > 0 then
-    pcall(vim.fn.jobstop, self.job)
-  end
-  self.job = nil
-  self.buf = nil
 end
 
 function Terminal:send(command)
@@ -120,62 +107,36 @@ function Terminal:send(command)
     if self.job and self.job > 0 then
       vim.api.nvim_set_current_win(self.win)
       vim.cmd('startinsert')
+
       vim.fn.chansend(self.job, cmd_str .. self.newline)
 
       vim.schedule(function()
         if self.win and vim.api.nvim_win_is_valid(self.win) then
           vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
-          local lines = vim.api.nvim_buf_line_count(self.buf)
-          pcall(vim.api.nvim_win_set_cursor, self.win, { lines, 0 })
+          -- Safe programmatic bottom snap scroll mapping instead of vim.cmd modes
+          local line_count = vim.api.nvim_buf_line_count(self.buf)
+          pcall(vim.api.nvim_win_set_cursor, self.win, { line_count, 0 })
         end
       end)
     end
   end)
 end
 
---- Hook: Handles physical split allocation window mapping states cleanly
----@method
-function Terminal:on_open()
-  local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
-
-  -- Allocate the viewport split container directly below code focus files
-  self.win = vim.api.nvim_open_win(self.buf, true, { split = 'below', win = -1, height = target_height })
-
-  vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
-  pcall(vim.api.nvim_set_option_value, 'winfixheight', true, { scope = 'local', win = self.win })
-  M.UpdateWinbarTitles()
-
-  -- If no background shell process is active, launch it now
+function Terminal:close()
   if not self.job or self.job <= 0 then
-    local channel_id = vim.fn.termopen(M.config.shell, {
-      on_stdout = function(j, d, e)
-        self:on_stdout(j, d, e)
-      end,
-      on_stderr = function(j, d, e)
-        self:on_stderr(j, d, e)
-      end,
-      on_exit = function()
-        self:on_exit()
-      end,
-    })
-    self.job = (channel_id and channel_id > 0) and channel_id or nil
+    return
   end
+  pcall(vim.fn.jobstop, self.job)
 
-  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
-end
-
---- Hook: Collapses split viewports and redirects layout focus securely
----@method
-function Terminal:on_quit()
   if self.win and vim.api.nvim_win_is_valid(self.win) then
     vim.api.nvim_win_close(self.win, true)
   end
   self.win = nil
+  self.buf = nil
+  self.job = nil
 
   if self.last_win and vim.api.nvim_win_is_valid(self.last_win) then
     vim.api.nvim_set_current_win(self.last_win)
-  else
-    vim.cmd('wincmd k')
   end
   self.last_win = nil
 
@@ -185,62 +146,105 @@ function Terminal:on_quit()
   end)
 end
 
-function Terminal:close()
-  self:on_close()
-  self:on_quit()
-end
-
 function Terminal:hide()
-  self:on_quit()
+  if self.win and vim.api.nvim_win_is_valid(self.win) then
+    vim.api.nvim_win_close(self.win, true)
+  end
+  self.win = nil
+
+  if self.last_win and vim.api.nvim_win_is_valid(self.last_win) then
+    vim.api.nvim_set_current_win(self.last_win)
+  end
+  self.last_win = nil
+
+  vim.schedule(function()
+    vim.cmd('wincmd =')
+    M.UpdateWinbarTitles()
+  end)
 end
 
---- Unified Pure Layout Open/Reuse Pass
----@return boolean
+--- Pure Show Pass - Handles allocation and spawning natively via clean window toggling.
+---@return boolean # True if the split window canvas layout was drawn successfully.
 function Terminal:show()
   local active_win = vim.api.nvim_get_current_win()
+
+  -- Cache active workspace window ID, rigidly filtering out sidebar panes like Neo-tree
   if vim.api.nvim_win_is_valid(active_win) then
     local active_buf = vim.api.nvim_win_get_buf(active_win)
     local active_ft = vim.api.nvim_get_option_value('filetype', { buf = active_buf })
     local win_type = vim.fn.win_gettype(active_win)
+
     if active_ft ~= self.filetype and win_type == '' and active_ft ~= 'neo-tree' then
       self.last_win = active_win
     end
   end
 
-  -- 1. Initialize buffer if unallocated
-  if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
-    self:on_create()
-  end
-
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- 2. FLICKER-FREE SWITCH REUSE
+  -- Simple Sibling Teardown: Close the other panel split window before opening ours
   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
-    self.win = opposite_instance.win
     self.last_win = opposite_instance.last_win or self.last_win
+    vim.api.nvim_win_close(opposite_instance.win, true)
     opposite_instance.win = nil
-
-    vim.api.nvim_win_set_buf(self.win, self.buf)
-    M.UpdateWinbarTitles()
-    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
-    return true
   end
 
-  -- 3. Focus window if already open
+  -- Fast path return: If this exact split window is already alive, focus it
   if self.win and vim.api.nvim_win_is_valid(self.win) then
     vim.api.nvim_set_current_win(self.win)
     return true
   end
 
-  -- 4. Otherwise, handle fresh layout viewport rendering pass
-  self:on_open()
+  local is_new_buffer = false
+  if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
+    self.buf = vim.api.nvim_create_buf(false, true)
+    is_new_buffer = true
+  end
+
+  if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
+    vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
+  end
+
+  -- Generate clean layout viewport directly below your code file workspace split
+  local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
+  self.win = vim.api.nvim_open_win(self.buf, true, { split = 'below', win = -1, height = target_height })
+
+  if is_new_buffer then
+    local channel_id = vim.fn.termopen(M.config.shell, {
+      on_stdout = function(j, d, e)
+        if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
+          M.stdout_callback(j, d, e)
+        end
+      end,
+      on_stderr = function(j, d, e)
+        if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
+          M.stdout_callback(j, d, e)
+        end
+      end,
+      on_exit = function()
+        if type(M.exit_callback) == 'function' then
+          M.exit_callback()
+        end
+      end,
+    })
+    if channel_id and channel_id > 0 then
+      self.job = channel_id
+    end
+    self:_attach_events(target_height, opposite_instance)
+  end
+
+  vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
+  pcall(vim.api.nvim_set_option_value, 'winfixheight', true, { scope = 'local', win = self.win })
+  M.UpdateWinbarTitles()
+
+  -- INITIAL OPEN STYLE: Drop cleanly into Normal mode immediately upon panel drawing
+  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
   return true
 end
 
-function Terminal:_attach_events(target_height)
+function Terminal:_attach_events(target_height, opposite_instance)
   local platformio = vim.api.nvim_create_augroup('PioEvents_' .. self.buf, { clear = true })
 
-  -- Intercept manual exits typed via command bar (:q and :q!)
+  -- INTERCEPT MANUAL CMDLINE EXITS (:q and :q!) BEFORE NEOTREE STEALS FOCUS
   vim.api.nvim_create_autocmd('CmdlineLeave', {
     group = platformio,
     buffer = self.buf,
@@ -249,16 +253,26 @@ function Terminal:_attach_events(target_height)
         local cmd = vim.fn.getcmdline()
         if cmd == 'q' or cmd == 'q!' then
           if cmd == 'q!' then
-            self:on_close()
+            if self.term_type == 'monitor' then
+              vim.fn.chansend(self.job, vim.api.nvim_replace_termcodes('<C-C>exit\n', true, true, true))
+            else
+              vim.fn.chansend(self.job, 'exit\n')
+            end
           end
+
           vim.schedule(function()
-            self:on_quit()
+            if self.last_win and vim.api.nvim_win_is_valid(self.last_win) then
+              vim.api.nvim_set_current_win(self.last_win)
+            end
+            self.win = nil
+            self.last_win = nil
           end)
         end
       end
     end,
   })
 
+  -- INTERCEPT LOST FOCUS EVENTS (Clicking away or escaping pane layout)
   vim.api.nvim_create_autocmd('BufLeave', {
     group = platformio,
     buffer = self.buf,
@@ -269,7 +283,8 @@ function Terminal:_attach_events(target_height)
     end,
   })
 
-  -- Robust Programmatic Scroll Tracker
+  -- 🌟 ELITE PROGRAMMATIC SCROLL INTERCEPTOR
+  -- Replaced vim.cmd with atomic buffer line count tracking to completely avoid re-entry panics
   vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
     group = platformio,
     buffer = self.buf,
@@ -286,6 +301,7 @@ function Terminal:_attach_events(target_height)
     end,
   })
 
+  -- ALWAYS GAIN FOCUS WINDOW ENTRY STATE: Enforces normal mode on physical window entry clicks
   vim.api.nvim_create_autocmd('WinEnter', {
     group = platformio,
     buffer = self.buf,
@@ -294,6 +310,7 @@ function Terminal:_attach_events(target_height)
         local current_win = vim.api.nvim_get_current_win()
         if current_win == self.win and self.win and vim.api.nvim_win_is_valid(self.win) then
           pcall(vim.api.nvim_win_set_height, self.win, target_height)
+
           vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
           local lines = vim.api.nvim_buf_line_count(self.buf)
           pcall(vim.api.nvim_win_set_cursor, self.win, { lines, 0 })
@@ -301,15 +318,16 @@ function Terminal:_attach_events(target_height)
       end)
     end,
   })
+
+  self:_attach_keymaps(target_height, opposite_instance)
 end
 
-function Terminal:_attach_keymaps(target_height)
+function Terminal:_attach_keymaps(target_height, opposite_instance)
   local maps = M.config.keymaps
-  local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
   vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
   vim.keymap.set('n', maps.hide_pane, function()
-    self:on_quit()
+    SafeCloseTerminal(self)
   end, { buffer = self.buf })
 
   vim.keymap.set({ 'n', 't' }, maps.move_up, function()
@@ -327,14 +345,17 @@ function Terminal:_attach_keymaps(target_height)
     end
     local current_winbar = vim.api.nvim_get_option_value('winbar', { scope = 'local' }) or ''
     if current_winbar:find('%[; Hide%]') or current_winbar:find('%[' .. maps.hide_pane .. ' Hide%]') then
-      self:on_quit()
+      SafeCloseTerminal(self)
       return
     end
+
     opposite_instance.last_win = self.last_win
+
     if self.win and vim.api.nvim_win_is_valid(self.win) then
       vim.api.nvim_win_close(self.win, true)
     end
     self.win = nil
+
     vim.schedule(function()
       opposite_instance:show()
     end)
@@ -356,36 +377,6 @@ function Terminal:_attach_keymaps(target_height)
       end
     end)
   end, { buffer = self.buf, silent = true })
-end
-
---- Visual redrawing loop engine applying winbar header tags
-function M.UpdateWinbarTitles()
-  local cli_alive = M.cli.buf and vim.api.nvim_buf_is_valid(M.cli.buf)
-  local mon_alive = M.mon.buf and vim.api.nvim_buf_is_valid(M.mon.buf)
-  local maps = M.config.keymaps
-
-  local hint = (cli_alive and mon_alive) and string.format('[ %s  Switch;  %s  Hide; :q! Quit ] ', maps.switch_pane, maps.hide_pane)
-    or string.format('[ %s  Hide; :q! Quit ] ', maps.hide_pane)
-
-  vim.api.nvim_set_hl(0, 'PioWinBar', { bg = M.config.winbar_bg, fg = M.config.winbar_fg })
-
-  for _, instance in pairs({ M.cli, M.mon }) do
-    if instance and instance.win and vim.api.nvim_win_is_valid(instance.win) then
-      vim.api.nvim_set_option_value('winbar', '%#PioWinBar#' .. instance.title .. hint .. '%*', { scope = 'local', win = instance.win })
-    end
-  end
-end
-
-local function IsTerminalOpen(instance)
-  if not instance then
-    return false
-  end
-  return instance.win and vim.api.nvim_win_is_valid(instance.win) and vim.api.nvim_win_get_buf(instance.win) == instance.buf
-end
-
-function M.IsTerminalOpen(term_type)
-  local instance = (term_type == 'monitor') and M.mon or M.cli
-  return IsTerminalOpen(instance)
 end
 
 --- Singletons Instantiations
