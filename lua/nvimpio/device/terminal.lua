@@ -120,7 +120,7 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- Use botright split to guarantee the layout panel draws strictly at the bottom row boundary
+  -- Use botright to explicitly cut a bottom split canvas frame first
   vim.cmd('botright ' .. target_height .. 'split')
   self.win = vim.api.nvim_get_current_win()
   self.buf = vim.api.nvim_get_current_buf()
@@ -200,34 +200,22 @@ end
 function Terminal:show()
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- SIBLING VIEWPORT REUSE GATEWAY: Instant buffer swaps within the same split frame container
+  -- 🌟 BULLETPROOF SWITCH CONTROLLER:
+  -- If sibling window is open, tear it down cleanly first. This safely avoids
+  -- complex window-stealing pointers and completely avoids nil buffer crashes.
   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
-    self.win = opposite_instance.win
+    vim.api.nvim_win_close(opposite_instance.win, true)
     opposite_instance.win = nil
-
-    -- 🌟 FIXED GUARD NODE: If our own target buffer hasn't been initialized yet,
-    -- we cannot swap it. We must force a fresh native layout pass configuration path instead.
-    if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
-      vim.api.nvim_win_set_buf(self.win, self.buf)
-
-      -- Re-apply local window overrides to the newly reused layout segment
-      vim.api.nvim_set_option_value('number', false, { scope = 'local', win = self.win })
-      vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = self.win })
-      vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = self.win })
-
-      M.UpdateWinbarTitles()
-      self:_register_viewport_mappings(opposite_instance)
-      vim.cmd('startinsert')
-      return true
-    end
   end
 
+  -- Fast path return: If this exact window pane is already open, just focus it
   if self.win and vim.api.nvim_win_is_valid(self.win) then
     vim.api.nvim_set_current_win(self.win)
     vim.cmd('startinsert')
     return true
   end
 
+  -- Otherwise, cleanly render the fresh bottom layout split pass
   self:on_open()
   vim.cmd('startinsert')
   return true
