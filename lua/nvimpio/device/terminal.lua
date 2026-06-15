@@ -20,10 +20,9 @@ M.config = {
 M.stdout_callback = nil
 M.exit_callback = nil
 
--- The Core Sovereign Layout Management State
+-- The Core Tiled Window Layout Node Matrix
 M.layout = {
-  panel_win = nil, -- The absolute foreground floating terminal view window
-  dummy_win = nil, -- The native tiled background spacer window that shrinks code splits upward
+  container_win = nil, -- 🌟 THE SINGLE IMMUTABLE TILED GRID WINDOW HANDLE
   active_type = nil, -- Tracks visible node ('cli' or 'monitor')
 }
 
@@ -38,13 +37,13 @@ function M.UpdateWinbarTitles()
 
   vim.api.nvim_set_hl(0, 'PioWinBar', { bg = M.config.winbar_bg, fg = M.config.winbar_fg })
 
-  if M.layout.panel_win and vim.api.nvim_win_is_valid(M.layout.panel_win) then
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     local title = (M.layout.active_type == 'monitor') and M.mon.title or M.cli.title
-    vim.api.nvim_set_option_value('winbar', '%#PioWinBar#' .. title .. hint .. '%*', { scope = 'local', win = M.layout.panel_win })
+    vim.api.nvim_set_option_value('winbar', '%#PioWinBar#' .. title .. hint .. '%*', { scope = 'local', win = M.layout.container_win })
   end
 end
 
---- Dynamic Workspace Tree Router
+--- Dynamic Workspace Tree Focus Router
 function M.RestoreWorkspaceFocus()
   local target_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -53,7 +52,7 @@ function M.RestoreWorkspaceFocus()
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local win_type = vim.fn.win_gettype(win)
 
-      if ft ~= 'pio_terminal' and win_type == '' and ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_spacer' then
+      if ft ~= 'pio_terminal' and win_type == '' and ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' then
         target_win = win
         break
       end
@@ -131,14 +130,14 @@ end
 
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
-  if not M.layout.panel_win or not vim.api.nvim_win_is_valid(M.layout.panel_win) then
+  if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
     M.ShowTerminal(self.term_type)
   end
   if not self.job or self.job <= 0 then
     return
   end
 
-  vim.api.nvim_set_current_win(M.layout.panel_win)
+  vim.api.nvim_set_current_win(M.layout.container_win)
   self:enter_insert_mode()
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 end
@@ -161,6 +160,10 @@ function Terminal:on_spawn()
   self.job = (channel_id and channel_id > 0) and channel_id or nil
 end
 
+function Terminal:on_quit()
+  M.HideTerminal()
+end
+
 function Terminal:_register_lifecycle_events()
   local platformio = vim.api.nvim_create_augroup('PioEvents_' .. self.buf, { clear = true })
 
@@ -169,11 +172,11 @@ function Terminal:_register_lifecycle_events()
     group = platformio,
     buffer = self.buf,
     callback = function()
-      if M.layout.panel_win and vim.api.nvim_win_is_valid(M.layout.panel_win) then
-        local win_buf = vim.api.nvim_win_get_buf(M.layout.panel_win)
+      if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+        local win_buf = vim.api.nvim_win_get_buf(M.layout.container_win)
         if win_buf == self.buf then
           local lines = vim.api.nvim_buf_line_count(self.buf)
-          pcall(vim.api.nvim_win_set_cursor, M.layout.panel_win, { lines, 0 })
+          pcall(vim.api.nvim_win_set_cursor, M.layout.container_win, { lines, 0 })
         end
       end
     end,
@@ -193,13 +196,9 @@ function Terminal:_register_viewport_mappings()
     M.ToggleTerminal()
   end, { buffer = self.buf })
 
-  -- Absolute navigation commands that bypass layout variables entirely
-  vim.keymap.set('t', maps.move_up, function()
-    M.RestoreWorkspaceFocus()
-  end, { buffer = self.buf, silent = true })
-  vim.keymap.set('n', maps.move_up, function()
-    M.RestoreWorkspaceFocus()
-  end, { buffer = self.buf, silent = true })
+  -- Native, rock-solid grid navigation maps that can never break or trap your cursor focus
+  vim.keymap.set('t', maps.move_up, [[<C-\><C-n><C-w>k]], { buffer = self.buf, silent = true })
+  vim.keymap.set('n', maps.move_up, '<C-w>k', { buffer = self.buf, silent = true })
 
   vim.keymap.set('t', maps.switch_pane, function()
     M.SwitchTerminalPane()
@@ -213,7 +212,7 @@ function Terminal:_register_viewport_mappings()
 end
 
 ----------------------------------------------------------------------------------------
--- THE GLOBAL LAYER OVERRIDE MANAGER (THE ROBUST SOLUTION)
+-- 🌟 THE GLOBAL SINGLETON WORKSPACE MANAGER (THE RIGID ARCHITECTURE)
 ----------------------------------------------------------------------------------------
 
 function M.ShowTerminal(term_type)
@@ -224,14 +223,11 @@ function M.ShowTerminal(term_type)
     target_instance:on_create()
   end
 
-  local total_cols = vim.o.columns
-  local total_lines = vim.o.lines
-  local target_height = math.ceil(total_lines * (M.config.panel_height or 0.2))
-  local row_placement = total_lines - target_height - (vim.o.laststatus > 0 and 2 or 1) - vim.o.cmdheight
+  local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
 
-  -- 1. If the horizontal container window is open, switch buffers cleanly inside it!
-  if M.layout.panel_win and vim.api.nvim_win_is_valid(M.layout.panel_win) then
-    vim.api.nvim_win_set_buf(M.layout.panel_win, target_instance.buf)
+  -- 1. If the single tiled split container window is open, switch buffers cleanly inside it!
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
     M.layout.active_type = term_type
     target_instance:on_spawn()
     target_instance:_register_viewport_mappings()
@@ -240,37 +236,23 @@ function M.ShowTerminal(term_type)
     return
   end
 
-  -- 2. Open an unlisted, un-swappable TILED split container to reserve space.
-  local spacer_buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_set_option_value('buftype', 'nofile', { buf = spacer_buf })
-  vim.api.nvim_set_option_value('filetype', 'pio_spacer', { buf = spacer_buf })
-  vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = spacer_buf })
-
+  -- 2. 🌟 THE TRUE GRID TRICK: Enforce scroll line preservation globally before splitting [INDEX].
   vim.go.splitkeep = 'screen'
-  M.layout.dummy_win = vim.api.nvim_open_win(spacer_buf, false, {
-    split = 'below',
-    win = -1,
-    height = target_height,
-  })
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.dummy_win })
 
-  -- 3. Draw the actual absolute terminal layer directly over our reserved tiled split window gap.
-  M.layout.panel_win = vim.api.nvim_open_win(target_instance.buf, true, {
-    relative = 'editor',
-    row = row_placement,
-    col = 0,
-    width = total_cols,
+  -- Open an explicit, native TILED window split across the horizontal base floor [INDEX].
+  -- Setting win = -1 decouples the layout split node path from file columns, preventing sidebar collapses [INDEX].
+  M.layout.container_win = vim.api.nvim_open_win(target_instance.buf, true, {
+    split = 'below',
+    win = -1, -- Global tabpage anchor context block [INDEX]
     height = target_height,
-    style = 'minimal',
-    border = 'none',
   })
   M.layout.active_type = term_type
 
-  -- 🌟 FIXED PROPERTY NODE SPECIFICATION:
-  -- All options now uniformly target M.layout.panel_win. 'self.win' is completely removed.
-  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.panel_win })
-  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.panel_win })
-  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.panel_win })
+  -- Enforce styling directly to the single container window split node context
+  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
 
   target_instance:on_spawn()
   target_instance:_register_viewport_mappings()
@@ -279,19 +261,16 @@ function M.ShowTerminal(term_type)
 end
 
 function M.HideTerminal()
-  if M.layout.panel_win and vim.api.nvim_win_is_valid(M.layout.panel_win) then
-    vim.api.nvim_win_close(M.layout.panel_win, true)
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    vim.api.nvim_win_close(M.layout.container_win, true)
   end
-  if M.layout.dummy_win and vim.api.nvim_win_is_valid(M.layout.dummy_win) then
-    vim.api.nvim_win_close(M.layout.dummy_win, true)
-  end
-  M.layout.panel_win = nil
-  M.layout.dummy_win = nil
+  M.layout.container_win = nil
   M.layout.active_type = nil
+  M.RestoreWorkspaceFocus()
 end
 
 function M.ToggleTerminal()
-  if M.layout.panel_win and vim.api.nvim_win_is_valid(M.layout.panel_win) then
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     M.HideTerminal()
   else
     M.ShowTerminal('cli')
@@ -304,7 +283,7 @@ function M.SwitchTerminalPane()
 end
 
 function M.IsTerminalOpen()
-  return M.layout.panel_win ~= nil and vim.api.nvim_win_is_valid(M.layout.panel_win)
+  return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
 --- Singletons Instantiations
@@ -313,14 +292,14 @@ M.mon = Terminal.new('monitor', ' Pio Monitor ')
 
 -- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
 vim.keymap.set({ 'n', 'i', 'v' }, M.config.keymaps.move_down, function()
-  if M.layout.panel_win and vim.api.nvim_win_is_valid(M.layout.panel_win) then
-    vim.api.nvim_set_current_win(M.layout.panel_win)
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    vim.api.nvim_set_current_win(M.layout.container_win)
     local active_instance = (M.layout.active_type == 'monitor') and M.mon or M.cli
     active_instance:enter_insert_mode()
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
   end
-end, { silent = true, desc = 'Universal Edge-Pinned Panel Down Navigation Router' })
+end, { silent = true, desc = 'Universal Tiled Panel Down Navigation Router' })
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
