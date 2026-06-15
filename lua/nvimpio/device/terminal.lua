@@ -300,15 +300,29 @@ function Terminal:_register_lifecycle_events(target_height)
       end)
     end,
   })
-
-  -- DEFENSIVE ANTI-COLLAPSE MONITOR LAYOUT TRACKER
+  -- ANTI-COLLAPSE GEOMETRY LOCK
+  -- Listens for any global layout changes (like closing Neo-tree or toggling Aerial).
+  -- If a layout shift forces the terminal to jump to the top or mangles the command line,
+  -- this guard instantly detects it, terminates the ghost window, and draws a clean bottom split.
   vim.api.nvim_create_autocmd({ "WinNew", "BufWinEnter", "WinClosed" }, {
     group = platformio,
     callback = function()
       if self.win and vim.api.nvim_win_is_valid(self.win) then
         vim.schedule(function()
           if self.win and vim.api.nvim_win_is_valid(self.win) then
-            pcall(vim.api.nvim_win_set_height, self.win, target_height)
+            local win_row = vim.api.nvim_win_get_position(self.win)[1]
+            
+            -- If win_row is 0, it means Neovim's engine panicked and pushed the terminal 
+            -- to the absolute top of the screen. We intercept this, close the broken window, 
+            -- and force a clean, fresh, stable botright render pass.
+            if win_row == 0 and vim.api.nvim_get_current_win() ~= self.win then
+              vim.api.nvim_win_close(self.win, true)
+              self.win = nil
+              self:on_open()
+            else
+              -- Otherwise, if it is in the correct position, just cleanly lock its height
+              pcall(vim.api.nvim_win_set_height, self.win, target_height)
+            end
           end
         end)
       end
