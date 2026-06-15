@@ -130,9 +130,14 @@ end
 
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
-  if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
+
+  -- Added active layout type variance verification checking loops.
+  -- If the window is closed, OR if it's currently displaying the alternative terminal buffer,
+  -- this logic gate intercepts the execution pass and tells the manager to hot-swap views instantly.
+  if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.active_type ~= self.term_type then
     M.ShowTerminal(self.term_type)
   end
+
   if not self.job or self.job <= 0 then
     return
   end
