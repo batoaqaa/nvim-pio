@@ -50,10 +50,10 @@ function Terminal.new(term_type, panel_title)
   return self
 end
 
---- Hook: Fires ONCE when the buffer split canvas container is completely initialized
+--- Hook: Fires ONCE when the buffer context is allocated
 ---@method
 function Terminal:on_create()
-  -- Stamp the custom filetype class tag safely to insulate from external LSPs
+  self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
 
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
@@ -107,7 +107,6 @@ function Terminal:send(command)
     return
   end
 
-  -- Programmatic send pass requires native terminal mode focus for proper execution
   vim.api.nvim_set_current_win(self.win)
   vim.cmd('startinsert')
 
@@ -120,12 +119,12 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- Use botright to explicitly cut a bottom split canvas frame first
+  -- Create the layout window viewport at the bottom row boundary
   vim.cmd('botright ' .. target_height .. 'split')
   self.win = vim.api.nvim_get_current_win()
-  self.buf = vim.api.nvim_get_current_buf()
 
-  self:on_create()
+  -- Re-bind the pre-allocated buffer container to this fresh window split viewport
+  vim.api.nvim_win_set_buf(self.win, self.buf)
 
   -- Enforce clean, minimalist terminal window styling configurations
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = self.win })
@@ -133,7 +132,7 @@ function Terminal:on_open()
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = self.win })
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = self.win })
 
-  -- Run termopen strictly inside our secure bottom window split container
+  -- Run termopen natively inside the freshly drawn window split container context
   local channel_id = vim.fn.termopen(M.config.shell, {
     on_stdout = function(j, d, e)
       self:on_stdout(j, d, e)
@@ -198,14 +197,33 @@ end
 --- Main Entry Gateway Pass Coordinator
 ---@return boolean
 function Terminal:show()
+  -- 1. Defensively guarantee our underlying buffer memory exists before window work begins
+  if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
+    self:on_create()
+  end
+
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- 🌟 BULLETPROOF SWITCH CONTROLLER:
-  -- If sibling window is open, tear it down cleanly first. This safely avoids
-  -- complex window-stealing pointers and completely avoids nil buffer crashes.
+  -- 2. 🌟 SOLID WINDOW REUSE TRANSITION:
+  -- If the sibling panel window split is already open, do NOT close it!
+  -- We reuse it instantly by swapping out its buffer. This keeps focus firmly locked
+  -- at the bottom pane, making it physically impossible for your code split to be hijacked.
   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
-    vim.api.nvim_win_close(opposite_instance.win, true)
+    self.win = opposite_instance.win
     opposite_instance.win = nil
+
+    -- Switch buffer instantly inside the exact same layout window frame border
+    vim.api.nvim_win_set_buf(self.win, self.buf)
+
+    -- Re-apply local window overrides to the newly reused layout segment
+    vim.api.nvim_set_option_value('number', false, { scope = 'local', win = self.win })
+    vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = self.win })
+    vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = self.win })
+
+    M.UpdateWinbarTitles()
+    self:_register_viewport_mappings(opposite_instance)
+    vim.cmd('startinsert')
+    return true
   end
 
   -- Fast path return: If this exact window pane is already open, just focus it
@@ -215,7 +233,7 @@ function Terminal:show()
     return true
   end
 
-  -- Otherwise, cleanly render the fresh bottom layout split pass
+  -- 3. Fallback: Only open a fresh bottom split window if everything was closed
   self:on_open()
   vim.cmd('startinsert')
   return true
@@ -305,20 +323,15 @@ function Terminal:_register_viewport_mappings(opposite_instance)
       self:on_quit()
       return
     end
-    if self.win and vim.api.nvim_win_is_valid(self.win) then
-      vim.api.nvim_win_close(self.win, true)
-    end
-    self.win = nil
+
+    -- Seamless switch inside terminal mode
     vim.schedule(function()
       opposite_instance:show()
     end)
   end, { buffer = self.buf, silent = true })
 
   vim.keymap.set('n', maps.switch_pane, function()
-    if self.win and vim.api.nvim_win_is_valid(self.win) then
-      vim.api.nvim_win_close(self.win, true)
-    end
-    self.win = nil
+    -- Seamless switch inside normal mode
     vim.schedule(function()
       opposite_instance:show()
     end)
