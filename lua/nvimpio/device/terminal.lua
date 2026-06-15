@@ -21,14 +21,13 @@ M.stdout_callback = nil
 M.exit_callback = nil
 
 ----------------------------------------------------------------------------------------
--- 🌟 THE INDESTRUCTIBLE SYSTEM-PTY TERMINAL CLASS DEFINITION
+-- 🌟 THE RIGID NATIVE-PTY TERMINAL CLASS DEFINITION
 ----------------------------------------------------------------------------------------
 ---@class Terminal
 ---@field term_type string Unique structural channel lane tag ('cli' or 'monitor')
 ---@field title string Explicit text layout template drawn onto the local winbar row
 ---@field buf number|nil Immutable Neovim native buffer context memory address handle
 ---@field win number|nil Active viewport layout window node context index pointer
----@field chan number|nil Native raw pseudo-terminal (pty) background stream channel socket ID
 ---@field job number|nil Asynchronous background socket process loop channel ID stream
 ---@field newline string Normalized carriage return terminator sequence delimiters
 ---@field filetype string Strict isolated text-domain category namespace tag
@@ -37,7 +36,6 @@ local Terminal = {
   title = '',
   buf = nil,
   win = nil,
-  chan = nil,
   job = nil,
   newline = '\r\n',
   filetype = 'pio_terminal',
@@ -52,81 +50,33 @@ function Terminal.new(term_type, panel_title)
   return self
 end
 
---- Hook: Allocates a pristine scratch buffer and initializes the headless terminal channel
+--- Hook: Fires ONCE when the buffer split canvas container is completely initialized
 ---@method
 function Terminal:on_create()
-  self.buf = vim.api.nvim_create_buf(false, true)
+  -- Stamp the custom filetype class tag safely to insulate from external LSPs
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
-
-  -- 1. Allocate a low-level data channel on the pristine buffer.
-  -- The on_input callback intercepts keyboard events inside the pane and pipes them down.
-  self.chan = vim.api.nvim_open_term(self.buf, {
-    on_input = function(_, _, _, input)
-      if self.job and self.job > 0 then
-        vim.fn.chansend(self.job, input)
-      end
-    end,
-  })
-
-  -- 2. Launch the backend task process with pseudo-terminal master emulation enabled.
-  -- This forces PowerShell to run with full character echo, native completions, and color arrays.
-  local process_id = vim.fn.jobstart(M.config.shell, {
-    pty = true,
-    env = { TERM = 'xterm-256color' },
-    on_stdout = function(j, d, e)
-      self:on_stdout(j, d, e)
-    end,
-    on_stderr = function(j, d, e)
-      self:on_stderr(j, d, e)
-    end,
-    on_exit = function()
-      self:on_exit()
-    end,
-  })
-
-  if process_id and process_id > 0 then
-    self.job = process_id
-  end
 
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   self:_register_lifecycle_events(target_height)
 end
 
---- Hook: Pure Byte Data Stream Interceptor Bridge
+--- Hook: Process backend stdout streams natively
 ---@method
-function Terminal:on_stdout(_, data, _)
-  if not self.chan then
-    return
-  end
-
-  -- Reconstruct and stream incoming chunk strings cleanly down into our data channel socket
-  local chunk = table.concat(data, '\r\n')
-  if chunk ~= '' then
-    vim.api.nvim_chan_send(self.chan, chunk)
-  end
-
+function Terminal:on_stdout(j, d, e)
   if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
-    M.stdout_callback(self.job, data, 'stdout')
+    M.stdout_callback(j, d, e)
   end
 end
 
---- Hook: Pure Error Stream Interceptor Bridge
+--- Hook: Process backend stderr streams natively
 ---@method
-function Terminal:on_stderr(_, data, _)
-  if not self.chan then
-    return
-  end
-  local chunk = table.concat(data, '\r\n')
-  if chunk ~= '' then
-    vim.api.nvim_chan_send(self.chan, chunk)
-  end
-
+function Terminal:on_stderr(j, d, e)
   if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
-    M.stdout_callback(self.job, data, 'stderr')
+    M.stdout_callback(j, d, e)
   end
 end
 
---- Hook: Clear state tags cleanly when a background process terminates
+--- Hook: Fires cleanly when a background task completes execution
 ---@method
 function Terminal:on_exit()
   if type(M.exit_callback) == 'function' then
@@ -135,14 +85,13 @@ function Terminal:on_exit()
   M.UpdateWinbarTitles()
 end
 
---- Hook: Full channel process teardown
+--- Hook: Core platform socket channel teardown
 ---@method
 function Terminal:on_close()
   if self.job and self.job > 0 then
     pcall(vim.fn.jobstop, self.job)
   end
   self.job = nil
-  self.chan = nil
   self.buf = nil
 end
 
@@ -158,35 +107,48 @@ function Terminal:send(command)
     return
   end
 
-  -- Pipes command text into our live PTY channel process backend smoothly
-  vim.fn.chansend(self.job, cmd_str .. self.newline)
+  -- Programmatic send pass requires native terminal mode focus for proper execution
+  vim.api.nvim_set_current_win(self.win)
+  vim.cmd('startinsert')
 
-  -- Programmatic viewport scroll tracker adjustments
-  local target_win = self.win
-  local target_buf = self.buf
-  if target_win and vim.api.nvim_win_is_valid(target_win) and target_buf then
-    vim.schedule(function()
-      if vim.api.nvim_buf_is_valid(target_buf) and vim.api.nvim_win_is_valid(target_win) then
-        local lines = vim.api.nvim_buf_line_count(target_buf)
-        pcall(vim.api.nvim_win_set_cursor, target_win, { lines, 0 })
-      end
-    end)
-  end
+  vim.fn.chansend(self.job, cmd_str .. self.newline)
 end
 
---- Hook: Handles physical window layout creations cleanly
+--- Hook: Handles physical window layout creations cleanly with zero top-right leaks
 ---@method
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- Allocate the physical window container split directly below our active code split window
-  self.win = vim.api.nvim_open_win(self.buf, true, { split = 'below', win = -1, height = target_height })
+  -- 🌟 RIGID WINDOW SANDBOX CREATION Pass:
+  -- We use botright to explicitly cut a bottom split canvas frame first.
+  vim.cmd('botright ' .. target_height .. 'split')
+  self.win = vim.api.nvim_get_current_win()
+  self.buf = vim.api.nvim_get_current_buf()
 
-  vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
-  pcall(vim.api.nvim_set_option_value, 'winfixheight', true, { scope = 'local', win = self.win })
+  self:on_create()
+
+  -- Enforce clean, minimalist terminal window styling configurations
+  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = self.win })
+  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = self.win })
+  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = self.win })
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = self.win })
+
+  -- 🌟 NATIVE EMULATION LAUNCH: Run termopen strictly inside our secure bottom window context
+  local channel_id = vim.fn.termopen(M.config.shell, {
+    on_stdout = function(j, d, e)
+      self:on_stdout(j, d, e)
+    end,
+    on_stderr = function(j, d, e)
+      self:on_stderr(j, d, e)
+    end,
+    on_exit = function()
+      self:on_exit()
+    end,
+  })
+  self.job = (channel_id and channel_id > 0) and channel_id or nil
+
   M.UpdateWinbarTitles()
-
   self:_register_viewport_mappings(opposite_instance)
 end
 
@@ -237,11 +199,6 @@ end
 --- Main Entry Gateway Pass Coordinator
 ---@return boolean
 function Terminal:show()
-  -- Build our scratch buffer and launch the background process loop immediately if pristine
-  if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
-    self:on_create()
-  end
-
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
   -- SIBLING VIEWPORT REUSE GATEWAY: Instant buffer swaps within the same split frame container
@@ -250,16 +207,26 @@ function Terminal:show()
     opposite_instance.win = nil
 
     vim.api.nvim_win_set_buf(self.win, self.buf)
+
+    -- Re-apply local window overrides to the newly reused layout segment
+    vim.api.nvim_set_option_value('number', false, { scope = 'local', win = self.win })
+    vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = self.win })
+    vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = self.win })
+
     M.UpdateWinbarTitles()
+    self:_register_viewport_mappings(opposite_instance)
+    vim.cmd('startinsert')
     return true
   end
 
   if self.win and vim.api.nvim_win_is_valid(self.win) then
     vim.api.nvim_set_current_win(self.win)
+    vim.cmd('startinsert')
     return true
   end
 
   self:on_open()
+  vim.cmd('startinsert')
   return true
 end
 
@@ -295,7 +262,7 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- Core Programmatic Scroll Tracker: Moves view context to the absolute bottom line count programmatically
+  -- Core Programmatic Scroll Tracker: Follows terminal prints down safely
   vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
     group = platformio,
     buffer = self.buf,
@@ -332,7 +299,8 @@ end
 function Terminal:_register_viewport_mappings(opposite_instance)
   local maps = M.config.keymaps
 
-  -- Core Navigation Shortcuts Mapping Configurations
+  -- 🌟 NATIVE SHORTCUT ALIGNMENT:
+  -- Both normal and terminal-insert mode keymaps are explicitly bound to the native buffer context
   vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
   vim.keymap.set('n', maps.hide_pane, function()
     self:on_quit()
@@ -368,7 +336,18 @@ function Terminal:_register_viewport_mappings(opposite_instance)
 
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
-  vim.keymap.set('n', maps.move_down, '<C-w>j', { buffer = self.buf })
+
+  vim.keymap.set('n', maps.move_down, function()
+    local open_check = self.win and vim.api.nvim_win_is_valid(self.win) and vim.api.nvim_win_get_buf(self.win) == self.buf
+    if open_check then
+      vim.api.nvim_set_current_win(self.win)
+      vim.cmd('startinsert')
+    else
+      vim.cmd('wincmd j')
+    end
+  end, { buffer = self.buf, silent = true })
+
+  vim.keymap.set('t', maps.move_down, [[<C-\><C-n><C-w>j]], { buffer = self.buf, silent = true })
 end
 
 --- Winbar Redraw Layout Sync Engine Matrix
