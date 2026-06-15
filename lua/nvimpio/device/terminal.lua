@@ -56,6 +56,22 @@ function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
 
+  -- 🌟 RIGID PROCESS FIXED LAYER
+  -- We trigger termopen natively immediately inside the newly created scratchpad.
+  -- This ensures the shell process is wide awake long before it ever touches a window split.
+  local channel_id = vim.fn.termopen(M.config.shell, {
+    on_stdout = function(j, d, e)
+      self:on_stdout(j, d, e)
+    end,
+    on_stderr = function(j, d, e)
+      self:on_stderr(j, d, e)
+    end,
+    on_exit = function()
+      self:on_exit()
+    end,
+  })
+  self.job = (channel_id and channel_id > 0) and channel_id or nil
+
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   self:_register_lifecycle_events(target_height)
 end
@@ -132,20 +148,6 @@ function Terminal:on_open()
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = self.win })
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = self.win })
 
-  -- Run termopen natively inside the freshly drawn window split container context
-  local channel_id = vim.fn.termopen(M.config.shell, {
-    on_stdout = function(j, d, e)
-      self:on_stdout(j, d, e)
-    end,
-    on_stderr = function(j, d, e)
-      self:on_stderr(j, d, e)
-    end,
-    on_exit = function()
-      self:on_exit()
-    end,
-  })
-  self.job = (channel_id and channel_id > 0) and channel_id or nil
-
   M.UpdateWinbarTitles()
   self:_register_viewport_mappings(opposite_instance)
 end
@@ -204,10 +206,7 @@ function Terminal:show()
 
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- 2. 🌟 SOLID WINDOW REUSE TRANSITION:
-  -- If the sibling panel window split is already open, do NOT close it!
-  -- We reuse it instantly by swapping out its buffer. This keeps focus firmly locked
-  -- at the bottom pane, making it physically impossible for your code split to be hijacked.
+  -- 2. SOLID WINDOW REUSE TRANSITION:
   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
     self.win = opposite_instance.win
     opposite_instance.win = nil
