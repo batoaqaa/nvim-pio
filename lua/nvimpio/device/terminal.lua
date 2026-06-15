@@ -280,6 +280,7 @@ end
 function Terminal:_register_lifecycle_events(target_height)
   local platformio = vim.api.nvim_create_augroup('PioEvents_' .. self.buf, { clear = true })
 
+  -- Intercept manual exits typed via command bar (:q and :q!)
   vim.api.nvim_create_autocmd('CmdlineLeave', {
     group = platformio,
     buffer = self.buf,
@@ -341,10 +342,7 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- 🌟 FLICKER-FREE STRUCTURAL HEALING SENTINEL ENGINE
-  -- Listens for global layout updates. If closing Neo-tree would leave the terminal alone
-  -- on screen, it wraps the placeholder split inside a native noautocmd render freeze barrier.
-  -- This blocks Neovim from flickering the window to the middle of the screen entirely.
+  -- FLICKER-FREE STRUCTURAL HEALING SENTINEL ENGINE
   vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter', 'WinClosed' }, {
     group = platformio,
     callback = function()
@@ -353,7 +351,6 @@ function Terminal:_register_lifecycle_events(target_height)
           if self.win and vim.api.nvim_win_is_valid(self.win) then
             vim.go.cmdheight = 1
 
-            -- Count all standard windows currently open on the screen
             local open_wins = vim.api.nvim_tabpage_list_wins(0)
             local valid_wins = 0
             for _, w in ipairs(open_wins) do
@@ -366,25 +363,21 @@ function Terminal:_register_lifecycle_events(target_height)
               end
             end
 
-            -- If the terminal is about to become the last window, execute layout adjustments
-            -- inside a silent, frozen render frame to permanently hide visual jumps.
             if valid_wins <= 1 and vim.api.nvim_get_current_win() == self.win then
               local scratch_buf = vim.api.nvim_create_buf(false, true)
-              vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]')
+
+              -- 🌟 THE INDESTRUCTIBLE FIX: Cleaned out static string name assignments entirely.
+              -- Uses an anonymous layout address tag config parameter to bypass the E95 name crash.
               vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
               vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
+              vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
 
-              -- 🌟 THE VISUAL FLICKER ENGINE SHIELD:
-              -- noautocmd freezes Neovim's rendering thread. The grid correction happens
-              -- instantly behind the scenes, making it impossible to see a jump.
               vim.cmd('noautocmd topleft split')
               vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
 
-              -- Return cursor focus back to the terminal panel cleanly
               vim.cmd('noautocmd lua vim.api.nvim_set_current_win(' .. self.win .. ')')
             end
 
-            -- Enforce targeted size constraints cleanly
             pcall(vim.api.nvim_win_set_height, self.win, target_height)
             M.UpdateWinbarTitles()
           end
