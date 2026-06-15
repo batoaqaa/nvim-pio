@@ -404,7 +404,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
       if vim.fn.isdirectory(base_dir) == 0 then return {} end
 
       -- Setting depth = 2 restricts the search strictly to your main libraries
-      local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge, depth = 2 })
+      local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge, stop = 'src' })
       -- Setting no depth restricts the search all subfolders libraries
       -- local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge })
       return src_dirs
