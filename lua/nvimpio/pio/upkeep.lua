@@ -407,14 +407,14 @@ fetch_metadata = function(callback, active_env, from, attempts)
       local includes = {}
 
       for _, src in ipairs(src_dirs) do
-        table.insert(includes, src) -- already fully normalized by vim.fs.find
+        table.insert(includes, '-I' .. src) -- already fully normalized by vim.fs.find
 
-        for name, type in vim.fs.dir(src, { depth = 20 }) do
-          if type == "directory" then
-            -- Clean, idiomatic path construction with zero manual string tricks
-            table.insert(includes, '-I' .. vim.fs.joinpath(src, name))
-          end
-        end
+        -- for name, type in vim.fs.dir(src, { depth = 20 }) do
+        --   if type == "directory" then
+        --     -- Clean, idiomatic path construction with zero manual string tricks
+        --     table.insert(includes, '-I' .. vim.fs.joinpath(src, name))
+        --   end
+        -- end
       end
 
       return includes
