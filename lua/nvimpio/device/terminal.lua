@@ -400,3 +400,13 @@ function M.IsTerminalOpen(term_type)
   local instance = (term_type == 'monitor') and M.mon or M.cli
   return IsTerminalOpen(instance)
 end
+
+--- Singletons Instantiations
+M.cli = Terminal.new('cli', ' Pio CLI> ')
+M.mon = Terminal.new('monitor', ' Pio Monitor ')
+
+function M.setup(opts)
+  M.config = vim.tbl_deep_extend('force', M.config, opts or {})
+end
+
+return M
