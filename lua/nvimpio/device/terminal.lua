@@ -102,6 +102,7 @@ function Terminal:on_create()
   self:_register_lifecycle_events(target_height)
 end
 
+
 function Terminal:on_stdout(j, d, e)
   if self.term_type == "cli" and type(M.stdout_callback) == "function" then
     M.stdout_callback(j, d, e)
@@ -164,6 +165,8 @@ function Terminal:on_open()
   vim.api.nvim_set_option_value("number", false, { scope = "local", win = self.win })
   vim.api.nvim_set_option_value("relativenumber", false, { scope = "local", win = self.win })
   vim.api.nvim_set_option_value("signcolumn", "no", { scope = "local", win = self.win })
+  
+  -- Hard lock the layout height programmatically to block vertical collapse updates
   vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = self.win })
   
   self:_register_viewport_mappings(opposite_instance)
@@ -188,6 +191,7 @@ function Terminal:on_quit()
 
   M.RestoreWorkspaceFocus()
 
+  -- Balance rows atomically to match user layout height specifications
   vim.schedule(function()
     local cli = M.cli
     local mon = M.mon
@@ -319,28 +323,32 @@ function Terminal:_register_lifecycle_events(target_height)
   })
 
   -- 🌟 THE INDESTRUCTIBLE SELF-HEALING SENTINEL ENGINE
-  -- Captures the structural layout update event the precise millisecond Neo-tree closes.
-  -- If it catches a column failure that pushes the terminal to row index 0, it shuts down 
-  -- the broken view, forces cmdheight down, and spawns a pristine, stable global bottom split.
+  -- Listens for any sidebar layout shifts. If it detects that a sidebar closure 
+  -- pushed the terminal window to row 0 or left it as the lone window on the screen, 
+  -- it wipes out the ghost view, resets cmdheight, and safely draws a stable split layout.
   vim.api.nvim_create_autocmd({ "WinNew", "BufWinEnter", "WinClosed" }, {
     group = platformio,
     callback = function()
       if self.win and vim.api.nvim_win_is_valid(self.win) then
         vim.schedule(function()
           if self.win and vim.api.nvim_win_is_valid(self.win) then
-            -- Query the exact coordinate array position of the window layout node
+            -- 🌟 FIXED ACCESSOR UNPACK: Read the 0-indexed position array correctly
             local position = vim.api.nvim_win_get_position(self.win)
-            local row_index = position[1] -- Unpack the exact line row index address
+            local row_index = position[1] -- Unpack row index from the coordinate tuple [INDEX]
             
-            if row_index == 0 and vim.api.nvim_get_current_win() ~= self.win then
-              -- Terminate the collapsed window container split context instantly
+            -- Count active valid layout splits on the screen right now
+            local win_list = vim.api.nvim_tabpage_list_wins(0)
+            local total_windows = #win_list
+
+            if row_index == 0 or total_windows <= 1 then
+              -- Close the broken, panicked window node layout container split instantly
               vim.api.nvim_win_close(self.win, true)
               self.win = nil
               
               -- Enforce clean command line height safety constraints to prevent ballooning
               vim.go.cmdheight = 1
               
-              -- Trigger a fresh layout pass safely at the correct bottom coordinates
+              -- Trigger a fresh layout pass safely at the correct base coordinates
               self:on_open()
             else
               -- Otherwise, if everything is correctly balanced, enforce size constraints
