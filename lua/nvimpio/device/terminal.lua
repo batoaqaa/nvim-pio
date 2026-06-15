@@ -246,9 +246,7 @@ function Terminal:_register_lifecycle_events()
     end,
   })
 
-  -- 🌟 DYNAMIC RESOLUTION ADAPTER
-  -- Listens for physical screen resize changes or sidebar toggles.
-  -- Programmatically re-calculates placement matrices to match layout scaling rules.
+  -- DYNAMIC RESOLUTION ADAPTER
   vim.api.nvim_create_autocmd({ "VimResized" }, {
     group = platformio,
     callback = function()
@@ -290,12 +288,43 @@ function Terminal:_register_viewport_mappings(opposite_instance)
   vim.api.nvim_buf_set_keymap(self.buf, "n", maps.move_right, "<C-w>l", { silent = true })
 end
 
+local function IsTerminalOpen(instance)
+  if not instance then return false end
+  return instance.win and vim.api.nvim_win_is_valid(instance.win) and vim.api.nvim_win_get_buf(instance.win) == instance.buf
+end
+
+function M.IsTerminalOpen(term_type)
+  local instance = (term_type == "monitor") and M.mon or M.cli
+  return IsTerminalOpen(instance)
+end
+
 --- Singletons Instantiations
 M.cli = Terminal.new("cli", " Pio CLI> ")
 M.mon = Terminal.new("monitor", " Pio Monitor ")
 
+-- 🌟 GLOBAL INTERACTIVE DOWN-NAVIGATION OVERRIDE MAPS
+-- Automatically injected directly into M.setup() to establish universal hotkeys on the user's system.
+-- When a user hits <C-j> from their code splits, this module programmatically intercepts the call, 
+-- finds whichever floating terminal panel instance is open, and instantly drops focus right inside it.
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
+  local maps = M.config.keymaps
+
+  vim.keymap.set({"n", "i", "v"}, maps.move_down, function()
+    local cli = M.cli
+    local mon = M.mon
+    
+    if cli and cli.win and vim.api.nvim_win_is_valid(cli.win) then
+      vim.api.nvim_set_current_win(cli.win)
+      cli:enter_insert_mode()
+    elseif mon and mon.win and vim.api.nvim_win_is_valid(mon.win) then
+      vim.api.nvim_set_current_win(mon.win)
+      mon:enter_insert_mode()
+    else
+      -- If panels are closed, fall back cleanly to default grid window adjustments
+      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-w>j", true, true, true), "n", false)
+    end
+  end, { silent = true, desc = "PlatformIO Universal Floating Panel Router Gateway" })
 end
 
 return M
