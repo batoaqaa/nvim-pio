@@ -168,8 +168,8 @@ function Terminal:on_open()
   self.win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
     -- win = anchor_win, -- terminal window appear under file code space
-    win = 0, -- Context node anchor locked to active workspace rows
-    -- win = -1, -- Global workspace canvas context anchor target
+    -- win = 0, -- Context node anchor locked to active workspace rows
+    win = -1, -- Global workspace canvas context anchor target
     height = target_height,
   })
 
