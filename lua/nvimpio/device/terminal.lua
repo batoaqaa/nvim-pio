@@ -1,5 +1,3 @@
--- stylua: ignore start
-
 local M = {}
 
 -- Enterprise User Configuration Specification Matrix
@@ -23,7 +21,7 @@ M.stdout_callback = nil
 M.exit_callback = nil
 
 ----------------------------------------------------------------------------------------
--- 🌟 THE RIGID ARCHITECTURAL TERMINAL CORE ENGINE
+-- 🌟 THE RIGID OOP TERMINAL ARCHITECTURE CORE
 ----------------------------------------------------------------------------------------
 ---@class Terminal
 ---@field term_type string Unique structural channel lane tag ('cli' or 'monitor')
@@ -52,11 +50,38 @@ function Terminal.new(term_type, panel_title)
   return self
 end
 
---- Lifecycle Hook: Allocates a clean, pristine memory block completely invisible to LSPs
+--- 🌟 THE ARCHITECTURAL INITIALIZER
+--- Spawns the buffer and launches the shell process cleanly in the background.
+--- This ensures the shell is wide awake and ready to execute text commands instantly.
 ---@method
-function Terminal:on_create()
+function Terminal:initialize()
+  if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
+    return
+  end
+
+  -- 1. Allocate a completely isolated scratch buffer invisible to external LSPs
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
+
+  -- 2. Run termopen inside the unlisted buffer memory segment.
+  -- Passing 'self.buf' inside the option dictionary forces Neovim to initialize
+  -- the shell inside our scratchpad, completely protecting your main file splits.
+  local channel_id = vim.fn.termopen(M.config.shell, {
+    buf = self.buf,
+    on_stdout = function(j, d, e)
+      self:on_stdout(j, d, e)
+    end,
+    on_stderr = function(j, d, e)
+      self:on_stderr(j, d, e)
+    end,
+    on_exit = function()
+      self:on_exit()
+    end,
+  })
+
+  if channel_id and channel_id > 0 then
+    self.job = channel_id
+  end
 
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   self:_register_lifecycle_events(target_height)
@@ -97,22 +122,26 @@ function Terminal:on_close()
   self.buf = nil
 end
 
---- Native Process Channel Data Submission Stream Pipeline
+--- Pure String Channel Data Submission Stream Pipeline
 ---@method
 ---@param command string|number Explicit string input array payload targeted down the pipe.
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
+
+  -- Defensively ensure the background process shell is awake and ready
+  self:initialize()
+
+  -- Ensure the physical window split is actively open on the layout tree
   if not self.win or not vim.api.nvim_win_is_valid(self.win) then
     self:show()
   end
-  if not self.job or self.job <= 0 then
-    return
+
+  -- Pipes the text payload immediately down the stable, pre-initialized background socket channel.
+  if self.job and self.job > 0 then
+    vim.fn.chansend(self.job, cmd_str .. self.newline)
   end
 
-  -- Direct asynchronous payload delivery down the core socket stream channel
-  vim.fn.chansend(self.job, cmd_str .. self.newline)
-
-  -- Programmatic scrolling alignment completely bypassing global normal mode execution keys
+  -- Align the viewport scroll layout programmatically at the API layer
   local target_win = self.win
   local target_buf = self.buf
   if target_win and vim.api.nvim_win_is_valid(target_win) and target_buf then
@@ -125,41 +154,23 @@ function Terminal:send(command)
   end
 end
 
---- Lifecycle Hook: Draws the native split viewport safely beneath code workspaces
+--- Lifecycle Hook: Mounts the running background buffer onto a split window viewport
 ---@method
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- 1. Allocate layout viewport window node directly beneath active code split
+  -- Open the window container cleanly using our pre-initialized background buffer
   self.win = vim.api.nvim_open_win(self.buf, true, { split = 'below', win = -1, height = target_height })
 
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
   pcall(vim.api.nvim_set_option_value, 'winfixheight', true, { scope = 'local', win = self.win })
   M.UpdateWinbarTitles()
 
-  -- 2. 🌟 DETERMINISTIC LAYOUT EXECUTION:
-  -- We strictly trigger termopen() ONLY after our cursor is physically focused
-  -- inside the bottom split viewport. This blocks PowerShell from stealing code files.
-  if not self.job or self.job <= 0 then
-    local channel_id = vim.fn.termopen(M.config.shell, {
-      on_stdout = function(j, d, e)
-        self:on_stdout(j, d, e)
-      end,
-      on_stderr = function(j, d, e)
-        self:on_stderr(j, d, e)
-      end,
-      on_exit = function()
-        self:on_exit()
-      end,
-    })
-    self.job = (channel_id and channel_id > 0) and channel_id or nil
-  end
-
   self:_register_viewport_mappings(opposite_instance)
 end
 
---- Lifecycle Hook: Tears down split window frames and calculates target focus redirection
+--- Lifecycle Hook: Tears down split window frames and redirects layout focus securely
 ---@method
 function Terminal:on_quit()
   if self.win and vim.api.nvim_win_is_valid(self.win) then
@@ -206,23 +217,12 @@ end
 --- Main Entry Gateway Coordinator Pass
 ---@return boolean
 function Terminal:show()
-  local active_win = vim.api.nvim_get_current_win()
-  if vim.api.nvim_win_is_valid(active_win) then
-    local active_buf = vim.api.nvim_win_get_buf(active_win)
-    local active_ft = vim.api.nvim_get_option_value('filetype', { buf = active_buf })
-    local win_type = vim.fn.win_gettype(active_win)
-    if active_ft ~= self.filetype and win_type == '' and active_ft ~= 'neo-tree' then
-      self.last_win = active_win
-    end
-  end
-
-  if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
-    self:on_create()
-  end
+  -- Assert that our core background process buffer is generated and awake first
+  self:initialize()
 
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- Flicker-Free Sibling Viewport Swap
+  -- Flicker-Free Viewport Reuse Split Swap
   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
     self.win = opposite_instance.win
     opposite_instance.win = nil
@@ -385,10 +385,6 @@ M.mon = Terminal.new('monitor', ' Pio Monitor ')
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
-
-  -- 🌟 EXPLICIT REMOVAL: Pre-boot initialization loops are removed entirely.
-  -- Sockets spawn sequentially on demand inside Terminal:on_open() to guarantee
-  -- absolute layout accuracy.
 end
 
 return M
