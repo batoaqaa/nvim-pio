@@ -167,10 +167,8 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- 🌟 THE ULTIMATE INDESTRUCTIBLE SOLUTION:
   -- Using 'botright split' explicitly anchors this split container to the absolute base floor
-  -- of the global layout engine. It forces the pane to span the full horizontal screen width,
-  -- and isolates it from column shifts. Closing Neo-tree can NEVER crash or move it.
+  -- of the global layout engine. It forces the pane to span the full horizontal screen width.
   vim.cmd('silent! botright ' .. target_height .. 'split')
   self.win = vim.api.nvim_get_current_win()
 
@@ -364,10 +362,7 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- 🌟 DEFENSIVE ANTI-COLLAPSE MONITOR LAYOUT TRACKER
-  -- Intercepts any window layout disruptions (like closing Neo-tree or toggling Aerial).
-  -- Runs a hard correction pass to snap the terminal height and row coordinates
-  -- stably back to specifications, completely immunizing the terminal panel against shifts.
+  -- DEFENSIVE ANTI-COLLAPSE MONITOR LAYOUT TRACKER
   vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter', 'WinClosed' }, {
     group = platformio,
     callback = function()
@@ -450,3 +445,13 @@ function M.IsTerminalOpen(term_type)
   local instance = (term_type == 'monitor') and M.mon or M.cli
   return IsTerminalOpen(instance)
 end
+
+--- Singletons Instantiations
+M.cli = Terminal.new('cli', ' Pio CLI> ')
+M.mon = Terminal.new('monitor', ' Pio Monitor ')
+
+function M.setup(opts)
+  M.config = vim.tbl_deep_extend('force', M.config, opts or {})
+end
+
+return M
