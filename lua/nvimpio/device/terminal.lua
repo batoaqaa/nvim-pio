@@ -196,7 +196,10 @@ end
 function Terminal:_register_viewport_mappings()
   local maps = M.config.keymaps
 
-  vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
+  -- 🌟 THE TERMINAL ESCAPE MAP OVERRIDE:
+  -- Remaps your custom escape key (maps.escape_term) to forcefully drop Neovim out of
+  -- terminal execution mode back to standard Normal mode instantly, resolving layout trap states.
+  vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf, silent = true })
   vim.keymap.set('n', maps.hide_pane, function()
     M.ToggleTerminal()
   end, { buffer = self.buf })
@@ -219,7 +222,36 @@ end
 function Terminal:_register_lifecycle_events(target_height)
   local platformio = vim.api.nvim_create_augroup('PioEvents_' .. self.buf, { clear = true })
 
-  -- Scroll Tracker: Automatically scrolls terminal view to the absolute bottom row context safely
+  -- Intercept manual command exits (:q and :q!)
+  vim.api.nvim_create_autocmd('CmdlineLeave', {
+    group = platformio,
+    buffer = self.buf,
+    callback = function()
+      if vim.v.event and not vim.v.event.abort and vim.v.event.cmdtype == ':' then
+        local cmd = vim.fn.getcmdline()
+        if cmd == 'q' or cmd == 'q!' then
+          if cmd == 'q!' then
+            self:on_close()
+          end
+          vim.schedule(function()
+            self:on_quit()
+          end)
+        end
+      end
+    end,
+  })
+
+  vim.api.nvim_create_autocmd('BufLeave', {
+    group = platformio,
+    buffer = self.buf,
+    callback = function()
+      vim.schedule(function()
+        M.UpdateWinbarTitles()
+      end)
+    end,
+  })
+
+  -- Core Programmatic Scroll Tracker: Follows terminal prints down safely
   vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
     group = platformio,
     buffer = self.buf,
@@ -234,17 +266,13 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- 🌟 THE INDESTRUCTIBLE TABPAGE SENTINEL GUARD:
-  -- Monitors global window transitions. If a sidebar closure leaves the terminal
-  -- completely alone on the screen, this guard instantly catches it, freezes rendering,
-  -- and splits a clean placeholder buffer above it, completely blocking it from jumping up.
+  -- THE INDESTRUCTIBLE TABPAGE SENTINEL GUARD
   vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter', 'WinClosed' }, {
     group = platformio,
     callback = function()
       if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
         vim.schedule(function()
           if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-            -- Count all valid standard layout windows active on screen
             local open_wins = vim.api.nvim_tabpage_list_wins(0)
             local valid_wins = 0
             for _, w in ipairs(open_wins) do
@@ -257,7 +285,6 @@ function Terminal:_register_lifecycle_events(target_height)
               end
             end
 
-            -- If the terminal window is the last window remaining on screen
             if valid_wins <= 1 and vim.api.nvim_get_current_win() == M.layout.container_win then
               local scratch_buf = vim.api.nvim_create_buf(false, true)
               vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]')
@@ -265,11 +292,8 @@ function Terminal:_register_lifecycle_events(target_height)
               vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
               vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
 
-              -- Freeze render thread and anchor the tile view spacer strictly above the terminal
               vim.cmd('noautocmd topleft split')
               vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
-
-              -- Return cursor focus back to the terminal panel cleanly
               vim.cmd('noautocmd lua vim.api.nvim_set_current_win(' .. M.layout.container_win .. ')')
             end
 
