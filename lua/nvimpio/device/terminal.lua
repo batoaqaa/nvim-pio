@@ -125,7 +125,7 @@ function Terminal:on_close()
 end
 
 function Terminal:enter_insert_mode()
-  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<Cmd>startinsert<CR>]], true, true, true), 'nt', false)
+  -- vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<Cmd>startinsert<CR>]], true, true, true), 'nt', false)
 end
 
 function Terminal:send(command)
@@ -171,7 +171,6 @@ end
 
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
   -- Enforce modern scroll preservation mechanics globally before splitting
   vim.go.splitkeep = 'screen'
