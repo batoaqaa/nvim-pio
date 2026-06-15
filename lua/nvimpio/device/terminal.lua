@@ -127,8 +127,11 @@ function Terminal:on_close()
   self.buf = nil
 end
 
+--- 🌟 RIGID ARCHITECTURE ENGINE PASS FIX:
+--- Replaced crude "i" text feeds with atomic Terminal-Mode instruction flags ("nt").
+--- This completely isolates your input insertion from terminal prints, stopping prompt leaks.
 function Terminal:enter_insert_mode()
-  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('i', true, true, true), 'n', false)
+  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<Cmd>startinsert<CR>]], true, true, true), 'nt', false)
 end
 
 function Terminal:send(command)
@@ -145,8 +148,6 @@ function Terminal:send(command)
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 end
 
---- 🌟 REFACTOR IMPROVEMENT: Encapsulated atomic window styling properties rule matrix
----@method
 function Terminal:_apply_window_styling()
   if not self.win or not vim.api.nvim_win_is_valid(self.win) then
     return
@@ -161,14 +162,12 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- 🌟 DEFENSIVE SPEC IMPROVEMENT: Cache user's custom global option before modifying it
   M.user_splitkeep_cache = vim.go.splitkeep
   vim.go.splitkeep = 'screen'
 
-  -- Anchor the window split container frame globally across the base horizontal floor
   self.win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
-    win = -1, -- Global context tabpage anchor block
+    win = -1,
     height = target_height,
   })
 
@@ -200,7 +199,6 @@ function Terminal:on_quit()
   end
   self.win = nil
 
-  -- 🌟 DEFENSIVE SPEC IMPROVEMENT: Restore user's option perfectly upon terminal exit
   if M.user_splitkeep_cache then
     vim.go.splitkeep = M.user_splitkeep_cache
     M.user_splitkeep_cache = nil
@@ -256,7 +254,6 @@ function Terminal:show()
 
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- WINDOW REUSE: Swaps terminal buffers natively without flashing splits
   if opposite_instance.win and vim.api.nvim_win_is_valid(opposite_instance.win) then
     self.win = opposite_instance.win
     opposite_instance.win = nil
@@ -349,7 +346,6 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- FLICKER-FREE LEAK-PROOF STRUCTURAL HEALING SENTINEL ENGINE
   vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter', 'WinClosed' }, {
     group = platformio,
     callback = function()
@@ -371,8 +367,6 @@ function Terminal:_register_lifecycle_events(target_height)
             end
 
             if valid_wins <= 1 and vim.api.nvim_get_current_win() == self.win then
-              -- 🌟 MEMORY ALLOCATION IMPROVEMENT: Cache and reuse a single structural spacer buffer handle!
-              -- This completely stops memory leaks, matching top-tier enterprise standards.
               if not M.cached_spacer_buf or not vim.api.nvim_buf_is_valid(M.cached_spacer_buf) then
                 M.cached_spacer_buf = vim.api.nvim_create_buf(false, true)
                 vim.api.nvim_set_option_value('buftype', 'nofile', { buf = M.cached_spacer_buf })
