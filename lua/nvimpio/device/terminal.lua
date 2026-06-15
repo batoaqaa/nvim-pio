@@ -157,73 +157,31 @@ end
 
 -- --- Hook: Handles physical window layout allocations cleanly with zero top-right leaks
 -- ---@method
--- function Terminal:on_open()
---   -- Reads configurations dynamically
---   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
---   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
---
---   -- Target the parent code window split context explicitly to wrap its exact horizontal bounds
---   -- local anchor_win = (self.last_win and vim.api.nvim_win_is_valid(self.last_win)) and self.last_win or 0
---
---   self.win = vim.api.nvim_open_win(self.buf, true, {
---     split = 'below',
---     -- win = anchor_win, -- terminal window appear under file code space
---     -- win = 0, -- Context node anchor locked to active workspace rows
---     win = -1, -- Global workspace canvas context anchor target
---     height = target_height,
---   })
---
---   -- Enforce clean, minimalist terminal window styling configurations
---   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = self.win })
---   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = self.win })
---   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = self.win })
---   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = self.win })
---
---   self:_register_viewport_mappings(opposite_instance)
--- end
-
---- Hook: Handles physical window layout allocations cleanly with zero top-right leaks
----@method
 function Terminal:on_open()
+  -- Reads configurations dynamically
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
+  local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- 🌟 STEP 1: Programmatically traverse the layout tree to locate the real code split window
-  local anchor_win = nil
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_is_valid(win) then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value("filetype", { buf = buf })
-      local win_type = vim.fn.win_gettype(win)
-
-      -- We must find a standard split window that is NOT a terminal and NOT a sidebar popup
-      if ft ~= self.filetype and win_type == "" and ft ~= "neo-tree" and ft ~= "oil" then
-        anchor_win = win
-        break
-      end
-    end
-  end
-
-  -- 🌟 STEP 2: DETERMINISTIC LOGIC PASS
-  -- If we found an active code window split, anchor the layout directly beneath it (win = anchor_win).
-  -- This forces the terminal to match the code file width perfectly, completely insulating Neo-tree.
-  -- If no files are open, fallback to the main active window node context (win = 0).
-  local target_anchor = (anchor_win and vim.api.nvim_win_is_valid(anchor_win)) and anchor_win or 0
+  -- Target the parent code window split context explicitly to wrap its exact horizontal bounds
+  -- local anchor_win = (self.last_win and vim.api.nvim_win_is_valid(self.last_win)) and self.last_win or 0
 
   self.win = vim.api.nvim_open_win(self.buf, true, {
-    split = "below",
-    win = target_anchor, -- Binds the layout split directly to the valid file node column
-    height = target_height
+    split = 'below',
+    -- win = anchor_win, -- terminal window appear under file code space
+    -- win = 0, -- Context node anchor locked to active workspace rows
+    win = -1, -- Global workspace canvas context anchor target
+    height = target_height,
   })
 
   -- Enforce clean, minimalist terminal window styling configurations
-  vim.api.nvim_set_option_value("number", false, { scope = "local", win = self.win })
-  vim.api.nvim_set_option_value("relativenumber", false, { scope = "local", win = self.win })
-  vim.api.nvim_set_option_value("signcolumn", "no", { scope = "local", win = self.win })
-  vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = self.win })
+  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = self.win })
+  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = self.win })
+  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = self.win })
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = self.win })
 
   self:_register_viewport_mappings(opposite_instance)
 end
+
 
 --- Hook: Launches the active terminal process securely inside the open window context split
 ---@method
@@ -384,24 +342,6 @@ function Terminal:_register_lifecycle_events(target_height)
           pcall(vim.api.nvim_win_set_cursor, self.win, { lines, 0 })
         end
       end)
-    end,
-  })
-
-  -- WORKSPACE BALANCE GUARD:
-  -- Listens for any global structural layout modifications (like opening/closing Neo-tree).
-  -- The millisecond a layout change is detected, it programmatically forces the terminal 
-  -- window to snap back to its explicit height rule and maintain its global alignment.
-  vim.api.nvim_create_autocmd({ "WinNew", "BufWinEnter", "WinClosed" }, {
-    group = platformio,
-    callback = function()
-      if self.win and vim.api.nvim_win_is_valid(self.win) then
-        vim.schedule(function()
-          if self.win and vim.api.nvim_win_is_valid(self.win) then
-            -- Force height lockdown on the active terminal layout node directly
-            pcall(vim.api.nvim_win_set_height, self.win, target_height)
-          end
-        end)
-      end
     end,
   })
 
