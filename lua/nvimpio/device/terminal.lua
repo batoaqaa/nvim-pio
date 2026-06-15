@@ -234,14 +234,14 @@ function Terminal:show()
 
     M.UpdateWinbarTitles()
     self:_register_viewport_mappings(opposite_instance)
-    vim.cmd('startinsert')
+    -- vim.cmd('startinsert')
     return true
   end
 
   -- Fast path return: If this exact window pane is already open, just focus it
   if self.win and vim.api.nvim_win_is_valid(self.win) then
     vim.api.nvim_set_current_win(self.win)
-    vim.cmd('startinsert')
+    -- vim.cmd('startinsert')
     return true
   end
 
@@ -252,7 +252,7 @@ function Terminal:show()
   M.UpdateWinbarTitles()
   self:_register_viewport_mappings(opposite_instance)
 
-  vim.cmd('startinsert')
+  -- vim.cmd('startinsert')
   return true
 end
 
@@ -361,7 +361,7 @@ function Terminal:_register_viewport_mappings(opposite_instance)
     local open_check = self.win and vim.api.nvim_win_is_valid(self.win) and vim.api.nvim_win_get_buf(self.win) == self.buf
     if open_check then
       vim.api.nvim_set_current_win(self.win)
-      vim.cmd('startinsert')
+      -- vim.cmd('startinsert')
     else
       vim.cmd('wincmd j')
     end
