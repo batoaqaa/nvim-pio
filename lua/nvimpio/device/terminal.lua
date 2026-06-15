@@ -21,7 +21,7 @@ M.stdout_callback = nil
 M.exit_callback = nil
 
 ----------------------------------------------------------------------------------------
--- 🌟 THE ARCHITECTURAL OOP TERMINAL DEFINITION
+-- OBJECT ORIENTED TERMINAL CLASS ARCHITECTURE
 ----------------------------------------------------------------------------------------
 ---@class Terminal
 ---@field term_type string Unique lane tag ('cli' or 'monitor')
@@ -57,10 +57,9 @@ end
 function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
 
-  -- Professional Rule: Configure native buffer properties directly.
-  -- LSPs and external plugins will completely ignore this buffer.
+  -- 🌟 BUG FIX: Set the filetype tag cleanly, but DO NOT manually force "buftype"
+  -- Neovim will set buftype = "terminal" natively when termopen() executes.
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
-  vim.api.nvim_set_option_value('buftype', 'terminal', { buf = self.buf })
 
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   self:_attach_events(target_height)
@@ -88,7 +87,6 @@ function Terminal:on_exit()
   if type(M.exit_callback) == 'function' then
     M.exit_callback()
   end
-  -- Native Mode Fallback: Neovim automatically stops terminal tracking on channel close
   M.UpdateWinbarTitles()
 end
 
@@ -113,12 +111,8 @@ function Terminal:send(command)
     return
   end
 
-  -- 🌟 THE PROFESSIONAL DATA INJECTION WAY
-  -- We pipe the data raw straight to the process stream socket backend.
-  -- Zero macro keystroke simulation hacks. Zero mode switching panics.
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
-  -- Programmatically align the viewport scroll without invoking normal keys
   vim.schedule(function()
     if self.win and vim.api.nvim_win_is_valid(self.win) then
       local lines = vim.api.nvim_buf_line_count(self.buf)
@@ -126,7 +120,6 @@ function Terminal:send(command)
     end
   end)
 end
-
 --- Hook: Handles physical window allocation drawing passes cleanly
 ---@method
 function Terminal:on_open()
@@ -156,7 +149,6 @@ function Terminal:on_open()
     self.job = (channel_id and channel_id > 0) and channel_id or nil
   end
 
-  -- 🌟 CLEAN UP CALL: Removed dead target_height argument
   self:_attach_keymaps(opposite_instance)
 end
 
@@ -295,7 +287,6 @@ function Terminal:_attach_events(target_height)
   })
 end
 
--- 🌟 ROBUST REFACTOR: Removed target_height variable context
 function Terminal:_attach_keymaps(opposite_instance)
   local maps = M.config.keymaps
 
