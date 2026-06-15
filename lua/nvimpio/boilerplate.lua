@@ -188,7 +188,7 @@ CompileFlags:
       staticBlock = self.static
     end
 
-    -- 🟢 SELF-HEALING ENGINE A: Force-create an empty default database if missing
+    -- A: Force-create an empty default database if missing
     local db_exist = vim.uv.fs_stat(filter_db_path)
     if not db_exist then
       local default_db = { codes = {}, flags = {} }
@@ -238,7 +238,7 @@ CompileFlags:
       table.insert(formatted_removed_args, string.format('%q', removed_args[i]))
     end
 
-    -- 2. 🟢 NESTING-AWARE METADATA EXTRACTOR (ZERO HARDCODING)
+    -- 2. METADATA EXTRACTOR
     local options_file_lines = {}
     local target_meta = nil
 
@@ -302,6 +302,7 @@ CompileFlags:
 
       -- 🟢  Phase B: Extract all pre-sorted path flags using JIT sequential loops
       local include_pools = {
+        target_meta.includes_libdeps,
         target_meta.includes_build,
         target_meta.includes_toolchain,
         target_meta.includes_compatlib,

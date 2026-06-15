@@ -395,23 +395,49 @@ fetch_metadata = function(callback, active_env, from, attempts)
       return res
     end
 
-    -- 3. Base Paths & Compilers
+    -- 3. Get PlatformIO project libdep includes paths
+    local function get_pio_includes(root_path, board)
+      if not root_path or not board then return {} end
+
+      -- joinpath natively joins and completely normalizes the string
+      local base_dir = vim.fs.joinpath(root_path, ".pio", "libdeps", board)
+      if vim.fn.isdirectory(base_dir) == 0 then return {} end
+
+      local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge })
+      local includes = {}
+
+      for _, src in ipairs(src_dirs) do
+        table.insert(includes, src) -- already fully normalized by vim.fs.find
+
+        for name, type in vim.fs.dir(src, { depth = 20 }) do
+          if type == "directory" then
+            -- Clean, idiomatic path construction with zero manual string tricks
+            table.insert(includes, vim.fs.joinpath(src, name))
+          end
+        end
+      end
+
+      return includes
+    end
+
+    -- 4. Base Paths & Compilers
     meta.cc_path = norm(data.cc_path)
     meta.cxx_path = norm(data.cxx_path)
     meta.gdb_path = norm(data.gdb_path)
     -- M.get_sysroot_triplet(meta.cxx_path)
     pcall(M.get_sysroot_triplet, meta.cxx_path)
 
-    -- 4. Flags & Defines
+    -- 5. Flags & Defines
     meta.cc_flags = map_list(data.cc_flags)
     meta.cxx_flags = map_list(data.cxx_flags)
     meta.defines = map_list(data.defines)
 
-    -- 5. Includes (Completely automated and isolated)
+    -- 6. Includes (Completely automated and isolated)
     local inc = data.includes or {}
     meta.includes_build = map_includes(inc.build)
     meta.includes_toolchain = map_includes(inc.toolchain)
     meta.includes_compatlib = map_includes(inc.compatlib)
+    meta.includes_libdeps = get_pio_includes(project_root, active_env)
     --
 
     -- --🟢  keep for later if to deal with cxx_flags
