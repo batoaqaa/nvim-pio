@@ -322,36 +322,35 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- 🌟 THE INDESTRUCTIBLE SELF-HEALING SENTINEL ENGINE
-  -- Listens for any sidebar layout shifts. If it detects that a sidebar closure 
-  -- pushed the terminal window to row 0 or left it as the lone window on the screen, 
-  -- it wipes out the ghost view, resets cmdheight, and safely draws a stable split layout.
+  -- 🌟 FIXED SELF-HEALING LAYOUT WATCHER
+  -- Monitors global window shifts. If a sidebar closes and leaves the terminal as the last 
+  -- remaining window on screen, it safely avoids closing it to prevent an E444 crash.
+  -- It simply shrinks cmdheight down and enforces a full layout stability pass.
   vim.api.nvim_create_autocmd({ "WinNew", "BufWinEnter", "WinClosed" }, {
     group = platformio,
     callback = function()
       if self.win and vim.api.nvim_win_is_valid(self.win) then
         vim.schedule(function()
           if self.win and vim.api.nvim_win_is_valid(self.win) then
-            -- 🌟 FIXED ACCESSOR UNPACK: Read the 0-indexed position array correctly
             local position = vim.api.nvim_win_get_position(self.win)
-            local row_index = position[1] -- Unpack row index from the coordinate tuple [INDEX]
+            local row_index = position[1]
             
-            -- Count active valid layout splits on the screen right now
             local win_list = vim.api.nvim_tabpage_list_wins(0)
             local total_windows = #win_list
 
-            if row_index == 0 or total_windows <= 1 then
-              -- Close the broken, panicked window node layout container split instantly
+            -- 🌟 THE ARCHITECTURAL GUARD FIX:
+            -- If it's the absolute last window left on screen, do NOT attempt to close it.
+            -- Simply restore cmdheight and fill the rest of the workspace viewport.
+            if total_windows <= 1 then
+              vim.go.cmdheight = 1
+              M.UpdateWinbarTitles()
+            elseif row_index == 0 then
+              -- Only close and recreate if it's trapped at the top row and other splits exist
               vim.api.nvim_win_close(self.win, true)
               self.win = nil
-              
-              -- Enforce clean command line height safety constraints to prevent ballooning
               vim.go.cmdheight = 1
-              
-              -- Trigger a fresh layout pass safely at the correct base coordinates
               self:on_open()
             else
-              -- Otherwise, if everything is correctly balanced, enforce size constraints
               pcall(vim.api.nvim_win_set_height, self.win, target_height)
             end
           end
