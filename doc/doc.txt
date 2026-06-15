@@ -64,7 +64,7 @@ Commands:
     Repair/reinstall PlatformIO      Mapped to: |<leader>\pr|
 
 :PioRefreshData                                              *:PioRefreshData*
-    Repair PlatformIO project metadata
+    Repair PlatformIO project metadata  Mapped to: |<leader>\pf|
 
 :Piorun [arg]                                                        *:Piorun*
     Builds, cleans, or uploads your code. If no argument is provided, 

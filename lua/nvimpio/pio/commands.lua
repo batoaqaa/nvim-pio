@@ -52,9 +52,7 @@ end, {})
 --
 vim.api.nvim_create_user_command('PioInstall', function()
   vim.g.platformioRootDir = vim.uv.cwd()
-  -- require("nvimpio.core").execute_init(args)
   require('nvimpio.core').ensure_toolchain_active(
-    -- pioCheck.pioStatus(
     function(success)
       if success then
         ---@type NvimPio
@@ -65,7 +63,6 @@ vim.api.nvim_create_user_command('PioInstall', function()
     end,
     0
   )
-  -- end, false)
 end, {
   force = true,
   desc = 'Start the PlatformIO guided install wizard',
@@ -122,7 +119,6 @@ end, { force = true })
 
 
 --INFO: Piomon
--- piolsserial.sync_ttylist()
 vim.api.nvim_create_user_command('Piomon', function(opts)
   local args = opts.fargs
   require('nvimpio.pio.cli').piomon(args)
@@ -142,7 +138,6 @@ end, {
 vim.api.nvim_create_user_command('PioDevList', function()
   local cmd_table = {'device', 'list'}
   require('nvimpio.pio.cli').piocli(cmd_table)
-  -- print(vim.inspect(require('nvimpio.pio.upkeep').get_connected_ports()))
 end, {})
 
 --INFO: Piolib
@@ -152,14 +147,6 @@ vim.api.nvim_create_user_command('Piolib', function(opts)
 end, {
   nargs = '+',
 })
-
--- --INFO: Piomon    Piomon monitor terminal
--- vim.api.nvim_create_user_command('Piomon', function(opts)
---   local cmd_table = vim.split(opts.args, ' ')
---   require('nvimpio.pio.cli').piocli(cmd_table)
--- end, {
---   nargs = '*',
--- })
 
 --INFO: Piocli    Piocli cli terminal
 vim.api.nvim_create_user_command('Piocli', function(opts)

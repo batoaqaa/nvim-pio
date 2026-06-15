@@ -111,37 +111,29 @@ function M.piomon(args_table)
   end
 
   if command == nil then OS.notify('Usage: Piomon <baud> <port>', "error")
-  else
-    -- pio_mon:show()
-    pio_mon:send(command)
-    -- terminal(command, 'horizontal') 
-  end
+  else pio_mon:send(command) end
 end
 
 --INFO: Piorun
 ------------------------------------------------------
 function M.piobuild()
-  local command = 'pio run' -- .. utils.extra
+  local command = 'pio run'
   sendCmnd(command)
-  -- terminal(command, 'float')
 end
 
 function M.pioupload()
-  local command = 'pio run --target upload' -- .. utils.extra
+  local command = 'pio run --target upload'
   sendCmnd(command)
-  -- terminal(command, 'float')
 end
 
 function M.piouploadfs()
-  local command = 'pio run --target uploadfs' -- .. utils.extra
+  local command = 'pio run --target uploadfs'
   sendCmnd(command)
-  -- terminal(command, 'float')
 end
 
 function M.pioclean()
-  local command = 'pio run --target clean' -- .. utils.extra
+  local command = 'pio run --target clean'
   sendCmnd(command)
-  -- terminal(command, 'float')
 end
 
 function M.piorun(arg_table)
