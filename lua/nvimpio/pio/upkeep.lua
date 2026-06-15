@@ -412,7 +412,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
         for name, type in vim.fs.dir(src, { depth = 20 }) do
           if type == "directory" then
             -- Clean, idiomatic path construction with zero manual string tricks
-            table.insert(includes, vim.fs.joinpath(src, name))
+            table.insert(includes, '-I' .. vim.fs.joinpath(src, name))
           end
         end
       end
