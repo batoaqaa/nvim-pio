@@ -120,8 +120,7 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- 🌟 RIGID WINDOW SANDBOX CREATION Pass:
-  -- We use botright to explicitly cut a bottom split canvas frame first.
+  -- Use botright split to guarantee the layout panel draws strictly at the bottom row boundary
   vim.cmd('botright ' .. target_height .. 'split')
   self.win = vim.api.nvim_get_current_win()
   self.buf = vim.api.nvim_get_current_buf()
@@ -134,7 +133,7 @@ function Terminal:on_open()
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = self.win })
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = self.win })
 
-  -- 🌟 NATIVE EMULATION LAUNCH: Run termopen strictly inside our secure bottom window context
+  -- Run termopen strictly inside our secure bottom window split container
   local channel_id = vim.fn.termopen(M.config.shell, {
     on_stdout = function(j, d, e)
       self:on_stdout(j, d, e)
@@ -206,17 +205,21 @@ function Terminal:show()
     self.win = opposite_instance.win
     opposite_instance.win = nil
 
-    vim.api.nvim_win_set_buf(self.win, self.buf)
+    -- 🌟 FIXED GUARD NODE: If our own target buffer hasn't been initialized yet,
+    -- we cannot swap it. We must force a fresh native layout pass configuration path instead.
+    if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
+      vim.api.nvim_win_set_buf(self.win, self.buf)
 
-    -- Re-apply local window overrides to the newly reused layout segment
-    vim.api.nvim_set_option_value('number', false, { scope = 'local', win = self.win })
-    vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = self.win })
-    vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = self.win })
+      -- Re-apply local window overrides to the newly reused layout segment
+      vim.api.nvim_set_option_value('number', false, { scope = 'local', win = self.win })
+      vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = self.win })
+      vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = self.win })
 
-    M.UpdateWinbarTitles()
-    self:_register_viewport_mappings(opposite_instance)
-    vim.cmd('startinsert')
-    return true
+      M.UpdateWinbarTitles()
+      self:_register_viewport_mappings(opposite_instance)
+      vim.cmd('startinsert')
+      return true
+    end
   end
 
   if self.win and vim.api.nvim_win_is_valid(self.win) then
@@ -299,8 +302,7 @@ end
 function Terminal:_register_viewport_mappings(opposite_instance)
   local maps = M.config.keymaps
 
-  -- 🌟 NATIVE SHORTCUT ALIGNMENT:
-  -- Both normal and terminal-insert mode keymaps are explicitly bound to the native buffer context
+  -- Native Terminal Shortcuts Mapping Configurations
   vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
   vim.keymap.set('n', maps.hide_pane, function()
     self:on_quit()
