@@ -155,29 +155,71 @@ function M.RestoreWorkspaceFocus()
   if target_win then vim.api.nvim_set_current_win(target_win) end
 end
 
+-- --- Hook: Handles physical window layout allocations cleanly with zero top-right leaks
+-- ---@method
+-- function Terminal:on_open()
+--   -- Reads configurations dynamically
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+--   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
+--
+--   -- Target the parent code window split context explicitly to wrap its exact horizontal bounds
+--   -- local anchor_win = (self.last_win and vim.api.nvim_win_is_valid(self.last_win)) and self.last_win or 0
+--
+--   self.win = vim.api.nvim_open_win(self.buf, true, {
+--     split = 'below',
+--     -- win = anchor_win, -- terminal window appear under file code space
+--     -- win = 0, -- Context node anchor locked to active workspace rows
+--     win = -1, -- Global workspace canvas context anchor target
+--     height = target_height,
+--   })
+--
+--   -- Enforce clean, minimalist terminal window styling configurations
+--   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = self.win })
+--   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = self.win })
+--   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = self.win })
+--   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = self.win })
+--
+--   self:_register_viewport_mappings(opposite_instance)
+-- end
 --- Hook: Handles physical window layout allocations cleanly with zero top-right leaks
 ---@method
 function Terminal:on_open()
-  -- Reads configurations dynamically
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
+  local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
 
-  -- Target the parent code window split context explicitly to wrap its exact horizontal bounds
-  -- local anchor_win = (self.last_win and vim.api.nvim_win_is_valid(self.last_win)) and self.last_win or 0
+  -- 🌟 EDGE CASE COUNTER-MEASURE: Count the current unlisted, valid window nodes
+  local valid_win_count = 0
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local buftype = vim.api.nvim_get_option_value("buftype", { buf = buf })
+      -- Count it if it is a real standard code viewport layout split split split
+      if buftype == "" or buftype == "terminal" then
+        valid_win_count = valid_win_count + 1
+      end
+    end
+  end
 
-  self.win = vim.api.nvim_open_win(self.buf, true, {
-    split = 'below',
-    -- win = anchor_win, -- terminal window appear under file code space
-    -- win = 0, -- Context node anchor locked to active workspace rows
-    win = -1, -- Global workspace canvas context anchor target
-    height = target_height,
-  })
+  -- 🌟 IMMUTABLE LOGIC SPLIT:
+  if valid_win_count <= 1 then
+    -- If there are no real files open, reuse the main active window.
+    -- This stops layout collapses, keeps the panel locked down, and blocks command line bloat.
+    self.win = vim.api.nvim_get_current_win()
+    vim.api.nvim_win_set_buf(self.win, self.buf)
+  else
+    -- If real files are active, run your global bottom split pass layout
+    self.win = vim.api.nvim_open_win(self.buf, true, {
+      split = "below",
+      win = -1, -- Global workspace context base anchor
+      height = target_height
+    })
+  end
 
   -- Enforce clean, minimalist terminal window styling configurations
-  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = self.win })
-  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = self.win })
-  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = self.win })
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = self.win })
+  vim.api.nvim_set_option_value("number", false, { scope = "local", win = self.win })
+  vim.api.nvim_set_option_value("relativenumber", false, { scope = "local", win = self.win })
+  vim.api.nvim_set_option_value("signcolumn", "no", { scope = "local", win = self.win })
+  vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = self.win })
 
   self:_register_viewport_mappings(opposite_instance)
 end
