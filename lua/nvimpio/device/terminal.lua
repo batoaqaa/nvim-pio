@@ -344,15 +344,17 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- ANTI-SHRINK ENGINE:
-  -- Listens for when any new window splits or sidebars (like Neo-tree) open globally.
-  -- The millisecond it fires, it forces your terminal container back to its explicit height rule.
-  vim.api.nvim_create_autocmd({ "WinNew", "BufWinEnter" }, {
+  -- WORKSPACE BALANCE GUARD:
+  -- Listens for any global structural layout modifications (like opening/closing Neo-tree).
+  -- The millisecond a layout change is detected, it programmatically forces the terminal 
+  -- window to snap back to its explicit height rule and maintain its global alignment.
+  vim.api.nvim_create_autocmd({ "WinNew", "BufWinEnter", "WinClosed" }, {
     group = platformio,
     callback = function()
       if self.win and vim.api.nvim_win_is_valid(self.win) then
         vim.schedule(function()
           if self.win and vim.api.nvim_win_is_valid(self.win) then
+            -- Force height lockdown on the active terminal layout node directly
             pcall(vim.api.nvim_win_set_height, self.win, target_height)
           end
         end)
