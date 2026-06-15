@@ -110,7 +110,7 @@ function Terminal:send(command)
   end
 
   vim.api.nvim_set_current_win(self.win)
-  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('i', true, true, true), 'n', false)
+  -- vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('i', true, true, true), 'n', false)
 
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 end
@@ -260,13 +260,13 @@ function Terminal:show()
 
     M.UpdateWinbarTitles()
     self:_register_viewport_mappings(opposite_instance)
-    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('i', true, true, true), 'n', false)
+    -- vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('i', true, true, true), 'n', false)
     return true
   end
 
   if self.win and vim.api.nvim_win_is_valid(self.win) then
     vim.api.nvim_set_current_win(self.win)
-    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('i', true, true, true), 'n', false)
+    -- vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('i', true, true, true), 'n', false)
     return true
   end
 
@@ -395,7 +395,7 @@ function Terminal:_register_viewport_mappings(opposite_instance)
     local open_check = self.win and vim.api.nvim_win_is_valid(self.win) and vim.api.nvim_win_get_buf(self.win) == self.buf
     if open_check then
       vim.api.nvim_set_current_win(self.win)
-      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('i', true, true, true), 'n', false)
+      -- vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('i', true, true, true), 'n', false)
     end
   end, { buffer = self.buf, silent = true })
 end
