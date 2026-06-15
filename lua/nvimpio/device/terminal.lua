@@ -147,13 +147,13 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- Prevent layout jumps across standard editor split window actions [INDEX]
+  -- Enforce modern scroll preservation mechanics globally before drawing splits
   vim.go.splitkeep = 'screen'
 
-  -- Anchor the window split container frame directly at the global base floor [INDEX]
+  -- Anchor the window split container frame directly at the global base floor
   self.win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
-    win = -1, -- Explicit global tabpage layout tree context node anchor [INDEX]
+    win = -1, -- Explicit global tabpage layout tree context node anchor
     height = target_height,
   })
 
@@ -341,11 +341,10 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- 🌟 TOGGLETERM STRUCTURAL HEALING SENTINEL ENGINE
+  -- 🌟 FLICKER-FREE STRUCTURAL HEALING SENTINEL ENGINE
   -- Listens for global layout updates. If closing Neo-tree would leave the terminal alone
-  -- on screen, this architecture dynamically creates an unlisted placeholder split window
-  -- ABOVE the terminal first. This balances the workspace tree, keeping the terminal layout
-  -- anchored perfectly at the bottom without ever going up or stretching cmdheight.
+  -- on screen, it wraps the placeholder split inside a native noautocmd render freeze barrier.
+  -- This blocks Neovim from flickering the window to the middle of the screen entirely.
   vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter', 'WinClosed' }, {
     group = platformio,
     callback = function()
@@ -367,24 +366,25 @@ function Terminal:_register_lifecycle_events(target_height)
               end
             end
 
-            -- 🌟 TOGGLETERM ARCHITECTURE SAFEGUARD:
-            -- If the terminal is about to become the last window, programmatically split
-            -- a clean blank placeholder view above it. This holds down the screen tree structure.
+            -- If the terminal is about to become the last window, execute layout adjustments
+            -- inside a silent, frozen render frame to permanently hide visual jumps.
             if valid_wins <= 1 and vim.api.nvim_get_current_win() == self.win then
               local scratch_buf = vim.api.nvim_create_buf(false, true)
               vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]')
               vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
               vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
 
-              -- Inject the tile spacer strictly above the terminal window context node
-              vim.cmd('topleft split')
+              -- 🌟 THE VISUAL FLICKER ENGINE SHIELD:
+              -- noautocmd freezes Neovim's rendering thread. The grid correction happens
+              -- instantly behind the scenes, making it impossible to see a jump.
+              vim.cmd('noautocmd topleft split')
               vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
 
               -- Return cursor focus back to the terminal panel cleanly
-              vim.api.nvim_set_current_win(self.win)
+              vim.cmd('noautocmd lua vim.api.nvim_set_current_win(' .. self.win .. ')')
             end
 
-            -- Enforce targeted size constraints
+            -- Enforce targeted size constraints cleanly
             pcall(vim.api.nvim_win_set_height, self.win, target_height)
             M.UpdateWinbarTitles()
           end
