@@ -196,9 +196,7 @@ end
 function Terminal:_register_viewport_mappings()
   local maps = M.config.keymaps
 
-  -- 🌟 THE TERMINAL ESCAPE MAP OVERRIDE:
-  -- Remaps your custom escape key (maps.escape_term) to forcefully drop Neovim out of
-  -- terminal execution mode back to standard Normal mode instantly, resolving layout trap states.
+  -- Remaps your escape key to forcefully drop out of terminal insert mode instantly
   vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf, silent = true })
   vim.keymap.set('n', maps.hide_pane, function()
     M.ToggleTerminal()
@@ -318,15 +316,23 @@ function M.ShowTerminal(term_type)
     target_instance:on_create()
   end
 
+  -- 1. If the horizontal container window is open, switch buffers cleanly inside it!
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
     M.layout.active_type = term_type
     target_instance:on_spawn()
+
+    -- 🌟 THE INDESTRUCTIBLE TRANSITION PASSTHROUGH FIX:
+    -- We force-register the key mappings on EVERY single buffer hot-swap operation loop.
+    -- This ensures maps.escape_term (<Esc>) remains permanently active when switching back and forth.
+    target_instance:_register_viewport_mappings()
+
     M.UpdateWinbarTitles()
     target_instance:enter_insert_mode()
     return
   end
 
+  -- 2. Otherwise, drop open a fresh clean layout split
   target_instance:on_open()
   target_instance:on_spawn()
   M.UpdateWinbarTitles()
