@@ -111,7 +111,12 @@ function M.piomon(args_table)
   end
 
   if command == nil then OS.notify('Usage: Piomon <baud> <port>', "error")
-  else pio_mon:send(command) end
+  else
+    vim.schedule(function()
+      pio_mon:send(command)
+    end)
+    -- pio_mon:send(command)
+  end
 end
 
 --INFO: Piorun

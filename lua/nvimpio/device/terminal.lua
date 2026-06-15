@@ -97,25 +97,56 @@ end
 ---@method
 ---@param command string|number Explicit string input array payload targeted down the pipe.
 function Terminal:send(command)
-  local cmd_str = tostring(command or '')
-  if not self.win or not vim.api.nvim_win_is_valid(self.win) then self:show() end
+  local cmd_str = tostring(command or "")
+
+  -- 1. Ensure the window layout container is drawn first
+  if not self.win or not vim.api.nvim_win_is_valid(self.win) then
+    self:show()
+  end
   if not self.job or self.job <= 0 then return end
 
-  -- Direct asynchronous payload delivery down the core socket stream channel
-  vim.fn.chansend(self.job, cmd_str .. self.newline)
+  -- 2. 🌟 INTERNAL SAFETY ENCAPSULATION
+  -- We defer the chansend by one event loop tick internally. 
+  -- This ensures that if this was called from a ':' command, the command-line
+  -- interface fully exits and drops focus back to the buffer layer before the payload hits.
+  vim.schedule(function()
+    if self.job and self.job > 0 then
+      vim.fn.chansend(self.job, cmd_str .. self.newline)
 
-  -- Programmatic scrolling alignment completely bypassing global normal mode execution keys
-  local target_win = self.win
-  local target_buf = self.buf
-  if target_win and vim.api.nvim_win_is_valid(target_win) and target_buf then
-    vim.schedule(function()
-      if vim.api.nvim_buf_is_valid(target_buf) and vim.api.nvim_win_is_valid(target_win) then
-        local lines = vim.api.nvim_buf_line_count(target_buf)
-        pcall(vim.api.nvim_win_set_cursor, target_win, { lines, 0 })
+      -- Programmatic scrolling alignment completely bypassing normal mode keys
+      local target_win = self.win
+      local target_buf = self.buf
+      if target_win and vim.api.nvim_win_is_valid(target_win) and target_buf then
+        vim.schedule(function()
+          if vim.api.nvim_buf_is_valid(target_buf) and vim.api.nvim_win_is_valid(target_win) then
+            local lines = vim.api.nvim_buf_line_count(target_buf)
+            pcall(vim.api.nvim_win_set_cursor, target_win, { lines, 0 })
+          end
+        end)
       end
-    end)
-  end
+    end
+  end)
 end
+-- function Terminal:send(command)
+--   local cmd_str = tostring(command or '')
+--   if not self.win or not vim.api.nvim_win_is_valid(self.win) then self:show() end
+--   if not self.job or self.job <= 0 then return end
+--
+--   -- Direct asynchronous payload delivery down the core socket stream channel
+--   vim.fn.chansend(self.job, cmd_str .. self.newline)
+--
+--   -- Programmatic scrolling alignment completely bypassing global normal mode execution keys
+--   local target_win = self.win
+--   local target_buf = self.buf
+--   if target_win and vim.api.nvim_win_is_valid(target_win) and target_buf then
+--     vim.schedule(function()
+--       if vim.api.nvim_buf_is_valid(target_buf) and vim.api.nvim_win_is_valid(target_win) then
+--         local lines = vim.api.nvim_buf_line_count(target_buf)
+--         pcall(vim.api.nvim_win_set_cursor, target_win, { lines, 0 })
+--       end
+--     end)
+--   end
+-- end
 
 --- Lifecycle Hook: Draws the native split viewport safely beneath code workspaces
 ---@method
