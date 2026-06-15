@@ -403,26 +403,26 @@ fetch_metadata = function(callback, active_env, from, attempts)
       local base_dir = vim.fs.joinpath(root_path, ".pio", "libdeps", board)
       if vim.fn.isdirectory(base_dir) == 0 then return {} end
 
-      -- Setting depth = 2 restricts the search strictly to your main libraries
-      local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge, stop = 'src' })
+      -- -- Setting depth = 2 restricts the search strictly to your main libraries
+      -- local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge, stop = 'src' })
       -- Setting no depth restricts the search all subfolders libraries
-      -- local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge })
-      return src_dirs
-      -- local includes = {}
-      --
+      local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge })
+      -- return src_dirs
+
+      local includes = {}
       -- to get all paths under src/
-      -- for _, src in ipairs(src_dirs) do
-      --   table.insert(includes, src) -- already fully normalized by vim.fs.find
-      --
-      --   for name, type in vim.fs.dir(src, { depth = 20 }) do
-      --     if type == "directory" then
-      --       -- Clean, idiomatic path construction with zero manual string tricks
-      --       table.insert(includes, vim.fs.joinpath(src, name))
-      --     end
-      --   end
-      -- end
-      --
-      -- return includes
+      for _, src in ipairs(src_dirs) do
+        table.insert(includes, src) -- already fully normalized by vim.fs.find
+
+        for name, type in vim.fs.dir(src, { depth = 20 }) do
+          if type == "directory" then
+            -- Clean, idiomatic path construction with zero manual string tricks
+            table.insert(includes, vim.fs.joinpath(src, name))
+          end
+        end
+      end
+
+      return includes
     end
 
     -- 4. Base Paths & Compilers
