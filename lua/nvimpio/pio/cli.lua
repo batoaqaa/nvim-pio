@@ -112,7 +112,7 @@ function M.piomon(args_table)
 
   if command == nil then OS.notify('Usage: Piomon <baud> <port>', "error")
   else
-    pio_mon:show()
+    -- pio_mon:show()
     pio_mon:send(command)
     -- terminal(command, 'horizontal') 
   end
