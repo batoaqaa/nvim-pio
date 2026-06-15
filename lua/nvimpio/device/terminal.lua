@@ -109,7 +109,7 @@ function Terminal:send(command)
 
   -- Programmatic send pass requires native terminal mode focus for proper execution
   vim.api.nvim_set_current_win(self.win)
-  vim.cmd('startinsert')
+  -- vim.cmd('startinsert')
 
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 end
