@@ -21,14 +21,15 @@ M.stdout_callback = nil
 M.exit_callback = nil
 
 ----------------------------------------------------------------------------------------
--- 🌟 THE RIGID OOP TERMINAL ARCHITECTURE CORE
+-- 🌟 THE INDESTRUCTIBLE SYSTEM-JOB TERMINAL CLASS DEFINITION
 ----------------------------------------------------------------------------------------
 ---@class Terminal
 ---@field term_type string Unique structural channel lane tag ('cli' or 'monitor')
 ---@field title string Explicit text layout template drawn onto the local winbar row
 ---@field buf number|nil Immutable Neovim native buffer context memory address handle
 ---@field win number|nil Active viewport layout window node context index pointer
----@field job number|nil Asynchronous background socket process loop channel ID stream
+---@field chan number|nil Native raw pseudo-terminal (pty) background stream channel socket ID
+---@field job number|nil Asynchronous headless system process background task handle
 ---@field newline string Normalized carriage return terminator sequence delimiters
 ---@field filetype string Strict isolated text-domain category namespace tag
 local Terminal = {
@@ -36,13 +37,14 @@ local Terminal = {
   title = '',
   buf = nil,
   win = nil,
+  chan = nil,
   job = nil,
   newline = '\r\n',
   filetype = 'pio_terminal',
 }
 Terminal.__index = Terminal
 
---- Immutable Factory Class Constructor
+--- Factory Constructor
 function Terminal.new(term_type, panel_title)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
@@ -50,24 +52,33 @@ function Terminal.new(term_type, panel_title)
   return self
 end
 
---- 🌟 THE ARCHITECTURAL INITIALIZER
---- Spawns the buffer and launches the shell process cleanly in the background.
---- This ensures the shell is wide awake and ready to execute text commands instantly.
+--- 🌟 THE ASYNCHRONOUS SOCKET CONTROLLER
+--- Spawns an isolated background process stream completely independent of any window layout.
+--- Uses nvim_open_term + jobstart to guarantee your top-right code files are never hijacked.
 ---@method
 function Terminal:initialize()
   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
     return
   end
 
-  -- 1. Allocate a completely isolated scratch buffer invisible to external LSPs
+  -- 1. Generate an unlisted scratch buffer completely isolated from LSPs
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
 
-  -- 2. Run termopen inside the unlisted buffer memory segment.
-  -- Passing 'self.buf' inside the option dictionary forces Neovim to initialize
-  -- the shell inside our scratchpad, completely protecting your main file splits.
-  local channel_id = vim.fn.termopen(M.config.shell, {
-    buf = self.buf,
+  -- 2. Allocate a low-level, pure pseudo-terminal data channel in the memory buffer
+  -- This API handles data streams natively and has zero awareness of screen layout windows.
+  self.chan = vim.api.nvim_open_term(self.buf, {
+    on_input = function(_, _, _, input)
+      if self.job and self.job > 0 then
+        -- Forward keyboard inputs directly down to the background process task socket
+        vim.fn.chansend(self.job, input)
+      end
+    end,
+  })
+
+  -- 3. Launch the background process task natively via a headless system loop
+  local process_id = vim.fn.jobstart(M.config.shell, {
+    pty = true, -- Enable pseudo-terminal emulation features natively
     on_stdout = function(j, d, e)
       self:on_stdout(j, d, e)
     end,
@@ -79,31 +90,46 @@ function Terminal:initialize()
     end,
   })
 
-  if channel_id and channel_id > 0 then
-    self.job = channel_id
+  if process_id and process_id > 0 then
+    self.job = process_id
   end
 
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   self:_register_lifecycle_events(target_height)
 end
 
---- Lifecycle Hook: High-Utility Stdout Processor Interceptor
+--- Lifecycle Hook: Pipe background stream updates safely into the data channel socket
 ---@method
-function Terminal:on_stdout(job_id, data, event)
+function Terminal:on_stdout(_, data, _)
+  if not self.chan then
+    return
+  end
+  -- Stream the process text bytes smoothly into your hidden memory scratch buffer
+  for _, line in ipairs(data) do
+    vim.api.nvim_chan_send(self.chan, line .. '\r\n')
+  end
+
+  -- Forward execution callbacks to your plugin logic hooks
   if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
-    M.stdout_callback(job_id, data, event)
+    M.stdout_callback(self.job, data, 'stdout')
   end
 end
 
---- Lifecycle Hook: High-Utility Stderr Processor Interceptor
+--- Lifecycle Hook: Pipe background error streams safely into the data channel socket
 ---@method
-function Terminal:on_stderr(job_id, data, event)
+function Terminal:on_stderr(_, data, _)
+  if not self.chan then
+    return
+  end
+  for _, line in ipairs(data) do
+    vim.api.nvim_chan_send(self.chan, line .. '\r\n')
+  end
   if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
-    M.stdout_callback(job_id, data, event)
+    M.stdout_callback(self.job, data, 'stderr')
   end
 end
 
---- Lifecycle Hook: Triggered natively when a channel task processes out
+--- Lifecycle Hook: Clean state cleanup when a task finishes execution
 ---@method
 function Terminal:on_exit()
   if type(M.exit_callback) == 'function' then
@@ -112,36 +138,39 @@ function Terminal:on_exit()
   M.UpdateWinbarTitles()
 end
 
---- Lifecycle Hook: Tears down process stream sockets cleanly
+--- Lifecycle Hook: Core socket channel teardown
 ---@method
 function Terminal:on_close()
   if self.job and self.job > 0 then
     pcall(vim.fn.jobstop, self.job)
   end
   self.job = nil
+  self.chan = nil
   self.buf = nil
 end
 
---- Pure String Channel Data Submission Stream Pipeline
+--- Pure String Channel Data Submission Pipeline
 ---@method
----@param command string|number Explicit string input array payload targeted down the pipe.
+---@param command string|number Explicit string instruction targeted down the socket pipe.
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
 
-  -- Defensively ensure the background process shell is awake and ready
+  -- Defensively assert that our isolated background service loop is alive
   self:initialize()
 
-  -- Ensure the physical window split is actively open on the layout tree
+  -- Ensure the physical split container is rendered on screen
   if not self.win or not vim.api.nvim_win_is_valid(self.win) then
     self:show()
   end
 
-  -- Pipes the text payload immediately down the stable, pre-initialized background socket channel.
+  -- 🌟 IMMUTABLE SYNC DATA PASS:
+  -- Writes purely and synchronously directly into your background socket stream channel.
+  -- Zero macro keystroke simulation hacks. Zero startinsert mode shifting fumbles.
   if self.job and self.job > 0 then
     vim.fn.chansend(self.job, cmd_str .. self.newline)
   end
 
-  -- Align the viewport scroll layout programmatically at the API layer
+  -- Align the viewport scroll programmatically at the API layer
   local target_win = self.win
   local target_buf = self.buf
   if target_win and vim.api.nvim_win_is_valid(target_win) and target_buf then
@@ -154,13 +183,13 @@ function Terminal:send(command)
   end
 end
 
---- Lifecycle Hook: Mounts the running background buffer onto a split window viewport
+--- Lifecycle Hook: Mounts the pristine background buffer onto a bottom split container
 ---@method
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.25))
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
 
-  -- Open the window container cleanly using our pre-initialized background buffer
+  -- Open the window container split cleanly over our background task buffer
   self.win = vim.api.nvim_open_win(self.buf, true, { split = 'below', win = -1, height = target_height })
 
   vim.cmd('setlocal nonumber norelativenumber signcolumn=no')
@@ -170,7 +199,7 @@ function Terminal:on_open()
   self:_register_viewport_mappings(opposite_instance)
 end
 
---- Lifecycle Hook: Tears down split window frames and redirects layout focus securely
+--- Lifecycle Hook: Tears down split window frames and calculates target focus redirection
 ---@method
 function Terminal:on_quit()
   if self.win and vim.api.nvim_win_is_valid(self.win) then
@@ -217,7 +246,7 @@ end
 --- Main Entry Gateway Coordinator Pass
 ---@return boolean
 function Terminal:show()
-  -- Assert that our core background process buffer is generated and awake first
+  -- Pre-boot background process streams securely in memory before layout rendering tasks
   self:initialize()
 
   local opposite_instance = (self.term_type == 'monitor') and M.cli or M.mon
