@@ -90,6 +90,7 @@ function Terminal:on_exit()
   M.UpdateWinbarTitles()
 end
 
+
 --- Hook: Core platform socket channel teardown
 ---@method
 function Terminal:on_close()
@@ -122,19 +123,16 @@ function Terminal:send(command)
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 end
 
-
 --- Hook: Handles physical window layout allocations cleanly with zero leaks
 ---@method
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
   
-  -- Open the window via modern C-API globally at the root base.
-  -- Setting split = "below" and win = -1 locks the window across the entire bottom floor.
-  -- Neo-tree can now close and open freely; this window will refuse to move or distort.
+  -- Open the window container split natively globally across the tabpage base floor
   self.win = vim.api.nvim_open_win(self.buf, true, {
     split = "below",
-    win = -1, -- Global tabpage anchor context (Bypasses column dependencies)
+    win = -1, -- Global workspace context base anchor
     height = target_height
   })
 
@@ -143,11 +141,12 @@ function Terminal:on_open()
   vim.api.nvim_set_option_value("relativenumber", false, { scope = "local", win = self.win })
   vim.api.nvim_set_option_value("signcolumn", "no", { scope = "local", win = self.win })
   
-  -- Hard lock the layout height programmatically to block any vertical shrinkage
+  -- Hard lock the layout height programmatically to block vertical collapse updates
   vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = self.win })
   
   self:_register_viewport_mappings(opposite_instance)
 end
+
 --- Hook: Launches the active terminal process securely inside the open window context split
 ---@method
 function Terminal:on_spawn()
@@ -254,6 +253,7 @@ end
 function Terminal:_register_lifecycle_events(target_height)
   local platformio = vim.api.nvim_create_augroup("PioEvents_" .. self.buf, { clear = true })
 
+  -- Intercept manual command exits (:q and :q!) and redirect workspace focus safely
   vim.api.nvim_create_autocmd('CmdlineLeave', {
     group = platformio, buffer = self.buf,
     callback = function()
@@ -272,6 +272,7 @@ function Terminal:_register_lifecycle_events(target_height)
     callback = function() vim.schedule(function() M.UpdateWinbarTitles() end) end,
   })
 
+  -- Core Programmatic Scroll Tracker: Follows terminal prints down safely
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
     group = platformio, buffer = self.buf,
     callback = function()
@@ -287,6 +288,7 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
+  -- Height Boundary Enforcement Lock
   vim.api.nvim_create_autocmd("WinEnter", {
     group = platformio, buffer = self.buf,
     callback = function()
@@ -300,10 +302,10 @@ function Terminal:_register_lifecycle_events(target_height)
       end)
     end,
   })
-  -- ANTI-COLLAPSE GEOMETRY LOCK
-  -- Listens for any global layout changes (like closing Neo-tree or toggling Aerial).
-  -- If a layout shift forces the terminal to jump to the top or mangles the command line,
-  -- this guard instantly detects it, terminates the ghost window, and draws a clean bottom split.
+
+  -- 🌟 INDESTRUCTIBLE SENTINEL LAYOUT REBALANCER ENGINE
+  -- Catches when a user sidebar open or close action triggers a window collapse.
+  -- Dynamically fixes cmdheight bloat, terminates the ghost window, and redraws the split.
   vim.api.nvim_create_autocmd({ "WinNew", "BufWinEnter", "WinClosed" }, {
     group = platformio,
     callback = function()
@@ -312,15 +314,20 @@ function Terminal:_register_lifecycle_events(target_height)
           if self.win and vim.api.nvim_win_is_valid(self.win) then
             local win_row = vim.api.nvim_win_get_position(self.win)[1]
             
-            -- If win_row is 0, it means Neovim's engine panicked and pushed the terminal 
-            -- to the absolute top of the screen. We intercept this, close the broken window, 
-            -- and force a clean, fresh, stable botright render pass.
+            -- win_row == 0 means Neovim's engine collapsed and pushed the terminal to the top row.
+            -- We actively intercept this, clean out the broken window, force cmdheight back down,
+            -- and restore a completely stable global base split.
             if win_row == 0 and vim.api.nvim_get_current_win() ~= self.win then
               vim.api.nvim_win_close(self.win, true)
               self.win = nil
+              
+              -- Reset cmdheight registry layer cleanly to block layout ballooning
+              vim.go.cmdheight = 1
+              
+              -- Trigger a fresh layout pass
               self:on_open()
             else
-              -- Otherwise, if it is in the correct position, just cleanly lock its height
+              -- Otherwise, maintain height coordinates programmatically
               pcall(vim.api.nvim_win_set_height, self.win, target_height)
             end
           end
@@ -333,6 +340,7 @@ end
 function Terminal:_register_viewport_mappings(opposite_instance)
   local maps = M.config.keymaps
 
+  -- Native Terminal Shortcuts Mapping Configurations
   vim.keymap.set("t", maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
   vim.keymap.set("n", maps.hide_pane, function() self:on_quit() end, { buffer = self.buf })
 
@@ -367,6 +375,7 @@ function Terminal:_register_viewport_mappings(opposite_instance)
     vim.schedule(function() opposite_instance:show() end)
   end, { buffer = self.buf, silent = true })
 
+  -- Cross-Window Buffer Navigation Hooks
   vim.api.nvim_buf_set_keymap(self.buf, "n", maps.move_left, "<C-w>h", { silent = true })
   vim.api.nvim_buf_set_keymap(self.buf, "n", maps.move_right, "<C-w>l", { silent = true })
   
@@ -377,24 +386,6 @@ function Terminal:_register_viewport_mappings(opposite_instance)
       self:enter_insert_mode()
     end 
   end, { buffer = self.buf, silent = true })
-end
-
-function M.UpdateWinbarTitles()
-  local cli_alive = M.cli.buf and vim.api.nvim_buf_is_valid(M.cli.buf)
-  local mon_alive = M.mon.buf and vim.api.nvim_buf_is_valid(M.mon.buf)
-  local maps = M.config.keymaps
-
-  local hint = (cli_alive and mon_alive)
-    and string.format("[ %s  Switch;  %s  Hide; :q! Quit ] ", maps.switch_pane, maps.hide_pane)
-    or string.format("[ %s  Hide; :q! Quit ] ", maps.hide_pane)
-
-  vim.api.nvim_set_hl(0, 'PioWinBar', { bg = M.config.winbar_bg, fg = M.config.winbar_fg })
-
-  for _, instance in pairs({ M.cli, M.mon }) do
-    if instance and instance.win and vim.api.nvim_win_is_valid(instance.win) then
-      vim.api.nvim_set_option_value('winbar', '%#PioWinBar#' .. instance.title .. hint .. '%*', { scope = 'local', win = instance.win })
-    end
-  end
 end
 
 local function IsTerminalOpen(instance)
