@@ -23,7 +23,7 @@ M.config = {
 M.stdout_callback = nil
 M.exit_callback = nil
 
--- 🌟 FIXED COMPILATION ORDER: Lifted title engine to the absolute top to prevent nil calls
+-- Unified Winbar Header Redraw Layout Sync Engine Matrix
 function M.UpdateWinbarTitles()
   local cli_alive = M.cli and M.cli.buf and vim.api.nvim_buf_is_valid(M.cli.buf)
   local mon_alive = M.mon and M.mon.buf and vim.api.nvim_buf_is_valid(M.mon.buf)
@@ -42,7 +42,7 @@ function M.UpdateWinbarTitles()
   end
 end
 
--- 🌟 FIXED COMPILATION ORDER: Lifted router engine to the top
+-- Dynamic Workspace Target Focus Shifter Router
 function M.RestoreWorkspaceFocus()
   local target_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -64,7 +64,7 @@ function M.RestoreWorkspaceFocus()
 end
 
 ----------------------------------------------------------------------------------------
--- THE RIGID TERMINAL OOP CLASS ARCHITECTURE
+-- THE IMMUTABLE OO TERMINAL CLASS ARCHITECTURE
 ----------------------------------------------------------------------------------------
 ---@class Terminal
 ---@field term_type string Unique structural channel lane tag ('cli' or 'monitor')
@@ -101,7 +101,6 @@ function Terminal:on_create()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   self:_register_lifecycle_events(target_height)
 end
-
 
 function Terminal:on_stdout(j, d, e)
   if self.term_type == "cli" and type(M.stdout_callback) == "function" then
@@ -151,13 +150,13 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
   
-  -- Enforce layout stability behaviors globally to block sidebar adjustments
+  -- Prevent layout jumps across standard editor split window actions
   vim.go.splitkeep = "screen"
 
-  -- Open a native TILED window split across the entire base floor
+  -- Anchor the window split container frame directly at the global base floor
   self.win = vim.api.nvim_open_win(self.buf, true, {
     split = "below",
-    win = -1, -- Global tabpage anchor context block
+    win = -1, -- Explicit global tabpage layout tree context node anchor
     height = target_height
   })
 
@@ -165,8 +164,6 @@ function Terminal:on_open()
   vim.api.nvim_set_option_value("number", false, { scope = "local", win = self.win })
   vim.api.nvim_set_option_value("relativenumber", false, { scope = "local", win = self.win })
   vim.api.nvim_set_option_value("signcolumn", "no", { scope = "local", win = self.win })
-  
-  -- Freeze this window split node's height coordinates programmatically at the C-layer
   vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = self.win })
   
   self:_register_viewport_mappings(opposite_instance)
@@ -191,7 +188,6 @@ function Terminal:on_quit()
 
   M.RestoreWorkspaceFocus()
 
-  -- Balance rows atomically to match user layout height specifications
   vim.schedule(function()
     local cli = M.cli
     local mon = M.mon
@@ -214,7 +210,6 @@ end
 function Terminal:hide()
   self:on_quit()
 end
-
 
 function Terminal:show()
   local active_win = vim.api.nvim_get_current_win()
@@ -273,6 +268,7 @@ end
 function Terminal:_register_lifecycle_events(target_height)
   local platformio = vim.api.nvim_create_augroup("PioEvents_" .. self.buf, { clear = true })
 
+  -- Intercept manual exits typed via command bar (:q and :q!)
   vim.api.nvim_create_autocmd('CmdlineLeave', {
     group = platformio, buffer = self.buf,
     callback = function()
@@ -322,14 +318,34 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- DEFENSIVE ANTI-COLLAPSE MONITOR LAYOUT TRACKER
+  -- 🌟 THE INDESTRUCTIBLE SELF-HEALING SENTINEL ENGINE
+  -- Captures the structural layout update event the precise millisecond Neo-tree closes.
+  -- If it catches a column failure that pushes the terminal to row index 0, it shuts down 
+  -- the broken view, forces cmdheight down, and spawns a pristine, stable global bottom split.
   vim.api.nvim_create_autocmd({ "WinNew", "BufWinEnter", "WinClosed" }, {
     group = platformio,
     callback = function()
       if self.win and vim.api.nvim_win_is_valid(self.win) then
         vim.schedule(function()
           if self.win and vim.api.nvim_win_is_valid(self.win) then
-            pcall(vim.api.nvim_win_set_height, self.win, target_height)
+            -- Query the exact coordinate array position of the window layout node
+            local position = vim.api.nvim_win_get_position(self.win)
+            local row_index = position[1] -- Unpack the exact line row index address
+            
+            if row_index == 0 and vim.api.nvim_get_current_win() ~= self.win then
+              -- Terminate the collapsed window container split context instantly
+              vim.api.nvim_win_close(self.win, true)
+              self.win = nil
+              
+              -- Enforce clean command line height safety constraints to prevent ballooning
+              vim.go.cmdheight = 1
+              
+              -- Trigger a fresh layout pass safely at the correct bottom coordinates
+              self:on_open()
+            else
+              -- Otherwise, if everything is correctly balanced, enforce size constraints
+              pcall(vim.api.nvim_win_set_height, self.win, target_height)
+            end
           end
         end)
       end
@@ -340,6 +356,7 @@ end
 function Terminal:_register_viewport_mappings(opposite_instance)
   local maps = M.config.keymaps
 
+  -- Native Terminal Shortcuts Mapping Configurations
   vim.keymap.set("t", maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
   vim.keymap.set("n", maps.hide_pane, function() self:on_quit() end, { buffer = self.buf })
 
@@ -374,6 +391,7 @@ function Terminal:_register_viewport_mappings(opposite_instance)
     vim.schedule(function() opposite_instance:show() end)
   end, { buffer = self.buf, silent = true })
 
+  -- Cross-Window Standard Tiled Split Navigation Mappings
   vim.keymap.set("n", maps.move_left, "<C-w>h", { buffer = self.buf })
   vim.keymap.set("n", maps.move_right, "<C-w>l", { buffer = self.buf })
   
