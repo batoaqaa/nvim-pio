@@ -302,29 +302,35 @@ end
 M.cli = Terminal.new("cli", " Pio CLI> ")
 M.mon = Terminal.new("monitor", " Pio Monitor ")
 
--- 🌟 GLOBAL INTERACTIVE DOWN-NAVIGATION OVERRIDE MAPS
--- Automatically injected directly into M.setup() to establish universal hotkeys on the user's system.
--- When a user hits <C-j> from their code splits, this module programmatically intercepts the call, 
--- finds whichever floating terminal panel instance is open, and instantly drops focus right inside it.
+-- 🌟 FIXED CORE ROUTING INFRASTRUCTURE:
+-- Placed cleanly at raw execution level. It activates immediately on editor startup.
+-- Using a scheduled setter wrapper completely clears layout focus lag.
+vim.keymap.set({"n", "i", "v"}, M.config.keymaps.move_down, function()
+  local cli = M.cli
+  local mon = M.mon
+  
+  if cli and cli.win and vim.api.nvim_win_is_valid(cli.win) then
+    vim.schedule(function()
+      if cli.win and vim.api.nvim_win_is_valid(cli.win) then
+        vim.api.nvim_set_current_win(cli.win)
+        cli:enter_insert_mode()
+      end
+    end)
+  elseif mon and mon.win and vim.api.nvim_win_is_valid(mon.win) then
+    vim.schedule(function()
+      if mon.win and vim.api.nvim_win_is_valid(mon.win) then
+        vim.api.nvim_set_current_win(mon.win)
+        mon:enter_insert_mode()
+      end
+    end)
+  else
+    -- Standard Tiling Split Viewport Navigation Fallback pass
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-w>j", true, true, true), "n", false)
+  end
+end, { silent = true, desc = "Universal Floating Terminal Down Navigation Router" })
+
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
-  local maps = M.config.keymaps
-
-  vim.keymap.set({"n", "i", "v"}, maps.move_down, function()
-    local cli = M.cli
-    local mon = M.mon
-    
-    if cli and cli.win and vim.api.nvim_win_is_valid(cli.win) then
-      vim.api.nvim_set_current_win(cli.win)
-      cli:enter_insert_mode()
-    elseif mon and mon.win and vim.api.nvim_win_is_valid(mon.win) then
-      vim.api.nvim_set_current_win(mon.win)
-      mon:enter_insert_mode()
-    else
-      -- If panels are closed, fall back cleanly to default grid window adjustments
-      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-w>j", true, true, true), "n", false)
-    end
-  end, { silent = true, desc = "PlatformIO Universal Floating Panel Router Gateway" })
 end
 
 return M
