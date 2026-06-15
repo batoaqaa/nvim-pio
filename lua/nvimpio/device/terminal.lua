@@ -122,28 +122,32 @@ function Terminal:send(command)
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 end
 
+
 --- Hook: Handles physical window layout allocations cleanly with zero leaks
 ---@method
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
   
-  -- Using 'botright split' explicitly anchors this split container to the absolute base floor
-  vim.cmd("silent! botright " .. target_height .. "split")
-  self.win = vim.api.nvim_get_current_win()
-  
-  -- Swap our isolated buffer memory directly onto this globally positioned base window container
-  vim.api.nvim_win_set_buf(self.win, self.buf)
+  -- Open the window via modern C-API globally at the root base.
+  -- Setting split = "below" and win = -1 locks the window across the entire bottom floor.
+  -- Neo-tree can now close and open freely; this window will refuse to move or distort.
+  self.win = vim.api.nvim_open_win(self.buf, true, {
+    split = "below",
+    win = -1, -- Global tabpage anchor context (Bypasses column dependencies)
+    height = target_height
+  })
 
   -- Enforce clean, minimalist terminal window styling configurations
   vim.api.nvim_set_option_value("number", false, { scope = "local", win = self.win })
   vim.api.nvim_set_option_value("relativenumber", false, { scope = "local", win = self.win })
   vim.api.nvim_set_option_value("signcolumn", "no", { scope = "local", win = self.win })
+  
+  -- Hard lock the layout height programmatically to block any vertical shrinkage
   vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = self.win })
   
   self:_register_viewport_mappings(opposite_instance)
 end
-
 --- Hook: Launches the active terminal process securely inside the open window context split
 ---@method
 function Terminal:on_spawn()
