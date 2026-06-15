@@ -403,10 +403,14 @@ fetch_metadata = function(callback, active_env, from, attempts)
       local base_dir = vim.fs.joinpath(root_path, ".pio", "libdeps", board)
       if vim.fn.isdirectory(base_dir) == 0 then return {} end
 
-      local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge })
+      -- Setting depth = 2 restricts the search strictly to your main libraries
+      local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge, depth = 2 })
+      -- Setting no depth restricts the search all subfolders libraries
+      -- local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge })
       return src_dirs
       -- local includes = {}
       --
+      -- to get all paths under src/
       -- for _, src in ipairs(src_dirs) do
       --   table.insert(includes, src) -- already fully normalized by vim.fs.find
       --
