@@ -280,6 +280,7 @@ function Terminal:show()
 
   self:on_open()
   self:on_spawn()
+
   M.UpdateWinbarTitles()
   return true
 end
@@ -396,12 +397,18 @@ function Terminal:_register_viewport_mappings(opposite_instance)
     self:on_quit()
   end, { buffer = self.buf })
 
+  -- 🌟 UNIVERSAL UP-NAVIGATION ROUTER FIX:
+  -- Combines cached window pointers with a pure atomic C-API fallback pass.
+  -- If last_win fails or no files are open, nvim_input forcefully jumps focus straight up.
   vim.keymap.set('t', maps.move_up, function()
     local code_win = self.last_win or opposite_instance.last_win
     if code_win and vim.api.nvim_win_is_valid(code_win) then
       vim.api.nvim_set_current_win(code_win)
     else
       M.RestoreWorkspaceFocus()
+      if vim.api.nvim_get_current_win() == self.win then
+        vim.api.nvim_input([[<C-\><C-n><C-w>k]])
+      end
     end
   end, { buffer = self.buf, silent = true })
 
@@ -411,6 +418,9 @@ function Terminal:_register_viewport_mappings(opposite_instance)
       vim.api.nvim_set_current_win(code_win)
     else
       M.RestoreWorkspaceFocus()
+      if vim.api.nvim_get_current_win() == self.win then
+        vim.api.nvim_input([[<C-w>k]])
+      end
     end
   end, { buffer = self.buf, silent = true })
 
