@@ -158,27 +158,34 @@ function Terminal:_register_lifecycle_events()
   })
 end
 
+
+-- stylua: ignore start
+
+--- 🌟 REFACTOR BACKWARD-COMPATIBILITY BRIDGE:
+--- Maps the legacy 'show' method directly to the enterprise singleton window manager.
+--- This completely eliminates the nil method crash inside your cli.lua file on line 89.
+---@method
+---@return boolean
+function Terminal:show()
+  M.ShowTerminal(self.term_type)
+  return true
+end
+
 function Terminal:_register_viewport_mappings()
   local maps = M.config.keymaps
 
-  vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
-  vim.keymap.set('n', maps.hide_pane, function()
-    M.ToggleTerminal()
-  end, { buffer = self.buf })
+  vim.keymap.set("t", maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
+  vim.keymap.set("n", maps.hide_pane, function() M.ToggleTerminal() end, { buffer = self.buf })
 
   -- Native, rock-solid layout tree jumps that can never break or trap your focus
-  vim.keymap.set('t', maps.move_up, [[<C-\><C-n><C-w>k]], { buffer = self.buf, silent = true })
-  vim.keymap.set('n', maps.move_up, '<C-w>k', { buffer = self.buf, silent = true })
+  vim.keymap.set("t", maps.move_up, [[<C-\><C-n><C-w>k]], { buffer = self.buf, silent = true })
+  vim.keymap.set("n", maps.move_up, "<C-w>k", { buffer = self.buf, silent = true })
 
-  vim.keymap.set('t', maps.switch_pane, function()
-    M.SwitchTerminalPane()
-  end, { buffer = self.buf, silent = true })
-  vim.keymap.set('n', maps.switch_pane, function()
-    M.SwitchTerminalPane()
-  end, { buffer = self.buf, silent = true })
+  vim.keymap.set("t", maps.switch_pane, function() M.SwitchTerminalPane() end, { buffer = self.buf, silent = true })
+  vim.keymap.set("n", maps.switch_pane, function() M.SwitchTerminalPane() end, { buffer = self.buf, silent = true })
 
-  vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
-  vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
+  vim.keymap.set("n", maps.move_left, "<C-w>h", { buffer = self.buf })
+  vim.keymap.set("n", maps.move_right, "<C-w>l", { buffer = self.buf })
 end
 
 ----------------------------------------------------------------------------------------
@@ -186,8 +193,8 @@ end
 ----------------------------------------------------------------------------------------
 
 function M.ShowTerminal(term_type)
-  term_type = term_type or 'cli'
-  local target_instance = (term_type == 'monitor') and M.mon or M.cli
+  term_type = term_type or "cli"
+  local target_instance = (term_type == "monitor") and M.mon or M.cli
 
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
@@ -206,17 +213,17 @@ function M.ShowTerminal(term_type)
 
   -- 2. Otherwise, draw ONE clean horizontal layout split at the very bottom row boundary.
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  vim.cmd('silent! botright ' .. target_height .. 'split')
-
+  vim.cmd("silent! botright " .. target_height .. "split")
+  
   M.layout.container_win = vim.api.nvim_get_current_win()
   M.layout.active_type = term_type
 
   -- Enforce styling directly to the single container window split node context
   vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
-  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value("number", false, { scope = "local", win = M.layout.container_win })
+  vim.api.nvim_set_option_value("relativenumber", false, { scope = "local", win = M.layout.container_win })
+  vim.api.nvim_set_option_value("signcolumn", "no", { scope = "local", win = M.layout.container_win })
+  vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = M.layout.container_win })
 
   target_instance:on_spawn()
   target_instance:_register_viewport_mappings()
@@ -236,12 +243,12 @@ function M.ToggleTerminal()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     M.HideTerminal()
   else
-    M.ShowTerminal('cli')
+    M.ShowTerminal("cli")
   end
 end
 
 function M.SwitchTerminalPane()
-  local next_type = (M.layout.active_type == 'cli') and 'monitor' or 'cli'
+  local next_type = (M.layout.active_type == "cli") and "monitor" or "cli"
   M.ShowTerminal(next_type)
 end
 
@@ -250,11 +257,11 @@ function M.IsTerminalOpen()
 end
 
 --- Singletons Instantiations
-M.cli = Terminal.new('cli', ' Pio CLI> ')
-M.mon = Terminal.new('monitor', ' Pio Monitor ')
+M.cli = Terminal.new("cli", " Pio CLI> ")
+M.mon = Terminal.new("monitor", " Pio Monitor ")
 
 function M.setup(opts)
-  M.config = vim.tbl_deep_extend('force', M.config, opts or {})
+  M.config = vim.tbl_deep_extend("force", M.config, opts or {})
 end
 
 return M
