@@ -168,7 +168,8 @@ function Terminal:on_open()
   self.win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
     -- win = anchor_win, -- terminal window appear under file code space
-    win = -1, -- Global workspace canvas context anchor target
+    win = 0, -- Context node anchor locked to active workspace rows
+    -- win = -1, -- Global workspace canvas context anchor target
     height = target_height,
   })
 
@@ -342,6 +343,23 @@ function Terminal:_register_lifecycle_events(target_height)
       end)
     end,
   })
+
+  -- ANTI-SHRINK ENGINE:
+  -- Listens for when any new window splits or sidebars (like Neo-tree) open globally.
+  -- The millisecond it fires, it forces your terminal container back to its explicit height rule.
+  vim.api.nvim_create_autocmd({ "WinNew", "BufWinEnter" }, {
+    group = platformio,
+    callback = function()
+      if self.win and vim.api.nvim_win_is_valid(self.win) then
+        vim.schedule(function()
+          if self.win and vim.api.nvim_win_is_valid(self.win) then
+            pcall(vim.api.nvim_win_set_height, self.win, target_height)
+          end
+        end)
+      end
+    end,
+  })
+
 end
 
 function Terminal:_register_viewport_mappings(opposite_instance)
