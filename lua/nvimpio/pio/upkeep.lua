@@ -407,14 +407,14 @@ fetch_metadata = function(callback, active_env, from, attempts)
       local includes = {}
 
       for _, src in ipairs(src_dirs) do
-        table.insert(includes, '-I' .. src) -- already fully normalized by vim.fs.find
+        table.insert(includes, src) -- already fully normalized by vim.fs.find
 
-        -- for name, type in vim.fs.dir(src, { depth = 20 }) do
-        --   if type == "directory" then
-        --     -- Clean, idiomatic path construction with zero manual string tricks
-        --     table.insert(includes, '-I' .. vim.fs.joinpath(src, name))
-        --   end
-        -- end
+        for name, type in vim.fs.dir(src, { depth = 20 }) do
+          if type == "directory" then
+            -- Clean, idiomatic path construction with zero manual string tricks
+            table.insert(includes, vim.fs.joinpath(src, name))
+          end
+        end
       end
 
       return includes
@@ -437,7 +437,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     meta.includes_build = map_includes(inc.build)
     meta.includes_toolchain = map_includes(inc.toolchain)
     meta.includes_compatlib = map_includes(inc.compatlib)
-    meta.includes_libdeps = get_pio_includes(project_root, active_env)
+    meta.includes_libdeps = map_includes(get_pio_includes(project_root, active_env))
     --
 
     -- --🟢  keep for later if to deal with cxx_flags
