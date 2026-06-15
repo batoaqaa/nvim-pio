@@ -51,7 +51,7 @@ function M.RestoreWorkspaceFocus()
       local ft = vim.api.nvim_get_option_value("filetype", { buf = buf })
       local win_type = vim.fn.win_gettype(win)
       
-      if ft ~= "pio_terminal" and win_type == "" and ft ~= "neo-tree" and ft ~= "oil" and ft ~= "aerial" and ft ~= "pio_spacer" then
+      if ft ~= "pio_terminal" and win_type == "" and ft ~= "neo-tree" and ft ~= "oil" and ft ~= "aerial" then
         target_win = win
         break
       end
@@ -64,11 +64,11 @@ function M.RestoreWorkspaceFocus()
 end
 
 ----------------------------------------------------------------------------------------
--- THE IMMUTABLE OBJECT-ORIENTED TERMINAL ENGINE CLASS BLUEPRINT
+-- 🌟 THE RIGID NATIVE-C TERMINAL CLASS DEFINITION
 ----------------------------------------------------------------------------------------
 ---@class Terminal
 ---@field term_type string Unique structural channel lane tag ('cli' or 'monitor')
----@field title string Explicit text layout template drawn onto the winbar row
+---@field title string Explicit text layout template drawn onto the local winbar row
 ---@field buf number|nil Immutable Neovim native buffer context memory address handle
 ---@field win number|nil Active viewport layout window node context index pointer
 ---@field last_win number|nil Explicitly maps the code file window context tracking node
@@ -104,15 +104,21 @@ end
 
 
 function Terminal:on_stdout(j, d, e)
-  if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end
+  if self.term_type == "cli" and type(M.stdout_callback) == "function" then
+    M.stdout_callback(j, d, e)
+  end
 end
 
 function Terminal:on_stderr(j, d, e)
-  if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end
+  if self.term_type == "cli" and type(M.stdout_callback) == "function" then
+    M.stdout_callback(j, d, e)
+  end
 end
 
 function Terminal:on_exit()
-  if type(M.exit_callback) == "function" then M.exit_callback() end
+  if type(M.exit_callback) == "function" then
+    M.exit_callback()
+  end
   M.UpdateWinbarTitles()
 end
 
@@ -136,52 +142,30 @@ function Terminal:send(command)
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 end
 
---- 🌟 THE PERSISTENT STRUCTURAL LAYOUT SPACER ENGINE
+--- 🌟 THE TOGGLETERM-STYLE FORCED LAYOUT ENGINE
 ---@method
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
   
-  -- 1. Scan the screen grid to see if a valid code window exists
-  local open_code_files = 0
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_is_valid(win) then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value("filetype", { buf = buf })
-      if ft ~= "neo-tree" and ft ~= "oil" and ft ~= "aerial" and ft ~= self.filetype and ft ~= "pio_spacer" then
-        open_code_files = open_code_files + 1
-      end
-    end
-  end
-
-  -- 2. 🌟 THE EDGY-STYLE FIXED STRUCTURAL LOCK:
-  -- If the workspace has no files open, we force-spawn an unlisted, elegant, empty workspace 
-  -- split buffer at the top FIRST. This anchors the workspace geometry, completely immunizing 
-  -- the layout tree from ever collapsing or stretching cmdheight when Neo-tree closes.
-  if open_code_files == 0 then
-    local spacer_buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_name(spacer_buf, "[Pio Workspace]")
-    vim.api.nvim_set_option_value("buftype", "nofile", { buf = spacer_buf })
-    vim.api.nvim_set_option_value("filetype", "pio_spacer", { buf = spacer_buf })
-    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = spacer_buf })
-    
-    -- Open the spacer at the top left row column layer
-    vim.cmd("topleft split")
-    local spacer_win = vim.api.nvim_get_current_win()
-    vim.api.nvim_win_set_buf(spacer_win, spacer_buf)
-  end
-
-  -- Enforce cross-window scroll line preservation
-  vim.go.splitkeep = "screen"
-
-  -- 3. Draw your clean terminal split globally across the bottom horizontal floor
+  -- Open a standard native window split first
   self.win = vim.api.nvim_open_win(self.buf, true, {
     split = "below",
-    win = -1, -- Explicit global tabpage anchor context node pointer
+    win = -1,
     height = target_height
   })
 
-  -- Apply minimalist formatting options directly
+  -- 🌟 THE TOGGLETERM EXECUTION MASTER LOCK:
+  -- Using wincmd J forces Neovim's layout manager to rip this window out of any 
+  -- parent columns and slam it flat across the entire bottom boundary layer.
+  vim.api.nvim_buf_call(self.buf, function()
+    vim.cmd("wincmd J")
+  end)
+  
+  -- Re-adjust the exact targeted height after the global layout force pass completes
+  pcall(vim.api.nvim_win_set_height, self.win, target_height)
+
+  -- Enforce clean, minimalist terminal window styling configurations
   vim.api.nvim_set_option_value("number", false, { scope = "local", win = self.win })
   vim.api.nvim_set_option_value("relativenumber", false, { scope = "local", win = self.win })
   vim.api.nvim_set_option_value("signcolumn", "no", { scope = "local", win = self.win })
@@ -192,6 +176,7 @@ end
 
 function Terminal:on_spawn()
   if self.job and self.job > 0 then return end
+
   local channel_id = vim.fn.termopen(M.config.shell, {
     on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
     on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
@@ -201,10 +186,25 @@ function Terminal:on_spawn()
 end
 
 function Terminal:on_quit()
-  if self.win and vim.api.nvim_win_is_valid(self.win) then vim.api.nvim_win_close(self.win, true) end
+  if self.win and vim.api.nvim_win_is_valid(self.win) then
+    vim.api.nvim_win_close(self.win, true)
+  end
   self.win = nil
+
   M.RestoreWorkspaceFocus()
-  M.UpdateWinbarTitles()
+
+  vim.schedule(function()
+    local cli = M.cli
+    local mon = M.mon
+    local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+    if cli and cli.win and vim.api.nvim_win_is_valid(cli.win) then
+      pcall(vim.api.nvim_win_set_height, cli.win, target_height)
+    end
+    if mon and mon.win and vim.api.nvim_win_is_valid(mon.win) then
+      pcall(vim.api.nvim_win_set_height, mon.win, target_height)
+    end
+    M.UpdateWinbarTitles()
+  end)
 end
 
 function Terminal:close()
@@ -224,12 +224,14 @@ function Terminal:show()
     local active_ft = vim.api.nvim_get_option_value("filetype", { buf = active_buf })
     local win_type = vim.fn.win_gettype(active_win)
     
-    if active_ft ~= self.filetype and win_type == "" and active_ft ~= "neo-tree" and active_ft ~= "oil" and active_ft ~= "aerial" and active_ft ~= "pio_spacer" then
+    if active_ft ~= self.filetype and win_type == "" and active_ft ~= "neo-tree" and active_ft ~= "oil" and active_ft ~= "aerial" then
       self.last_win = active_win
     end
   end
 
-  if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then self:on_create() end
+  if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
+    self:on_create()
+  end
 
   local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
 
@@ -241,7 +243,9 @@ function Terminal:show()
     vim.api.nvim_win_set_buf(self.win, self.buf)
     vim.api.nvim_set_current_win(self.win)
 
-    if not self.job or self.job <= 0 then self:on_spawn() end
+    if not self.job or self.job <= 0 then
+      self:on_spawn()
+    end
 
     vim.api.nvim_set_option_value("number", false, { scope = "local", win = self.win })
     vim.api.nvim_set_option_value("relativenumber", false, { scope = "local", win = self.win })
@@ -262,6 +266,7 @@ function Terminal:show()
 
   self:on_open()
   self:on_spawn()
+
   M.UpdateWinbarTitles()
   return true 
 end
@@ -269,6 +274,7 @@ end
 function Terminal:_register_lifecycle_events(target_height)
   local platformio = vim.api.nvim_create_augroup("PioEvents_" .. self.buf, { clear = true })
 
+  -- Intercept manual exits typed via command bar (:q and :q!)
   vim.api.nvim_create_autocmd('CmdlineLeave', {
     group = platformio, buffer = self.buf,
     callback = function()
@@ -318,15 +324,27 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- ASYNCHRONOUS ENGINE STABILIZER MONITOR
+  -- 🌟 THE TOGGLETERM ANTI-COLLAPSE WATCHER GUARD
+  -- Whenever Neo-tree closes or an layout updates, this guard actively steps in,
+  -- fires a background vim.cmd("wincmd J") to slam the terminal back down flat across 
+  -- the absolute base row, forces cmdheight to 1, and restores its height properties perfectly.
   vim.api.nvim_create_autocmd({ "WinNew", "BufWinEnter", "WinClosed" }, {
     group = platformio,
     callback = function()
       if self.win and vim.api.nvim_win_is_valid(self.win) then
         vim.schedule(function()
           if self.win and vim.api.nvim_win_is_valid(self.win) then
+            -- Force cmdheight safety constraints to stop layout bailing
             vim.go.cmdheight = 1
+            
+            -- Slam window back down to the global floor natively
+            vim.api.nvim_buf_call(self.buf, function()
+              vim.cmd("wincmd J")
+            end)
+            
+            -- Enforce targeted size constraints
             pcall(vim.api.nvim_win_set_height, self.win, target_height)
+            M.UpdateWinbarTitles()
           end
         end)
       end
@@ -337,19 +355,26 @@ end
 function Terminal:_register_viewport_mappings(opposite_instance)
   local maps = M.config.keymaps
 
+  -- Native Terminal Shortcuts Mapping Configurations
   vim.keymap.set("t", maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
   vim.keymap.set("n", maps.hide_pane, function() self:on_quit() end, { buffer = self.buf })
 
   vim.keymap.set("t", maps.move_up, function()
     local code_win = self.last_win or opposite_instance.last_win
-    if code_win and vim.api.nvim_win_is_valid(code_win) then vim.api.nvim_set_current_win(code_win)
-    else M.RestoreWorkspaceFocus() end
+    if code_win and vim.api.nvim_win_is_valid(code_win) then
+      vim.api.nvim_set_current_win(code_win)
+    else
+      M.RestoreWorkspaceFocus()
+    end
   end, { buffer = self.buf, silent = true })
 
   vim.keymap.set("n", maps.move_up, function()
     local code_win = self.last_win or opposite_instance.last_win
-    if code_win and vim.api.nvim_win_is_valid(code_win) then vim.api.nvim_set_current_win(code_win)
-    else M.RestoreWorkspaceFocus() end
+    if code_win and vim.api.nvim_win_is_valid(code_win) then
+      vim.api.nvim_set_current_win(code_win)
+    else
+      M.RestoreWorkspaceFocus()
+    end
   end, { buffer = self.buf, silent = true })
 
   vim.keymap.set("t", maps.switch_pane, function()
@@ -361,8 +386,11 @@ function Terminal:_register_viewport_mappings(opposite_instance)
     vim.schedule(function() opposite_instance:show() end)
   end, { buffer = self.buf, silent = true })
 
-  vim.keymap.set("n", maps.switch_pane, function() vim.schedule(function() opposite_instance:show() end) end, { buffer = self.buf, silent = true })
+  vim.keymap.set("n", maps.switch_pane, function()
+    vim.schedule(function() opposite_instance:show() end)
+  end, { buffer = self.buf, silent = true })
 
+  -- Cross-Window Standard Tiled Split Navigation Mappings
   vim.keymap.set("n", maps.move_left, "<C-w>h", { buffer = self.buf })
   vim.keymap.set("n", maps.move_right, "<C-w>l", { buffer = self.buf })
   
