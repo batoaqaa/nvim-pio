@@ -181,39 +181,40 @@ end
 --
 --   self:_register_viewport_mappings(opposite_instance)
 -- end
+
 --- Hook: Handles physical window layout allocations cleanly with zero top-right leaks
 ---@method
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local opposite_instance = (self.term_type == "monitor") and M.cli or M.mon
 
-  -- 🌟 EDGE CASE COUNTER-MEASURE: Count the current unlisted, valid window nodes
-  local valid_win_count = 0
+  -- 🌟 STEP 1: Programmatically traverse the layout tree to locate the real code split window
+  local anchor_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
-      local buftype = vim.api.nvim_get_option_value("buftype", { buf = buf })
-      -- Count it if it is a real standard code viewport layout split split split
-      if buftype == "" or buftype == "terminal" then
-        valid_win_count = valid_win_count + 1
+      local ft = vim.api.nvim_get_option_value("filetype", { buf = buf })
+      local win_type = vim.fn.win_gettype(win)
+
+      -- We must find a standard split window that is NOT a terminal and NOT a sidebar popup
+      if ft ~= self.filetype and win_type == "" and ft ~= "neo-tree" and ft ~= "oil" then
+        anchor_win = win
+        break
       end
     end
   end
 
-  -- 🌟 IMMUTABLE LOGIC SPLIT:
-  if valid_win_count <= 1 then
-    -- If there are no real files open, reuse the main active window.
-    -- This stops layout collapses, keeps the panel locked down, and blocks command line bloat.
-    self.win = vim.api.nvim_get_current_win()
-    vim.api.nvim_win_set_buf(self.win, self.buf)
-  else
-    -- If real files are active, run your global bottom split pass layout
-    self.win = vim.api.nvim_open_win(self.buf, true, {
-      split = "below",
-      win = -1, -- Global workspace context base anchor
-      height = target_height
-    })
-  end
+  -- 🌟 STEP 2: DETERMINISTIC LOGIC PASS
+  -- If we found an active code window split, anchor the layout directly beneath it (win = anchor_win).
+  -- This forces the terminal to match the code file width perfectly, completely insulating Neo-tree.
+  -- If no files are open, fallback to the main active window node context (win = 0).
+  local target_anchor = (anchor_win and vim.api.nvim_win_is_valid(anchor_win)) and anchor_win or 0
+
+  self.win = vim.api.nvim_open_win(self.buf, true, {
+    split = "below",
+    win = target_anchor, -- Binds the layout split directly to the valid file node column
+    height = target_height
+  })
 
   -- Enforce clean, minimalist terminal window styling configurations
   vim.api.nvim_set_option_value("number", false, { scope = "local", win = self.win })
