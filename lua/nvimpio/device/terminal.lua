@@ -1,3 +1,5 @@
+-- stylua: ignore start
+
 local M = {}
 
 -- Enterprise User Configuration Specification Matrix
@@ -5,7 +7,7 @@ M.config = {
   panel_height = 0.2,
   winbar_bg = '#80a3d4',
   winbar_fg = '#000000',
-  shell = vim.o.shell,
+  shell = OS.shell,
   keymaps = {
     hide_pane = 'q',
     switch_pane = '<Tab>',
@@ -37,7 +39,7 @@ local Terminal = {
   buf = nil,
   win = nil,
   job = nil,
-  newline = '\r\n',
+  newline = OS.eol,
   filetype = 'pio_terminal',
 }
 Terminal.__index = Terminal
@@ -79,18 +81,14 @@ end
 --- Lifecycle Hook: Triggered natively the millisecond a channel task processes out
 ---@method
 function Terminal:on_exit()
-  if type(M.exit_callback) == 'function' then
-    M.exit_callback()
-  end
+  if type(M.exit_callback) == 'function' then M.exit_callback() end
   M.UpdateWinbarTitles()
 end
 
 --- Lifecycle Hook: Tears down process stream sockets cleanly
 ---@method
 function Terminal:on_close()
-  if self.job and self.job > 0 then
-    pcall(vim.fn.jobstop, self.job)
-  end
+  if self.job and self.job > 0 then pcall(vim.fn.jobstop, self.job) end
   self.job = nil
   self.buf = nil
 end
@@ -100,12 +98,8 @@ end
 ---@param command string|number Explicit string input array payload targeted down the pipe.
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
-  if not self.win or not vim.api.nvim_win_is_valid(self.win) then
-    self:show()
-  end
-  if not self.job or self.job <= 0 then
-    return
-  end
+  if not self.win or not vim.api.nvim_win_is_valid(self.win) then self:show() end
+  if not self.job or self.job <= 0 then return end
 
   -- Direct asynchronous payload delivery down the core socket stream channel
   vim.fn.chansend(self.job, cmd_str .. self.newline)
@@ -139,15 +133,9 @@ function Terminal:on_open()
   -- Initialize standard background process streams if currently resting or unallocated
   if not self.job or self.job <= 0 then
     local channel_id = vim.fn.termopen(M.config.shell, {
-      on_stdout = function(j, d, e)
-        self:on_stdout(j, d, e)
-      end,
-      on_stderr = function(j, d, e)
-        self:on_stderr(j, d, e)
-      end,
-      on_exit = function()
-        self:on_exit()
-      end,
+      on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
+      on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
+      on_exit = function() self:on_exit() end,
     })
     self.job = (channel_id and channel_id > 0) and channel_id or nil
   end
@@ -163,7 +151,7 @@ function Terminal:on_quit()
   end
   self.win = nil
 
-  -- 🌟 TREE TRAVERSAL RESOLUTION: Dynamically inspect window hierarchy
+  -- TREE TRAVERSAL RESOLUTION: Dynamically inspect window hierarchy
   -- Safely relocates cursor context to valid code splits, ignoring Neo-tree
   local target_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -179,11 +167,8 @@ function Terminal:on_quit()
     end
   end
 
-  if target_win then
-    vim.api.nvim_set_current_win(target_win)
-  else
-    vim.cmd('wincmd k')
-  end
+  if target_win then vim.api.nvim_set_current_win(target_win)
+  else vim.cmd('wincmd k') end
 
   vim.schedule(function()
     vim.cmd('wincmd =')
@@ -196,9 +181,7 @@ function Terminal:close()
   self:on_quit()
 end
 
-function Terminal:hide()
-  self:on_quit()
-end
+function Terminal:hide() self:on_quit() end
 
 --- Main Entry Gateway Coordinator Pass
 ---@return boolean
@@ -239,12 +222,8 @@ function Terminal:_register_lifecycle_events(target_height)
       if vim.v.event and not vim.v.event.abort and vim.v.event.cmdtype == ':' then
         local cmd = vim.fn.getcmdline()
         if cmd == 'q' or cmd == 'q!' then
-          if cmd == 'q!' then
-            self:on_close()
-          end
-          vim.schedule(function()
-            self:on_quit()
-          end)
+          if cmd == 'q!' then self:on_close() end
+          vim.schedule(function() self:on_quit() end)
         end
       end
     end,
@@ -254,9 +233,7 @@ function Terminal:_register_lifecycle_events(target_height)
     group = platformio,
     buffer = self.buf,
     callback = function()
-      vim.schedule(function()
-        M.UpdateWinbarTitles()
-      end)
+      vim.schedule(function() M.UpdateWinbarTitles() end)
     end,
   })
 
@@ -298,14 +275,14 @@ function Terminal:_register_viewport_mappings(opposite_instance)
   local maps = M.config.keymaps
 
   -- Core Navigation Mapping Implementations
+  -- Esc
   vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf })
+  -- q
   vim.keymap.set('n', maps.hide_pane, function()
     self:on_quit()
   end, { buffer = self.buf })
 
-  vim.keymap.set('t', maps.move_up, [[<C-\><C-n><C-w>k]], { buffer = self.buf, silent = true })
-  vim.keymap.set('n', maps.move_up, '<C-w>k', { buffer = self.buf, silent = true })
-
+  -- Tab terminal mode
   vim.keymap.set('t', maps.switch_pane, function()
     local current_winbar = vim.api.nvim_get_option_value('winbar', { scope = 'local' }) or ''
     if current_winbar:find('%[; Hide%]') or current_winbar:find('%[' .. maps.hide_pane .. ' Hide%]') then
@@ -321,6 +298,7 @@ function Terminal:_register_viewport_mappings(opposite_instance)
     end)
   end, { buffer = self.buf, silent = true })
 
+  -- Tab normal mode
   vim.keymap.set('n', maps.switch_pane, function()
     if self.win and vim.api.nvim_win_is_valid(self.win) then
       vim.api.nvim_win_close(self.win, true)
@@ -331,6 +309,8 @@ function Terminal:_register_viewport_mappings(opposite_instance)
     end)
   end, { buffer = self.buf, silent = true })
 
+  vim.keymap.set('t', maps.move_up, [[<C-\><C-n><C-w>k]], { buffer = self.buf, silent = true })
+  vim.keymap.set('n', maps.move_up, '<C-w>k', { buffer = self.buf, silent = true })
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
   vim.keymap.set('n', maps.move_down, '<C-w>j', { buffer = self.buf })
@@ -355,9 +335,7 @@ function M.UpdateWinbarTitles()
 end
 
 local function IsTerminalOpen(instance)
-  if not instance then
-    return false
-  end
+  if not instance then return false end
   return instance.win and vim.api.nvim_win_is_valid(instance.win) and vim.api.nvim_win_get_buf(instance.win) == instance.buf
 end
 
