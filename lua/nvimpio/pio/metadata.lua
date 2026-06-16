@@ -99,14 +99,15 @@ _G.metadata = setmetatable({}, {
         local binPath = value .. '/bin'
 
         local oldPath = oldValue .. '/bin'
-        local start_time = vim.loop.hrtime()
-        -- remove_nearby_front(oldPath)
         removeFromPath(oldPath)
-        local end_time = vim.loop.hrtime()
-        local duration = (end_time - start_time) / 1e6
-        OS.notify(string.format('%s %s removed from path in %.2fms', from, oldPath, duration), 'info')
+        removeFromPath(OS.project_dir)
+        -- local end_time = vim.loop.hrtime()
+        -- local duration = (end_time - start_time) / 1e6
+        -- OS.notify(string.format('%s %s removed from path in %.2fms', from, oldPath, duration), 'info')
+        OS.notify(string.format('%s %s removed from path', from, oldPath), 'info')
 
         vim.env.PATH = binPath .. OS.path_sep .. vim.env.PATH
+        vim.env.PATH = OS.project_dir .. OS.path_sep .. vim.env.PATH
         OS.notify(string.format('%s %s added to path',from, binPath), 'info')
 
         -- ----------------------------- Trace ----------------------------------------
