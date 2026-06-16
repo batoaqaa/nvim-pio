@@ -23,31 +23,79 @@ end, {desc = 'Refresh PIO metadata'})
 
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
-cmd('PioInstall', function()
-  local runtime_dir = require('nvimpio').config.pio_runtime_dir
-   require('nvimpio.pio.ui.pioInstall').pioInstall(runtime_dir, function (status)
-     if(status) then
-      OS.notify("PIO installed successfully")
-     end
-   end)
-end, { desc = "Install PlatformIO Core" })
---
 -- cmd('PioInstall', function()
---   vim.g.platformioRootDir = vim.uv.cwd()
---   require('nvimpio.core').ensure_toolchain_active(
---     function(success)
---       if success then
---         ---@type NvimPio
---         require('nvimpio').activate()
---       else
---       end
---     end,
---     0
---   )
--- end, {
---   force = true,
---   desc = 'Start the PlatformIO guided install wizard',
--- })
+--   local runtime_dir = require('nvimpio').config.pio_runtime_dir
+--    require('nvimpio.pio.ui.pioInstall').pioInstall(runtime_dir, function (status)
+--      if(status) then
+--       OS.notify("PIO installed successfully")
+--      end
+--    end)
+-- end, { desc = "Install PlatformIO Core" })
+--
+
+
+
+local function pioInstalled(on_success_callback)
+  local ok_main, main = pcall(require, "nvimpio")
+  if not ok_main then
+    if type(on_success_callback) == 'function' then on_success_callback(false) end
+    return
+  end
+  if type(on_success_callback) ~= 'function' then return end
+
+  local current_pio_opts = (main.options and main.options.pio) or (main.defaults and main.defaults.pio) or {}
+  local raw_runtime_dir = require('nvimpio.core').resolve_user_path(current_pio_opts.pio_runtime_dir)
+
+  if not raw_runtime_dir or raw_runtime_dir == "" then
+    raw_runtime_dir = OS.is_win and vim.fs.joinpath(vim.env.USERPROFILE, '.platformio')
+      or vim.fs.joinpath(vim.uv.os_homedir(), '.platformio')
+  end
+
+  local base_runtime = raw_runtime_dir
+  local bin_subfolder = OS.is_win and 'Scripts' or 'bin'
+  local target_bin = vim.fs.joinpath(base_runtime, 'penv', bin_subfolder)
+
+  local local_pio_executable = vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio'))
+  if vim.fn.executable(local_pio_executable) == 1 then on_success_callback(true)
+  else on_success_callback(false) end
+end
+
+cmd('PioInstall', function()
+  local ok_main, main = pcall(require, "nvimpio")
+  if not ok_main then return end
+
+  local current_pio_opts = (main.options and main.options.pio) or (main.defaults and main.defaults.pio) or {}
+  local raw_runtime_dir = require('nvimpio.core').resolve_user_path(current_pio_opts.pio_runtime_dir)
+
+  if not raw_runtime_dir or raw_runtime_dir == "" then
+    raw_runtime_dir = OS.is_win and vim.fs.joinpath(vim.env.USERPROFILE, '.platformio')
+      or vim.fs.joinpath(vim.uv.os_homedir(), '.platformio')
+  end
+
+  local base_runtime = raw_runtime_dir
+  local bin_subfolder = OS.is_win and 'Scripts' or 'bin'
+  local target_bin = vim.fs.joinpath(base_runtime, 'penv', bin_subfolder)
+
+  local local_pio_executable = vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio'))
+  if vim.fn.executable(local_pio_executable) == 1 then
+    if vim.fn.confirm('PlatformIO not found. Install toolchain?', '&Yes\n&No', 1) == 1 then
+      require('nvimpio.pio.ui.pioInstall').pioInstall(base_runtime, function (status)
+        if(status) then
+         OS.notify("PIO installed successfully")
+        end
+      end)
+    end
+  else
+    require('nvimpio.pio.ui.pioInstall').pioInstall(base_runtime, function (status)
+      if(status) then
+       OS.notify("PIO installed successfully")
+      end
+    end)
+  end
+end, {
+  force = true,
+  desc = 'Start the PlatformIO guided install wizard',
+})
 
 
 -- INFO: manage gitignore
