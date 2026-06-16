@@ -99,20 +99,19 @@ function Terminal:on_create()
   self:_register_lifecycle_events(math.ceil(vim.o.lines * (M.config.panel_height or 0.2)))
 end
 
+
 function Terminal:on_stdout(j, d, e)
-  if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
-    M.stdout_callback(j, d, e)
-  end
+  if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end
 end
 
 function Terminal:on_stderr(j, d, e)
-  if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
-    M.stdout_callback(j, d, e)
-  end
+  if self.term_type == "cli" and type(M.stdout_callback) == "function" then M.stdout_callback(j, d, e) end
 end
 
 function Terminal:on_exit()
-  if type(M.exit_callback) == 'function' then M.exit_callback() end
+  if type(M.exit_callback) == "function" then
+    M.exit_callback()
+  end
   M.UpdateWinbarTitles()
 end
 
@@ -123,19 +122,15 @@ function Terminal:on_close()
 end
 
 function Terminal:enter_insert_mode()
-  -- vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<Cmd>startinsert<CR>]], true, true, true), 'nt', false)
+  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<Cmd>startinsert<CR>]], true, true, true), "nt", false)
 end
 
 function Terminal:send(command)
-  local cmd_str = tostring(command or '')
+  local cmd_str = tostring(command or "")
 
-  -- Added active layout type variance verification checking loops.
-  -- If the window is closed, OR if it's currently displaying the alternative terminal buffer,
-  -- this logic gate intercepts the execution pass and tells the manager to hot-swap views instantly.
   if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.active_type ~= self.term_type then
     M.ShowTerminal(self.term_type)
   end
-
   if not self.job or self.job <= 0 then return end
 
   vim.api.nvim_set_current_win(M.layout.container_win)
@@ -148,7 +143,7 @@ function Terminal:on_spawn()
   local channel_id = vim.fn.termopen(M.config.shell, {
     on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
     on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
-    on_exit = function() self:on_exit() end,
+    on_exit   = function() self:on_exit() end
   })
   self.job = (channel_id and channel_id > 0) and channel_id or nil
 end
@@ -157,25 +152,37 @@ function Terminal:on_quit()
   M.HideTerminal()
 end
 
+--- 🌟 THE FIXED PARSER COMPATIBILITY REFACTOR LINK:
+--- Maps the class 'hide' method securely to the global singleton window manager.
+--- This completely eliminates the nil method crash inside your parser.lua file on line 325.
+---@method
+function Terminal:hide()
+  M.HideTerminal()
+end
+
+--- 🌟 THE FIXED PARSER COMPATIBILITY REFACTOR LINK:
+--- Maps the class 'close' method securely to the global singleton window manager.
+---@method
+function Terminal:close()
+  self:on_close()
+  M.HideTerminal()
+end
+
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
 
-  -- Enforce modern scroll preservation mechanics globally before splitting
-  vim.go.splitkeep = 'screen'
-
-  -- Open an explicit, native TILED window split across the horizontal base floor
+  vim.go.splitkeep = "screen"
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
-    split = 'below',
-    win = -1, -- Global tabpage anchor context block
-    height = target_height,
+    split = "below",
+    win = -1,
+    height = target_height
   })
   M.layout.active_type = self.term_type
 
-  -- Enforce styling directly to the single container window split node context
-  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value("number", false, { scope = "local", win = M.layout.container_win })
+  vim.api.nvim_set_option_value("relativenumber", false, { scope = "local", win = M.layout.container_win })
+  vim.api.nvim_set_option_value("signcolumn", "no", { scope = "local", win = M.layout.container_win })
+  vim.api.nvim_set_option_value("winfixheight", true, { scope = "local", win = M.layout.container_win })
 
   self:_register_viewport_mappings()
 end
