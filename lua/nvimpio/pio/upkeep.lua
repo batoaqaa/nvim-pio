@@ -408,22 +408,22 @@ fetch_metadata = function(callback, active_env, from, attempts)
       -- local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge, stop = 'src' })
       -- Setting no depth restricts the search all subfolders libraries
       local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge })
-      -- return src_dirs
+      return src_dirs
 
-      local includes = {}
-      -- to get all paths under src/
-      for _, src in ipairs(src_dirs) do
-        table.insert(includes, src) -- already fully normalized by vim.fs.find
-
-        for name, type in vim.fs.dir(src, { depth = 20 }) do
-          if type == "directory" then
-            -- Clean, idiomatic path construction with zero manual string tricks
-            table.insert(includes, vim.fs.joinpath(src, name))
-          end
-        end
-      end
-
-      return includes
+      -- local includes = {}
+      -- -- to get all paths under src/
+      -- for _, src in ipairs(src_dirs) do
+      --   table.insert(includes, src) -- already fully normalized by vim.fs.find
+      --
+      --   for name, type in vim.fs.dir(src, { depth = 20 }) do
+      --     if type == "directory" then
+      --       -- Clean, idiomatic path construction with zero manual string tricks
+      --       table.insert(includes, vim.fs.joinpath(src, name))
+      --     end
+      --   end
+      -- end
+      --
+      -- return includes
     end
 
     -- 4. Base Paths & Compilers
@@ -661,10 +661,10 @@ function M.compile_commandsFix() --M.dbPathsFix()
   local prntFlags = true
   for _, entry in ipairs(data) do
     -- Standard normalization
-    if entry.directory then entry.directory = vim.fs.normalizePath(entry.directory) end
-    if entry.file then entry.file = vim.fs.normalizePath(entry.file) end
+    if entry.directory then entry.directory = vim.fs.normalize(entry.directory) end
+    if entry.file then entry.file = vim.fs.normalize(entry.file) end
     if entry.arguments then entry.arguments = vim.fs.normalizeFlags(entry.arguments) end
-    if entry.output then entry.output = vim.fs.normalizePath(entry.output) end
+    if entry.output then entry.output = vim.fs.normalize(entry.output) end
 
     if entry.command then
       -- Extract compiler and everything after it
@@ -677,7 +677,7 @@ function M.compile_commandsFix() --M.dbPathsFix()
 
           if path_map[short_name] then
             -- Use normalizePath on the new path
-            local full_compiler_path = vim.fs.normalizePath(path_map[short_name])
+            local full_compiler_path = vim.fs.normalize(path_map[short_name])
 
             -- Quote the path if it contains spaces
             if full_compiler_path:find(" ") then
