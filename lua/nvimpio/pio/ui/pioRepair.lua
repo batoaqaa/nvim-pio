@@ -1,12 +1,14 @@
 local function pioRepair()
   local runtime_dir = require('nvimpio').config.pio_runtime_dir
 
-  local pioRepair_cmd --, pioEnv
+  local pioRepair_cmd, penvRestore_cmd --, pioEnv
   if OS.is_win then
     pioRepair_cmd = string.format('%s/pip.exe install -U platformio', runtime_dir)
+    penvRestore_cmd = string.format('%s/Scripts/python.exe -m ensurepip --default-pip', runtime_dir)
     -- pioEnv = string.format('$env:PATH = "%s;" + $env:PATH', runtime_dir)
   else
     pioRepair_cmd = string.format('%s/pip install -U platformio', runtime_dir)
+    penvRestore_cmd = string.format('%s/bin/python3 -m ensurepip --default-pip', runtime_dir)
     -- pioEnv = string.format('export PATH="%s:$PATH"', runtime_dir)
   end
 
@@ -20,7 +22,7 @@ local function pioRepair()
       end
     end)
   end
-  require('nvimpio.device.parser').run_sequence({ cmnds = { pioRepair_cmd }, cb = cb, from = 'pioRepair:' })
+  require('nvimpio.device.parser').run_sequence({ cmnds = { pioRepair_cmd, penvRestore_cmd }, cb = cb, from = 'pioRepair:' })
 end
 
 return {
