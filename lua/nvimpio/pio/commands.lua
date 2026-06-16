@@ -7,7 +7,7 @@
 -- -1: Zero or one argument (like ?, explicitly).
 
 -- stylua: ignore start
-local upkeep = require('vimpio.pio.upkeep')
+local upkeep = require('nvimpio.pio.upkeep')
 local cmd = vim.api.nvim_create_user_command
 
 
