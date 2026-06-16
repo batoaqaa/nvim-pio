@@ -10,8 +10,6 @@
 local upkeep = require('nvimpio.pio.upkeep')
 local cmd = vim.api.nvim_create_user_command
 
-
-
 -- INFO: Refresh PIO Data
 cmd('PioRefreshData', function ()
    _G.isBusy = true
@@ -25,27 +23,26 @@ end, {desc = 'Refresh PIO metadata'})
 
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
--- cmd('PioInstall', function()
---     require('nvimpio.pio.ui.pioInstall').pioInstall()
--- end, { desc = "Install PlatformIO Core" })
---
 cmd('PioInstall', function()
-  vim.g.platformioRootDir = vim.uv.cwd()
-  require('nvimpio.core').ensure_toolchain_active(
-    function(success)
-      if success then
-        ---@type NvimPio
-        local nvimpio = require('nvimpio')
-        nvimpio.activate()
-      else
-      end
-    end,
-    0
-  )
-end, {
-  force = true,
-  desc = 'Start the PlatformIO guided install wizard',
-})
+    require('nvimpio.pio.ui.pioInstall').pioInstall()
+end, { desc = "Install PlatformIO Core" })
+--
+-- cmd('PioInstall', function()
+--   vim.g.platformioRootDir = vim.uv.cwd()
+--   require('nvimpio.core').ensure_toolchain_active(
+--     function(success)
+--       if success then
+--         ---@type NvimPio
+--         require('nvimpio').activate()
+--       else
+--       end
+--     end,
+--     0
+--   )
+-- end, {
+--   force = true,
+--   desc = 'Start the PlatformIO guided install wizard',
+-- })
 
 
 -- INFO: manage gitignore
@@ -65,10 +62,8 @@ cmd('PioGitIgnore', function() require('nvimpio.pio.ui.pioGitIgnore').pioGitIgno
 --   }
 -- )
 
---INFO: fix paths in compile_commands.json
 ------------------------------------------------------
 
---INFO: Piorun
 ------------------------------------------------------
 cmd('Piorun', function(opts) local args = opts.args require('nvimpio.pio.cli').piorun({ args })
 end, { nargs = '?', complete = function(_, _, _) return { 'upload', 'uploadfs', 'build', 'clean' } end, })
@@ -92,6 +87,7 @@ cmd('PioPickEnv', function() require('nvimpio.pio.ui.activeEnvPicker').select_en
 cmd('PioRepair', function() require('nvimpio.pio.ui.pioRepair').pioRepair() end, { desc = "repair PlatformIO Core" })
 cmd('PioUpgrade', function() local cmd_table = {'upgrade'} require('nvimpio.pio.cli').piocli(cmd_table) end, {})
 cmd('PioSelectPort', function() upkeep.configure_hardware_parameters() end, { force = true })
+--INFO: fix paths in compile_commands.json
 cmd('PioDbFixPaths', function() upkeep.compile_commandsFix() end, {})
 cmd('PioDevList', function() local cmd_table = {'device', 'list'} require('nvimpio.pio.cli').piocli(cmd_table) end, {})
 cmd('Piolib', function(opts) local args = vim.split(opts.args, ' ') require('nvimpio.pio.ui.piolib').piolib(args) end, { nargs = '+', })
