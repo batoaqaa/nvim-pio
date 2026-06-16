@@ -24,7 +24,12 @@ end, {desc = 'Refresh PIO metadata'})
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
 cmd('PioInstall', function()
-    require('nvimpio.pio.ui.pioInstall').pioInstall()
+  local runtime_dir = require('nvimpio').config.pio_runtime_dir
+   require('nvimpio.pio.ui.pioInstall').pioInstall(runtime_dir, function (status)
+     if(status) then
+      OS.notify("PIO installed successfully")
+     end
+   end)
 end, { desc = "Install PlatformIO Core" })
 --
 -- cmd('PioInstall', function()
