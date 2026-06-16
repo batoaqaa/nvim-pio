@@ -388,7 +388,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
           local is_managed_lib = clean_path:match("%.pio/libdeps")
           -- If it's outside your projecto repo, or inside the downloaded library cache, it's third-party!
           -- Unlike -I, the -isystem flag requires a separator (space or =) in clangd configuration files to parse correctly.
-          local prefix = (not is_under_project or is_managed_lib) and "-isystem=" or "-I"
+          -- local prefix = (not is_under_project or is_managed_lib) and "-isystem=" or "-I"
+          local prefix = (not is_under_project or is_managed_lib) and "-I" or "-I"
           -- Direct concatenation optimization
           table.insert(res, prefix .. clean_path)
         end
