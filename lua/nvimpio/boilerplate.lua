@@ -302,10 +302,10 @@ CompileFlags:
 
       -- 🟢  Phase B: Extract all pre-sorted path flags using JIT sequential loops
       local include_pools = {
-        target_meta.includes_libdeps,
-        target_meta.includes_build,
-        target_meta.includes_toolchain,
-        target_meta.includes_compatlib,
+        -- target_meta.includes_libdeps,
+        -- target_meta.includes_build,
+        -- target_meta.includes_toolchain,
+        -- target_meta.includes_compatlib,
       }
 
       for pool_idx = 1, #include_pools do
