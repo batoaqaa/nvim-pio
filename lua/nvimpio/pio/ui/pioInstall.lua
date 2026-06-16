@@ -40,7 +40,7 @@ local function pioInstall(runtime_dir, on_done)
     penvRestore_cmd = string.format('$env:PLATFORMIO_PENV_DIR=%q; %s/Scripts/python.exe -m ensurepip --default-pip', custom_penv_dir, custom_penv_dir)
     -- pipUpgrade_cmd = string.format('%s/Scripts/python.exe -m pip install -U pip', custom_penv_dir)
     -- pioUpgrade_cmd = string.format('%s/Scripts/pip.exe install -U platformio', custom_penv_dir)
-    pioEnv = string.format('$env:PATH = "%s/Scripts;" + $env:PATH', custom_penv_dir)
+    pioEnv = string.format('$env:PATH="%s/Scripts;$env:PATH"', custom_penv_dir)
   else
     install_cmd = string.format('PLATFORMIO_PENV_DIR=%q %s %s', custom_penv_dir, python, script_path)
     pipUpgrade_cmd = string.format('PLATFORMIO_PENV_DIR=%q %s/bin/python3 -m pip install -U pip', custom_penv_dir, custom_penv_dir)
