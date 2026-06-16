@@ -653,19 +653,21 @@ function M.compile_commandsFix()
   if not raw_cwd then return end
   local cwd = vim.fs.normalize(raw_cwd)
   local modified = false
+  local seen_headers = {}
+  local header_entries = {}
 
   for _, entry in ipairs(data) do
     local base_dir = entry.directory and vim.fs.normalize(vim.trim(entry.directory)) or cwd
     entry.directory = base_dir
+    if entry.file then entry.file = vim.fs.normalize(vim.trim(entry.file)) end
 
     if entry.arguments and type(entry.arguments) == 'table' then
       local cleaned_args = {}
 
-      -- Phase 1: Pure Trim & Reconstruct broken space-split tokens
+      -- 1. Strip whitespace bugs and repair space-broken string tokens
       for _, arg in ipairs(entry.arguments) do
         local trimmed = vim.trim(arg)
         if trimmed ~= "" then
-          -- If it doesn't start with a hyphen or quote, it belongs to the previous split token
           if #cleaned_args > 0 and not trimmed:match("^%-") and not trimmed:match("^\"") and cleaned_args[#cleaned_args]:match("^\"") then
             cleaned_args[#cleaned_args] = cleaned_args[#cleaned_args] .. " " .. trimmed
           else
@@ -674,35 +676,70 @@ function M.compile_commandsFix()
         end
       end
 
-      -- Phase 2: Structural Path Conversion Loop
+      -- 2. Confidently slice out duplicate path headers
       for i, token in ipairs(cleaned_args) do
         local prefix = token:sub(1, 2) == "-I" and "-I" or (token:sub(1, 8) == "-isystem" and "-isystem" or nil)
 
         if prefix then
           local raw_path = token:sub(#prefix + 1):gsub('^"', ''):gsub('"$', '')
 
-          -- ABSOLUTE GUARD: If it contains a Windows drive letter or Unix slash, DO NOT append cwd!
-          if raw_path:match("^%a:") or raw_path:sub(1, 1) == "/" then
-            cleaned_args[i] = prefix .. vim.fs.normalize(raw_path)
-          else
-            -- It is a genuine relative path (like .pio/libdeps/...)
-            local abs = vim.fs.normalize(vim.fs.joinpath(base_dir, raw_path))
-            cleaned_args[i] = prefix .. abs
+          -- ZERO-REGEX FIX: Find the platformio marker index directly
+          local start_idx = raw_path:find("/%.platformio/")
+          if start_idx then
+            -- Slice backwards from the marker to find the beginning of the real drive letter (e.g., C:)
+            -- 'C:/Users/yourname/.platformio/' -> The drive letter starts exactly 15-25 chars before the marker
+            local sub_chunk = raw_path:sub(1, start_idx - 1)
+            local real_drive_letter = sub_chunk:match("([%a]:)[^:]*$")
+            
+            if real_drive_letter then
+              raw_path = real_drive_letter .. raw_path:sub(start_idx)
+              modified = true
+            end
           end
-          modified = true
+
+          -- Convert valid relative dependencies (.pio/libdeps) into absolute targets
+          if not (raw_path:match("^%a:") or raw_path:sub(1, 1) == "/") then
+            raw_path = vim.fs.joinpath(base_dir, raw_path)
+            modified = true
+          end
+
+          local final_path = vim.fs.normalize(raw_path)
+          cleaned_args[i] = prefix .. (final_path:find(" ") and '"' .. final_path .. '"' or final_path)
         end
       end
 
       entry.arguments = cleaned_args
     end
+
+    -- 3. Header mapping pipeline (compdb synthesis)
+    if entry.file and (entry.file:match("%.cpp$") or entry.file:match("%.c$")) then
+      local base_file_path = entry.file:gsub("%.[^.]+$", "")
+      local possible_headers = { base_file_path .. ".h", base_file_path .. ".hpp" }
+
+      for _, header_path in ipairs(possible_headers) do
+        if vim.uv.fs_stat(header_path) and not seen_headers[header_path] then
+          seen_headers[header_path] = true
+
+          local h_entry = vim.deepcopy(entry)
+          h_entry.file = header_path
+          if h_entry.output then h_entry.output = nil end
+
+          table.insert(header_entries, h_entry)
+          modified = true
+        end
+      end
+    end
   end
 
-  -- Phase 3: Write Atomic Stream Changes
+  for _, h_entry in ipairs(header_entries) do
+    table.insert(data, h_entry)
+  end
+
   if modified then
     local jok, formatted = pcall(misc.jsonFormat, data)
     if jok then
       misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
-      OS.notify("compiledb: Paths successfully normalized and cleaned up!", "info")
+      OS.notify("compiledb: Double-paths successfully cleaned up natively!", "info")
     end
   else
     OS.notify("no need to fixPaths")
