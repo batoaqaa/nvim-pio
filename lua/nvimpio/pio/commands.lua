@@ -7,50 +7,29 @@
 -- -1: Zero or one argument (like ?, explicitly).
 
 -- stylua: ignore start
+local upkeep = require('vimpio.pio.upkeep')
+local cmd = vim.api.nvim_create_user_command
 
--- INFO: update/generate compileDB
-----------------------------------------------------------------
-vim.api.nvim_create_user_command('PioCompileDB', function()
-  -- require('nvimpio.pio.upkeep.cli').buildCompileDB(':PioCompileDB', _G.metadata.active_env)
-  require('nvimpio.pio.ui.pioCompileDB').pioCompileDB()
-end, { desc = "Install PlatformIO Core" })
 
 
 -- INFO: Refresh PIO Data
-vim.api.nvim_create_user_command('PioRefreshData', function ()
+cmd('PioRefreshData', function ()
    _G.isBusy = true
-   local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+   local pio_refresh = upkeep.pio_refresh
    pio_refresh(function(success)
      if success then do end end
      _G.isBusy = false
    end, 'PIO refresh command: ')
 end, {desc = 'Refresh PIO metadata'})
 
--- INFO: Switch Environment
-vim.api.nvim_create_user_command('PioPickEnv', function()
-  require('nvimpio.pio.ui.activeEnvPicker').select_env_picker()
-end, { desc = 'Switch [E]nvironment' })
 
 -- INFO: PlatformIO installation
 ----------------------------------------------------------------
-vim.api.nvim_create_user_command('PioRepair', function()
-    require('nvimpio.pio.ui.pioRepair').pioRepair()
-end, { desc = "repair PlatformIO Core" })
-
---INFO: PioUpgrade
-vim.api.nvim_create_user_command('PioUpgrade', function()
-  local cmd_table = {'upgrade'}
-  require('nvimpio.pio.cli').piocli(cmd_table)
-  -- print(vim.inspect(require('nvimpio.pio.upkeep').get_connected_ports()))
-end, {})
-
--- INFO: PlatformIO installation
-----------------------------------------------------------------
--- vim.api.nvim_create_user_command('PioInstall', function()
+-- cmd('PioInstall', function()
 --     require('nvimpio.pio.ui.pioInstall').pioInstall()
 -- end, { desc = "Install PlatformIO Core" })
 --
-vim.api.nvim_create_user_command('PioInstall', function()
+cmd('PioInstall', function()
   vim.g.platformioRootDir = vim.uv.cwd()
   require('nvimpio.core').ensure_toolchain_active(
     function(success)
@@ -71,19 +50,12 @@ end, {
 
 -- INFO: manage gitignore
 ------------------------------------------------------
-vim.api.nvim_create_user_command('PioGitIgnore',
-  function()
-    require('nvimpio.pio.ui.pioGitIgnore').pioGitIgnore()
-  end,
-  {
-    force = true,
-    desc = 'add/remove files/folder to/from gitignore'
-  }
-)
+cmd('PioGitIgnore', function() require('nvimpio.pio.ui.pioGitIgnore').pioGitIgnore()
+  end, { force = true, desc = 'add/remove files/folder to/from gitignore' })
 
 -- -- INFO: List ToggleTerminals
 -- ------------------------------------------------------
--- vim.api.nvim_create_user_command('PioTermList',
+-- cmd('PioTermList',
 --   function()
 --     require('nvimpio.pio.ui.pioTermList').pioTermList()
 --   end,
@@ -95,37 +67,18 @@ vim.api.nvim_create_user_command('PioGitIgnore',
 
 --INFO: fix paths in compile_commands.json
 ------------------------------------------------------
-vim.api.nvim_create_user_command('PioDbFixPaths', function()
-  require('nvimpio.pio.upkeep').compile_commandsFix()
-end, {})
 
 --INFO: Piorun
 ------------------------------------------------------
-vim.api.nvim_create_user_command('Piorun', function(opts)
-  local args = opts.args
-  require('nvimpio.pio.cli').piorun({ args })
-end, {
-  nargs = '?',
-  -- Autocompletion options
-  complete = function(_, _, _) return { 'upload', 'uploadfs', 'build', 'clean' } end,
-})
-
+cmd('Piorun', function(opts) local args = opts.args require('nvimpio.pio.cli').piorun({ args })
+end, { nargs = '?', complete = function(_, _, _) return { 'upload', 'uploadfs', 'build', 'clean' } end, })
 
 -- Add this command registry string helper directly to your setup hooks
-vim.api.nvim_create_user_command('PioSelectPort', function()
-  -- Adjust path string reference below to point to wherever you saved the wrapper function
-  require('nvimpio.pio.upkeep').configure_hardware_parameters()
-end, { force = true })
-
-
---INFO: Piomon
-vim.api.nvim_create_user_command('Piomon', function(opts)
-  local args = opts.fargs
-  require('nvimpio.pio.cli').piomon(args)
+cmd('Piomon', function(opts) local args = opts.fargs require('nvimpio.pio.cli').piomon(args)
 end, {
   nargs = '*',
   complete = function(_, cmd_line)
-    local ports = require('nvimpio.pio.upkeep').get_connected_ports()
+    local ports = upkeep.get_connected_ports()
     local parts = vim.split(cmd_line, '%s+')
     local BAUD = { '4800', '9600', '57600', '115200' }
     if #parts == 2 then return BAUD end
@@ -134,31 +87,15 @@ end, {
   end,
 })
 
---INFO: PioDevList
-vim.api.nvim_create_user_command('PioDevList', function()
-  local cmd_table = {'device', 'list'}
-  require('nvimpio.pio.cli').piocli(cmd_table)
-end, {})
-
---INFO: Piolib
-vim.api.nvim_create_user_command('Piolib', function(opts)
-  local args = vim.split(opts.args, ' ')
-  require('nvimpio.pio.ui.piolib').piolib(args)
-end, {
-  nargs = '+',
-})
-
---INFO: Piocli    Piocli cli terminal
-vim.api.nvim_create_user_command('Piocli', function(opts)
-  local cmd_table = vim.split(opts.args, ' ')
-  require('nvimpio.pio.cli').piocli(cmd_table)
-end, {
-  nargs = '*',
-})
-
---INFO: Piodebug
-vim.api.nvim_create_user_command('Piodebug', function()
-  require('nvimpio.pio.cli').piodebug()
-end, {})
+cmd('PioCompileDB', function() require('nvimpio.pio.ui.pioCompileDB').pioCompileDB() end, { desc = "Install PlatformIO Core" })
+cmd('PioPickEnv', function() require('nvimpio.pio.ui.activeEnvPicker').select_env_picker() end, { desc = 'Switch [E]nvironment' })
+cmd('PioRepair', function() require('nvimpio.pio.ui.pioRepair').pioRepair() end, { desc = "repair PlatformIO Core" })
+cmd('PioUpgrade', function() local cmd_table = {'upgrade'} require('nvimpio.pio.cli').piocli(cmd_table) end, {})
+cmd('PioSelectPort', function() upkeep.configure_hardware_parameters() end, { force = true })
+cmd('PioDbFixPaths', function() upkeep.compile_commandsFix() end, {})
+cmd('PioDevList', function() local cmd_table = {'device', 'list'} require('nvimpio.pio.cli').piocli(cmd_table) end, {})
+cmd('Piolib', function(opts) local args = vim.split(opts.args, ' ') require('nvimpio.pio.ui.piolib').piolib(args) end, { nargs = '+', })
+cmd('Piocli', function(opts) local cmd_table = vim.split(opts.args, ' ') require('nvimpio.pio.cli').piocli(cmd_table) end, { nargs = '*', })
+cmd('Piodebug', function() require('nvimpio.pio.cli').piodebug() end, {})
 
 -- stylua: ignore end
