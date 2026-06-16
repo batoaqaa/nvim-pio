@@ -1,16 +1,6 @@
 local M = {}
 
-local pio_mon = require('nvimpio.device.terminal').mon
-local pio_cli = require('nvimpio.device.terminal').cli
-local function sendCmnd(command)
-  -- Directly pull the raw pointer reference from the table object.
-  -- 0% CPU cycles wasted running window layout functions! [INDEX]
-
-  -- The custom internal Lazy-Spawn Guard takes care of everything!
-  -- If it's closed, it opens it. If it's open, it pipes it straight down! [INDEX]
-  -- pio_cli:show()
-  pio_cli:send(command)
-end
+local term = require('nvimpio.device.terminal')
 
 --- Handles and formats asynchronous vim.system errors cleanly
 ---@param from string The notification origin tag
@@ -85,15 +75,15 @@ end
 ------------------------------------------------------
 function M.piocli(cmd_table)
   local cmd = (cmd_table[1] == '') and '' or ('pio ' .. table.concat(cmd_table, ' '))
-  if cmd ~= '' then sendCmnd(cmd)
-  else pio_cli:show() end
+  if cmd ~= '' then term.cli:send(cmd)
+  else term.cli:show() end
 end
 
 --INFO: Piodebug
 ------------------------------------------------------
 function M.piodebug(_)
   local command = 'pio debug --interface=gdb -- -x .pioinit'
-  sendCmnd(command)
+  term.cli:send(command)
 end
 
 --INFO: Piomon
@@ -113,9 +103,9 @@ function M.piomon(args_table)
   if command == nil then OS.notify('Usage: Piomon <baud> <port>', "error")
   else
     vim.schedule(function()
-      pio_mon:send(command)
+      term.mon:send(command)
     end)
-    -- pio_mon:send(command)
+    -- term.mon:send(command)
   end
 end
 
@@ -123,22 +113,22 @@ end
 ------------------------------------------------------
 function M.piobuild()
   local command = 'pio run'
-  sendCmnd(command)
+  term.cli:send(command)
 end
 
 function M.pioupload()
   local command = 'pio run --target upload'
-  sendCmnd(command)
+  term.cli:send(command)
 end
 
 function M.piouploadfs()
   local command = 'pio run --target uploadfs'
-  sendCmnd(command)
+  term.cli:send(command)
 end
 
 function M.pioclean()
   local command = 'pio run --target clean'
-  sendCmnd(command)
+  term.cli:send(command)
 end
 
 function M.piorun(arg_table)
