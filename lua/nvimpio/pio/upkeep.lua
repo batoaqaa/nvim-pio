@@ -652,47 +652,60 @@ function M.compile_commandsFix()
   local raw_cwd = vim.uv.cwd()
   if not raw_cwd then return end
   local cwd = vim.fs.normalize(raw_cwd)
-  -- local cwd = vim.fs.normalize(vim.uv.cwd())
   local modified = false
 
   for _, entry in ipairs(data) do
-    local base_dir = entry.directory and vim.fs.normalize(entry.directory) or cwd
-    entry.directory, entry.file = base_dir, entry.file and vim.fs.normalize(entry.file) or nil
+    local base_dir = entry.directory and vim.fs.normalize(vim.trim(entry.directory)) or cwd
+    entry.directory = base_dir
 
-    -- 1. Standardize everything into a clean array structure
-    if not entry.arguments and type(entry.command) == 'string' then
-      entry.arguments = vim.fn.split(entry.command, [[\(\s\+\)\@=]])
-      entry.command = nil
-    end
+    if entry.arguments and type(entry.arguments) == 'table' then
+      local cleaned_args = {}
 
-    -- 2. Execute a robust, absolute transformation loop
-    if entry.arguments then
-      for i, arg in ipairs(entry.arguments) do
-        local token = vim.trim(arg)
+      -- Phase 1: Pure Trim & Reconstruct broken space-split tokens
+      for _, arg in ipairs(entry.arguments) do
+        local trimmed = vim.trim(arg)
+        if trimmed ~= "" then
+          -- If it doesn't start with a hyphen or quote, it belongs to the previous split token
+          if #cleaned_args > 0 and not trimmed:match("^%-") and not trimmed:match("^\"") and cleaned_args[#cleaned_args]:match("^\"") then
+            cleaned_args[#cleaned_args] = cleaned_args[#cleaned_args] .. " " .. trimmed
+          else
+            table.insert(cleaned_args, trimmed)
+          end
+        end
+      end
+
+      -- Phase 2: Structural Path Conversion Loop
+      for i, token in ipairs(cleaned_args) do
         local prefix = token:sub(1, 2) == "-I" and "-I" or (token:sub(1, 8) == "-isystem" and "-isystem" or nil)
 
         if prefix then
           local raw_path = token:sub(#prefix + 1):gsub('^"', ''):gsub('"$', '')
-          -- Fallback to next element if space-separated (-I path)
-          if raw_path == "" and entry.arguments[i + 1] then
-            raw_path = entry.arguments[i + 1]:gsub('^"', ''):gsub('"$', '')
-            local abs = vim.fs.normalize(vim.fs.joinpath(base_dir, raw_path))
-            entry.arguments[i + 1] = abs:find(" ") and '"' .. abs .. '"' or abs
+
+          -- ABSOLUTE GUARD: If it contains a Windows drive letter or Unix slash, DO NOT append cwd!
+          if raw_path:match("^%a:") or raw_path:sub(1, 1) == "/" then
+            cleaned_args[i] = prefix .. vim.fs.normalize(raw_path)
           else
-            -- Packed element calculation (-Ipath)
+            -- It is a genuine relative path (like .pio/libdeps/...)
             local abs = vim.fs.normalize(vim.fs.joinpath(base_dir, raw_path))
-            entry.arguments[i] = prefix .. (abs:find(" ") and '"' .. abs .. '"' or abs)
+            cleaned_args[i] = prefix .. abs
           end
           modified = true
         end
       end
+
+      entry.arguments = cleaned_args
     end
   end
 
-  -- 3. Save atomic dataset
+  -- Phase 3: Write Atomic Stream Changes
   if modified then
     local jok, formatted = pcall(misc.jsonFormat, data)
-    if jok then misc.writeFile(filename, formatted, { overwrite = true, mkdir = true }) end
+    if jok then
+      misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
+      OS.notify("compiledb: Paths successfully normalized and cleaned up!", "info")
+    end
+  else
+    OS.notify("no need to fixPaths")
   end
   _G.isBusy = false
 end
