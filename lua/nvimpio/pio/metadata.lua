@@ -106,8 +106,7 @@ _G.metadata = setmetatable({}, {
         local duration = (end_time - start_time) / 1e6
         OS.notify(string.format('%s %s removed from path in %.2fms', from, oldPath, duration), 'info')
 
-        vim.env.PATH = binPath .. OS.path_sep .. vim.env.PATH
-        -- vim.env.PATH = binPath .. sep .. _G.metadata.originalPath
+        -- vim.env.PATH = binPath .. OS.path_sep .. vim.env.PATH
         OS.notify(string.format('%s %s added to path',from, binPath), 'info')
 
         -- ----------------------------- Trace ----------------------------------------

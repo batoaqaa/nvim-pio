@@ -334,7 +334,7 @@ function M.getUnknownArgsCli(from)
       vim.schedule(function()
         local output = (obj.stdout or '') .. (obj.stderr or '')
         local args_table = {}
-        local seen = {} -- 🌟 Look-up filter to prevent duplicate flags
+        local seen = {} --  Look-up filter to prevent duplicate flags
 
         -- Extract anything clangd reports as an 'unknown argument'
         if not string.find(output, '%.clang%-format') then

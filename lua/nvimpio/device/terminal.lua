@@ -122,7 +122,7 @@ function Terminal:on_close()
 end
 
 function Terminal:enter_insert_mode()
-  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<Cmd>startinsert<CR>]], true, true, true), "nt", false)
+  -- vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<Cmd>startinsert<CR>]], true, true, true), "nt", false)
 end
 
 function Terminal:send(command)
@@ -152,7 +152,6 @@ function Terminal:on_quit()
   M.HideTerminal()
 end
 
---- 🌟 THE FIXED PARSER COMPATIBILITY REFACTOR LINK:
 --- Maps the class 'hide' method securely to the global singleton window manager.
 --- This completely eliminates the nil method crash inside your parser.lua file on line 325.
 ---@method
@@ -160,7 +159,6 @@ function Terminal:hide()
   M.HideTerminal()
 end
 
---- 🌟 THE FIXED PARSER COMPATIBILITY REFACTOR LINK:
 --- Maps the class 'close' method securely to the global singleton window manager.
 ---@method
 function Terminal:close()
