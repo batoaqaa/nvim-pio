@@ -676,38 +676,43 @@ function M.compile_commandsFix()
         end
       end
 
-      -- 2. Confidently slice out duplicate path headers
+
+      -- 2. Strictly clean include paths and expand the .pio relative strings
       for i, token in ipairs(cleaned_args) do
-        local prefix = token:sub(1, 2) == "-I" and "-I" or (token:sub(1, 8) == "-isystem" and "-isystem" or nil)
+        -- Check if it is an include path parameter
+        local is_include = token:sub(1, 2) == "-I" or token:sub(1, 8) == "-isystem"
 
-        if prefix then
-          local raw_path = token:sub(#prefix + 1):gsub('^"', ''):gsub('"$', '')
+        if is_include then
+          -- Unify all slashes immediately to make matching completely bulletproof
+          local clean_token = token:gsub("\\", "/")
 
-          -- ZERO-REGEX FIX: Find the platformio marker index directly
+          -- Find out what type of include prefix it uses
+          local prefix = clean_token:sub(1, 2) == "-I" and "-I" or "-isystem"
+          local raw_path = clean_token:sub(#prefix + 1):gsub('^"', ''):gsub('"$', '')
+
+          -- CASE 1: Catch PlatformIO's broken double-absolute path bug
           local start_idx = raw_path:find("/%.platformio/")
           if start_idx then
-            -- Slice backwards from the marker to find the beginning of the real drive letter (e.g., C:)
-            -- 'C:/Users/yourname/.platformio/' -> The drive letter starts exactly 15-25 chars before the marker
             local sub_chunk = raw_path:sub(1, start_idx - 1)
             local real_drive_letter = sub_chunk:match("([%a]:)[^:]*$")
-            
             if real_drive_letter then
               raw_path = real_drive_letter .. raw_path:sub(start_idx)
               modified = true
             end
-          end
 
-          -- Convert valid relative dependencies (.pio/libdeps) into absolute targets
-          if not (raw_path:match("^%a:") or raw_path:sub(1, 1) == "/") then
-            raw_path = vim.fs.joinpath(base_dir, raw_path)
+          -- CASE 2: Catch your relative ArduinoJson string (.pio/libdeps) and force it absolute
+          elseif raw_path:match("%.pio/libdeps") then
+            -- Re-strip any leading dots or relative steps completely
+            local pure_sub_path = raw_path:match("%.%./(.*)$") or raw_path:match("%.%/(.*)$") or raw_path
+            raw_path = base_dir .. "/" .. pure_sub_path
             modified = true
           end
 
+          -- Final step: Normalize the path output nicely for clangd compliance
           local final_path = vim.fs.normalize(raw_path)
           cleaned_args[i] = prefix .. (final_path:find(" ") and '"' .. final_path .. '"' or final_path)
         end
       end
-
       entry.arguments = cleaned_args
     end
 
