@@ -661,13 +661,14 @@ function M.compile_commandsFix()
     if entry.file then entry.file = vim.fs.normalize(vim.trim(entry.file)) end
 
     if entry.command and type(entry.command) == 'string' then
-      -- 1. Parse and rewrite all includes directly inside the raw command text
-      -- Matches "-I<path>" or "-isystem<path>" accounting for text boundary spaces
-      local updated_command = entry.command:gsub("([%-]i?s?y?s?t?e?m?I)([^%s\"]+)", function(prefix, raw_path)
-        -- Unify all slashes immediately to make matching bulletproof
-        local clean_path = raw_path:gsub("\\", "/")
+      -- Unify all slashes immediately inside the string to prevent matching skips
+      local working_command = entry.command:gsub("\\", "/")
 
-        -- CASE A: Catch PlatformIO's double-absolute path corruption bug
+      -- Directly intercept all include configurations using standard character boundaries
+      local updated_command = working_command:gsub("([%-]i?s?y?s?t?e?m?I)([^%s\"]Shared*)", function(prefix, raw_path)
+        local clean_path = raw_path
+
+        -- FIX A: Strip duplicate drive letter bugs (e.g., C:/workspace/C:/Users)
         local start_idx = clean_path:find("/%.platformio/")
         if start_idx then
           local sub_chunk = clean_path:sub(1, start_idx - 1)
@@ -676,9 +677,10 @@ function M.compile_commandsFix()
             clean_path = real_drive_letter .. clean_path:sub(start_idx)
             modified = true
           end
-        
-        -- CASE B: Catch relative libdeps (.pio/libdeps) and force absolute workspace mappings
-        elseif clean_path:match("%.pio/libdeps") then
+
+        -- FIX B: Look for the precise library target folder text string layout
+        elseif clean_path:find("%.pio/libdeps") or clean_path:sub(1,1) == "." then
+          -- Strip away relative paths symbols safely
           local pure_sub_path = clean_path:match("%.%./(.*)$") or clean_path:match("%.%/(.*)$") or clean_path
           clean_path = base_dir .. "/" .. pure_sub_path
           modified = true
@@ -694,7 +696,7 @@ function M.compile_commandsFix()
       end
     end
 
-    -- 2. COMPDB COMPLIANCE: Map matching .h/.hpp files into database tracking matrix
+    -- 2. Map header maps back to registry array entries (.h/.hpp synthesis)
     if entry.file and (entry.file:match("%.cpp$") or entry.file:match("%.c$")) then
       local base_file_path = entry.file:gsub("%.[^.]+$", "")
       local possible_headers = { base_file_path .. ".h", base_file_path .. ".hpp" }
@@ -722,14 +724,13 @@ function M.compile_commandsFix()
     local jok, formatted = pcall(misc.jsonFormat, data)
     if jok then
       misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
-      OS.notify("compiledb: Paths completely normalized and optimized directly in string!", "info")
+      OS.notify("compiledb: Include configurations adjusted successfully inside the command file!", "info")
     end
   else
     OS.notify("no need to fixPaths")
   end
   _G.isBusy = false
 end
-
 
 
 -- function M.compile_commandsFix() --M.dbPathsFix()
