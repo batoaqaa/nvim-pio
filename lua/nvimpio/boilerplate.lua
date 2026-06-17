@@ -165,8 +165,8 @@ CompileFlags:
     %s
     ]
   Add: [
+    "-IC:/VSCode/data/Projects/Digital-Wall-Clock-Long-ESP32C3-Pray5/.pio/libdeps/seeed_xiao_esp32c3/ArduinoJson/src/ArduinoJson/../../",
     "@%s",
-    "-IC:/VSCode/data/Projects/Digital-Wall-Clock-Long-ESP32C3-Pray5/.pio/libdeps/seeed_xiao_esp32c3/ArduinoJson/src/ArduinoJson/../../"
     ]
 ]],
   content = function(self, project_root_param)
