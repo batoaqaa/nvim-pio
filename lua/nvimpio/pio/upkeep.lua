@@ -660,43 +660,62 @@ function M.compile_commandsFix()
     entry.directory = base_dir
     if entry.file then entry.file = vim.fs.normalize(vim.trim(entry.file)) end
 
+    -- 1. PROCESS COMMAND STRINGS DIRECTLY
     if entry.command and type(entry.command) == 'string' then
-      -- Unify all slashes immediately to make matching completely bulletproof
-      local working_command = entry.command:gsub("\\", "/")
+      -- Normalize slashes on the whole string right away
+      local cmd = entry.command:gsub("\\\\", "/"):gsub("\\", "/")
+      local out_parts = {}
+      local last_pos = 1
 
-      -- CONFIDENT REPLACEMENT BLOCK: Target include structures directly without parsing bugs
-      local updated_command = working_command:gsub("([%-]i?s?y?s?t?e?m?I)([^%s\"]+)", function(prefix, raw_path)
-        local clean_path = raw_path
+      -- Find every include block starting with -I or -isystem positional index markers
+      while true do
+        local start_idx, end_idx, prefix = cmd:find("(%-isystem)", last_pos)
+        if not start_idx then
+          start_idx, end_idx, prefix = cmd:find("(%-I)", last_pos)
+        end
 
-        -- CASE 1: Catch PlatformIO's double-absolute path corruption bug
-        local start_idx = clean_path:find("/%.platformio/")
-        if start_idx then
-          local sub_chunk = clean_path:sub(1, start_idx - 1)
-          local real_drive_letter = sub_chunk:match("([%a]:)[^:]*$")
-          if real_drive_letter then
-            clean_path = real_drive_letter .. clean_path:sub(start_idx)
-            modified = true
-          end
-        
-        -- CASE 2: Catch your relative ArduinoJson and server dependency strings (.pio/libdeps)
-        elseif clean_path:find("%.pio/libdeps") or clean_path:sub(1, 1) == "." then
-          -- Strip any legacy relative directory dots safely
-          local pure_sub_path = clean_path:match("%.%./(.*)$") or clean_path:match("%.%/(.*)$") or clean_path
-          clean_path = base_dir .. "/" .. pure_sub_path
+        if not start_idx then
+          table.insert(out_parts, cmd:sub(last_pos))
+          break
+        end
+
+        -- Keep all compiler macros (-D) leading up to this flag completely untouched
+        table.insert(out_parts, cmd:sub(last_pos, start_idx - 1))
+
+        -- Extract the path value up to the next parameter space delimiter
+        local path_start = end_idx + 1
+        local next_space = cmd:find("%s", path_start)
+        local path_end = next_space and (next_space - 1) or #cmd
+        local raw_path = cmd:sub(path_start, path_end)
+
+        -- STRIP CORRUPTIONS: If it contains two drive mappings (C:/.../C:/...), keep only the second part
+        local d1, d2 = raw_path:match("^([%a]:.-)([%a]:.*)$")
+        if d1 and d2 then
+          raw_path = d2
           modified = true
         end
 
-        local final_path = vim.fs.normalize(clean_path)
-        return prefix .. (final_path:find(" ") and '"' .. final_path .. '"' or final_path)
-      end)
+        -- EXPAND DEPENDENCIES: Convert relative project folders (.pio/libdeps) to absolute
+        if raw_path:find("%.pio/libdeps") or raw_path:sub(1, 1) == "." then
+          local clean_sub = raw_path:match("%.%.?/(.*)$") or raw_path
+          raw_path = base_dir .. "/" .. clean_sub
+          modified = true
+        end
 
-      if updated_command ~= entry.command then
-        entry.command = updated_command
+        local final_path = vim.fs.normalize(raw_path)
+        table.insert(out_parts, prefix .. (final_path:find(" ") and '"' .. final_path .. '"' or final_path))
+
+        last_pos = path_end + 1
+      end
+
+      local new_command = table.concat(out_parts, "")
+      if new_command ~= entry.command then
+        entry.command = new_command
         modified = true
       end
     end
 
-    -- 2. COMPDB GENERATION ENGINE: Dynamically map corresponding header files (.hpp)
+    -- 2. COMPDB COMPLIANCE: Synthesize Header Matrix Entries Natively
     if entry.file and (entry.file:match("%.cpp$") or entry.file:match("%.c$")) then
       local base_file_path = entry.file:gsub("%.[^.]+$", "")
       local possible_headers = { base_file_path .. ".h", base_file_path .. ".hpp" }
@@ -716,7 +735,6 @@ function M.compile_commandsFix()
     end
   end
 
-  -- Merge dynamically generated header configurations back into the json array mapping
   for _, h_entry in ipairs(header_entries) do
     table.insert(data, h_entry)
   end
@@ -725,13 +743,14 @@ function M.compile_commandsFix()
     local jok, formatted = pcall(misc.jsonFormat, data)
     if jok then
       misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
-      OS.notify("compiledb: Paths completely normalized and optimized directly in string!", "info")
+      OS.notify("compiledb: Configuration targets cleanly corrected and optimized!", "info")
     end
   else
     OS.notify("no need to fixPaths")
   end
   _G.isBusy = false
 end
+
 
 -- function M.compile_commandsFix() --M.dbPathsFix()
 --   local filename = vim.fs.joinpath(vim.uv.cwd(), 'compile_commands.json')
