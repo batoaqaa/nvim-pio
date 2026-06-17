@@ -308,6 +308,7 @@ CompileFlags:
         -- target_meta.includes_compatlib,
       }
 
+      table.insert(options_file_lines, '-I.pio/libdeps/seeed_xiao_esp32c3/ArduinoJson/src/ArduinoJson/Variant/../../../../')
       table.insert(
         options_file_lines,
         '-IC:/VSCode/data/Projects/Digital-Wall-Clock-Long-ESP32C3-Pray5/.pio/libdeps/seeed_xiao_esp32c3/ArduinoJson/src/ArduinoJson/../../'
