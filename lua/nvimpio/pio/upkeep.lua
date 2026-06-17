@@ -486,7 +486,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
     meta.includes_build = map_includes(inc.build)
     meta.includes_toolchain = map_includes(inc.toolchain)
     meta.includes_compatlib = map_includes(inc.compatlib)
-    meta.includes_libdeps = map_includes(get_pio_includes(project_root, active_env))
+    -- meta.includes_libdeps = map_includes(get_pio_includes(project_root, active_env))
+    meta.includes_libdeps = get_pio_includes(project_root, active_env)
     --
 
     -- --🟢  keep for later if to deal with cxx_flags
