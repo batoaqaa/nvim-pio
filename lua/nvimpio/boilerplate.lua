@@ -79,6 +79,7 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
   end,
 }
 
+-- "--compile_args_from=filesystem",
 -- "-ferror-limit=0",
 -- "-std=c++17"
 -- "--log=verbose",
@@ -98,7 +99,6 @@ boilerplate['.clangdConfig.json'] = {
     "--background-index-priority=low",
     "--all-scopes-completion",
     "--clang-tidy",
-    "--compile_args_from=filesystem",
     "--completion-parse=always",
     "--completion-style=detailed",
     "--header-insertion=iwyu",
