@@ -640,7 +640,6 @@ end
 -------------------------------------------------------------------------------
 -- INFO:
 -- Fix compile_commands.json file with absoulute paths
-
 function M.compile_commandsFix()
   local filename = vim.fs.joinpath(vim.uv.cwd(), 'compile_commands.json')
   local content = vim.fn.readfile(filename)
@@ -661,62 +660,41 @@ function M.compile_commandsFix()
     entry.directory = base_dir
     if entry.file then entry.file = vim.fs.normalize(vim.trim(entry.file)) end
 
-    if entry.arguments and type(entry.arguments) == 'table' then
-      local cleaned_args = {}
+    if entry.command and type(entry.command) == 'string' then
+      -- 1. Parse and rewrite all includes directly inside the raw command text
+      -- Matches "-I<path>" or "-isystem<path>" accounting for text boundary spaces
+      local updated_command = entry.command:gsub("([%-]i?s?y?s?t?e?m?I)([^%s\"]+)", function(prefix, raw_path)
+        -- Unify all slashes immediately to make matching bulletproof
+        local clean_path = raw_path:gsub("\\", "/")
 
-      -- 1. Strip whitespace bugs and repair space-broken string tokens
-      for _, arg in ipairs(entry.arguments) do
-        local trimmed = vim.trim(arg)
-        if trimmed ~= "" then
-          if #cleaned_args > 0 and not trimmed:match("^%-") and not trimmed:match("^\"") and cleaned_args[#cleaned_args]:match("^\"") then
-            cleaned_args[#cleaned_args] = cleaned_args[#cleaned_args] .. " " .. trimmed
-          else
-            table.insert(cleaned_args, trimmed)
-          end
-        end
-      end
-
-
-      -- 2. Strictly clean include paths and expand the .pio relative strings
-      for i, token in ipairs(cleaned_args) do
-        -- Check if it is an include path parameter
-        local is_include = token:sub(1, 2) == "-I" or token:sub(1, 8) == "-isystem"
-
-        if is_include then
-          -- Unify all slashes immediately to make matching completely bulletproof
-          local clean_token = token:gsub("\\", "/")
-
-          -- Find out what type of include prefix it uses
-          local prefix = clean_token:sub(1, 2) == "-I" and "-I" or "-isystem"
-          local raw_path = clean_token:sub(#prefix + 1):gsub('^"', ''):gsub('"$', '')
-
-          -- CASE 1: Catch PlatformIO's broken double-absolute path bug
-          local start_idx = raw_path:find("/%.platformio/")
-          if start_idx then
-            local sub_chunk = raw_path:sub(1, start_idx - 1)
-            local real_drive_letter = sub_chunk:match("([%a]:)[^:]*$")
-            if real_drive_letter then
-              raw_path = real_drive_letter .. raw_path:sub(start_idx)
-              modified = true
-            end
-
-          -- CASE 2: Catch your relative ArduinoJson string (.pio/libdeps) and force it absolute
-          elseif raw_path:match("%.pio/libdeps") then
-            -- Re-strip any leading dots or relative steps completely
-            local pure_sub_path = raw_path:match("%.%./(.*)$") or raw_path:match("%.%/(.*)$") or raw_path
-            raw_path = base_dir .. "/" .. pure_sub_path
+        -- CASE A: Catch PlatformIO's double-absolute path corruption bug
+        local start_idx = clean_path:find("/%.platformio/")
+        if start_idx then
+          local sub_chunk = clean_path:sub(1, start_idx - 1)
+          local real_drive_letter = sub_chunk:match("([%a]:)[^:]*$")
+          if real_drive_letter then
+            clean_path = real_drive_letter .. clean_path:sub(start_idx)
             modified = true
           end
-
-          -- Final step: Normalize the path output nicely for clangd compliance
-          local final_path = vim.fs.normalize(raw_path)
-          cleaned_args[i] = prefix .. (final_path:find(" ") and '"' .. final_path .. '"' or final_path)
+        
+        -- CASE B: Catch relative libdeps (.pio/libdeps) and force absolute workspace mappings
+        elseif clean_path:match("%.pio/libdeps") then
+          local pure_sub_path = clean_path:match("%.%./(.*)$") or clean_path:match("%.%/(.*)$") or clean_path
+          clean_path = base_dir .. "/" .. pure_sub_path
+          modified = true
         end
+
+        local final_path = vim.fs.normalize(clean_path)
+        return prefix .. (final_path:find(" ") and '"' .. final_path .. '"' or final_path)
+      end)
+
+      if updated_command ~= entry.command then
+        entry.command = updated_command
+        modified = true
       end
-      entry.arguments = cleaned_args
     end
 
-    -- 3. Header mapping pipeline (compdb synthesis)
+    -- 2. COMPDB COMPLIANCE: Map matching .h/.hpp files into database tracking matrix
     if entry.file and (entry.file:match("%.cpp$") or entry.file:match("%.c$")) then
       local base_file_path = entry.file:gsub("%.[^.]+$", "")
       local possible_headers = { base_file_path .. ".h", base_file_path .. ".hpp" }
@@ -744,13 +722,16 @@ function M.compile_commandsFix()
     local jok, formatted = pcall(misc.jsonFormat, data)
     if jok then
       misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
-      OS.notify("compiledb: Double-paths successfully cleaned up natively!", "info")
+      OS.notify("compiledb: Paths completely normalized and optimized directly in string!", "info")
     end
   else
     OS.notify("no need to fixPaths")
   end
   _G.isBusy = false
 end
+
+
+
 -- function M.compile_commandsFix() --M.dbPathsFix()
 --   local filename = vim.fs.joinpath(vim.uv.cwd(), 'compile_commands.json')
 --   local content = vim.fn.readfile(filename)
