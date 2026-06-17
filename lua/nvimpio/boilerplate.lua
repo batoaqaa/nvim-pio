@@ -141,7 +141,8 @@ boilerplate['.clangdConfig.json'] = {
 ]],
 }
 
--- CompilationDatabase: %q
+-- CompileFlags:
+--   CompilationDatabase: %q
 boilerplate['.clangd'] = {
   static = [[
 ---
@@ -165,7 +166,6 @@ CompileFlags:
     %s
     ]
   Add: [
-    "-IC:/VSCode/data/Projects/Digital-Wall-Clock-Long-ESP32C3-Pray5/.pio/libdeps/seeed_xiao_esp32c3/ArduinoJson/src/ArduinoJson/../../",
     "@%s",
     ]
 ]],
@@ -303,17 +303,12 @@ CompileFlags:
 
       -- 🟢  Phase B: Extract all pre-sorted path flags using JIT sequential loops
       local include_pools = {
-        -- target_meta.includes_libdeps,
-        -- target_meta.includes_build,
-        -- target_meta.includes_toolchain,
-        -- target_meta.includes_compatlib,
+        target_meta.includes_libdeps,
+        target_meta.includes_build,
+        target_meta.includes_toolchain,
+        target_meta.includes_compatlib,
       }
 
-      table.insert(options_file_lines, '-I.pio/libdeps/seeed_xiao_esp32c3/ArduinoJson/src/ArduinoJson/Variant/../../../../')
-      table.insert(
-        options_file_lines,
-        '-IC:/VSCode/data/Projects/Digital-Wall-Clock-Long-ESP32C3-Pray5/.pio/libdeps/seeed_xiao_esp32c3/ArduinoJson/src/ArduinoJson/../../'
-      )
       for pool_idx = 1, #include_pools do
         local pool = include_pools[pool_idx]
         for flag_idx = 1, #(pool or {}) do
