@@ -652,14 +652,9 @@ function M.compile_commandsFix()
   if not raw_cwd then return end
   local cwd = vim.fs.normalize(raw_cwd)
   local modified = false
-  local seen_files = {}
-
-  -- Build a unique lookup matrix of existing items to prevent duplicates
-  for _, entry in ipairs(data) do
-    if entry.file then seen_files[vim.fs.normalize(entry.file)] = true end
-  end
-
-  local synthesized_entries = {}
+  
+  -- Use a fast lookup set to harvest library roots instantly without disk I/O
+  local global_include_paths = {}
 
   for _, entry in ipairs(data) do
     local base_dir = entry.directory and vim.fs.normalize(vim.trim(entry.directory)) or cwd
@@ -667,12 +662,11 @@ function M.compile_commandsFix()
     if entry.file then entry.file = vim.fs.normalize(vim.trim(entry.file)) end
 
     if entry.command and type(entry.command) == 'string' then
-      -- Normalize slashes on the whole string right away to keep logic robust
       local cmd = entry.command:gsub("\\\\", "/"):gsub("\\", "/")
       local out_parts = {}
       local last_pos = 1
 
-      -- Find every include block starting with -I or -isystem positional markers
+      -- High-speed positional parser loop for include flags
       while true do
         local start_idx, end_idx, prefix = cmd:find("(%-isystem)", last_pos)
         if not start_idx then start_idx, end_idx, prefix = cmd:find("(%-I)", last_pos) end
@@ -689,11 +683,11 @@ function M.compile_commandsFix()
         local path_end = next_space and (next_space - 1) or #cmd
         local raw_path = cmd:sub(path_start, path_end)
 
-        -- Clear double absolute path corruptions from PlatformIO core limits
+        -- Clear double-absolute path bugs
         local d1, d2 = raw_path:match("^([%a]:.-)([%a]:.*)$")
         if d1 and d2 then raw_path = d2 modified = true end
 
-        -- Expand your relative libdeps dependencies instantly into absolute statements
+        -- Expand relative project directories into absolute workspace paths
         if raw_path:find("%.pio/libdeps") or raw_path:sub(1, 1) == "." then
           local clean_sub = raw_path:match("%.%.?/(.*)$") or raw_path
           raw_path = base_dir .. "/" .. clean_sub
@@ -702,62 +696,181 @@ function M.compile_commandsFix()
 
         local final_path = vim.fs.normalize(raw_path)
         table.insert(out_parts, prefix .. (final_path:find(" ") and '"' .. final_path .. '"' or final_path))
+        
+        -- Instantly track any absolute library paths pointing to .pio/libdeps
+        if final_path:find("%.pio/libdeps") then
+          global_include_paths[final_path] = true
+        end
+
         last_pos = path_end + 1
       end
 
-      entry.command = table.concat(out_parts, "")
-    end
-
-    -- --- UNIVERSAL COMPDB LIBRARY DEEP RECURSION MAPPING ---
-    -- If this entry maps a dependency path block, capture its absolute include folders
-    if entry.command then
-      for lib_src_path in entry.command:gmatch("%-IC:/([^%s\"]+)") do
-        -- Strictly process library directory trees sitting in .pio/libdeps
-        if lib_src_path:find("%.pio/libdeps") and vim.uv.fs_stat("/" .. lib_src_path) then
-          -- Dynamically crawl the file layout structure to harvest deep sub-headers
-          local handle = vim.uv.fs_scandir("/" .. lib_src_path)
-          if handle then
-            while true do
-              local name, type_str = vim.uv.fs_scandir_next(handle)
-              if not name then break end
-              
-              if type_str == "file" and (name:match("%.hpp$") or name:match("%.h$")) then
-                local full_h_path = vim.fs.normalize("/" .. lib_src_path .. "/" .. name)
-                
-                if not seen_files[full_h_path] then
-                  seen_files[full_h_path] = true
-                  -- Build a direct first-class tracking record assignment entry block
-                  local h_entry = vim.deepcopy(entry)
-                  h_entry.file = full_h_path
-                  if h_entry.output then h_entry.output = nil end
-                  
-                  table.insert(synthesized_entries, h_entry)
-                  modified = true
-                end
-              end
-            end
-          end
-        end
+      local new_command = table.concat(out_parts, "")
+      if new_command ~= entry.command then
+        entry.command = new_command
+        modified = true
       end
     end
   end
 
-  -- Merge dynamically processed file records back to primary compilation array tree
-  for _, h_entry in ipairs(synthesized_entries) do
-    table.insert(data, h_entry)
+  -- --- NATIVE NESTED HEADER OVERRIDE GENERATION ---
+  -- Instead of scanning thousands of files on your hard drive, write a global rule
+  -- that forces clangd to retain include parameters everywhere within .pio/libdeps/
+  local clangd_config_path = vim.fs.joinpath(cwd, '.clangd')
+  local config_lines = {
+    "CompileFlags:",
+    "  CompilationDatabase: \".\"",
+    "  Add: ["
+  }
+  
+  local has_libs = false
+  for path, _ in pairs(global_include_paths) do
+    table.insert(config_lines, "    \"-I" .. path .. "\",")
+    has_libs = true
+  end
+  table.insert(config_lines, "  ]")
+
+  if has_libs then
+    local file_stream = io.open(clangd_config_path, "w")
+    if file_stream then
+      file_stream:write(table.concat(config_lines, "\n"))
+      file_stream:close()
+    end
   end
 
   if modified then
     local jok, formatted = pcall(misc.jsonFormat, data)
-    if jok then
-      misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
-      OS.notify("compiledb: Absolute paths fixed and deep library header maps synthesized!", "info")
-    end
+    if jok then misc.writeFile(filename, formatted, { overwrite = true, mkdir = true }) end
+    OS.notify("compiledb: Paths corrected instantly!", "info")
   else
     OS.notify("no need to fixPaths")
   end
   _G.isBusy = false
 end
+
+
+
+
+
+
+-- function M.compile_commandsFix()
+--   local filename = vim.fs.joinpath(vim.uv.cwd(), 'compile_commands.json')
+--   local content = vim.fn.readfile(filename)
+--   if #content == 0 then return end
+--
+--   local ok, data = pcall(vim.json.decode, table.concat(content, '\n'))
+--   if not ok or type(data) ~= 'table' then return end
+--
+--   local raw_cwd = vim.uv.cwd()
+--   if not raw_cwd then return end
+--   local cwd = vim.fs.normalize(raw_cwd)
+--   local modified = false
+--   local seen_files = {}
+--
+--   -- Build a unique lookup matrix of existing items to prevent duplicates
+--   for _, entry in ipairs(data) do
+--     if entry.file then seen_files[vim.fs.normalize(entry.file)] = true end
+--   end
+--
+--   local synthesized_entries = {}
+--
+--   for _, entry in ipairs(data) do
+--     local base_dir = entry.directory and vim.fs.normalize(vim.trim(entry.directory)) or cwd
+--     entry.directory = base_dir
+--     if entry.file then entry.file = vim.fs.normalize(vim.trim(entry.file)) end
+--
+--     if entry.command and type(entry.command) == 'string' then
+--       -- Normalize slashes on the whole string right away to keep logic robust
+--       local cmd = entry.command:gsub("\\\\", "/"):gsub("\\", "/")
+--       local out_parts = {}
+--       local last_pos = 1
+--
+--       -- Find every include block starting with -I or -isystem positional markers
+--       while true do
+--         local start_idx, end_idx, prefix = cmd:find("(%-isystem)", last_pos)
+--         if not start_idx then start_idx, end_idx, prefix = cmd:find("(%-I)", last_pos) end
+--
+--         if not start_idx then
+--           table.insert(out_parts, cmd:sub(last_pos))
+--           break
+--         end
+--
+--         table.insert(out_parts, cmd:sub(last_pos, start_idx - 1))
+--
+--         local path_start = end_idx + 1
+--         local next_space = cmd:find("%s", path_start)
+--         local path_end = next_space and (next_space - 1) or #cmd
+--         local raw_path = cmd:sub(path_start, path_end)
+--
+--         -- Clear double absolute path corruptions from PlatformIO core limits
+--         local d1, d2 = raw_path:match("^([%a]:.-)([%a]:.*)$")
+--         if d1 and d2 then raw_path = d2 modified = true end
+--
+--         -- Expand your relative libdeps dependencies instantly into absolute statements
+--         if raw_path:find("%.pio/libdeps") or raw_path:sub(1, 1) == "." then
+--           local clean_sub = raw_path:match("%.%.?/(.*)$") or raw_path
+--           raw_path = base_dir .. "/" .. clean_sub
+--           modified = true
+--         end
+--
+--         local final_path = vim.fs.normalize(raw_path)
+--         table.insert(out_parts, prefix .. (final_path:find(" ") and '"' .. final_path .. '"' or final_path))
+--         last_pos = path_end + 1
+--       end
+--
+--       entry.command = table.concat(out_parts, "")
+--     end
+--
+--     -- --- UNIVERSAL COMPDB LIBRARY DEEP RECURSION MAPPING ---
+--     -- If this entry maps a dependency path block, capture its absolute include folders
+--     if entry.command then
+--       for lib_src_path in entry.command:gmatch("%-IC:/([^%s\"]+)") do
+--         -- Strictly process library directory trees sitting in .pio/libdeps
+--         if lib_src_path:find("%.pio/libdeps") and vim.uv.fs_stat("/" .. lib_src_path) then
+--           -- Dynamically crawl the file layout structure to harvest deep sub-headers
+--           local handle = vim.uv.fs_scandir("/" .. lib_src_path)
+--           if handle then
+--             while true do
+--               local name, type_str = vim.uv.fs_scandir_next(handle)
+--               if not name then break end
+--
+--               if type_str == "file" and (name:match("%.hpp$") or name:match("%.h$")) then
+--                 local full_h_path = vim.fs.normalize("/" .. lib_src_path .. "/" .. name)
+--
+--                 if not seen_files[full_h_path] then
+--                   seen_files[full_h_path] = true
+--                   -- Build a direct first-class tracking record assignment entry block
+--                   local h_entry = vim.deepcopy(entry)
+--                   h_entry.file = full_h_path
+--                   if h_entry.output then h_entry.output = nil end
+--
+--                   table.insert(synthesized_entries, h_entry)
+--                   modified = true
+--                 end
+--               end
+--             end
+--           end
+--         end
+--       end
+--     end
+--   end
+--
+--   -- Merge dynamically processed file records back to primary compilation array tree
+--   for _, h_entry in ipairs(synthesized_entries) do
+--     table.insert(data, h_entry)
+--   end
+--
+--   if modified then
+--     local jok, formatted = pcall(misc.jsonFormat, data)
+--     if jok then
+--       misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
+--       OS.notify("compiledb: Absolute paths fixed and deep library header maps synthesized!", "info")
+--     end
+--   else
+--     OS.notify("no need to fixPaths")
+--   end
+--   _G.isBusy = false
+-- end
 
 
 -- function M.compile_commandsFix() --M.dbPathsFix()
