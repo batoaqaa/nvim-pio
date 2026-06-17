@@ -247,6 +247,7 @@ CompileFlags:
 
     -- 2. METADATA EXTRACTOR
     local options_file_lines = {}
+    local formatted_libdeps = {}
     local target_meta = nil
 
     if _G.metadata then
@@ -309,7 +310,7 @@ CompileFlags:
 
       -- 🟢  Phase B: Extract all pre-sorted path flags using JIT sequential loops
       local include_pools = {
-        target_meta.includes_libdeps,
+        -- target_meta.includes_libdeps,
         -- target_meta.includes_build,
         -- target_meta.includes_toolchain,
         -- target_meta.includes_compatlib,
@@ -320,10 +321,14 @@ CompileFlags:
         for flag_idx = 1, #(pool or {}) do
           local raw_flag = pool[flag_idx]
           if type(raw_flag) == 'string' and raw_flag ~= '' then
-            table.insert(options_file_lines, string.format('%q', vim.fs.normalize(raw_flag)))
-            -- table.insert(options_file_lines, vim.fs.normalize(raw_flag))
+            -- table.insert(options_file_lines, string.format('%q', vim.fs.normalize(raw_flag)))
+            table.insert(options_file_lines, vim.fs.normalize(raw_flag))
           end
         end
+      end
+
+      for i = 1, #target_meta.includes_libdeps do
+        table.insert(formatted_libdeps, string.format('%q', target_meta.includes_libdeps[i]))
       end
 
       -- 🟢  Phase C: Write fresh data lines out to disk
