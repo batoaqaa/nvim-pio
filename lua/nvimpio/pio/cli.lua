@@ -137,7 +137,7 @@ function M.piorun(arg_table)
   elseif arg_table[1] == 'uploadfs' then M.piouploadfs()
   elseif arg_table[1] == 'build' then M.piobuild()
   elseif arg_table[1] == 'clean' then M.pioclean()
-  else vim.misc.notify('Invalid argument: build, upload, uploadfs or clean', 'warn') end
+  else OS.notify('Invalid argument: build, upload, uploadfs or clean', 'warn') end
 end
 -- stylua: ignore end
 

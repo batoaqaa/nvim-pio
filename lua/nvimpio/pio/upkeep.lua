@@ -1,7 +1,6 @@
 ---@class platformio.utils.pio
 local M = {}
 
-local clangd = require('nvimpio.clangd.control')
 local misc = require('nvimpio.utils.misc')
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
@@ -388,9 +387,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
           local is_managed_lib = clean_path:match("%.pio/libdeps")
           -- If it's outside your projecto repo, or inside the downloaded library cache, it's third-party!
           -- Unlike -I, the -isystem flag requires a separator (space or =) in clangd configuration files to parse correctly.
-          -- local prefix = (not is_under_project or is_managed_lib) and "-isystem " or "-I"
-          -- local prefix = (not is_under_project or is_managed_lib) and "-isystem=" or "-I"
-          local prefix = (not is_under_project or is_managed_lib) and "-I" or "-I"
+          local prefix = (not is_under_project or is_managed_lib) and "-isystem " or "-I"
+          -- local prefix = (not is_under_project or is_managed_lib) and "-I" or "-I"
           -- Direct concatenation optimization
           table.insert(res, prefix .. clean_path)
         end
@@ -399,7 +397,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     end
 
     -- 3. Get PlatformIO project libdep includes paths
-    local function get_pio_includes(root_path, board)
+    local function get_libdeps_includes(root_path, board)
       if not root_path or not board then return {}, {} end
 
       local base_dir = vim.fs.joinpath(root_path, ".pio", "libdeps", board)
@@ -422,53 +420,18 @@ fetch_metadata = function(callback, active_env, from, attempts)
             if not name then break end
 
             -- If it contains even one sub-folder, treat it as a nested library path
-            if type_str == "directory" then
-              is_nested = true
-              break
-            end
+            if type_str == "directory" then is_nested = true break end
           end
         end
 
         -- Sort the paths into their perfect configuration streams
-        if is_nested then
-          table.insert(nested_libs, "-I" .. normalized_path)
-        else
-          table.insert(flat_libs, "-isystem " .. normalized_path)
-        end
+        if is_nested then table.insert(nested_libs, "-I" .. normalized_path)
+        else table.insert(flat_libs, "-isystem " .. normalized_path) end
       end
 
       -- return flat_libs, nested_libs
       return nested_libs
     end
-
-    -- local function get_pio_includes(root_path, board)
-    --   if not root_path or not board then return {} end
-    --
-    --   -- joinpath natively joins and completely normalizes the string
-    --   local base_dir = vim.fs.joinpath(root_path, ".pio", "libdeps", board)
-    --   if vim.fn.isdirectory(base_dir) == 0 then return {} end
-    --
-    --   -- -- Setting depth = 2 restricts the search strictly to your main libraries
-    --   -- local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge, stop = 'src' })
-    --   -- Setting no depth restricts the search all subfolders libraries
-    --   local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge })
-    --   return src_dirs
-    --
-    --   -- local includes = {}
-    --   -- -- to get all paths under src/
-    --   -- for _, src in ipairs(src_dirs) do
-    --   --   table.insert(includes, src) -- already fully normalized by vim.fs.find
-    --   --
-    --   --   for name, type in vim.fs.dir(src, { depth = 20 }) do
-    --   --     if type == "directory" then
-    --   --       -- Clean, idiomatic path construction with zero manual string tricks
-    --   --       table.insert(includes, vim.fs.joinpath(src, name))
-    --   --     end
-    --   --   end
-    --   -- end
-    --   --
-    --   -- return includes
-    -- end
 
     -- 4. Base Paths & Compilers
     meta.cc_path = norm(data.cc_path)
@@ -488,7 +451,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     meta.includes_toolchain = map_includes(inc.toolchain)
     meta.includes_compatlib = map_includes(inc.compatlib)
     -- meta.includes_libdeps = map_includes(get_pio_includes(project_root, active_env))
-    meta.includes_libdeps = get_pio_includes(project_root, active_env)
+    meta.includes_libdeps = get_libdeps_includes(project_root, active_env)
     --
 
     -- --🟢  keep for later if to deal with cxx_flags
@@ -532,8 +495,10 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
     -- Secure the validation signature token right after creation succeeds
     local read_ok, fresh_checksum = misc.readFile(checksum_file)
-    if read_ok and fresh_checksum ~= '' and fresh_checksum ~= meta.last_projectChecksum then OS.notify('checksum change ', 'info') end
-    if read_ok and fresh_checksum ~= '' then meta.last_projectChecksum = fresh_checksum end
+    if read_ok and fresh_checksum ~= '' and fresh_checksum ~= meta.last_projectChecksum then
+      meta.last_projectChecksum = fresh_checksum
+      OS.notify('checksum change ', 'info')
+    end
 
     vim.schedule(function()
       local boiler = require('nvimpio.boilerplate')

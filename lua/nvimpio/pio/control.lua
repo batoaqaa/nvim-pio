@@ -145,11 +145,11 @@ function M.start_watchers()
 
         self.isBusy = true
         _G.isBusy = true
-        misc.notify('PIO platformio.ini change: compiledb update ...', 'info')
+        OS.notify('PIO platformio.ini change: compiledb update ...', 'info')
         vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
           vim.schedule(function()
             if obj.code == 0 then
-              misc.notify('PIO platformio.ini change: compiledb update Success', 'info')
+              OS.notify('PIO platformio.ini change: compiledb update Success', 'info')
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function(success)
                 if success then
@@ -162,7 +162,7 @@ function M.start_watchers()
               end, 'PIO platformio.ini  change: ')
             else
               local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
-              misc.notify('PIO platformio.ini change: Build Failed: ' .. err, 'error')
+              OS.notify('PIO platformio.ini change: Build Failed: ' .. err, 'error')
               self.isBusy = false
               _G.isBusy = false
             end
@@ -189,7 +189,7 @@ function M.start_watchers()
             local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
             pio_refresh(function(success)
               if success then
-                misc.notify('PIO checksum: Metadata synced', 'info')
+                OS.notify('PIO checksum: Metadata synced', 'info')
                 clangdRestart()
               end
               _G.isBusy = false
@@ -251,7 +251,7 @@ end
 --INFO: 6.  Exported setup function
 -------------------------------------------------------------------------------
 function M.init(clangd_config)
-  misc.notify('PIO Control: initialize', "info")
+  OS.notify('PIO Control: initialize', "info")
   require('nvimpio.pio.commands')
   require('nvimpio.pio.metadata') --.load_project_config()
   -- require('nvimpio.pio.diagnostic')

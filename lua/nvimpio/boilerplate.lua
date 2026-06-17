@@ -309,14 +309,13 @@ CompileFlags:
         end
       end
 
-      -- 🟢  Phase B: Extract all pre-sorted path flags using JIT sequential loops
+      -- 🟢  Phase B: Extract all pre-sorted include path using JIT sequential loops
       local include_pools = {
         -- target_meta.includes_libdeps,
         -- target_meta.includes_build,
         -- target_meta.includes_toolchain,
         -- target_meta.includes_compatlib,
       }
-
       for pool_idx = 1, #include_pools do
         local pool = include_pools[pool_idx]
         for flag_idx = 1, #(pool or {}) do
@@ -328,6 +327,7 @@ CompileFlags:
         end
       end
 
+      -- prepare include lipdeps (set from upkeep to have nested includes like ArduinoJson)
       for i = 1, #target_meta.includes_libdeps do
         table.insert(formatted_libdeps, string.format('%q', target_meta.includes_libdeps[i]))
       end

@@ -80,19 +80,19 @@ end
 --         result:install({}, function(success, _)
 --           if not success then
 --             vim.defer_fn(function()
---               misc.notify('LSP: ' .. tool .. ' failed to install', 'error')
+--               OS.notify('LSP: ' .. tool .. ' failed to install', 'error')
 --             end, 0)
 --           end
 --         end)
 --         -- end
 --       else
 --         vim.defer_fn(function()
---           misc.notify('LSP: ' .. tool .. ' already installed', 'warn')
+--           OS.notify('LSP: ' .. tool .. ' already installed', 'warn')
 --         end, 0)
 --       end
 --     else
 --       vim.defer_fn(function()
---         misc.notify('LSP: Failed to get package: ' .. tool, 'warn')
+--         OS.notify('LSP: Failed to get package: ' .. tool, 'warn')
 --       end, 0)
 --     end
 --   end

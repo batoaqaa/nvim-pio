@@ -147,7 +147,7 @@ end
 --         local pio = require('nvimpio.utils.pio')
 --         pio.run_sequence({
 --             cmnds = {'pio pkg install --library "' .. pkg_name .. '"'},
---             cb = function () vim.misc.notify('Piolib: Done', "info") end
+--             cb = function () OS.notify('Piolib: Done', "info") end
 --         })
 --       end)
 --       return true
@@ -174,10 +174,6 @@ end
 -- end
 
 function M.piolib(lib_arg_list)
-  if not misc.pio_install_check() then
-    return
-  end
-
   local lib_str = ''
 
   for _, v in pairs(lib_arg_list) do
@@ -203,7 +199,7 @@ function M.piolib(lib_arg_list)
 
     pick_library(json_data)
   else
-    misc.notify('API Request to platformio return HTTP code: ' .. res['status'] .. '\nplease run `curl -LI ' .. url .. '` for complete information', 'error')
+    OS.notify('API Request to platformio return HTTP code: ' .. res['status'] .. '\nplease run `curl -LI ' .. url .. '` for complete information', 'error')
   end
 end
 
