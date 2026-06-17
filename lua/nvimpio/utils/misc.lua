@@ -415,20 +415,6 @@ end
 
 --INFO:
 ------------------------------------------------------
-function M.pio_install_check()
-  local handle = (jit.os == 'Windows') and assert(io.popen('where.exe pio 2>./nul')) or assert(io.popen('which pio 2>/dev/null'))
-  local pio_path = assert(handle:read('*a'))
-  handle:close()
-
-  if #pio_path == 0 then
-    M.notify('Platformio not found in the path', 'error')
-    return false
-  end
-  return true
-end
-
---INFO:
-------------------------------------------------------
 -- stylua: ignore
 function M.manage_gitignore()
   local path = vim.fs.joinpath(uv.cwd(), '.gitignore')
