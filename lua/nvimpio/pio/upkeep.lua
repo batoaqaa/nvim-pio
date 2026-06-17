@@ -437,7 +437,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
         end
       end
 
-      return flat_libs, nested_libs
+      -- return flat_libs, nested_libs
+      return nested_libs
     end
 
     -- local function get_pio_includes(root_path, board)
