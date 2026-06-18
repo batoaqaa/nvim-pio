@@ -251,20 +251,31 @@ end
 
 
 
-local dropdown_settings = require('telescope.themes').get_dropdown({
-  borderchars = {
-    prompt  = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
-    results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
-    preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+-- THE PROFESSIONALLY OPTIMIZED LAYOUT:
+-- Bypasses nested theme padding math to force a clean, one-line prompt box.
+local dropdown_settings = {
+  theme            = "dropdown",
+  layout_strategy  = "dropdown",
+  initial_mode     = "normal",
+  sorting_strategy = "ascending",
+  prompt_prefix    = "🔍  ",
+  selection_caret  = "❯ ",
+  entry_prefix     = "  ",
+  
+  -- THE BAR FIX: Completely removes border lines without creating layout overflow padding
+  border           = false, 
+  borderchars      = {
+    prompt  = { " ", " ", " ", " ", " ", " ", " ", " " },
+    results = { " ", " ", " ", " ", " ", " ", " ", " " },
+    preview = { "─", "│", "─", "│", "╭", "╮", "╯", "╰" },
   },
-  prompt_position  = 'top',
-  prompt_prefix    = '🔍  ',
-  selection_caret  = '❯ ',
-  entry_prefix     = '  ',
-  initial_mode     = 'normal',
-  layout_config    = { height = 25 },
-  sorting_strategy = 'ascending',
-})
+  
+  -- Explicitly isolates sizing parameters
+  layout_config = {
+    height = 25, -- Keeps the list view exactly 25 lines tall
+    prompt_position = "top",
+  },
+}
 
 -- Backup the core native UI selection channel handler
 local original_select = vim.ui.select
@@ -285,7 +296,7 @@ vim.ui.select = function(items, opts, on_choice)
       return tostring(item)
     end
 
-    -- Convert items array using our format helper to guarantee your [X] layouts stay intact
+    -- Convert items array using our format helper to guarantee layouts stay intact
     local item_strings = {}
     for _, item in ipairs(items) do
       table.insert(item_strings, format_single_item(item))
@@ -299,8 +310,7 @@ vim.ui.select = function(items, opts, on_choice)
       finder = require('telescope.finders').new_table({ results = item_strings }),
       sorter = require('telescope.sorters').get_generic_fuzzy_sorter({}),
       attach_mappings = function(prompt_bufnr, map)
-
-        -- Binds <Esc> and q to explicitly fire the save callback before killing the window
+        
         local close_and_trigger_save = function()
           actions.close(prompt_bufnr)
           vim.schedule(function()
@@ -314,14 +324,12 @@ vim.ui.select = function(items, opts, on_choice)
         actions.select_default:replace(function()
           local selection = action_state.get_selected_entry()
           actions.close(prompt_bufnr)
-
+          
           if selection then
-            -- Find the absolute true dataset index by matching text strings safely
             local true_item = nil
             local true_index = nil
-
+            
             for i, item in ipairs(items) do
-              -- Uses the exact same formatter to match the string flawlessly
               if format_single_item(item) == selection.value then
                 true_item = item
                 true_index = i
@@ -329,7 +337,6 @@ vim.ui.select = function(items, opts, on_choice)
               end
             end
 
-            -- Pass the true data frame structure back down to your parent modules
             if true_item and true_index then
               vim.schedule(function()
                 on_choice(true_item, true_index)
@@ -339,7 +346,7 @@ vim.ui.select = function(items, opts, on_choice)
                 on_choice(items[selection.index], selection.index)
               end)
             end
-          else
+          else 
             vim.schedule(function()
               on_choice(nil, nil)
             end)
@@ -351,7 +358,6 @@ vim.ui.select = function(items, opts, on_choice)
 
     require('telescope.pickers').new({}, picker_opts):find()
   else
-    -- Seamless ultimate fallback if the user has an incomplete runtime profile
     original_select(items, opts, on_choice)
   end
 end
