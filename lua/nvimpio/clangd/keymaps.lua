@@ -71,12 +71,25 @@ function K.lspKeymaps(client, bufnr)
 
   if client.server_capabilities.documentSymbolProvider then
     -- bufkeymap('n', 'glwd', vim.lsp.buf.document_symbol, '[D]ocument symbols')
-    bufkeymap('n', 'glwd', function()
-      require('telescope.builtin').lsp_document_symbols({
-        symbols = { 'function', 'method' }, -- Pre-filter to only show functions and methods
-      })
-    end, 'Find [W]orkspace Symbols (Functions)')
+    -- bufkeymap('n', 'glwd', function()
+    --   require('telescope.builtin').lsp_document_symbols({
+    --     symbols = { 'function', 'method' }, -- Pre-filter to only show functions and methods
+    --   })
+    -- end, 'Find [W]orkspace Symbols (Functions)')
     -- bufkeymap('n', 'glwd', <Cmd>Telescope lsp_document_symbols<CR>, '[D]ocument [S]ymbols')
+    bufkeymap('n', 'glwd', function()
+      -- Call the built-in picker natively
+      require('telescope.builtin').lsp_document_symbols(
+        -- Merge your custom layout preferences directly into this specific call!
+        require('telescope.themes').get_dropdown({
+          symbols = { 'function', 'method' },
+          query = ' ', -- Triggers clangd instantly
+          initial_mode = 'normal', -- Enforces normal mode navigation right away
+          prompt_prefix = '🔍 ',
+          selection_caret = '❯ ',
+        })
+      )
+    end, 'Find [W]orkspace Symbols (Functions)')
   end
   if client:supports_method('workspace/symbol') then
     -- if client.server_capabilities.workspaceSymbolProvider then
