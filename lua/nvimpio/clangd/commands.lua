@@ -1,7 +1,7 @@
 local control = require('nvimpio.clangd.control')
 --------------------------------------------------------------------------------
 -- INFO: ClangFormatterPick
-vim.api.nvim_create_user_command('ClangFormatterPick', function()
+vim.api.nvim_create_user_command('ClangdFormatterPick', function()
   control.setFormatStyle()
 end, {})
 
