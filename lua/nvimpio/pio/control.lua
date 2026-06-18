@@ -225,11 +225,9 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
   local original_select = vim.ui.select
 
   -- 2. OVERRIDE VIM.UI.SELECT GLOBALLY FOR ALL FILES NATIVELY:
-  -- This intercepts any selection call from any file in your plugin automatically.
   vim.ui.select = function(items, opts, on_choice)
     local telescope_ok, _ = pcall(require, 'telescope')
 
-    -- If Telescope files are on disk, manually build the interface on the fly
     if telescope_ok then
       opts = opts or {}
       local prompt_string = opts.prompt or "Select Option:"
@@ -246,18 +244,20 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
         table.insert(item_strings, tostring(formatted))
       end
 
-      -- Call Telescope's core layout modules directly (Bypasses load_extension completely!)
+      -- Call Telescope's core layout modules directly
       local pickers = require('telescope.pickers')
       local finders = require('telescope.finders')
-      local sorters = require('telescope.config').values.generic_fuzzy_sorter({})
       local actions = require('telescope.actions')
       local action_state = require('telescope.actions.state')
+      
+      -- FIXED: Pull the fuzzy sorter directly out of telescope.sorters natively
+      local sorter_engine = require('telescope.sorters').get_generic_fuzzy_sorter({})
 
       -- Merge your dropdown styling variables directly with the runtime items data
       local merged_options = vim.tbl_deep_extend('force', dropdown_settings, {
         prompt_title = prompt_string,
         finder = finders.new_table({ results = item_strings }),
-        sorter = sorters,
+        sorter = sorter_engine, -- Passes the corrected sorter engine object
         attach_mappings = function(prompt_bufnr, _)
           actions.select_default:replace(function()
             local selection = action_state.get_selected_entry()
