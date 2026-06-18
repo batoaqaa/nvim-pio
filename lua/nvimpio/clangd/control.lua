@@ -233,6 +233,7 @@ end
 --------------------------------------------------------------------------------
 function M.setFormatStyle()
   local styles = { 'LLVM', 'Google', 'Chromium', 'Mozilla', 'WebKit', 'Microsoft', 'GNU' }
+  vim.cmd('stopinsert')
   vim.ui.select(styles, {
     prompt = 'Select Clang-Format base style:',
   }, function(choice)
