@@ -71,7 +71,7 @@ function K.lspKeymaps(client, bufnr)
 
   if client.server_capabilities.documentSymbolProvider then
     -- bufkeymap('n', 'glwd', vim.lsp.buf.document_symbol, '[D]ocument symbols')
-    bufkeymap('n', 'glww', function()
+    bufkeymap('n', 'glwd', function()
       require('telescope.builtin').lsp_document_symbols({
         symbols = { 'function', 'method' }, -- Pre-filter to only show functions and methods
       })
