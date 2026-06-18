@@ -251,26 +251,31 @@ end
 
 
 
--- THE PROFESSIONALLY COMPACT LAYOUT CONFIGURATION:
--- Uses the native 'center' strategy to force a clean, one-line prompt box.
+-- THE PROFESSIONALLY OPTIMIZED COMPACT DROPDOWN LAYOUT:
+-- Forces a perfectly tight, 1-line input box by disabling formal prompt window borders.
 local dropdown_settings = {
-  layout_strategy  = "center", -- Fixed: Replaced 'dropdown' with the valid 'center' engine
+  theme            = "dropdown",
+  layout_strategy  = "dropdown",
   initial_mode     = "normal",
   sorting_strategy = "ascending",
   prompt_prefix    = "🔍  ",
   selection_caret  = "❯ ",
   entry_prefix     = "  ",
   
-  border           = true, 
-  borderchars      = {
-    prompt  = { " ", " ", " ", " ", " ", " ", " ", " " },
-    results = { " ", " ", " ", " ", " ", " ", " ", " " },
+  -- THE ABSOLUTE FIX FOR THE 3-LINE INPUT BOX:
+  -- Passing an empty string to prompt_title avoids title margin padding blocks.
+  prompt_title     = "", 
+  
+  -- Defining flat borderchars variables tells Telescope's rendering engine 
+  -- to lock the prompt window to exactly 1 line tall with zero vertical spacing.
+  borderchars = {
+    prompt  = { "─", "│", " ", "│", "╭", "╮", "│", "│" }, -- Opens the bottom of the input box
+    results = { "─", "│", "─", "│", "├", "┤", "╯", "╰" }, -- Blends the list cleanly below it
     preview = { "─", "│", "─", "│", "╭", "╮", "╯", "╰" },
   },
   
   layout_config = {
-    height = 25,          -- Locks the list view rows
-    width = 0.55,         -- Center box takes 55% of horizontal screen width
+    height = 25, 
     prompt_position = "top",
   },
 }
@@ -304,7 +309,10 @@ vim.ui.select = function(items, opts, on_choice)
     local actions = require('telescope.actions')
 
     local picker_opts = vim.tbl_deep_extend('force', dropdown_settings, {
-      prompt_title = opts.prompt or "Select Option:",
+      -- We override the prompt title mapping to be completely empty.
+      -- The actual prompt text is safely displayed inline via your opts.prompt string!
+      prompt_title = "",
+      prompt_prefix = (opts.prompt and ("🔍 " .. opts.prompt .. " › ")) or "🔍  ",
       finder = require('telescope.finders').new_table({ results = item_strings }),
       sorter = require('telescope.sorters').get_generic_fuzzy_sorter({}),
       attach_mappings = function(prompt_bufnr, map)
@@ -354,7 +362,9 @@ vim.ui.select = function(items, opts, on_choice)
       end,
     })
 
-    require('telescope.pickers').new({}, picker_opts):find()
+    -- Run through Telescope's official theme constructor wrapper pipeline
+    local final_theme = require('telescope.themes').get_dropdown(picker_opts)
+    require('telescope.pickers').new({}, final_theme):find()
   else
     original_select(items, opts, on_choice)
   end
