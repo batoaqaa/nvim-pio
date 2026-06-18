@@ -232,12 +232,11 @@ if telescope_ok then
   })
   -- Safely inject options into Telescope's global config cache.
   -- 'keep' ensures we only apply our styles if the user left them blank.
-  local ts_config = require('telescope.config')
   ts_config.values.extensions = ts_config.values.extensions or {}
   ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
     'keep',
-    ts_config.values.extensions['ui-select'] or {},
-    dropdown_settings
+    dropdown_settings,
+    ts_config.values.extensions['ui-select'] or {}
   )
   -- Cleanly load the extension module into memory
   pcall(telescope.load_extension, 'ui-select')
