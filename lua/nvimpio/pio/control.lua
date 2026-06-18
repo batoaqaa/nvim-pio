@@ -261,10 +261,10 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
       })
     end
 
-    -- THE SAFE, UN-CRASHABLE REGISTRY HANDOFF:
+    -- THE SAFE, WORKING REGISTRY HANDOFF:
     if telescope_ok and telescope.extensions and telescope.extensions["ui-select"] then
-      -- Extension container is ["ui-select"], but its execution field is .ui_select
-      telescope.extensions["ui-select"].ui_select(items, opts, on_choice)
+      -- Extension container is ["ui-select"], execution field is .telescope_ui_select
+      telescope.extensions["ui-select"].telescope_ui_select(items, opts, on_choice)
     else
       original_select(items, opts, on_choice)
     end
