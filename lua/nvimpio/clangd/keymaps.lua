@@ -75,8 +75,14 @@ function K.lspKeymaps(client, bufnr)
   end
   if client:supports_method('workspace/symbol') then
     -- if client.server_capabilities.workspaceSymbolProvider then
-    bufkeymap('n', 'glww', vim.lsp.buf.workspace_symbol, 'List [w]orkspace symbols')
+    -- bufkeymap('n', 'glww', vim.lsp.buf.workspace_symbol, 'List [w]orkspace symbols')
     -- bufkeymap('n', 'glww', require('telescope.builtin').lsp_dynamic_workspace_symbols, '[W]orkspace [S]ymbols')
+    bufkeymap('n', 'glww', function()
+      require('telescope.builtin').lsp_dynamic_workspace_symbols({
+        symbols = { 'function', 'method' }, -- Pre-filter to only show functions and methods
+        query = ' ',
+      })
+    end, 'Find [W]orkspace Symbols (Functions)')
   end
   if client.server_capabilities.workspace then
     bufkeymap('n', 'glwa', vim.lsp.buf.add_workspace_folder, 'Workspace [a]dd folder')
