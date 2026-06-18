@@ -295,7 +295,7 @@ function M.clangFormat(result)
     cliTerm:send(pop(M.queue))
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify('Clang formatter: Done', "info")
-    if cliTerm then cliTerm:close() end
+    if cliTerm then cliTerm:hide() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
     M.cleanSequencer()
