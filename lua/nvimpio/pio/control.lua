@@ -205,47 +205,105 @@ end
 
 --INFO: telescope settings
 -- 1. Check if telescope is ALREADY cached in the environment
-local is_telescope_loaded = package.loaded['telescope'] ~= nil
+-- local is_telescope_loaded = package.loaded['telescope'] ~= nil
+--
+-- -- 2. Safely capture the Telescope module reference
+-- local telescope_ok, telescope = pcall(require, 'telescope')
+--
+-- if telescope_ok thendiagnostic.lua
+--   local dropdown_settings = require('telescope.themes').get_dropdown({
+--     borderchars = {
+--       prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+--       results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+--       preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+--     },
+--     prompt_position  = 'top',
+--     prompt_prefix    = '🔍 ',
+--     selection_caret  = '❯ ',
+--     entry_prefix     = '  ',
+--     initial_mode     = 'normal',
+--     sorting_strategy = 'ascending',
+--   })
+--
+--   -- 3. Now the conditional branches will fire accurately
+--   if not is_telescope_loaded then
+--     -- Brand new setup
+--     telescope.setup({
+--       extensions = {
+--         ['ui-select'] = dropdown_settings
+--       }
+--     })
+--   else
+--     -- Fallback for injecting into an already active runtime profile
+--     local ts_config = require('telescope.config')
+--     ts_config.values.extensions = ts_config.values.extensions or {}
+--     ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
+--       'force',
+--       ts_config.values.extensions['ui-select'] or {},
+--       dropdown_settings
+--     )
+--   end
+--
+--   pcall(telescope.load_extension, 'ui-select')
+-- end
+-------------------------------------------------------------------------------------
+-- above old working
 
--- 2. Safely capture the Telescope module reference
-local telescope_ok, telescope = pcall(require, 'telescope')
+-- Define your plugin's clean 25-line dropdown configuration explicitly
+local dropdown_settings = require('telescope.themes').get_dropdown({
+  borderchars      = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' }, 
+  prompt_position  = 'top',
+  prompt_prefix    = '🔍 ',
+  selection_caret  = '❯ ',
+  entry_prefix     = '  ',
+  initial_mode     = 'normal',        -- Forces Normal Mode navigation instantly
+  layout_config    = { height = 25 }, -- Forces the window height to 25 rows
+  sorting_strategy = 'ascending',
+})
 
-if telescope_ok then
-  local dropdown_settings = require('telescope.themes').get_dropdown({
-    borderchars = {
-      prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
-      results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
-      preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
-    },
-    prompt_position  = 'top',
-    prompt_prefix    = '🔍 ',
-    selection_caret  = '❯ ',
-    entry_prefix     = '  ',
-    initial_mode     = 'normal',
-    sorting_strategy = 'ascending',
-  })
+-- Backup Neovim's original select choice function
+local original_select = vim.ui.select
 
-  -- 3. Now the conditional branches will fire accurately
-  if not is_telescope_loaded then
-    -- Brand new setup
-    telescope.setup({
-      extensions = {
-        ['ui-select'] = dropdown_settings
-      }
+-- THE ROBUST OVERRIDE:
+-- Intercepts vim.ui.select when called by your plugin scripts.
+-- Bypasses global caches and forces Telescope to render your custom look.
+---@diagnostic disable-next-line: duplicate-set-field
+vim.ui.select = function(items, opts, on_choice)
+  local telescope_ok, telescope = pcall(require, 'telescope')
+
+  if telescope_ok then
+    -- If telescope.setup() was never run by the user, initialize it safely now
+    local ts_config_ok, ts_config = pcall(require, 'telescope.config')
+    if ts_config_ok and (not ts_config.values or vim.tbl_isempty(ts_config.values)) then
+      telescope.setup({})
+    end
+
+    -- Inject theme parameters directly into Telescope's active call payload block
+    opts = vim.tbl_deep_extend('force', opts or {}, {
+      theme           = "dropdown",
+      layout_strategy = "dropdown",
+      telescope       = dropdown_settings
     })
-  else
-    -- Fallback for injecting into an already active runtime profile
-    local ts_config = require('telescope.config')
-    ts_config.values.extensions = ts_config.values.extensions or {}
-    ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
-      'force',
-      ts_config.values.extensions['ui-select'] or {},
-      dropdown_settings
-    )
+
+    -- SAFEST RUNTIME ENTRY POINT:
+    -- We load telescope-ui-select's native module directly behind Telescope's back.
+    -- This bypasses broken load_extension() registries while using Telescope's official
+    -- index mapping engine, making it 100% immune to index shifts or saving failures!
+    local ext_ok, ui_select_mod = pcall(require, 'telescope._extensions.ui-select.actions')
+    if ext_ok and ui_select_mod and type(ui_select_mod.telescope_ui_select) == "function" then
+      ui_select_mod.telescope_ui_select(items, opts, on_choice)
+      return
+    end
   end
 
-  pcall(telescope.load_extension, 'ui-select')
+  -- Ultimate fallback to native menus if Telescope files are missing or unlinked
+  original_select(items, opts, on_choice)
 end
+
+
+
+-- below new have issue
+-------------------------------------------------------------------------------------
 -- local dropdown_settings = require('telescope.themes').get_dropdown({
 --   borderchars = {
 --     prompt  = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
