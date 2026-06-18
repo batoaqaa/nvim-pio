@@ -223,8 +223,7 @@ if telescope_ok then
     initial_mode     = 'normal',  -- The targeted layout fix
     sorting_strategy = 'ascending',
   })
-
-  -- 1. Safely inject options into Telescope's global config cache.
+  -- Safely inject options into Telescope's global config cache.
   -- 'keep' ensures we only apply our styles if the user left them blank.
   local ts_config = require('telescope.config')
   ts_config.values.extensions = ts_config.values.extensions or {}
@@ -233,10 +232,8 @@ if telescope_ok then
     ts_config.values.extensions['ui-select'] or {},
     dropdown_settings
   )
-
-  -- 2. Cleanly load the extension module into memory
+  -- Cleanly load the extension module into memory
   pcall(telescope.load_extension, 'ui-select')
-
   -- 3. Live Patching fallback (Fires if the extension was already loaded beforehand)
   if is_telescope_loaded then
     local ui_select_mod = package.loaded['telescope._extensions.ui-select']
@@ -249,45 +246,6 @@ if telescope_ok then
     end
   end
 end
--- if telescope_ok then
---   local dropdown_settings = require('telescope.themes').get_dropdown({
---     borderchars = {
---       prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
---       results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
---       preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
---     },
---     prompt_position  = 'top',
---     prompt_prefix    = '🔍 ',
---     selection_caret  = '❯ ',
---     entry_prefix     = '  ',
---     initial_mode     = 'normal',
---     sorting_strategy = 'ascending',
---   })
---
---   -- 3. Now the conditional branches will fire accurately
---   if not is_telescope_loaded then
---     -- Case A: Telescope hasn't initialized yet. Register via standard setup.
---     -- Brand new setup
---     telescope.setup({
---       extensions = {
---         ['ui-select'] = dropdown_settings
---       }
---     })
---   else
---     -- Case B: Telescope is ALREADY loaded. We must inject our defaults cleanly.
---     local ts_config = require('telescope.config')
---     ts_config.values.extensions = ts_config.values.extensions or {}
---
---     -- 1. Patch the configuration fallback cache
---     ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
---       'force',
---       dropdown_settings, -- User defaults or plugin base layout
---       ts_config.values.extensions['ui-select'] or {}
---     )
---   end
---   pcall(telescope.load_extension, 'ui-select')
--- end
-
 
 --INFO: 6.  Exported setup function
 -------------------------------------------------------------------------------

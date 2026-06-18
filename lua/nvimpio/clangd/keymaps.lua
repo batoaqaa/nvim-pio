@@ -90,42 +90,19 @@ function K.lspKeymaps(client, bufnr)
     --   })
     -- end, 'Find [W]orkspace Symbols (Functions)')
 
-    vim.keymap.set({ 'n', 'i' }, 'glww', function()
-      vim.schedule(function()
-        vim.cmd('stopinsert')
-      end)
-
-      -- Fetch workspace functions directly from clangd natively
-      vim.lsp.buf_request(0, 'workspace/symbol', { query = '' }, function(err, result)
-        if err or not result or vim.tbl_isempty(result) then
-          vim.notify('No symbols found or LSP indexing...', vim.log.levels.WARN)
-          return
-        end
-
-        -- Process list: Keep only Classes (5), Methods (6), and Functions (12)
-        local items = {}
-        for _, sym in ipairs(result) do
-          if sym.kind == 5 or sym.kind == 6 or sym.kind == 12 then
-            table.insert(items, sym)
-          end
-        end
-
-        -- Present via the instant native selection UI
-        vim.ui.select(items, {
-          prompt = 'Jump to Function / Class:',
-          format_item = function(item)
-            return string.format('[%s] %s', item.containerName or 'Global', item.name)
-          end,
-        }, function(choice)
-          if not choice then
-            return
-          end
-
-          -- Modern up-to-date API jump handle
-          vim.lsp.util.show_document(choice.location, 'utf-8', { focus = true, reuse_win = true })
-        end)
-      end)
-    end, { silent = true, desc = 'Find Workspace Symbols (Functions)' })
+    bufkeymap('n', 'glww', function()
+      -- Call the built-in picker natively
+      require('telescope.builtin').lsp_dynamic_workspace_symbols(
+        -- Merge your custom layout preferences directly into this specific call!
+        require('telescope.themes').get_dropdown({
+          symbols = { 'function', 'method' },
+          query = ' ', -- Triggers clangd instantly
+          initial_mode = 'normal', -- Enforces normal mode navigation right away
+          prompt_prefix = '🔍 ',
+          selection_caret = '❯ ',
+        })
+      )
+    end, 'Find [W]orkspace Symbols (Functions)')
   end
 
   if client.server_capabilities.workspace then
