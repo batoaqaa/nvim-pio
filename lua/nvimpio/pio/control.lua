@@ -219,6 +219,7 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
   layout_config    = { height = 25 }, 
   sorting_strategy = 'ascending',
 })
+
   local original_select = vim.ui.select
 
   vim.ui.select = function(items, opts, on_choice)
@@ -262,12 +263,16 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
 
     -- THE SAFE, UN-CRASHABLE REGISTRY HANDOFF:
     if telescope_ok and telescope.extensions and telescope.extensions["ui-select"] then
-      -- This targets Telescope's verified public extension execution pointer
-      telescope.extensions["ui-select"]["ui-select"](items, opts, on_choice)
+      -- Extension container is ["ui-select"], but its execution field is .ui_select
+      telescope.extensions["ui-select"].ui_select(items, opts, on_choice)
     else
       original_select(items, opts, on_choice)
     end
   end
+
+
+
+
 -- -- 1. Check if telescope is ALREADY cached in the environment
 -- local is_telescope_loaded = package.loaded['telescope'] ~= nil
 --
