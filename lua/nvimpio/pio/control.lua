@@ -224,25 +224,48 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
 local original_select = vim.ui.select
 
 -- THE ROBUST PROFESSIONAL INTERCEPTOR:
--- Dynamically injects styling parameters directly into the active choice call object.
--- This makes your layout changes 100% immune to lazy-load wipes and cache locks.
 ---@diagnostic disable-next-line: duplicate-set-field
 vim.ui.select = function(items, opts, on_choice)
-  local telescope_ok, _ = pcall(require, 'telescope')
-  local ui_select_ok, ui_select = pcall(require, 'telescope._extensions.ui-select')
+  local telescope_ok, telescope = pcall(require, 'telescope')
 
-  if telescope_ok and ui_select_ok then
-    -- Inject your explicit theme layouts directly into the current execution query stream.
-    -- This bypasses global registries and forces Telescope to render your look instantly.
-    opts = vim.tbl_deep_extend('force', opts or {}, {
-      theme           = "dropdown",
-      layout_strategy = "dropdown",
-      telescope       = dropdown_settings
+  if telescope_ok then
+    opts = opts or {}
+
+    -- Convert whatever items table array is passed into readable strings cleanly
+    local item_strings = {}
+    for _, item in ipairs(items) do
+      local formatted = item
+      if opts.format_item then
+        formatted = opts.format_item(item)
+      elseif type(item) == "table" then
+        formatted = item.name or vim.inspect(item)
+      end
+      table.insert(item_strings, tostring(formatted))
+    end
+
+    -- Bypasses extensions completely. Directly creates an instant dropdown picker.
+    local action_state = require('telescope.actions.state')
+    local actions = require('telescope.actions')
+
+    local picker_opts = vim.tbl_deep_extend('force', dropdown_settings, {
+      prompt_title = opts.prompt or "Select Option:",
+      finder = require('telescope.finders').new_table({ results = item_strings }),
+      sorter = require('telescope.sorters').get_generic_fuzzy_sorter({}),
+      attach_mappings = function(prompt_bufnr, _)
+        actions.select_default:replace(function()
+          local selection = action_state.get_selected_entry()
+          actions.close(prompt_bufnr)
+          if selection then
+            on_choice(items[selection.index], selection.index)
+          else
+            on_choice(nil, nil)
+          end
+        end)
+        return true
+      end,
     })
 
-    -- Hand off execution directly to the verified extension function.
-    -- This avoids complex manual finder mapping code while guaranteeing zero crashes.
-    ui_select.ui_select(items, opts, on_choice)
+    require('telescope.pickers').new({}, picker_opts):find()
   else
     -- Seamless ultimate fallback if the user has an incomplete runtime profile
     original_select(items, opts, on_choice)
