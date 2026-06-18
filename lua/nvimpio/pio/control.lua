@@ -234,7 +234,6 @@ if telescope_ok then
         ['ui-select'] = dropdown_settings
       }
     })
-    pcall(telescope.load_extension, 'ui-select')
   else
     -- Case B: Telescope is ALREADY loaded. We must inject our defaults cleanly.
     local ts_config = require('telescope.config')
@@ -246,18 +245,6 @@ if telescope_ok then
       dropdown_settings, -- User defaults or plugin base layout
       ts_config.values.extensions['ui-select'] or {}
     )
-
-    -- 2. CRUCIAL STEP FOR PLUGINS: Force the live loaded module instance to update
-    -- This intercepts Telescope's extension manager and replaces the cached config state
-    local ext_manager = telescope.extensions
-    if ext_manager and ext_manager['ui-select'] then
-      -- Telescope caches active extensions inside internal state sub-tables.
-      -- Re-running load_extension forces it to re-parse the patched configuration cache.
-      pcall(telescope.load_extension, 'ui-select')
-    else
-      -- If they haven't called load_extension yet, standard load handles it smoothly
-      pcall(telescope.load_extension, 'ui-select')
-    end
     -- -- Fallback for injecting into an already active runtime profile
     -- local ts_config = require('telescope.config')
     -- ts_config.values.extensions = ts_config.values.extensions or {}
@@ -267,6 +254,7 @@ if telescope_ok then
     --   dropdown_settings
     -- )
   end
+  pcall(telescope.load_extension, 'ui-select')
 
 end
 
