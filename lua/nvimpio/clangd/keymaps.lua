@@ -82,13 +82,50 @@ function K.lspKeymaps(client, bufnr)
     -- if client.server_capabilities.workspaceSymbolProvider then
     -- bufkeymap('n', 'glww', vim.lsp.buf.workspace_symbol, 'List [w]orkspace symbols')
     -- bufkeymap('n', 'glww', require('telescope.builtin').lsp_dynamic_workspace_symbols, '[W]orkspace [S]ymbols')
-    bufkeymap('n', 'glww', function()
-      require('telescope.builtin').lsp_dynamic_workspace_symbols({
-        symbols = { 'function', 'method' }, -- Pre-filter to only show functions and methods
-        query = ' ',
-      })
-    end, 'Find [W]orkspace Symbols (Functions)')
+
+    -- bufkeymap('n', 'glww', function()
+    --   require('telescope.builtin').lsp_dynamic_workspace_symbols({
+    --     symbols = { 'function', 'method' }, -- Pre-filter to only show functions and methods
+    --     query = ' ',
+    --   })
+    -- end, 'Find [W]orkspace Symbols (Functions)')
+
+    vim.keymap.set('n', 'glww', function()
+      -- Force exit insert mode if active
+      vim.cmd('stopinsert')
+
+      -- Fetch the exact workspace functions directly from clangd natively
+      vim.lsp.buf_request(0, 'workspace/symbol', { query = '' }, function(err, result)
+        if err or not result or vim.tbl_isempty(result) then
+          vim.notify('No symbols found or LSP indexing...', vim.log.levels.WARN)
+          return
+        end
+
+        -- Process list: Keep only Classes (5), Methods (6), and Functions (12)
+        local items = {}
+        for _, sym in ipairs(result) do
+          if sym.kind == 5 or sym.kind == 6 or sym.kind == 12 then
+            table.insert(items, sym)
+          end
+        end
+
+        -- Present via the instant native selection UI
+        vim.ui.select(items, {
+          prompt = 'Jump to Function / Class:',
+          format_item = function(item)
+            return string.format('[%s] %s', item.containerName or 'Global', item.name)
+          end,
+        }, function(choice)
+          if not choice then
+            return
+          end
+          -- Jump the cursor instantly to the selected file coordinates
+          vim.lsp.util.show_document(choice.location, 'utf-8', { focus = true, reuse_win = true })
+        end)
+      end)
+    end, { silent = true, desc = 'Find Workspace Symbols (Functions)' })
   end
+
   if client.server_capabilities.workspace then
     bufkeymap('n', 'glwa', vim.lsp.buf.add_workspace_folder, 'Workspace [a]dd folder')
     bufkeymap('n', 'glwr', vim.lsp.buf.remove_workspace_folder, 'Workspace [r]emove folder')
