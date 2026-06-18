@@ -279,11 +279,10 @@ vim.ui.select = function(items, opts, on_choice)
     for _, item in ipairs(items) do
       local formatted = item
       if opts.format_item then formatted = opts.format_item(item)
-      elseif type(item) == "table" then formatted = item.text or item.name or vim.inspect(item) end
+      elseif type(item) == "table" then formatted = item.name or vim.inspect(item) end
       table.insert(item_strings, tostring(formatted))
     end
 
-    -- Bypasses extensions completely. Directly creates an instant dropdown picker.
     local action_state = require('telescope.actions.state')
     local actions = require('telescope.actions')
 
@@ -292,37 +291,22 @@ vim.ui.select = function(items, opts, on_choice)
       finder = require('telescope.finders').new_table({ results = item_strings }),
       sorter = require('telescope.sorters').get_generic_fuzzy_sorter({}),
       attach_mappings = function(prompt_bufnr, _)
+        
+        -- THE ROBUST SCHEDULER FIX:
+        -- Defer execution loops to let Telescope completely destroy window buffers 
+        -- before your plugin's recursive loops evaluate memory states.
         actions.select_default:replace(function()
           local selection = action_state.get_selected_entry()
           actions.close(prompt_bufnr)
           
           if selection then
-            -- THE FIX: Find the absolute true item by matching text strings
-            -- This completely bypasses Telescope layout row index shifts!
-            local true_item = nil
-            local true_index = nil
-            
-            for i, item in ipairs(items) do
-              local current_str = opts.format_item and opts.format_item(item) 
-                or (type(item) == "table" and (item.text or item.name or vim.inspect(item))) 
-                or tostring(item)
-              
-              if current_str == selection.value then
-                true_item = item
-                true_index = i
-                break
-              end
-            end
-
-            -- Pass the true validated data directly back to diagnostic.lua
-            if true_item and true_index then
-              on_choice(true_item, true_index)
-            else
-              -- Fallback if exact matching string was not resolved
+            vim.schedule(function()
               on_choice(items[selection.index], selection.index)
-            end
+            end)
           else 
-            on_choice(nil, nil) 
+            vim.schedule(function()
+              on_choice(nil, nil)
+            end)
           end
         end)
         return true
@@ -335,6 +319,11 @@ vim.ui.select = function(items, opts, on_choice)
     original_select(items, opts, on_choice)
   end
 end
+
+
+
+
+
 
 -- below new have issue
 -------------------------------------------------------------------------------------
