@@ -251,28 +251,26 @@ end
 
 
 
--- THE PROFESSIONALLY OPTIMIZED LAYOUT:
--- Bypasses nested theme padding math to force a clean, one-line prompt box.
+-- THE PROFESSIONALLY COMPACT LAYOUT CONFIGURATION:
+-- Uses the native 'center' strategy to force a clean, one-line prompt box.
 local dropdown_settings = {
-  theme            = "dropdown",
-  layout_strategy  = "dropdown",
+  layout_strategy  = "center", -- Fixed: Replaced 'dropdown' with the valid 'center' engine
   initial_mode     = "normal",
   sorting_strategy = "ascending",
   prompt_prefix    = "🔍  ",
   selection_caret  = "❯ ",
   entry_prefix     = "  ",
   
-  -- THE BAR FIX: Completely removes border lines without creating layout overflow padding
-  border           = false, 
+  border           = true, 
   borderchars      = {
     prompt  = { " ", " ", " ", " ", " ", " ", " ", " " },
     results = { " ", " ", " ", " ", " ", " ", " ", " " },
     preview = { "─", "│", "─", "│", "╭", "╮", "╯", "╰" },
   },
   
-  -- Explicitly isolates sizing parameters
   layout_config = {
-    height = 25, -- Keeps the list view exactly 25 lines tall
+    height = 25,          -- Locks the list view rows
+    width = 0.55,         -- Center box takes 55% of horizontal screen width
     prompt_position = "top",
   },
 }
