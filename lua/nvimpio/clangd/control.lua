@@ -251,44 +251,32 @@ function M.setFormatStyle()
       -- })
 
       -- cli using hidden system asynchronous command for setting clang-format style
-      -- print(clangdCmd)
-      -- local mason_bin = vim.fs.joinpath(OS.data_dir, 'mason', 'bin')
-      -- local pioEnv = string.format('PATH="%s/bin:$PATH"', mason_bin)
-      -- if not OS.is_win then
-      --   local obj = vim.system({ 'export', pioEnv }, { text = true }):wait()
-      --   if obj.code ~= 0 then
-      --     return
-      --   end
-      -- end
-
-      -- local cmd = { clangdCmd, string.format('--style=%s', choice:lower()), '--dump-config', '>', '.clang-format' }
       local cmd = { clangdCmd, string.format('--style=%s', choice:lower()), '--dump-config' }
-
       --1 -- Synchronously wait for completion (avoids callbacks and scheduling)
-      local obj = vim.system(cmd, { text = true }):wait()
+      --1 local obj = vim.system(cmd, { text = true }):wait()
       --2 -- asynchronous way
-      --2 vim.system(cmd, { text = true }, function(obj)
-      -- Use vim.schedule to perform UI tasks/API calls on the main thread
-      --2 vim.schedule(function()
-      if obj.code == 0 and obj.stdout and obj.stdout ~= '' then
-        local file = io.open('.clang-format', 'w')
-        if file then
-          file:write(obj.stdout)
-          file:close()
+      vim.system(cmd, { text = true }, function(obj) -- 2
+        -- Use vim.schedule to perform UI tasks/API calls on the main thread
+        vim.schedule(function() -- 2
+          if obj.code == 0 and obj.stdout and obj.stdout ~= '' then
+            local file = io.open('.clang-format', 'w')
+            if file then
+              file:write(obj.stdout)
+              file:close()
 
-          OS.notify('Created .clang-format (' .. choice .. ')', 'info')
-          M.restart()
-          OS.notify('LSP Reloaded: Using ' .. choice .. ' style.')
-        else
-          OS.notify('Failed to save .clang-format to disk (Permission error?)', 'error')
-        end
-      else
-        -- If the tool failed, print out its actual stderr reason
-        local err_msg = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Unknown configuration failure'
-        OS.notify('Failed to generate .clang-format. Error: ' .. err_msg, 'error')
-      end
-      --2 end)
-      --2 end)
+              OS.notify('Created .clang-format (' .. choice .. ')', 'info')
+              M.restart()
+              OS.notify('LSP Reloaded: Using ' .. choice .. ' style.')
+            else
+              OS.notify('Failed to save .clang-format to disk (Permission error?)', 'error')
+            end
+          else
+            -- If the tool failed, print out its actual stderr reason
+            local err_msg = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Unknown configuration failure'
+            OS.notify('Failed to generate .clang-format. Error: ' .. err_msg, 'error')
+          end
+        end) -- 2
+      end) -- 2
     end, 'clang-format')
   end)
 end

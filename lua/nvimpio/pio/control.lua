@@ -220,7 +220,7 @@ if telescope_ok then
     prompt_prefix    = '🔍 ',
     selection_caret  = '❯ ',
     entry_prefix     = '  ',
-    initial_mode     = 'normal',  -- The targeted layout fix
+    -- initial_mode     = 'normal',  -- The targeted layout fix
     sorting_strategy = 'ascending',
   })
   -- Safely inject options into Telescope's global config cache.

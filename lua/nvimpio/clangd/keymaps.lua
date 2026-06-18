@@ -85,6 +85,8 @@ function K.lspKeymaps(client, bufnr)
           symbols = { 'function', 'method' },
           query = ' ', -- Triggers clangd instantly
           initial_mode = 'normal', -- Enforces normal mode navigation right away
+          -- INCREASE THIS NUMBER TO SHOW MORE LINES IN THE LIST:
+          results_height = 25,
           prompt_prefix = '🔍 ',
           selection_caret = '❯ ',
         })
@@ -111,6 +113,8 @@ function K.lspKeymaps(client, bufnr)
           symbols = { 'function', 'method' },
           query = ' ', -- Triggers clangd instantly
           initial_mode = 'normal', -- Enforces normal mode navigation right away
+          -- INCREASE THIS NUMBER TO SHOW MORE LINES IN THE LIST:
+          results_height = 25,
           prompt_prefix = '🔍 ',
           selection_caret = '❯ ',
         })
