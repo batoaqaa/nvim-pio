@@ -249,54 +249,92 @@ end
 -------------------------------------------------------------------------------------
 -- above old working
 
--- Define your plugin's clean 25-line dropdown configuration explicitly
+
 local dropdown_settings = require('telescope.themes').get_dropdown({
-  borderchars      = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' }, 
+  borderchars = {
+    prompt  = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+    results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+    preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+  },
   prompt_position  = 'top',
-  prompt_prefix    = '🔍 ',
+  prompt_prefix    = '🔍  ',
   selection_caret  = '❯ ',
   entry_prefix     = '  ',
-  initial_mode     = 'normal',        -- Forces Normal Mode navigation instantly
-  layout_config    = { height = 25 }, -- Forces the window height to 25 rows
+  initial_mode     = 'normal',
+  layout_config    = { height = 25 },
   sorting_strategy = 'ascending',
 })
 
+-- Backup the core native UI selection channel handler
+local original_select = vim.ui.select
 
-  -- Backup Neovim's original select choice function
-  local original_select = vim.ui.select
+---@diagnostic disable-next-line: duplicate-set-field
+vim.ui.select = function(items, opts, on_choice)
+  local telescope_ok, telescope = pcall(require, 'telescope')
+  if telescope_ok then
+    opts = opts or {}
 
-  -- THE ROBUST OVERRIDE:
-  vim.ui.select = function(items, opts, on_choice)
-    local telescope_ok, telescope = pcall(require, 'telescope')
-    local ext_ok, ui_select_mod = pcall(require, 'telescope._extensions.ui-select')
-
-    -- If both modules are active and loaded on the user's hard drive
-    if telescope_ok and ext_ok and type(ui_select_mod.ui_select) == "function" then
-      
-      -- Ensure Telescope's core configuration parameters exist safely first
-      local ts_config_ok, ts_config = pcall(require, 'telescope.config')
-      if ts_config_ok and (not ts_config.values or vim.tbl_isempty(ts_config.values)) then
-        telescope.setup({})
-      end
-
-      -- Inject theme parameters directly into Telescope's active call payload block
-      opts = vim.tbl_deep_extend('force', opts or {}, {
-        theme           = "dropdown",
-        layout_strategy = "dropdown",
-        telescope       = dropdown_settings
-      })
-
-      -- THE UN-CRASHABLE HANDOFF:
-      -- Calls the extension's official registration handler. This uses Telescope's
-      -- native indexing core, preserving your working recursive saving logic exactly!
-      ui_select_mod.ui_select(items, opts, on_choice)
-      return
+    -- Convert whatever items table array is passed into readable strings cleanly
+    local item_strings = {}
+    for _, item in ipairs(items) do
+      local formatted = item
+      if opts.format_item then formatted = opts.format_item(item)
+      elseif type(item) == "table" then formatted = item.text or item.name or vim.inspect(item) end
+      table.insert(item_strings, tostring(formatted))
     end
 
-    -- Ultimate fallback to native menus if Telescope files are missing or unlinked
+    -- Bypasses extensions completely. Directly creates an instant dropdown picker.
+    local action_state = require('telescope.actions.state')
+    local actions = require('telescope.actions')
+
+    local picker_opts = vim.tbl_deep_extend('force', dropdown_settings, {
+      prompt_title = opts.prompt or "Select Option:",
+      finder = require('telescope.finders').new_table({ results = item_strings }),
+      sorter = require('telescope.sorters').get_generic_fuzzy_sorter({}),
+      attach_mappings = function(prompt_bufnr, _)
+        actions.select_default:replace(function()
+          local selection = action_state.get_selected_entry()
+          actions.close(prompt_bufnr)
+          
+          if selection then
+            -- THE FIX: Find the absolute true item by matching text strings
+            -- This completely bypasses Telescope layout row index shifts!
+            local true_item = nil
+            local true_index = nil
+            
+            for i, item in ipairs(items) do
+              local current_str = opts.format_item and opts.format_item(item) 
+                or (type(item) == "table" and (item.text or item.name or vim.inspect(item))) 
+                or tostring(item)
+              
+              if current_str == selection.value then
+                true_item = item
+                true_index = i
+                break
+              end
+            end
+
+            -- Pass the true validated data directly back to diagnostic.lua
+            if true_item and true_index then
+              on_choice(true_item, true_index)
+            else
+              -- Fallback if exact matching string was not resolved
+              on_choice(items[selection.index], selection.index)
+            end
+          else 
+            on_choice(nil, nil) 
+          end
+        end)
+        return true
+      end,
+    })
+
+    require('telescope.pickers').new({}, picker_opts):find()
+  else
+    -- Seamless ultimate fallback if the user has an incomplete runtime profile
     original_select(items, opts, on_choice)
   end
-
+end
 
 -- below new have issue
 -------------------------------------------------------------------------------------
