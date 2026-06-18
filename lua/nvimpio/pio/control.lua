@@ -205,7 +205,6 @@ end
 
 --INFO: telescope settings
 
-
 local dropdown_settings = require('telescope.themes').get_dropdown({
   borderchars = {
     prompt  = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
@@ -220,57 +219,55 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
   layout_config    = { height = 25 }, 
   sorting_strategy = 'ascending',
 })
+  local original_select = vim.ui.select
 
-local original_select = vim.ui.select
+  vim.ui.select = function(items, opts, on_choice)
+    local telescope_ok, telescope = pcall(require, 'telescope')
 
-vim.ui.select = function(items, opts, on_choice)
-  local telescope_ok, telescope = pcall(require, 'telescope')
+    if telescope_ok then
+      -- If telescope.setup() was never run, initialize it now
+      local ts_config_ok, ts_config = pcall(require, 'telescope.config')
+      if ts_config_ok and (not ts_config.values or vim.tbl_isempty(ts_config.values)) then
+        telescope.setup({})
+      end
 
-  if telescope_ok then
-    -- If telescope.setup() was never run, initialize it now
-    local ts_config_ok, ts_config = pcall(require, 'telescope.config')
-    if ts_config_ok and (not ts_config.values or vim.tbl_isempty(ts_config.values)) then
-      telescope.setup({})
-    end
-
-    -- Prime the config cache
-    ts_config.values.extensions = ts_config.values.extensions or {}
-    ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
-      'keep',
-      ts_config.values.extensions['ui-select'] or {},
-      dropdown_settings
-    )
-
-    -- Load the extension cleanly
-    pcall(telescope.load_extension, 'ui-select')
-
-    -- Hot-patch active state parameters if already live in memory
-    local ui_select_mod = package.loaded['telescope._extensions.ui-select']
-    if ui_select_mod and ui_select_mod.state then
-      ui_select_mod.state.config = vim.tbl_deep_extend(
+      -- Prime the config cache
+      ts_config.values.extensions = ts_config.values.extensions or {}
+      ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
         'keep',
-        ui_select_mod.state.config or {},
+        ts_config.values.extensions['ui-select'] or {},
         dropdown_settings
       )
+
+      -- Load the extension cleanly
+      pcall(telescope.load_extension, 'ui-select')
+
+      -- Hot-patch active state parameters if already live in memory
+      local ui_select_mod = package.loaded['telescope._extensions.ui-select']
+      if ui_select_mod and ui_select_mod.state then
+        ui_select_mod.state.config = vim.tbl_deep_extend(
+          'keep',
+          ui_select_mod.state.config or {},
+          dropdown_settings
+        )
+      end
+
+      -- Enforce theme overrides in current call context
+      opts = vim.tbl_deep_extend('force', opts or {}, {
+        theme = "dropdown",
+        layout_strategy = "dropdown",
+        telescope = dropdown_settings
+      })
     end
 
-    -- Enforce theme overrides in current call context
-    opts = vim.tbl_deep_extend('force', opts or {}, {
-      theme = "dropdown",
-      layout_strategy = "dropdown",
-      telescope = dropdown_settings
-    })
+    -- THE SAFE, UN-CRASHABLE REGISTRY HANDOFF:
+    if telescope_ok and telescope.extensions and telescope.extensions["ui-select"] then
+      -- This targets Telescope's verified public extension execution pointer
+      telescope.extensions["ui-select"]["ui-select"](items, opts, on_choice)
+    else
+      original_select(items, opts, on_choice)
+    end
   end
-
-  -- THE SAFE API HANDOFF:
-  if telescope_ok and package.loaded['telescope._extensions.ui-select'] then
-    -- Corrected function field pointer assignment here:
-    require('telescope._extensions.ui-select').ui_select(items, opts, on_choice)
-  else
-    original_select(items, opts, on_choice)
-  end
-end
-
 -- -- 1. Check if telescope is ALREADY cached in the environment
 -- local is_telescope_loaded = package.loaded['telescope'] ~= nil
 --
