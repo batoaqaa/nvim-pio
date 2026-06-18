@@ -212,7 +212,7 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
     preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
   },
   prompt_position  = 'top',
-  prompt_prefix    = '🔍 ',
+  prompt_prefix    = '🔍  ',
   selection_caret  = '❯ ',
   entry_prefix     = '  ',
   initial_mode     = 'normal',
@@ -223,11 +223,9 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
 -- Backup the core native UI selection channel handler
 local original_select = vim.ui.select
 
--- THE ROBUST PROFESSIONAL INTERCEPTOR:
 ---@diagnostic disable-next-line: duplicate-set-field
 vim.ui.select = function(items, opts, on_choice)
   local telescope_ok, telescope = pcall(require, 'telescope')
-
   if telescope_ok then
     opts = opts or {}
 
@@ -235,11 +233,8 @@ vim.ui.select = function(items, opts, on_choice)
     local item_strings = {}
     for _, item in ipairs(items) do
       local formatted = item
-      if opts.format_item then
-        formatted = opts.format_item(item)
-      elseif type(item) == "table" then
-        formatted = item.name or vim.inspect(item)
-      end
+      if opts.format_item then formatted = opts.format_item(item)
+      elseif type(item) == "table" then formatted = item.name or vim.inspect(item) end
       table.insert(item_strings, tostring(formatted))
     end
 
@@ -255,11 +250,8 @@ vim.ui.select = function(items, opts, on_choice)
         actions.select_default:replace(function()
           local selection = action_state.get_selected_entry()
           actions.close(prompt_bufnr)
-          if selection then
-            on_choice(items[selection.index], selection.index)
-          else
-            on_choice(nil, nil)
-          end
+          if selection then on_choice(items[selection.index], selection.index)
+          else on_choice(nil, nil) end
         end)
         return true
       end,
