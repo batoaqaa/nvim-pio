@@ -204,6 +204,8 @@ function M.start_watchers()
 end
 
 --INFO: telescope settings
+
+
 local dropdown_settings = require('telescope.themes').get_dropdown({
   borderchars = {
     prompt  = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
@@ -221,16 +223,17 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
 
 local original_select = vim.ui.select
 
----@diagnostic disable-next-line: duplicate-set-field
 vim.ui.select = function(items, opts, on_choice)
   local telescope_ok, telescope = pcall(require, 'telescope')
 
   if telescope_ok then
+    -- If telescope.setup() was never run, initialize it now
     local ts_config_ok, ts_config = pcall(require, 'telescope.config')
     if ts_config_ok and (not ts_config.values or vim.tbl_isempty(ts_config.values)) then
       telescope.setup({})
     end
 
+    -- Prime the config cache
     ts_config.values.extensions = ts_config.values.extensions or {}
     ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
       'keep',
@@ -238,8 +241,10 @@ vim.ui.select = function(items, opts, on_choice)
       dropdown_settings
     )
 
+    -- Load the extension cleanly
     pcall(telescope.load_extension, 'ui-select')
 
+    -- Hot-patch active state parameters if already live in memory
     local ui_select_mod = package.loaded['telescope._extensions.ui-select']
     if ui_select_mod and ui_select_mod.state then
       ui_select_mod.state.config = vim.tbl_deep_extend(
@@ -249,6 +254,7 @@ vim.ui.select = function(items, opts, on_choice)
       )
     end
 
+    -- Enforce theme overrides in current call context
     opts = vim.tbl_deep_extend('force', opts or {}, {
       theme = "dropdown",
       layout_strategy = "dropdown",
@@ -256,8 +262,10 @@ vim.ui.select = function(items, opts, on_choice)
     })
   end
 
+  -- THE SAFE API HANDOFF:
   if telescope_ok and package.loaded['telescope._extensions.ui-select'] then
-    require('telescope._extensions.ui-select').telescope_ui_select(items, opts, on_choice)
+    -- Corrected function field pointer assignment here:
+    require('telescope._extensions.ui-select').ui_select(items, opts, on_choice)
   else
     original_select(items, opts, on_choice)
   end
