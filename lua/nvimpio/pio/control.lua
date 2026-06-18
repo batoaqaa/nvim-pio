@@ -220,55 +220,76 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
   sorting_strategy = 'ascending',
 })
 
+  -- 1. Backup the core native UI selection channel handler
   local original_select = vim.ui.select
 
-  vim.ui.select = function(items, opts, on_choice)
-    local telescope_ok, telescope = pcall(require, 'telescope')
+  -- 2. Define the unified loader function
+  local function run_with_telescope(items, opts, on_choice)
+    local telescope = require('telescope')
+    
+    -- Ensure the core config module is populated safely first
+    local ts_config = require('telescope.config')
+    if not ts_config.values or vim.tbl_isempty(ts_config.values) then
+      telescope.setup({})
+    end
 
-    if telescope_ok then
-      -- If telescope.setup() was never run, initialize it now
-      local ts_config_ok, ts_config = pcall(require, 'telescope.config')
-      if ts_config_ok and (not ts_config.values or vim.tbl_isempty(ts_config.values)) then
-        telescope.setup({})
-      end
+    -- Prime the config cache extension list safely
+    ts_config.values.extensions = ts_config.values.extensions or {}
+    ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
+      'keep',
+      ts_config.values.extensions['ui-select'] or {},
+      dropdown_settings
+    )
 
-      -- Prime the config cache
-      ts_config.values.extensions = ts_config.values.extensions or {}
-      ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
+    -- Force load the extension registry modules
+    pcall(telescope.load_extension, 'ui-select')
+
+    -- Sync active module configurations live in memory if present
+    local ui_select_mod = package.loaded['telescope._extensions.ui-select']
+    if ui_select_mod and ui_select_mod.state then
+      ui_select_mod.state.config = vim.tbl_deep_extend(
         'keep',
-        ts_config.values.extensions['ui-select'] or {},
+        ui_select_mod.state.config or {},
         dropdown_settings
       )
-
-      -- Load the extension cleanly
-      pcall(telescope.load_extension, 'ui-select')
-
-      -- Hot-patch active state parameters if already live in memory
-      local ui_select_mod = package.loaded['telescope._extensions.ui-select']
-      if ui_select_mod and ui_select_mod.state then
-        ui_select_mod.state.config = vim.tbl_deep_extend(
-          'keep',
-          ui_select_mod.state.config or {},
-          dropdown_settings
-        )
-      end
-
-      -- Enforce theme overrides in current call context
-      opts = vim.tbl_deep_extend('force', opts or {}, {
-        theme = "dropdown",
-        layout_strategy = "dropdown",
-        telescope = dropdown_settings
-      })
     end
 
-    -- THE SAFE, WORKING REGISTRY HANDOFF:
-    if telescope_ok and telescope.extensions and telescope.extensions["ui-select"] then
-      -- Extension container is ["ui-select"], execution field is .telescope_ui_select
-      telescope.extensions["ui-select"].telescope_ui_select(items, opts, on_choice)
-    else
-      original_select(items, opts, on_choice)
-    end
+    -- Enforce dropdown theme parameters directly inside the context payload object
+    opts = vim.tbl_deep_extend('force', opts or {}, {
+      theme = "dropdown",
+      layout_strategy = "dropdown",
+      telescope = dropdown_settings
+    })
+
+    -- THE UN-CRASHABLE HANDOFF:
+    -- Temporarily remove our plugin override to break recursive execution loops
+    vim.ui.select = original_select
+    
+    -- Invoke the global system command block natively. Telescope handles the routing internally!
+    local success, _ = pcall(vim.ui.select, items, opts, on_choice)
+    
+    -- Instantly restore our plugin's custom interceptor hook for future calls
+    vim.ui.select = M.interceptor
+    
+    return success
   end
+
+  -- 3. Define the core interceptor function hook
+  M.interceptor = function(items, opts, on_choice)
+    -- Check if the telescope plugin module can be resolved on disk
+    local has_telescope, _ = pcall(require, 'telescope')
+    
+    if has_telescope then
+      local run_ok = run_with_telescope(items, opts, on_choice)
+      if run_ok then return end
+    end
+    
+    -- Safe ultimate fallback: native Neovim select menus
+    original_select(items, opts, on_choice)
+  end
+
+  -- 4. Hook our interceptor directly to the global engine pointer
+  vim.ui.select = M.interceptor
 
 
 
