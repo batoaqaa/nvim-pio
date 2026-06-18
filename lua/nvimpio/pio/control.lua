@@ -220,81 +220,66 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
   sorting_strategy = 'ascending',
 })
 
-  -- 1. Backup the core native UI selection channel handler
+
+  -- 1. Backup the core native UI choice picker function
   local original_select = vim.ui.select
 
-  -- 2. Define the unified loader function
-  local function run_with_telescope(items, opts, on_choice)
-    local telescope = require('telescope')
-    
-    -- Ensure the core config module is populated safely first
-    local ts_config = require('telescope.config')
-    if not ts_config.values or vim.tbl_isempty(ts_config.values) then
-      telescope.setup({})
+  -- 2. OVERRIDE VIM.UI.SELECT GLOBALLY FOR ALL FILES NATIVELY:
+  -- This intercepts any selection call from any file in your plugin automatically.
+  vim.ui.select = function(items, opts, on_choice)
+    local telescope_ok, _ = pcall(require, 'telescope')
+
+    -- If Telescope files are on disk, manually build the interface on the fly
+    if telescope_ok then
+      opts = opts or {}
+      local prompt_string = opts.prompt or "Select Option:"
+      
+      -- Convert whatever items table array is passed into readable strings cleanly
+      local item_strings = {}
+      for _, item in ipairs(items) do
+        local formatted = item
+        if opts.format_item then
+          formatted = opts.format_item(item)
+        elseif type(item) == "table" then
+          formatted = item.name or vim.inspect(item)
+        end
+        table.insert(item_strings, tostring(formatted))
+      end
+
+      -- Call Telescope's core layout modules directly (Bypasses load_extension completely!)
+      local pickers = require('telescope.pickers')
+      local finders = require('telescope.finders')
+      local sorters = require('telescope.config').values.generic_fuzzy_sorter({})
+      local actions = require('telescope.actions')
+      local action_state = require('telescope.actions.state')
+
+      -- Merge your dropdown styling variables directly with the runtime items data
+      local merged_options = vim.tbl_deep_extend('force', dropdown_settings, {
+        prompt_title = prompt_string,
+        finder = finders.new_table({ results = item_strings }),
+        sorter = sorters,
+        attach_mappings = function(prompt_bufnr, _)
+          actions.select_default:replace(function()
+            local selection = action_state.get_selected_entry()
+            actions.close(prompt_bufnr)
+            if selection then
+              -- Hand the execution index back to the file that called the menu
+              on_choice(items[selection.index], selection.index)
+            else
+              on_choice(nil, nil)
+            end
+          end)
+          return true
+        end,
+      })
+
+      -- Instantly open the custom dropdown window frame pane box
+      pickers.new({}, merged_options):find()
+    else
+      -- Ultimate absolute safety fallback if Telescope is completely uninstalled from the hard drive
+      original_select(items, opts, on_choice)
     end
-
-    -- Prime the config cache extension list safely
-    ts_config.values.extensions = ts_config.values.extensions or {}
-    ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
-      'keep',
-      ts_config.values.extensions['ui-select'] or {},
-      dropdown_settings
-    )
-
-    -- Force load the extension registry modules
-    pcall(telescope.load_extension, 'ui-select')
-
-    -- Sync active module configurations live in memory if present
-    local ui_select_mod = package.loaded['telescope._extensions.ui-select']
-    if ui_select_mod and ui_select_mod.state then
-      ui_select_mod.state.config = vim.tbl_deep_extend(
-        'keep',
-        ui_select_mod.state.config or {},
-        dropdown_settings
-      )
-    end
-
-    -- Enforce dropdown theme parameters directly inside the context payload object
-    opts = vim.tbl_deep_extend('force', opts or {}, {
-      theme = "dropdown",
-      layout_strategy = "dropdown",
-      telescope = dropdown_settings
-    })
-
-    -- THE UN-CRASHABLE HANDOFF:
-    -- Temporarily remove our plugin override to break recursive execution loops
-    vim.ui.select = original_select
-
-    -- Invoke the global system command block natively. Telescope handles the routing internally!
-    local success, err_msg = pcall(vim.ui.select, items, opts, on_choice)
-
-    -- Instantly restore our plugin's custom interceptor hook for future calls
-    vim.ui.select = M.interceptor
-
-    -- PRINT THE ERROR TO THE SCREEN SO WE CAN SEE IT:
-    if not success and err_msg then
-      vim.notify("Telescope Error: " .. tostring(err_msg), vim.log.levels.ERROR)
-    end
-    return success
   end
-
-  -- 3. Define the core interceptor function hook
-  M.interceptor = function(items, opts, on_choice)
-    -- Check if the telescope plugin module can be resolved on disk
-    local has_telescope, _ = pcall(require, 'telescope')
-    
-    if has_telescope then
-      local run_ok = run_with_telescope(items, opts, on_choice)
-      if run_ok then return end
-    end
-    
-    -- Safe ultimate fallback: native Neovim select menus
-    original_select(items, opts, on_choice)
-  end
-
-  -- 4. Hook our interceptor directly to the global engine pointer
-  vim.ui.select = M.interceptor
-
 
 
 
