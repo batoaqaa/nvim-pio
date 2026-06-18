@@ -251,29 +251,16 @@ end
 
 
 
--- THE PROFESSIONALLY OPTIMIZED COMPACT DROPDOWN LAYOUT:
--- Forces a perfectly tight, 1-line input box by disabling formal prompt window borders.
+
+-- Define your plugin's clean dropdown layout base configuration profile
 local dropdown_settings = {
   theme            = "dropdown",
-  layout_strategy  = "dropdown",
   initial_mode     = "normal",
   sorting_strategy = "ascending",
-  prompt_prefix    = "🔍  ",
   selection_caret  = "❯ ",
   entry_prefix     = "  ",
   
-  -- THE ABSOLUTE FIX FOR THE 3-LINE INPUT BOX:
-  -- Passing an empty string to prompt_title avoids title margin padding blocks.
-  prompt_title     = "", 
-  
-  -- Defining flat borderchars variables tells Telescope's rendering engine 
-  -- to lock the prompt window to exactly 1 line tall with zero vertical spacing.
-  borderchars = {
-    prompt  = { "─", "│", " ", "│", "╭", "╮", "│", "│" }, -- Opens the bottom of the input box
-    results = { "─", "│", "─", "│", "├", "┤", "╯", "╰" }, -- Blends the list cleanly below it
-    preview = { "─", "│", "─", "│", "╭", "╮", "╯", "╰" },
-  },
-  
+  -- Explicitly isolates window configuration constraints
   layout_config = {
     height = 25, 
     prompt_position = "top",
@@ -309,12 +296,19 @@ vim.ui.select = function(items, opts, on_choice)
     local actions = require('telescope.actions')
 
     local picker_opts = vim.tbl_deep_extend('force', dropdown_settings, {
-      -- We override the prompt title mapping to be completely empty.
-      -- The actual prompt text is safely displayed inline via your opts.prompt string!
+      -- THE ABSOLUTE FIX: Empty title eliminates the 3-line input box padding row
       prompt_title = "",
+      -- Inserts your dynamic diagnostic text string beautifully inline inside the input row
       prompt_prefix = (opts.prompt and ("🔍 " .. opts.prompt .. " › ")) or "🔍  ",
       finder = require('telescope.finders').new_table({ results = item_strings }),
       sorter = require('telescope.sorters').get_generic_fuzzy_sorter({}),
+      
+      -- Blends the input box and results list cleanly together as a single 1-row tall component
+      borderchars = {
+        prompt  = { "─", "│", " ", "│", "╭", "╮", "│", "│" }, 
+        results = { "─", "│", "─", "│", "├", "┤", "╯", "╰" }, 
+        preview = { "─", "│", "─", "│", "╭", "╮", "╯", "╰" },
+      },
       attach_mappings = function(prompt_bufnr, map)
         
         local close_and_trigger_save = function()
@@ -362,13 +356,14 @@ vim.ui.select = function(items, opts, on_choice)
       end,
     })
 
-    -- Run through Telescope's official theme constructor wrapper pipeline
+    -- Run through Telescope's official theme constructor pipeline safely
     local final_theme = require('telescope.themes').get_dropdown(picker_opts)
     require('telescope.pickers').new({}, final_theme):find()
   else
     original_select(items, opts, on_choice)
   end
 end
+
 
 
 
