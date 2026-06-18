@@ -250,6 +250,7 @@ end
 -- above old working
 
 
+
 local dropdown_settings = require('telescope.themes').get_dropdown({
   borderchars = {
     prompt  = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
@@ -290,19 +291,53 @@ vim.ui.select = function(items, opts, on_choice)
       prompt_title = opts.prompt or "Select Option:",
       finder = require('telescope.finders').new_table({ results = item_strings }),
       sorter = require('telescope.sorters').get_generic_fuzzy_sorter({}),
-      attach_mappings = function(prompt_bufnr, _)
+      attach_mappings = function(prompt_bufnr, map)
         
-        -- THE ROBUST SCHEDULER FIX:
-        -- Defer execution loops to let Telescope completely destroy window buffers 
-        -- before your plugin's recursive loops evaluate memory states.
+        -- THE FIXED BULLETPROOF EXIT INTERCEPTOR:
+        -- Binds <Esc> and q in Normal mode to explicitly fire the save callback 
+        -- right before Telescope kills the window, ensuring diagnostic.lua saves properly!
+        local close_and_trigger_save = function()
+          actions.close(prompt_bufnr)
+          vim.schedule(function()
+            on_choice(nil, nil)
+          end)
+        end
+
+        -- Variable names are now correctly mapped to match the function declaration above
+        map('n', '<Esc>', close_and_trigger_save)
+        map('n', 'q',     close_and_trigger_save)
+
         actions.select_default:replace(function()
           local selection = action_state.get_selected_entry()
           actions.close(prompt_bufnr)
           
           if selection then
-            vim.schedule(function()
-              on_choice(items[selection.index], selection.index)
-            end)
+            -- Safely look up the absolute true dataset index by matching text strings
+            local true_item = nil
+            local true_index = nil
+            
+            for i, item in ipairs(items) do
+              local current_str = opts.format_item and opts.format_item(item) 
+                or (type(item) == "table" and (item.text or item.name or vim.inspect(item))) 
+                or tostring(item)
+              
+              if current_str == selection.value then
+                true_item = item
+                true_index = i
+                break
+              end
+            end
+
+            -- Pass the true data frame structure back down to your parent modules
+            if true_item and true_index then
+              vim.schedule(function()
+                on_choice(true_item, true_index)
+              end)
+            else
+              vim.schedule(function()
+                on_choice(items[selection.index], selection.index)
+              end)
+            end
           else 
             vim.schedule(function()
               on_choice(nil, nil)
@@ -319,7 +354,6 @@ vim.ui.select = function(items, opts, on_choice)
     original_select(items, opts, on_choice)
   end
 end
-
 
 
 
