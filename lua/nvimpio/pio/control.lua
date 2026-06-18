@@ -210,6 +210,12 @@ local is_telescope_loaded = package.loaded['telescope'] ~= nil
 -- 2. Safely capture the Telescope module reference
 local telescope_ok, telescope = pcall(require, 'telescope')
 if telescope_ok then
+  -- we initialize it safely here so your extension styles don't get ignored.
+  local ts_config_ok, ts_config = pcall(require, 'telescope.config')
+  if ts_config_ok and (not ts_config.values or vim.tbl_isempty(ts_config.values)) then
+    telescope.setup({})
+  end
+
   local dropdown_settings = require('telescope.themes').get_dropdown({
     borderchars = {
       prompt  = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
