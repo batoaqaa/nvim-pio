@@ -235,22 +235,20 @@ if telescope_ok then
     dropdown_settings
   )
 
-  -- 2. Check Telescope's official active extension registry table
-  -- This tells us if ui-select is actively running right now
-  if telescope.extensions and telescope.extensions['ui-select'] then
-    -- Case A: It is already running. Hot-patch its live runtime state.
+  -- 2. Handle this user's specific load state safely
+  if is_telescope_loaded then
+    -- Telescope is active, but they didn't load ui-select. We load it for them now!
     local ui_select_mod = package.loaded['telescope._extensions.ui-select']
     if ui_select_mod and ui_select_mod.state then
-      ui_select_mod.state.config = vim.tbl_deep_extend(
-        'keep',
-        ui_select_mod.state.config or {},
-        dropdown_settings
-      )
+      -- Hot-patch if it happens to be running in memory
+      ui_select_mod.state.config = vim.tbl_deep_extend('keep', ui_select_mod.state.config or {}, dropdown_settings)
+    else
+      -- Force activation so vim.ui.select hooks into Telescope automatically
+      pcall(telescope.load_extension, 'ui-select')
     end
   else
-    -- Case B: It is NOT running yet. 
-    -- Do NOT call load_extension! Leave it alone. Your settings are safely waiting 
-    -- in the cache (Step 1) for whenever the user decides to load it themselves.
+    -- Telescope hasn't finished booting up yet. We do NOT force load it early.
+    -- When their config runs setup(), our values are already safe inside the fallback cache.
   end
 end
 -- if telescope_ok then
