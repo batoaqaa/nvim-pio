@@ -241,42 +241,42 @@ function M.setFormatStyle()
       return
     end
     M.clangdIntall(function(clangdCmd)
-      -- gui using terminal for setting clang-format style
-      local cmd = string.format('%s --style=%s --dump-config > .clang-format', clangdCmd, choice:lower())
-      local parser = require('nvimpio.device.parser')
-      parser.run_sequence({
-        cmnds = { cmd },
-        cb = parser.clangFormat,
-        from = 'clangdIntall',
-      })
+      -- -- gui using terminal for setting clang-format style
+      -- local cmd = string.format('%s --style=%s --dump-config > .clang-format', clangdCmd, choice:lower())
+      -- local parser = require('nvimpio.device.parser')
+      -- parser.run_sequence({
+      --   cmnds = { cmd },
+      --   cb = parser.clangFormat,
+      --   from = 'clangdIntall',
+      -- })
 
-      -- -- cli using hidden system asynchronous command for setting clang-format style
-      -- local cmd = { clangdCmd, string.format('--style=%s', choice:lower()), '--dump-config' }
-      -- --1 -- Synchronously wait for completion (avoids callbacks and scheduling)
-      -- --1 local obj = vim.system(cmd, { text = true }):wait()
-      -- --2 -- asynchronous way
-      -- vim.system(cmd, { text = true }, function(obj) -- 2
-      --   -- Use vim.schedule to perform UI tasks/API calls on the main thread
-      --   vim.schedule(function() -- 2
-      --     if obj.code == 0 and obj.stdout and obj.stdout ~= '' then
-      --       local file = io.open('.clang-format', 'w')
-      --       if file then
-      --         file:write(obj.stdout)
-      --         file:close()
-      --
-      --         OS.notify('Created .clang-format (' .. choice .. ')', 'info')
-      --         M.restart()
-      --         OS.notify('LSP Reloaded: Using ' .. choice .. ' style.')
-      --       else
-      --         OS.notify('Failed to save .clang-format to disk (Permission error?)', 'error')
-      --       end
-      --     else
-      --       -- If the tool failed, print out its actual stderr reason
-      --       local err_msg = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Unknown configuration failure'
-      --       OS.notify('Failed to generate .clang-format. Error: ' .. err_msg, 'error')
-      --     end
-      --   end) -- 2
-      -- end) -- 2
+      -- cli using hidden system asynchronous command for setting clang-format style
+      local cmd = { clangdCmd, string.format('--style=%s', choice:lower()), '--dump-config' }
+      --1 -- Synchronously wait for completion (avoids callbacks and scheduling)
+      --1 local obj = vim.system(cmd, { text = true }):wait()
+      --2 -- asynchronous way
+      vim.system(cmd, { text = true }, function(obj) -- 2
+        -- Use vim.schedule to perform UI tasks/API calls on the main thread
+        vim.schedule(function() -- 2
+          if obj.code == 0 and obj.stdout and obj.stdout ~= '' then
+            local file = io.open('.clang-format', 'w')
+            if file then
+              file:write(obj.stdout)
+              file:close()
+
+              OS.notify('Created .clang-format (' .. choice .. ')', 'info')
+              M.restart()
+              OS.notify('LSP Reloaded: Using ' .. choice .. ' style.')
+            else
+              OS.notify('Failed to save .clang-format to disk (Permission error?)', 'error')
+            end
+          else
+            -- If the tool failed, print out its actual stderr reason
+            local err_msg = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Unknown configuration failure'
+            OS.notify('Failed to generate .clang-format. Error: ' .. err_msg, 'error')
+          end
+        end) -- 2
+      end) -- 2
     end, 'clang-format')
   end)
 end
