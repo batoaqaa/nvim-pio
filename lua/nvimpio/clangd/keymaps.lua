@@ -23,16 +23,6 @@ function K.lspKeymaps(client, bufnr)
   -- bufkeymap('n', 'gle', '<Cmd>Telescope diagnostics<CR>', 'Show diagnostic [e]rror messages')
   bufkeymap('n', 'glq', vim.diagnostic.setloclist, 'Open diagnostic [q]uickfix list')
   --
-  -- bufkeymap('n', '<leader>\\b', '<cmd>lua _G.block_diagnostic_under_cursor()<CR>', 'Dynamic Block Local Microcontroller LSP Code/Text')
-  -- stylua: ignore start
-  -- << local trouble = require("trouble").toggle
-  -- << bufkeymap('n', "<leader>tt", function() trouble() end, "Toggle Trouble")
-  -- << bufkeymap('n', "<leader>tq", function() trouble("quickfix") end, "Quickfix List")
-  -- << bufkeymap('n', "<leader>dr", function() trouble("lsp_references") end, "References")
-  -- << bufkeymap('n', "<leader>dd", function() trouble("document_diagnostics") end, "Document Diagnostics")
-  -- << bufkeymap('n', "<leader>dw", function() trouble("workspace_diagnostics") end, "Workspace Diagnostics")
-  -- stylua: ignore end
-  --
   if client.server_capabilities.hoverProvider then
     bufkeymap('n', 'glk', vim.lsp.buf.hover, 'Hover Documentation')
   end
@@ -70,12 +60,6 @@ function K.lspKeymaps(client, bufnr)
   end
 
   if client.server_capabilities.documentSymbolProvider then
-    -- bufkeymap('n', 'glwd', vim.lsp.buf.document_symbol, '[D]ocument symbols')
-    -- bufkeymap('n', 'glwd', function()
-    --   require('telescope.builtin').lsp_document_symbols({
-    --     symbols = { 'function', 'method' }, -- Pre-filter to only show functions and methods
-    --   })
-    -- end, 'Find [W]orkspace Symbols (Functions)')
     -- bufkeymap('n', 'glwd', <Cmd>Telescope lsp_document_symbols<CR>, '[D]ocument [S]ymbols')
     bufkeymap('n', 'glwd', function()
       -- Call the built-in picker natively
@@ -96,17 +80,6 @@ function K.lspKeymaps(client, bufnr)
     end, 'Find [W]orkspace Symbols (Functions)')
   end
   if client:supports_method('workspace/symbol') then
-    -- if client.server_capabilities.workspaceSymbolProvider then
-    -- bufkeymap('n', 'glww', vim.lsp.buf.workspace_symbol, 'List [w]orkspace symbols')
-    -- bufkeymap('n', 'glww', require('telescope.builtin').lsp_dynamic_workspace_symbols, '[W]orkspace [S]ymbols')
-
-    -- bufkeymap('n', 'glww', function()
-    --   require('telescope.builtin').lsp_dynamic_workspace_symbols({
-    --     symbols = { 'function', 'method' }, -- Pre-filter to only show functions and methods
-    --     query = ' ',
-    --   })
-    -- end, 'Find [W]orkspace Symbols (Functions)')
-
     bufkeymap('n', 'glww', function()
       -- Call the built-in picker natively
       require('telescope.builtin').lsp_dynamic_workspace_symbols(
