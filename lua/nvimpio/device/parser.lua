@@ -330,60 +330,58 @@ function M.handleIdedata(result, active_env, on_done)
   end
 end
 
+-- local pass1 = false
 -- =============================================================================
-local pass1 = false
-function M.handlePioDBArgs(result, active_env, on_done)
-  if result == 'INIT' then
-    cliTerm:send(pop(M.queue))
-  elseif result == 'PASS1' then -- .. current_id then                         -- compiledb PASS1
-    OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
-    pass1  = true
-
-    boilerplate.args = {}
-    boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
-
-    clangd_extracted_args = {}       -- Clear the collected flags table
-    clangd_check_active = true
-    -- vim.defer_fn(function()
-      -- require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
-      if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
-    -- end, 50) -- 50ms delay, adjust as needed
-  elseif result == 'DONE' then -- result of the only and the last command
-    if on_done and type(on_done) == 'function' then
-      on_done(true)
-      if pass1 then
-        vim.defer_fn(function()
-          boilerplate.args = clangd_extracted_args
-          boilerplate_gen('.clangd', vim.g.platformioRootDir)
-          OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
-          require('nvimpio.clangd.control').restart()
-        end, 500) -- 50ms delay, adjust as needed
-      end
-    end
-    cliTerm:hide()
-    M.cleanSequencer()
-  elseif result == 'FAIL' then
-    if on_done and type(on_done) == 'function' then
-      if pass1 then
-        vim.defer_fn(function()
-          boilerplate.args = clangd_extracted_args
-          boilerplate_gen('.clangd', vim.g.platformioRootDir)
-          OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
-          require('nvimpio.clangd.control').restart()
-        end, 500) -- 50ms delay, adjust as needed
-        on_done(true)
-      else on_done(false) end
-    end
-    cliTerm:hide()
-    M.cleanSequencer()
-  end
-end
--- =============================================================================
+-- function M.handlePioDBArgs(result, active_env, on_done)
+--   if result == 'INIT' then
+--     cliTerm:send(pop(M.queue))
+--   elseif result == 'PASS1' then -- .. current_id then                         -- compiledb PASS1
+--     OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
+--     pass1  = true
+--
+--     boilerplate.args = {}
+--     boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
+--
+--     clangd_extracted_args = {}       -- Clear the collected flags table
+--     clangd_check_active = true
+--     -- vim.defer_fn(function()
+--       -- require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
+--       if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
+--     -- end, 50) -- 50ms delay, adjust as needed
+--   elseif result == 'DONE' then -- result of the only and the last command
+--     if on_done and type(on_done) == 'function' then
+--       on_done(true)
+--       if pass1 then
+--         vim.defer_fn(function()
+--           boilerplate.args = clangd_extracted_args
+--           boilerplate_gen('.clangd', vim.g.platformioRootDir)
+--           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
+--           require('nvimpio.clangd.control').restart()
+--         end, 500) -- 50ms delay, adjust as needed
+--       end
+--     end
+--     cliTerm:hide()
+--     M.cleanSequencer()
+--   elseif result == 'FAIL' then
+--     if on_done and type(on_done) == 'function' then
+--       if pass1 then
+--         vim.defer_fn(function()
+--           boilerplate.args = clangd_extracted_args
+--           boilerplate_gen('.clangd', vim.g.platformioRootDir)
+--           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
+--           require('nvimpio.clangd.control').restart()
+--         end, 500) -- 50ms delay, adjust as needed
+--         on_done(true)
+--       else on_done(false) end
+--     end
+--     cliTerm:hide()
+--     M.cleanSequencer()
+--   end
+-- end
 
 -- *=============================================================================
 function M.handlePioDB(result, active_env, on_done)
   if result == 'INIT' then
-    pass1 = false
     cliTerm:send(pop(M.queue))
   elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
     OS.notify(string.format('%sls  for %s', fromMsg, active_env), "info")
@@ -404,56 +402,52 @@ end
 ------------------------------------------------------
 -- Handle command
 -- =============================================================================
-local pass2 = false
-function M.handleIdedata1(result, active_env, on_done)
-  if result == 'INIT' then
-    cliTerm:send(pop(M.queue))
-  elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
-    OS.notify(string.format('%sidedata  for %s', fromMsg, active_env), "info")
-    if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
-  elseif result == 'PASS2' then -- .. current_id then                         -- compiledb PASS1
-    OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
-    pass2  = true
-
-    boilerplate.args = {}
-    boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
-
-    clangd_extracted_args = {}       -- Clear the collected flags table
-    clangd_check_active = true
-    -- vim.defer_fn(function()
-      -- require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
-      if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
-    -- end, 50) -- 50ms delay, adjust as needed
-  elseif result == 'DONE' then                                       -- unknown args DONE
-    if on_done and type(on_done) == 'function' then
-      on_done(true)
-      if pass2 then
-        vim.defer_fn(function()
-          boilerplate.args = clangd_extracted_args
-          boilerplate_gen('.clangd', vim.g.platformioRootDir)
-          OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
-          require('nvimpio.clangd.control').restart()
-        end, 500) -- 50ms delay, adjust as needed
-      end
-    end
-    if trm then trm:close() end
-    M.cleanSequencer()
-  elseif result == 'FAIL' then                                       -- FAIL
-    if on_done and type(on_done) == 'function' then
-      if pass2 then
-        vim.defer_fn(function()
-          boilerplate.args = clangd_extracted_args
-          boilerplate_gen('.clangd', vim.g.platformioRootDir)
-          OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
-          require('nvimpio.clangd.control').restart()
-        end, 500) -- 50ms delay, adjust as needed
-        on_done(true)
-      else on_done(false) end
-    end
-    if trm then trm:close() end
-    M.cleanSequencer()
-  end
-end
+-- function M.handleIdedata1(result, active_env, on_done)
+--   if result == 'INIT' then
+--     cliTerm:send(pop(M.queue))
+--   elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
+--     OS.notify(string.format('%sidedata  for %s', fromMsg, active_env), "info")
+--     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
+--   elseif result == 'PASS2' then -- .. current_id then                         -- compiledb PASS1
+--     OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
+--
+--     boilerplate.args = {}
+--     boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
+--
+--     clangd_extracted_args = {}       -- Clear the collected flags table
+--     clangd_check_active = true
+--     -- vim.defer_fn(function()
+--       -- require('nvimpio.clangd.control').getUnknownArgs(fromMsg)
+--       if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
+--     -- end, 50) -- 50ms delay, adjust as needed
+--   elseif result == 'DONE' then                                       -- unknown args DONE
+--     if on_done and type(on_done) == 'function' then
+--       on_done(true)
+--       vim.defer_fn(function()
+--         boilerplate.args = clangd_extracted_args
+--         boilerplate_gen('.clangd', vim.g.platformioRootDir)
+--         OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
+--         require('nvimpio.clangd.control').restart()
+--       end, 500) -- 50ms delay, adjust as needed
+--     end
+--     if trm then trm:close() end
+--     M.cleanSequencer()
+--   elseif result == 'FAIL' then                                       -- FAIL
+--     if on_done and type(on_done) == 'function' then
+--       if pass2 then
+--         vim.defer_fn(function()
+--           boilerplate.args = clangd_extracted_args
+--           boilerplate_gen('.clangd', vim.g.platformioRootDir)
+--           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
+--           require('nvimpio.clangd.control').restart()
+--         end, 500) -- 50ms delay, adjust as needed
+--         on_done(true)
+--       else on_done(false) end
+--     end
+--     if trm then trm:close() end
+--     M.cleanSequencer()
+--   end
+-- end
 
 ------------------------------------------------------
 -- Handle command
@@ -494,7 +488,10 @@ function M.handlePiolib(result)
     vim.schedule(function()
       OS.notify('PIO lib+db: Done', "info")
       M.pio_refresh(function(success)
-        if success then require('nvimpio.clangd.control').getUnknownArgsCli('PIO lib+db: ') end
+        if success then
+          do end
+          -- require('nvimpio.clangd.control').getUnknownArgsCli('PIO lib+db: ')
+        end
       end, 'PIO lib+db: ')
     end)
     cliTerm:hide()

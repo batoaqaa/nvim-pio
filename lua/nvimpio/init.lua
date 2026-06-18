@@ -121,11 +121,7 @@ function M.setup(user_opts)
       function(success)
         if success then
           require('nvimpio.pio.ui.pioInit').pioInit(function(done)
-            if done then
-              -- vim.clangd.getUnknownArgs()
-              -- if M.config.clangd.install then require('nvimpio.clangd.config') end
-              M.activate()
-            end
+            if done then M.activate() end
           end)
         else
         end
@@ -143,9 +139,7 @@ function M.setup(user_opts)
     vim.g.platformioRootDir = vim.uv.cwd()
     vim.schedule(function()
       require('nvimpio.core').ensure_toolchain_active(function(success)
-        if success then
-          M.activate()
-        end
+        if success then M.activate() end
       end, 0)
       -- end, true)
     end)

@@ -204,64 +204,106 @@ function M.start_watchers()
 end
 
 --INFO: telescope settings
-local dropdown_settings = require('telescope.themes').get_dropdown({
-  borderchars = {
-    prompt  = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
-    results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
-    preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
-  },
-  prompt_position  = 'top',
-  prompt_prefix    = '🔍  ',
-  selection_caret  = '❯ ',
-  entry_prefix     = '  ',
-  initial_mode     = 'normal',
-  layout_config    = { height = 25 },
-  sorting_strategy = 'ascending',
-})
+-- 1. Check if telescope is ALREADY cached in the environment
+local is_telescope_loaded = package.loaded['telescope'] ~= nil
 
--- Backup the core native UI selection channel handler
-local original_select = vim.ui.select
+-- 2. Safely capture the Telescope module reference
+local telescope_ok, telescope = pcall(require, 'telescope')
 
----@diagnostic disable-next-line: duplicate-set-field
-vim.ui.select = function(items, opts, on_choice)
-  local telescope_ok, telescope = pcall(require, 'telescope')
-  if telescope_ok then
-    opts = opts or {}
+if telescope_ok then
+  local dropdown_settings = require('telescope.themes').get_dropdown({
+    borderchars = {
+      prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+      results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+      preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+    },
+    prompt_position  = 'top',
+    prompt_prefix    = '🔍 ',
+    selection_caret  = '❯ ',
+    entry_prefix     = '  ',
+    initial_mode     = 'normal',
+    sorting_strategy = 'ascending',
+  })
 
-    -- Convert whatever items table array is passed into readable strings cleanly
-    local item_strings = {}
-    for _, item in ipairs(items) do
-      local formatted = item
-      if opts.format_item then formatted = opts.format_item(item)
-      elseif type(item) == "table" then formatted = item.name or vim.inspect(item) end
-      table.insert(item_strings, tostring(formatted))
-    end
-
-    -- Bypasses extensions completely. Directly creates an instant dropdown picker.
-    local action_state = require('telescope.actions.state')
-    local actions = require('telescope.actions')
-
-    local picker_opts = vim.tbl_deep_extend('force', dropdown_settings, {
-      prompt_title = opts.prompt or "Select Option:",
-      finder = require('telescope.finders').new_table({ results = item_strings }),
-      sorter = require('telescope.sorters').get_generic_fuzzy_sorter({}),
-      attach_mappings = function(prompt_bufnr, _)
-        actions.select_default:replace(function()
-          local selection = action_state.get_selected_entry()
-          actions.close(prompt_bufnr)
-          if selection then on_choice(items[selection.index], selection.index)
-          else on_choice(nil, nil) end
-        end)
-        return true
-      end,
+  -- 3. Now the conditional branches will fire accurately
+  if not is_telescope_loaded then
+    -- Brand new setup
+    telescope.setup({
+      extensions = {
+        ['ui-select'] = dropdown_settings
+      }
     })
-
-    require('telescope.pickers').new({}, picker_opts):find()
   else
-    -- Seamless ultimate fallback if the user has an incomplete runtime profile
-    original_select(items, opts, on_choice)
+    -- Fallback for injecting into an already active runtime profile
+    local ts_config = require('telescope.config')
+    ts_config.values.extensions = ts_config.values.extensions or {}
+    ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
+      'force',
+      ts_config.values.extensions['ui-select'] or {},
+      dropdown_settings
+    )
   end
+
+  pcall(telescope.load_extension, 'ui-select')
 end
+-- local dropdown_settings = require('telescope.themes').get_dropdown({
+--   borderchars = {
+--     prompt  = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+--     results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+--     preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+--   },
+--   prompt_position  = 'top',
+--   prompt_prefix    = '🔍  ',
+--   selection_caret  = '❯ ',
+--   entry_prefix     = '  ',
+--   initial_mode     = 'normal',
+--   layout_config    = { height = 25 },
+--   sorting_strategy = 'ascending',
+-- })
+--
+-- -- Backup the core native UI selection channel handler
+-- local original_select = vim.ui.select
+--
+-- ---@diagnostic disable-next-line: duplicate-set-field
+-- vim.ui.select = function(items, opts, on_choice)
+--   local telescope_ok, telescope = pcall(require, 'telescope')
+--   if telescope_ok then
+--     opts = opts or {}
+--
+--     -- Convert whatever items table array is passed into readable strings cleanly
+--     local item_strings = {}
+--     for _, item in ipairs(items) do
+--       local formatted = item
+--       if opts.format_item then formatted = opts.format_item(item)
+--       elseif type(item) == "table" then formatted = item.name or vim.inspect(item) end
+--       table.insert(item_strings, tostring(formatted))
+--     end
+--
+--     -- Bypasses extensions completely. Directly creates an instant dropdown picker.
+--     local action_state = require('telescope.actions.state')
+--     local actions = require('telescope.actions')
+--
+--     local picker_opts = vim.tbl_deep_extend('force', dropdown_settings, {
+--       prompt_title = opts.prompt or "Select Option:",
+--       finder = require('telescope.finders').new_table({ results = item_strings }),
+--       sorter = require('telescope.sorters').get_generic_fuzzy_sorter({}),
+--       attach_mappings = function(prompt_bufnr, _)
+--         actions.select_default:replace(function()
+--           local selection = action_state.get_selected_entry()
+--           actions.close(prompt_bufnr)
+--           if selection then on_choice(items[selection.index], selection.index)
+--           else on_choice(nil, nil) end
+--         end)
+--         return true
+--       end,
+--     })
+--
+--     require('telescope.pickers').new({}, picker_opts):find()
+--   else
+--     -- Seamless ultimate fallback if the user has an incomplete runtime profile
+--     original_select(items, opts, on_choice)
+--   end
+-- end
 
 --INFO: 6.  Exported setup function
 -------------------------------------------------------------------------------
