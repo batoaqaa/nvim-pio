@@ -212,7 +212,7 @@ local telescope_ok, telescope = pcall(require, 'telescope')
 if telescope_ok then
   local dropdown_settings = require('telescope.themes').get_dropdown({
     borderchars = {
-      prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+      prompt  = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
       results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
       preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
     },
@@ -222,36 +222,80 @@ if telescope_ok then
     entry_prefix     = '  ',
     initial_mode     = 'normal',
     sorting_strategy = 'ascending',
-    layout_config    = { height = 25 }, -- Fixes the 11-line height cap cleanly
+    layout_config    = { height = 25 },
   })
 
-  -- STEP 1: Patch the configuration fallback cache.
-  -- This handles users who haven't loaded 'ui-select' yet. When they eventually 
-  -- do load it, Telescope will naturally pull your settings from here.
+  -- 1. Polite Cache Patch: Updates the fallback directory.
+  -- If the user loads ui-select later, Telescope will automatically pull your settings.
   local ts_config = require('telescope.config')
   ts_config.values.extensions = ts_config.values.extensions or {}
   ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
-    'keep', -- 'keep' protects user styles, only filling in your plugin gaps
+    'keep', -- 'keep' guarantees we never overwrite the user's preferred choices
     ts_config.values.extensions['ui-select'] or {},
     dropdown_settings
   )
 
-  -- STEP 2: Check if the extension is already live in Lua memory
-  local ui_select_mod = package.loaded['telescope._extensions.ui-select']
-
-  if ui_select_mod and ui_select_mod.state then
-    -- Case A: It IS loaded already. Force the active memory state to adopt your settings.
-    ui_select_mod.state.config = vim.tbl_deep_extend(
-      'keep',
-      ui_select_mod.state.config or {},
-      dropdown_settings
-    )
+  -- 2. Check Telescope's official active extension registry table
+  -- This tells us if ui-select is actively running right now
+  if telescope.extensions and telescope.extensions['ui-select'] then
+    -- Case A: It is already running. Hot-patch its live runtime state.
+    local ui_select_mod = package.loaded['telescope._extensions.ui-select']
+    if ui_select_mod and ui_select_mod.state then
+      ui_select_mod.state.config = vim.tbl_deep_extend(
+        'keep',
+        ui_select_mod.state.config or {},
+        dropdown_settings
+      )
+    end
   else
-    -- Case B: It is NOT loaded yet. We call load_extension ourselves to activate it 
-    -- using the fallback cache we patched in STEP 1.
-    pcall(telescope.load_extension, 'ui-select')
+    -- Case B: It is NOT running yet. 
+    -- Do NOT call load_extension! Leave it alone. Your settings are safely waiting 
+    -- in the cache (Step 1) for whenever the user decides to load it themselves.
   end
 end
+-- if telescope_ok then
+--   local dropdown_settings = require('telescope.themes').get_dropdown({
+--     borderchars = {
+--       prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+--       results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+--       preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+--     },
+--     prompt_position  = 'top',
+--     prompt_prefix    = '🔍 ',
+--     selection_caret  = '❯ ',
+--     entry_prefix     = '  ',
+--     initial_mode     = 'normal',
+--     sorting_strategy = 'ascending',
+--     layout_config    = { height = 25 }, -- Fixes the 11-line height cap cleanly
+--   })
+--
+--   -- STEP 1: Patch the configuration fallback cache.
+--   -- This handles users who haven't loaded 'ui-select' yet. When they eventually 
+--   -- do load it, Telescope will naturally pull your settings from here.
+--   local ts_config = require('telescope.config')
+--   ts_config.values.extensions = ts_config.values.extensions or {}
+--   ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
+--     'keep', -- 'keep' protects user styles, only filling in your plugin gaps
+--     ts_config.values.extensions['ui-select'] or {},
+--     dropdown_settings
+--   )
+--
+--   -- STEP 2: Check if the extension is already live in Lua memory
+--   local ui_select_mod = package.loaded['telescope._extensions.ui-select']
+--
+--   if ui_select_mod and ui_select_mod.state then
+--     -- Case A: It IS loaded already. Force the active memory state to adopt your settings.
+--     ui_select_mod.state.config = vim.tbl_deep_extend(
+--       'keep',
+--       ui_select_mod.state.config or {},
+--       dropdown_settings
+--     )
+--   else
+--     -- Case B: It is NOT loaded yet. We call load_extension ourselves to activate it 
+--     -- using the fallback cache we patched in STEP 1.
+--     pcall(telescope.load_extension, 'ui-select')
+--   end
+-- end
 -- if telescope_ok then
 --   local dropdown_settings = require('telescope.themes').get_dropdown({
 --     borderchars = {
