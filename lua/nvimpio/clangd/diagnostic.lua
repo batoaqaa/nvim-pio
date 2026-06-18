@@ -1,4 +1,4 @@
---- stylua: ignore start
+-- stylua: ignore start
 local M = {}
 
 -- Module scopes track cross-file automated session states safely
@@ -13,9 +13,7 @@ local function ensure_default_db_exists(db_path)
   -- Check if the file already exists on the hard drive
   local stat = vim.uv.fs_stat(db_path)
   -- File exists, do not overwrite it!
-  if stat then
-    return true
-  end
+  if stat then return true end
 
   -- Define the clean, default JSON object template structure
   local default_template = { codes = {}, flags = {} }
@@ -24,12 +22,9 @@ local function ensure_default_db_exists(db_path)
   local success, misc = pcall(require, 'nvimpio.utils.misc')
   local raw_json = ''
 
-  if success and misc and misc.jsonFormat then
-    raw_json = misc.jsonFormat(default_template)
-  else
-    -- Standard single-line fallback string if formatting module is loading late
-    raw_json = '{\n  "codes": {},\n  "flags": {}\n}'
-  end
+  if success and misc and misc.jsonFormat then raw_json = misc.jsonFormat(default_template)
+  -- Standard single-line fallback string if formatting module is loading late
+  else raw_json = '{\n  "codes": {},\n  "flags": {}\n}' end
 
   -- Perform a safe, single-point background disk write operation
   local f = io.open(db_path, 'wb')
@@ -47,9 +42,7 @@ local function parse_db_file_pure(db_path)
 
   local blocked_codes = {}
   local f = io.open(db_path, 'rb')
-  if not f then
-    return blocked_codes
-  end
+  if not f then return blocked_codes end
   local raw = f:read('*all')
   f:close()
 
@@ -58,16 +51,11 @@ local function parse_db_file_pure(db_path)
     if ok and data and type(data.codes) == 'table' then
       for k, v in pairs(data.codes) do
         local code_str = nil
-        if type(k) == 'string' and k ~= '' then
-          code_str = k
-        elseif type(v) == 'string' and v ~= '' then
-          code_str = v
-        end
+        if type(k) == 'string' and k ~= '' then code_str = k
+        elseif type(v) == 'string' and v ~= '' then code_str = v end
 
         -- Ensure we only load it if it was explicitly marked as true inside the codes sub-section
-        if code_str and data.codes[k] == true then
-          blocked_codes[code_str] = true
-        end
+        if code_str and data.codes[k] == true then blocked_codes[code_str] = true end
       end
     end
   end
@@ -146,7 +134,7 @@ end
 -- ===================================================================
 -- 🛠️ ENGINE PATH B: Clean Source Code File Diagnostics (Pure Files)
 -- ===================================================================
-function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
+function M.clean_file_path_pipeline(diagnostics)
   if not diagnostics or #diagnostics == 0 then
     return diagnostics
   end
@@ -182,13 +170,9 @@ function M.clean_file_path_pipeline(absolute_file_path, diagnostics)
         M.removed_flags[flag] = true
         flags_updated = true
       end
-    elseif code and manual_blocked[code] then
-      keep = false
-    end
+    elseif code and manual_blocked[code] then keep = false end
 
-    if keep then
-      table.insert(clean_diagnostics, diag)
-    end
+    if keep then table.insert(clean_diagnostics, diag) end
   end
 
   -- 🟢 SINGLE-POINT FLUSH POINT: Trigger only if a brand-new unknown flag was caught mid-flight
@@ -224,9 +208,7 @@ function M.manage_file_diagnostics_interactive(state_override)
   -- If state_override contains a 'name' field, it is a Neovim command metadata block object!
   -- Discard it instantly and force it back to a clean disk load via parse_db_file_pure()
   local is_command_object = type(state_override) == 'table' and state_override.name ~= nil
-  if is_command_object then
-    state_override = nil
-  end
+  if is_command_object then state_override = nil end
 
   -- Initialize memory state tracking layer from disk or incoming RAM state
   local active_file_blocked = state_override or parse_db_file_pure(filter_db_path)
@@ -255,9 +237,7 @@ function M.manage_file_diagnostics_interactive(state_override)
 
   -- Sort keys alphabetically
   local registered_keys = {}
-  for k, _ in pairs(M.session_discovered_codes) do
-    table.insert(registered_keys, k)
-  end
+  for k, _ in pairs(M.session_discovered_codes) do table.insert(registered_keys, k) end
   table.sort(registered_keys)
 
   local items = {}
@@ -288,15 +268,11 @@ function M.manage_file_diagnostics_interactive(state_override)
   end
 
   local block_count = 0
-  for _ in pairs(active_file_blocked) do
-    block_count = block_count + 1
-  end
+  for _ in pairs(active_file_blocked) do block_count = block_count + 1 end
 
   vim.ui.select(items, {
     prompt = string.format('📁 %s | Blocked: %d', vim.fs.basename(filter_db_path), block_count),
-    format_item = function(item)
-      return item.text
-    end,
+    format_item = function(item) return item.text end,
   }, function(choice)
     -- 🟢 GATE 1: User pressed Escape to close the panel menu
     if not choice then
@@ -334,13 +310,9 @@ function M.manage_file_diagnostics_interactive(state_override)
     end
 
     -- 🟢 GATE 3: User selected a valid row checkbox item to toggle
-    if choice.action == 'reset' then
-      active_file_blocked = {}
-    elseif choice.action == 'block' then
-      active_file_blocked[choice.id] = true
-    elseif choice.action == 'unblock' then
-      active_file_blocked[choice.id] = nil
-    end
+    if choice.action == 'reset' then active_file_blocked = {}
+    elseif choice.action == 'block' then active_file_blocked[choice.id] = true
+    elseif choice.action == 'unblock' then active_file_blocked[choice.id] = nil end
 
     -- 🟢 RECURSION LINE MOVED INSIDE THE ACTIVE SELECTION FLOW LAYER:
     -- This guarantees that changes toggle smoothly in RAM while typing/clicking around,

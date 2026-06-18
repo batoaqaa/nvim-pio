@@ -195,7 +195,7 @@ function M.getClangdConfig()
           return -- Block configuration diagnostics from polluting user view
         else
           if pio_diag.clean_file_path_pipeline then
-            result.diagnostics = pio_diag.clean_file_path_pipeline(target_path, result.diagnostics)
+            result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics)
           end
         end
       end
@@ -233,7 +233,7 @@ end
 --------------------------------------------------------------------------------
 function M.setFormatStyle()
   local styles = { 'LLVM', 'Google', 'Chromium', 'Mozilla', 'WebKit', 'Microsoft', 'GNU' }
-  vim.cmd('stopinsert')
+  -- vim.cmd('stopinsert')
   vim.ui.select(styles, {
     prompt = 'Select Clang-Format base style:',
   }, function(choice)
