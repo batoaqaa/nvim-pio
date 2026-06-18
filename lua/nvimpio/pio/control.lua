@@ -215,71 +215,100 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
   prompt_prefix    = '🔍 ',
   selection_caret  = '❯ ',
   entry_prefix     = '  ',
-  initial_mode     = 'normal',        
-  layout_config    = { height = 25 }, 
+  initial_mode     = 'normal',
+  layout_config    = { height = 25 },
   sorting_strategy = 'ascending',
 })
 
+-- Backup the core native UI selection channel handler
+local original_select = vim.ui.select
 
-  -- 1. Backup the core native UI choice picker function
-  local original_select = vim.ui.select
+-- THE ROBUST PROFESSIONAL INTERCEPTOR:
+-- Dynamically injects styling parameters directly into the active choice call object.
+-- This makes your layout changes 100% immune to lazy-load wipes and cache locks.
+---@diagnostic disable-next-line: duplicate-set-field
+vim.ui.select = function(items, opts, on_choice)
+  local telescope_ok, _ = pcall(require, 'telescope')
+  local ui_select_ok, ui_select = pcall(require, 'telescope._extensions.ui-select')
 
-  -- 2. OVERRIDE VIM.UI.SELECT GLOBALLY FOR ALL FILES NATIVELY:
-  vim.ui.select = function(items, opts, on_choice)
-    local telescope_ok, _ = pcall(require, 'telescope')
+  if telescope_ok and ui_select_ok then
+    -- Inject your explicit theme layouts directly into the current execution query stream.
+    -- This bypasses global registries and forces Telescope to render your look instantly.
+    opts = vim.tbl_deep_extend('force', opts or {}, {
+      theme           = "dropdown",
+      layout_strategy = "dropdown",
+      telescope       = dropdown_settings
+    })
 
-    if telescope_ok then
-      opts = opts or {}
-      local prompt_string = opts.prompt or "Select Option:"
-      
-      -- Convert whatever items table array is passed into readable strings cleanly
-      local item_strings = {}
-      for _, item in ipairs(items) do
-        local formatted = item
-        if opts.format_item then
-          formatted = opts.format_item(item)
-        elseif type(item) == "table" then
-          formatted = item.name or vim.inspect(item)
-        end
-        table.insert(item_strings, tostring(formatted))
-      end
-
-      -- Call Telescope's core layout modules directly
-      local pickers = require('telescope.pickers')
-      local finders = require('telescope.finders')
-      local actions = require('telescope.actions')
-      local action_state = require('telescope.actions.state')
-      
-      -- FIXED: Pull the fuzzy sorter directly out of telescope.sorters natively
-      local sorter_engine = require('telescope.sorters').get_generic_fuzzy_sorter({})
-
-      -- Merge your dropdown styling variables directly with the runtime items data
-      local merged_options = vim.tbl_deep_extend('force', dropdown_settings, {
-        prompt_title = prompt_string,
-        finder = finders.new_table({ results = item_strings }),
-        sorter = sorter_engine, -- Passes the corrected sorter engine object
-        attach_mappings = function(prompt_bufnr, _)
-          actions.select_default:replace(function()
-            local selection = action_state.get_selected_entry()
-            actions.close(prompt_bufnr)
-            if selection then
-              -- Hand the execution index back to the file that called the menu
-              on_choice(items[selection.index], selection.index)
-            else
-              on_choice(nil, nil)
-            end
-          end)
-          return true
-        end,
-      })
-
-      -- Instantly open the custom dropdown window frame pane box
-      pickers.new({}, merged_options):find()
-    else
-      -- Ultimate absolute safety fallback if Telescope is completely uninstalled from the hard drive
-      original_select(items, opts, on_choice)
-    end
+    -- Hand off execution directly to the verified extension function.
+    -- This avoids complex manual finder mapping code while guaranteeing zero crashes.
+    ui_select.ui_select(items, opts, on_choice)
+  else
+    -- Seamless ultimate fallback if the user has an incomplete runtime profile
+    original_select(items, opts, on_choice)
   end
+end
+
+-- -- 1. Backup the core native UI choice picker function
+-- local original_select = vim.ui.select
+--
+-- -- 2. OVERRIDE VIM.UI.SELECT GLOBALLY FOR ALL FILES NATIVELY:
+-- ---@diagnostic disable-next-line: duplicate-set-field
+-- vim.ui.select = function(items, opts, on_choice)
+--   local telescope_ok, _ = pcall(require, 'telescope')
+--
+--   if telescope_ok then
+--     opts = opts or {}
+--     local prompt_string = opts.prompt or "Select Option:"
+--
+--     -- Convert whatever items table array is passed into readable strings cleanly
+--     local item_strings = {}
+--     for _, item in ipairs(items) do
+--       local formatted = item
+--       if opts.format_item then
+--         formatted = opts.format_item(item)
+--       elseif type(item) == "table" then
+--         formatted = item.name or vim.inspect(item)
+--       end
+--       table.insert(item_strings, tostring(formatted))
+--     end
+--
+--     -- Call Telescope's core layout modules directly
+--     local pickers = require('telescope.pickers')
+--     local finders = require('telescope.finders')
+--     local actions = require('telescope.actions')
+--     local action_state = require('telescope.actions.state')
+--
+--     -- FIXED: Pull the fuzzy sorter directly out of telescope.sorters natively
+--     local sorter_engine = require('telescope.sorters').get_generic_fuzzy_sorter({})
+--
+--     -- Merge your dropdown styling variables directly with the runtime items data
+--     local merged_options = vim.tbl_deep_extend('force', dropdown_settings, {
+--       prompt_title = prompt_string,
+--       finder = finders.new_table({ results = item_strings }),
+--       sorter = sorter_engine, -- Passes the corrected sorter engine object
+--       attach_mappings = function(prompt_bufnr, _)
+--         actions.select_default:replace(function()
+--           local selection = action_state.get_selected_entry()
+--           actions.close(prompt_bufnr)
+--           if selection then
+--             -- Hand the execution index back to the file that called the menu
+--             on_choice(items[selection.index], selection.index)
+--           else
+--             on_choice(nil, nil)
+--           end
+--         end)
+--         return true
+--       end,
+--     })
+--
+--     -- Instantly open the custom dropdown window frame pane box
+--     pickers.new({}, merged_options):find()
+--   else
+--     -- Ultimate absolute safety fallback if Telescope is completely uninstalled from the hard drive
+--     original_select(items, opts, on_choice)
+--   end
+-- end
 
 
 
