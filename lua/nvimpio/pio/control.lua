@@ -261,45 +261,41 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
   sorting_strategy = 'ascending',
 })
 
--- Backup Neovim's original select choice function
-local original_select = vim.ui.select
 
--- THE ROBUST OVERRIDE:
--- Intercepts vim.ui.select when called by your plugin scripts.
--- Bypasses global caches and forces Telescope to render your custom look.
----@diagnostic disable-next-line: duplicate-set-field
-vim.ui.select = function(items, opts, on_choice)
-  local telescope_ok, telescope = pcall(require, 'telescope')
+  -- Backup Neovim's original select choice function
+  local original_select = vim.ui.select
 
-  if telescope_ok then
-    -- If telescope.setup() was never run by the user, initialize it safely now
-    local ts_config_ok, ts_config = pcall(require, 'telescope.config')
-    if ts_config_ok and (not ts_config.values or vim.tbl_isempty(ts_config.values)) then
-      telescope.setup({})
-    end
+  -- THE ROBUST OVERRIDE:
+  vim.ui.select = function(items, opts, on_choice)
+    local telescope_ok, telescope = pcall(require, 'telescope')
+    local ext_ok, ui_select_mod = pcall(require, 'telescope._extensions.ui-select')
 
-    -- Inject theme parameters directly into Telescope's active call payload block
-    opts = vim.tbl_deep_extend('force', opts or {}, {
-      theme           = "dropdown",
-      layout_strategy = "dropdown",
-      telescope       = dropdown_settings
-    })
+    -- If both modules are active and loaded on the user's hard drive
+    if telescope_ok and ext_ok and type(ui_select_mod.ui_select) == "function" then
+      
+      -- Ensure Telescope's core configuration parameters exist safely first
+      local ts_config_ok, ts_config = pcall(require, 'telescope.config')
+      if ts_config_ok and (not ts_config.values or vim.tbl_isempty(ts_config.values)) then
+        telescope.setup({})
+      end
 
-    -- SAFEST RUNTIME ENTRY POINT:
-    -- We load telescope-ui-select's native module directly behind Telescope's back.
-    -- This bypasses broken load_extension() registries while using Telescope's official
-    -- index mapping engine, making it 100% immune to index shifts or saving failures!
-    local ext_ok, ui_select_mod = pcall(require, 'telescope._extensions.ui-select.actions')
-    if ext_ok and ui_select_mod and type(ui_select_mod.telescope_ui_select) == "function" then
-      ui_select_mod.telescope_ui_select(items, opts, on_choice)
+      -- Inject theme parameters directly into Telescope's active call payload block
+      opts = vim.tbl_deep_extend('force', opts or {}, {
+        theme           = "dropdown",
+        layout_strategy = "dropdown",
+        telescope       = dropdown_settings
+      })
+
+      -- THE UN-CRASHABLE HANDOFF:
+      -- Calls the extension's official registration handler. This uses Telescope's
+      -- native indexing core, preserving your working recursive saving logic exactly!
+      ui_select_mod.ui_select(items, opts, on_choice)
       return
     end
+
+    -- Ultimate fallback to native menus if Telescope files are missing or unlinked
+    original_select(items, opts, on_choice)
   end
-
-  -- Ultimate fallback to native menus if Telescope files are missing or unlinked
-  original_select(items, opts, on_choice)
-end
-
 
 
 -- below new have issue
