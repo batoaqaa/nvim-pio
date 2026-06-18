@@ -264,13 +264,17 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
     -- THE UN-CRASHABLE HANDOFF:
     -- Temporarily remove our plugin override to break recursive execution loops
     vim.ui.select = original_select
-    
+
     -- Invoke the global system command block natively. Telescope handles the routing internally!
-    local success, _ = pcall(vim.ui.select, items, opts, on_choice)
-    
+    local success, err_msg = pcall(vim.ui.select, items, opts, on_choice)
+
     -- Instantly restore our plugin's custom interceptor hook for future calls
     vim.ui.select = M.interceptor
-    
+
+    -- PRINT THE ERROR TO THE SCREEN SO WE CAN SEE IT:
+    if not success and err_msg then
+      vim.notify("Telescope Error: " .. tostring(err_msg), vim.log.levels.ERROR)
+    end
     return success
   end
 
