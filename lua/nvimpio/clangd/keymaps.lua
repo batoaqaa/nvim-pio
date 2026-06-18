@@ -70,7 +70,8 @@ function K.lspKeymaps(client, bufnr)
   end
 
   if client.server_capabilities.documentSymbolProvider then
-    bufkeymap('n', 'glwd', vim.lsp.buf.document_symbol, '[D]ocument symbols')
+    -- bufkeymap('n', 'glwd', vim.lsp.buf.document_symbol, '[D]ocument symbols')
+    vim.keymap.set('n', 'glwd', require('telescope.builtin').lsp_document_symbols, { desc = '[D]ocument [S]ymbols' })
     -- bufkeymap('n', 'glwd', <Cmd>Telescope lsp_document_symbols<CR>, '[D]ocument [S]ymbols')
   end
   if client:supports_method('workspace/symbol') then
