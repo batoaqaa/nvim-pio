@@ -209,11 +209,17 @@ local is_telescope_loaded = package.loaded['telescope'] ~= nil
 
 -- 2. Safely capture the Telescope module reference
 local telescope_ok, telescope = pcall(require, 'telescope')
-
 if telescope_ok then
+
+  -- Ensure the core config module is populated safely first
+  local ts_config_ok, ts_config = pcall(require, 'telescope.config')
+  if ts_config_ok and (not ts_config.values or vim.tbl_isempty(ts_config.values)) then
+    telescope.setup({})
+  end
+
   local dropdown_settings = require('telescope.themes').get_dropdown({
     borderchars = {
-      prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+      prompt  = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
       results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
       preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
     },
@@ -221,40 +227,88 @@ if telescope_ok then
     prompt_prefix    = '🔍 ',
     selection_caret  = '❯ ',
     entry_prefix     = '  ',
-    initial_mode     = 'normal',
+    initial_mode     = 'normal',        -- Locks Normal mode navigation
+    layout_config    = { height = 25 }, -- Expands height to 25 rows
     sorting_strategy = 'ascending',
   })
 
-  -- 3. Now the conditional branches will fire accurately
-  if not is_telescope_loaded then
-    -- Case A: Telescope hasn't initialized yet. Register via standard setup.
-    -- Brand new setup
-    telescope.setup({
-      extensions = {
-        ['ui-select'] = dropdown_settings
-      }
-    })
-  else
-    -- local ts_config = require('telescope.config')
-    -- ts_config.values.extensions = ts_config.values.extensions or {}
-    -- ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
-    --   'force',
-    --   ts_config.values.extensions['ui-select'] or {},
-    --   dropdown_settings
-    -- )
-    -- pcall(telescope.load_extension, 'ui-select')
-    -- Telescope is active, but they didn't load ui-select. We load it for them now!
+  -- STEP A: Inject preferences into Telescope's global config cache first
+  ts_config.values.extensions = ts_config.values.extensions or {}
+  ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
+    'keep',
+    ts_config.values.extensions['ui-select'] or {},
+    dropdown_settings
+  )
+
+  -- STEP B: Hot-patch live memory BEFORE loading if it was initialized early
+  if is_telescope_loaded then
     local ui_select_mod = package.loaded['telescope._extensions.ui-select']
     if ui_select_mod and ui_select_mod.state then
-      -- Hot-patch if it happens to be running in memory
-      ui_select_mod.state.config = vim.tbl_deep_extend('keep', ui_select_mod.state.config or {}, dropdown_settings)
-    else
-      -- Force activation so vim.ui.select hooks into Telescope automatically
-      pcall(telescope.load_extension, 'ui-select')
+      ui_select_mod.state.config = vim.tbl_deep_extend(
+        'keep',
+        ui_select_mod.state.config or {},
+        dropdown_settings
+      )
     end
   end
 
+  -- STEP C: THE STRAIGHTFORWARD ORDER FIX
+  -- Now that both cache structures are completely primed with your layout,
+  -- calling load_extension here guarantees it loads your style variables flawlessly.
+  pcall(telescope.load_extension, 'ui-select')
 end
+
+-- -- 1. Check if telescope is ALREADY cached in the environment
+-- local is_telescope_loaded = package.loaded['telescope'] ~= nil
+--
+-- -- 2. Safely capture the Telescope module reference
+-- local telescope_ok, telescope = pcall(require, 'telescope')
+--
+-- if telescope_ok then
+--   local dropdown_settings = require('telescope.themes').get_dropdown({
+--     borderchars = {
+--       prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+--       results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
+--       preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+--     },
+--     prompt_position  = 'top',
+--     prompt_prefix    = '🔍 ',
+--     selection_caret  = '❯ ',
+--     entry_prefix     = '  ',
+--     initial_mode     = 'normal',
+--     sorting_strategy = 'ascending',
+--   })
+--
+--   -- 3. Now the conditional branches will fire accurately
+--   if not is_telescope_loaded then
+--     -- Case A: Telescope hasn't initialized yet. Register via standard setup.
+--     -- Brand new setup
+--     telescope.setup({
+--       extensions = {
+--         ['ui-select'] = dropdown_settings
+--       }
+--     })
+--   else
+--     -- local ts_config = require('telescope.config')
+--     -- ts_config.values.extensions = ts_config.values.extensions or {}
+--     -- ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
+--     --   'force',
+--     --   ts_config.values.extensions['ui-select'] or {},
+--     --   dropdown_settings
+--     -- )
+--     -- pcall(telescope.load_extension, 'ui-select')
+--     -- Telescope is active, but they didn't load ui-select. We load it for them now!
+--     local ui_select_mod = package.loaded['telescope._extensions.ui-select']
+--     if ui_select_mod and ui_select_mod.state then
+--       -- Hot-patch if it happens to be running in memory
+--       ui_select_mod.state.config = vim.tbl_deep_extend('keep', ui_select_mod.state.config or {}, dropdown_settings)
+--     else
+--       -- Force activation so vim.ui.select hooks into Telescope automatically
+--       pcall(telescope.load_extension, 'ui-select')
+--     end
+--   end
+--
+-- end
 
 
 --INFO: 6.  Exported setup function
