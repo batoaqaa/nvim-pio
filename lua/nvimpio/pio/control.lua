@@ -219,49 +219,47 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
   sorting_strategy = 'ascending',
 })
 
-function M.setup()
-  local original_select = vim.ui.select
+local original_select = vim.ui.select
 
-  ---@diagnostic disable-next-line: duplicate-set-field
-  vim.ui.select = function(items, opts, on_choice)
-    local telescope_ok, telescope = pcall(require, 'telescope')
+---@diagnostic disable-next-line: duplicate-set-field
+vim.ui.select = function(items, opts, on_choice)
+  local telescope_ok, telescope = pcall(require, 'telescope')
 
-    if telescope_ok then
-      local ts_config_ok, ts_config = pcall(require, 'telescope.config')
-      if ts_config_ok and (not ts_config.values or vim.tbl_isempty(ts_config.values)) then
-        telescope.setup({})
-      end
+  if telescope_ok then
+    local ts_config_ok, ts_config = pcall(require, 'telescope.config')
+    if ts_config_ok and (not ts_config.values or vim.tbl_isempty(ts_config.values)) then
+      telescope.setup({})
+    end
 
-      ts_config.values.extensions = ts_config.values.extensions or {}
-      ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
+    ts_config.values.extensions = ts_config.values.extensions or {}
+    ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
+      'keep',
+      ts_config.values.extensions['ui-select'] or {},
+      dropdown_settings
+    )
+
+    pcall(telescope.load_extension, 'ui-select')
+
+    local ui_select_mod = package.loaded['telescope._extensions.ui-select']
+    if ui_select_mod and ui_select_mod.state then
+      ui_select_mod.state.config = vim.tbl_deep_extend(
         'keep',
-        ts_config.values.extensions['ui-select'] or {},
+        ui_select_mod.state.config or {},
         dropdown_settings
       )
-
-      pcall(telescope.load_extension, 'ui-select')
-
-      local ui_select_mod = package.loaded['telescope._extensions.ui-select']
-      if ui_select_mod and ui_select_mod.state then
-        ui_select_mod.state.config = vim.tbl_deep_extend(
-          'keep',
-          ui_select_mod.state.config or {},
-          dropdown_settings
-        )
-      end
-
-      opts = vim.tbl_deep_extend('force', opts or {}, {
-        theme = "dropdown",
-        layout_strategy = "dropdown",
-        telescope = dropdown_settings
-      })
     end
 
-    if telescope_ok and package.loaded['telescope._extensions.ui-select'] then
-      require('telescope._extensions.ui-select').telescope_ui_select(items, opts, on_choice)
-    else
-      original_select(items, opts, on_choice)
-    end
+    opts = vim.tbl_deep_extend('force', opts or {}, {
+      theme = "dropdown",
+      layout_strategy = "dropdown",
+      telescope = dropdown_settings
+    })
+  end
+
+  if telescope_ok and package.loaded['telescope._extensions.ui-select'] then
+    require('telescope._extensions.ui-select').telescope_ui_select(items, opts, on_choice)
+  else
+    original_select(items, opts, on_choice)
   end
 end
 
