@@ -86,7 +86,7 @@ function K.lspKeymaps(client, bufnr)
           query = ' ', -- Triggers clangd instantly
           initial_mode = 'normal', -- Enforces normal mode navigation right away
           -- INCREASE THIS NUMBER TO SHOW MORE LINES IN THE LIST:
-          prompt_prefix = '🔍 ',
+          prompt_prefix = '🔍  ',
           selection_caret = '❯ ',
           layout_config = {
             height = 25,
@@ -116,7 +116,7 @@ function K.lspKeymaps(client, bufnr)
           query = ' ', -- Triggers clangd instantly
           initial_mode = 'normal', -- Enforces normal mode navigation right away
           -- INCREASE THIS NUMBER TO SHOW MORE LINES IN THE LIST:
-          prompt_prefix = '🔍 ',
+          prompt_prefix = '🔍  ',
           selection_caret = '❯ ',
           layout_config = {
             height = 25,
