@@ -204,7 +204,6 @@ function M.start_watchers()
 end
 
 --INFO: telescope settings
--- 1. Define your plugin's clean dropdown theme configuration
 local dropdown_settings = require('telescope.themes').get_dropdown({
   borderchars = {
     prompt  = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
@@ -215,17 +214,14 @@ local dropdown_settings = require('telescope.themes').get_dropdown({
   prompt_prefix    = '🔍 ',
   selection_caret  = '❯ ',
   entry_prefix     = '  ',
-  initial_mode     = 'normal',        -- Forces normal mode navigation
-  layout_config    = { height = 25 }, -- Extends the dropdown view pane list to 25 lines
+  initial_mode     = 'normal',        
+  layout_config    = { height = 25 }, 
   sorting_strategy = 'ascending',
 })
 
--- 2. The robust initialization method
 function M.setup()
-  -- Store Neovim's original select hook
   local original_select = vim.ui.select
 
-  -- Intercept vim.ui.select at runtime to bypass lazy-load wipes
   ---@diagnostic disable-next-line: duplicate-set-field
   vim.ui.select = function(items, opts, on_choice)
     local telescope_ok, telescope = pcall(require, 'telescope')
@@ -236,9 +232,24 @@ function M.setup()
         telescope.setup({})
       end
 
+      ts_config.values.extensions = ts_config.values.extensions or {}
+      ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
+        'keep',
+        ts_config.values.extensions['ui-select'] or {},
+        dropdown_settings
+      )
+
       pcall(telescope.load_extension, 'ui-select')
 
-      -- Inject options right into the active call payload
+      local ui_select_mod = package.loaded['telescope._extensions.ui-select']
+      if ui_select_mod and ui_select_mod.state then
+        ui_select_mod.state.config = vim.tbl_deep_extend(
+          'keep',
+          ui_select_mod.state.config or {},
+          dropdown_settings
+        )
+      end
+
       opts = vim.tbl_deep_extend('force', opts or {}, {
         theme = "dropdown",
         layout_strategy = "dropdown",
@@ -252,34 +263,7 @@ function M.setup()
       original_select(items, opts, on_choice)
     end
   end
-
-  -- 3. Map your glww shortcut to use the native selection pipeline
-  vim.keymap.set('n', 'glww', function()
-    vim.lsp.buf_request(0, 'workspace/symbol', { query = '' }, function(err, result)
-      if err or not result or vim.tbl_isempty(result) then return end
-
-      local items = {}
-      for _, sym in ipairs(result) do
-        if sym.kind == 5 or sym.kind == 6 or sym.kind == 12 then
-          table.insert(items, sym)
-        end
-      end
-
-      vim.schedule(function()
-        vim.ui.select(items, {
-          prompt = 'Jump to Function / Class:',
-          format_item = function(item)
-            return string.format("[%s] %s", item.containerName or "Global", item.name)
-          end,
-        }, function(choice)
-          if not choice then return end
-          vim.lsp.util.show_document(choice.location, "utf-8", { focus = true, reuse_win = true })
-        end)
-      end)
-    end)
-  end, { silent = true, desc = 'Find Workspace Symbols (Functions)' })
 end
-
 
 -- -- 1. Check if telescope is ALREADY cached in the environment
 -- local is_telescope_loaded = package.loaded['telescope'] ~= nil
