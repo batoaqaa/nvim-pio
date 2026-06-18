@@ -220,35 +220,31 @@ if telescope_ok then
     prompt_prefix    = '🔍 ',
     selection_caret  = '❯ ',
     entry_prefix     = '  ',
-    initial_mode     = 'normal',
+    -- initial_mode     = 'normal',  -- The targeted layout fix
+    -- layout_config    = { height = 25 }, -- Fixes the 11-line height cap cleanly
     sorting_strategy = 'ascending',
-    layout_config    = { height = 25 },
   })
-
-  -- 1. Polite Cache Patch: Updates the fallback directory.
-  -- If the user loads ui-select later, Telescope will automatically pull your settings.
+  -- Safely inject options into Telescope's global config cache.
+  -- 'keep' ensures we only apply our styles if the user left them blank.
   local ts_config = require('telescope.config')
   ts_config.values.extensions = ts_config.values.extensions or {}
   ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
-    'keep', -- 'keep' guarantees we never overwrite the user's preferred choices
+    'keep',
     ts_config.values.extensions['ui-select'] or {},
     dropdown_settings
   )
-
-  -- 2. Handle this user's specific load state safely
+  -- Cleanly load the extension module into memory
+  pcall(telescope.load_extension, 'ui-select')
+  -- 3. Live Patching fallback (Fires if the extension was already loaded beforehand)
   if is_telescope_loaded then
-    -- Telescope is active, but they didn't load ui-select. We load it for them now!
     local ui_select_mod = package.loaded['telescope._extensions.ui-select']
     if ui_select_mod and ui_select_mod.state then
-      -- Hot-patch if it happens to be running in memory
-      ui_select_mod.state.config = vim.tbl_deep_extend('keep', ui_select_mod.state.config or {}, dropdown_settings)
-    else
-      -- Force activation so vim.ui.select hooks into Telescope automatically
-      pcall(telescope.load_extension, 'ui-select')
+      ui_select_mod.state.config = vim.tbl_deep_extend(
+        'keep',
+        ui_select_mod.state.config or {},
+        dropdown_settings
+      )
     end
-  else
-    -- Telescope hasn't finished booting up yet. We do NOT force load it early.
-    -- When their config runs setup(), our values are already safe inside the fallback cache.
   end
 end
 -- if telescope_ok then
@@ -292,44 +288,6 @@ end
 --     -- Case B: It is NOT loaded yet. We call load_extension ourselves to activate it 
 --     -- using the fallback cache we patched in STEP 1.
 --     pcall(telescope.load_extension, 'ui-select')
---   end
--- end
--- if telescope_ok then
---   local dropdown_settings = require('telescope.themes').get_dropdown({
---     borderchars = {
---       prompt  = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
---       results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
---       preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
---     },
---     prompt_position  = 'top',
---     prompt_prefix    = '🔍 ',
---     selection_caret  = '❯ ',
---     entry_prefix     = '  ',
---     -- initial_mode     = 'normal',  -- The targeted layout fix
---     -- layout_config    = { height = 25 }, -- Fixes the 11-line height cap cleanly
---     sorting_strategy = 'ascending',
---   })
---   -- Safely inject options into Telescope's global config cache.
---   -- 'keep' ensures we only apply our styles if the user left them blank.
---   local ts_config = require('telescope.config')
---   ts_config.values.extensions = ts_config.values.extensions or {}
---   ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
---     'keep',
---     ts_config.values.extensions['ui-select'] or {},
---     dropdown_settings
---   )
---   -- Cleanly load the extension module into memory
---   pcall(telescope.load_extension, 'ui-select')
---   -- 3. Live Patching fallback (Fires if the extension was already loaded beforehand)
---   if is_telescope_loaded then
---     local ui_select_mod = package.loaded['telescope._extensions.ui-select']
---     if ui_select_mod and ui_select_mod.state then
---       ui_select_mod.state.config = vim.tbl_deep_extend(
---         'keep',
---         ui_select_mod.state.config or {},
---         dropdown_settings
---       )
---     end
 --   end
 -- end
 
