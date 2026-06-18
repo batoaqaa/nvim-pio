@@ -240,15 +240,29 @@ if telescope_ok then
   )
   -- Cleanly load the extension module into memory
   pcall(telescope.load_extension, 'ui-select')
-  -- 3. Live Patching fallback (Fires if the extension was already loaded beforehand)
-  if is_telescope_loaded then
-    local ui_select_mod = package.loaded['telescope._extensions.ui-select']
-    if ui_select_mod and ui_select_mod.state then
-      ui_select_mod.state.config = vim.tbl_deep_extend(
-        'keep',
-        ui_select_mod.state.config or {},
-        dropdown_settings
-      )
+
+  -- Update active state parameters if loaded
+  local ui_select_mod = package.loaded['telescope._extensions.ui-select']
+  if ui_select_mod and ui_select_mod.state then
+    ui_select_mod.state.config = vim.tbl_deep_extend(
+      'force',
+      dropdown_settings,
+      ui_select_mod.state.config or {}
+    )
+  end
+
+  -- THE FIXED FUNCTION INTERCEPTOR:
+  -- We use explicit global routing to prevent linter redefinition errors.
+  -- This forces Telescope to prioritize your 25-line normal-mode dropdown layout.
+  if type(_G.vim.ui.select) == "function" then
+    local original_ui_select = _G.vim.ui.select
+
+    ---@diagnostic disable-next-line: duplicate-set-field
+    _G.vim.ui.select = function(items, opts, on_choice)
+      local forced_opts = vim.tbl_deep_extend('force', opts or {}, {
+        telescope = dropdown_settings
+      })
+      original_ui_select(items, forced_opts, on_choice)
     end
   end
 end
