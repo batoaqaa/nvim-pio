@@ -90,11 +90,12 @@ function K.lspKeymaps(client, bufnr)
     --   })
     -- end, 'Find [W]orkspace Symbols (Functions)')
 
-    vim.keymap.set('n', 'glww', function()
-      -- Force exit insert mode if active
-      vim.cmd('stopinsert')
+    vim.keymap.set({ 'n', 'i' }, 'glww', function()
+      vim.schedule(function()
+        vim.cmd('stopinsert')
+      end)
 
-      -- Fetch the exact workspace functions directly from clangd natively
+      -- Fetch workspace functions directly from clangd natively
       vim.lsp.buf_request(0, 'workspace/symbol', { query = '' }, function(err, result)
         if err or not result or vim.tbl_isempty(result) then
           vim.notify('No symbols found or LSP indexing...', vim.log.levels.WARN)
@@ -119,7 +120,8 @@ function K.lspKeymaps(client, bufnr)
           if not choice then
             return
           end
-          -- Jump the cursor instantly to the selected file coordinates
+
+          -- Modern up-to-date API jump handle
           vim.lsp.util.show_document(choice.location, 'utf-8', { focus = true, reuse_win = true })
         end)
       end)
