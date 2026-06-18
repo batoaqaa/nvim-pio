@@ -235,26 +235,24 @@ if telescope_ok then
       }
     })
   else
-    -- Case B: Telescope is ALREADY loaded. We must inject our defaults cleanly.
     -- local ts_config = require('telescope.config')
     -- ts_config.values.extensions = ts_config.values.extensions or {}
-    --
-    -- -- 1. Patch the configuration fallback cache
     -- ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
     --   'force',
-    --   dropdown_settings, -- User defaults or plugin base layout
-    --   ts_config.values.extensions['ui-select'] or {}
+    --   ts_config.values.extensions['ui-select'] or {},
+    --   dropdown_settings
     -- )
-    -- -- Fallback for injecting into an already active runtime profile
-    local ts_config = require('telescope.config')
-    ts_config.values.extensions = ts_config.values.extensions or {}
-    ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
-      'force',
-      ts_config.values.extensions['ui-select'] or {},
-      dropdown_settings
-    )
+    -- pcall(telescope.load_extension, 'ui-select')
+    -- Telescope is active, but they didn't load ui-select. We load it for them now!
+    local ui_select_mod = package.loaded['telescope._extensions.ui-select']
+    if ui_select_mod and ui_select_mod.state then
+      -- Hot-patch if it happens to be running in memory
+      ui_select_mod.state.config = vim.tbl_deep_extend('keep', ui_select_mod.state.config or {}, dropdown_settings)
+    else
+      -- Force activation so vim.ui.select hooks into Telescope automatically
+      pcall(telescope.load_extension, 'ui-select')
+    end
   end
-  pcall(telescope.load_extension, 'ui-select')
 
 end
 
