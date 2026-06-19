@@ -124,13 +124,22 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   return self
 end
 
+
+-- Inside nvimpio/device/terminal.lua - Replace this function inside Part 2
+
 function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
 
-  -- 1. DEFINE REVERSED HIGHLIGHT GROUP: Mixes bold weight with inverted cell colors
-  vim.api.nvim_set_hl(0, 'PioReverseTerminalCommand', { bold = true, reverse = true, default = true })
-
+  -- 1. DEFINE EXPLICIT HIGHLIGHT BLOCK: Uses a hardcoded background to override theme highlights.
+  -- fg = Bright White (#ffffff), bg = High-Contrast Slate Grey (#3b4252), bold = True
+  -- You can change 'bg' to any hex color code that fits your eye best!
+  vim.api.nvim_set_hl(0, 'PioReverseTerminalCommand', {
+    fg = '#ffffff',
+    bg = '#3b4252',
+    bold = true,
+    default = false -- False guarantees we punch straight through theme color settings!
+  })
   -- 2. RIGID PATH-ANCHORED SYNTAX INITIALIZATION:
   -- The ^[a-zA-Z]:\\ pattern forces the engine to match ONLY on lines starting with a Windows drive prompt.
   -- The \zs token ensures the reverse block highlight covers ONLY the typed command text.
@@ -140,7 +149,6 @@ function Terminal:on_create()
 
   self:_register_viewport_bindings()
 end
-
 --- Focus-Locked Background Process Payload Dispatcher Matrix
 function Terminal:send(command)
   local cmd_str = tostring(command or "")
