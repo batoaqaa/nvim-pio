@@ -251,6 +251,7 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
+  -- 1. First, create the spatial window slice layout context safely
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
     win = -1,
@@ -258,17 +259,42 @@ function Terminal:on_open()
   })
   M.layout.active_type = self.term_type
 
+  -- 2. Configure default structural local rendering choices
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
 
+  -- 3. CRITICAL: Initialize the terminal stream pipeline inside the active window context
   if not self.job then
     self:on_spawn()
   end
+
   self:_register_viewport_mappings()
   M.UpdateWinbarTitles()
 end
+-- function Terminal:on_open()
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+--   vim.go.splitkeep = 'screen'
+--
+--   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+--     split = 'below',
+--     win = -1,
+--     height = target_height,
+--   })
+--   M.layout.active_type = self.term_type
+--
+--   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+--
+--   if not self.job then
+--     self:on_spawn()
+--   end
+--   self:_register_viewport_mappings()
+--   M.UpdateWinbarTitles()
+-- end
 
 function Terminal:show()
   M.ShowTerminal(self.term_type)
@@ -424,38 +450,81 @@ function M.ShowTerminal(term_type)
     return
   end
 
+  -- Step A: If the layout shell buffer isn't built yet, provision it safely
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
   end
 
-  -- Inside your Part 3 M.ShowTerminal function:
+  -- Step B: If the structural window container split is ALREADY visible and open
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    -- Temporarily focus the terminal container window to give termopen a valid viewport context
+    local old_win = vim.api.nvim_get_current_win()
+    vim.api.nvim_set_current_win(M.layout.container_win)
+
+    -- Swap the display to the second terminal's buffer handle
     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
     M.layout.active_type = term_type
+
+    -- Spawn the terminal shell process now that the buffer is actively visible in a window
     target_instance:on_spawn()
     target_instance:_register_viewport_mappings()
-
-    -- ALWAYS FORCE THE REDRAW RIGHT HERE!
     M.UpdateWinbarTitles()
 
-    target_instance:enter_insert_mode()
+    -- Decide whether to stay in the terminal or return focus to your code window
+    if old_win == M.layout.container_win then
+      target_instance:enter_insert_mode()
+    else
+      vim.api.nvim_set_current_win(old_win)
+    end
     return
   end
-  -- if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-  --   vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
-  --   M.layout.active_type = term_type
-  --   target_instance:on_spawn()
-  --   target_instance:_register_viewport_mappings()
-  --   M.UpdateWinbarTitles()
-  --   target_instance:enter_insert_mode()
-  --   return
-  -- end
 
+  -- Step C: Otherwise, drop open a fresh layout panel split from scratch
   target_instance:on_open()
-  target_instance:on_spawn()
   M.UpdateWinbarTitles()
   target_instance:enter_insert_mode()
 end
+-- function M.ShowTerminal(term_type)
+--   if not term_type then
+--     term_type = next(M.terminals)
+--   end
+--   local target_instance = M.terminals[term_type]
+--   if not target_instance then
+--     return
+--   end
+--
+--   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
+--     target_instance:on_create()
+--   end
+--
+--   -- Inside your Part 3 M.ShowTerminal function:
+--   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+--     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
+--     M.layout.active_type = term_type
+--     target_instance:on_spawn()
+--     target_instance:_register_viewport_mappings()
+--
+--     -- ALWAYS FORCE THE REDRAW RIGHT HERE!
+--     M.UpdateWinbarTitles()
+--
+--     target_instance:enter_insert_mode()
+--     return
+--   end
+--   -- if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+--   --   vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
+--   --   M.layout.active_type = term_type
+--   --   target_instance:on_spawn()
+--   --   target_instance:_register_viewport_mappings()
+--   --   M.UpdateWinbarTitles()
+--   --   target_instance:enter_insert_mode()
+--   --   return
+--   -- end
+--
+--   target_instance:on_open()
+--   target_instance:on_spawn()
+--   M.UpdateWinbarTitles()
+--   target_instance:enter_insert_mode()
+-- end
 
 function M.HideTerminal()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
