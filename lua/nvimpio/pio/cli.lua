@@ -1,6 +1,7 @@
 local M = {}
 
-local term = require('nvimpio.device.terminal')
+-- local term = require('nvimpio.device.terminal')
+local term = require('nvimpio.device.terminal').terminals
 
 --- Handles and formats asynchronous vim.system errors cleanly
 ---@param from string The notification origin tag
