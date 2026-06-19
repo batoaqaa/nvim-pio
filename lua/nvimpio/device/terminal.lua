@@ -1,3 +1,4 @@
+-- nvimpio/device/terminal.lua - Part 1
 --- stylua: ignore start
 
 local M = {}
@@ -30,10 +31,9 @@ M.terminals = {}
 M.layout = {
   container_win = nil, -- THE SINGLE IMMUTABLE TILED GRID WINDOW HANDLE
   active_type = nil, -- Tracks the name key of the visible node
-  is_recovering = false, -- Atomic thread lock parameter
 }
 
---- Highlight winbar renderer (Dynamic Multi-Tab Layout Engine)
+--- Pure C-API Highlight winbar renderer (Dynamic Multi-Tab Layout Engine)
 function M.UpdateWinbarTitles()
   local maps = M.config.keymaps
 
@@ -44,6 +44,7 @@ function M.UpdateWinbarTitles()
     return
   end
 
+  -- FEATURE: Dynamically build the tabbed terminal list string from all created terminals
   local tab_string = ' '
   local total_terminals = 0
   local ordered_keys = {}
@@ -112,7 +113,7 @@ local Terminal = {
   job = nil,
   newline = OS.eol,
   filetype = 'pio_terminal',
-  _custom_stdout = nil,
+  _custom_stdout = nil, -- FEATURE: Direct reference holder for unique on_stdout behaviors
 }
 Terminal.__index = Terminal
 
@@ -165,6 +166,7 @@ function Terminal:on_spawn()
 end
 
 function Terminal:on_stdout(j, d, e)
+  -- FEATURE: Fire the custom isolated stdout callback passed in during creation
   if self._custom_stdout then
     self._custom_stdout(j, d, e)
   elseif self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
@@ -284,7 +286,7 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 
-  vim.api.nvim_create_autocmd('WinLeave', {
+  vim.api.nvim_create_autocmd('BufLeave', {
     group = group_id,
     buffer = self.buf,
     callback = function()
@@ -293,16 +295,12 @@ function Terminal:_register_viewport_bindings()
       end)
     end,
   })
-end
 
---- Initializes the single, global structural workspace layout tracker
-function M._initialize_global_sentinel()
-  local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
-
+  -- FIXED WORKSPACE GUARD: Safely releases window parameters upon manual pane closure
   vim.api.nvim_create_autocmd('WinClosed', {
-    group = global_group,
+    group = group_id,
     callback = function()
-      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.is_recovering then
+      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
         return
       end
 
@@ -310,82 +308,7 @@ function M._initialize_global_sentinel()
       if closed_win == M.layout.container_win then
         M.layout.container_win = nil
         M.layout.active_type = nil
-        return
       end
-
-      vim.schedule(function()
-        if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-          local open_wins = vim.api.nvim_tabpage_list_wins(0)
-          local valid_wins = 0
-
-          for _, w in ipairs(open_wins) do
-            if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win and w ~= closed_win then
-              local b = vim.api.nvim_win_get_buf(w)
-              local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-              if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' and not ft:match('^terminal_') then
-                valid_wins = valid_wins + 1
-              end
-            end
-          end
-
-          -- TRUE TOTAL RETREAT LAYOUT COLLAPSE (No file splits left open anywhere on screen)
-          if valid_wins == 0 then
-            M.layout.is_recovering = true
-            vim.o.cmdheight = 1 -- Fixes the 80% command height stretching bug instantly
-
-            local fallback = M.config.sentinel_fallback
-            local scratch_buf = nil
-            for _, b in ipairs(vim.api.nvim_list_bufs()) do
-              if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
-                scratch_buf = b
-                break
-              end
-            end
-
-            if not scratch_buf then
-              scratch_buf = vim.api.nvim_create_buf(false, true)
-              vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]_' .. scratch_buf)
-              vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
-              vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
-              vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
-            end
-
-            -- FIX: Use non-split, programmatic explicit grid coordinates relative to editor view limits.
-            -- This opens the split ABOVE the terminal window frame anchor completely bypasses vim.cmd strings
-            local target_term_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-            local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
-            local target_workspace_height = total_editor_rows - target_term_height - 1
-
-            local top_work_win = nil
-            local win_open_success = pcall(function()
-              top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
-                relative = 'editor',
-                row = 0,
-                col = 0,
-                width = vim.o.columns,
-                height = math.max(2, target_workspace_height),
-              })
-            end)
-
-            if win_open_success and top_work_win then
-              vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
-              -- Cleanly lock lower terminal frame dimensions relative to editor boundary floor coordinates
-              pcall(vim.api.nvim_win_set_config, M.layout.container_win, {
-                relative = 'editor',
-                row = target_workspace_height + 1,
-                col = 0,
-                width = vim.o.columns,
-                height = target_term_height,
-              })
-              pcall(vim.api.nvim_set_current_win, top_work_win)
-            end
-
-            M.layout.is_recovering = false
-          end
-
-          M.UpdateWinbarTitles()
-        end
-      end)
     end,
   })
 end
@@ -394,6 +317,11 @@ end
 -- GLOBAL SINGLETON WORKSPACE MANAGER INTERFACE
 ----------------------------------------------------------------------------------------
 
+--- Factory Method to easily create any number of custom terminal nodes
+---@param name string The key index (e.g. 'cli', 'server', 'logs')
+---@param title string The name text template shown in the winbar tab-list
+---@param filetype_or_cb string|function|nil Optional custom filetype string or direct function callback
+---@param custom_stdout function|nil Custom function assigned ONLY to this instance
 function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   local final_filetype = nil
   local final_cb = nil
@@ -408,6 +336,7 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
 
   M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
 
+  -- Create legacy direct references for your old configuration routes (like M.cli)
   if name == 'cli' then
     M.cli = M.terminals.cli
   end
@@ -515,14 +444,20 @@ function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
 end
 
+--------------------------------========================================================
+-- SYSTEM INSTANTIATION FACTORY CHANNELS
 ----------------------------------------------------------------------------------------
--- MODULE INVOCATION CODES
-----------------------------------------------------------------------------------------
-M.create_terminal('cli', ' Pio CLI ', function(job, data, event) end)
-M.create_terminal('server', ' Dev Server ', function(job, data, event) end)
-M.create_terminal('logs', ' Target Logs ', nil)
 
-M._initialize_global_sentinel()
+-- Spawn your core terminals automatically with custom title-bar strings!
+M.create_terminal('cli', ' Pio CLI ', function(j, d, e)
+  -- Unique stdout handler for your main compiler pane can go right here
+end)
+
+M.create_terminal('server', ' Dev Server ', function(j, d, e)
+  -- Unique stdout handler for your independent dev server logs
+end)
+
+M.create_terminal('logs', ' Target Logs ', nil) -- Pass nil if no special stdout is needed
 
 setmetatable(M, {
   __index = function(table, key)
