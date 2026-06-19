@@ -297,27 +297,64 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- THE INDESTRUCTIBLE TABPAGE SENTINEL GUARD (Your exact original loop logic)
-  vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter', 'WinClosed' }, {
+  -- FIX: Listen EXCLUSIVELY to WinClosed. Removing WinNew and BufWinEnter
+  -- completely stops the engine from executing layout splits while you type!
+  vim.api.nvim_create_autocmd('WinClosed', {
     group = platformio,
     callback = function()
       if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
         vim.schedule(function()
           if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+            -- Identify the precise window handle ID being destroyed right now
+            local closed_win = tonumber(vim.fn.expand('<amatch>'))
+            if closed_win == M.layout.container_win then
+              M.layout.container_win = nil
+              M.layout.active_type = nil
+              return
+            end
+
+            -- Look-Ahead Protection: Scan loaded buffer list for active text documents
+            local real_files_open = false
+            for _, b in ipairs(vim.api.nvim_list_bufs()) do
+              if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_is_loaded(b) then
+                local bt = vim.api.nvim_get_option_value('buftype', { buf = b })
+                local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
+                if
+                  bt == ''
+                  and ft ~= 'neo-tree'
+                  and ft ~= 'oil'
+                  and ft ~= 'aerial'
+                  and ft ~= 'pio_terminal'
+                  and ft ~= 'pio_workspace'
+                  and not ft:match('^terminal_')
+                then
+                  real_files_open = true
+                  break
+                end
+              end
+            end
+
+            -- Abort modifications completely if your code file is wide open behind a closed sidebar
+            if real_files_open then
+              pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+              M.UpdateWinbarTitles()
+              return
+            end
+
             local open_wins = vim.api.nvim_tabpage_list_wins(0)
             local valid_wins = 0
             for _, w in ipairs(open_wins) do
-              if vim.api.nvim_win_is_valid(w) then
+              if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win and w ~= closed_win then
                 local b = vim.api.nvim_win_get_buf(w)
                 local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-                -- Check if it's an excluded type or a dynamically generated terminal type
                 if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' and not ft:match('^terminal_') then
                   valid_wins = valid_wins + 1
                 end
               end
             end
 
-            if valid_wins <= 1 and vim.api.nvim_get_current_win() == M.layout.container_win then
+            -- TRUE TOTAL RETREAT LAYOUT COLLAPSE (Fires only when the last code buffer window is closed)
+            if valid_wins == 0 then
               local scratch_buf = nil
               for _, b in ipairs(vim.api.nvim_list_bufs()) do
                 if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
@@ -352,11 +389,6 @@ end
 -- GLOBAL SINGLETON WORKSPACE MANAGER INTERFACE
 ----------------------------------------------------------------------------------------
 
---- Dynamic Factory Method to easily create any number of custom terminal nodes
----@param name string The key index (e.g. 'cli', 'server', 'logs')
----@param title string The name text template shown in the winbar tab-list
----@param filetype_or_cb string|function|nil Optional custom filetype string or direct function callback
----@param custom_stdout function|nil Custom function assigned ONLY to this instance
 function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   local final_filetype = nil
   local final_cb = nil
@@ -371,7 +403,7 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
 
   M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
 
-  -- Create legacy direct references for your old configuration routes (like M.cli)
+  -- Maintain direct roots for backward compatibility
   if name == 'cli' then
     M.cli = M.terminals.cli
   end
@@ -474,19 +506,17 @@ function M.setup(opts)
 end
 
 ----------------------------------------------------------------------------------------
--- AUTOMATED MODULE INSTANTIATION SEQUENCING
+-- MODULE INVOCATION CODES
 ----------------------------------------------------------------------------------------
-
--- Spawn your core 3 terminals automatically with custom title-bar strings!
 M.create_terminal('cli', ' Pio CLI ', function(j, d, e)
-  if type(M.stdout_callback) == 'function' then
-    M.stdout_callback(j, d, e)
-  end
-  -- Unique stdout handler for your main compiler pane can go right here
+  -- Unique stdout compiler hook logic here if needed
 end)
 
-M.create_terminal('mon', ' Monitor ', nil)
-M.create_terminal('logs', ' Target Logs ', nil) -- Pass nil if no special stdout is needed
+M.create_terminal('server', ' Dev Server ', function(j, d, e)
+  -- Unique stdout telemetry server logging here if needed
+end)
+
+M.create_terminal('logs', ' Target Logs ', nil)
 
 setmetatable(M, {
   __index = function(table, key)
