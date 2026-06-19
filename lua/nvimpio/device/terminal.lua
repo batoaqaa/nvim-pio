@@ -294,16 +294,25 @@ function Terminal:_register_viewport_bindings()
   })
 end
 
+-- Track the absolute high-resolution system execution timestamp
+local last_recovery_time = 0
+
 --- Initializes the single, global, structural workspace layout tracker
 function M._initialize_global_sentinel()
   local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
 
-  -- Listen EXCLUSIVELY to WinClosed. Dropping WinLeave and BufEnter fixes double-splits.
   vim.api.nvim_create_autocmd('WinClosed', {
     group = global_group,
     callback = function()
-      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.is_recovering then
+      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
         return
+      end
+
+      -- 1. CLOCK DEBOUNCER CIRCUIT: Calculate time elapsed since last layout split
+      local current_time = vim.uv.hrtime()
+      -- 50,000,000 nanoseconds = 50 milliseconds safety execution buffer boundary
+      if (current_time - last_recovery_time) < 50000000 then
+        return -- Instantly drop duplicate compound sidebar destruction events!
       end
 
       local closed_win = tonumber(vim.fn.expand('<amatch>'))
@@ -329,7 +338,8 @@ function M._initialize_global_sentinel()
           end
 
           if valid_wins == 0 then
-            M.layout.is_recovering = true
+            -- 2. LOCK TIMESTAMP: Lock down the current clock marker before splitting
+            last_recovery_time = vim.uv.hrtime()
 
             local fallback = M.config.sentinel_fallback
             local scratch_buf = nil
@@ -367,8 +377,6 @@ function M._initialize_global_sentinel()
               pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_term_height)
               pcall(vim.api.nvim_set_current_win, top_work_win)
             end
-
-            M.layout.is_recovering = false
           end
           M.UpdateWinbarTitles()
         end
