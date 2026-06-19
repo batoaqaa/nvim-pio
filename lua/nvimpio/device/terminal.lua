@@ -1,11 +1,11 @@
 --- stylua: ignore start
 local M = {}
 
--- 1. Defend Against Global Environments Missing at Load Time
+-- 1. Anti-Crash Global Environment Fallbacks
 local safe_shell = (OS and OS.shell) and OS.shell or vim.o.shell
 local safe_eol = (OS and OS.eol) and OS.eol or '\n'
 
--- 2. Configuration & Focus Exclusions Setup Matrix
+-- 2. Fully Decoupled Configuration & Focus Exclusions Map
 M.config = {
   panel_height = 0.2,
   winbar_bg = '#80a3d4',
@@ -39,10 +39,11 @@ M.config = {
 
 M.terminals = {}
 
--- Core Layout Workspace Handle Matrix
+-- Main Tiled Window Tracking State Context Matrix
 M.layout = {
   container_win = nil,
   active_type = nil,
+  is_recovering = false,
 }
 
 --- Pure C-API Highlight winbar renderer (Dynamic Multi-Tab Layout Engine)
@@ -293,54 +294,41 @@ function Terminal:_register_viewport_bindings()
   })
 end
 
--- nvimpio/device/terminal.lua - Replace this function inside Part 3
-
 --- Initializes the single, global, structural workspace layout tracker
 function M._initialize_global_sentinel()
-  -- Using a centralized group prevents event multiplier accumulation completely
   local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
 
-  -- Monitor ONLY WinClosed. Dropping BufEnter ensures double splitting is impossible.
+  -- Listen EXCLUSIVELY to WinClosed. Dropping WinLeave and BufEnter fixes double-splits.
   vim.api.nvim_create_autocmd('WinClosed', {
     group = global_group,
     callback = function()
-      -- Anti-freezing loop guard: drop immediately if already recovering or terminal window is dead
       if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.is_recovering then
         return
       end
 
-      -- Identify the precise window handle ID being destroyed right now
       local closed_win = tonumber(vim.fn.expand('<amatch>'))
       if closed_win == M.layout.container_win then
-        -- If our terminal panel layout itself was explicitly closed by the user, purge trackers and drop out
         M.layout.container_win = nil
         M.layout.active_type = nil
         return
       end
 
       vim.schedule(function()
-        -- Ensure layout handles remain valid inside the async macro pipeline boundary
         if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
           local open_wins = vim.api.nvim_tabpage_list_wins(0)
           local valid_wins = 0
 
           for _, w in ipairs(open_wins) do
-            -- Filter out the terminal window and the specific window currently closing (like neo-tree)
             if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win and w ~= closed_win then
               local b = vim.api.nvim_win_get_buf(w)
               local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-
-              -- Use your central configuration table lookups to evaluate work states
               if not M.config.ignored_focus_filetypes[ft] then
                 valid_wins = valid_wins + 1
               end
             end
           end
 
-          -- TRUE INTERCEPT TRIGGER: Only execute if exactly 0 normal file viewports remain on the screen!
-          -- If neo-tree closed but your normal file splits are still open, valid_wins will be > 0 and skip this entirely!
           if valid_wins == 0 then
-            -- ENGAGE MAXIMUM THREAD LOCK: Drops all overlapping layout requests on the floor
             M.layout.is_recovering = true
 
             local fallback = M.config.sentinel_fallback
@@ -361,15 +349,12 @@ function M._initialize_global_sentinel()
               vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
             end
 
-            -- 1. PURE C-API WINDOW GENERATION (Replaces vim.cmd split strings entirely)
-            -- This programmatically carves out space ABOVE the terminal window handle.
             local target_term_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
             local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
             local target_workspace_height = total_editor_rows - target_term_height - 1
 
             local top_work_win = nil
             local win_open_success = pcall(function()
-              -- Mount the fallback buffer directly above the terminal layout frame anchor
               top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
                 split = 'above',
                 win = M.layout.container_win,
@@ -378,15 +363,11 @@ function M._initialize_global_sentinel()
             end)
 
             if win_open_success and top_work_win then
-              -- Clean layout out of the top fallback window workspace sheet context
               vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
-
-              -- Enforce rigid layout dimensions programmatically across handles without wincmd J
               pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_term_height)
               pcall(vim.api.nvim_set_current_win, top_work_win)
             end
 
-            -- DEACTIVATE THREAD RECURSION LOCK
             M.layout.is_recovering = false
           end
           M.UpdateWinbarTitles()
@@ -395,83 +376,6 @@ function M._initialize_global_sentinel()
     end,
   })
 end
-
--- --- Initializes the single, global, structural workspace layout tracker
--- function M._initialize_global_sentinel()
---   -- Using a fixed module-level group completely stops autocmd multipliers
---   local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
---
---   vim.api.nvim_create_autocmd({ 'WinClosed', 'WinLeave' }, {
---     group = global_group,
---     callback = function()
---       if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
---         return
---       end
---
---       vim.schedule(function()
---         if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
---           local open_wins = vim.api.nvim_tabpage_list_wins(0)
---           local valid_wins = 0
---
---           for _, w in ipairs(open_wins) do
---             if vim.api.nvim_win_is_valid(w) then
---               local b = vim.api.nvim_win_get_buf(w)
---               local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
---               if not M.config.ignored_focus_filetypes[ft] then
---                 valid_wins = valid_wins + 1
---               end
---             end
---           end
---
---           -- If closing a split leaves ONLY our layout panels, reconstruct work space safely
---           if valid_wins == 0 then
---             local fallback = M.config.sentinel_fallback
---             local scratch_buf = nil
---
---             for _, b in ipairs(vim.api.nvim_list_bufs()) do
---               if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match(fallback.buffer_name:gsub('%[', '%%['):gsub('%]', '%%]')) then
---                 scratch_buf = b
---                 break
---               end
---             end
---
---             if not scratch_buf then
---               scratch_buf = vim.api.nvim_create_buf(false, true)
---               vim.api.nvim_buf_set_name(scratch_buf, fallback.buffer_name)
---               vim.api.nvim_set_option_value('buftype', fallback.buftype, { buf = scratch_buf })
---               vim.api.nvim_set_option_value('filetype', fallback.filetype, { buf = scratch_buf })
---               vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
---             end
---
---             local old_current = vim.api.nvim_get_current_win()
---             pcall(vim.api.nvim_set_current_win, M.layout.container_win)
---
---             local split_success = pcall(function()
---               vim.cmd('noautocmd topleft split')
---             end)
---
---             if split_success then
---               local top_work_win = vim.api.nvim_get_current_win()
---               vim.api.nvim_win_set_buf(top_work_win, scratch_buf)
---
---               vim.cmd('noautocmd wincmd J') -- Firmly anchor terminal window frame at absolute bottom baseline
---               local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
---               pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
---               pcall(vim.api.nvim_set_current_win, top_work_win)
---             else
---               pcall(vim.api.nvim_set_current_win, old_current)
---             end
---           end
---           M.UpdateWinbarTitles()
---         end
---       end)
---     end,
---   })
--- end
-
-----------------------------------------------------------------------------------------
--- GLOBAL SINGLETON WORKSPACE MANAGER INTERFACE
-----------------------------------------------------------------------------------------
 
 function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   local final_filetype = nil
@@ -569,7 +473,6 @@ function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
--- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR MAP
 vim.keymap.set({ 'n', 'i', 'v' }, M.config.keymaps.move_down, function()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     pcall(vim.api.nvim_set_current_win, M.layout.container_win)
@@ -581,20 +484,16 @@ vim.keymap.set({ 'n', 'i', 'v' }, M.config.keymaps.move_down, function()
     local fallback = vim.api.nvim_replace_termcodes(M.config.keymaps.global_fallback_action, true, true, true)
     vim.api.nvim_feedkeys(fallback, 'n', false)
   end
-end, { silent = true, desc = 'Universal Tiled Panel Down Navigation Router' })
+end, { silent = true })
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
 end
 
-----------------------------------------------------------------------------------------
--- HARD MODULE INVOCATION CODES
-----------------------------------------------------------------------------------------
 M.create_terminal('cli', ' Run Build Command Panel ', nil)
 M.create_terminal('server', ' Development Server Output ', nil)
 M.create_terminal('logs', ' System Logs Tail ', nil)
 
--- Establish single workspace layout monitor listener loop exactly once on loading stage
 M._initialize_global_sentinel()
 
 setmetatable(M, {
