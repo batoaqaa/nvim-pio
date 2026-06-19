@@ -135,6 +135,17 @@ end
 function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
+
+  -- 1. DEFINE HIGHLIGH COLOR: Create a professional distinct custom group for commands
+  -- Feel free to change 'fg' to your favorite hex code (e.g., '#a6e22e' for Monokai Green)
+  vim.api.nvim_set_hl(0, 'PioSentCommand', { fg = '#f92672', bold = true })
+
+  -- 2. REGISTRATION HOOK: Bind the low-level match pattern engine to this buffer
+  vim.api.nvim_buf_call(self.buf, function()
+    -- Look for a '>' followed by a space and anything else, highlighting only the command line
+    vim.fn.matchadd('PioSentCommand', [[> \zs.*$]])
+  end)
+
   self:_register_viewport_bindings()
 end
 
