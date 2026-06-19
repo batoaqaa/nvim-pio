@@ -294,7 +294,6 @@ function Terminal:_register_viewport_bindings()
   })
 end
 
--- Track the absolute high-resolution system execution timestamp
 local last_recovery_time = 0
 
 --- Initializes the single, global, structural workspace layout tracker
@@ -308,11 +307,9 @@ function M._initialize_global_sentinel()
         return
       end
 
-      -- 1. CLOCK DEBOUNCER CIRCUIT: Calculate time elapsed since last layout split
       local current_time = vim.uv.hrtime()
-      -- 50,000,000 nanoseconds = 50 milliseconds safety execution buffer boundary
       if (current_time - last_recovery_time) < 50000000 then
-        return -- Instantly drop duplicate compound sidebar destruction events!
+        return
       end
 
       local closed_win = tonumber(vim.fn.expand('<amatch>'))
@@ -324,9 +321,29 @@ function M._initialize_global_sentinel()
 
       vim.schedule(function()
         if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+          -- 1. BUFFER SPECTRUM SHIELD: Verify if ANY normal code files remain loaded
+          local total_editable_buffers = 0
+          for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+            if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_is_loaded(buf) then
+              local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
+              local filetype = vim.api.nvim_get_option_value('filetype', { buf = buf })
+
+              -- Only count real user code files (ignore terminals, sidebars, scratchpads)
+              if buftype == '' and not M.config.ignored_focus_filetypes[filetype] then
+                total_editable_buffers = total_editable_buffers + 1
+              end
+            end
+          end
+
+          -- If you still have open source code buffers, ABORT. It was just a sidebar toggle!
+          if total_editable_buffers > 0 then
+            M.UpdateWinbarTitles()
+            return
+          end
+
+          -- 2. DYNAMIC LAYOUT AUDIT: Double-verify window slots
           local open_wins = vim.api.nvim_tabpage_list_wins(0)
           local valid_wins = 0
-
           for _, w in ipairs(open_wins) do
             if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win and w ~= closed_win then
               local b = vim.api.nvim_win_get_buf(w)
@@ -337,8 +354,8 @@ function M._initialize_global_sentinel()
             end
           end
 
-          if valid_wins == 0 then
-            -- 2. LOCK TIMESTAMP: Lock down the current clock marker before splitting
+          -- TRUE TOTAL RETREAT LAYOUT COLLAPSE (No files open at all anywhere)
+          if valid_wins == 0 and total_editable_buffers == 0 then
             last_recovery_time = vim.uv.hrtime()
 
             local fallback = M.config.sentinel_fallback
