@@ -503,7 +503,7 @@ M.create_terminal('cli', ' CLI ', function(j, d, e)
 end)
 
 M.create_terminal('mon', ' Monitor ', nil)
-M.create_terminal('logs', ' Target Logs ', nil)
+M.create_terminal('logs', ' OS ', nil)
 
 setmetatable(M, {
   __index = function(table, key)
