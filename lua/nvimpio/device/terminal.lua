@@ -121,7 +121,7 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
   self.title = panel_title
-  self.filetype = filetype or ('terminal_' .. term_type)
+  self.filetype = filetype or 'terminal_' .. term_type
   self._custom_stdout = custom_stdout
   return self
 end
@@ -297,15 +297,13 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- FIX: Listen EXCLUSIVELY to WinClosed. Removing WinNew and BufWinEnter
-  -- completely stops the engine from executing layout splits while you type!
+  -- FIXED SENTINEL GUARD (C-API Driven to Prevent cmdheight Bloat)
   vim.api.nvim_create_autocmd('WinClosed', {
     group = platformio,
     callback = function()
       if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
         vim.schedule(function()
           if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-            -- Identify the precise window handle ID being destroyed right now
             local closed_win = tonumber(vim.fn.expand('<amatch>'))
             if closed_win == M.layout.container_win then
               M.layout.container_win = nil
@@ -355,6 +353,9 @@ function Terminal:_register_lifecycle_events(target_height)
 
             -- TRUE TOTAL RETREAT LAYOUT COLLAPSE (Fires only when the last code buffer window is closed)
             if valid_wins == 0 then
+              -- Firmly lock cmdheight back to 1 to block the 80% command-line expansion bug
+              vim.o.cmdheight = 1
+
               local scratch_buf = nil
               for _, b in ipairs(vim.api.nvim_list_bufs()) do
                 if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
@@ -371,9 +372,26 @@ function Terminal:_register_lifecycle_events(target_height)
                 vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
               end
 
-              vim.cmd('noautocmd topleft split')
-              vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
-              vim.cmd('noautocmd lua vim.api.nvim_set_current_win(' .. M.layout.container_win .. ')')
+              -- Calculate exact vertical space metrics remaining for target calculations
+              local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
+              local target_workspace_height = total_editor_rows - target_height - 1
+
+              -- PURE LOW-LEVEL C-API INJECTION (Replaces "topleft split" and "wincmd J" completely)
+              -- Opens the workspace buffer directly ABOVE the terminal window frame anchor
+              local top_work_win = nil
+              local win_open_success = pcall(function()
+                top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
+                  split = 'above',
+                  win = M.layout.container_win,
+                  height = math.max(2, target_workspace_height),
+                })
+              end)
+
+              if win_open_success and top_work_win then
+                vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
+                pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+                pcall(vim.api.nvim_set_current_win, top_work_win)
+              end
             end
 
             pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
