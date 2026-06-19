@@ -1,3 +1,4 @@
+--- stylua: ignore start
 -- nvimpio/device/terminal.lua - Part 1
 
 local M = {}
@@ -119,7 +120,7 @@ local Terminal = {
   newline = native_eol,
   filetype = 'pio_terminal',
   _custom_stdout = nil,
-  _is_scrolling = false, -- Atomic Lock: Stops high-speed text streams from stuttering viewports
+  _is_scrolling = false, -- Atomic Lock: Stops high-speed streams from layout freezing
 }
 Terminal.__index = Terminal
 
@@ -135,10 +136,20 @@ end
 function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
+
+  -- 1. DEFINE SYNTAX HIGHLIGHT GROUP: Theme-safe typeface layout weight modifier
+  vim.api.nvim_set_hl(0, 'PioBoldTerminalCommand', { bold = true, default = true })
+
+  -- 2. BUFFER SYNTAX INITIALIZATION: Tells Neovim's window engine to highlight rows on drawing layer
+  vim.api.nvim_buf_call(self.buf, function()
+    vim.fn.syntax([[match PioBoldTerminalCommand /> pio\s.*$/]])
+    vim.fn.syntax([[match PioBoldTerminalCommand />\spio\s.*$/]])
+  end)
+
   self:_register_viewport_bindings()
 end
 
---- Rigid Focus-Locked Background Process Payload Dispatcher Matrix
+--- Focus-Locked Background Process Payload Dispatcher Matrix
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
   local original_work_win = vim.api.nvim_get_current_win()
@@ -151,22 +162,18 @@ function Terminal:send(command)
     return
   end
 
-  -- 1. Prompt Separation Guard: Ensure a clean space separation exists after prompt '>' character
+  -- Prompt Separation Guard: Ensure clean layout spacing padding formatting
   if cmd_str ~= '' and not cmd_str:match('^%s') then
     cmd_str = ' ' .. cmd_str
   end
 
-  -- 2. Pure Theme-Safe Bold Typeface ANSI Boundary Injection
-  -- \27[1m = Enforce heavy font typeface weight; \27[0m = Global graphics reset token
-  local styled_payload = string.format('\27[1m%s\27[0m', cmd_str)
+  -- Direct process pipe channel injection payload transmission
+  vim.fn.chansend(self.job, cmd_str .. self.newline)
 
-  -- 3. Direct process pipe channel injection payload transmission
-  vim.fn.chansend(self.job, styled_payload .. self.newline)
-
-  -- 4. Clean low-level normal mode constraint injection
+  -- Clean low-level normal mode constraint injection
   vim.api.nvim_set_option_value('winbar', vim.api.nvim_get_option_value('winbar', { win = M.layout.container_win }), { win = M.layout.container_win })
 
-  -- 5. Atomic Viewport Pinning: Snaps the layout view cleanly without changing active focus
+  -- Atomic Viewport Pinning: Snaps the text view instantly without changing active focus
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) and not self._is_scrolling then
     self._is_scrolling = true
     vim.schedule(function()
@@ -180,7 +187,7 @@ function Terminal:send(command)
     end)
   end
 
-  -- 6. Hard focus lock: Reverts cursor to the original file buffer instantly
+  -- Hard focus lock: Reverts cursor to the original file buffer instantly
   if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
     pcall(vim.api.nvim_set_current_win, original_work_win)
   end
