@@ -261,13 +261,22 @@ end
 
 --- Initializes the single, global, structural workspace layout tracker
 function M._initialize_global_sentinel()
-  -- FIX 1: Explicitly clear the group on load. This completely removes duplicate event listeners.
+  -- Central group configuration prevents any multi-listener leaks completely
   local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
 
-  vim.api.nvim_create_autocmd({ 'WinClosed', 'BufWinEnter' }, {
+  -- FIX 1: Listen EXCLUSIVELY to WinClosed. Dropping BufWinEnter and WinNew stops loop cascading.
+  vim.api.nvim_create_autocmd('WinClosed', {
     group = global_group,
     callback = function()
       if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
+        return
+      end
+
+      -- Identify the concrete window ID that Neovim is destroying right now
+      local closed_win = tonumber(vim.fn.expand('<amatch>'))
+      if closed_win == M.layout.container_win then
+        M.layout.container_win = nil
+        M.layout.active_type = nil
         return
       end
 
@@ -275,7 +284,7 @@ function M._initialize_global_sentinel()
         if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
           local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
 
-          -- Look-Ahead Verification Shield
+          -- Look-Ahead Shield: Verify if ANY normal code files remain loaded
           local real_files_open = false
           for _, b in ipairs(vim.api.nvim_list_bufs()) do
             if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_is_loaded(b) then
@@ -288,7 +297,7 @@ function M._initialize_global_sentinel()
             end
           end
 
-          -- If code files are active, skip split recovery entirely!
+          -- If you still have open source code buffers, ABORT. It was just a sidebar toggle!
           if real_files_open then
             pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
             M.UpdateWinbarTitles()
@@ -298,7 +307,7 @@ function M._initialize_global_sentinel()
           local open_wins = vim.api.nvim_tabpage_list_wins(0)
           local valid_wins = 0
           for _, w in ipairs(open_wins) do
-            if vim.api.nvim_win_is_valid(w) then
+            if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win and w ~= closed_win then
               local b = vim.api.nvim_win_get_buf(w)
               local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
               if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' then
@@ -307,7 +316,8 @@ function M._initialize_global_sentinel()
             end
           end
 
-          if valid_wins <= 1 and vim.api.nvim_get_current_win() == M.layout.container_win then
+          -- TRUE TOTAL RETREAT LAYOUT COLLAPSE (No files open at all anywhere)
+          if valid_wins == 0 then
             -- Fixes the 80% command height stretching bug instantly
             vim.o.cmdheight = 1
 
@@ -327,8 +337,8 @@ function M._initialize_global_sentinel()
               vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
             end
 
-            -- FIX 2: Programmatic API creation above the terminal.
-            -- No strings, no "topleft split", making it completely impossible to slide up.
+            -- FIX 2: Programmatic C-API relative tree initialization (No vim.cmd strings)
+            -- This opens the split ABOVE the terminal window frame anchor
             local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
             local target_workspace_height = total_editor_rows - target_height - 1
 
@@ -387,7 +397,7 @@ end
 
 function M.HideTerminal()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    vim.api.nvim_win_close(M.layout.container_win, true)
+    pcall(vim.api.nvim_win_close, M.layout.container_win, true)
   end
   M.layout.container_win = nil
   M.layout.active_type = nil
