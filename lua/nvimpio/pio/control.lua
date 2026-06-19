@@ -203,54 +203,7 @@ function M.start_watchers()
   for _, target in ipairs(targets) do watch_file(target, target.cb) end
 end
 
---INFO: telescope settings
--- 1. Check if telescope is ALREADY cached in the environment
--- local is_telescope_loaded = package.loaded['telescope'] ~= nil
---
--- -- 2. Safely capture the Telescope module reference
--- local telescope_ok, telescope = pcall(require, 'telescope')
---
--- if telescope_ok thendiagnostic.lua
---   local dropdown_settings = require('telescope.themes').get_dropdown({
---     borderchars = {
---       prompt = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
---       results = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' },
---       preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
---     },
---     prompt_position  = 'top',
---     prompt_prefix    = '🔍 ',
---     selection_caret  = '❯ ',
---     entry_prefix     = '  ',
---     initial_mode     = 'normal',
---     sorting_strategy = 'ascending',
---   })
---
---   -- 3. Now the conditional branches will fire accurately
---   if not is_telescope_loaded then
---     -- Brand new setup
---     telescope.setup({
---       extensions = {
---         ['ui-select'] = dropdown_settings
---       }
---     })
---   else
---     -- Fallback for injecting into an already active runtime profile
---     local ts_config = require('telescope.config')
---     ts_config.values.extensions = ts_config.values.extensions or {}
---     ts_config.values.extensions['ui-select'] = vim.tbl_deep_extend(
---       'force',
---       ts_config.values.extensions['ui-select'] or {},
---       dropdown_settings
---     )
---   end
---
---   pcall(telescope.load_extension, 'ui-select')
--- end
--------------------------------------------------------------------------------------
--- above old working
-
-
-
+--INFO: telescope settings vim.ui.select()
 local dropdown_settings = {
   theme            = "dropdown",
   initial_mode     = "normal",
@@ -268,7 +221,7 @@ local original_select = vim.ui.select
 
 ---@diagnostic disable-next-line: duplicate-set-field
 vim.ui.select = function(items, opts, on_choice)
-  local telescope_ok, telescope = pcall(require, 'telescope')
+  local telescope_ok, _ = pcall(require, 'telescope')
   if telescope_ok then
     opts = opts or {}
 
@@ -352,27 +305,6 @@ vim.ui.select = function(items, opts, on_choice)
             end)
           end
         end)
-        -- THE ZERO-FLICKER MULTI-SELECT ACTION CORE:
-        -- actions.select_default:replace(function()
-        --   local selection = action_state.get_selected_entry()
-        --   if not selection then return end
-        --
-        --   local clicked_item = selection.value
-        --   local clicked_index = selection.index
-        --
-        --   -- 1. Pass the choice back to diagnostic.lua instantly to update memory variables
-        --   on_choice(clicked_item, clicked_index)
-        --
-        --   -- 2. LIVE REDRAW ENGINE: Refresh the text inside the window without closing it!
-        --   local current_picker = action_state.get_current_picker(prompt_bufnr)
-        --   if current_picker then
-        --     -- Forces the current row text lines to re-evaluate ([ ] changes to [*] instantly)
-        --     current_picker:refresh(make_entry_list(), { reset_prompt = false })
-        --
-        --     -- Lock the cursor perfectly back down to the row the user just clicked
-        --     vim.api.nvim_win_set_cursor(current_picker.results_win, { clicked_index, 0 })
-        --   end
-        -- end)
         return true
       end,
     })
@@ -383,130 +315,6 @@ vim.ui.select = function(items, opts, on_choice)
     original_select(items, opts, on_choice)
   end
 end
-
-
-
-
-
-
--- below new have issue
--------------------------------------------------------------------------------------
--- -- Define your plugin's clean dropdown layout base configuration profile
--- local dropdown_settings = {
---   theme            = "dropdown",
---   initial_mode     = "normal",
---   sorting_strategy = "ascending",
---   selection_caret  = "❯ ",
---   entry_prefix     = "  ",
---
---   -- Explicitly isolates window configuration constraints
---   layout_config = {
---     height = 25,
---     prompt_position = "top",
---   },
--- }
---
--- -- Backup the core native UI selection channel handler
--- local original_select = vim.ui.select
---
--- ---@diagnostic disable-next-line: duplicate-set-field
--- vim.ui.select = function(items, opts, on_choice)
---   local telescope_ok, telescope = pcall(require, 'telescope')
---   if telescope_ok then
---     opts = opts or {}
---
---     -- Helper to format the item exactly how the calling file wants it
---     local function format_single_item(item)
---       if opts.format_item then
---         return opts.format_item(item)
---       elseif type(item) == "table" then
---         return item.text or item.name or vim.inspect(item)
---       end
---       return tostring(item)
---     end
---
---     -- Convert items array using our format helper to guarantee layouts stay intact
---     local item_strings = {}
---     for _, item in ipairs(items) do
---       table.insert(item_strings, format_single_item(item))
---     end
---
---     local action_state = require('telescope.actions.state')
---     local actions = require('telescope.actions')
---
---     local picker_opts = vim.tbl_deep_extend('force', dropdown_settings, {
---       prompt_title = "",
---       -- Inserts your dynamic diagnostic text string beautifully inline inside the input row
---       prompt_prefix = (opts.prompt and ("🔍 " .. opts.prompt .. " › ")) or "🔍  ",
---       finder = require('telescope.finders').new_table({ results = item_strings }),
---       sorter = require('telescope.sorters').get_generic_fuzzy_sorter({}),
---
---       -- Blends the input box and results list cleanly together as a single 1-row tall component
---       borderchars = {
---         prompt  = { "─", "│", " ", "│", "╭", "╮", "│", "│" },
---         results = { "─", "│", "─", "│", "├", "┤", "╯", "╰" },
---         preview = { "─", "│", "─", "│", "╭", "╮", "╯", "╰" },
---       },
---       attach_mappings = function(prompt_bufnr, map)
---
---         local close_and_trigger_save = function()
---           actions.close(prompt_bufnr)
---           vim.schedule(function()
---             on_choice(nil, nil)
---           end)
---         end
---
---         map('n', '<Esc>', close_and_trigger_save)
---         map('n', 'q',     close_and_trigger_save)
---
---         actions.select_default:replace(function()
---           local selection = action_state.get_selected_entry()
---           actions.close(prompt_bufnr)
---
---           if selection then
---             local true_item = nil
---             local true_index = nil
---
---             for i, item in ipairs(items) do
---               if format_single_item(item) == selection.value then
---                 true_item = item
---                 true_index = i
---                 break
---               end
---             end
---
---             if true_item and true_index then
---               vim.schedule(function()
---                 on_choice(true_item, true_index)
---               end)
---             else
---               vim.schedule(function()
---                 on_choice(items[selection.index], selection.index)
---               end)
---             end
---           else
---             vim.schedule(function()
---               on_choice(nil, nil)
---             end)
---           end
---         end)
---         return true
---       end,
---     })
---
---     -- Run through Telescope's official theme constructor pipeline safely
---     local final_theme = require('telescope.themes').get_dropdown(picker_opts)
---     require('telescope.pickers').new({}, final_theme):find()
---   else
---     original_select(items, opts, on_choice)
---   end
--- end
-
-
-
-
-
-
 
 --INFO: 6.  Exported setup function
 -------------------------------------------------------------------------------
