@@ -370,20 +370,17 @@ function M.ShowTerminal(term_type)
     local old_win = vim.api.nvim_get_current_win()
     pcall(vim.api.nvim_set_current_win, M.layout.container_win)
 
-    -- 1. CRITICAL ORDER CORRECTION: Map viewport controls to buffer context FIRST
     target_instance:_register_viewport_mappings()
-
-    -- 2. Swap the buffer into view inside the active layout split window
     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
     M.layout.active_type = term_type
 
-    -- 3. Initialize the process shell channel stream securely
     target_instance:on_spawn()
     M.UpdateWinbarTitles()
 
-    if old_win == M.layout.container_win then
-      target_instance:enter_insert_mode()
-    else
+    -- FIX 1: Enforce Normal Mode upon buffer tabs swap context shifts
+    vim.cmd('stopinsert')
+
+    if old_win ~= M.layout.container_win then
       pcall(vim.api.nvim_set_current_win, old_win)
     end
     return
@@ -392,7 +389,9 @@ function M.ShowTerminal(term_type)
   target_instance:on_open()
   target_instance:on_spawn()
   M.UpdateWinbarTitles()
-  target_instance:enter_insert_mode()
+
+  -- FIX 2: Enforce Normal Mode baseline on initial shell split creation panel
+  vim.cmd('stopinsert')
 end
 
 function M.HideTerminal()
@@ -441,11 +440,9 @@ end
 -- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    pcall(vim.api.nvim_set_current_win, M.layout.container_win)
-    local active_instance = M.terminals[M.layout.active_type]
-    if active_instance then
-      active_instance:enter_insert_mode()
-    end
+    vim.api.nvim_set_current_win(M.layout.container_win)
+    -- FIX 3: Maintain normal mode navigation loops baseline targeting
+    vim.cmd('stopinsert')
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
   end
