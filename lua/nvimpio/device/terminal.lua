@@ -2,16 +2,13 @@
 
 local M = {}
 
--- 1. Defend Against Global Environments Missing at Load Time
-local safe_shell = (OS and OS.shell) and OS.shell or vim.o.shell
-local safe_eol = (OS and OS.eol) and OS.eol or '\n'
-
--- 2. Enterprise User Configuration Specification Matrix
+-- Enterprise User Configuration Specification Matrix
 M.config = {
   panel_height = 0.2,
   winbar_bg = '#80a3d4',
   winbar_fg = '#000000',
-  shell = safe_shell,
+  winbar_hl_group = 'PioWinBar',
+  shell = OS.shell,
   keymaps = {
     hide_pane = 'q',
     switch_pane = '<Tab>',
@@ -25,29 +22,53 @@ M.config = {
 
 M.stdout_callback = nil
 M.exit_callback = nil
+
+-- Dictionary keeping track of ALL dynamically registered terminals
 M.terminals = {}
 
 -- The Core Tiled Window Layout Node Matrix
 M.layout = {
   container_win = nil, -- THE SINGLE IMMUTABLE TILED GRID WINDOW HANDLE
-  active_type = nil, -- Tracks visible node ('cli' or 'monitor')
+  active_type = nil, -- Tracks the name key of the visible node
 }
 
---- Pure C-API Highlight winbar renderer
+--- Pure C-API Highlight winbar renderer (Dynamic Multi-Tab Layout Engine)
 function M.UpdateWinbarTitles()
-  local cli_alive = M.cli and M.cli.buf and vim.api.nvim_buf_is_valid(M.cli.buf)
-  local mon_alive = M.mon and M.mon.buf and vim.api.nvim_buf_is_valid(M.mon.buf)
   local maps = M.config.keymaps
 
-  local hint = (cli_alive and mon_alive) and string.format('[ %s  Switch;  %s  Hide; :q! Quit ] ', maps.switch_pane, maps.hide_pane)
-    or string.format('[ %s  Hide; :q! Quit ] ', maps.hide_pane)
+  vim.api.nvim_set_hl(0, M.config.winbar_hl_group, { bg = M.config.winbar_bg, fg = M.config.winbar_fg, bold = true })
+  vim.api.nvim_set_hl(0, M.config.winbar_hl_group .. 'Dim', { bg = M.config.winbar_bg, fg = '#4e5a6b', italic = true })
 
-  vim.api.nvim_set_hl(0, 'PioWinBar', { bg = M.config.winbar_bg, fg = M.config.winbar_fg })
-
-  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    local title = (M.layout.active_type == 'monitor') and M.mon.title or M.cli.title
-    vim.api.nvim_set_option_value('winbar', '%#PioWinBar#' .. title .. hint .. '%*', { scope = 'local', win = M.layout.container_win })
+  if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
+    return
   end
+
+  local tab_string = ' '
+  local total_terminals = 0
+  local ordered_keys = {}
+  for k, _ in pairs(M.terminals) do
+    table.insert(ordered_keys, k)
+  end
+  table.sort(ordered_keys)
+
+  for _, name in ipairs(ordered_keys) do
+    local term = M.terminals[name]
+    if term.buf and vim.api.nvim_buf_is_valid(term.buf) then
+      total_terminals = total_terminals + 1
+      if M.layout.active_type == name then
+        -- Brightly highlighted title for active terminal
+        tab_string = tab_string .. string.format('%%#%s# [%s] %%*', M.config.winbar_hl_group, term.title:gsub('%s+', ''))
+      else
+        -- Dimmed title for background terminals
+        tab_string = tab_string .. string.format('%%#%sDim#  %s  %%*', M.config.winbar_hl_group, term.title:gsub('%s+', ''))
+      end
+    end
+  end
+
+  local hint = (total_terminals > 1) and string.format(' [ %s  Switch;  %s  Hide; :q! Quit ] ', maps.switch_pane, maps.hide_pane)
+    or string.format(' [ %s  Hide; :q! Quit ] ', maps.hide_pane)
+
+  vim.api.nvim_set_option_value('winbar', tab_string .. '%=' .. hint, { scope = 'local', win = M.layout.container_win })
 end
 
 --- Dynamic Workspace Tree Focus Router
@@ -59,7 +80,15 @@ function M.RestoreWorkspaceFocus()
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local win_type = vim.fn.win_gettype(win)
 
-      if ft ~= 'pio_terminal' and win_type == '' and ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_workspace' then
+      if
+        ft ~= 'pio_terminal'
+        and win_type == ''
+        and ft ~= 'neo-tree'
+        and ft ~= 'oil'
+        and ft ~= 'aerial'
+        and ft ~= 'pio_workspace'
+        and not ft:match('^terminal_')
+      then
         target_win = win
         break
       end
@@ -82,22 +111,25 @@ local Terminal = {
   title = '',
   buf = nil,
   job = nil,
-  newline = safe_eol,
+  newline = OS.eol,
   filetype = 'pio_terminal',
+  _custom_stdout = nil, -- Direct reference holder for unique on_stdout behaviors
 }
 Terminal.__index = Terminal
 
-function Terminal.new(term_type, panel_title)
+function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
   self.title = panel_title
+  self.filetype = filetype or ('terminal_' .. term_type)
+  self._custom_stdout = custom_stdout
   return self
 end
 
 function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
-  self:_register_viewport_mappings()
+  self:_register_lifecycle_events(math.ceil(vim.o.lines * (M.config.panel_height or 0.2)))
 end
 
 function Terminal:send(command)
@@ -134,13 +166,19 @@ function Terminal:on_spawn()
 end
 
 function Terminal:on_stdout(j, d, e)
-  if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
+  -- 1. Fire the custom isolated stdout callback passed in during creation
+  if self._custom_stdout then
+    self._custom_stdout(j, d, e)
+  elseif self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
+    -- Fallback to global hook for legacy compatibility
     M.stdout_callback(j, d, e)
   end
 end
 
 function Terminal:on_stderr(j, d, e)
-  if self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
+  if self._custom_stdout then
+    self._custom_stdout(j, d, e)
+  elseif self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
     M.stdout_callback(j, d, e)
   end
 end
@@ -223,41 +261,149 @@ function Terminal:_register_viewport_mappings()
 
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
-
-  -- RIGID KEY BLOCK: Forcefully intercept window-closing combos inside the terminal buffer layout
-  -- This permanently blocks the layout panel split from closing alone or swallowing the workspace height space!
-  vim.keymap.set('n', '<C-w>c', function()
-    M.HideTerminal()
-  end, { buffer = self.buf, silent = true })
-  vim.keymap.set('n', '<C-w>q', function()
-    M.HideTerminal()
-  end, { buffer = self.buf, silent = true })
 end
 
 -- nvimpio/device/terminal.lua - Part 3
 
+function Terminal:_register_lifecycle_events(target_height)
+  local platformio = vim.api.nvim_create_augroup('PioEvents_' .. self.buf, { clear = true })
+
+  -- Intercept manual command exits (:q and :q!)
+  vim.api.nvim_create_autocmd('CmdlineLeave', {
+    group = platformio,
+    buffer = self.buf,
+    callback = function()
+      if vim.v.event and not vim.v.event.abort and vim.v.event.cmdtype == ':' then
+        local cmd = vim.fn.getcmdline()
+        if cmd == 'q' or cmd == 'q!' then
+          if cmd == 'q!' then
+            self:on_close()
+          end
+          vim.schedule(function()
+            self:on_quit()
+          end)
+        end
+      end
+    end,
+  })
+
+  vim.api.nvim_create_autocmd('BufLeave', {
+    group = platformio,
+    buffer = self.buf,
+    callback = function()
+      vim.schedule(function()
+        M.UpdateWinbarTitles()
+      end)
+    end,
+  })
+
+  -- THE INDESTRUCTIBLE TABPAGE SENTINEL GUARD (Your exact original loop logic)
+  vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter', 'WinClosed' }, {
+    group = platformio,
+    callback = function()
+      if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+        vim.schedule(function()
+          if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+            local open_wins = vim.api.nvim_tabpage_list_wins(0)
+            local valid_wins = 0
+            for _, w in ipairs(open_wins) do
+              if vim.api.nvim_win_is_valid(w) then
+                local b = vim.api.nvim_win_get_buf(w)
+                local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
+                -- Check if it's an excluded type or a dynamically generated terminal type
+                if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' and not ft:match('^terminal_') then
+                  valid_wins = valid_wins + 1
+                end
+              end
+            end
+
+            if valid_wins <= 1 and vim.api.nvim_get_current_win() == M.layout.container_win then
+              local scratch_buf = nil
+              for _, b in ipairs(vim.api.nvim_list_bufs()) do
+                if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
+                  scratch_buf = b
+                  break
+                end
+              end
+
+              if not scratch_buf then
+                scratch_buf = vim.api.nvim_create_buf(false, true)
+                vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]_' .. scratch_buf)
+                vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
+                vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
+                vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
+              end
+
+              vim.cmd('noautocmd topleft split')
+              vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
+              vim.cmd('noautocmd lua vim.api.nvim_set_current_win(' .. M.layout.container_win .. ')')
+            end
+
+            pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+            M.UpdateWinbarTitles()
+          end
+        end)
+      end
+    end,
+  })
+end
+
+----------------------------------------------------------------------------------------
+-- GLOBAL SINGLETON WORKSPACE MANAGER INTERFACE
+----------------------------------------------------------------------------------------
+
+--- Dynamic Factory Method to easily create any number of custom terminal nodes
+---@param name string The key index (e.g. 'cli', 'server', 'logs')
+---@param title string The name text template shown in the winbar tab-list
+---@param filetype_or_cb string|function|nil Optional custom filetype string or direct function callback
+---@param custom_stdout function|nil Custom function assigned ONLY to this instance
+function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
+  local final_filetype = nil
+  local final_cb = nil
+
+  if type(filetype_or_cb) == 'function' then
+    final_cb = filetype_or_cb
+    final_filetype = 'terminal_' .. name
+  else
+    final_filetype = filetype_or_cb or ('terminal_' .. name)
+    final_cb = custom_stdout
+  end
+
+  M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
+
+  -- Create legacy direct references for your old configuration routes (like M.cli)
+  if name == 'cli' then
+    M.cli = M.terminals.cli
+  end
+  if name == 'monitor' or name == 'mon' then
+    M.mon = M.terminals[name]
+  end
+
+  M.terminals[name]:on_create()
+  return M.terminals[name]
+end
+
 function M.ShowTerminal(term_type)
-  term_type = term_type or 'cli'
-  local target_instance = (term_type == 'monitor') and M.mon or M.cli
+  if not term_type then
+    term_type = next(M.terminals)
+  end
+  local target_instance = M.terminals[term_type]
+  if not target_instance then
+    return
+  end
 
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
   end
 
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    local old_win = vim.api.nvim_get_current_win()
-    pcall(vim.api.nvim_set_current_win, M.layout.container_win)
     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
     M.layout.active_type = term_type
-
     target_instance:on_spawn()
-    M.UpdateWinbarTitles()
 
-    if old_win == M.layout.container_win then
-      target_instance:enter_insert_mode()
-    else
-      pcall(vim.api.nvim_set_current_win, old_win)
-    end
+    target_instance:_register_viewport_mappings()
+    M.UpdateWinbarTitles()
+    target_instance:enter_insert_mode()
     return
   end
 
@@ -269,7 +415,7 @@ end
 
 function M.HideTerminal()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    pcall(vim.api.nvim_win_close, M.layout.container_win, true)
+    vim.api.nvim_win_close(M.layout.container_win, true)
   end
   M.layout.container_win = nil
   M.layout.active_type = nil
@@ -280,13 +426,30 @@ function M.ToggleTerminal()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     M.HideTerminal()
   else
-    M.ShowTerminal(M.layout.active_type)
+    M.ShowTerminal(M.layout.active_type or 'cli')
   end
 end
 
 function M.SwitchTerminalPane()
-  local next_type = (M.layout.active_type == 'cli') and 'monitor' or 'cli'
-  M.ShowTerminal(next_type)
+  local keys = {}
+  for k, _ in pairs(M.terminals) do
+    table.insert(keys, k)
+  end
+  if #keys <= 1 then
+    return
+  end
+  table.sort(keys)
+
+  local current_index = 1
+  for i, k in ipairs(keys) do
+    if k == M.layout.active_type then
+      current_index = i
+      break
+    end
+  end
+
+  local next_index = (current_index % #keys) + 1
+  M.ShowTerminal(keys[next_index])
 end
 
 function M.IsTerminalOpen()
@@ -297,8 +460,10 @@ end
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
-    local active_instance = (M.layout.active_type == 'monitor') and M.mon or M.cli
-    active_instance:enter_insert_mode()
+    local active_instance = M.terminals[M.layout.active_type]
+    if active_instance then
+      active_instance:enter_insert_mode()
+    end
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
   end
@@ -308,14 +473,20 @@ function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
 end
 
--- Singleton Instantiations
-M.cli = Terminal.new('cli', ' Pio CLI> ')
-M.mon = Terminal.new('monitor', ' Pio Monitor ')
+----------------------------------------------------------------------------------------
+-- AUTOMATED MODULE INSTANTIATION SEQUENCING
+----------------------------------------------------------------------------------------
 
--- Register them within the terminals table for Approach B require paths
-M.terminals = {}
-M.terminals.cli = M.cli
-M.terminals.mon = M.mon
+-- Spawn your core 3 terminals automatically with custom title-bar strings!
+M.create_terminal('cli', ' Pio CLI ', function(j, d, e)
+  if type(M.stdout_callback) == 'function' then
+    M.stdout_callback(j, d, e)
+  end
+  -- Unique stdout handler for your main compiler pane can go right here
+end)
+
+M.create_terminal('mon', ' Monitor ', nil)
+M.create_terminal('logs', ' Target Logs ', nil) -- Pass nil if no special stdout is needed
 
 setmetatable(M, {
   __index = function(table, key)
