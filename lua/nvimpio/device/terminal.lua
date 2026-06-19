@@ -140,16 +140,16 @@ function Terminal:on_create()
   -- 1. DEFINE SYNTAX HIGHLIGHT GROUP: Theme-safe typeface layout weight modifier
   vim.api.nvim_set_hl(0, 'PioBoldTerminalCommand', { bold = true, default = true })
 
-  -- 2. BUFFER SYNTAX INITIALIZATION: Tells Neovim's window engine to highlight rows on drawing layer
+  -- 2. FIXED BUFFER SYNTAX INITIALIZATION: Uses vim.cmd to correctly register the native matchers
   vim.api.nvim_buf_call(self.buf, function()
-    vim.fn.syntax([[match PioBoldTerminalCommand /> pio\s.*$/]])
-    vim.fn.syntax([[match PioBoldTerminalCommand />\spio\s.*$/]])
+    vim.cmd([[syntax match PioBoldTerminalCommand /> pio\s.*$/]])
+    vim.cmd([[syntax match PioBoldTerminalCommand />\spio\s.*$/]])
   end)
 
-  self:_register_viewport_bindings()
+  self:_register_viewport_mappings()
 end
 
---- Focus-Locked Background Process Payload Dispatcher Matrix
+--- Rigid Focus-Locked Background Process Payload Dispatcher Matrix
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
   local original_work_win = vim.api.nvim_get_current_win()
@@ -303,7 +303,7 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
-
+-- stylua: ignore end
 -- nvimpio/device/terminal.lua - Part 3
 
 function Terminal:_register_viewport_bindings()
