@@ -37,7 +37,7 @@ M.layout = {
   is_recovering = false, -- Atomic safety execution lock parameter
 }
 
---- Pure C-API Highlight winbar renderer (Preserves explicit layout order)
+--- Pure C-API Highlight winbar renderer (Preserves explicit layout creation order)
 function M.UpdateWinbarTitles()
   local maps = M.config.keymaps
 
@@ -51,18 +51,27 @@ function M.UpdateWinbarTitles()
   local tab_string = ' '
   local total_terminals = 0
 
-  -- HARD PRESET SEQUENCING: Dictates the exact presentation order of your tabs
-  local layout_order = { 'cli', 'mon', 'logs' }
+  -- 1. Gather all active terminals into a flat list
+  local ordered_terminals = {}
+  for _, term in pairs(M.terminals) do
+    if term.buf and vim.api.nvim_buf_is_valid(term.buf) then
+      table.insert(ordered_terminals, term)
+    end
+  end
 
-  for _, name in ipairs(layout_order) do
-    local term = M.terminals[name]
-    if term and term.buf and vim.api.nvim_buf_is_valid(term.buf) then
-      total_terminals = total_terminals + 1
-      if M.layout.active_type == name then
-        tab_string = tab_string .. string.format('%%#%s# [%s] %%*', M.config.winbar_hl_group, term.title:gsub('%s+', ''))
-      else
-        tab_string = tab_string .. string.format('%%#%sDim#  %s  %%*', M.config.winbar_hl_group, term.title:gsub('%s+', ''))
-      end
+  -- 2. Sort the array using the structural creation index metadata stamped on creation
+  table.sort(ordered_terminals, function(a, b)
+    return (a._creation_index or 0) < (b._creation_index or 0)
+  end)
+
+  -- 3. Render tabs sequentially based on their birth order
+  for _, term in ipairs(ordered_terminals) do
+    total_terminals = total_terminals + 1
+    local name = term.term_type
+    if M.layout.active_type == name then
+      tab_string = tab_string .. string.format('%%#%s# [%s] %%*', M.config.winbar_hl_group, term.title:gsub('%s+', ''))
+    else
+      tab_string = tab_string .. string.format('%%#%sDim#  %s  %%*', M.config.winbar_hl_group, term.title:gsub('%s+', ''))
     end
   end
 
@@ -338,9 +347,18 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
     final_cb = custom_stdout
   end
 
+  -- 1. Calculate how many terminals exist to dynamically derive a birth index
+  local current_count = 0
+  for _ in pairs(M.terminals) do
+    current_count = current_count + 1
+  end
+
   M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
 
-  -- Create legacy explicit roots on the module so require('...').cli works instantly
+  -- 2. Stamp the incremented tracking token onto the instance state footprint
+  M.terminals[name]._creation_index = current_count + 1
+
+  -- Create legacy direct references for your old configuration routes (like M.cli)
   M[name] = M.terminals[name]
 
   M.terminals[name]:on_create()
@@ -406,25 +424,32 @@ function Terminal:show()
 end
 
 function M.SwitchTerminalPane()
-  local keys = {}
+  local ordered_keys = {}
   for k, _ in pairs(M.terminals) do
-    table.insert(keys, k)
+    table.insert(ordered_keys, k)
   end
-  if #keys <= 1 then
+
+  -- Ensure tab switching cycles sequentially following the exact creation birth order
+  table.sort(ordered_keys, function(a, b)
+    local term_a = M.terminals[a]
+    local term_b = M.terminals[b]
+    return (term_a._creation_index or 0) < (term_b._creation_index or 0)
+  end)
+
+  if #ordered_keys <= 1 then
     return
   end
-  table.sort(keys)
 
   local current_index = 1
-  for i, k in ipairs(keys) do
+  for i, k in ipairs(ordered_keys) do
     if k == M.layout.active_type then
       current_index = i
       break
     end
   end
 
-  local next_index = (current_index % #keys) + 1
-  M.show(keys[next_index])
+  local next_index = (current_index % #ordered_keys) + 1
+  M.show(ordered_keys[next_index])
 end
 
 function M.IsTerminalOpen()
