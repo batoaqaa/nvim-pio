@@ -140,12 +140,11 @@ function Terminal:on_create()
   -- 1. DEFINE REVERSED HIGHLIGHT GROUP: Mixes bold weight with inverted cell colors
   vim.api.nvim_set_hl(0, 'PioReverseTerminalCommand', { bold = true, reverse = true, default = true })
 
-  -- 2. SECURE BUFFER SYNTAX ENGINE INITIALIZATION:
-  -- We search for your shell path prompt indicator suffix '> ' followed by an explicit
-  -- non-whitespace character. The \zs token places the reversed block highlight
-  -- PERFECTLY on your command keywords, while ignoring background platform summary lists.
+  -- 2. RIGID PATH-ANCHORED SYNTAX INITIALIZATION:
+  -- The ^[a-zA-Z]:\\ pattern forces the engine to match ONLY on lines starting with a Windows drive prompt.
+  -- The \zs token ensures the reverse block highlight covers ONLY the typed command text.
   vim.api.nvim_buf_call(self.buf, function()
-    vim.cmd([[syntax match PioReverseTerminalCommand /> \zs\S.*$/]])
+    vim.cmd([[syntax match PioReverseTerminalCommand /^[a-zA-Z]:\\.*>\s\+\zs.*$/]])
   end)
 
   self:_register_viewport_bindings()
@@ -223,6 +222,12 @@ end
 
 function Terminal:on_stderr(j, d, e)
   self:on_stdout(j, d, e)
+end
+
+function Terminal:on_size_changed()
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    M.UpdateWinbarTitles()
+  end
 end
 
 function Terminal:on_exit()
@@ -305,7 +310,7 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
-
+-- stylua: ignore end
 -- nvimpio/device/terminal.lua - Part 3
 
 function Terminal:_register_viewport_bindings()
