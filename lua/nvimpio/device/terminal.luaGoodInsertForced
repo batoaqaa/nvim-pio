@@ -120,10 +120,7 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
   self.title = panel_title
-
-  -- Enforce explicit evaluation boundaries to eliminate expression ambiguity
   self.filetype = filetype or ('terminal_' .. term_type)
-
   self._custom_stdout = custom_stdout
   return self
 end
@@ -244,32 +241,21 @@ end
 function Terminal:_register_viewport_mappings()
   local maps = M.config.keymaps
 
-  -- 1. TERMINAL ESCAPE ACTION (Exits insert mode back to standard editor normal mode)
   vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf, silent = true })
+  vim.keymap.set('n', maps.hide_pane, function()
+    M.ToggleTerminal()
+  end, { buffer = self.buf })
 
-  -- 2. DYNAMIC TERMINAL SWITCHING (Bridges active insert mode out to panel swappers)
+  vim.keymap.set('t', maps.move_up, [[<C-\><C-n><C-w>k]], { buffer = self.buf, silent = true })
+  vim.keymap.set('n', maps.move_up, '<C-w>k', { buffer = self.buf, silent = true })
+
   vim.keymap.set('t', maps.switch_pane, function()
-    vim.cmd([[noautocmd stopinsert]])
     M.SwitchTerminalPane()
   end, { buffer = self.buf, silent = true })
   vim.keymap.set('n', maps.switch_pane, function()
     M.SwitchTerminalPane()
   end, { buffer = self.buf, silent = true })
 
-  -- 3. INTERACTIVE PANE HIDING (Safely shuts layout context from within insert state)
-  vim.keymap.set('t', maps.hide_pane, function()
-    vim.cmd([[noautocmd stopinsert]])
-    M.ToggleTerminal()
-  end, { buffer = self.buf, silent = true })
-  vim.keymap.set('n', maps.hide_pane, function()
-    M.ToggleTerminal()
-  end, { buffer = self.buf })
-
-  -- 4. INTERACTIVE DIRECTIONAL UP SHIFT (Escapes insertion track and moves cursor up)
-  vim.keymap.set('t', maps.move_up, [[<C-\><C-n><C-w>k]], { buffer = self.buf, silent = true })
-  vim.keymap.set('n', maps.move_up, '<C-w>k', { buffer = self.buf, silent = true })
-
-  -- 5. HORIZONTAL NAVIGATORS (Standard window movement shortcuts)
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
