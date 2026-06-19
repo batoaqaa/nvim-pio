@@ -460,8 +460,8 @@ M.create_terminal('cli', ' Pio CLI ', function(j, d, e)
     M.stdout_callback(j, d, e)
   end
 end)
-M.create_terminal('mon', ' monitor ', nil)
-M.create_terminal('logs', ' Target Logs ', nil)
+M.create_terminal('mon', ' Pio monitor ', nil)
+-- M.create_terminal('logs', ' Target Logs ', nil)
 
 setmetatable(M, {
   __index = function(table, key)
