@@ -296,103 +296,90 @@ end
 
 --- Initializes the single, global, structural workspace layout tracker
 function M._initialize_global_sentinel()
+  -- Central group configuration prevents any multi-listener leaks completely
   local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
 
-  -- Use WinResized to detect layout collapses safely after Neovim handles window destruction
-  vim.api.nvim_create_autocmd('WinResized', {
+  vim.api.nvim_create_autocmd('WinClosed', {
     group = global_group,
     callback = function()
-      -- Abort immediately if the terminal window layout doesn't exist, is dead, or is recovering
       if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.is_recovering then
         return
       end
 
-      local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-      local actual_height = vim.api.nvim_win_get_height(M.layout.container_win)
-
-      -- If the terminal height expanded significantly, it swallowed the collapsed workspace!
-      if actual_height > (target_height + 2) then
-        vim.schedule(function()
-          -- Re-verify window state handles within the asynchronous execution boundary
-          if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-            local open_wins = vim.api.nvim_tabpage_list_wins(0)
-            local valid_wins = 0
-
-            for _, w in ipairs(open_wins) do
-              if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win then
-                local b = vim.api.nvim_win_get_buf(w)
-                local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-                if not M.config.ignored_focus_filetypes[ft] then
-                  valid_wins = valid_wins + 1
-                end
-              end
-            end
-
-            -- True Workspace Collapse Confirmed: Generate the fallback scratchpad box
-            if valid_wins == 0 then
-              M.layout.is_recovering = true
-
-              -- Rigid safety lock: Force cmdheight back to 1 to block the 80% command-line bug
-              vim.o.cmdheight = 1
-
-              local fallback = M.config.sentinel_fallback
-              local scratch_buf = nil
-
-              for _, b in ipairs(vim.api.nvim_list_bufs()) do
-                if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match(fallback.buffer_name:gsub('%[', '%%['):gsub('%]', '%%]')) then
-                  scratch_buf = b
-                  break
-                end
-              end
-
-              if not scratch_buf then
-                scratch_buf = vim.api.nvim_create_buf(false, true)
-                vim.api.nvim_buf_set_name(scratch_buf, fallback.buffer_name)
-                vim.api.nvim_set_option_value('buftype', fallback.buftype, { buf = scratch_buf })
-                vim.api.nvim_set_option_value('filetype', fallback.filetype, { buf = scratch_buf })
-                vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
-              end
-
-              -- Pure Programmatic C-API window opening (Completely ignores cursor focus context)
-              local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
-              local target_workspace_height = total_editor_rows - target_height - 1
-
-              local top_work_win = nil
-              local win_open_success = pcall(function()
-                top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
-                  split = 'above',
-                  win = M.layout.container_win,
-                  height = math.max(2, target_workspace_height),
-                })
-              end)
-
-              if win_open_success and top_work_win then
-                vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
-                pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
-                pcall(vim.api.nvim_set_current_win, top_work_win)
-              end
-
-              M.layout.is_recovering = false
-            end
-            M.UpdateWinbarTitles()
-          end
-        end)
-      end
-    end,
-  })
-
-  -- Monitor window closure to cleanly catch manual terminal pane closures
-  vim.api.nvim_create_autocmd('WinClosed', {
-    group = global_group,
-    callback = function()
-      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
-        return
-      end
       local closed_win = tonumber(vim.fn.expand('<amatch>'))
       if closed_win == M.layout.container_win then
         M.layout.container_win = nil
         M.layout.active_type = nil
+        return
       end
+
+      vim.schedule(function()
+        if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+          local open_wins = vim.api.nvim_tabpage_list_wins(0)
+          local valid_wins = 0
+
+          for _, w in ipairs(open_wins) do
+            -- Look ahead: count windows left on screen while ignoring the dead sidebar and terminal
+            if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win and w ~= closed_win then
+              local b = vim.api.nvim_win_get_buf(w)
+              local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
+              if not M.config.ignored_focus_filetypes[ft] then
+                valid_wins = valid_wins + 1
+              end
+            end
+          end
+
+          -- ⚠️ TRUE COLLAPSE INTERCEPT: Fires ONLY if your active files are truly gone!
+          -- If you just toggled neo-tree, valid_wins remains > 0, skipping this block entirely.
+          if valid_wins == 0 then
+            M.layout.is_recovering = true
+            vim.o.cmdheight = 1 -- Fixes the 80% command height stretching bug instantly
+
+            local fallback = M.config.sentinel_fallback
+            local scratch_buf = nil
+
+            for _, b in ipairs(vim.api.nvim_list_bufs()) do
+              if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match(fallback.buffer_name:gsub('%[', '%%['):gsub('%]', '%%]')) then
+                scratch_buf = b
+                break
+              end
+            end
+
+            if not scratch_buf then
+              scratch_buf = vim.api.nvim_create_buf(false, true)
+              vim.api.nvim_buf_set_name(scratch_buf, fallback.buffer_name)
+              vim.api.nvim_set_option_value('buftype', fallback.buftype, { buf = scratch_buf })
+              vim.api.nvim_set_option_value('filetype', fallback.filetype, { buf = scratch_buf })
+              vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
+            end
+
+            -- 1. PURE LOW-LEVEL C-API LAYOUT INJECTION
+            -- This opens a window directly above the terminal using a strict relative tree link.
+            -- It does not use "topleft" or "split" commands, which prevents external plugins from fighting it.
+            local target_term_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+            local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
+            local target_workspace_height = total_editor_rows - target_term_height - 1
+
+            local top_work_win = nil
+            local win_open_success = pcall(function()
+              top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
+                split = 'above',
+                win = M.layout.container_win,
+                height = math.max(2, target_workspace_height),
+              })
+            end)
+
+            if win_open_success and top_work_win then
+              vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
+              pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_term_height)
+              pcall(vim.api.nvim_set_current_win, top_work_win)
+            end
+
+            M.layout.is_recovering = false
+          end
+          M.UpdateWinbarTitles()
+        end
+      end)
     end,
   })
 end
