@@ -120,7 +120,10 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
   self.title = panel_title
+
+  -- Enforce explicit evaluation boundaries to eliminate expression ambiguity
   self.filetype = filetype or ('terminal_' .. term_type)
+
   self._custom_stdout = custom_stdout
   return self
 end
@@ -135,7 +138,7 @@ function Terminal:send(command)
   local cmd_str = tostring(command or '')
 
   if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.active_type ~= self.term_type then
-    M.ShowTerminal(self.term_type)
+    M.show(self.term_type)
   end
   if not self.job or self.job <= 0 then
     return
@@ -196,15 +199,15 @@ function Terminal:on_close()
 end
 
 function Terminal:on_quit()
-  M.HideTerminal()
+  M.hide()
 end
 function Terminal:hide()
-  M.HideTerminal()
+  M.hide()
 end
 
 function Terminal:close()
   self:on_close()
-  M.HideTerminal()
+  M.hide()
 end
 
 function Terminal:on_open()
@@ -226,11 +229,6 @@ function Terminal:on_open()
   self:_register_viewport_mappings()
 end
 
-function Terminal:show()
-  M.ShowTerminal(self.term_type)
-  return true
-end
-
 function Terminal:enter_insert_mode()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
@@ -241,21 +239,32 @@ end
 function Terminal:_register_viewport_mappings()
   local maps = M.config.keymaps
 
+  -- TERMINAL ESCAPE ACTION
   vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf, silent = true })
-  vim.keymap.set('n', maps.hide_pane, function()
-    M.ToggleTerminal()
-  end, { buffer = self.buf })
 
-  vim.keymap.set('t', maps.move_up, [[<C-\><C-n><C-w>k]], { buffer = self.buf, silent = true })
-  vim.keymap.set('n', maps.move_up, '<C-w>k', { buffer = self.buf, silent = true })
-
+  -- DYNAMIC TERMINAL SWITCHING
   vim.keymap.set('t', maps.switch_pane, function()
+    vim.cmd([[noautocmd stopinsert]])
     M.SwitchTerminalPane()
   end, { buffer = self.buf, silent = true })
   vim.keymap.set('n', maps.switch_pane, function()
     M.SwitchTerminalPane()
   end, { buffer = self.buf, silent = true })
 
+  -- INTERACTIVE PANE HIDING
+  vim.keymap.set('t', maps.hide_pane, function()
+    vim.cmd([[noautocmd stopinsert]])
+    M.toggle()
+  end, { buffer = self.buf, silent = true })
+  vim.keymap.set('n', maps.hide_pane, function()
+    M.toggle()
+  end, { buffer = self.buf })
+
+  -- INTERACTIVE DIRECTIONAL UP SHIFT
+  vim.keymap.set('t', maps.move_up, [[<C-\><C-n><C-w>k]], { buffer = self.buf, silent = true })
+  vim.keymap.set('n', maps.move_up, '<C-w>k', { buffer = self.buf, silent = true })
+
+  -- HORIZONTAL NAVIGATORS
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
@@ -293,84 +302,20 @@ function Terminal:_register_viewport_bindings()
       end)
     end,
   })
-end
 
---- Initializes the single, global structural workspace layout tracker
-function M._initialize_global_sentinel()
-  local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
-
-  -- THE IMMUTABLE RESOLUTION LAYOUT ENGINEER (Bypasses WinClosed, WinNew, and BufWinEnter entirely)
-  -- Monitors buffer lifecycle state directly to protect layout boundaries safely
-  vim.api.nvim_create_autocmd({ 'BufDelete', 'WinLeave' }, {
-    group = global_group,
+  -- FIXED WORKSPACE GUARD: Safely releases window parameters upon manual pane closure
+  vim.api.nvim_create_autocmd('WinClosed', {
+    group = group_id,
     callback = function()
-      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.is_recovering then
+      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
         return
       end
 
-      vim.schedule(function()
-        if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-          local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-          local open_wins = vim.api.nvim_tabpage_list_wins(0)
-          local valid_wins = 0
-
-          for _, w in ipairs(open_wins) do
-            if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win then
-              local b = vim.api.nvim_win_get_buf(w)
-              local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-              if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' and not ft:match('^terminal_') then
-                valid_wins = valid_wins + 1
-              end
-            end
-          end
-
-          -- TRUE INTERCEPT CONFIGURATION: Fires ONLY if exactly 0 normal editing slits remain open
-          if valid_wins == 0 then
-            M.layout.is_recovering = true
-            vim.o.cmdheight = 1 -- Programmatic safety floor block against cmdheight bloat
-
-            local scratch_buf = nil
-            for _, b in ipairs(vim.api.nvim_list_bufs()) do
-              if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
-                scratch_buf = b
-                break
-              end
-            end
-
-            if not scratch_buf then
-              scratch_buf = vim.api.nvim_create_buf(false, true)
-              vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]')
-              vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
-              vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
-              vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
-            end
-
-            -- programmatically mount workspace via atomic API allocations (Zero vim.cmd splits)
-            local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
-            local target_workspace_height = total_editor_rows - target_height - 1
-
-            local top_work_win = nil
-            local win_open_success = pcall(function()
-              top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
-                split = 'above',
-                win = M.layout.container_win,
-                height = math.max(2, target_workspace_height),
-              })
-            end)
-
-            if win_open_success and top_work_win then
-              vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
-              pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
-              pcall(vim.api.nvim_set_current_win, top_work_win)
-            end
-
-            M.layout.is_recovering = false
-          end
-
-          pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
-          M.UpdateWinbarTitles()
-        end
-      end)
+      local closed_win = tonumber(vim.fn.expand('<amatch>'))
+      if closed_win == M.layout.container_win then
+        M.layout.container_win = nil
+        M.layout.active_type = nil
+      end
     end,
   })
 end
@@ -393,18 +338,15 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
 
   M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
 
-  if name == 'cli' then
-    M.cli = M.terminals.cli
-  end
-  if name == 'monitor' or name == 'mon' then
-    M.mon = M.terminals[name]
-  end
+  -- Create explicit roots on the module so require('...').cli works instantly
+  M[name] = M.terminals[name]
 
   M.terminals[name]:on_create()
   return M.terminals[name]
 end
 
-function M.ShowTerminal(term_type)
+-- NEW REFACTORED METHODS: Maps clean layout tracking functions directly to root table aliases
+function M.show(term_type)
   if not term_type then
     term_type = next(M.terminals)
   end
@@ -420,15 +362,16 @@ function M.ShowTerminal(term_type)
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     local old_win = vim.api.nvim_get_current_win()
     pcall(vim.api.nvim_set_current_win, M.layout.container_win)
+
+    target_instance:_register_viewport_mappings()
     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
     M.layout.active_type = term_type
 
     target_instance:on_spawn()
     M.UpdateWinbarTitles()
+    vim.cmd('stopinsert')
 
-    if old_win == M.layout.container_win then
-      target_instance:enter_insert_mode()
-    else
+    if old_win ~= M.layout.container_win then
       pcall(vim.api.nvim_set_current_win, old_win)
     end
     return
@@ -437,10 +380,10 @@ function M.ShowTerminal(term_type)
   target_instance:on_open()
   target_instance:on_spawn()
   M.UpdateWinbarTitles()
-  target_instance:enter_insert_mode()
+  vim.cmd('stopinsert')
 end
 
-function M.HideTerminal()
+function M.hide()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     pcall(vim.api.nvim_win_close, M.layout.container_win, true)
   end
@@ -449,15 +392,19 @@ function M.HideTerminal()
   M.RestoreWorkspaceFocus()
 end
 
-function M.ToggleTerminal()
+function M.toggle()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    M.HideTerminal()
+    M.hide()
   else
-    M.ShowTerminal(M.layout.active_type or 'cli')
+    M.show(M.layout.active_type or 'cli')
   end
 end
 
--- Native structural view swapper mapping loop
+-- Map instance:show() directly to the global factory router
+function Terminal:show()
+  M.show(self.term_type)
+end
+
 function M.SwitchTerminalPane()
   local keys = {}
   for k, _ in pairs(M.terminals) do
@@ -477,7 +424,7 @@ function M.SwitchTerminalPane()
   end
 
   local next_index = (current_index % #keys) + 1
-  M.ShowTerminal(keys[next_index])
+  M.show(keys[next_index])
 end
 
 function M.IsTerminalOpen()
@@ -487,11 +434,8 @@ end
 -- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    pcall(vim.api.nvim_set_current_win, M.layout.container_win)
-    local active_instance = M.terminals[M.layout.active_type]
-    if active_instance then
-      active_instance:enter_insert_mode()
-    end
+    vim.api.nvim_set_current_win(M.layout.container_win)
+    vim.cmd('stopinsert')
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
   end
@@ -502,14 +446,15 @@ function M.setup(opts)
 end
 
 ----------------------------------------------------------------------------------------
--- SYSTEM INITIALIZATION LIFECYCLE PIN CONNECTIONS
+-- SYSTEM FACTORY CHANNELS INITIALIZATION
 ----------------------------------------------------------------------------------------
-M.create_terminal('cli', ' Pio CLI ', function(job, data, event) end)
-M.create_terminal('server', ' Dev Server ', function(job, data, event) end)
-M.create_terminal('logs', ' Target Logs ', nil)
-
--- Hook up the isolated workspace tracker layout group exactly once on startup loading
-M._initialize_global_sentinel()
+M.create_terminal('cli', ' Pio CLI ', function(j, d, e)
+  if type(M.stdout_callback) == 'function' then
+    M.stdout_callback(j, d, e)
+  end
+end)
+M.create_terminal('mon', ' Pio monitor ', nil)
+-- M.create_terminal('logs', ' Target Logs ', nil)
 
 setmetatable(M, {
   __index = function(table, key)

@@ -1,14 +1,18 @@
---- stylua: ignore start
+-- nvimpio/device/terminal.lua - Part 1
 
 local M = {}
 
--- Enterprise User Configuration Specification Matrix
+-- 1. Defend Against Global Environments Missing at Load Time
+local safe_shell = (OS and OS.shell) and OS.shell or vim.o.shell
+local safe_eol = (OS and OS.eol) and OS.eol or '\n'
+
+-- 2. Enterprise User Configuration Specification Matrix
 M.config = {
   panel_height = 0.2,
   winbar_bg = '#80a3d4',
   winbar_fg = '#000000',
   winbar_hl_group = 'PioWinBar',
-  shell = OS.shell,
+  shell = safe_shell,
   keymaps = {
     hide_pane = 'q',
     switch_pane = '<Tab>',
@@ -110,7 +114,7 @@ local Terminal = {
   title = '',
   buf = nil,
   job = nil,
-  newline = OS.eol,
+  newline = safe_eol,
   filetype = 'pio_terminal',
   _custom_stdout = nil,
 }
@@ -138,7 +142,7 @@ function Terminal:send(command)
   local cmd_str = tostring(command or '')
 
   if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.active_type ~= self.term_type then
-    M.ShowTerminal(self.term_type)
+    M.show(self.term_type)
   end
   if not self.job or self.job <= 0 then
     return
@@ -199,15 +203,15 @@ function Terminal:on_close()
 end
 
 function Terminal:on_quit()
-  M.HideTerminal()
+  M.hide()
 end
 function Terminal:hide()
-  M.HideTerminal()
+  M.hide()
 end
 
 function Terminal:close()
   self:on_close()
-  M.HideTerminal()
+  M.hide()
 end
 
 function Terminal:on_open()
@@ -229,11 +233,6 @@ function Terminal:on_open()
   self:_register_viewport_mappings()
 end
 
-function Terminal:show()
-  M.ShowTerminal(self.term_type)
-  return true
-end
-
 function Terminal:enter_insert_mode()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
@@ -244,10 +243,10 @@ end
 function Terminal:_register_viewport_mappings()
   local maps = M.config.keymaps
 
-  -- 1. TERMINAL ESCAPE ACTION (Exits insert mode back to standard editor normal mode)
+  -- TERMINAL ESCAPE ACTION
   vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf, silent = true })
 
-  -- 2. DYNAMIC TERMINAL SWITCHING (Bridges active insert mode out to panel swappers)
+  -- DYNAMIC TERMINAL SWITCHING
   vim.keymap.set('t', maps.switch_pane, function()
     vim.cmd([[noautocmd stopinsert]])
     M.SwitchTerminalPane()
@@ -256,23 +255,25 @@ function Terminal:_register_viewport_mappings()
     M.SwitchTerminalPane()
   end, { buffer = self.buf, silent = true })
 
-  -- 3. INTERACTIVE PANE HIDING (Safely shuts layout context from within insert state)
+  -- INTERACTIVE PANE HIDING
   vim.keymap.set('t', maps.hide_pane, function()
     vim.cmd([[noautocmd stopinsert]])
-    M.ToggleTerminal()
+    M.toggle()
   end, { buffer = self.buf, silent = true })
   vim.keymap.set('n', maps.hide_pane, function()
-    M.ToggleTerminal()
+    M.toggle()
   end, { buffer = self.buf })
 
-  -- 4. INTERACTIVE DIRECTIONAL UP SHIFT (Escapes insertion track and moves cursor up)
+  -- INTERACTIVE DIRECTIONAL UP SHIFT
   vim.keymap.set('t', maps.move_up, [[<C-\><C-n><C-w>k]], { buffer = self.buf, silent = true })
   vim.keymap.set('n', maps.move_up, '<C-w>k', { buffer = self.buf, silent = true })
 
-  -- 5. HORIZONTAL NAVIGATORS (Standard window movement shortcuts)
+  -- HORIZONTAL NAVIGATORS
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
+
+-- nvimpio/device/terminal.lua - Part 3
 
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
@@ -296,7 +297,7 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 
-  vim.api.nvim_create_autocmd('BufLeave', {
+  vim.api.nvim_create_autocmd('WinLeave', {
     group = group_id,
     buffer = self.buf,
     callback = function()
@@ -341,19 +342,14 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
 
   M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
 
-  -- Create legacy direct references for your old configuration routes (like M.cli)
-  if name == 'cli' then
-    M.cli = M.terminals.cli
-  end
-  if name == 'monitor' or name == 'mon' then
-    M.mon = M.terminals[name]
-  end
+  -- Create legacy explicit roots on the module so require('...').cli works instantly
+  M[name] = M.terminals[name]
 
   M.terminals[name]:on_create()
   return M.terminals[name]
 end
 
-function M.ShowTerminal(term_type)
+function M.show(term_type)
   if not term_type then
     term_type = next(M.terminals)
   end
@@ -376,8 +372,6 @@ function M.ShowTerminal(term_type)
 
     target_instance:on_spawn()
     M.UpdateWinbarTitles()
-
-    -- FIX 1: Enforce Normal Mode upon buffer tabs swap context shifts
     vim.cmd('stopinsert')
 
     if old_win ~= M.layout.container_win then
@@ -389,12 +383,10 @@ function M.ShowTerminal(term_type)
   target_instance:on_open()
   target_instance:on_spawn()
   M.UpdateWinbarTitles()
-
-  -- FIX 2: Enforce Normal Mode baseline on initial shell split creation panel
   vim.cmd('stopinsert')
 end
 
-function M.HideTerminal()
+function M.hide()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     pcall(vim.api.nvim_win_close, M.layout.container_win, true)
   end
@@ -403,12 +395,16 @@ function M.HideTerminal()
   M.RestoreWorkspaceFocus()
 end
 
-function M.ToggleTerminal()
+function M.toggle()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    M.HideTerminal()
+    M.hide()
   else
-    M.ShowTerminal(M.layout.active_type or 'cli')
+    M.show(M.layout.active_type or 'cli')
   end
+end
+
+function Terminal:show()
+  M.show(self.term_type)
 end
 
 function M.SwitchTerminalPane()
@@ -430,18 +426,54 @@ function M.SwitchTerminalPane()
   end
 
   local next_index = (current_index % #keys) + 1
-  M.ShowTerminal(keys[next_index])
+  M.show(keys[next_index])
 end
 
 function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
+--- STATEFUL AUTOMATION RESTORATION PIPELINE (Handles Use-Case 1 and 2)
+function M.send_and_restore(cmd)
+  local original_work_win = vim.api.nvim_get_current_win()
+  local was_visible = (M.layout.container_win ~= nil) and vim.api.nvim_win_is_valid(M.layout.container_win)
+  local previous_pane = M.layout.active_type
+
+  local original_exit_callback = M.exit_callback
+  M.exit_callback = function()
+    M.exit_callback = original_exit_callback
+    if type(M.exit_callback) == 'function' then
+      M.exit_callback()
+    end
+
+    vim.schedule(function()
+      if not was_visible then
+        M.hide()
+      elseif previous_pane and previous_pane ~= 'cli' then
+        M.show(previous_pane)
+      end
+
+      if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
+        pcall(vim.api.nvim_set_current_win, original_work_win)
+      else
+        M.RestoreWorkspaceFocus()
+      end
+    end)
+  end
+
+  local target_instance = M.terminals.cli
+  if target_instance then
+    target_instance:send(cmd)
+    if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
+      pcall(vim.api.nvim_set_current_win, original_work_win)
+    end
+  end
+end
+
 -- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
-    -- FIX 3: Maintain normal mode navigation loops baseline targeting
     vim.cmd('stopinsert')
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
@@ -460,8 +492,10 @@ M.create_terminal('cli', ' Pio CLI ', function(j, d, e)
     M.stdout_callback(j, d, e)
   end
 end)
+
 M.create_terminal('mon', ' Pio monitor ', nil)
--- M.create_terminal('logs', ' Target Logs ', nil)
+
+M.create_terminal('logs', ' Target Logs ', nil)
 
 setmetatable(M, {
   __index = function(table, key)
