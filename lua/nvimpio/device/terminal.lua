@@ -120,7 +120,7 @@ local Terminal = {
   newline = native_eol,
   filetype = 'pio_terminal',
   _custom_stdout = nil,
-  _is_scrolling = false, -- Atomic Lock: Stops high-speed streams from layout freezing
+  _is_scrolling = false, -- Atomic Lock: Stops high-speed process outputs from lagging viewports
 }
 Terminal.__index = Terminal
 
@@ -137,19 +137,19 @@ function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
 
-  -- 1. DEFINE SYNTAX HIGHLIGHT GROUP: Theme-safe typeface layout weight modifier
-  vim.api.nvim_set_hl(0, 'PioBoldTerminalCommand', { bold = true, default = true })
+  -- 1. DEFINE REVERSED HIGHLIGHT GROUP: Mixes bold weight with inverted cell color fields [C]
+  vim.api.nvim_set_hl(0, 'PioReverseTerminalCommand', { bold = true, reverse = true, default = true })
 
-  -- 2. FIXED BUFFER SYNTAX INITIALIZATION: Uses vim.cmd to correctly register the native matchers
+  -- 2. STABLE BUFFER SYNTAX ENGINE INITIALIZATION: Native C-layer window renderer matching
   vim.api.nvim_buf_call(self.buf, function()
-    vim.cmd([[syntax match PioBoldTerminalCommand /> pio\s.*$/]])
-    vim.cmd([[syntax match PioBoldTerminalCommand />\spio\s.*$/]])
+    vim.cmd([[syntax match PioReverseTerminalCommand /> pio\s.*$/]])
+    vim.cmd([[syntax match PioReverseTerminalCommand />\spio\s.*$/]])
   end)
 
   self:_register_viewport_mappings()
 end
 
---- Rigid Focus-Locked Background Process Payload Dispatcher Matrix
+--- Focus-Locked Background Process Payload Dispatcher Matrix
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
   local original_work_win = vim.api.nvim_get_current_win()
@@ -162,12 +162,12 @@ function Terminal:send(command)
     return
   end
 
-  -- Prompt Separation Guard: Ensure clean layout spacing padding formatting
+  -- Prompt Separation Guard: Pad string with a leading space if necessary
   if cmd_str ~= '' and not cmd_str:match('^%s') then
     cmd_str = ' ' .. cmd_str
   end
 
-  -- Direct process pipe channel injection payload transmission
+  -- Dispatch raw, clean command text downstream directly into process channel pipe
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
   -- Clean low-level normal mode constraint injection
@@ -303,7 +303,7 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
--- stylua: ignore end
+
 -- nvimpio/device/terminal.lua - Part 3
 
 function Terminal:_register_viewport_bindings()
