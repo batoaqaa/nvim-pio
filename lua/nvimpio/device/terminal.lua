@@ -285,7 +285,7 @@ function Terminal:_register_viewport_bindings(target_height)
     end,
   })
 
-  vim.api.nvim_create_autocmd('BufLeave', {
+  vim.api.nvim_create_autocmd('WinLeave', {
     group = platformio,
     buffer = self.buf,
     callback = function()
@@ -298,21 +298,31 @@ end
 
 --- Initializes the single, global structural workspace layout tracker
 function M._initialize_global_sentinel()
-  -- FIX: Using an explicit module-level group name cleans up duplicate listeners completely
   local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
 
-  -- YOUR EXACT ORIGINAL SENTINEL LOGIC (Moved here so it runs exactly ONCE, preventing cmdheight bloat)
-  vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter', 'WinClosed' }, {
+  -- FIX: Listen EXCLUSIVELY to WinClosed. Dropping WinNew and BufWinEnter
+  -- completely stops the engine from executing layout splits while you type!
+  vim.api.nvim_create_autocmd('WinClosed', {
     group = global_group,
     callback = function()
       if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
         vim.schedule(function()
           if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+            -- Identify the precise window handle ID being destroyed right now
+            local closed_win = tonumber(vim.fn.expand('<amatch>'))
+            if closed_win == M.layout.container_win then
+              M.layout.container_win = nil
+              M.layout.active_type = nil
+              return
+            end
+
             local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
             local open_wins = vim.api.nvim_tabpage_list_wins(0)
             local valid_wins = 0
+
             for _, w in ipairs(open_wins) do
-              if vim.api.nvim_win_is_valid(w) then
+              -- Look ahead: count windows left on the screen, skipping the closing split
+              if vim.api.nvim_win_is_valid(w) and w ~= closed_win then
                 local b = vim.api.nvim_win_get_buf(w)
                 local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
                 if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' and not ft:match('^terminal_') then
@@ -323,7 +333,6 @@ function M._initialize_global_sentinel()
 
             if valid_wins <= 1 and vim.api.nvim_get_current_win() == M.layout.container_win then
               local scratch_buf = nil
-              -- Safe look-up to prevent E95 buffer name duplication crashes
               for _, b in ipairs(vim.api.nvim_list_bufs()) do
                 if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
                   scratch_buf = b
@@ -357,11 +366,6 @@ end
 -- GLOBAL SINGLETON WORKSPACE MANAGER INTERFACE
 ----------------------------------------------------------------------------------------
 
---- FEATURE: Factory Method to easily create any number of custom terminal nodes
----@param name string The key index (e.g. 'cli', 'server', 'logs')
----@param title string The name text template shown in the winbar tab-list
----@param filetype_or_cb string|function|nil Optional custom filetype string or direct function callback
----@param custom_stdout function|nil Custom function assigned ONLY to this instance
 function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   local final_filetype = nil
   local final_cb = nil
@@ -376,7 +380,6 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
 
   M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
 
-  -- Maintain direct roots for backward compatibility with your legacy code paths
   if name == 'cli' then
     M.cli = M.terminals.cli
   end
@@ -487,19 +490,10 @@ end
 ----------------------------------------------------------------------------------------
 -- MODULE INVOCATION ENGINE CODES
 ----------------------------------------------------------------------------------------
+M.create_terminal('cli', ' Pio CLI ', function(job, data, event) end)
+M.create_terminal('server', ' Dev Server ', function(job, data, event) end)
+M.create_terminal('logs', ' Target Logs ', nil)
 
--- FEATURE: Instantiate unlimited custom terminals with unique title strings and distinct on_stdout rules!
-M.create_terminal('cli', ' Pio CLI ', function(job, data, event)
-  -- Unique stdout parsing engine for your compiler strings goes directly here
-end)
-
-M.create_terminal('server', ' Dev Server ', function(job, data, event)
-  -- Unique stdout streaming rules for your background node processes
-end)
-
-M.create_terminal('logs', ' Target Logs ', nil) -- Pass nil if standard console typing is preferred
-
--- Run the single unified sentinel engine exactly once on module load
 M._initialize_global_sentinel()
 
 setmetatable(M, {
