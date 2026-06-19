@@ -37,7 +37,7 @@ M.layout = {
   is_recovering = false, -- Atomic safety execution lock parameter
 }
 
---- Pure C-API Highlight winbar renderer (Preserves explicit layout creation order)
+--- Pure C-API Highlight winbar renderer (Dynamic Multi-Tab Layout Engine)
 function M.UpdateWinbarTitles()
   local maps = M.config.keymaps
 
@@ -48,10 +48,6 @@ function M.UpdateWinbarTitles()
     return
   end
 
-  local tab_string = ' '
-  local total_terminals = 0
-
-  -- 1. Gather all active terminals into a flat list
   local ordered_terminals = {}
   for _, term in pairs(M.terminals) do
     if term.buf and vim.api.nvim_buf_is_valid(term.buf) then
@@ -59,12 +55,13 @@ function M.UpdateWinbarTitles()
     end
   end
 
-  -- 2. Sort the array using the structural creation index metadata stamped on creation
   table.sort(ordered_terminals, function(a, b)
     return (a._creation_index or 0) < (b._creation_index or 0)
   end)
 
-  -- 3. Render tabs sequentially based on their birth order
+  local tab_string = ' '
+  local total_terminals = 0
+
   for _, term in ipairs(ordered_terminals) do
     total_terminals = total_terminals + 1
     local name = term.term_type
@@ -131,10 +128,7 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
   self.title = panel_title
-
-  -- Enforce explicit evaluation boundaries to eliminate expression ambiguity
   self.filetype = filetype or ('terminal_' .. term_type)
-
   self._custom_stdout = custom_stdout
   return self
 end
@@ -347,18 +341,14 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
     final_cb = custom_stdout
   end
 
-  -- 1. Calculate how many terminals exist to dynamically derive a birth index
   local current_count = 0
   for _ in pairs(M.terminals) do
     current_count = current_count + 1
   end
 
   M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
-
-  -- 2. Stamp the incremented tracking token onto the instance state footprint
   M.terminals[name]._creation_index = current_count + 1
 
-  -- Create legacy direct references for your old configuration routes (like M.cli)
   M[name] = M.terminals[name]
 
   M.terminals[name]:on_create()
@@ -429,7 +419,6 @@ function M.SwitchTerminalPane()
     table.insert(ordered_keys, k)
   end
 
-  -- Ensure tab switching cycles sequentially following the exact creation birth order
   table.sort(ordered_keys, function(a, b)
     local term_a = M.terminals[a]
     local term_b = M.terminals[b]
@@ -456,12 +445,37 @@ function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
---- STATEFUL AUTOMATION RESTORATION PIPELINE (Handles Use-Case 1 and 2)
+--- INSTANT STATEFUL AUTOMATION RESTORATION ENGINE (Case 1 and 2 Focus Locked)
+--- Sends commands downstream while keeping the target lane or hidden status synchronized.
+---@param cmd string The shell payload command text string to execute
 function M.send_and_restore(cmd)
   local original_work_win = vim.api.nvim_get_current_win()
   local was_visible = (M.layout.container_win ~= nil) and vim.api.nvim_win_is_valid(M.layout.container_win)
-  local previous_pane = M.layout.active_type
+  local previous_pane = M.layout.active_type or 'mon'
 
+  local target_instance = M.terminals.cli
+  if not target_instance then
+    return
+  end
+
+  -- 1. If terminal is ALREADY open, force-swap view to cli and fire immediately
+  if was_visible then
+    M.show('cli')
+    if target_instance.job and target_instance.job > 0 then
+      vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
+    end
+
+    -- Case 1: Immediately revert split tab selection view back to your 'mon' pane
+    M.show(previous_pane)
+
+    -- Return cursor focus securely back to the file buffer
+    if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
+      pcall(vim.api.nvim_set_current_win, original_work_win)
+    end
+    return
+  end
+
+  -- 2. Case 2 Loop: Terminal was completely hidden when command was issued
   local original_exit_callback = M.exit_callback
   M.exit_callback = function()
     M.exit_callback = original_exit_callback
@@ -469,13 +483,9 @@ function M.send_and_restore(cmd)
       M.exit_callback()
     end
 
+    -- Hide panel layout once the compiling action drops off the channel
     vim.schedule(function()
-      if not was_visible then
-        M.hide()
-      elseif previous_pane and previous_pane ~= 'cli' then
-        M.show(previous_pane)
-      end
-
+      M.hide()
       if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
         pcall(vim.api.nvim_set_current_win, original_work_win)
       else
@@ -484,12 +494,14 @@ function M.send_and_restore(cmd)
     end)
   end
 
-  local target_instance = M.terminals.cli
-  if target_instance then
-    target_instance:send(cmd)
-    if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
-      pcall(vim.api.nvim_set_current_win, original_work_win)
-    end
+  -- Reveal split pane context, fire command, and pass cursor right back up
+  M.show('cli')
+  if target_instance.job and target_instance.job > 0 then
+    vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
+  end
+
+  if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
+    pcall(vim.api.nvim_set_current_win, original_work_win)
   end
 end
 
@@ -517,7 +529,6 @@ M.create_terminal('cli', ' Pio CLI ', function(j, d, e)
 end)
 
 M.create_terminal('mon', ' Pio monitor ', nil)
-
 M.create_terminal('logs', ' Target Logs ', nil)
 
 setmetatable(M, {
