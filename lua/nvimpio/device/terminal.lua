@@ -232,6 +232,7 @@ end
 function Terminal:_register_lifecycle_events(target_height)
   local platformio = vim.api.nvim_create_augroup('PioEvents_' .. self.buf, { clear = true })
 
+  -- Intercept manual command exits (:q and :q!)
   vim.api.nvim_create_autocmd('CmdlineLeave', {
     group = platformio,
     buffer = self.buf,
@@ -260,14 +261,14 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- THE INDESTRUCTIBLE TABPAGE SENTINEL GUARD (With Look-Ahead Validation Shield)
+  -- THE INDESTRUCTIBLE TABPAGE SENTINEL GUARD (C-API Driven to Prevent cmdheight Bloat)
   vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter', 'WinClosed' }, {
     group = platformio,
     callback = function()
       if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
         vim.schedule(function()
           if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-            -- LOOK-AHEAD PROTECTION: Scan loaded buffer list for active text documents
+            -- Look-Ahead: Scan loaded buffer list for active text documents
             local real_files_open = false
             for _, b in ipairs(vim.api.nvim_list_bufs()) do
               if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_is_loaded(b) then
@@ -280,7 +281,7 @@ function Terminal:_register_lifecycle_events(target_height)
               end
             end
 
-            -- Abort splitting adjustments completely if your code file is wide open behind the sidebar
+            -- Abort modifications completely if your code file is wide open behind the sidebar
             if real_files_open then
               pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
               M.UpdateWinbarTitles()
@@ -300,6 +301,9 @@ function Terminal:_register_lifecycle_events(target_height)
             end
 
             if valid_wins <= 1 and vim.api.nvim_get_current_win() == M.layout.container_win then
+              -- Firmly lock cmdheight back to 1 to block the 80% command-line expansion bug
+              vim.o.cmdheight = 1
+
               local scratch_buf = nil
               for _, b in ipairs(vim.api.nvim_list_bufs()) do
                 if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
@@ -316,9 +320,28 @@ function Terminal:_register_lifecycle_events(target_height)
                 vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
               end
 
-              vim.cmd('noautocmd topleft split')
-              vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
-              vim.cmd('noautocmd lua vim.api.nvim_set_current_win(' .. M.layout.container_win .. ')')
+              -- Calculate exact vertical space metrics remaining for target calculations
+              local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
+              local target_workspace_height = total_editor_rows - target_height - 1
+
+              -- 1. PURE LOW-LEVEL C-API INJECTION (Replaces "topleft split" and "wincmd J" completely)
+              local top_work_win = nil
+              local win_open_success = pcall(function()
+                top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
+                  split = 'above',
+                  win = M.layout.container_win,
+                  height = math.max(2, target_workspace_height),
+                })
+              end)
+
+              if win_open_success and top_work_win then
+                -- Wipes any winbar layout parameters out of the newly generated top workspace split
+                vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
+
+                -- Force target bounds programmatically across handles without layout commands
+                pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+                pcall(vim.api.nvim_set_current_win, top_work_win)
+              end
             end
 
             pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
@@ -389,6 +412,7 @@ end
 M.cli = Terminal.new('cli', ' Pio CLI> ')
 M.mon = Terminal.new('monitor', ' Pio Monitor ')
 
+-- Register them within the terminals table for Approach B require finders
 M.terminals.cli = M.cli
 M.terminals.mon = M.mon
 
