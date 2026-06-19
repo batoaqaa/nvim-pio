@@ -323,7 +323,7 @@ vim.ui.select = function(items, opts, on_choice)
         map('n', '<Esc>', close_and_trigger_save)
         map('n', 'q',     close_and_trigger_save)
 
-        -- THE ZERO-FLICKER MULTI-SELECT ACTION CORE:
+        -- THE SMARTER ZERO-FLICKER MULTI-SELECT AND AUTO-CLOSE ENGINE:
         actions.select_default:replace(function()
           local selection = action_state.get_selected_entry()
           if not selection then return end
@@ -331,19 +331,48 @@ vim.ui.select = function(items, opts, on_choice)
           local clicked_item = selection.value
           local clicked_index = selection.index
 
-          -- 1. Pass the choice back to diagnostic.lua instantly to update memory variables
-          on_choice(clicked_item, clicked_index)
+          -- AUTO-DETECTION RADAR: 
+          -- Check if the incoming items look like a checkbox toggle array (has choice.action or choice.id)
+          local is_checkbox_menu = type(clicked_item) == "table" and (clicked_item.action ~= nil or clicked_item.id ~= nil)
 
-          -- 2. LIVE REDRAW ENGINE: Refresh the text inside the window without closing it!
-          local current_picker = action_state.get_current_picker(prompt_bufnr)
-          if current_picker then
-            -- Forces the current row text lines to re-evaluate ([ ] changes to [*] instantly)
-            current_picker:refresh(make_entry_list(), { reset_prompt = false })
+          if is_checkbox_menu then
+            -- CASE A: Persistent Checkbox List -> KEEP WINDOW OPEN, REDRAW IN PLACE
+            on_choice(clicked_item, clicked_index)
 
-            -- Lock the cursor perfectly back down to the row the user just clicked
-            vim.api.nvim_win_set_cursor(current_picker.results_win, { clicked_index, 0 })
+            local current_picker = action_state.get_current_picker(prompt_bufnr)
+            if current_picker then
+              current_picker:refresh(make_entry_list(), { reset_prompt = false })
+              vim.api.nvim_win_set_cursor(current_picker.results_win, { clicked_index, 0 })
+            end
+          else
+            -- CASE B: Standard Selection Menu -> CLOSE WINDOW INSTANTLY AND JUMP
+            actions.close(prompt_bufnr)
+            vim.schedule(function()
+              on_choice(clicked_item, clicked_index)
+            end)
           end
         end)
+        -- THE ZERO-FLICKER MULTI-SELECT ACTION CORE:
+        -- actions.select_default:replace(function()
+        --   local selection = action_state.get_selected_entry()
+        --   if not selection then return end
+        --
+        --   local clicked_item = selection.value
+        --   local clicked_index = selection.index
+        --
+        --   -- 1. Pass the choice back to diagnostic.lua instantly to update memory variables
+        --   on_choice(clicked_item, clicked_index)
+        --
+        --   -- 2. LIVE REDRAW ENGINE: Refresh the text inside the window without closing it!
+        --   local current_picker = action_state.get_current_picker(prompt_bufnr)
+        --   if current_picker then
+        --     -- Forces the current row text lines to re-evaluate ([ ] changes to [*] instantly)
+        --     current_picker:refresh(make_entry_list(), { reset_prompt = false })
+        --
+        --     -- Lock the cursor perfectly back down to the row the user just clicked
+        --     vim.api.nvim_win_set_cursor(current_picker.results_win, { clicked_index, 0 })
+        --   end
+        -- end)
         return true
       end,
     })
