@@ -32,6 +32,8 @@ M.layout = {
   active_type = nil, -- Tracks visible node ('cli' or 'monitor')
 }
 
+M.terminals = {}
+
 --- Pure C-API Highlight winbar renderer
 function M.UpdateWinbarTitles()
   local cli_alive = M.cli and M.cli.buf and vim.api.nvim_buf_is_valid(M.cli.buf)
@@ -386,6 +388,9 @@ end
 -- Singleton Instantiations
 M.cli = Terminal.new('cli', ' Pio CLI> ')
 M.mon = Terminal.new('monitor', ' Pio Monitor ')
+
+M.terminals.cli = M.cli
+M.terminals.mon = M.mon
 
 -- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
