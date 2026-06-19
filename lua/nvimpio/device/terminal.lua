@@ -4,8 +4,9 @@
 local M = {}
 
 -- 1. Insulated Cross-Platform Environment Discovery Matrix
-local native_shell = OS.shell
-local native_eol = OS.eol
+local system_is_windows = vim.uv.os_uname().sysname:match('Windows') ~= nil
+local native_shell = system_is_windows and 'cmd.exe' or (vim.o.shell or 'sh')
+local native_eol = system_is_windows and '\r\n' or '\n'
 
 -- 2. Enterprise Configuration Specification Matrix
 M.config = {
@@ -119,7 +120,7 @@ local Terminal = {
   newline = native_eol,
   filetype = 'pio_terminal',
   _custom_stdout = nil,
-  _is_scrolling = false,
+  _is_scrolling = false, -- Atomic Lock: Stops high-speed process outputs from lagging viewports
 }
 Terminal.__index = Terminal
 
@@ -132,14 +133,13 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   return self
 end
 
--- Completely clean of unstable decoration, extmark, or syntax rules
 function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   self:_register_viewport_mappings()
 end
 
---- Focus-Locked Background Process Payload Dispatcher Matrix
+--- Rigid Focus-Locked Background Process Payload Dispatcher Matrix
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
   local original_work_win = vim.api.nvim_get_current_win()
@@ -157,20 +157,14 @@ function Terminal:send(command)
     cmd_str = ' ' .. cmd_str
   end
 
-  -- 1. HIGH-VISIBILITY PIPELINE SEPARATOR:
-  -- We inject a distinctive plain text banner row directly down the data stream right
-  -- before the command executes. This completely circumvents theme color limitations
-  -- and provides a solid, structured border between your instructions and log arrays.
-  local visual_separator = '------------------------------------------------------------'
-  vim.fn.chansend(self.job, visual_separator .. self.newline)
-
-  -- 2. Dispatch raw, clean command text payload string down the process channel pipe
+  -- 1. Structural Process Pipe Channel Injection: Raw unpolluted text strings only.
+  -- Zero echo hacks, zero multi-line formatting scripts.
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
-  -- Clean low-level normal mode constraint injection
+  -- 2. Clean low-level normal mode constraint injection
   vim.api.nvim_set_option_value('winbar', vim.api.nvim_get_option_value('winbar', { win = M.layout.container_win }), { win = M.layout.container_win })
 
-  -- Atomic Viewport Pinning: Snaps the text view instantly without changing active focus
+  -- 3. Atomic Viewport Pinning: Snaps the text view instantly without changing active focus
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) and not self._is_scrolling then
     self._is_scrolling = true
     vim.schedule(function()
@@ -494,10 +488,6 @@ function M.send_and_restore(cmd)
     M.layout.active_type = 'cli'
     M.UpdateWinbarTitles()
 
-    -- Inject the text separator line inside the shortcut command route as well
-    local visual_separator = '------------------------------------------------------------'
-    vim.fn.chansend(target_instance.job, visual_separator .. target_instance.newline)
-
     if target_instance.job and target_instance.job > 0 then
       vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
     end
@@ -528,9 +518,6 @@ function M.send_and_restore(cmd)
   end
 
   M.show('cli')
-  local visual_separator = '------------------------------------------------------------'
-  vim.fn.chansend(target_instance.job, visual_separator .. target_instance.newline)
-
   if target_instance.job and target_instance.job > 0 then
     vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
   end
