@@ -293,14 +293,12 @@ function Terminal:_register_viewport_bindings()
   })
 end
 
--- nvimpio/device/terminal.lua - Replace this function inside Part 3
-
 --- Initializes the single, global, structural workspace layout tracker
 function M._initialize_global_sentinel()
-  -- Using a centralized group stops event multiplier accumulation completely
+  -- Centralized group stops event multiplier accumulation completely
   local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
 
-  -- 1. Truncate 'WinLeave' entirely. Monitor ONLY 'WinClosed' to avoid focus shifts.
+  -- Monitor ONLY WinClosed to avoid recursive focus shifts
   vim.api.nvim_create_autocmd('WinClosed', {
     group = global_group,
     callback = function()
@@ -337,7 +335,7 @@ function M._initialize_global_sentinel()
 
           -- True Layout Collapse Discovered: 0 normal file editing slots are left
           if valid_wins == 0 then
-            -- 2. ENGAGE THREAD RECURSION LOCK: Blocks incoming window updates from loop freezing
+            -- ENGAGE THREAD RECURSION LOCK: Blocks incoming window updates from loop freezing
             M.layout.is_recovering = true
 
             local fallback = M.config.sentinel_fallback
@@ -362,13 +360,17 @@ function M._initialize_global_sentinel()
             local old_current = vim.api.nvim_get_current_win()
             pcall(vim.api.nvim_set_current_win, M.layout.container_win)
 
+            -- FIX: Changed 'topleft split' to 'aboveleft split' to prevent the terminal moving up the screen
             local split_success = pcall(function()
-              vim.cmd('noautocmd topleft split')
+              vim.cmd('noautocmd aboveleft split')
             end)
 
             if split_success then
               local top_work_win = vim.api.nvim_get_current_win()
               vim.api.nvim_win_set_buf(top_work_win, scratch_buf)
+
+              -- Clean out any winbar rules inherited on the fallback window split
+              vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
 
               vim.cmd('noautocmd wincmd J') -- Rigid enforcement layout lock: holds terminal baseline horizontally at bottom
               local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
@@ -378,7 +380,7 @@ function M._initialize_global_sentinel()
               pcall(vim.api.nvim_set_current_win, old_current)
             end
 
-            -- 3. RELEASE THREAD RECURSION LOCK: Safe to evaluate structural context updates again
+            -- RELEASE THREAD RECURSION LOCK: Safe to evaluate structural context updates again
             M.layout.is_recovering = false
           end
           M.UpdateWinbarTitles()
