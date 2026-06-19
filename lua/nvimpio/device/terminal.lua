@@ -141,13 +141,10 @@ function Terminal:on_create()
   self:_register_viewport_bindings()
 end
 
--- FIXED FOCUS-LOCKED SEND METHOD
--- Sends commands entirely in the background. It updates the terminal screen layout
--- in real-time below, but completely leaves your active file buffer focus untouched.
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
 
-  -- If the lower split is closed or showing a different tab, pull open the cli split layout
+  -- If the lower split is closed or showing a different tab, pull open the split layout safely
   if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.active_type ~= self.term_type then
     M.show(self.term_type)
   end
@@ -156,11 +153,11 @@ function Terminal:send(command)
     return
   end
 
-  -- 1. CRITICAL: Dispatch text command payload downstream directly into process pipe channel.
-  -- Bypassing window focus alterations keeps your typing context safe.
+  -- Dispatch text command payload downstream directly into process pipe channel instantly.
+  -- This keeps your window layout undisturbed and your typing focus completely safe.
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
-  -- 2. Force normal mode layout enforcement inside the lower split window container context
+  -- Force normal mode layout enforcement inside the lower split window container context
   vim.api.nvim_buf_call(self.buf, function()
     vim.cmd('noautocmd stopinsert')
   end)
@@ -223,8 +220,24 @@ function Terminal:close()
   M.hide()
 end
 
+-- FIX: Restored the isolated, native window allocation split. No more circular require loop calls!
 function Terminal:on_open()
-  M.show(self.term_type)
+  local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+
+  vim.go.splitkeep = 'screen'
+  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+    split = 'below',
+    win = -1,
+    height = target_height,
+  })
+  M.layout.active_type = self.term_type
+
+  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+
+  self:_register_viewport_mappings()
 end
 
 function Terminal:enter_insert_mode()
@@ -266,7 +279,6 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
--- stylua: ignore end
 
 -- nvimpio/device/terminal.lua - Part 3
 
@@ -439,7 +451,7 @@ function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
---- CRITICAL FOCUS-LOCKED COMMAND PAYLOAD DISPATCHER (UseCase 1 & 2 Fulfilled)
+--- CRITICAL FOCUS-LOCKED COMMAND PAYLOAD DISPATCHER
 --- Forces the lower split window buffer to show 'cli' while keeping user focus inside their code file buffer.
 ---@param cmd string The shell payload command text string to execute
 function M.send_and_restore(cmd)
@@ -449,7 +461,6 @@ function M.send_and_restore(cmd)
     return
   end
 
-  -- Ensure the buffer and the backend job channel are initialized completely
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
   end
@@ -457,20 +468,16 @@ function M.send_and_restore(cmd)
 
   -- 1. If terminal split is ALREADY open, swap buffer content instantly via pure low-level C-API
   if was_visible then
-    -- Swap layout view to the cli buffer inside the lower frame without shifting focus
     pcall(vim.api.nvim_win_set_buf, M.layout.container_win, target_instance.buf)
     M.layout.active_type = 'cli'
     M.UpdateWinbarTitles()
 
-    -- Dispatch text command payload downstream into process pipe channel instantly
     if target_instance.job and target_instance.job > 0 then
       vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
     end
 
-    -- Firm normal-mode layout enforcement on the lower split window container
-    vim.api.nvim_set_option_value('winbar', vim.api.nvim_get_option_value('winbar', { win = M.layout.container_win }), { win = M.layout.container_win })
     vim.api.nvim_buf_call(target_instance.buf, function()
-      vim.cmd('stopinsert')
+      vim.cmd('noautocmd stopinsert')
     end)
     return
   end
@@ -485,7 +492,6 @@ function M.send_and_restore(cmd)
       M.exit_callback()
     end
 
-    -- Hide panel layout once the compiling action finishes executing
     vim.schedule(function()
       M.hide()
       if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
@@ -496,13 +502,11 @@ function M.send_and_restore(cmd)
     end)
   end
 
-  -- Force open the lower split window directly onto 'cli'
   M.show('cli')
   if target_instance.job and target_instance.job > 0 then
     vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
   end
 
-  -- Instantly hand cursor focus back up inside your active file buffer window
   if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
     pcall(vim.api.nvim_set_current_win, original_work_win)
   end
