@@ -144,7 +144,7 @@ function Terminal:on_create()
   -- The \zs marker forces the reverse highlight block to start EXACTLY on the first
   -- non-whitespace character following the prompt arrow '>', regardless of what the command is!
   vim.api.nvim_buf_call(self.buf, function()
-    vim.cmd([[syntax match PioReverseTerminalCommand /^\s*>\s*\zs\S.*$/]])
+    vim.cmd([[syntax match PioReverseTerminalCommand /\S\s*>\s*\zs\S.*$/]])
     -- vim.cmd([[syntax match PioReverseTerminalCommand />\s*\zs\S.*$/]])
   end)
 
