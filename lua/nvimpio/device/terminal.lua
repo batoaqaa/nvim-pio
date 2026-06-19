@@ -145,7 +145,8 @@ function Terminal:on_create()
   -- non-whitespace character following the prompt arrow '>', regardless of what the command is!
   vim.api.nvim_buf_call(self.buf, function()
     -- vim.cmd([[syntax match PioReverseTerminalCommand />\s*\zs\S.*$/]])
-    vim.cmd([[syntax match PioReverseTerminalCommand />\s\+\zs[^>\s].*$/]])
+    -- vim.cmd([[syntax match PioReverseTerminalCommand />\s\+\zs[^>\s].*$/]])
+    vim.cmd([[syntax match PioReverseTerminalCommand /^\s*>\s\+\zs[^>\s].*$/]])
   end)
 
   self:_register_viewport_bindings()
