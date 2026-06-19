@@ -126,7 +126,10 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
   self.title = panel_title
+
+  -- Enforce explicit evaluation boundaries to eliminate expression ambiguity
   self.filetype = filetype or ('terminal_' .. term_type)
+
   self._custom_stdout = custom_stdout
   return self
 end
@@ -137,19 +140,35 @@ function Terminal:on_create()
   self:_register_viewport_bindings()
 end
 
+-- FIXED FOCUS-LOCKED SEND METHOD
+-- Sends commands entirely in the background. It updates the terminal screen layout
+-- in real-time below, but completely leaves your active file buffer focus untouched.
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
 
+  -- Save your active work window handle before any properties shift
+  local original_work_win = vim.api.nvim_get_current_win()
+
+  -- If the lower split is closed or showing a different tab, pull open the split layout safely
   if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.active_type ~= self.term_type then
     M.show(self.term_type)
   end
+
   if not self.job or self.job <= 0 then
     return
   end
 
-  vim.api.nvim_set_current_win(M.layout.container_win)
-  self:enter_insert_mode()
+  -- 1. CRITICAL: Dispatch text command payload downstream directly into process pipe channel.
+  -- Bypassing window focus alterations keeps your typing context safe.
   vim.fn.chansend(self.job, cmd_str .. self.newline)
+
+  -- 2. Force normal mode layout enforcement inside the lower split window container context
+  vim.cmd('noautocmd stopinsert')
+
+  -- 3. Hard-restore cursor focus back into the user's active file buffer instantly
+  if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
+    pcall(vim.api.nvim_set_current_win, original_work_win)
+  end
 end
 
 function Terminal:on_spawn()
@@ -209,7 +228,6 @@ function Terminal:close()
   M.hide()
 end
 
--- CRITICAL RECURSION REMOVAL: Raw native split builder only. Never calls M.show()!
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
 
@@ -268,6 +286,7 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
+-- stylua: ignore end
 
 -- nvimpio/device/terminal.lua - Part 3
 
