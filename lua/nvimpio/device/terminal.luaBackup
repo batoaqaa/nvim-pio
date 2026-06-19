@@ -156,13 +156,14 @@ function Terminal:send(command)
     cmd_str = ' ' .. cmd_str
   end
 
-  -- Dispatch raw, clean command text downstream directly into process channel pipe
+  -- 1. Structural Process Pipe Channel Injection: Raw unpolluted text strings only.
+  -- Zero echo hacks, zero multi-line formatting scripts.
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
-  -- Clean low-level normal mode constraint injection
+  -- 2. Clean low-level normal mode constraint injection
   vim.api.nvim_set_option_value('winbar', vim.api.nvim_get_option_value('winbar', { win = M.layout.container_win }), { win = M.layout.container_win })
 
-  -- Atomic Viewport Pinning: Snaps the text view instantly without changing active focus
+  -- 3. Atomic Viewport Pinning: Snaps the text view instantly without changing active focus
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) and not self._is_scrolling then
     self._is_scrolling = true
     vim.schedule(function()
@@ -176,8 +177,8 @@ function Terminal:send(command)
     end)
   end
 
-  -- LUA PRIMITIVE: Force normal mode layout enforcement without string command evaluation overhead
-  vim.api.nvim_input([[<C-\><C-n>]])
+  -- Force normal mode layout enforcement inside the lower split window container context
+  vim.cmd('noautocmd stopinsert')
 
   -- Hard focus lock: Reverts cursor to the original file buffer instantly
   if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
@@ -230,7 +231,6 @@ function Terminal:on_close()
   self.buf = nil
 end
 
--- Refactored references pointing cleanly to system endpoints
 function Terminal:on_quit()
   M.hide()
 end
@@ -265,8 +265,7 @@ end
 function Terminal:enter_insert_mode()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
-    -- LUA PRIMITIVE: Trigger low-level insert injection
-    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('startinsert', true, false, true), 'n', false)
+    vim.cmd('startinsert')
   end
 end
 
@@ -276,7 +275,7 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf, silent = true })
 
   vim.keymap.set('t', maps.switch_pane, function()
-    vim.api.nvim_input([[<C-\><C-n>]])
+    vim.cmd([[noautocmd stopinsert]])
     M.SwitchTerminalPane()
   end, { buffer = self.buf, silent = true })
   vim.keymap.set('n', maps.switch_pane, function()
@@ -284,7 +283,7 @@ function Terminal:_register_viewport_mappings()
   end, { buffer = self.buf, silent = true })
 
   vim.keymap.set('t', maps.hide_pane, function()
-    vim.api.nvim_input([[<C-\><C-n>]])
+    vim.cmd([[noautocmd stopinsert]])
     M.toggle()
   end, { buffer = self.buf, silent = true })
   vim.keymap.set('n', maps.hide_pane, function()
@@ -349,6 +348,10 @@ function Terminal:_register_viewport_bindings()
   })
 end
 
+----------------------------------------------------------------------------------------
+-- GLOBAL SINGLETON WORKSPACE MANAGER INTERFACE
+----------------------------------------------------------------------------------------
+
 function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   local final_filetype = nil
   local final_cb = nil
@@ -399,9 +402,7 @@ function M.show(term_type)
 
     target_instance:on_spawn()
     M.UpdateWinbarTitles()
-
-    -- LUA PRIMITIVE: Optimized normal-mode switch escape sequence
-    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
+    vim.cmd('stopinsert')
 
     if old_win ~= M.layout.container_win then
       pcall(vim.api.nvim_set_current_win, old_win)
@@ -412,9 +413,7 @@ function M.show(term_type)
   target_instance:on_open()
   target_instance:on_spawn()
   M.UpdateWinbarTitles()
-
-  -- LUA PRIMITIVE: Optimized normal-mode switch escape sequence
-  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
+  vim.cmd('stopinsert')
 end
 
 function M.hide()
@@ -492,8 +491,9 @@ function M.send_and_restore(cmd)
       vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
     end
 
-    -- LUA PRIMITIVE: Dynamic input buffer escape execution
-    vim.api.nvim_input([[<C-\><C-n>]])
+    vim.api.nvim_buf_call(target_instance.buf, function()
+      vim.cmd('noautocmd stopinsert')
+    end)
     return
   end
 
@@ -524,16 +524,14 @@ function M.send_and_restore(cmd)
   if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
     pcall(vim.api.nvim_set_current_win, original_work_win)
   end
-
-  -- LUA PRIMITIVE: Dynamic input buffer escape execution
-  vim.api.nvim_input([[<C-\><C-n>]])
+  vim.cmd('noautocmd stopinsert')
 end
 
 -- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
-    vim.api.nvim_input([[<C-\><C-n>]])
+    vim.cmd('stopinsert')
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
   end
