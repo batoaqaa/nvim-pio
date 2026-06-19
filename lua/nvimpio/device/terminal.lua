@@ -137,16 +137,16 @@ function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
 
-  -- 1. DEFINE REVERSED HIGHLIGHT GROUP: Mixes bold weight with inverted cell color fields [C]
+  -- 1. DEFINE REVERSED HIGHLIGHT GROUP: Mixes bold weight with inverted cell color fields
   vim.api.nvim_set_hl(0, 'PioReverseTerminalCommand', { bold = true, reverse = true, default = true })
 
-  -- 2. STABLE BUFFER SYNTAX ENGINE INITIALIZATION: Native C-layer window renderer matching
+  -- 2. STABLE BUFFER SYNTAX ENGINE INITIALIZATION: Uses \zs to color starting from the word 'pio'
   vim.api.nvim_buf_call(self.buf, function()
-    vim.cmd([[syntax match PioReverseTerminalCommand /> pio\s.*$/]])
-    vim.cmd([[syntax match PioReverseTerminalCommand />\spio\s.*$/]])
+    vim.cmd([[syntax match PioReverseTerminalCommand /> \zspio\s.*$/]])
+    vim.cmd([[syntax match PioReverseTerminalCommand />\zs\spio\s.*$/]])
   end)
 
-  self:_register_viewport_mappings()
+  self:_register_viewport_bindings()
 end
 
 --- Focus-Locked Background Process Payload Dispatcher Matrix
