@@ -25,14 +25,13 @@ M.config = {
 
 M.stdout_callback = nil
 M.exit_callback = nil
+M.terminals = {}
 
 -- The Core Tiled Window Layout Node Matrix
 M.layout = {
   container_win = nil, -- THE SINGLE IMMUTABLE TILED GRID WINDOW HANDLE
   active_type = nil, -- Tracks visible node ('cli' or 'monitor')
 }
-
-M.terminals = {}
 
 --- Pure C-API Highlight winbar renderer
 function M.UpdateWinbarTitles()
@@ -98,7 +97,7 @@ end
 function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
-  self:_register_lifecycle_events(math.ceil(vim.o.lines * (M.config.panel_height or 0.2)))
+  self:_register_viewport_bindings()
 end
 
 function Terminal:send(command)
@@ -164,7 +163,6 @@ end
 function Terminal:on_quit()
   M.HideTerminal()
 end
-
 function Terminal:hide()
   M.HideTerminal()
 end
@@ -229,12 +227,11 @@ end
 
 -- nvimpio/device/terminal.lua - Part 3
 
-function Terminal:_register_lifecycle_events(target_height)
-  local platformio = vim.api.nvim_create_augroup('PioEvents_' .. self.buf, { clear = true })
+function Terminal:_register_viewport_bindings()
+  local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
-  -- Intercept manual command exits (:q and :q!)
   vim.api.nvim_create_autocmd('CmdlineLeave', {
-    group = platformio,
+    group = group_id,
     buffer = self.buf,
     callback = function()
       if vim.v.event and not vim.v.event.abort and vim.v.event.cmdtype == ':' then
@@ -251,8 +248,8 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  vim.api.nvim_create_autocmd('BufLeave', {
-    group = platformio,
+  vim.api.nvim_create_autocmd('WinLeave', {
+    group = group_id,
     buffer = self.buf,
     callback = function()
       vim.schedule(function()
@@ -260,95 +257,101 @@ function Terminal:_register_lifecycle_events(target_height)
       end)
     end,
   })
+end
 
-  -- THE INDESTRUCTIBLE TABPAGE SENTINEL GUARD (C-API Driven to Prevent cmdheight Bloat)
-  vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter', 'WinClosed' }, {
-    group = platformio,
+--- Initializes the single, global, structural workspace layout tracker
+function M._initialize_global_sentinel()
+  -- FIX 1: Explicitly clear the group on load. This completely removes duplicate event listeners.
+  local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
+
+  vim.api.nvim_create_autocmd({ 'WinClosed', 'BufWinEnter' }, {
+    group = global_group,
     callback = function()
-      if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-        vim.schedule(function()
-          if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-            -- Look-Ahead: Scan loaded buffer list for active text documents
-            local real_files_open = false
-            for _, b in ipairs(vim.api.nvim_list_bufs()) do
-              if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_is_loaded(b) then
-                local bt = vim.api.nvim_get_option_value('buftype', { buf = b })
-                local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-                if bt == '' and ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' then
-                  real_files_open = true
-                  break
-                end
+      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
+        return
+      end
+
+      vim.schedule(function()
+        if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+          local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+
+          -- Look-Ahead Verification Shield
+          local real_files_open = false
+          for _, b in ipairs(vim.api.nvim_list_bufs()) do
+            if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_is_loaded(b) then
+              local bt = vim.api.nvim_get_option_value('buftype', { buf = b })
+              local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
+              if bt == '' and ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' then
+                real_files_open = true
+                break
               end
             end
+          end
 
-            -- Abort modifications completely if your code file is wide open behind the sidebar
-            if real_files_open then
-              pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
-              M.UpdateWinbarTitles()
-              return
-            end
-
-            local open_wins = vim.api.nvim_tabpage_list_wins(0)
-            local valid_wins = 0
-            for _, w in ipairs(open_wins) do
-              if vim.api.nvim_win_is_valid(w) then
-                local b = vim.api.nvim_win_get_buf(w)
-                local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-                if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' then
-                  valid_wins = valid_wins + 1
-                end
-              end
-            end
-
-            if valid_wins <= 1 and vim.api.nvim_get_current_win() == M.layout.container_win then
-              -- Firmly lock cmdheight back to 1 to block the 80% command-line expansion bug
-              vim.o.cmdheight = 1
-
-              local scratch_buf = nil
-              for _, b in ipairs(vim.api.nvim_list_bufs()) do
-                if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
-                  scratch_buf = b
-                  break
-                end
-              end
-
-              if not scratch_buf then
-                scratch_buf = vim.api.nvim_create_buf(false, true)
-                vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]')
-                vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
-                vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
-                vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
-              end
-
-              -- Calculate exact vertical space metrics remaining for target calculations
-              local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
-              local target_workspace_height = total_editor_rows - target_height - 1
-
-              -- 1. PURE LOW-LEVEL C-API INJECTION (Replaces "topleft split" and "wincmd J" completely)
-              local top_work_win = nil
-              local win_open_success = pcall(function()
-                top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
-                  split = 'above',
-                  win = M.layout.container_win,
-                  height = math.max(2, target_workspace_height),
-                })
-              end)
-
-              if win_open_success and top_work_win then
-                -- Wipes any winbar layout parameters out of the newly generated top workspace split
-                vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
-
-                -- Force target bounds programmatically across handles without layout commands
-                pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
-                pcall(vim.api.nvim_set_current_win, top_work_win)
-              end
-            end
-
+          -- If code files are active, skip split recovery entirely!
+          if real_files_open then
             pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
             M.UpdateWinbarTitles()
+            return
           end
-        end)
-      end
+
+          local open_wins = vim.api.nvim_tabpage_list_wins(0)
+          local valid_wins = 0
+          for _, w in ipairs(open_wins) do
+            if vim.api.nvim_win_is_valid(w) then
+              local b = vim.api.nvim_win_get_buf(w)
+              local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
+              if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' then
+                valid_wins = valid_wins + 1
+              end
+            end
+          end
+
+          if valid_wins <= 1 and vim.api.nvim_get_current_win() == M.layout.container_win then
+            -- Fixes the 80% command height stretching bug instantly
+            vim.o.cmdheight = 1
+
+            local scratch_buf = nil
+            for _, b in ipairs(vim.api.nvim_list_bufs()) do
+              if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
+                scratch_buf = b
+                break
+              end
+            end
+
+            if not scratch_buf then
+              scratch_buf = vim.api.nvim_create_buf(false, true)
+              vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]')
+              vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
+              vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
+              vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
+            end
+
+            -- FIX 2: Programmatic API creation above the terminal.
+            -- No strings, no "topleft split", making it completely impossible to slide up.
+            local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
+            local target_workspace_height = total_editor_rows - target_height - 1
+
+            local top_work_win = nil
+            local win_open_success = pcall(function()
+              top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
+                split = 'above',
+                win = M.layout.container_win,
+                height = math.max(2, target_workspace_height),
+              })
+            end)
+
+            if win_open_success and top_work_win then
+              vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
+              pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+              pcall(vim.api.nvim_set_current_win, top_work_win)
+            end
+          end
+
+          pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+          M.UpdateWinbarTitles()
+        end
+      end)
     end,
   })
 end
@@ -413,6 +416,7 @@ M.cli = Terminal.new('cli', ' Pio CLI> ')
 M.mon = Terminal.new('monitor', ' Pio Monitor ')
 
 -- Register them within the terminals table for Approach B require finders
+M.terminals = {}
 M.terminals.cli = M.cli
 M.terminals.mon = M.mon
 
@@ -425,11 +429,20 @@ vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
   end
-end, { silent = true, desc = 'Universal Tiled Panel Down Navigation Router' })
+end, { silent = true })
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
 end
+
+-- Force instantiate tracking group exactly once on module startup load stage
+M._initialize_global_sentinel()
+
+setmetatable(M, {
+  __index = function(table, key)
+    return rawget(table, 'terminals')[key]
+  end,
+})
 
 return M
 -- stylua: ignore end
