@@ -34,7 +34,6 @@ M.terminals = {}
 M.layout = {
   container_win = nil, -- THE SINGLE IMMUTABLE TILED GRID WINDOW HANDLE
   active_type = nil, -- Tracks the name key of the visible node
-  is_recovering = false, -- Atomic safety execution lock parameter
 }
 
 --- Pure C-API Highlight winbar renderer (Dynamic Multi-Tab Layout Engine)
@@ -181,11 +180,7 @@ function Terminal:on_stdout(j, d, e)
 end
 
 function Terminal:on_stderr(j, d, e)
-  if self._custom_stdout then
-    self._custom_stdout(j, d, e)
-  elseif self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
-    M.stdout_callback(j, d, e)
-  end
+  self:on_stdout(j, d, e)
 end
 
 function Terminal:on_exit()
@@ -445,78 +440,26 @@ function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
---- CRITICAL DEFERRED STATEFUL AUTOMATION RESTORATION ENGINE
----@param cmd string The shell payload command text string to execute
+--- PURE BACKGROUND DISPATCH HOOK (Zero-Focus Shifting)
+--- Drops the text command string payload directly down the cli background job channel
+--- without changing window splits, altering tab focuses, or moving your cursor.
+---@param cmd string The shell payload command string text to execute
 function M.send_and_restore(cmd)
-  local original_work_win = vim.api.nvim_get_current_win()
-  local was_visible = (M.layout.container_win ~= nil) and vim.api.nvim_win_is_valid(M.layout.container_win)
-  local previous_pane = M.layout.active_type or 'mon'
-
   local target_instance = M.terminals.cli
   if not target_instance then
     return
   end
 
+  -- Ensure the buffer and the backend job channel are initialized completely
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
   end
   target_instance:on_spawn()
 
-  -- 1. Case 1 Loop: If terminal is ALREADY open, use deferred context transitions
-  if was_visible then
-    -- Low-level buffer injection to clip the active output layout line
-    pcall(vim.api.nvim_win_set_buf, M.layout.container_win, target_instance.buf)
-
-    if target_instance.job and target_instance.job > 0 then
-      vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
-    end
-
-    -- FIX: Defer the panel swap by 10ms to let the command payload land without stream conflict
-    vim.defer_fn(function()
-      if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-        local prev_instance = M.terminals[previous_pane]
-        if prev_instance and prev_instance.buf and vim.api.nvim_buf_is_valid(prev_instance.buf) then
-          pcall(vim.api.nvim_win_set_buf, M.layout.container_win, prev_instance.buf)
-        end
-        M.layout.active_type = previous_pane
-        M.UpdateWinbarTitles()
-        vim.cmd('noautocmd stopinsert')
-      end
-
-      -- Explicitly lock user cursor focus back up inside their file buffer window
-      if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
-        pcall(vim.api.nvim_set_current_win, original_work_win)
-      end
-    end, 10)
-    return
-  end
-
-  -- 2. Case 2 Loop: Terminal was completely hidden when command was issued
-  local original_exit_callback = M.exit_callback
-  M.exit_callback = function()
-    M.exit_callback = original_exit_callback
-    if type(M.exit_callback) == 'function' then
-      M.exit_callback()
-    end
-
-    vim.schedule(function()
-      M.hide()
-      if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
-        pcall(vim.api.nvim_set_current_win, original_work_win)
-      else
-        M.RestoreWorkspaceFocus()
-      end
-    end)
-  end
-
-  M.show('cli')
+  -- Send the text command directly down the process pipe channel instantly.
+  -- This keeps your window layout undisturbed and your typing focus completely safe.
   if target_instance.job and target_instance.job > 0 then
     vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
-  end
-
-  vim.cmd('noautocmd stopinsert')
-  if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
-    pcall(vim.api.nvim_set_current_win, original_work_win)
   end
 end
 
