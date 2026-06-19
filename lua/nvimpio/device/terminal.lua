@@ -440,11 +440,11 @@ function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
---- PURE BACKGROUND DISPATCH HOOK (Zero-Focus Shifting)
---- Drops the text command string payload directly down the cli background job channel
---- without changing window splits, altering tab focuses, or moving your cursor.
----@param cmd string The shell payload command string text to execute
+--- CRITICAL FOCUS-LOCKED COMMAND PAYLOAD DISPATCHER (UseCase 1 & 2 Fulfilled)
+--- Forces the lower split window buffer to show 'cli' while keeping user focus inside their code file buffer.
+---@param cmd string The shell payload command text string to execute
 function M.send_and_restore(cmd)
+  local was_visible = M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
   local target_instance = M.terminals.cli
   if not target_instance then
     return
@@ -456,11 +456,58 @@ function M.send_and_restore(cmd)
   end
   target_instance:on_spawn()
 
-  -- Send the text command directly down the process pipe channel instantly.
-  -- This keeps your window layout undisturbed and your typing focus completely safe.
+  -- 1. If terminal split is ALREADY open, swap buffer content instantly via pure low-level C-API
+  if was_visible then
+    -- Swap layout view to the cli buffer inside the lower frame without shifting focus
+    pcall(vim.api.nvim_win_set_buf, M.layout.container_win, target_instance.buf)
+    M.layout.active_type = 'cli'
+    M.UpdateWinbarTitles()
+
+    -- Dispatch text command payload downstream into process pipe channel instantly
+    if target_instance.job and target_instance.job > 0 then
+      vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
+    end
+
+    -- Firm normal-mode layout enforcement on the lower split window container
+    vim.api.nvim_set_option_value('winbar', vim.api.nvim_get_option_value('winbar', { win = M.layout.container_win }), { win = M.layout.container_win })
+    vim.api.nvim_buf_call(target_instance.buf, function()
+      vim.cmd('stopinsert')
+    end)
+    return
+  end
+
+  -- 2. Case 2 Loop: Terminal split was completely hidden when command was issued
+  local original_work_win = vim.api.nvim_get_current_win()
+  local original_exit_callback = M.exit_callback
+
+  M.exit_callback = function()
+    M.exit_callback = original_exit_callback
+    if type(M.exit_callback) == 'function' then
+      M.exit_callback()
+    end
+
+    -- Hide panel layout once the compiling action finishes executing
+    vim.schedule(function()
+      M.hide()
+      if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
+        pcall(vim.api.nvim_set_current_win, original_work_win)
+      else
+        M.RestoreWorkspaceFocus()
+      end
+    end)
+  end
+
+  -- Force open the lower split window directly onto 'cli'
+  M.show('cli')
   if target_instance.job and target_instance.job > 0 then
     vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
   end
+
+  -- Instantly hand cursor focus back up inside your active file buffer window
+  if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
+    pcall(vim.api.nvim_set_current_win, original_work_win)
+  end
+  vim.cmd('noautocmd stopinsert')
 end
 
 -- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
