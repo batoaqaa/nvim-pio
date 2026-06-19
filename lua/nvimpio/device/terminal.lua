@@ -1,5 +1,6 @@
--- nvimpio/device/terminal.lua - Part 1
+
 -- stylua: ignore start
+-- nvimpio/device/terminal.lua - Part 1
 
 local M = {}
 
@@ -98,7 +99,9 @@ function M.RestoreWorkspaceFocus()
   end
 end
 
+
 -- nvimpio/device/terminal.lua - Part 2
+
 ----------------------------------------------------------------------------------------
 -- HIGH-PERFORMANCE OBJECT-ORIENTED TERMINAL SPECIFICATION
 ----------------------------------------------------------------------------------------
@@ -111,7 +114,7 @@ local Terminal = {
   newline        = native_eol,
   filetype       = 'pio_terminal',
   _custom_stdout = nil,
-  _is_scrolling  = false, -- Atomic Lock: Stops high-speed process outputs from lagging viewports
+  _is_scrolling  = false,
 }
 Terminal.__index = Terminal
 
@@ -124,31 +127,13 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   return self
 end
 
-
--- Inside nvimpio/device/terminal.lua - Replace this function inside Part 2
-
+-- Completely stripped of old, un-instrumented match rules or syntax failures
 function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
-
-  -- 1. DEFINE EXPLICIT HIGHLIGHT BLOCK: Uses a hardcoded background to override theme highlights.
-  -- fg = Bright White (#ffffff), bg = High-Contrast Slate Grey (#3b4252), bold = True
-  -- You can change 'bg' to any hex color code that fits your eye best!
-  vim.api.nvim_set_hl(0, 'PioReverseTerminalCommand', {
-    fg = '#ffffff',
-    bg = '#3b4252',
-    bold = true,
-    default = false -- False guarantees we punch straight through theme color settings!
-  })
-  -- 2. RIGID PATH-ANCHORED SYNTAX INITIALIZATION:
-  -- The ^[a-zA-Z]:\\ pattern forces the engine to match ONLY on lines starting with a Windows drive prompt.
-  -- The \zs token ensures the reverse block highlight covers ONLY the typed command text.
-  vim.api.nvim_buf_call(self.buf, function()
-    vim.cmd([[syntax match PioReverseTerminalCommand /^[a-zA-Z]:\\.*>\s\+\zs.*$/]])
-  end)
-
-  self:_register_viewport_bindings()
+  self:_register_viewport_mappings()
 end
+
 --- Focus-Locked Background Process Payload Dispatcher Matrix
 function Terminal:send(command)
   local cmd_str = tostring(command or "")
@@ -171,19 +156,29 @@ function Terminal:send(command)
   -- Clean low-level normal mode constraint injection
   vim.api.nvim_set_option_value('winbar', vim.api.nvim_get_option_value('winbar', { win = M.layout.container_win }), { win = M.layout.container_win })
 
-  -- Atomic Viewport Pinning: Snaps the text view instantly without changing active focus
-  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) and not self._is_scrolling then
-    self._is_scrolling = true
+  -- 1.POSITION MATCH HIGHLIGHT LOCK ENGINE
+  -- Bypasses syntax definitions completely. This looks up the exact active line count
+  -- and forces an ironclad, theme-shattering highlight overlay directly onto that row cell layer.
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.schedule(function()
       if self.buf and vim.api.nvim_buf_is_valid(self.buf) and M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
         local line_count = vim.api.nvim_buf_line_count(self.buf)
         if line_count > 0 then
+          -- Force the viewport to snap down to show the outputs
           pcall(vim.api.nvim_win_set_cursor, M.layout.container_win, { line_count, 0 })
+
+          -- Apply a high-priority, theme-overriding visual block overlay on the command line row.
+          -- Uses your theme's native 'Visual' block styling to ensure absolute readability.
+          vim.api.nvim_win_call(M.layout.container_win, function()
+            pcall(vim.fn.matchaddpos, 'Visual', { line_count }, 100)
+          end)
         end
       end
-      self._is_scrolling = false
     end)
   end
+
+  -- Force normal mode layout enforcement inside the lower split window container context
+  vim.cmd('noautocmd stopinsert')
 
   -- Hard focus lock: Reverts cursor to the original file buffer instantly
   if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
@@ -283,6 +278,7 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
+
 
 -- nvimpio/device/terminal.lua - Part 3
 
@@ -504,14 +500,14 @@ end
 ----------------------------------------------------------------------------------------
 -- SYSTEM FACTORY CHANNELS INITIALIZATION
 ----------------------------------------------------------------------------------------
-M.create_terminal('cli', ' CLI ', function(j, d, e)
+M.create_terminal('cli', ' Pio CLI ', function(j, d, e)
   if type(M.stdout_callback) == 'function' then
     M.stdout_callback(j, d, e)
   end
 end)
 
-M.create_terminal('mon', ' Monitor ', nil)
-M.create_terminal('logs', ' OS ', nil)
+M.create_terminal('mon', ' Pio monitor ', nil)
+M.create_terminal('logs', ' Target Logs ', nil)
 
 setmetatable(M, {
   __index = function(table, key)
