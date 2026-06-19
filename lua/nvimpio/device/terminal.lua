@@ -353,17 +353,47 @@ function Terminal:_register_lifecycle_events(target_height)
 
             if valid_wins <= 1 and vim.api.nvim_get_current_win() == M.layout.container_win then
               local fallback = M.config.sentinel_fallback
-              local scratch_buf = vim.api.nvim_create_buf(false, true)
+              local scratch_buf = nil
 
-              vim.api.nvim_buf_set_name(scratch_buf, fallback.buffer_name)
-              vim.api.nvim_set_option_value('buftype', fallback.buftype, { buf = scratch_buf })
-              vim.api.nvim_set_option_value('filetype', fallback.filetype, { buf = scratch_buf })
-              vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
+              -- 1. Scan for an existing workspace buffer handle to prevent E95 crashes
+              for _, b in ipairs(vim.api.nvim_list_bufs()) do
+                if vim.api.nvim_buf_is_valid(b) then
+                  local b_name = vim.api.nvim_buf_get_name(b)
+                  -- Match the trailing suffix of the buffer name securely
+                  if b_name:match(fallback.buffer_name:gsub('%[', '%%['):gsub('%]', '%%]')) then
+                    scratch_buf = b
+                    break
+                  end
+                end
+              end
 
+              -- 2. If it does not exist anywhere in the editor lifecycle, spawn a clean one safely
+              if not scratch_buf then
+                scratch_buf = vim.api.nvim_create_buf(false, true)
+                vim.api.nvim_buf_set_name(scratch_buf, fallback.buffer_name)
+                vim.api.nvim_set_option_value('buftype', fallback.buftype, { buf = scratch_buf })
+                vim.api.nvim_set_option_value('filetype', fallback.filetype, { buf = scratch_buf })
+                vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
+              end
+
+              -- 3. Safely mount layout windows without triggering endless layout events
               vim.cmd('noautocmd topleft split')
               vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
               vim.cmd('noautocmd lua vim.api.nvim_set_current_win(' .. M.layout.container_win .. ')')
             end
+            -- if valid_wins <= 1 and vim.api.nvim_get_current_win() == M.layout.container_win then
+            --   local fallback = M.config.sentinel_fallback
+            --   local scratch_buf = vim.api.nvim_create_buf(false, true)
+            --
+            --   vim.api.nvim_buf_set_name(scratch_buf, fallback.buffer_name)
+            --   vim.api.nvim_set_option_value('buftype', fallback.buftype, { buf = scratch_buf })
+            --   vim.api.nvim_set_option_value('filetype', fallback.filetype, { buf = scratch_buf })
+            --   vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
+            --
+            --   vim.cmd('noautocmd topleft split')
+            --   vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
+            --   vim.cmd('noautocmd lua vim.api.nvim_set_current_win(' .. M.layout.container_win .. ')')
+            -- end
 
             pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
             M.UpdateWinbarTitles()
