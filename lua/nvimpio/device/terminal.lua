@@ -30,9 +30,10 @@ M.terminals = {}
 M.layout = {
   container_win = nil, -- THE SINGLE IMMUTABLE TILED GRID WINDOW HANDLE
   active_type = nil, -- Tracks the name key of the visible node
+  is_recovering = false, -- Atomic thread lock parameter
 }
 
---- Pure C-API Highlight winbar renderer (Dynamic Multi-Tab Layout Engine)
+--- Highlight winbar renderer (Dynamic Multi-Tab Layout Engine)
 function M.UpdateWinbarTitles()
   local maps = M.config.keymaps
 
@@ -261,12 +262,12 @@ end
 
 -- nvimpio/device/terminal.lua - Part 3
 
-function Terminal:_register_viewport_bindings(target_height)
-  local platformio = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
+function Terminal:_register_viewport_bindings()
+  local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
   -- Intercept manual command exits (:q and :q!)
   vim.api.nvim_create_autocmd('CmdlineLeave', {
-    group = platformio,
+    group = group_id,
     buffer = self.buf,
     callback = function()
       if vim.v.event and not vim.v.event.abort and vim.v.event.cmdtype == ':' then
@@ -284,7 +285,7 @@ function Terminal:_register_viewport_bindings(target_height)
   })
 
   vim.api.nvim_create_autocmd('WinLeave', {
-    group = platformio,
+    group = group_id,
     buffer = self.buf,
     callback = function()
       vim.schedule(function()
@@ -298,13 +299,9 @@ end
 function M._initialize_global_sentinel()
   local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
 
-  -- Ensure our structural recovery lock state parameter is initialized cleanly
-  M.layout.is_recovering = false
-
   vim.api.nvim_create_autocmd('WinClosed', {
     group = global_group,
     callback = function()
-      -- CRITICAL FIX 1: Instantly drop out if an active recovery allocation is ALREADY processing
       if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.is_recovering then
         return
       end
@@ -317,19 +314,12 @@ function M._initialize_global_sentinel()
       end
 
       vim.schedule(function()
-        -- Re-verify window matrix validity inside async boundary loop context
         if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-          -- CRITICAL FIX 2: Double check our atomic state lock inside the async queue block
-          if M.layout.is_recovering then
-            return
-          end
-
-          local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
           local open_wins = vim.api.nvim_tabpage_list_wins(0)
           local valid_wins = 0
 
           for _, w in ipairs(open_wins) do
-            if vim.api.nvim_win_is_valid(w) and w ~= closed_win then
+            if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win and w ~= closed_win then
               local b = vim.api.nvim_win_get_buf(w)
               local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
               if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' and not ft:match('^terminal_') then
@@ -338,11 +328,12 @@ function M._initialize_global_sentinel()
             end
           end
 
+          -- TRUE TOTAL RETREAT LAYOUT COLLAPSE (No file splits left open anywhere on screen)
           if valid_wins == 0 then
-            -- ACTIVATING ATOMIC RECOVERY LOCK: Blocks the duplicate cascading event from passing
             M.layout.is_recovering = true
-            vim.o.cmdheight = 1 -- Rigid safety clamp blocking cmdheight expansion
+            vim.o.cmdheight = 1 -- Fixes the 80% command height stretching bug instantly
 
+            local fallback = M.config.sentinel_fallback
             local scratch_buf = nil
             for _, b in ipairs(vim.api.nvim_list_bufs()) do
               if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
@@ -353,35 +344,45 @@ function M._initialize_global_sentinel()
 
             if not scratch_buf then
               scratch_buf = vim.api.nvim_create_buf(false, true)
-              vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]')
+              vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]_' .. scratch_buf)
               vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
               vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
               vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
             end
 
+            -- FIX: Use non-split, programmatic explicit grid coordinates relative to editor view limits.
+            -- This opens the split ABOVE the terminal window frame anchor completely bypasses vim.cmd strings
+            local target_term_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
             local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
-            local target_workspace_height = total_editor_rows - target_height - 1
+            local target_workspace_height = total_editor_rows - target_term_height - 1
 
             local top_work_win = nil
             local win_open_success = pcall(function()
               top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
-                split = 'above',
-                win = M.layout.container_win,
+                relative = 'editor',
+                row = 0,
+                col = 0,
+                width = vim.o.columns,
                 height = math.max(2, target_workspace_height),
               })
             end)
 
             if win_open_success and top_work_win then
               vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
-              pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+              -- Cleanly lock lower terminal frame dimensions relative to editor boundary floor coordinates
+              pcall(vim.api.nvim_win_set_config, M.layout.container_win, {
+                relative = 'editor',
+                row = target_workspace_height + 1,
+                col = 0,
+                width = vim.o.columns,
+                height = target_term_height,
+              })
               pcall(vim.api.nvim_set_current_win, top_work_win)
             end
 
-            -- RELEASE ATOMIC RECOVERY LOCK: Safe to evaluate standard screen updates again
             M.layout.is_recovering = false
           end
 
-          pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
           M.UpdateWinbarTitles()
         end
       end)
@@ -515,7 +516,7 @@ function M.setup(opts)
 end
 
 ----------------------------------------------------------------------------------------
--- MODULE INVOCATION ENGINE CODES
+-- MODULE INVOCATION CODES
 ----------------------------------------------------------------------------------------
 M.create_terminal('cli', ' Pio CLI ', function(job, data, event) end)
 M.create_terminal('server', ' Dev Server ', function(job, data, event) end)
