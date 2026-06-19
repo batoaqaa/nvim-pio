@@ -143,16 +143,28 @@ end
 local Terminal = {}
 Terminal.__index = Terminal
 
-function Terminal.new(term_type, panel_title, default_filetype)
+function Terminal.new(term_type, panel_title, default_filetype, custom_stdout)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
   self.title = panel_title
   self.buf = nil
   self.job = nil
   self.newline = safe_eol
-  self.filetype = default_filetype or 'pio_terminal'
+  self.filetype = default_filetype or ('terminal_' .. term_type)
+  -- Safely captures your direct callback function loop stream or nil
+  self._custom_stdout = custom_stdout
   return self
 end
+-- function Terminal.new(term_type, panel_title, default_filetype)
+--   local self = setmetatable({}, Terminal)
+--   self.term_type = term_type
+--   self.title = panel_title
+--   self.buf = nil
+--   self.job = nil
+--   self.newline = safe_eol
+--   self.filetype = default_filetype or 'pio_terminal'
+--   return self
+-- end
 
 function Terminal:on_create()
   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
@@ -201,9 +213,12 @@ function Terminal:send(command)
 end
 
 function Terminal:on_stdout(j, d, e)
-  if M.stdout_callback then
-    M.stdout_callback(self.term_type, j, d, e)
+  -- 1. Execute the isolated user callback if provided
+  if self._custom_stdout then
+    self._custom_stdout(j, d, e)
   end
+
+  -- 2. Run the internal background cursor tracking loop
   vim.schedule(function()
     if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
       if vim.api.nvim_win_get_buf(M.layout.container_win) == self.buf then
@@ -213,6 +228,19 @@ function Terminal:on_stdout(j, d, e)
     end
   end)
 end
+-- function Terminal:on_stdout(j, d, e)
+--   if M.stdout_callback then
+--     M.stdout_callback(self.term_type, j, d, e)
+--   end
+--   vim.schedule(function()
+--     if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+--       if vim.api.nvim_win_get_buf(M.layout.container_win) == self.buf then
+--         local lines = vim.api.nvim_buf_line_count(self.buf)
+--         pcall(vim.api.nvim_win_set_cursor, M.layout.container_win, { lines, 0 })
+--       end
+--     end
+--   end)
+-- end
 
 function Terminal:on_stderr(j, d, e)
   if M.stdout_callback then
@@ -433,13 +461,36 @@ end
 -- GLOBAL SINGLETON WORKSPACE MANAGER INTERFACE
 ----------------------------------------------------------------------------------------
 
-function M.create_terminal(name, title, filetype)
-  local final_filetype = filetype or ('terminal_' .. name)
-  M.terminals[name] = Terminal.new(name, title, final_filetype)
+--- Registers a terminal node dynamically with an optional custom stdout callback function
+---@param name string The tracking lookup index key
+---@param title string The string shown inside the winbar tab layout panel
+---@param filetype_or_cb string|function|nil Can be a custom filetype string, or the callback function directly
+---@param custom_stdout function|nil Dedicated stream function if filetype string was explicitly passed
+function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
+  local final_filetype = nil
+  local final_cb = nil
+
+  -- Smart Parameter Redirection Router
+  if type(filetype_or_cb) == 'function' then
+    final_cb = filetype_or_cb
+    final_filetype = 'terminal_' .. name
+  else
+    final_filetype = filetype_or_cb or ('terminal_' .. name)
+    final_cb = custom_stdout
+  end
+
+  M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
   M.config.ignored_focus_filetypes[final_filetype] = true
   M.terminals[name]:on_create()
   return M.terminals[name]
 end
+-- function M.create_terminal(name, title, filetype)
+--   local final_filetype = filetype or ('terminal_' .. name)
+--   M.terminals[name] = Terminal.new(name, title, final_filetype)
+--   M.config.ignored_focus_filetypes[final_filetype] = true
+--   M.terminals[name]:on_create()
+--   return M.terminals[name]
+-- end
 
 function M.ShowTerminal(term_type)
   if not term_type then
@@ -590,10 +641,19 @@ end
 -- AUTOMATED MODULE INSTANTIATION SEQUENCING
 ----------------------------------------------------------------------------------------
 
--- Pre-initialize the panels on module load so they exist instantly
-M.create_terminal('cli', ' Run Build Command Panel ')
-M.create_terminal('mon', ' Serial interface ')
-M.create_terminal('logs', ' System Logs Tail ')
+-- 1. CLI with a direct custom callback passed right in the 3rd parameter position
+M.create_terminal('cli', ' CLI ', function(job, data, event)
+  if type(M.stdout_callback) == 'function' then
+    M.stdout_callback(job, data, event)
+  end
+  -- Custom compiler error streaming scanner goes here
+end)
+
+-- 2. Server with an independent telemetry parsing layout callback passed directly
+M.create_terminal('mon', ' Monitor ', nil)
+
+-- 3. Logs with 'nil' passed directly (falls back strictly to standard terminal typing behavior)
+M.create_terminal('logs', '  Logs ', nil)
 
 -- Enable shorthand lookups like: require('nvimpio.device.terminal').cli:send("pio run")
 setmetatable(M, {
