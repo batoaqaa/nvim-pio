@@ -445,8 +445,7 @@ function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
---- CRITICAL INSTANT STATEFUL AUTOMATION RESTORATION ENGINE (Case 1 and 2 Focus Locked)
---- Sends commands downstream while keeping the target lane or hidden status synchronized.
+--- CRITICAL DEFERRED STATEFUL AUTOMATION RESTORATION ENGINE
 ---@param cmd string The shell payload command text string to execute
 function M.send_and_restore(cmd)
   local original_work_win = vim.api.nvim_get_current_win()
@@ -458,37 +457,37 @@ function M.send_and_restore(cmd)
     return
   end
 
-  -- Ensure the buffer and the backend job channel are initialized completely
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
   end
   target_instance:on_spawn()
 
-  -- 1. Case 1 Loop: If terminal is ALREADY open, swap buffer seamlessly via C-API without jumping focus
+  -- 1. Case 1 Loop: If terminal is ALREADY open, use deferred context transitions
   if was_visible then
-    -- Swap layout view to cli buffer invisibly at the low-level window tree index layer
+    -- Low-level buffer injection to clip the active output layout line
     pcall(vim.api.nvim_win_set_buf, M.layout.container_win, target_instance.buf)
 
-    -- Dispatch text command payload downstream into process pipe channel instantly
     if target_instance.job and target_instance.job > 0 then
       vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
     end
 
-    -- Revert split tab selection buffer back to previous pane ('mon' or 'logs') cleanly
-    local prev_instance = M.terminals[previous_pane]
-    if prev_instance and prev_instance.buf and vim.api.nvim_buf_is_valid(prev_instance.buf) then
-      pcall(vim.api.nvim_win_set_buf, M.layout.container_win, prev_instance.buf)
-    end
+    -- FIX: Defer the panel swap by 10ms to let the command payload land without stream conflict
+    vim.defer_fn(function()
+      if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+        local prev_instance = M.terminals[previous_pane]
+        if prev_instance and prev_instance.buf and vim.api.nvim_buf_is_valid(prev_instance.buf) then
+          pcall(vim.api.nvim_win_set_buf, M.layout.container_win, prev_instance.buf)
+        end
+        M.layout.active_type = previous_pane
+        M.UpdateWinbarTitles()
+        vim.cmd('noautocmd stopinsert')
+      end
 
-    M.layout.active_type = previous_pane
-    M.UpdateWinbarTitles()
-
-    -- Force execution out of insert mode bounds to avoid lockouts
-    vim.cmd('noautocmd stopinsert')
-
-    if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
-      pcall(vim.api.nvim_set_current_win, original_work_win)
-    end
+      -- Explicitly lock user cursor focus back up inside their file buffer window
+      if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
+        pcall(vim.api.nvim_set_current_win, original_work_win)
+      end
+    end, 10)
     return
   end
 
@@ -510,7 +509,6 @@ function M.send_and_restore(cmd)
     end)
   end
 
-  -- Force open split window layout, fire command, and pass focus right back up
   M.show('cli')
   if target_instance.job and target_instance.job > 0 then
     vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
