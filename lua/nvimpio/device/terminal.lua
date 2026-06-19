@@ -332,82 +332,73 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter', 'WinClosed' }, {
+  -- THE DEFENSIVE RESOLUTION TABPAGE SENTINEL GUARD (Optimized & Non-Intrusive)
+  vim.api.nvim_create_autocmd('WinClosed', {
     group = group_id,
+    pattern = tostring(self.buf), -- Only fire if a window bound to THIS terminal changes
     callback = function()
-      if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-        vim.schedule(function()
-          if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-            local open_wins = vim.api.nvim_tabpage_list_wins(0)
-            local valid_wins = 0
+      -- Defend execution: abort immediately if our panel layout is closed cleanly
+      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
+        return
+      end
 
-            for _, w in ipairs(open_wins) do
-              if vim.api.nvim_win_is_valid(w) then
-                local b = vim.api.nvim_win_get_buf(w)
-                local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-                if not M.config.ignored_focus_filetypes[ft] then
-                  valid_wins = valid_wins + 1
-                end
+      vim.schedule(function()
+        -- Double-verify window layout handle validity inside async pipeline step
+        if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+          local open_wins = vim.api.nvim_tabpage_list_wins(0)
+          local valid_wins = 0
+
+          for _, w in ipairs(open_wins) do
+            if vim.api.nvim_win_is_valid(w) then
+              local b = vim.api.nvim_win_get_buf(w)
+              local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
+              if not M.config.ignored_focus_filetypes[ft] then
+                valid_wins = valid_wins + 1
               end
             end
+          end
 
-            if valid_wins <= 1 and vim.api.nvim_get_current_win() == M.layout.container_win then
-              -- Calculate total available editor workspace rows to protect layout budget bounds
-              local total_rows = vim.o.lines - vim.o.cmdheight
-              local required_min_rows = 4 -- Safety floor bounds needed for splits to calculate safely
+          -- If only terminal windows remain, a true layout collapse has happened
+          if valid_wins == 0 then
+            local total_rows = vim.o.lines - vim.o.cmdheight
+            if total_rows > 5 then
+              local fallback = M.config.sentinel_fallback
+              local scratch_buf = nil
 
-              if total_rows > required_min_rows then
-                local fallback = M.config.sentinel_fallback
-                local scratch_buf = nil
-
-                for _, b in ipairs(vim.api.nvim_list_bufs()) do
-                  if vim.api.nvim_buf_is_valid(b) then
-                    local b_name = vim.api.nvim_buf_get_name(b)
-                    if b_name:match(fallback.buffer_name:gsub('%[', '%%['):gsub('%]', '%%]')) then
-                      scratch_buf = b
-                      break
-                    end
+              for _, b in ipairs(vim.api.nvim_list_bufs()) do
+                if vim.api.nvim_buf_is_valid(b) then
+                  local b_name = vim.api.nvim_buf_get_name(b)
+                  if b_name:match(fallback.buffer_name:gsub('%[', '%%['):gsub('%]', '%%]')) then
+                    scratch_buf = b
+                    break
                   end
                 end
+              end
 
-                if not scratch_buf then
-                  scratch_buf = vim.api.nvim_create_buf(false, true)
-                  vim.api.nvim_buf_set_name(scratch_buf, fallback.buffer_name)
-                  vim.api.nvim_set_option_value('buftype', fallback.buftype, { buf = scratch_buf })
-                  vim.api.nvim_set_option_value('filetype', fallback.filetype, { buf = scratch_buf })
-                  vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
-                end
+              if not scratch_buf then
+                scratch_buf = vim.api.nvim_create_buf(false, true)
+                vim.api.nvim_buf_set_name(scratch_buf, fallback.buffer_name)
+                vim.api.nvim_set_option_value('buftype', fallback.buftype, { buf = scratch_buf })
+                vim.api.nvim_set_option_value('filetype', fallback.filetype, { buf = scratch_buf })
+                vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
+              end
 
-                -- Wrapped in a safe protected call loop to fully swallow layout spacing panics
-                local split_success = pcall(function()
-                  vim.cmd('noautocmd topleft split')
-                end)
+              local split_success = pcall(function()
+                vim.cmd('noautocmd topleft split')
+              end)
 
-                if split_success then
-                  vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
-                  vim.cmd('noautocmd lua vim.api.nvim_set_current_win(' .. M.layout.container_win .. ')')
-                end
+              if split_success then
+                vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
+                vim.cmd('noautocmd lua vim.api.nvim_set_current_win(' .. M.layout.container_win .. ')')
               end
             end
-            -- if valid_wins <= 1 and vim.api.nvim_get_current_win() == M.layout.container_win then
-            --   local fallback = M.config.sentinel_fallback
-            --   local scratch_buf = vim.api.nvim_create_buf(false, true)
-            --
-            --   vim.api.nvim_buf_set_name(scratch_buf, fallback.buffer_name)
-            --   vim.api.nvim_set_option_value('buftype', fallback.buftype, { buf = scratch_buf })
-            --   vim.api.nvim_set_option_value('filetype', fallback.filetype, { buf = scratch_buf })
-            --   vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
-            --
-            --   vim.cmd('noautocmd topleft split')
-            --   vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
-            --   vim.cmd('noautocmd lua vim.api.nvim_set_current_win(' .. M.layout.container_win .. ')')
-            -- end
-
-            pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
-            M.UpdateWinbarTitles()
           end
-        end)
-      end
+
+          -- Restores the correct user targeted display heights safely without cursor loss
+          pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+          M.UpdateWinbarTitles()
+        end
+      end)
     end,
   })
 end
