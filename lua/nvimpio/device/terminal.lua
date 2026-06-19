@@ -296,11 +296,65 @@ end
 
 local last_recovery_time = 0
 
+-- nvimpio/device/terminal.lua - Replace this function inside Part 3
+
 --- Initializes the single, global, structural workspace layout tracker
 function M._initialize_global_sentinel()
+  -- Centralized group stops event multiplier accumulation completely
   local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
 
-  -- Listen to WinClosed to detect when splits vanish or collapse
+  -- 1. PRE-EMPTIVE SHIELD: Catch closes BEFORE they happen to prevent screen fracturing
+  vim.api.nvim_create_autocmd('QuitPre', {
+    group = global_group,
+    callback = function()
+      -- Abort immediately if the terminal isn't active or visible
+      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
+        return
+      end
+
+      local open_wins = vim.api.nvim_tabpage_list_wins(0)
+      local valid_wins = 0
+
+      for _, w in ipairs(open_wins) do
+        if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win then
+          local b = vim.api.nvim_win_get_buf(w)
+          local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
+          -- Ignore standard sidebars and panels
+          if not M.config.ignored_focus_filetypes[ft] then
+            valid_wins = valid_wins + 1
+          end
+        end
+      end
+
+      -- If valid_wins == 1, it means the user is closing their final code file split
+      if valid_wins == 1 and vim.api.nvim_get_current_win() ~= M.layout.container_win then
+        local fallback = M.config.sentinel_fallback
+        local scratch_buf = nil
+
+        for _, b in ipairs(vim.api.nvim_list_bufs()) do
+          if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match(fallback.buffer_name:gsub('%[', '%%['):gsub('%]', '%%]')) then
+            scratch_buf = b
+            break
+          end
+        end
+
+        if not scratch_buf then
+          scratch_buf = vim.api.nvim_create_buf(false, true)
+          vim.api.nvim_buf_set_name(scratch_buf, fallback.buffer_name)
+          vim.api.nvim_set_option_value('buftype', fallback.buftype, { buf = scratch_buf })
+          vim.api.nvim_set_option_value('filetype', fallback.filetype, { buf = scratch_buf })
+          vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
+        end
+
+        -- Mount the fallback buffer inside the current window split BEFORE it closes
+        -- This stops Neovim from collapsing full-screen or shifting the terminal up
+        vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
+        M.UpdateWinbarTitles()
+      end
+    end,
+  })
+
+  -- 2. SIDEBAR SHIELD: Clean up layout tracks if an internal split window is manually wiped out
   vim.api.nvim_create_autocmd('WinClosed', {
     group = global_group,
     callback = function()
@@ -308,85 +362,20 @@ function M._initialize_global_sentinel()
         return
       end
 
-      local current_time = vim.uv.hrtime()
-      if (current_time - last_recovery_time) < 50000000 then
-        return
-      end
-
       local closed_win = tonumber(vim.fn.expand('<amatch>'))
       if closed_win == M.layout.container_win then
         M.layout.container_win = nil
         M.layout.active_type = nil
-        return
+      else
+        -- Safely re-force terminal layout tracking proportions on adjacent sidebar closures
+        vim.schedule(function()
+          if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+            local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+            pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+            M.UpdateWinbarTitles()
+          end
+        end)
       end
-
-      vim.schedule(function()
-        if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-          local open_wins = vim.api.nvim_tabpage_list_wins(0)
-          local valid_wins = 0
-
-          for _, w in ipairs(open_wins) do
-            -- Look ahead: count windows left on the screen, skipping the terminal and the closing split
-            if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win and w ~= closed_win then
-              local b = vim.api.nvim_win_get_buf(w)
-              local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-
-              -- Only count real user workspace editing frames (ignore sidebars)
-              if not M.config.ignored_focus_filetypes[ft] then
-                valid_wins = valid_wins + 1
-              end
-            end
-          end
-
-          -- TRUE COLLAPSE CONDITION: Valid splits have dropped to exactly zero
-          if valid_wins == 0 then
-            last_recovery_time = vim.uv.hrtime()
-
-            local fallback = M.config.sentinel_fallback
-            local scratch_buf = nil
-
-            for _, b in ipairs(vim.api.nvim_list_bufs()) do
-              if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match(fallback.buffer_name:gsub('%[', '%%['):gsub('%]', '%%]')) then
-                scratch_buf = b
-                break
-              end
-            end
-
-            if not scratch_buf then
-              scratch_buf = vim.api.nvim_create_buf(false, true)
-              vim.api.nvim_buf_set_name(scratch_buf, fallback.buffer_name)
-              vim.api.nvim_set_option_value('buftype', fallback.buftype, { buf = scratch_buf })
-              vim.api.nvim_set_option_value('filetype', fallback.filetype, { buf = scratch_buf })
-              vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
-            end
-
-            -- 1. PURE C-API LAYOUT INJECTION (Bypasses erratic string split commands)
-            -- Opens the workspace buffer directly above our locked terminal panel window handle
-            local target_term_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-            local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
-            local target_workspace_height = total_editor_rows - target_term_height - 1
-
-            local top_work_win = nil
-            local win_open_success = pcall(function()
-              top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
-                split = 'above',
-                win = M.layout.container_win,
-                height = math.max(2, target_workspace_height),
-              })
-            end)
-
-            if win_open_success and top_work_win then
-              -- Prevent winbar configurations from leaking into the workspace panel split
-              vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
-
-              -- Lock layout structural boundaries
-              pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_term_height)
-              pcall(vim.api.nvim_set_current_win, top_work_win)
-            end
-          end
-          M.UpdateWinbarTitles()
-        end
-      end)
     end,
   })
 end
