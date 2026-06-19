@@ -296,15 +296,17 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- FIXED SENTINEL: Restructured to trigger on global layout updates without loop recursion
-  vim.api.nvim_create_autocmd({ 'WinClosed', 'BufEnter' }, {
+  -- THE DEFENSIVE TABPAGE SENTINEL GUARD (Isolated & Loop-Protected)
+  vim.api.nvim_create_autocmd('WinClosed', {
     group = group_id,
     callback = function()
+      -- Abort immediately if our container window layout is completely closed/hidden
       if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
         return
       end
 
       vim.schedule(function()
+        -- Re-verify layout handle remains valid inside the asynchronous execution boundary
         if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
           local open_wins = vim.api.nvim_tabpage_list_wins(0)
           local valid_wins = 0
@@ -319,7 +321,7 @@ function Terminal:_register_lifecycle_events(target_height)
             end
           end
 
-          -- True Layout Collapse Detected: Reconstruct the structural environment anchor
+          -- If exactly 0 work files remain, a true layout collapse occurred. Recover.
           if valid_wins == 0 then
             local fallback = M.config.sentinel_fallback
             local scratch_buf = nil
@@ -339,7 +341,7 @@ function Terminal:_register_lifecycle_events(target_height)
               vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
             end
 
-            -- Force focus to terminal window context to cleanly slice away the top real estate
+            -- Temporarily hop down to terminal window to execute a clean layout-anchored split
             local old_current = vim.api.nvim_get_current_win()
             pcall(vim.api.nvim_set_current_win, M.layout.container_win)
 
@@ -351,7 +353,7 @@ function Terminal:_register_lifecycle_events(target_height)
               local top_work_win = vim.api.nvim_get_current_win()
               vim.api.nvim_win_set_buf(top_work_win, scratch_buf)
 
-              -- Enforce rigid bottom split orientation across entire editor split grid layout
+              -- Enforce rigid bottom split orientation across entire layout split grid
               vim.cmd('noautocmd wincmd J')
               pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
               pcall(vim.api.nvim_set_current_win, top_work_win)
