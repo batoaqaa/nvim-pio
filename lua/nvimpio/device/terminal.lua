@@ -4,9 +4,8 @@
 local M = {}
 
 -- 1. Insulated Cross-Platform Environment Discovery Matrix
-local system_is_windows = vim.uv.os_uname().sysname:match('Windows') ~= nil
-local native_shell = system_is_windows and 'cmd.exe' or (vim.o.shell or 'sh')
-local native_eol = system_is_windows and '\r\n' or '\n'
+local native_shell = OS.shell
+local native_eol = OS.eol
 
 -- 2. Enterprise Configuration Specification Matrix
 M.config = {
