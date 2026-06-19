@@ -32,7 +32,7 @@ M.layout = {
   active_type = nil, -- Tracks the name key of the visible node
 }
 
---- Pure C-API Highlight winbar renderer (Dynamic Multi-Tab Layout Engine)
+--- Highlight winbar renderer (Dynamic Multi-Tab Layout Engine)
 function M.UpdateWinbarTitles()
   local maps = M.config.keymaps
 
@@ -43,6 +43,7 @@ function M.UpdateWinbarTitles()
     return
   end
 
+  -- FEATURE: Dynamically build the tabbed terminal list string from all created terminals
   local tab_string = ' '
   local total_terminals = 0
   local ordered_keys = {}
@@ -56,10 +57,8 @@ function M.UpdateWinbarTitles()
     if term.buf and vim.api.nvim_buf_is_valid(term.buf) then
       total_terminals = total_terminals + 1
       if M.layout.active_type == name then
-        -- Brightly highlighted title for active terminal
         tab_string = tab_string .. string.format('%%#%s# [%s] %%*', M.config.winbar_hl_group, term.title:gsub('%s+', ''))
       else
-        -- Dimmed title for background terminals
         tab_string = tab_string .. string.format('%%#%sDim#  %s  %%*', M.config.winbar_hl_group, term.title:gsub('%s+', ''))
       end
     end
@@ -71,7 +70,7 @@ function M.UpdateWinbarTitles()
   vim.api.nvim_set_option_value('winbar', tab_string .. '%=' .. hint, { scope = 'local', win = M.layout.container_win })
 end
 
---- Dynamic Workspace Tree Focus Router
+--- Dynamic Workspace Tree Focus Router (Your exact original logic)
 function M.RestoreWorkspaceFocus()
   local target_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -113,7 +112,7 @@ local Terminal = {
   job = nil,
   newline = OS.eol,
   filetype = 'pio_terminal',
-  _custom_stdout = nil, -- Direct reference holder for unique on_stdout behaviors
+  _custom_stdout = nil, -- Feature: Direct reference holder for unique on_stdout behaviors
 }
 Terminal.__index = Terminal
 
@@ -129,7 +128,7 @@ end
 function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
-  self:_register_lifecycle_events(math.ceil(vim.o.lines * (M.config.panel_height or 0.2)))
+  self:_register_viewport_bindings(math.ceil(vim.o.lines * (M.config.panel_height or 0.2)))
 end
 
 function Terminal:send(command)
@@ -166,11 +165,10 @@ function Terminal:on_spawn()
 end
 
 function Terminal:on_stdout(j, d, e)
-  -- 1. Fire the custom isolated stdout callback passed in during creation
+  -- FEATURE: Fire the custom isolated stdout callback passed in during creation
   if self._custom_stdout then
     self._custom_stdout(j, d, e)
   elseif self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
-    -- Fallback to global hook for legacy compatibility
     M.stdout_callback(j, d, e)
   end
 end
@@ -265,8 +263,8 @@ end
 
 -- nvimpio/device/terminal.lua - Part 3
 
-function Terminal:_register_lifecycle_events(target_height)
-  local platformio = vim.api.nvim_create_augroup('PioEvents_' .. self.buf, { clear = true })
+function Terminal:_register_viewport_bindings(target_height)
+  local platformio = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
   -- Intercept manual command exits (:q and :q!)
   vim.api.nvim_create_autocmd('CmdlineLeave', {
@@ -296,73 +294,56 @@ function Terminal:_register_lifecycle_events(target_height)
       end)
     end,
   })
+end
 
-  -- PRE-EMPTIVE LAYOUT SENTINEL ENGINEER (Intercepts collapses BEFORE the window closes)
-  vim.api.nvim_create_autocmd('QuitPre', {
-    group = platformio,
+--- Initializes the single, global structural workspace layout tracker
+function M._initialize_global_sentinel()
+  -- FIX: Using an explicit module-level group name cleans up duplicate listeners completely
+  local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
+
+  -- YOUR EXACT ORIGINAL SENTINEL LOGIC (Moved here so it runs exactly ONCE, preventing cmdheight bloat)
+  vim.api.nvim_create_autocmd({ 'WinNew', 'BufWinEnter', 'WinClosed' }, {
+    group = global_group,
     callback = function()
-      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
-        return
-      end
-
-      local open_wins = vim.api.nvim_tabpage_list_wins(0)
-      local valid_wins = 0
-
-      for _, w in ipairs(open_wins) do
-        if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win then
-          local b = vim.api.nvim_win_get_buf(w)
-          local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-          -- Count real user workspace editing slots
-          if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' and not ft:match('^terminal_') then
-            valid_wins = valid_wins + 1
-          end
-        end
-      end
-
-      -- If valid_wins == 1, it means the window you are currently closing is your FINAL code file!
-      if valid_wins == 1 and vim.api.nvim_get_current_win() ~= M.layout.container_win then
-        vim.o.cmdheight = 1 -- Firm safety clamp against the command line stretching glitch
-
-        local scratch_buf = nil
-        for _, b in ipairs(vim.api.nvim_list_bufs()) do
-          if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
-            scratch_buf = b
-            break
-          end
-        end
-
-        if not scratch_buf then
-          scratch_buf = vim.api.nvim_create_buf(false, true)
-          vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]_' .. scratch_buf)
-          vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
-          vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
-          vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
-        end
-
-        -- HOT-SWAP INTERCEPT: Mount the scratch workspace inside the current file split context
-        -- right BEFORE it destroys the window. This programmatically blocks the full-screen layout collapse!
-        vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
-        M.UpdateWinbarTitles()
-      end
-    end,
-  })
-
-  -- SIDEBAR PROTECTION ENGINE: Safely clean up layout pointers on window closures
-  vim.api.nvim_create_autocmd('WinClosed', {
-    group = platformio,
-    callback = function()
-      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
-        return
-      end
-
-      local closed_win = tonumber(vim.fn.expand('<amatch>'))
-      if closed_win == M.layout.container_win then
-        M.layout.container_win = nil
-        M.layout.active_type = nil
-      else
-        -- Force target height compliance on adjacent sidebar adjustments asynchronously
+      if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
         vim.schedule(function()
           if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+            local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+            local open_wins = vim.api.nvim_tabpage_list_wins(0)
+            local valid_wins = 0
+            for _, w in ipairs(open_wins) do
+              if vim.api.nvim_win_is_valid(w) then
+                local b = vim.api.nvim_win_get_buf(w)
+                local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
+                if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' and not ft:match('^terminal_') then
+                  valid_wins = valid_wins + 1
+                end
+              end
+            end
+
+            if valid_wins <= 1 and vim.api.nvim_get_current_win() == M.layout.container_win then
+              local scratch_buf = nil
+              -- Safe look-up to prevent E95 buffer name duplication crashes
+              for _, b in ipairs(vim.api.nvim_list_bufs()) do
+                if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
+                  scratch_buf = b
+                  break
+                end
+              end
+
+              if not scratch_buf then
+                scratch_buf = vim.api.nvim_create_buf(false, true)
+                vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]_' .. scratch_buf)
+                vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
+                vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
+                vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
+              end
+
+              vim.cmd('noautocmd topleft split')
+              vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
+              vim.cmd('noautocmd lua vim.api.nvim_set_current_win(' .. M.layout.container_win .. ')')
+            end
+
             pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
             M.UpdateWinbarTitles()
           end
@@ -376,6 +357,11 @@ end
 -- GLOBAL SINGLETON WORKSPACE MANAGER INTERFACE
 ----------------------------------------------------------------------------------------
 
+--- FEATURE: Factory Method to easily create any number of custom terminal nodes
+---@param name string The key index (e.g. 'cli', 'server', 'logs')
+---@param title string The name text template shown in the winbar tab-list
+---@param filetype_or_cb string|function|nil Optional custom filetype string or direct function callback
+---@param custom_stdout function|nil Custom function assigned ONLY to this instance
 function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   local final_filetype = nil
   local final_cb = nil
@@ -390,7 +376,7 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
 
   M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
 
-  -- Maintain direct roots for backward compatibility
+  -- Maintain direct roots for backward compatibility with your legacy code paths
   if name == 'cli' then
     M.cli = M.terminals.cli
   end
@@ -416,13 +402,19 @@ function M.ShowTerminal(term_type)
   end
 
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    local old_win = vim.api.nvim_get_current_win()
+    pcall(vim.api.nvim_set_current_win, M.layout.container_win)
     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
     M.layout.active_type = term_type
-    target_instance:on_spawn()
 
-    target_instance:_register_viewport_mappings()
+    target_instance:on_spawn()
     M.UpdateWinbarTitles()
-    target_instance:enter_insert_mode()
+
+    if old_win == M.layout.container_win then
+      target_instance:enter_insert_mode()
+    else
+      pcall(vim.api.nvim_set_current_win, old_win)
+    end
     return
   end
 
@@ -434,7 +426,7 @@ end
 
 function M.HideTerminal()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    vim.api.nvim_win_close(M.layout.container_win, true)
+    pcall(vim.api.nvim_win_close, M.layout.container_win, true)
   end
   M.layout.container_win = nil
   M.layout.active_type = nil
@@ -493,17 +485,22 @@ function M.setup(opts)
 end
 
 ----------------------------------------------------------------------------------------
--- MODULE INVOCATION CODES
+-- MODULE INVOCATION ENGINE CODES
 ----------------------------------------------------------------------------------------
-M.create_terminal('cli', ' Pio CLI ', function(j, d, e)
-  -- Unique stdout compiler hook logic here if needed
+
+-- FEATURE: Instantiate unlimited custom terminals with unique title strings and distinct on_stdout rules!
+M.create_terminal('cli', ' Pio CLI ', function(job, data, event)
+  -- Unique stdout parsing engine for your compiler strings goes directly here
 end)
 
-M.create_terminal('server', ' Dev Server ', function(j, d, e)
-  -- Unique stdout telemetry server logging here if needed
+M.create_terminal('server', ' Dev Server ', function(job, data, event)
+  -- Unique stdout streaming rules for your background node processes
 end)
 
-M.create_terminal('logs', ' Target Logs ', nil)
+M.create_terminal('logs', ' Target Logs ', nil) -- Pass nil if standard console typing is preferred
+
+-- Run the single unified sentinel engine exactly once on module load
+M._initialize_global_sentinel()
 
 setmetatable(M, {
   __index = function(table, key)
