@@ -151,6 +151,11 @@ function Terminal:send(command)
     return
   end
 
+  -- FIXED: Ensure a clean separation space exists between the shell prompt '>' and your command string
+  if cmd_str ~= '' and not cmd_str:match('^%s') then
+    cmd_str = ' ' .. cmd_str
+  end
+
   -- 1. Direct background process pipe injection
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
@@ -176,7 +181,6 @@ function Terminal:send(command)
     pcall(vim.api.nvim_set_current_win, original_work_win)
   end
 end
-
 function Terminal:on_spawn()
   if self.job and self.job > 0 then
     return
@@ -251,20 +255,6 @@ function Terminal:on_open()
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
 
   self:_register_viewport_mappings()
-end
-
---- Explicit Interactive Input Hook
---- Force-reveals the split window layout and immediately transitions Neovim
---- into active Terminal-Insert Mode so you can type shell commands instantly.
-function Terminal:enter()
-  -- 1. Reveal this terminal instance tab split on screen
-  M.show(self.term_type)
-
-  -- 2. Force the cursor context directly into the shell prompt channel mapping zone
-  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    vim.api.nvim_set_current_win(M.layout.container_win)
-    vim.cmd('startinsert')
-  end
 end
 
 function Terminal:enter_insert_mode()
@@ -379,14 +369,6 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
 
   M.terminals[name]:on_create()
   return M.terminals[name]
-end
-
--- Map instance:enter() directly to your root table routing engine
-function M.enter(term_type)
-  local target = M.terminals[term_type or 'cli']
-  if target then
-    target:enter()
-  end
 end
 
 function M.show(term_type)
