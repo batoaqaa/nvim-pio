@@ -1,12 +1,11 @@
--- nvimpio/device/terminal.lua - Part 1
 --- stylua: ignore start
 local M = {}
 
--- 1. Anti-Crash Environment Fallbacks
+-- 1. Defend Against Global Environments Missing at Load Time
 local safe_shell = (OS and OS.shell) and OS.shell or vim.o.shell
 local safe_eol = (OS and OS.eol) and OS.eol or '\n'
 
--- 2. Fully Decoupled Configuration & Focus Exclusions Map
+-- 2. Configuration & Focus Exclusions Setup Matrix
 M.config = {
   panel_height = 0.2,
   winbar_bg = '#80a3d4',
@@ -40,7 +39,7 @@ M.config = {
 
 M.terminals = {}
 
--- Main Tiled Window Tracking State Context Matrix
+-- Core Layout Workspace Handle Matrix
 M.layout = {
   container_win = nil,
   active_type = nil,
@@ -127,9 +126,7 @@ function Terminal:on_create()
 
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
-
-  local fallback_lines = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  self:_register_lifecycle_events(fallback_lines)
+  self:_register_viewport_bindings()
 end
 
 function Terminal:on_spawn()
@@ -264,9 +261,8 @@ function Terminal:_register_viewport_mappings()
 end
 
 -- nvimpio/device/terminal.lua - Part 3
-function Terminal:_register_lifecycle_events(target_height)
-  -- CRITICAL FIX: Isolate each terminal's event stream group strictly to its own buffer
-  local group_id = vim.api.nvim_create_augroup('PioEvents_' .. self.buf, { clear = true })
+function Terminal:_register_viewport_bindings()
+  local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
   vim.api.nvim_create_autocmd('CmdlineLeave', {
     group = group_id,
@@ -295,18 +291,21 @@ function Terminal:_register_lifecycle_events(target_height)
       end)
     end,
   })
+end
 
-  -- THE DEFENSIVE TABPAGE SENTINEL GUARD (Isolated & Loop-Protected)
-  vim.api.nvim_create_autocmd('WinClosed', {
-    group = group_id,
+--- Initializes the single, global, structural workspace layout tracker
+function M._initialize_global_sentinel()
+  -- Using a fixed module-level group completely stops autocmd multipliers
+  local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
+
+  vim.api.nvim_create_autocmd({ 'WinClosed', 'WinLeave' }, {
+    group = global_group,
     callback = function()
-      -- Abort immediately if our container window layout is completely closed/hidden
       if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
         return
       end
 
       vim.schedule(function()
-        -- Re-verify layout handle remains valid inside the asynchronous execution boundary
         if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
           local open_wins = vim.api.nvim_tabpage_list_wins(0)
           local valid_wins = 0
@@ -321,7 +320,7 @@ function Terminal:_register_lifecycle_events(target_height)
             end
           end
 
-          -- If exactly 0 work files remain, a true layout collapse occurred. Recover.
+          -- If closing a split leaves ONLY our layout panels, reconstruct work space safely
           if valid_wins == 0 then
             local fallback = M.config.sentinel_fallback
             local scratch_buf = nil
@@ -341,7 +340,6 @@ function Terminal:_register_lifecycle_events(target_height)
               vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
             end
 
-            -- Temporarily hop down to terminal window to execute a clean layout-anchored split
             local old_current = vim.api.nvim_get_current_win()
             pcall(vim.api.nvim_set_current_win, M.layout.container_win)
 
@@ -353,8 +351,8 @@ function Terminal:_register_lifecycle_events(target_height)
               local top_work_win = vim.api.nvim_get_current_win()
               vim.api.nvim_win_set_buf(top_work_win, scratch_buf)
 
-              -- Enforce rigid bottom split orientation across entire layout split grid
-              vim.cmd('noautocmd wincmd J')
+              vim.cmd('noautocmd wincmd J') -- Firmly anchor terminal window frame at absolute bottom baseline
+              local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
               pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
               pcall(vim.api.nvim_set_current_win, top_work_win)
             else
@@ -409,9 +407,7 @@ function M.ShowTerminal(term_type)
     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
     M.layout.active_type = term_type
 
-    -- Force execution loop initialization context mapping updates
     target_instance:on_spawn()
-    target_instance:_register_viewport_mappings()
     M.UpdateWinbarTitles()
 
     if old_win == M.layout.container_win then
@@ -489,11 +485,14 @@ function M.setup(opts)
 end
 
 ----------------------------------------------------------------------------------------
--- MODULE INVOCATION ENGINE STAGE
+-- HARD MODULE INVOCATION CODES
 ----------------------------------------------------------------------------------------
 M.create_terminal('cli', ' Run Build Command Panel ', nil)
 M.create_terminal('server', ' Development Server Output ', nil)
 M.create_terminal('logs', ' System Logs Tail ', nil)
+
+-- Establish single workspace layout monitor listener loop exactly once on loading stage
+M._initialize_global_sentinel()
 
 setmetatable(M, {
   __index = function(table, key)
