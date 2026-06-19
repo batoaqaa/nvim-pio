@@ -300,6 +300,7 @@ local last_recovery_time = 0
 function M._initialize_global_sentinel()
   local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
 
+  -- Listen to WinClosed to detect when splits vanish or collapse
   vim.api.nvim_create_autocmd('WinClosed', {
     group = global_group,
     callback = function()
@@ -321,41 +322,24 @@ function M._initialize_global_sentinel()
 
       vim.schedule(function()
         if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-          -- 1. BUFFER SPECTRUM SHIELD: Verify if ANY normal code files remain loaded
-          local total_editable_buffers = 0
-          for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-            if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_is_loaded(buf) then
-              local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
-              local filetype = vim.api.nvim_get_option_value('filetype', { buf = buf })
-
-              -- Only count real user code files (ignore terminals, sidebars, scratchpads)
-              if buftype == '' and not M.config.ignored_focus_filetypes[filetype] then
-                total_editable_buffers = total_editable_buffers + 1
-              end
-            end
-          end
-
-          -- If you still have open source code buffers, ABORT. It was just a sidebar toggle!
-          if total_editable_buffers > 0 then
-            M.UpdateWinbarTitles()
-            return
-          end
-
-          -- 2. DYNAMIC LAYOUT AUDIT: Double-verify window slots
           local open_wins = vim.api.nvim_tabpage_list_wins(0)
           local valid_wins = 0
+
           for _, w in ipairs(open_wins) do
+            -- Look ahead: count windows left on the screen, skipping the terminal and the closing split
             if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win and w ~= closed_win then
               local b = vim.api.nvim_win_get_buf(w)
               local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
+
+              -- Only count real user workspace editing frames (ignore sidebars)
               if not M.config.ignored_focus_filetypes[ft] then
                 valid_wins = valid_wins + 1
               end
             end
           end
 
-          -- TRUE TOTAL RETREAT LAYOUT COLLAPSE (No files open at all anywhere)
-          if valid_wins == 0 and total_editable_buffers == 0 then
+          -- TRUE COLLAPSE CONDITION: Valid splits have dropped to exactly zero
+          if valid_wins == 0 then
             last_recovery_time = vim.uv.hrtime()
 
             local fallback = M.config.sentinel_fallback
@@ -376,6 +360,8 @@ function M._initialize_global_sentinel()
               vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
             end
 
+            -- 1. PURE C-API LAYOUT INJECTION (Bypasses erratic string split commands)
+            -- Opens the workspace buffer directly above our locked terminal panel window handle
             local target_term_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
             local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
             local target_workspace_height = total_editor_rows - target_term_height - 1
@@ -390,7 +376,10 @@ function M._initialize_global_sentinel()
             end)
 
             if win_open_success and top_work_win then
+              -- Prevent winbar configurations from leaking into the workspace panel split
               vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
+
+              -- Lock layout structural boundaries
               pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_term_height)
               pcall(vim.api.nvim_set_current_win, top_work_win)
             end
