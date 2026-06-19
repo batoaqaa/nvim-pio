@@ -293,49 +293,54 @@ function Terminal:_register_viewport_bindings()
   })
 end
 
+-- nvimpio/device/terminal.lua - Replace this function inside Part 3
+
 --- Initializes the single, global, structural workspace layout tracker
 function M._initialize_global_sentinel()
-  -- Centralized group stops event multiplier accumulation completely
+  -- Using a centralized group prevents event multiplier accumulation completely
   local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
 
-  -- Monitor ONLY WinClosed to avoid recursive focus shifts
+  -- Monitor ONLY WinClosed to avoid structural focus recursive loop triggers
   vim.api.nvim_create_autocmd('WinClosed', {
     group = global_group,
     callback = function()
-      -- Anti-freezing circuit: break execution if hidden, invalid, or already processing a recovery split
+      -- Anti-freezing loop guard: drop immediately if already recovering or terminal window is dead
       if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.is_recovering then
         return
       end
 
-      -- Identify the concrete window ID that Neovim is destroying right now
+      -- Identify the precise window handle ID being destroyed right now
       local closed_win = tonumber(vim.fn.expand('<amatch>'))
       if closed_win == M.layout.container_win then
-        -- If our layout container window itself was explicitly closed by the user, clear trackers and exit
+        -- If our terminal panel layout itself was explicitly closed by the user, purge trackers and drop out
         M.layout.container_win = nil
         M.layout.active_type = nil
         return
       end
 
       vim.schedule(function()
-        -- Ensure layout integrity inside the asynchronous scheduler pipeline boundary
+        -- Ensure layout handles remain valid inside the async macro pipeline boundary
         if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
           local open_wins = vim.api.nvim_tabpage_list_wins(0)
           local valid_wins = 0
 
           for _, w in ipairs(open_wins) do
-            -- Double check we are not using stale layout window handles that are currently closing
+            -- Ignore the terminal split window handle and the sidebar window that is actively dying
             if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win and w ~= closed_win then
               local b = vim.api.nvim_win_get_buf(w)
               local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
+
+              -- Use your central lookup table to skip tools like neo-tree, oil, and aerial
               if not M.config.ignored_focus_filetypes[ft] then
                 valid_wins = valid_wins + 1
               end
             end
           end
 
-          -- True Layout Collapse Discovered: 0 normal file editing slots are left
+          -- ⚠️ TRUE INTERCEPT TRIGGER: Only execute if exactly 0 normal file viewports remain on the screen!
+          -- If neo-tree closed but your normal file splits are still open, valid_wins will be > 0 and skip this entirely!
           if valid_wins == 0 then
-            -- ENGAGE THREAD RECURSION LOCK: Blocks incoming window updates from loop freezing
+            -- ENGAGE MAXIMUM THREAD LOCK: Drops all overlapping layout requests on the floor
             M.layout.is_recovering = true
 
             local fallback = M.config.sentinel_fallback
@@ -356,11 +361,13 @@ function M._initialize_global_sentinel()
               vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
             end
 
-            -- Shift pointer target down to terminal split line to execute clean horizontal cut away splits
+            -- Capture your last focus target layout state
             local old_current = vim.api.nvim_get_current_win()
+
+            -- Force focus back to the terminal split frame context BEFORE calculating splits
             pcall(vim.api.nvim_set_current_win, M.layout.container_win)
 
-            -- FIX: Changed 'topleft split' to 'aboveleft split' to prevent the terminal moving up the screen
+            -- Directional aboveleft layout split: prevents the terminal from floating up the viewport monitor space
             local split_success = pcall(function()
               vim.cmd('noautocmd aboveleft split')
             end)
@@ -369,10 +376,10 @@ function M._initialize_global_sentinel()
               local top_work_win = vim.api.nvim_get_current_win()
               vim.api.nvim_win_set_buf(top_work_win, scratch_buf)
 
-              -- Clean out any winbar rules inherited on the fallback window split
+              -- Clean layout out of the top fallback window workspace sheet context
               vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
 
-              vim.cmd('noautocmd wincmd J') -- Rigid enforcement layout lock: holds terminal baseline horizontally at bottom
+              vim.cmd('noautocmd wincmd J') -- Locks lower terminal layout split to absolute bottom edge line row baseline
               local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
               pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
               pcall(vim.api.nvim_set_current_win, top_work_win)
@@ -380,7 +387,7 @@ function M._initialize_global_sentinel()
               pcall(vim.api.nvim_set_current_win, old_current)
             end
 
-            -- RELEASE THREAD RECURSION LOCK: Safe to evaluate structural context updates again
+            -- DEACTIVATE THREAD RECURSION LOCK
             M.layout.is_recovering = false
           end
           M.UpdateWinbarTitles()
