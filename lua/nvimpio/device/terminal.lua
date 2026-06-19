@@ -363,7 +363,7 @@ function M.show(term_type)
     target_instance:on_create()
   end
 
-  -- If window container already exists, update and swap buffer cleanly
+  -- Standard manual interaction router: Intentionally moves focus into the terminal zone
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     local old_win = vim.api.nvim_get_current_win()
     pcall(vim.api.nvim_set_current_win, M.layout.container_win)
@@ -382,7 +382,6 @@ function M.show(term_type)
     return
   end
 
-  -- If opening for the first time, break recursion by manually triggering on_open and finalizing setup HERE
   target_instance:on_open()
   target_instance:on_spawn()
   M.UpdateWinbarTitles()
@@ -442,48 +441,58 @@ function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
---- CRITICAL FOCUS-LOCKED COMMAND PAYLOAD DISPATCHER
---- Forces the lower split window buffer to show 'cli' while keeping user focus inside their code file buffer.
+--- CRITICAL CRASH-PROOF FOCUS-LOCKED COMMAND PAYLOAD DISPATCHER
+--- Updates layout split states and shifts tab text strings in real-time, but programmatically
+--- bars your typing cursor context from ever shifting down into Terminal Insert mode.
 ---@param cmd string The shell payload command text string to execute
 function M.send_and_restore(cmd)
+  local original_work_win = vim.api.nvim_get_current_win()
   local was_visible = M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
+
   local target_instance = M.terminals.cli
   if not target_instance then
     return
   end
 
+  -- Guarantee target allocation buffers and underlying process pipes are initialized cleanly
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
   end
   target_instance:on_spawn()
 
-  -- Case 1 Loop: If terminal split is ALREADY open, swap buffer content instantly via pure low-level C-API
+  -- CASE 1: Lower terminal layout split is ALREADY open on 'mon' or 'logs'
   if was_visible then
+    -- Swap layout views cleanly via pure low-level C-API (Bypasses cursor focus changes completely)
     pcall(vim.api.nvim_win_set_buf, M.layout.container_win, target_instance.buf)
     M.layout.active_type = 'cli'
     M.UpdateWinbarTitles()
 
+    -- Dispatch compilation data straight down your background process pipe channel channel instantly
     if target_instance.job and target_instance.job > 0 then
       vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
     end
 
+    -- Force normal mode state limits to prevent Neovim from launching insert mode triggers
     vim.api.nvim_buf_call(target_instance.buf, function()
       vim.cmd('noautocmd stopinsert')
     end)
+
+    -- Double-insulate focus bounds back up inside your active text buffer window handle
+    if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
+      pcall(vim.api.nvim_set_current_win, original_work_win)
+    end
     return
   end
 
-  -- Case 2 Loop: Terminal split was completely hidden when command was issued
-  local original_work_win = vim.api.nvim_get_current_win()
+  -- CASE 2: Lower terminal layout split was hidden when command was issued
   local original_exit_callback = M.exit_callback
-
   M.exit_callback = function()
     M.exit_callback = original_exit_callback
     if type(M.exit_callback) == 'function' then
       M.exit_callback()
     end
 
-    -- Hide panel layout once the compiling action finishes executing
+    -- Dismiss panel layout once the compiling action drops off the channel
     vim.schedule(function()
       M.hide()
       if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
@@ -494,15 +503,35 @@ function M.send_and_restore(cmd)
     end)
   end
 
-  M.show('cli')
+  -- Open the layout below using standalone builders to completely shield against recursive require leaks
+  local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+  vim.go.splitkeep = 'screen'
+
+  M.layout.container_win = vim.api.nvim_open_win(target_instance.buf, true, {
+    split = 'below',
+    win = -1,
+    height = target_height,
+  })
+  M.layout.active_type = 'cli'
+
+  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+
+  target_instance:_register_viewport_mappings()
+  M.UpdateWinbarTitles()
+
+  -- Dispatch compilation instructions down the running job pipe
   if target_instance.job and target_instance.job > 0 then
     vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
   end
 
+  -- Force stop insert tracking mode and jump your cursor back up instantly
+  vim.cmd('noautocmd stopinsert')
   if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
     pcall(vim.api.nvim_set_current_win, original_work_win)
   end
-  vim.cmd('noautocmd stopinsert')
 end
 
 -- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
@@ -538,3 +567,4 @@ setmetatable(M, {
 })
 
 return M
+-- stylua: ignore end
