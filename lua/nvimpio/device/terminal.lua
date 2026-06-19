@@ -121,7 +121,7 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
   self.title = panel_title
-  self.filetype = filetype or 'terminal_' .. term_type
+  self.filetype = filetype or ('terminal_' .. term_type)
   self._custom_stdout = custom_stdout
   return self
 end
@@ -297,103 +297,72 @@ function Terminal:_register_lifecycle_events(target_height)
     end,
   })
 
-  -- FIXED SENTINEL GUARD (C-API Driven to Prevent cmdheight Bloat)
+  -- PRE-EMPTIVE LAYOUT SENTINEL ENGINEER (Intercepts collapses BEFORE the window closes)
+  vim.api.nvim_create_autocmd('QuitPre', {
+    group = platformio,
+    callback = function()
+      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
+        return
+      end
+
+      local open_wins = vim.api.nvim_tabpage_list_wins(0)
+      local valid_wins = 0
+
+      for _, w in ipairs(open_wins) do
+        if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win then
+          local b = vim.api.nvim_win_get_buf(w)
+          local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
+          -- Count real user workspace editing slots
+          if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' and not ft:match('^terminal_') then
+            valid_wins = valid_wins + 1
+          end
+        end
+      end
+
+      -- If valid_wins == 1, it means the window you are currently closing is your FINAL code file!
+      if valid_wins == 1 and vim.api.nvim_get_current_win() ~= M.layout.container_win then
+        vim.o.cmdheight = 1 -- Firm safety clamp against the command line stretching glitch
+
+        local scratch_buf = nil
+        for _, b in ipairs(vim.api.nvim_list_bufs()) do
+          if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
+            scratch_buf = b
+            break
+          end
+        end
+
+        if not scratch_buf then
+          scratch_buf = vim.api.nvim_create_buf(false, true)
+          vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]_' .. scratch_buf)
+          vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
+          vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
+          vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
+        end
+
+        -- HOT-SWAP INTERCEPT: Mount the scratch workspace inside the current file split context
+        -- right BEFORE it destroys the window. This programmatically blocks the full-screen layout collapse!
+        vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), scratch_buf)
+        M.UpdateWinbarTitles()
+      end
+    end,
+  })
+
+  -- SIDEBAR PROTECTION ENGINE: Safely clean up layout pointers on window closures
   vim.api.nvim_create_autocmd('WinClosed', {
     group = platformio,
     callback = function()
-      if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
+        return
+      end
+
+      local closed_win = tonumber(vim.fn.expand('<amatch>'))
+      if closed_win == M.layout.container_win then
+        M.layout.container_win = nil
+        M.layout.active_type = nil
+      else
+        -- Force target height compliance on adjacent sidebar adjustments asynchronously
         vim.schedule(function()
           if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-            local closed_win = tonumber(vim.fn.expand('<amatch>'))
-            if closed_win == M.layout.container_win then
-              M.layout.container_win = nil
-              M.layout.active_type = nil
-              return
-            end
-
-            -- Look-Ahead Protection: Scan loaded buffer list for active text documents
-            local real_files_open = false
-            for _, b in ipairs(vim.api.nvim_list_bufs()) do
-              if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_is_loaded(b) then
-                local bt = vim.api.nvim_get_option_value('buftype', { buf = b })
-                local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-                if
-                  bt == ''
-                  and ft ~= 'neo-tree'
-                  and ft ~= 'oil'
-                  and ft ~= 'aerial'
-                  and ft ~= 'pio_terminal'
-                  and ft ~= 'pio_workspace'
-                  and not ft:match('^terminal_')
-                then
-                  real_files_open = true
-                  break
-                end
-              end
-            end
-
-            -- Abort modifications completely if your code file is wide open behind a closed sidebar
-            if real_files_open then
-              pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
-              M.UpdateWinbarTitles()
-              return
-            end
-
-            local open_wins = vim.api.nvim_tabpage_list_wins(0)
-            local valid_wins = 0
-            for _, w in ipairs(open_wins) do
-              if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win and w ~= closed_win then
-                local b = vim.api.nvim_win_get_buf(w)
-                local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-                if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' and not ft:match('^terminal_') then
-                  valid_wins = valid_wins + 1
-                end
-              end
-            end
-
-            -- TRUE TOTAL RETREAT LAYOUT COLLAPSE (Fires only when the last code buffer window is closed)
-            if valid_wins == 0 then
-              -- Firmly lock cmdheight back to 1 to block the 80% command-line expansion bug
-              vim.o.cmdheight = 1
-
-              local scratch_buf = nil
-              for _, b in ipairs(vim.api.nvim_list_bufs()) do
-                if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
-                  scratch_buf = b
-                  break
-                end
-              end
-
-              if not scratch_buf then
-                scratch_buf = vim.api.nvim_create_buf(false, true)
-                vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]_' .. scratch_buf)
-                vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
-                vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
-                vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
-              end
-
-              -- Calculate exact vertical space metrics remaining for target calculations
-              local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
-              local target_workspace_height = total_editor_rows - target_height - 1
-
-              -- PURE LOW-LEVEL C-API INJECTION (Replaces "topleft split" and "wincmd J" completely)
-              -- Opens the workspace buffer directly ABOVE the terminal window frame anchor
-              local top_work_win = nil
-              local win_open_success = pcall(function()
-                top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
-                  split = 'above',
-                  win = M.layout.container_win,
-                  height = math.max(2, target_workspace_height),
-                })
-              end)
-
-              if win_open_success and top_work_win then
-                vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
-                pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
-                pcall(vim.api.nvim_set_current_win, top_work_win)
-              end
-            end
-
             pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
             M.UpdateWinbarTitles()
           end
