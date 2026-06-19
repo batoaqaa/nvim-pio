@@ -1,5 +1,4 @@
 -- nvimpio/device/terminal.lua - Part 1
-
 local M = {}
 
 -- 1. Defend Against Global Environments Missing at Load Time
@@ -127,10 +126,7 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
   self.title = panel_title
-
-  -- Enforce explicit evaluation boundaries to eliminate expression ambiguity
   self.filetype = filetype or ('terminal_' .. term_type)
-
   self._custom_stdout = custom_stdout
   return self
 end
@@ -144,23 +140,16 @@ end
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
 
-  -- If the lower split is closed or showing a different tab, pull open the split layout safely
   if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.active_type ~= self.term_type then
     M.show(self.term_type)
   end
-
   if not self.job or self.job <= 0 then
     return
   end
 
-  -- Dispatch text command payload downstream directly into process pipe channel instantly.
-  -- This keeps your window layout undisturbed and your typing focus completely safe.
+  vim.api.nvim_set_current_win(M.layout.container_win)
+  self:enter_insert_mode()
   vim.fn.chansend(self.job, cmd_str .. self.newline)
-
-  -- Force normal mode layout enforcement inside the lower split window container context
-  vim.api.nvim_buf_call(self.buf, function()
-    vim.cmd('noautocmd stopinsert')
-  end)
 end
 
 function Terminal:on_spawn()
@@ -220,7 +209,7 @@ function Terminal:close()
   M.hide()
 end
 
--- FIX: Restored the isolated, native window allocation split. No more circular require loop calls!
+-- CRITICAL RECURSION REMOVAL: Raw native split builder only. Never calls M.show()!
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
 
@@ -374,6 +363,7 @@ function M.show(term_type)
     target_instance:on_create()
   end
 
+  -- If window container already exists, update and swap buffer cleanly
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     local old_win = vim.api.nvim_get_current_win()
     pcall(vim.api.nvim_set_current_win, M.layout.container_win)
@@ -392,6 +382,7 @@ function M.show(term_type)
     return
   end
 
+  -- If opening for the first time, break recursion by manually triggering on_open and finalizing setup HERE
   target_instance:on_open()
   target_instance:on_spawn()
   M.UpdateWinbarTitles()
@@ -466,7 +457,7 @@ function M.send_and_restore(cmd)
   end
   target_instance:on_spawn()
 
-  -- 1. If terminal split is ALREADY open, swap buffer content instantly via pure low-level C-API
+  -- Case 1 Loop: If terminal split is ALREADY open, swap buffer content instantly via pure low-level C-API
   if was_visible then
     pcall(vim.api.nvim_win_set_buf, M.layout.container_win, target_instance.buf)
     M.layout.active_type = 'cli'
@@ -482,7 +473,7 @@ function M.send_and_restore(cmd)
     return
   end
 
-  -- 2. Case 2 Loop: Terminal split was completely hidden when command was issued
+  -- Case 2 Loop: Terminal split was completely hidden when command was issued
   local original_work_win = vim.api.nvim_get_current_win()
   local original_exit_callback = M.exit_callback
 
@@ -492,6 +483,7 @@ function M.send_and_restore(cmd)
       M.exit_callback()
     end
 
+    -- Hide panel layout once the compiling action finishes executing
     vim.schedule(function()
       M.hide()
       if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
@@ -546,4 +538,3 @@ setmetatable(M, {
 })
 
 return M
--- stylua: ignore end
