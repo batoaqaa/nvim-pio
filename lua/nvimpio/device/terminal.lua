@@ -2,7 +2,7 @@
 
 local M = {}
 
--- 1. Insulated Cross-Platform Environment Discovery
+-- 1. Insulated Cross-Platform Environment Discovery Matrix
 local system_is_windows = vim.uv.os_uname().sysname:match('Windows') ~= nil
 local native_shell = system_is_windows and 'cmd.exe' or (vim.o.shell or 'sh')
 local native_eol = system_is_windows and '\r\n' or '\n'
@@ -29,13 +29,13 @@ M.stdout_callback = nil
 M.exit_callback = nil
 M.terminals = {}
 
--- Pinned Workspace Tree Sizing Metrics
+-- Pinned Workspace Tree Sizing Metrics Matrix
 M.layout = {
   container_win = nil, -- SINGLE REGULATED SPLIT WINDOW HANDLE
   active_type = nil, -- Current visible terminal key name string
 }
 
---- Immutable C-API Winbar Renderer Matrix
+--- Pure C-API Highlight winbar renderer (Preserves explicit layout creation order)
 function M.UpdateWinbarTitles()
   local maps = M.config.keymaps
 
@@ -76,7 +76,7 @@ function M.UpdateWinbarTitles()
   vim.api.nvim_set_option_value('winbar', tab_string .. '%=' .. hint, { scope = 'local', win = M.layout.container_win })
 end
 
---- Dynamic Workspace Tree Focus Router
+--- Dynamic Workspace Tree Focus Router Matrix
 function M.RestoreWorkspaceFocus()
   local target_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -138,7 +138,7 @@ function Terminal:on_create()
   self:_register_viewport_bindings()
 end
 
---- Rigid Focus-Locked Background Process Payload Dispatcher
+--- Rigid Focus-Locked Background Process Payload Dispatcher Matrix
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
   local original_work_win = vim.api.nvim_get_current_win()
@@ -151,18 +151,18 @@ function Terminal:send(command)
     return
   end
 
-  -- FIXED: Ensure a clean separation space exists between the shell prompt '>' and your command string
+  -- 1. Format padding check: Ensure a clean space separation exists after the prompt character
   if cmd_str ~= '' and not cmd_str:match('^%s') then
     cmd_str = ' ' .. cmd_str
   end
 
-  -- 1. Direct background process pipe injection
+  -- 2. Direct background process pipe injection payload string
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
-  -- 2. Clean low-level normal mode constraint injection
+  -- 3. Clean low-level normal mode constraint injection
   vim.api.nvim_set_option_value('winbar', vim.api.nvim_get_option_value('winbar', { win = M.layout.container_win }), { win = M.layout.container_win })
 
-  -- 3. Atomic Viewport Pinning: Snaps the text view instantly without cursor focus shifting
+  -- 4. Atomic Viewport Pinning: Snaps the text view instantly without cursor focus shifting
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) and not self._is_scrolling then
     self._is_scrolling = true
     vim.schedule(function()
@@ -176,11 +176,12 @@ function Terminal:send(command)
     end)
   end
 
-  -- 4. Hard focus lock: Reverts cursor to the original file buffer instantly
+  -- 5. Hard focus lock: Reverts cursor to the original file buffer instantly
   if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
     pcall(vim.api.nvim_set_current_win, original_work_win)
   end
 end
+
 function Terminal:on_spawn()
   if self.job and self.job > 0 then
     return
@@ -297,6 +298,7 @@ end
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
+  -- Intercept manual command exits (:q and :q!)
   vim.api.nvim_create_autocmd('CmdlineLeave', {
     group = group_id,
     buffer = self.buf,
@@ -325,6 +327,7 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 
+  -- FIXED WORKSPACE GUARD: Safely releases window parameters upon manual pane closure
   vim.api.nvim_create_autocmd('WinClosed', {
     group = group_id,
     callback = function()
@@ -461,6 +464,7 @@ function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
+--- CRITICAL STATEFUL COMMAND DISPATCHER MATRIX
 function M.send_and_restore(cmd)
   local was_visible = M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
   local target_instance = M.terminals.cli
