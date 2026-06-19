@@ -140,9 +140,9 @@ function Terminal:on_create()
   self:_register_viewport_bindings()
 end
 
--- FIXED FOCUS-LOCKED SEND METHOD
--- Sends commands entirely in the background. It updates the terminal screen layout
--- in real-time below, but completely leaves your active file buffer focus untouched.
+-- FIXED SCROLL-LOCKED SEND METHOD
+-- Sends commands entirely in the background, updates the lower terminal view,
+-- and forcefully autoscrolls the terminal buffer grid to the absolute bottom row.
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
 
@@ -158,14 +158,28 @@ function Terminal:send(command)
     return
   end
 
-  -- 1. CRITICAL: Dispatch text command payload downstream directly into process pipe channel.
-  -- Bypassing window focus alterations keeps your typing context safe.
+  -- 1. Dispatch text command payload downstream directly into process pipe channel
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
-  -- 2. Force normal mode layout enforcement inside the lower split window container context
+  -- 2. AUTOMATIC BOTTOM SCROLL LOCK ENGINE
+  -- Programmatically force the split window container to jump to its last line.
+  -- This allows you to see the compilation output stream in real-time.
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    vim.schedule(function()
+      if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
+        local line_count = vim.api.nvim_buf_line_count(self.buf)
+        if line_count > 0 and M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+          -- Set cursor to (last_line, column_0) inside the terminal split handle
+          pcall(vim.api.nvim_win_set_cursor, M.layout.container_win, { line_count, 0 })
+        end
+      end
+    end)
+  end
+
+  -- 3. Force normal mode layout enforcement inside the lower split window container context
   vim.cmd('noautocmd stopinsert')
 
-  -- 3. Hard-restore cursor focus back into the user's active file buffer instantly
+  -- 4. Hard-restore cursor focus back into the user's active file buffer instantly
   if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
     pcall(vim.api.nvim_set_current_win, original_work_win)
   end
@@ -287,7 +301,6 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
 -- stylua: ignore end
-
 -- nvimpio/device/terminal.lua - Part 3
 
 function Terminal:_register_viewport_bindings()
