@@ -1,7 +1,7 @@
 local M = {}
 
 -- local term = require('nvimpio.device.terminal')
-local term = require('nvimpio.device.terminal').terminals
+-- local term = require('nvimpio.device.terminal').terminals
 
 --- Handles and formats asynchronous vim.system errors cleanly
 ---@param from string The notification origin tag
@@ -29,7 +29,7 @@ local function notify_system_error(from, prefix_msg, obj)
   OS.notify(from .. prefix_msg .. error_text .. details, 'error')
 end
 
--- stylua: ignore start
+--- stylua: ignore start
 --INFO: Generate idedata.json
 ------------------------------------------------------------------------------------
 function M.buildIdedata(from, active_env, cb)
@@ -42,7 +42,9 @@ function M.buildIdedata(from, active_env, cb)
         notify_system_error(from, string.format('build idedata for %s failed: ', active_env), obj)
       end
 
-      if cb and type(cb) == "function" then cb(ok) end
+      if cb and type(cb) == 'function' then
+        cb(ok)
+      end
     end)
   end)
   return true
@@ -59,7 +61,7 @@ function M.buildCompileDB(from, active_env, cb)
   -- =========================================================================
 
   active_env = active_env or _G.metadata.active_env
-  vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { timeout = 60000,  text = true }, function(obj)
+  vim.system({ 'pio', 'run', '-t', 'compiledb', '-e', active_env }, { timeout = 60000, text = true }, function(obj)
     vim.schedule(function()
       local ok = (obj.code == 0)
       if ok then
@@ -67,7 +69,9 @@ function M.buildCompileDB(from, active_env, cb)
       else
         notify_system_error(from, string.format('build compiledb for %s failed: ', active_env), obj)
       end
-      if cb and type(cb) == "function" then cb(ok) end
+      if cb and type(cb) == 'function' then
+        cb(ok)
+      end
     end)
   end)
 end
@@ -75,14 +79,19 @@ end
 --INFO: Piocli
 ------------------------------------------------------
 function M.piocli(cmd_table)
+  local term = require('nvimpio.device.terminal').terminals
   local cmd = (cmd_table[1] == '') and '' or ('pio ' .. table.concat(cmd_table, ' '))
-  if cmd ~= '' then term.cli:send(cmd)
-  else term.cli:show() end
+  if cmd ~= '' then
+    term.cli:send(cmd)
+  else
+    term.cli:show()
+  end
 end
 
 --INFO: Piodebug
 ------------------------------------------------------
 function M.piodebug(_)
+  local term = require('nvimpio.device.terminal').terminals
   local command = 'pio debug --interface=gdb -- -x .pioinit'
   term.cli:send(command)
 end
@@ -90,8 +99,10 @@ end
 --INFO: Piomon
 ------------------------------------------------------
 function M.piomon(args_table)
+  local term = require('nvimpio.device.terminal').terminals
   local command = nil
-  if #args_table == 0 then command = 'pio device monitor'
+  if #args_table == 0 then
+    command = 'pio device monitor'
   elseif #args_table == 1 then
     local baud_rate = args_table[1]
     command = string.format('pio device monitor -b %s', baud_rate)
@@ -101,7 +112,8 @@ function M.piomon(args_table)
     command = string.format('pio device monitor -b %s -p %s', baud_rate, port)
   end
 
-  if command == nil then OS.notify('Usage: Piomon <baud> <port>', "error")
+  if command == nil then
+    OS.notify('Usage: Piomon <baud> <port>', 'error')
   else
     vim.schedule(function()
       term.mon:send(command)
@@ -113,32 +125,43 @@ end
 --INFO: Piorun
 ------------------------------------------------------
 function M.piobuild()
+  local term = require('nvimpio.device.terminal').terminals
   local command = 'pio run'
   term.cli:send(command)
 end
 
 function M.pioupload()
+  local term = require('nvimpio.device.terminal').terminals
   local command = 'pio run --target upload'
   term.cli:send(command)
 end
 
 function M.piouploadfs()
+  local term = require('nvimpio.device.terminal').terminals
   local command = 'pio run --target uploadfs'
   term.cli:send(command)
 end
 
 function M.pioclean()
+  local term = require('nvimpio.device.terminal').terminals
   local command = 'pio run --target clean'
   term.cli:send(command)
 end
 
 function M.piorun(arg_table)
-  if arg_table[1] == '' then M.piobuild()
-  elseif arg_table[1] == 'upload' then M.pioupload()
-  elseif arg_table[1] == 'uploadfs' then M.piouploadfs()
-  elseif arg_table[1] == 'build' then M.piobuild()
-  elseif arg_table[1] == 'clean' then M.pioclean()
-  else OS.notify('Invalid argument: build, upload, uploadfs or clean', 'warn') end
+  if arg_table[1] == '' then
+    M.piobuild()
+  elseif arg_table[1] == 'upload' then
+    M.pioupload()
+  elseif arg_table[1] == 'uploadfs' then
+    M.piouploadfs()
+  elseif arg_table[1] == 'build' then
+    M.piobuild()
+  elseif arg_table[1] == 'clean' then
+    M.pioclean()
+  else
+    OS.notify('Invalid argument: build, upload, uploadfs or clean', 'warn')
+  end
 end
 -- stylua: ignore end
 
