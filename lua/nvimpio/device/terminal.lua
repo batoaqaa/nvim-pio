@@ -137,13 +137,15 @@ function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
 
-  -- 1. DEFINE REVERSED HIGHLIGHT GROUP: Mixes bold weight with inverted cell color fields
+  -- 1. DEFINE REVERSED HIGHLIGHT GROUP: Mixes bold weight with inverted cell colors
   vim.api.nvim_set_hl(0, 'PioReverseTerminalCommand', { bold = true, reverse = true, default = true })
 
-  -- 2. STABLE BUFFER SYNTAX ENGINE INITIALIZATION: Uses \zs to color starting from the word 'pio'
+  -- 2. DYNAMIC BUFFER SYNTAX INITIALIZATION:
+  -- The \zs marker forces the reverse highlight block to start EXACTLY on the first
+  -- non-whitespace character following the prompt arrow '>', regardless of what the command is!
   vim.api.nvim_buf_call(self.buf, function()
-    vim.cmd([[syntax match PioReverseTerminalCommand /> \zspio\s.*$/]])
-    vim.cmd([[syntax match PioReverseTerminalCommand />\zs\spio\s.*$/]])
+    vim.cmd([[syntax match PioReverseTerminalCommand /^\s*>\s*\zs\S.*$/]])
+    -- vim.cmd([[syntax match PioReverseTerminalCommand />\s*\zs\S.*$/]])
   end)
 
   self:_register_viewport_bindings()
