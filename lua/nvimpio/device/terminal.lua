@@ -445,7 +445,7 @@ function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
---- INSTANT STATEFUL AUTOMATION RESTORATION ENGINE (Case 1 and 2 Focus Locked)
+--- CRITICAL INSTANT STATEFUL AUTOMATION RESTORATION ENGINE (Case 1 and 2 Focus Locked)
 --- Sends commands downstream while keeping the target lane or hidden status synchronized.
 ---@param cmd string The shell payload command text string to execute
 function M.send_and_restore(cmd)
@@ -458,17 +458,34 @@ function M.send_and_restore(cmd)
     return
   end
 
-  -- 1. If terminal is ALREADY open, force-swap view to cli and fire immediately
+  -- Ensure the buffer and the backend job channel are initialized completely
+  if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
+    target_instance:on_create()
+  end
+  target_instance:on_spawn()
+
+  -- 1. Case 1 Loop: If terminal is ALREADY open, swap buffer seamlessly via C-API without jumping focus
   if was_visible then
-    M.show('cli')
+    -- Swap layout view to cli buffer invisibly at the low-level window tree index layer
+    pcall(vim.api.nvim_win_set_buf, M.layout.container_win, target_instance.buf)
+
+    -- Dispatch text command payload downstream into process pipe channel instantly
     if target_instance.job and target_instance.job > 0 then
       vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
     end
 
-    -- Case 1: Immediately revert split tab selection view back to your 'mon' pane
-    M.show(previous_pane)
+    -- Revert split tab selection buffer back to previous pane ('mon' or 'logs') cleanly
+    local prev_instance = M.terminals[previous_pane]
+    if prev_instance and prev_instance.buf and vim.api.nvim_buf_is_valid(prev_instance.buf) then
+      pcall(vim.api.nvim_win_set_buf, M.layout.container_win, prev_instance.buf)
+    end
 
-    -- Return cursor focus securely back to the file buffer
+    M.layout.active_type = previous_pane
+    M.UpdateWinbarTitles()
+
+    -- Force execution out of insert mode bounds to avoid lockouts
+    vim.cmd('noautocmd stopinsert')
+
     if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
       pcall(vim.api.nvim_set_current_win, original_work_win)
     end
@@ -483,7 +500,6 @@ function M.send_and_restore(cmd)
       M.exit_callback()
     end
 
-    -- Hide panel layout once the compiling action drops off the channel
     vim.schedule(function()
       M.hide()
       if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
@@ -494,12 +510,13 @@ function M.send_and_restore(cmd)
     end)
   end
 
-  -- Reveal split pane context, fire command, and pass cursor right back up
+  -- Force open split window layout, fire command, and pass focus right back up
   M.show('cli')
   if target_instance.job and target_instance.job > 0 then
     vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
   end
 
+  vim.cmd('noautocmd stopinsert')
   if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
     pcall(vim.api.nvim_set_current_win, original_work_win)
   end
