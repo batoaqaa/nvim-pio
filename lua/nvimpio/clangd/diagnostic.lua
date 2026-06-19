@@ -270,6 +270,7 @@ function M.manage_file_diagnostics_interactive(state_override)
   local block_count = 0
   for _ in pairs(active_file_blocked) do block_count = block_count + 1 end
 
+  --------------------------------------------------------------------------------------------
   vim.ui.select(items, {
     prompt = string.format('📁 %s | Blocked: %d', vim.fs.basename(filter_db_path), block_count),
     format_item = function(item) return item.text end,
@@ -301,14 +302,14 @@ function M.manage_file_diagnostics_interactive(state_override)
       return -- Halts execution completely.
     end
 
-    -- 🟢 GATE 2: User clicked an automated read-only logger flag row item
+    -- GATE 2: User clicked an automated read-only logger flag row item
     if choice.action == 'none' then
       return -- Do nothing, let user keep browsing
     end
 
-    -- 🟢 GATE 3: User selected a valid row checkbox item to toggle.
+    -- GATE 3: User selected a valid row checkbox item to toggle.
     -- This modifies active_file_blocked in live parent RAM memory instantly!
-    if choice.action == 'reset' then 
+    if choice.action == 'reset' then
       active_file_blocked = {}
       -- Clear all checkbox marks globally for the live redraw engine
       for _, item in ipairs(items) do
@@ -317,11 +318,11 @@ function M.manage_file_diagnostics_interactive(state_override)
           item.text = string.format('  [ ] Suppress Code: [%s]', item.id)
         end
       end
-    elseif choice.action == 'block' then 
+    elseif choice.action == 'block' then
       active_file_blocked[choice.id] = true
       choice.action = 'unblock' -- Flip item state string
-    elseif choice.action == 'unblock' then 
-      active_file_blocked[choice.id] = nil 
+    elseif choice.action == 'unblock' then
+      active_file_blocked[choice.id] = nil
       choice.action = 'block' -- Flip item state string
     end
 
@@ -332,10 +333,11 @@ function M.manage_file_diagnostics_interactive(state_override)
       local status = is_blocked and 'Restore' or 'Suppress'
       choice.text = string.format('  %s %s Code: [%s]', mark, status, choice.id)
     end
-    
+
     -- 🟢 THE FLICKER ELIMINATOR:
     -- The old recursive call 'M.manage_file_diagnostics_interactive(active_file_blocked)' is DELETED.
     -- The window remains open, and control.lua updates your checkboxes smoothly.
+    --------------------------------------------------------------------------------------------
   end)
   -- vim.ui.select(items, {
   --   prompt = string.format('📁 %s | Blocked: %d', vim.fs.basename(filter_db_path), block_count),

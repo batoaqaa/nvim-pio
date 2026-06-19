@@ -258,7 +258,7 @@ local dropdown_settings = {
   selection_caret  = "❯ ",
   entry_prefix     = "  ",
   layout_config = {
-    height = 25, 
+    height = 25,
     prompt_position = "top",
   },
 }
@@ -305,14 +305,13 @@ vim.ui.select = function(items, opts, on_choice)
       prompt_prefix = (opts.prompt and ("🔍 " .. opts.prompt .. " › ")) or "🔍  ",
       finder = make_entry_list(), -- Uses our entry maker list tracker
       sorter = require('telescope.sorters').get_generic_fuzzy_sorter({}),
-      
+
       borderchars = {
-        prompt  = { "─", "│", " ", "│", "╭", "╮", "│", "│" }, 
-        results = { "─", "│", "─", "│", "├", "┤", "╯", "╰" }, 
+        prompt  = { "─", "│", " ", "│", "╭", "╮", "│", "│" },
+        results = { "─", "│", "─", "│", "├", "┤", "╯", "╰" },
         preview = { "─", "│", "─", "│", "╭", "╮", "╯", "╰" },
       },
       attach_mappings = function(prompt_bufnr, map)
-        
         -- Hitting Escape or q signals the menu to close and fires the single save disk dump
         local close_and_trigger_save = function()
           actions.close(prompt_bufnr)
@@ -340,7 +339,7 @@ vim.ui.select = function(items, opts, on_choice)
           if current_picker then
             -- Forces the current row text lines to re-evaluate ([ ] changes to [*] instantly)
             current_picker:refresh(make_entry_list(), { reset_prompt = false })
-            
+
             -- Lock the cursor perfectly back down to the row the user just clicked
             vim.api.nvim_win_set_cursor(current_picker.results_win, { clicked_index, 0 })
           end
