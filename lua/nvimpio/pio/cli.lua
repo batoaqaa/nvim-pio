@@ -79,7 +79,8 @@ end
 --INFO: Piocli
 ------------------------------------------------------
 function M.piocli(cmd_table)
-  local term = require('nvimpio.device.terminal').terminals
+  -- local term = require('nvimpio.device.terminal').terminals
+  local term = require('nvimpio.device.terminal')
   local cmd = (cmd_table[1] == '') and '' or ('pio ' .. table.concat(cmd_table, ' '))
   if cmd ~= '' then
     term.cli:send(cmd)
@@ -91,7 +92,7 @@ end
 --INFO: Piodebug
 ------------------------------------------------------
 function M.piodebug(_)
-  local term = require('nvimpio.device.terminal').terminals
+  local term = require('nvimpio.device.terminal')
   local command = 'pio debug --interface=gdb -- -x .pioinit'
   term.cli:send(command)
 end
@@ -99,7 +100,7 @@ end
 --INFO: Piomon
 ------------------------------------------------------
 function M.piomon(args_table)
-  local term = require('nvimpio.device.terminal').terminals
+  local term = require('nvimpio.device.terminal')
   local command = nil
   if #args_table == 0 then
     command = 'pio device monitor'
@@ -125,25 +126,25 @@ end
 --INFO: Piorun
 ------------------------------------------------------
 function M.piobuild()
-  local term = require('nvimpio.device.terminal').terminals
+  local term = require('nvimpio.device.terminal')
   local command = 'pio run'
   term.cli:send(command)
 end
 
 function M.pioupload()
-  local term = require('nvimpio.device.terminal').terminals
+  local term = require('nvimpio.device.terminal')
   local command = 'pio run --target upload'
   term.cli:send(command)
 end
 
 function M.piouploadfs()
-  local term = require('nvimpio.device.terminal').terminals
+  local term = require('nvimpio.device.terminal')
   local command = 'pio run --target uploadfs'
   term.cli:send(command)
 end
 
 function M.pioclean()
-  local term = require('nvimpio.device.terminal').terminals
+  local term = require('nvimpio.device.terminal')
   local command = 'pio run --target clean'
   term.cli:send(command)
 end
