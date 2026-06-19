@@ -455,8 +455,12 @@ end
 ----------------------------------------------------------------------------------------
 -- SYSTEM FACTORY CHANNELS INITIALIZATION
 ----------------------------------------------------------------------------------------
-M.create_terminal('cli', ' Pio CLI ', function(j, d, e) end)
-M.create_terminal('server', ' Dev Server ', function(j, d, e) end)
+M.create_terminal('cli', ' Pio CLI ', function(j, d, e)
+  if type(M.stdout_callback) == 'function' then
+    M.stdout_callback(j, d, e)
+  end
+end)
+M.create_terminal('mon', ' monitor ', nil)
 M.create_terminal('logs', ' Target Logs ', nil)
 
 setmetatable(M, {
