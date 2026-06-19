@@ -274,8 +274,6 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
 
--- nvimpio/device/terminal.lua - Part 3
-
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
@@ -307,84 +305,20 @@ function Terminal:_register_viewport_bindings()
       end)
     end,
   })
-end
 
---- Initializes the single, global structural workspace layout tracker
-function M._initialize_global_sentinel()
-  local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
-
-  -- THE IMMUTABLE RESOLUTION LAYOUT ENGINEER (Bypasses WinClosed, WinNew, and BufWinEnter entirely)
-  -- Monitors buffer lifecycle state directly to protect layout boundaries safely
-  vim.api.nvim_create_autocmd({ 'BufDelete', 'WinLeave' }, {
-    group = global_group,
+  -- FIXED WORKSPACE GUARD: Safely releases window parameters upon manual pane closure
+  vim.api.nvim_create_autocmd('WinClosed', {
+    group = group_id,
     callback = function()
-      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.is_recovering then
+      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
         return
       end
 
-      vim.schedule(function()
-        if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-          local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-          local open_wins = vim.api.nvim_tabpage_list_wins(0)
-          local valid_wins = 0
-
-          for _, w in ipairs(open_wins) do
-            if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win then
-              local b = vim.api.nvim_win_get_buf(w)
-              local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-              if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' and not ft:match('^terminal_') then
-                valid_wins = valid_wins + 1
-              end
-            end
-          end
-
-          -- TRUE INTERCEPT CONFIGURATION: Fires ONLY if exactly 0 normal editing slits remain open
-          if valid_wins == 0 then
-            M.layout.is_recovering = true
-            vim.o.cmdheight = 1 -- Programmatic safety floor block against cmdheight bloat
-
-            local scratch_buf = nil
-            for _, b in ipairs(vim.api.nvim_list_bufs()) do
-              if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
-                scratch_buf = b
-                break
-              end
-            end
-
-            if not scratch_buf then
-              scratch_buf = vim.api.nvim_create_buf(false, true)
-              vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]')
-              vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
-              vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
-              vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
-            end
-
-            -- programmatically mount workspace via atomic API allocations (Zero vim.cmd splits)
-            local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
-            local target_workspace_height = total_editor_rows - target_height - 1
-
-            local top_work_win = nil
-            local win_open_success = pcall(function()
-              top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
-                split = 'above',
-                win = M.layout.container_win,
-                height = math.max(2, target_workspace_height),
-              })
-            end)
-
-            if win_open_success and top_work_win then
-              vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
-              pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
-              pcall(vim.api.nvim_set_current_win, top_work_win)
-            end
-
-            M.layout.is_recovering = false
-          end
-
-          pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
-          M.UpdateWinbarTitles()
-        end
-      end)
+      local closed_win = tonumber(vim.fn.expand('<amatch>'))
+      if closed_win == M.layout.container_win then
+        M.layout.container_win = nil
+        M.layout.active_type = nil
+      end
     end,
   })
 end
@@ -407,6 +341,7 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
 
   M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
 
+  -- Create legacy direct references for your old configuration routes (like M.cli)
   if name == 'cli' then
     M.cli = M.terminals.cli
   end
@@ -434,9 +369,15 @@ function M.ShowTerminal(term_type)
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     local old_win = vim.api.nvim_get_current_win()
     pcall(vim.api.nvim_set_current_win, M.layout.container_win)
+
+    -- 1. CRITICAL ORDER CORRECTION: Map viewport controls to buffer context FIRST
+    target_instance:_register_viewport_mappings()
+
+    -- 2. Swap the buffer into view inside the active layout split window
     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
     M.layout.active_type = term_type
 
+    -- 3. Initialize the process shell channel stream securely
     target_instance:on_spawn()
     M.UpdateWinbarTitles()
 
@@ -471,7 +412,6 @@ function M.ToggleTerminal()
   end
 end
 
--- Native structural view swapper mapping loop
 function M.SwitchTerminalPane()
   local keys = {}
   for k, _ in pairs(M.terminals) do
@@ -516,14 +456,11 @@ function M.setup(opts)
 end
 
 ----------------------------------------------------------------------------------------
--- SYSTEM INITIALIZATION LIFECYCLE PIN CONNECTIONS
+-- SYSTEM FACTORY CHANNELS INITIALIZATION
 ----------------------------------------------------------------------------------------
-M.create_terminal('cli', ' Pio CLI ', function(job, data, event) end)
-M.create_terminal('server', ' Dev Server ', function(job, data, event) end)
+M.create_terminal('cli', ' Pio CLI ', function(j, d, e) end)
+M.create_terminal('server', ' Dev Server ', function(j, d, e) end)
 M.create_terminal('logs', ' Target Logs ', nil)
-
--- Hook up the isolated workspace tracker layout group exactly once on startup loading
-M._initialize_global_sentinel()
 
 setmetatable(M, {
   __index = function(table, key)
