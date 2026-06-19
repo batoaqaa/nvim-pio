@@ -337,8 +337,7 @@ function M._initialize_global_sentinel()
             end
           end
 
-          -- ⚠️ TRUE INTERCEPT TRIGGER: Only execute if exactly 0 normal file viewports remain on the screen!
-          -- If neo-tree closed but your normal file splits are still open, valid_wins will be > 0 and skip this entirely!
+          -- TRUE INTERCEPT TRIGGER: Only execute if exactly 0 normal file viewports remain on the screen!
           if valid_wins == 0 then
             -- ENGAGE MAXIMUM THREAD LOCK: Drops all overlapping layout requests on the floor
             M.layout.is_recovering = true
@@ -361,30 +360,31 @@ function M._initialize_global_sentinel()
               vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
             end
 
-            -- Capture your last focus target layout state
-            local old_current = vim.api.nvim_get_current_win()
+            -- 1. PURE C-API WINDOW SPLET GENERATION (Replaces vim.cmd split strings entirely)
+            -- This explicitly carves out space ABOVE the terminal, forcing the terminal down
+            local current_term_buf = vim.api.nvim_win_get_buf(M.layout.container_win)
+            local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
+            local target_term_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+            local target_workspace_height = total_editor_rows - target_term_height - 1
 
-            -- Force focus back to the terminal split frame context BEFORE calculating splits
-            pcall(vim.api.nvim_set_current_win, M.layout.container_win)
-
-            -- Directional aboveleft layout split: prevents the terminal from floating up the viewport monitor space
-            local split_success = pcall(function()
-              vim.cmd('noautocmd aboveleft split')
+            local top_work_win = nil
+            local win_open_success = pcall(function()
+              -- Mount the fallback buffer directly above the terminal using pixel-perfect layout configurations
+              top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
+                split = 'above',
+                win = M.layout.container_win,
+                height = math.max(2, target_workspace_height),
+              })
             end)
 
-            if split_success then
-              local top_work_win = vim.api.nvim_get_current_win()
-              vim.api.nvim_win_set_buf(top_work_win, scratch_buf)
-
+            if win_open_success and top_work_win then
               -- Clean layout out of the top fallback window workspace sheet context
               vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
 
-              vim.cmd('noautocmd wincmd J') -- Locks lower terminal layout split to absolute bottom edge line row baseline
-              local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-              pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+              -- Enforce rigid layout dimensions across the window handles programmatically
+              pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_term_height)
+              pcall(vim.api.nvim_win_set_buf, M.layout.container_win, current_term_buf)
               pcall(vim.api.nvim_set_current_win, top_work_win)
-            else
-              pcall(vim.api.nvim_set_current_win, old_current)
             end
 
             -- DEACTIVATE THREAD RECURSION LOCK
