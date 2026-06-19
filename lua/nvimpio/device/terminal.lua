@@ -119,7 +119,7 @@ local Terminal = {
   newline = native_eol,
   filetype = 'pio_terminal',
   _custom_stdout = nil,
-  _is_scrolling = false, -- Atomic Lock: Stops text streams from flooding window buffers
+  _is_scrolling = false, -- Atomic Lock: Stops high-speed text streams from stuttering viewports
 }
 Terminal.__index = Terminal
 
@@ -135,17 +135,6 @@ end
 function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
-
-  -- 1. DEFINE HIGHLIGH COLOR: Create a professional distinct custom group for commands
-  -- Feel free to change 'fg' to your favorite hex code (e.g., '#a6e22e' for Monokai Green)
-  vim.api.nvim_set_hl(0, 'PioSentCommand', { fg = '#f92672', bold = true })
-
-  -- 2. REGISTRATION HOOK: Bind the low-level match pattern engine to this buffer
-  vim.api.nvim_buf_call(self.buf, function()
-    -- Look for a '>' followed by a space and anything else, highlighting only the command line
-    vim.fn.matchadd('PioSentCommand', [[> \zs.*$]])
-  end)
-
   self:_register_viewport_bindings()
 end
 
@@ -162,18 +151,22 @@ function Terminal:send(command)
     return
   end
 
-  -- 1. Format padding check: Ensure a clean space separation exists after the prompt character
+  -- 1. Prompt Separation Guard: Ensure a clean space separation exists after prompt '>' character
   if cmd_str ~= '' and not cmd_str:match('^%s') then
     cmd_str = ' ' .. cmd_str
   end
 
-  -- 2. Direct background process pipe injection payload string
-  vim.fn.chansend(self.job, cmd_str .. self.newline)
+  -- 2. Pure Theme-Safe Bold Typeface ANSI Boundary Injection
+  -- \27[1m = Enforce heavy font typeface weight; \27[0m = Global graphics reset token
+  local styled_payload = string.format('\27[1m%s\27[0m', cmd_str)
 
-  -- 3. Clean low-level normal mode constraint injection
+  -- 3. Direct process pipe channel injection payload transmission
+  vim.fn.chansend(self.job, styled_payload .. self.newline)
+
+  -- 4. Clean low-level normal mode constraint injection
   vim.api.nvim_set_option_value('winbar', vim.api.nvim_get_option_value('winbar', { win = M.layout.container_win }), { win = M.layout.container_win })
 
-  -- 4. Atomic Viewport Pinning: Snaps the text view instantly without cursor focus shifting
+  -- 5. Atomic Viewport Pinning: Snaps the layout view cleanly without changing active focus
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) and not self._is_scrolling then
     self._is_scrolling = true
     vim.schedule(function()
@@ -187,7 +180,7 @@ function Terminal:send(command)
     end)
   end
 
-  -- 5. Hard focus lock: Reverts cursor to the original file buffer instantly
+  -- 6. Hard focus lock: Reverts cursor to the original file buffer instantly
   if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
     pcall(vim.api.nvim_set_current_win, original_work_win)
   end
@@ -379,6 +372,7 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
   M.terminals[name]._creation_index = current_count + 1
 
+  -- Create explicit roots on the module so require('...').cli works instantly
   M[name] = M.terminals[name]
 
   M.terminals[name]:on_create()
