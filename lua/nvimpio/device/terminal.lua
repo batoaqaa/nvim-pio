@@ -31,7 +31,6 @@ M.terminals = {}
 M.layout = {
   container_win = nil, -- THE SINGLE IMMUTABLE TILED GRID WINDOW HANDLE
   active_type = nil, -- Tracks visible node ('cli' or 'monitor')
-  is_recovering = false, -- Safety circuit-breaker lock against macro recursion
 }
 
 --- Pure C-API Highlight winbar renderer
@@ -98,7 +97,7 @@ end
 function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
-  self:_register_viewport_bindings()
+  self:_register_viewport_mappings()
 end
 
 function Terminal:send(command)
@@ -224,158 +223,18 @@ function Terminal:_register_viewport_mappings()
 
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
+
+  -- RIGID KEY BLOCK: Forcefully intercept window-closing combos inside the terminal buffer layout
+  -- This permanently blocks the layout panel split from closing alone or swallowing the workspace height space!
+  vim.keymap.set('n', '<C-w>c', function()
+    M.HideTerminal()
+  end, { buffer = self.buf, silent = true })
+  vim.keymap.set('n', '<C-w>q', function()
+    M.HideTerminal()
+  end, { buffer = self.buf, silent = true })
 end
 
 -- nvimpio/device/terminal.lua - Part 3
-
-function Terminal:_register_viewport_bindings()
-  local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
-
-  vim.api.nvim_create_autocmd('CmdlineLeave', {
-    group = group_id,
-    buffer = self.buf,
-    callback = function()
-      if vim.v.event and not vim.v.event.abort and vim.v.event.cmdtype == ':' then
-        local cmd = vim.fn.getcmdline()
-        if cmd == 'q' or cmd == 'q!' then
-          if cmd == 'q!' then
-            self:on_close()
-          end
-          vim.schedule(function()
-            self:on_quit()
-          end)
-        end
-      end
-    end,
-  })
-
-  vim.api.nvim_create_autocmd('WinLeave', {
-    group = group_id,
-    buffer = self.buf,
-    callback = function()
-      vim.schedule(function()
-        M.UpdateWinbarTitles()
-      end)
-    end,
-  })
-end
-
---- Initializes the single, global, structural workspace layout tracker
-function M._initialize_global_sentinel()
-  -- Central group configuration prevents any duplicate event loops from registering
-  local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
-
-  -- FIX 1: Listen EXCLUSIVELY to WinClosed. Dropping WinNew and BufWinEnter eliminates macro recursion loops.
-  vim.api.nvim_create_autocmd('WinClosed', {
-    group = global_group,
-    callback = function()
-      -- Terminate instantly if terminal is dead, hidden, or a recovery split is already active
-      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.is_recovering then
-        return
-      end
-
-      -- Identify the precise window ID currently being closed
-      local closed_win = tonumber(vim.fn.expand('<amatch>'))
-      if closed_win == M.layout.container_win then
-        M.layout.container_win = nil
-        M.layout.active_type = nil
-        return
-      end
-
-      vim.schedule(function()
-        if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-          local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-
-          -- Look-Ahead Verification Shield: Scan active buffer registry for text documents
-          local real_files_open = false
-          for _, b in ipairs(vim.api.nvim_list_bufs()) do
-            if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_is_loaded(b) then
-              local bt = vim.api.nvim_get_option_value('buftype', { buf = b })
-              local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-              if bt == '' and ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' then
-                real_files_open = true
-                break
-              end
-            end
-          end
-
-          -- If code files are active, exit immediately! It was just a sidebar toggle.
-          if real_files_open then
-            pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
-            M.UpdateWinbarTitles()
-            return
-          end
-
-          local open_wins = vim.api.nvim_tabpage_list_wins(0)
-          local valid_wins = 0
-          for _, w in ipairs(open_wins) do
-            -- Ignore the terminal split window handle and the window that is actively dying
-            if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win and w ~= closed_win then
-              local b = vim.api.nvim_win_get_buf(w)
-              local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
-              if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' then
-                valid_wins = valid_wins + 1
-              end
-            end
-          end
-
-          -- TRUE TOTAL RETREAT LAYOUT COLLAPSE (No file splits left open anywhere on screen)
-          if valid_wins == 0 then
-            -- ENGAGE RECURSION CIRCUIT LOCK
-            M.layout.is_recovering = true
-            vim.o.cmdheight = 1 -- Forcefully caps command row to prevent the 80% growth bug
-
-            local scratch_buf = nil
-            for _, b in ipairs(vim.api.nvim_list_bufs()) do
-              if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match('%[Workspace%]') then
-                scratch_buf = b
-                break
-              end
-            end
-
-            if not scratch_buf then
-              scratch_buf = vim.api.nvim_create_buf(false, true)
-              vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]')
-              vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
-              vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
-              vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
-            end
-
-            -- FIX 2: Programmatic C-API relative tree linking (Replaces vim.cmd split macros entirely)
-            -- Opens the workspace buffer directly ABOVE the terminal split window handle
-            local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
-            local target_workspace_height = total_editor_rows - target_height - 1
-
-            local top_work_win = nil
-            local win_open_success = pcall(function()
-              top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
-                split = 'above',
-                win = M.layout.container_win,
-                height = math.max(2, target_workspace_height),
-              })
-            end)
-
-            if win_open_success and top_work_win then
-              vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
-              pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
-              pcall(vim.api.nvim_set_current_win, top_work_win)
-            end
-
-            -- RELEASE RECURSION CIRCUIT LOCK
-            M.layout.is_recovering = false
-          end
-
-          pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
-          M.UpdateWinbarTitles()
-        end
-      end)
-    end,
-  })
-end
-
-----------------------------------------------------------------------------------------
--- GLOBAL SINGLETON WORKSPACE MANAGER INTERFACE
-----------------------------------------------------------------------------------------
 
 function M.ShowTerminal(term_type)
   term_type = term_type or 'cli'
@@ -421,7 +280,7 @@ function M.ToggleTerminal()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     M.HideTerminal()
   else
-    M.ShowTerminal('cli')
+    M.ShowTerminal(M.layout.active_type)
   end
 end
 
@@ -433,15 +292,6 @@ end
 function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
-
--- Singleton Instantiations
-M.cli = Terminal.new('cli', ' Pio CLI> ')
-M.mon = Terminal.new('monitor', ' Pio Monitor ')
-
--- Register them within the terminals table for Approach B require finders
-M.terminals = {}
-M.terminals.cli = M.cli
-M.terminals.mon = M.mon
 
 -- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
@@ -458,8 +308,14 @@ function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
 end
 
--- Force instantiate tracking group exactly once on module startup load stage
-M._initialize_global_sentinel()
+-- Singleton Instantiations
+M.cli = Terminal.new('cli', ' Pio CLI> ')
+M.mon = Terminal.new('monitor', ' Pio Monitor ')
+
+-- Register them within the terminals table for Approach B require paths
+M.terminals = {}
+M.terminals.cli = M.cli
+M.terminals.mon = M.mon
 
 setmetatable(M, {
   __index = function(table, key)
