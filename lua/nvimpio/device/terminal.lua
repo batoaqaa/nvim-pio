@@ -261,12 +261,12 @@ end
 
 -- nvimpio/device/terminal.lua - Part 3
 
-function Terminal:_register_viewport_bindings()
-  local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
+function Terminal:_register_viewport_bindings(target_height)
+  local platformio = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
   -- Intercept manual command exits (:q and :q!)
   vim.api.nvim_create_autocmd('CmdlineLeave', {
-    group = group_id,
+    group = platformio,
     buffer = self.buf,
     callback = function()
       if vim.v.event and not vim.v.event.abort and vim.v.event.cmdtype == ':' then
@@ -284,7 +284,7 @@ function Terminal:_register_viewport_bindings()
   })
 
   vim.api.nvim_create_autocmd('WinLeave', {
-    group = group_id,
+    group = platformio,
     buffer = self.buf,
     callback = function()
       vim.schedule(function()
@@ -298,11 +298,14 @@ end
 function M._initialize_global_sentinel()
   local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
 
-  -- Monitor EXCLUSIVELY WinClosed. Dropping WinNew/BufWinEnter stops typing garbage loops completely.
+  -- Ensure our structural recovery lock state parameter is initialized cleanly
+  M.layout.is_recovering = false
+
   vim.api.nvim_create_autocmd('WinClosed', {
     group = global_group,
     callback = function()
-      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
+      -- CRITICAL FIX 1: Instantly drop out if an active recovery allocation is ALREADY processing
+      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.is_recovering then
         return
       end
 
@@ -314,13 +317,19 @@ function M._initialize_global_sentinel()
       end
 
       vim.schedule(function()
+        -- Re-verify window matrix validity inside async boundary loop context
         if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+          -- CRITICAL FIX 2: Double check our atomic state lock inside the async queue block
+          if M.layout.is_recovering then
+            return
+          end
+
           local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
           local open_wins = vim.api.nvim_tabpage_list_wins(0)
           local valid_wins = 0
 
           for _, w in ipairs(open_wins) do
-            if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win and w ~= closed_win then
+            if vim.api.nvim_win_is_valid(w) and w ~= closed_win then
               local b = vim.api.nvim_win_get_buf(w)
               local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
               if ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_terminal' and ft ~= 'pio_workspace' and not ft:match('^terminal_') then
@@ -329,10 +338,10 @@ function M._initialize_global_sentinel()
             end
           end
 
-          -- TRUE COMPACT LAYOUT COLLAPSE: No file viewports left open anywhere on screen
           if valid_wins == 0 then
-            -- Hard lock: Force cmdheight back to 1 to block the 80% command-line expansion bug
-            vim.o.cmdheight = 1
+            -- ACTIVATING ATOMIC RECOVERY LOCK: Blocks the duplicate cascading event from passing
+            M.layout.is_recovering = true
+            vim.o.cmdheight = 1 -- Rigid safety clamp blocking cmdheight expansion
 
             local scratch_buf = nil
             for _, b in ipairs(vim.api.nvim_list_bufs()) do
@@ -344,19 +353,17 @@ function M._initialize_global_sentinel()
 
             if not scratch_buf then
               scratch_buf = vim.api.nvim_create_buf(false, true)
-              vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]_' .. scratch_buf)
+              vim.api.nvim_buf_set_name(scratch_buf, '[Workspace]')
               vim.api.nvim_set_option_value('buftype', 'nofile', { buf = scratch_buf })
               vim.api.nvim_set_option_value('filetype', 'pio_workspace', { buf = scratch_buf })
               vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = scratch_buf })
             end
 
-            -- Programmatic API Window Allocation (Replaces "topleft split" and "wincmd J" entirely)
             local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
             local target_workspace_height = total_editor_rows - target_height - 1
 
             local top_work_win = nil
             local win_open_success = pcall(function()
-              -- Directly injects the backup scratch workspace buffer above your terminal window handle shield
               top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
                 split = 'above',
                 win = M.layout.container_win,
@@ -369,6 +376,9 @@ function M._initialize_global_sentinel()
               pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
               pcall(vim.api.nvim_set_current_win, top_work_win)
             end
+
+            -- RELEASE ATOMIC RECOVERY LOCK: Safe to evaluate standard screen updates again
+            M.layout.is_recovering = false
           end
 
           pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
@@ -505,13 +515,12 @@ function M.setup(opts)
 end
 
 ----------------------------------------------------------------------------------------
--- HARD ENGINE INSTANTIATION INITIALIZERS
+-- MODULE INVOCATION ENGINE CODES
 ----------------------------------------------------------------------------------------
 M.create_terminal('cli', ' Pio CLI ', function(job, data, event) end)
 M.create_terminal('server', ' Dev Server ', function(job, data, event) end)
 M.create_terminal('logs', ' Target Logs ', nil)
 
--- Engage the single tracker group exactly once on loading stage
 M._initialize_global_sentinel()
 
 setmetatable(M, {
