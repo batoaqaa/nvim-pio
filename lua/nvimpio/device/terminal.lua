@@ -300,7 +300,7 @@ function M._initialize_global_sentinel()
   -- Using a centralized group prevents event multiplier accumulation completely
   local global_group = vim.api.nvim_create_augroup('PioGlobalWorkspaceSentinel', { clear = true })
 
-  -- FIX 1: Listen EXCLUSIVELY to WinClosed. Dropping BufEnter eliminates double horizontal splits.
+  -- Monitor ONLY WinClosed. Dropping BufEnter ensures double splitting is impossible.
   vim.api.nvim_create_autocmd('WinClosed', {
     group = global_group,
     callback = function()
@@ -325,12 +325,12 @@ function M._initialize_global_sentinel()
           local valid_wins = 0
 
           for _, w in ipairs(open_wins) do
-            -- FIX 2: Check w ~= closed_win so your open code file buffers behind Neo-tree are recognized!
+            -- Filter out the terminal window and the specific window currently closing (like neo-tree)
             if vim.api.nvim_win_is_valid(w) and w ~= M.layout.container_win and w ~= closed_win then
               local b = vim.api.nvim_win_get_buf(w)
               local ft = vim.api.nvim_get_option_value('filetype', { buf = b })
 
-              -- Use your central lookup table to skip tools like neo-tree, oil, and aerial
+              -- Use your central configuration table lookups to evaluate work states
               if not M.config.ignored_focus_filetypes[ft] then
                 valid_wins = valid_wins + 1
               end
@@ -361,30 +361,29 @@ function M._initialize_global_sentinel()
               vim.api.nvim_set_option_value('bufhidden', fallback.bufhidden, { buf = scratch_buf })
             end
 
-            -- Capture your last focus target layout state
-            local old_current = vim.api.nvim_get_current_win()
+            -- 1. PURE C-API WINDOW GENERATION (Replaces vim.cmd split strings entirely)
+            -- This programmatically carves out space ABOVE the terminal window handle.
+            local target_term_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+            local total_editor_rows = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
+            local target_workspace_height = total_editor_rows - target_term_height - 1
 
-            -- Force focus back to the terminal split frame context BEFORE calculating splits
-            pcall(vim.api.nvim_set_current_win, M.layout.container_win)
-
-            -- Directional aboveleft layout split: prevents the terminal from floating up the viewport monitor space
-            local split_success = pcall(function()
-              vim.cmd('noautocmd aboveleft split')
+            local top_work_win = nil
+            local win_open_success = pcall(function()
+              -- Mount the fallback buffer directly above the terminal layout frame anchor
+              top_work_win = vim.api.nvim_open_win(scratch_buf, true, {
+                split = 'above',
+                win = M.layout.container_win,
+                height = math.max(2, target_workspace_height),
+              })
             end)
 
-            if split_success then
-              local top_work_win = vim.api.nvim_get_current_win()
-              vim.api.nvim_win_set_buf(top_work_win, scratch_buf)
-
+            if win_open_success and top_work_win then
               -- Clean layout out of the top fallback window workspace sheet context
               vim.api.nvim_set_option_value('winbar', '', { scope = 'local', win = top_work_win })
 
-              vim.cmd('noautocmd wincmd J') -- Locks lower terminal layout split to absolute bottom edge line row baseline
-              local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-              pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+              -- Enforce rigid layout dimensions programmatically across handles without wincmd J
+              pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_term_height)
               pcall(vim.api.nvim_set_current_win, top_work_win)
-            else
-              pcall(vim.api.nvim_set_current_win, old_current)
             end
 
             -- DEACTIVATE THREAD RECURSION LOCK
