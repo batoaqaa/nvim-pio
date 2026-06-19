@@ -37,7 +37,7 @@ M.layout = {
   is_recovering = false, -- Atomic safety execution lock parameter
 }
 
---- Pure C-API Highlight winbar renderer (Dynamic Multi-Tab Layout Engine)
+--- Pure C-API Highlight winbar renderer (Preserves explicit layout order)
 function M.UpdateWinbarTitles()
   local maps = M.config.keymaps
 
@@ -50,15 +50,13 @@ function M.UpdateWinbarTitles()
 
   local tab_string = ' '
   local total_terminals = 0
-  local ordered_keys = {}
-  for k, _ in pairs(M.terminals) do
-    table.insert(ordered_keys, k)
-  end
-  table.sort(ordered_keys)
 
-  for _, name in ipairs(ordered_keys) do
+  -- HARD PRESET SEQUENCING: Dictates the exact presentation order of your tabs
+  local layout_order = { 'cli', 'mon', 'logs' }
+
+  for _, name in ipairs(layout_order) do
     local term = M.terminals[name]
-    if term.buf and vim.api.nvim_buf_is_valid(term.buf) then
+    if term and term.buf and vim.api.nvim_buf_is_valid(term.buf) then
       total_terminals = total_terminals + 1
       if M.layout.active_type == name then
         tab_string = tab_string .. string.format('%%#%s# [%s] %%*', M.config.winbar_hl_group, term.title:gsub('%s+', ''))
