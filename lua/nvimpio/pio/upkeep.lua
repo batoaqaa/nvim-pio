@@ -1,9 +1,6 @@
----@class platformio.utils.pio
----
 local M = {}
 
 local misc = require('nvimpio.utils.misc')
-
 
 -- stylua: ignore start
 -- INFO:
