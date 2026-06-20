@@ -295,6 +295,8 @@ local plugins = {
     end,
   },
 
+  { 'dchinmay2/clangd_extensions.nvim' },
+
   {
     'nvim-neo-tree/neo-tree.nvim',
     branch = 'v3.x',
