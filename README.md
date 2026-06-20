@@ -187,3 +187,37 @@ nvim -u minimal.lua
 > checks added or a check isn't working properly.
 >
 > `:h nvimpio` for help
+
+<details>
+  <summary>
+## 📊 Statusline Integrations
+  </summary>
+
+### lualine.nvim Integration
+
+Utilizes a safe `pcall` structural check to ensure your statusline never crashes if the plugin hasn't finished loading yet during the `lazy.nvim` startup cycle:
+
+```lua
+require('lualine').setup({
+  sections = {
+    lualine_x = {
+      function()
+        local ok, statusline = pcall(require, 'nvimpio.statusline')
+        if ok and type(statusline.get_status_string) == 'function' then
+          return statusline.get_status_string()
+        end
+        return ""
+      end,
+      'filetype'
+    }
+  }
+})
+```
+
+### Native Statusline Integration
+
+If you don't have lualine, use this native nvim statusline.
+
+```lua
+vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_string()}")
+```
