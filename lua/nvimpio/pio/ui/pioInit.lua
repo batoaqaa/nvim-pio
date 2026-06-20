@@ -47,8 +47,7 @@ local function finalize_setup()
   -- local pio = require('nvimpio.pio.upkeep')
   local parser = require('nvimpio.device.parser')
 
-  -- local sample_flag = '' --wizard_data.sample == 'Yes' and ' --sample-code' or ''
-  local sample_flag = ' --sample-code' or ''
+  local sample_flag = '' --wizard_data.sample == 'Yes' and ' --sample-code' or ''
   local init_cmd = string.format('pio project init -d %q --board %s -O "framework=%s" %s', OS.project_dir, wizard_data.board_id, wizard_data.framework, sample_flag)
   -- local db_cmd = string.format('pio run -t compiledb -e %s', wizard_data.board_id)
   -- local commands = { init_cmd, db_cmd }
