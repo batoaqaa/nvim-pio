@@ -8,7 +8,6 @@ A high-performance, asynchronous embedded development framework for Neovim. It b
 
 - **Automated Code Insights Mapping:** Discovers and binds toolchain include vectors, firmware library locations, and environment frameworks to your language server.
 - **Compiler Flags Neutralization:** Intercepts and strips non-standard bare-metal toolchain argument options (such as `-mlongcalls`) that destabilize desktop language servers.
-- **Dynamic Argument Deflating:** Pushes complex macro search paths into localized response files (`clangdFlags.txt`), optimizing your editor layout context.
 - **Diagnostic Filtration Interface:** Provides a dynamic selecting utility via `:ClangdFilter` to instantly toggle specific syntax warnings or static alerts.
 - **Self-Healing Persistent Configuration:** Workspace options are bound to local context directories, ensuring layout rules persist across cold reboots.
 
