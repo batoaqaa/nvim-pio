@@ -156,6 +156,17 @@ Diagnostics:
     ]
   ClangTidy:
     Remove: ["readability-*", "modernize-*", "bugprone-*", "cert-err58-cpp"]
+InlayHints:
+  Enabled: true
+  ParameterNames: true
+  DeducedTypes: true
+  Designators: true
+
+Completion:
+  AllScopes: true
+
+Hover:
+  ShowAKA: true
 ]],
 
   dynamic = [[
