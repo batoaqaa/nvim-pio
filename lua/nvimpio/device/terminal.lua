@@ -57,7 +57,8 @@ function M.UpdateWinbarTitles()
     return (a._creation_index or 0) < (b._creation_index or 0)
   end)
 
-  local tab_string = ' '
+  -- local tab_string = ' '
+  local tab_string = string.format("%%#%sDim# ", M.config.winbar_hl_group)
   local total_terminals = 0
 
   for _, term in ipairs(ordered_terminals) do
