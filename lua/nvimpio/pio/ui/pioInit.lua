@@ -83,11 +83,20 @@ end
 
 -- Step 2: Framework
 local function pick_framework(board_details)
-  small_menu('Select Framework', board_details.frameworks, function(choice)
+  -- small_menu('Select Framework', board_details.frameworks, function(choice)
+  --   wizard_data.framework = choice
+  --   -- pick_sample()
+  --   finalize_setup()
+  -- end)
+
+  vim.ui.select(board_details.frameworks, {
+    prompt = 'Select Framework',
+  }, function(choice)
     wizard_data.framework = choice
-    -- pick_sample()
     finalize_setup()
   end)
+
+
 end
 
 -- Step 1: Board (Entry Point)
