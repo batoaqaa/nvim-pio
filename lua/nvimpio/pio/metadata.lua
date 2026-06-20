@@ -161,7 +161,8 @@ _G.metadata = setmetatable({}, {
           local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
           pio_refresh(function(suscess)
             if (suscess) then
-              require('nvimpio.clangd.control').getUnknownArgsCli(from)
+              do end
+              -- require('nvimpio.clangd.control').getUnknownArgsCli(from)
             end
             _G.isBusy = false
           end, from)
