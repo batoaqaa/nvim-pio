@@ -1,4 +1,4 @@
---- stylua: ignore start
+-- stylua: ignore start
 -- nvimpio/device/terminal.lua - Part 1
 
 local M = {}
@@ -190,30 +190,21 @@ function Terminal:on_spawn()
     return
   end
   local channel_id = vim.fn.termopen(M.config.shell, {
-    on_stdout = function(j, d, e)
-      self:on_stdout(j, d, e)
-    end,
-    on_stderr = function(j, d, e)
-      self:on_stderr(j, d, e)
-    end,
-    on_exit = function()
-      self:on_exit()
-    end,
+    on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
+    on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
+    on_exit = function() self:on_exit() end,
   })
   self.job = (channel_id and channel_id > 0) and channel_id or nil
 end
 
 function Terminal:on_stdout(j, d, e)
-  if self._custom_stdout then
-    self._custom_stdout(j, d, e)
+  if self._custom_stdout then self._custom_stdout(j, d, e)
   elseif self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
     M.stdout_callback(j, d, e)
   end
 end
 
-function Terminal:on_stderr(j, d, e)
-  self:on_stdout(j, d, e)
-end
+function Terminal:on_stderr(j, d, e) self:on_stdout(j, d, e) end
 
 function Terminal:on_exit()
   if type(M.exit_callback) == 'function' then
@@ -231,12 +222,8 @@ function Terminal:on_close()
 end
 
 -- Refactored references pointing cleanly to system endpoints
-function Terminal:on_quit()
-  M.hide()
-end
-function Terminal:hide()
-  M.hide()
-end
+function Terminal:on_quit() M.hide() end
+function Terminal:hide() M.hide() end
 
 function Terminal:close()
   self:on_close()

@@ -16,7 +16,6 @@ local clangd_extracted_args = {}
 local clangd_check_active = false
 
 local fromMsg = ''
-local trm
 local pio_buffer = ''
 local content = ''
 
@@ -172,44 +171,44 @@ function M.cleanSequencer()
   require('nvimpio.device.terminal').stdout_callback = nil -- Careful: make sure this doesn't break other terms
 end
 
-function M.handlePioinitDb(result, board, on_done)
-  local active_env
-  if result == 'INIT' then
-    boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
-    boilerplate_gen([[platformio.ini]], OS.project_dir)
-    cliTerm:send(pop(M.queue))
-  elseif result == 'PASS1' then -- current_id
-    OS.notify('PIO init+db:  pass ' .. current_id, "info")
-    local meta = require('nvimpio.pio.metadata')
-    active_env, _ = meta.get_active_env('PIO init+db: ')
-    -- if not active_env or (active_env == board) then
-    -- boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
-    -- boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
-    boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
-    boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-    if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
-    -- else
-    --   if on_done and type(on_done) == "function" then on_done(false) end
-    --   M.cleanSequencer()
-    -- end
-  -- elseif result == 'PASS2' then
-  elseif result == 'DONE' then -- result of the last command
-    OS.notify('PIO init+db: Done', "info")
-    if not active_env or (active_env ~= board) then
-      OS.notify(string.format('PIO init+db active_env: %s', board), 'info')
-      _G.metadata.active_env = board
-    end
-    M.pio_refresh(function(success)
-      if on_done and type(on_done) == "function" then on_done(true) end
-      if success then boilerplate.core_dir = _G.metadata.core_dir end
-    end, 'PIO init+db: ')
-    cliTerm:hide()
-    M.cleanSequencer()
-  elseif result == 'FAIL' then
-    if on_done and type(on_done) == "function" then on_done(false) end
-    M.cleanSequencer()
-  end
-end
+-- function M.handlePioinitDb(result, board, on_done)
+--   local active_env
+--   if result == 'INIT' then
+--     boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
+--     boilerplate_gen([[platformio.ini]], OS.project_dir)
+--     cliTerm:send(pop(M.queue))
+--   elseif result == 'PASS1' then -- current_id
+--     OS.notify('PIO init+db:  pass ' .. current_id, "info")
+--     local meta = require('nvimpio.pio.metadata')
+--     active_env, _ = meta.get_active_env('PIO init+db: ')
+--     -- if not active_env or (active_env == board) then
+--     -- boilerplate_gen([[main.cpp]], vim.g.platformioRootDir .. '/src')
+--     -- boilerplate_gen([[main.hpp]], vim.g.platformioRootDir .. '/include')
+--     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+--     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+--     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
+--     -- else
+--     --   if on_done and type(on_done) == "function" then on_done(false) end
+--     --   M.cleanSequencer()
+--     -- end
+--   -- elseif result == 'PASS2' then
+--   elseif result == 'DONE' then -- result of the last command
+--     OS.notify('PIO init+db: Done', "info")
+--     if not active_env or (active_env ~= board) then
+--       OS.notify(string.format('PIO init+db active_env: %s', board), 'info')
+--       _G.metadata.active_env = board
+--     end
+--     M.pio_refresh(function(success)
+--       if on_done and type(on_done) == "function" then on_done(true) end
+--       if success then boilerplate.core_dir = _G.metadata.core_dir end
+--     end, 'PIO init+db: ')
+--     cliTerm:hide()
+--     M.cleanSequencer()
+--   elseif result == 'FAIL' then
+--     if on_done and type(on_done) == "function" then on_done(false) end
+--     M.cleanSequencer()
+--   end
+-- end
 
 function M.handlePioinit(result, board, on_done)
   if result == 'INIT' then
@@ -258,9 +257,7 @@ function M.handlePioInstall(result, on_done)
     end
 
     if on_done and type(on_done) == "function" then on_done(true) end
-    -- if trm then trm:close() end
     M.cleanSequencer()
-    -- trm:shutdown()
   elseif result == 'FAIL' then
      OS.notify('Installation failed! Check logs and press :q to close.', 'error')
     if on_done and type(on_done) == "function" then on_done(false) end
@@ -271,16 +268,10 @@ end
 function M.handlePioRepair(result, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
-  -- elseif result == 'PASS' .. current_id then
-  --    OS.notify(string.format('%s:  pass %s', fromMsg, current_id), "info")
-  --    if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
-  -- -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the only and the last command
      OS.notify(string.format('%s:  Done', fromMsg), "info")
     if on_done and type(on_done) == "function" then on_done(true) end
-    -- if trm then trm:close() end
     M.cleanSequencer()
-    -- trm:shutdown()
   elseif result == 'FAIL' then
     OS.notify(string.format('%s:  Upgrade Failed', fromMsg), "info")
     if on_done and type(on_done) == "function" then on_done(false) end
