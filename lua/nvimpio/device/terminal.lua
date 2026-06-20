@@ -73,7 +73,8 @@ function M.UpdateWinbarTitles()
   local hint = (total_terminals > 1) and string.format(' [ %s  Switch;  %s  Hide; :q! Quit ] ', maps.switch_pane, maps.hide_pane)
     or string.format(' [ %s  Hide; :q! Quit ] ', maps.hide_pane)
 
-  vim.api.nvim_set_option_value('winbar', tab_string .. '%=' .. hint, { scope = 'local', win = M.layout.container_win })
+  -- vim.api.nvim_set_option_value('winbar', tab_string .. '%=' .. hint, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('winbar', string.format("%s%%#%sDim#%%=%s", tab_string, M.config.winbar_hl_group, hint), { scope = 'local', win = M.layout.container_win })
 end
 
 --- Dynamic Workspace Tree Focus Router Matrix

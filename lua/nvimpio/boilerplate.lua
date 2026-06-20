@@ -161,10 +161,8 @@ InlayHints:
   ParameterNames: true
   DeducedTypes: true
   Designators: true
-
 Completion:
   AllScopes: true
-
 Hover:
   ShowAKA: true
 ]],
