@@ -18,7 +18,7 @@ A high-performance, asynchronous embedded development framework for Neovim. It b
 ### Prerequisites
 
 - **Neovim** $\ge$ 0.11.0
-- **PlatformIO Core CLI** (`pio`) installed and available in system PATH variables.
+- **PlatformIO Core CLI** (`pio`) installed and available in system PATH variable.
 
 ### 📦 Package Integration (`lazy.nvim`)
 
@@ -68,6 +68,14 @@ The interactive PlatformIO dashboard mapping parameters can be fully configured 
 
 ```lua
 require('nvimpio').setup({
+  pio = {
+    pio_runtime_dir = '~/.platformio',
+    pio_storage_dir = '~/.platformio',
+  },
+  clangd = {
+    support = true,
+    install = false,
+  },
   menu_key = '<leader>\\',
   menu_name = 'PlatformIO',
   menu_bindings = {
@@ -171,10 +179,13 @@ Test the complete capabilities of this extension inside an insulated runtime san
 
 ```sh
 # Fetch the automated sandbox bootstrapper script
-wget https://githubusercontent.com
+wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/nvimpio.lua
 
 # Execute the isolated evaluation environment
-nvim -u minimal.lua
+nvim -u nvimpio.lua .
+
+# Inside Neovim, kickstart your environment using:
+:Pioinit
 ```
 
 ---
