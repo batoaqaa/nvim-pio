@@ -125,22 +125,33 @@ keymap('n', '<leader>bb', ':bprevious<CR>', { desc = '[B]efore Buffer' })
 keymap('n', '<leader>ba', ':bnext<CR>', { desc = '[A]fter Buffer' })
 keymap('n', '<leader>bs', ':ball<CR>', { desc = '[S]how AllOpened Buffers' })
 
--- keymap('n', '<leader>bd', '<Cmd>bdelete<CR>', { desc = '[D]elete Buffer' })
 keymap('n', '<leader>bd', function()
   local bufnr = vim.api.nvim_get_current_buf()
-  local bufs = vim.fn.getbufinfo({ buflisted = 1 })
-
-  if #bufs <= 1 then
-    -- Create a new empty buffer
-    vim.cmd('enew')
-  else
-    -- Switch to the previous buffer
-    vim.cmd('bp')
+  local current_win = vim.api.nvim_get_current_win()
+  local buftype = vim.api.nvim_get_option_value('buftype', { buf = bufnr })
+  local buflisted = vim.api.nvim_get_option_value('buflisted', { buf = bufnr })
+  local win_type = vim.fn.win_gettype(current_win)
+  if not buflisted or buftype ~= '' or win_type ~= '' then
+    pcall(vim.api.nvim_buf_delete, bufnr, { force = true })
+    return
   end
-
-  -- Delete the buffer we started with (using pcall to ignore "No buffers deleted" errors)
+  local bufs = vim.fn.getbufinfo({ buflisted = 1 })
+  if #bufs <= 1 then
+    local new_buf = vim.api.nvim_create_buf(true, false)
+    vim.api.nvim_set_current_buf(new_buf)
+  else
+    local current_idx = 1
+    for i, b in ipairs(bufs) do
+      if b.bufnr == bufnr then
+        current_idx = i
+        break
+      end
+    end
+    local prev_idx = (current_idx == 1) and #bufs or (current_idx - 1)
+    vim.api.nvim_set_current_buf(bufs[prev_idx].bufnr)
+  end
   pcall(vim.api.nvim_buf_delete, bufnr, { force = false })
-end, { desc = '[D]elete Buffer' })
+end, { desc = 'Buffer: [D]elete Cleanly (Dynamic)' })
 
 keymap('n', '<leader>e', '<cmd>Neotree document_symbols<CR>', { desc = 'NeoTreeToggle' })
 keymap('n', '\\', '<cmd>Neotree toggle<CR>', { desc = 'NeoTreeToggle' })
