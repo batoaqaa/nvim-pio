@@ -49,7 +49,7 @@ local function finalize_setup()
 
   -- local sample_flag = '' --wizard_data.sample == 'Yes' and ' --sample-code' or ''
   local sample_flag = ' --sample-code' or ''
-  local init_cmd = string.format('pio project init --board %s -O "framework=%s" %s', wizard_data.board_id, wizard_data.framework, sample_flag)
+  local init_cmd = string.format('pio project init -d %q --board %s -O "framework=%s" %s', OS.project_dir, wizard_data.board_id, wizard_data.framework, sample_flag)
   -- local db_cmd = string.format('pio run -t compiledb -e %s', wizard_data.board_id)
   -- local commands = { init_cmd, db_cmd }
   local commands = { init_cmd }
@@ -83,20 +83,11 @@ end
 
 -- Step 2: Framework
 local function pick_framework(board_details)
-  -- small_menu('Select Framework', board_details.frameworks, function(choice)
-  --   wizard_data.framework = choice
-  --   -- pick_sample()
-  --   finalize_setup()
-  -- end)
-
-  vim.ui.select(board_details.frameworks, {
-    prompt = 'Select Framework',
-  }, function(choice)
+  small_menu('Select Framework', board_details.frameworks, function(choice)
     wizard_data.framework = choice
+    -- pick_sample()
     finalize_setup()
   end)
-
-
 end
 
 -- Step 1: Board (Entry Point)
