@@ -160,7 +160,9 @@ _G.metadata = setmetatable({}, {
           _G.isBusy = true
           local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
           pio_refresh(function(suscess)
-            if (suscess) then require('nvimpio.clangd.control').getUnknownArgs(from) end
+            if (suscess) then
+              require('nvimpio.clangd.control').getUnknownArgsCli(from)
+            end
             _G.isBusy = false
           end, from)
           vim.cmd('redrawstatus')
