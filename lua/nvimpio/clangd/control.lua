@@ -77,7 +77,8 @@ function M.getClangdConfig()
   end
 
   -- Format your template string
-  local json_config = boilerplate_gen([[.clangdConfig.json]], OS.nvimpio_config_dir)
+  -- local json_config = boilerplate_gen([[.clangdConfig.json]], OS.nvimpio_config_dir)
+  local json_config = boilerplate_gen([[.clangdConfig.json]])
   if not json_config then
     return nil
   end
@@ -140,7 +141,8 @@ function M.getClangdConfig()
     -- Step 3: Refresh your physical configuration files natively last
     local boiler = require('nvimpio.boilerplate')
     if boiler and boiler.boilerplate_gen then
-      pcall(boiler.boilerplate_gen, '.clangd', OS.project_dir)
+      -- pcall(boiler.boilerplate_gen, '.clangd', OS.project_dir)
+      pcall(boiler.boilerplate_gen, '.clangd')
     end
   end
 
@@ -293,8 +295,10 @@ function M.getUnknownArgsCli(from)
   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
 
   if not check_file then
-    boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
-    boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+    -- boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+    -- boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+    -- boilerplate_gen([[arduino]])
+    boilerplate_gen(_G.metadata.envs[_G.metadata.active_env].framework)
     check_file = vim.uv.cwd() .. '/src/main.cpp'
   end
 
@@ -362,7 +366,8 @@ function M.getUnknownArgsGui(from)
   boilerplate.args = {}
 
   -- Strip out any previous dynamic blocks to prevent endless growing
-  boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
+  -- boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
+  boilerplate_gen('.clangd') -- read user '.clangd'
 
   -- 2. FIND: Grab the first .cpp or .c file in /src
   local check_file = vim.fs.find(function(name)
@@ -370,8 +375,10 @@ function M.getUnknownArgsGui(from)
   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
 
   if not check_file then
-    boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
-    boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+    -- boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+    -- boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+    -- boilerplate_gen([[arduino]])
+    boilerplate_gen(_G.metadata.envs[_G.metadata.active_env].framework)
     check_file = vim.uv.cwd() .. '/src/main.cpp'
   end
 
@@ -394,7 +401,8 @@ function M.getUnknownArgsGui(from)
         args_table = args_table or {}
         if success then
           boilerplate.args = args_table
-          boilerplate_gen('.clangd', vim.g.platformioRootDir)
+          -- boilerplate_gen('.clangd', vim.g.platformioRootDir)
+          boilerplate_gen('.clangd')
 
           OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
           M.restart()

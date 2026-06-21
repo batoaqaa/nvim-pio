@@ -210,17 +210,19 @@ end
 --   end
 -- end
 
-function M.handlePioinit(result, board, on_done)
+function M.handlePioinit(result, framework, board, on_done)
   if result == 'INIT' then
     -- OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
     boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
-    boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
+    -- boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
+    boilerplate_gen([[platformio.ini]])
     cliTerm:send(pop(M.queue))
   -- elseif result == 'PASS1' then
   elseif result == 'DONE' then -- result of the last command
     OS.notify(fromMsg .. 'project init Done', "info")
-    boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
-    boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+    -- boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
+    -- boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
+    boilerplate_gen(framework)
     cliTerm:hide()
     if on_done and type(on_done) == "function" then on_done(true) end
     -- _G.metadata.active_env = board

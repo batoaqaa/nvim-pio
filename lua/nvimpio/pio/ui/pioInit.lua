@@ -54,7 +54,7 @@ local function finalize_setup()
   local commands = { init_cmd }
 
   local final_cb = function(status)
-    parser.handlePioinit(status, wizard_data.board_id, wizard_data.on_done)
+    parser.handlePioinit(status, wizard_data.framework:lower(), wizard_data.board_id:lower(), wizard_data.on_done)
   end
 
   OS.notify('Pioinit: Starting project setup for ' .. wizard_data.board_id .. '...')

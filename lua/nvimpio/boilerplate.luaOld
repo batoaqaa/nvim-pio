@@ -1,17 +1,51 @@
--- stylua: ignore start
-local misc = require('nvimpio.utils.misc')
-local projectDir = OS.project_dir
-
 local M = {}
 
+local misc = require('nvimpio.utils.misc')
+M.core_dir = ''
+-- M.args = {}
+-- Initialize the communication arrays globally inside the module container
+-- M.remove = {}
+-- M.suppress = {}
+
 local boilerplate = {}
+
+-- INFO: main.cpp
+--- stylua: ignore
+----------------------------------------------------------------------------------------
+boilerplate['main.cpp'] = {
+  rewrite = false,
+  read = false,
+  content = [[
+#include "main.hpp"
+
+void setup() { }
+
+void loop() { }
+]],
+}
+
+-- INFO: main.hpp
+--- stylua: ignore
+----------------------------------------------------------------------------------------
+boilerplate['main.hpp'] = {
+  rewrite = false,
+  read = false,
+  content = [[
+#ifndef mainHEAD
+#define mainHEAD
+
+#include <Arduino.h>
+
+#endif
+]],
+}
 
 -- INFO: platformio.ini
 ----------------------------------------------------------------------------------------
 boilerplate['platformio.ini'] = {
   rewrite = false,
   read = false,
-  plate = [[
+  template = [[
 [platformio]
 core_dir = %s
 platforms_dir = ${platformio.core_dir}/platforms
@@ -38,20 +72,24 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
 
 
 ]],
-  boiler = function(self)
-    local full_path = vim.fs.joinpath(projectDir, 'platformio.ini')
-    if vim.uv.fs_stat(full_path) then return false end
-    misc.writeFile(full_path, self.plate, {})
-    return true
+  content = function(self)
+    local core_dir = require('nvimpio').config.pio_storage_dir
+
+    return string.format(self.template, core_dir)
   end,
 }
 
+-- "--compile_args_from=filesystem",
+-- "-ferror-limit=0",
+-- "-std=c++17"
+-- "--log=verbose",
+-- Note: %q is used for paths to handle escaping and spaces automatically.
 -- INFO: .clangd_config
 ----------------------------------------------------------------------------------------
 boilerplate['.clangdConfig.json'] = {
   rewrite = false,
   read = true,
-  plate = [[
+  content = [[
 {
   "cmd": [
     "clangd",
@@ -101,23 +139,10 @@ boilerplate['.clangdConfig.json'] = {
   "workspace_required": true
 }
 ]],
-  boiler = function(self)
-    local file_path = vim.fs.joinpath(OS.nvimpio_config_dir, '.clangdConfig.json')
-    if vim.uv.fs_stat(file_path) then
-      if not self.rewrite then
-        if self.read then
-          local ok, content = misc.readFile(file_path)
-          if ok then return content end
-        end
-        return self.plate
-      end
-    end
-    misc.writeFile(file_path, self.plate, {})
-    return self.plate
-  end,
 }
 
-
+-- CompileFlags:
+--   CompilationDatabase: %q
 boilerplate['.clangd'] = {
   static = [[
 ---
@@ -159,7 +184,7 @@ CompileFlags:
     "@%s",
     ]
 ]],
-  boiler = function(self, project_root_param)
+  content = function(self, project_root_param)
     local core = require('nvimpio')
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
     project_root = vim.fs.normalize(project_root)
@@ -370,397 +395,75 @@ CompileFlags:
     return final_content
   end,
 }
-
-
-
-------------------------------------------------------------------
---Esp-idf
-boilerplate['esp-idf'] = {
-  plates = {
-    ----------------------------------------------------
-    --
-    ['main.c'] = [[
-#include <stdio.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "main.h"
-
-void run_system_logic(void) {
-    printf("Headache-free ESP-IDF system initialized successfully!\n");
+-- INFO: .clang-format
+----------------------------------------------------------------------------------------
+boilerplate['.clang-format'] = {
+  rewrite = false,
+  read = false,
+  content = [[
+# clang-format configurator
+# https://clang-format-configurator.site
+---
+BasedOnStyle: Google  # LLVM, Google, Chromium, Mozilla, WebKit, Microsoft, Linux
+AccessModifierOffset: -4
+AllowShortCaseExpressionOnASingleLine: All
+AllowShortFunctionsOnASingleLine: All
+BreakBeforeBraces: Attach # Allman
+ColumnLimit: 100
+IndentWidth: 4
+KeepEmptyLinesAtTheStartOfBlocks: true
+PointerAlignment: Right
+SortIncludes: true
+ReflowComments: true
+SpaceBeforeParens: ControlStatements
+ConstructorInitializerIndentWidth: 4
+PackConstructorInitializers: Never
+...
+]],
 }
 
-void app_main(void) {
-    run_system_logic();
-    while (1) {
-        printf("Loop running...\n");
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-}
-]],
-    ----------------------------------------------------
-    --
-    ['main.h'] = [[
-#ifndef MAIN_H_
-#define MAIN_H_
+-- INFO: boilerplate_gen
+--- stylua: ignore
+----------------------------------------------------------------------------------------
+function M.boilerplate_gen(framework, src_path, filename, from)
+  filename = filename or framework
+  src_path = src_path or ''
+  from = from or 'here'
 
-void run_system_logic(void);
-
-#endif /* MAIN_H_ */
-]],
-    ----------------------------------------------------
-    --
-    ['src/CMakeLists.txt'] = [[
-idf_component_register(
-    SRCS "main.c"
-    INCLUDE_DIRS "." "../include"
-)
-]],
-    ----------------------------------------------------
-    --
-    ['CMakeLists.txt'] = [[
-cmake_minimum_required(VERSION 3.16.0)
-include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(test)
-]],
-  },
-  boiler = function(self)
-    for filepath, _ in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      if vim.uv.fs_stat(full_path) then
-        return false
-      end
-    end
-
-    for filepath, val in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      misc.writeFile(full_path, val, {})
-    end
-    return true
-  end,
-}
-
-------------------------------------------------------------------
---Arduino
-boilerplate['arduino'] = {
-  plates = {
-    ----------------------------------------------------
-    --
-    ['src/main.cpp'] = [[
-#include <Arduino.h>
-#include "main.hpp"
-
-void setup() {
-    Serial.begin(115200);
-    while(!Serial) {
-        ; // Wait for serial port to connect
-    }
-    Serial.println("Arduino template initialized successfully!");
-}
-
-void loop() {
-    Serial.println("Loop running...");
-    delay(1000);
-}
-]],
-    ----------------------------------------------------
-    --
-    ['include/main.hpp'] = [[
-#ifndef MAIN_HPP_
-#define MAIN_HPP_
-
-// Arduino specific configuration prototypes go here
-
-#endif /* MAIN_HPP_ */
-]],
-  },
-  boiler = function(self)
-    for filepath, _ in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      if vim.uv.fs_stat(full_path) then
-        return false
-      end
-    end
-
-    for filepath, val in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      misc.writeFile(full_path, val, {})
-    end
-    return true
-  end,
-}
-
-------------------------------------------------------------------
---simba
-boilerplate['simba'] = {
-  plates = {
-    ----------------------------------------------------
-    --
-    ['src/main.c'] = [[
-#include "simba.h"
-#include "main.h"
-
-int main() {
-    sys_init();
-    std::printf("Simba framework template initialized successfully!\r\n");
-
-    while (1) {
-        std::printf("Loop running...\r\n");
-        time_busy_wait_us(1000000); // 1-second delay
-    }
-
-    return (0);
-}
-]],
-    ----------------------------------------------------
-    --
-    ['include/main.h'] = [[
-#ifndef MAIN_H_
-#define MAIN_H_
-
-// Simba specific configurations go here
-
-#endif /* MAIN_H_ */
-]],
-  },
-  boiler = function(self)
-    for filepath, _ in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      if vim.uv.fs_stat(full_path) then
-        return false
-      end
-    end
-
-    for filepath, val in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      misc.writeFile(full_path, val, {})
-    end
-    return true
-  end,
-}
-
-------------------------------------------------------------------
---zephyr
-boilerplate['zephyr'] = {
-  plates = {
-    ----------------------------------------------------
-    --
-    ['src/main.c'] = [[
-#include <zephyr/kernel.h>
-#include "main.h"
-
-int main(void) {
-    printk("Zephyr RTOS template initialized successfully!\n");
-
-    while (1) {
-        printk("Loop running...\n");
-        k_msleep(1000);
-    }
-
-    return 0;
-}
-]],
-    ----------------------------------------------------
-    --
-    ['include/main.h'] = [[
-#ifndef MAIN_H_
-#define MAIN_H_
-
-// Zephyr specific definitions go here
-
-#endif /* MAIN_H_ */
-]],
-    ----------------------------------------------------
-    --
-    ['CMakeLists.txt'] = [[
-cmake_minimum_required(VERSION 3.20.0)
-find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(test_zephyr_project)
-
-target_sources(app PRIVATE src/main.c)
-target_include_directories(app PRIVATE include)
-]],
-    ----------------------------------------------------
-    --
-    ['prj.conf'] = [[
-# Zephyr Kernel configuration flags
-CONFIG_PRINTK=y
-]],
-  },
-  boiler = function(self)
-    for filepath, _ in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      if vim.uv.fs_stat(full_path) then
-        return false
-      end
-    end
-
-    for filepath, val in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      misc.writeFile(full_path, val, {})
-    end
-    return true
-  end,
-}
-----------------------------------------------------
-boilerplate['mbed'] = {
-  plates = {
-    ['src/main.cpp'] = [[
-#include "mbed.h"
-#include "main.hpp"
-
-// Initialize a digital output pin (e.g., LED1)
-DigitalOut led(LED1);
-
-int main() {
-    printf("Mbed OS project initialized successfully!\n");
-
-    while (1) {
-        led = !led; // Toggle the LED state
-        thread_sleep_for(1000); // Sleep thread for 1000ms
-    }
-}
-]],
-    ['include/main.hpp'] = [[
-#ifndef MAIN_HPP_
-#define MAIN_HPP_
-
-// Mbed OS hardware maps and classes go here
-
-#endif /* MAIN_HPP_ */
-]],
-    ['mbed_app.json'] = [[
-{
-    "target_overrides": {
-        "*": {
-            "platform.stdio-baud-rate": 115200
-        }
-    }
-}
-]],
-  },
-  boiler = function(self)
-    -- Insert your single file core validation script check here (src/main.cpp)
-  end
-}
-----------------------------------------------------
-boilerplate['stm32cube'] = {
-  plates = {
-    ['src/main.c'] = [[
-#include "stm32f4xx_hal.h" // Replace 'f4' with your specific family (e.g., g0, l4, h7)
-#include "main.h"
-
-void SystemClock_Config(void);
-
-int main(void) {
-    // Reset of all peripherals, Initializes the Flash interface and the Systick.
-    HAL_Init();
-    
-    // Configure the system clock
-    SystemClock_Config();
-
-    while (1) {
-        // Toggle GPIO pins or process loop structures here
-        HAL_Delay(1000);
-    }
-}
-
-void SystemClock_Config(void) {
-    // Clock register configurations go here (Generated via STM32CubeMX)
-}
-]],
-    ['include/main.h'] = [[
-#ifndef MAIN_H_
-#define MAIN_H_
-
-#include "stm32f4xx_hal.h"
-
-#endif /* MAIN_H_ */
-]],
-  },
-  boiler = function(self)
-    -- Insert your single file core validation script check here (src/main.c)
-  end
-}
-----------------------------------------------------
-boilerplate['cmsis'] = {
-  plates = {
-    ['src/main.c'] = [[
-#include "stm32f4xx.h" // Include native device register mappings directly
-#include "main.h"
-
-int main(void) {
-    // Directly enable peripheral clocks via reset control registers (RCC)
-    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN; 
-
-    while (1) {
-        // Manipulate raw bit fields inside registers (e.g., ODR / BSRR)
-        for (volatile int i = 0; i < 100000; i++); // Crude software delay loop
-    }
-}
-]],
-    ['include/main.h'] = [[
-#ifndef MAIN_H_
-#define MAIN_H_
-
-// Bare-metal peripheral addressing offsets go here
-
-#endif /* MAIN_H_ */
-]],
-  },
-  boiler = function(self)
-    -- Insert your single file core validation script check here (src/main.c)
-  end
-}
-----------------------------------------------------
-----------------------------------------------------
-----------------------------------------------------
-----------------------------------------------------
-----------------------------------------------------
-
-----------------------------------------------------
-function M.boilerplate_gen(framework, from)
-  from = from or ''
   local entry = boilerplate[framework]
-  if not entry then return false end
-  -- Using a colon passes 'entry' as 'self' so we can read its 'plates' table
-  return entry:boiler()
+  if not entry then
+    return ''
+  end
 
-  -- from = from or ''
+  if framework == '.clangd' then
+    return entry:content()
+  end
+
+  local file_path = vim.fs.joinpath(src_path, filename)
+
+  if vim.uv.fs_stat(file_path) then
+    if not entry.rewrite then
+      if entry.read then
+        local ok, content = misc.readFile(file_path)
+        -- if ok then print(content) end
+        if ok then
+          return content
+        end
+        -- local fr = io.open(file_path, 'r')
+        -- if fr then return (fr:read('*a')) end
+      end
+      return ''
+    end
+  end
   --
-  -- local entry = boilerplate[framework]
-  -- if not entry then
-  --   return ''
-  -- end
-  --
-  -- if framework == '.clangd' then
-  --   return entry:content()
-  -- end
-  --
-  -- local file_path = vim.fs.joinpath('', '')
-  --
-  -- if vim.uv.fs_stat(file_path) then
-  --   if not entry.rewrite then
-  --     if entry.read then
-  --       local ok, content = misc.readFile(file_path)
-  --       -- if ok then print(content) end
-  --       if ok then
-  --         return content
-  --       end
-  --       -- local fr = io.open(file_path, 'r')
-  --       -- if fr then return (fr:read('*a')) end
-  --     end
-  --     return ''
-  --   end
-  -- end
-  -- --
-  -- local template = type(entry.content) == 'function' and entry:content() or entry.content
-  -- misc.writeFile(file_path, template, {})
-  --
-  -- if entry.read then
-  --   return template
-  -- else
-  --   return ''
-  -- end
+  local template = type(entry.content) == 'function' and entry:content() or entry.content
+  misc.writeFile(file_path, template, {})
+
+  if entry.read then
+    return template
+  else
+    return ''
+  end
 end
 
 return M
