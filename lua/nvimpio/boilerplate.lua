@@ -41,7 +41,10 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
   boiler = function(self)
     local full_path = vim.fs.joinpath(projectDir, 'platformio.ini')
     if vim.uv.fs_stat(full_path) then return false end
-    misc.writeFile(full_path, self.plate, {})
+    local core_dir = require('nvimpio').config.pio_storage_dir
+
+    -- misc.writeFile(full_path, self.plate, {})
+    misc.writeFile(full_path, string.format(self.plate, core_dir), {})
     return true
   end,
 }
