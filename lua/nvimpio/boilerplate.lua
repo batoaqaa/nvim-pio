@@ -642,7 +642,18 @@ int main() {
 ]],
   },
   boiler = function(self)
-    -- Insert your single file core validation script check here (src/main.cpp)
+    for filepath, _ in pairs(self.plates) do
+      local full_path = vim.fs.joinpath(projectDir, filepath)
+      if vim.uv.fs_stat(full_path) then
+        return false
+      end
+    end
+
+    for filepath, val in pairs(self.plates) do
+      local full_path = vim.fs.joinpath(projectDir, filepath)
+      misc.writeFile(full_path, val, {})
+    end
+    return true
   end
 }
 ----------------------------------------------------
@@ -681,7 +692,18 @@ void SystemClock_Config(void) {
 ]],
   },
   boiler = function(self)
-    -- Insert your single file core validation script check here (src/main.c)
+    for filepath, _ in pairs(self.plates) do
+      local full_path = vim.fs.joinpath(projectDir, filepath)
+      if vim.uv.fs_stat(full_path) then
+        return false
+      end
+    end
+
+    for filepath, val in pairs(self.plates) do
+      local full_path = vim.fs.joinpath(projectDir, filepath)
+      misc.writeFile(full_path, val, {})
+    end
+    return true
   end
 }
 ----------------------------------------------------
@@ -711,12 +733,20 @@ int main(void) {
 ]],
   },
   boiler = function(self)
-    -- Insert your single file core validation script check here (src/main.c)
+    for filepath, _ in pairs(self.plates) do
+      local full_path = vim.fs.joinpath(projectDir, filepath)
+      if vim.uv.fs_stat(full_path) then
+        return false
+      end
+    end
+
+    for filepath, val in pairs(self.plates) do
+      local full_path = vim.fs.joinpath(projectDir, filepath)
+      misc.writeFile(full_path, val, {})
+    end
+    return true
   end
 }
-----------------------------------------------------
-----------------------------------------------------
-----------------------------------------------------
 ----------------------------------------------------
 ----------------------------------------------------
 
@@ -727,43 +757,6 @@ function M.boilerplate_gen(framework, from)
   if not entry then return false end
   -- Using a colon passes 'entry' as 'self' so we can read its 'plates' table
   return entry:boiler()
-
-  -- from = from or ''
-  --
-  -- local entry = boilerplate[framework]
-  -- if not entry then
-  --   return ''
-  -- end
-  --
-  -- if framework == '.clangd' then
-  --   return entry:content()
-  -- end
-  --
-  -- local file_path = vim.fs.joinpath('', '')
-  --
-  -- if vim.uv.fs_stat(file_path) then
-  --   if not entry.rewrite then
-  --     if entry.read then
-  --       local ok, content = misc.readFile(file_path)
-  --       -- if ok then print(content) end
-  --       if ok then
-  --         return content
-  --       end
-  --       -- local fr = io.open(file_path, 'r')
-  --       -- if fr then return (fr:read('*a')) end
-  --     end
-  --     return ''
-  --   end
-  -- end
-  -- --
-  -- local template = type(entry.content) == 'function' and entry:content() or entry.content
-  -- misc.writeFile(file_path, template, {})
-  --
-  -- if entry.read then
-  --   return template
-  -- else
-  --   return ''
-  -- end
 end
 
 return M
