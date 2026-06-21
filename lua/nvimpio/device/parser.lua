@@ -216,13 +216,13 @@ function M.handlePioinit(result, framework, board, on_done)
     boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
     -- boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
     boilerplate_gen([[platformio.ini]])
+    boilerplate_gen(framework)
     cliTerm:send(pop(M.queue))
   -- elseif result == 'PASS1' then
   elseif result == 'DONE' then -- result of the last command
     OS.notify(fromMsg .. 'project init Done', "info")
     -- boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
     -- boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-    boilerplate_gen(framework)
     cliTerm:hide()
     if on_done and type(on_done) == "function" then on_done(true) end
     -- _G.metadata.active_env = board
