@@ -350,7 +350,8 @@ CompileFlags:
 
     -- 3. ASSEMBLE CLEAN MAIN .CLANGD STRINGS PROFILE
     dynamicBlock =
-      string.format(self.dynamic, table.concat(formatted_libdeps, ',\n    '), OS.project_dir, table.concat(formatted_removed_args, ',\n    '), OS.clangd_flags)
+      -- string.format(self.dynamic, table.concat(formatted_libdeps, ',\n    '), OS.project_dir, table.concat(formatted_removed_args, ',\n    '), OS.clangd_flags)
+      string.format(self.dynamic, table.concat(formatted_libdeps, ',\n    '), OS.project_dir, table.concat(formatted_removed_args, ',\n    '), '.nvimpio/.clangdFlags.txt')
     -- dynamicBlock = string.format(self.dynamic, table.concat(formatted_removed_args, ',\n    '), OS.clangd_flags)
     local final_content = staticBlock .. '\n' .. dynamicBlock
 
