@@ -397,7 +397,7 @@ boilerplate['espidf'] = {
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "main.h"
+#include "main.h"  // IWYU pragma: keep
 
 void run_system_logic(void) {
     printf("Headache-free ESP-IDF system initialized successfully!\n");
@@ -485,7 +485,7 @@ boilerplate['simba'] = {
     --
     ['src/main.c'] = [[
 #include "simba.h"
-#include "main.h"
+#include "main.h"  // IWYU pragma: keep
 
 int main() {
     sys_init();
@@ -521,7 +521,7 @@ boilerplate['zephyr'] = {
     --
     ['src/main.c'] = [[
 #include <kernel.h>
-#include "main.h"
+#include "main.h"  // IWYU pragma: keep
 
 int main(void) {
     printk("Zephyr RTOS template initialized successfully!\n");
@@ -570,7 +570,7 @@ boilerplate['mbed'] = {
   plates = {
     ['src/main.cpp'] = [[
 #include "mbed.h"
-#include "main.hpp"
+#include "main.hpp"  // IWYU pragma: keep
 
 // Initialize a digital output pin (e.g., LED1)
 DigitalOut led(LED1);
@@ -611,7 +611,7 @@ boilerplate['stm32cube'] = {
   plates = {
     ['src/main.c'] = [[
 #include "stm32f4xx_hal.h" // Replace 'f4' with your specific family (e.g., g0, l4, h7)
-#include "main.h"
+#include "main.h"  // IWYU pragma: keep
 
 void SystemClock_Config(void);
 
@@ -650,7 +650,7 @@ boilerplate['cmsis'] = {
   plates = {
     ['src/main.c'] = [[
 #include "stm32f4xx.h" // Include native device register mappings directly
-#include "main.h"
+#include "main.h"  // IWYU pragma: keep
 
 int main(void) {
     // Directly enable peripheral clocks via reset control registers (RCC)
@@ -681,7 +681,7 @@ boilerplate['libopencm3'] = {
     ['src/main.c'] = [[
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
-#include "main.h"
+#include "main.h"  // IWYU pragma: keep
 
 int main(void) {
     // 1. Enable the clock for GPIO Port C (Common LED port on blue-pill boards)
