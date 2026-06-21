@@ -464,7 +464,7 @@ boilerplate['arduino'] = {
     --
     ['src/main.cpp'] = [[
 #include <Arduino.h>
-#include "main.hpp"
+#include "main.hpp"  // IWYU pragma: keep
 
 void setup() {
     Serial.begin(115200);
