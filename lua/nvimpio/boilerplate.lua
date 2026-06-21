@@ -669,9 +669,45 @@ int main(void) {
   boiler = function(self) boiler(self) end,
 }
 ----------------------------------------------------
+boilerplate['libopencm3'] = {
+  plates = {
+    ['src/main.c'] = [[
+#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/gpio.h>
+#include "main.h"
+
+int main(void) {
+    // 1. Enable the clock for GPIO Port C (Common LED port on blue-pill boards)
+    rcc_periph_clock_enable(RCC_GPIOC);
+
+    // 2. Configure Pin 13 as an Output pin
+    gpio_set_mode(GPIOC, GPIO_MODE_OUTPUT_2MHZ, GPIO_CNF_OUTPUT_PUSHPULL, GPIO_IO13);
+
+    while (1) {
+        gpio_toggle(GPIOC, GPIO_IO13);
+
+        // Crude hardware delay loop loop
+        for (int i = 0; i < 800000; i++) {
+            __asm__("nop");
+        }
+    }
+    return 0;
+}
+]],
+    ['include/main.h'] = [[
+#ifndef MAIN_H_
+#define MAIN_H_
+
+// Peripherals parameters can be defined here
+
+#endif /* MAIN_H_ */
+]],
+  },
+  boiler = function(self) boiler(self) end,
+}
+----------------------------------------------------
 ----------------------------------------------------
 
-----------------------------------------------------
 function M.boilerplate_gen(framework, from)
   from = from or ''
   local entry = boilerplate[framework]
