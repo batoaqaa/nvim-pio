@@ -514,27 +514,17 @@ int main() {
 }
 
 ------------------------------------------------------------------
---     ----------------------------------------------------
---     -- 2. Kept inside the zephyr/ folder to satisfy PlatformIO's build wrapper
---     ['zephyr/CMakeLists.txt'] = [[
--- cmake_minimum_required(VERSION 3.13.1)
--- include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake NO_POLICY_SCOPE)
--- project(test)
---
--- FILE(GLOB app_sources ../src/*.c*)
--- target_sources(app PRIVATE ${app_sources})
--- ]],
 --zephyr
 boilerplate['zephyr'] = {
   plates = {
     ----------------------------------------------------
-    -- Modern namespaced include ensures zero clangd LSP warnings
+    -- 1. Main application code using modern namespace includes
     ['src/main.c'] = [[
 #include <zephyr/kernel.h>
 #include "main.h"
 
 int main(void) {
-    printk("Zephyr v4.4.0 environment initialized successfully via nvim-pio!\n");
+    printk("Zephyr v4.4.0 environment initialized via nvim-pio!\n");
 
     while (1) {
         printk("Loop running...\n");
@@ -545,14 +535,14 @@ int main(void) {
 }
 ]],
     ----------------------------------------------------
-    --
+    -- 2. Project local header file
     ['include/main.h'] = [[
 #ifndef MAIN_H_
 #define MAIN_H_
 #endif /* MAIN_H_ */
 ]],
     ----------------------------------------------------
-    --
+    -- 3. MANDATORY: Kept so PlatformIO's auto-generated CMake can read it
     ['zephyr/prj.conf'] = [[
 # Zephyr Kernel configuration flags
 CONFIG_PRINTK=y
