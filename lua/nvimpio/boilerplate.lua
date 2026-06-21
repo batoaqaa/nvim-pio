@@ -378,9 +378,7 @@ CompileFlags:
 local boiler = function(self)
   for filepath, _ in pairs(self.plates) do
     local full_path = vim.fs.joinpath(projectDir, filepath)
-    if vim.uv.fs_stat(full_path) then
-      return false
-    end
+    if vim.uv.fs_stat(full_path) then return false end
   end
 
   for filepath, val in pairs(self.plates) do
@@ -440,20 +438,7 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(test)
 ]],
   },
-  boiler = function(self)
-    for filepath, _ in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      if vim.uv.fs_stat(full_path) then
-        return false
-      end
-    end
-
-    for filepath, val in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      misc.writeFile(full_path, val, {})
-    end
-    return true
-  end,
+  boiler = function(self) boiler(self) end,
 }
 
 ------------------------------------------------------------------
@@ -490,21 +475,7 @@ void loop() {
 #endif /* MAIN_HPP_ */
 ]],
   },
-  boiler = function(self)
-    boiler(self)
-    -- for filepath, _ in pairs(self.plates) do
-    --   local full_path = vim.fs.joinpath(projectDir, filepath)
-    --   if vim.uv.fs_stat(full_path) then
-    --     return false
-    --   end
-    -- end
-    --
-    -- for filepath, val in pairs(self.plates) do
-    --   local full_path = vim.fs.joinpath(projectDir, filepath)
-    --   misc.writeFile(full_path, val, {})
-    -- end
-    -- return true
-  end,
+  boiler = function(self) boiler(self) end,
 }
 
 ------------------------------------------------------------------
@@ -540,20 +511,7 @@ int main() {
 #endif /* MAIN_H_ */
 ]],
   },
-  boiler = function(self)
-    for filepath, _ in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      if vim.uv.fs_stat(full_path) then
-        return false
-      end
-    end
-
-    for filepath, val in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      misc.writeFile(full_path, val, {})
-    end
-    return true
-  end,
+  boiler = function(self) boiler(self) end,
 }
 
 ------------------------------------------------------------------
@@ -604,20 +562,7 @@ target_include_directories(app PRIVATE include)
 CONFIG_PRINTK=y
 ]],
   },
-  boiler = function(self)
-    for filepath, _ in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      if vim.uv.fs_stat(full_path) then
-        return false
-      end
-    end
-
-    for filepath, val in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      misc.writeFile(full_path, val, {})
-    end
-    return true
-  end,
+  boiler = function(self) boiler(self) end,
 }
 ----------------------------------------------------
 boilerplate['mbed'] = {
@@ -656,20 +601,7 @@ int main() {
 }
 ]],
   },
-  boiler = function(self)
-    for filepath, _ in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      if vim.uv.fs_stat(full_path) then
-        return false
-      end
-    end
-
-    for filepath, val in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      misc.writeFile(full_path, val, {})
-    end
-    return true
-  end
+  boiler = function(self) boiler(self) end,
 }
 ----------------------------------------------------
 boilerplate['stm32cube'] = {
@@ -706,20 +638,7 @@ void SystemClock_Config(void) {
 #endif /* MAIN_H_ */
 ]],
   },
-  boiler = function(self)
-    for filepath, _ in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      if vim.uv.fs_stat(full_path) then
-        return false
-      end
-    end
-
-    for filepath, val in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      misc.writeFile(full_path, val, {})
-    end
-    return true
-  end
+  boiler = function(self) boiler(self) end,
 }
 ----------------------------------------------------
 boilerplate['cmsis'] = {
@@ -747,20 +666,7 @@ int main(void) {
 #endif /* MAIN_H_ */
 ]],
   },
-  boiler = function(self)
-    for filepath, _ in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      if vim.uv.fs_stat(full_path) then
-        return false
-      end
-    end
-
-    for filepath, val in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      misc.writeFile(full_path, val, {})
-    end
-    return true
-  end
+  boiler = function(self) boiler(self) end,
 }
 ----------------------------------------------------
 ----------------------------------------------------
