@@ -513,49 +513,43 @@ int main() {
   boiler = function(self) boiler(self) end,
 }
 
+--     ['zephyr/CMakeLists.txt'] = [[
+-- cmake_minimum_required(VERSION 3.13.1)
+-- include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake NO_POLICY_SCOPE)
+-- project(test)
+--
+-- FILE(GLOB app_sources ../src/*.c*)
+-- target_sources(app PRIVATE ${app_sources})
+-- ]],
+
 ------------------------------------------------------------------
 --zephyr
 boilerplate['zephyr'] = {
   plates = {
-    ----------------------------------------------------
-    -- 1. Source file uses modern namespace include statements
+    -- Correct the directory targets to match what PlatformIO builds
+    ['zephyr/prj.conf'] = [[
+# Zephyr Kernel configuration flags
+CONFIG_PRINTK=y
+]],
+
+    -- Keep your standard application and include scaffolding at the project root
     ['src/main.c'] = [[
 #include <zephyr/kernel.h>
 #include "main.h"
 
 int main(void) {
-    printk("Zephyr modern template initialized successfully!\n");
-
+    printk("Olimex H407 Zephyr environment initialized successfully!\n");
     while (1) {
-        printk("Loop running...\n");
         k_msleep(1000);
     }
-
     return 0;
 }
 ]],
-    ----------------------------------------------------
-    -- 2. Local header file path mapping
+
     ['include/main.h'] = [[
 #ifndef MAIN_H_
 #define MAIN_H_
-#endif /* MAIN_H_ */
-]],
-    ----------------------------------------------------
-    -- 3. Root-level modern CMake (Fixes the deprecation warning)
-    ['CMakeLists.txt'] = [[
-cmake_minimum_required(VERSION 3.20.0)
-find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(test)
-
-target_sources(app PRIVATE src/main.c)
-target_include_directories(app PRIVATE include)
-]],
-    ----------------------------------------------------
-    -- 4. Nested sub-folder configuration (Fixes the "No prj.conf found" error)
-    ['zephyr/prj.conf'] = [[
-# Zephyr Kernel configuration flags
-CONFIG_PRINTK=y
+#endif
 ]],
   },
   boiler = function(self) boiler(self) end,
