@@ -348,7 +348,6 @@ CompileFlags:
       end
     end
 
-    print(OS.project_dir)
     -- 3. ASSEMBLE CLEAN MAIN .CLANGD STRINGS PROFILE
     dynamicBlock =
       string.format(self.dynamic, table.concat(formatted_libdeps, ',\n    '), OS.project_dir, table.concat(formatted_removed_args, ',\n    '), OS.clangd_flags)
