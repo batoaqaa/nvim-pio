@@ -155,6 +155,7 @@ CompileFlags:
   Remove: [
     %s
     ]
+  Compiler: "arm-none-eabi-gcc"
 ]],
 --   dynamic = [[
 -- ---
