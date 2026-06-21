@@ -521,7 +521,7 @@ boilerplate['zephyr'] = {
     -- 1. Main application code using modern namespace includes
     ['src/main.c'] = [[
 #include <zephyr/kernel.h>
-#include "main.h"
+#include "main.h"  // IWYU pragma: keep
 
 int main(void) {
     printk("Zephyr v4.4.0 environment initialized via nvim-pio!\n");
@@ -699,8 +699,312 @@ int main(void) {
   },
   boiler = function(self) boiler(self) end,
 }
+
 ----------------------------------------------------
+--wiringpi
+boilerplate['wiringpi'] = {
+  plates = {
+    ----------------------------------------------------
+    -- 1. Main source file utilizing standard WiringPi register bindings
+    ['src/main.c'] = [[
+#include <stdio.h>
+#include <wiringPi.h>
+#include "main.h"
+
+#define BLINK_LED_PIN 0 // WiringPi Pin 0 maps to physical chip layout offsets
+
+int main(void) {
+    printf("WiringPi project initialized successfully via nvim-pio!\n");
+
+    // Initialize the underlying hardware memory access layers
+    if (wiringPiSetup() < 0) {
+        fprintf(stderr, "Error: Failed to initialize WiringPi register mappings.\n");
+        return 1;
+    }
+
+    pinMode(BLINK_LED_PIN, OUTPUT);
+
+    while (1) {
+        digitalWrite(BLINK_LED_PIN, HIGH);
+        delay(500); // Built-in millisecond execution delay utility
+        digitalWrite(BLINK_LED_PIN, LOW);
+        delay(500);
+    }
+
+    return 0;
+}
+]],
+    ----------------------------------------------------
+    -- 2. Local header template
+    ['include/main.h'] = [[
+#ifndef MAIN_H_
+#define MAIN_H_
+
+// Global constants or configurations for WiringPi tasks go here
+
+#endif /* MAIN_H_ */
+]],
+  },
+  boiler = function(self) boiler(self) end,
+}
+
 ----------------------------------------------------
+--energia
+boilerplate['energia'] = {
+  plates = {
+    ['src/main.cpp'] = [[
+#include <Energia.h>
+#include "main.hpp"
+
+void setup() {
+    pinMode(RED_LED, OUTPUT);
+}
+
+void loop() {
+    digitalWrite(RED_LED, HIGH);
+    delay(500);
+    digitalWrite(RED_LED, LOW);
+    delay(500);
+}
+]],
+    ['include/main.hpp'] = [[
+#ifndef MAIN_HPP_
+#define MAIN_HPP_
+// TI Energia configuration maps go here
+#endif
+]],
+  },
+  boiler = function(self) boiler(self) end,
+}
+
+----------------------------------------------------
+--SPL (Standard Peripheral Library)
+boilerplate['spl'] = {
+  plates = {
+    ['src/main.c'] = [[
+#include "stm32f10x.h"
+#include "main.h"
+
+void Delay(uint32_t nTime);
+
+int main(void) {
+    // Enable peripheral clock for GPIOC
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
+
+    // Configure PC13 as Output Push-Pull
+    GPIO_InitTypeDef GPIO_InitStructure;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+    while (1) {
+        GPIO_SetBits(GPIOC, GPIO_Pin_13);
+        Delay(0xFFFFF);
+        GPIO_ResetBits(GPIOC, GPIO_Pin_13);
+        Delay(0xFFFFF);
+    }
+}
+
+void Delay(uint32_t nTime) {
+    for(; nTime != 0; nTime--);
+}
+]],
+    ['include/main.h'] = [[
+#ifndef MAIN_H_
+#define MAIN_H_
+#include "stm32f10x_gpio.h"
+#include "stm32f10x_rcc.h"
+#endif
+]],
+  },
+  boiler = function(self) boiler(self) end,
+}
+
+----------------------------------------------------
+--esp8266-rtos-sdk
+boilerplate['esp8266-rtos-sdk'] = {
+  plates = {
+    ['src/main.c'] = [[
+#include <stdio.h>
+#include "esp_common.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "main.h"
+
+void hello_task(void *pvParameters) {
+    while (1) {
+        printf("Hello from ESP8266 RTOS SDK via nvim-pio!\n");
+        vTaskDelay(1000 / portTICK_RATE_MS);
+    }
+}
+
+void user_init(void) {
+    printf("SDK version:%s\n", system_get_sdk_version());
+    xTaskCreate(hello_task, "hello_task", 256, NULL, 2, NULL);
+}
+]],
+    ['include/main.h'] = [[
+#ifndef MAIN_H_
+#define MAIN_H_
+// ESP8266 system profiles
+#endif
+]],
+  },
+  boiler = function(self) boiler(self) end,
+}
+
+----------------------------------------------------
+--Freedom E SDK (freedom-e-sdk)
+boilerplate['freedom-e-sdk'] = {
+  plates = {
+    ['src/main.c'] = [[
+#include <stdio.h>
+#include <metal/gpio.h>
+#include "main.h"
+
+int main(void) {
+    printf("SiFive Freedom E SDK Initialized successfully via nvim-pio!\n");
+
+    struct metal_gpio *gpio = metal_gpio_get_device(0);
+    if (!gpio) return 1;
+
+    // Configure pin 5 (typically an on-board LED) as output
+    metal_gpio_disable_input(gpio, 5);
+    metal_gpio_enable_output(gpio, 5);
+
+    while (1) {
+        metal_gpio_toggle_pin(gpio, 5);
+        for (volatile int i = 0; i < 500000; i++); // basic delay loop
+    }
+    return 0;
+}
+]],
+    ['include/main.h'] = [[#ifndef MAIN_H_\n#define MAIN_H_\n#endif]],
+  },
+  boiler = function(self) boiler(self) end,
+}
+
+----------------------------------------------------
+--Standalone FreeRTOS (freertos)
+boilerplate['freertos'] = {
+  plates = {
+    ['src/main.c'] = [[
+#include <stdio.h>
+#include "FreeRTOS.h"
+#include "task.h"
+#include "main.h"
+
+void vBlinkTask(void *pvParameters) {
+    while (1) {
+        printf("FreeRTOS thread running loop...\n");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+int main(void) {
+    xTaskCreate(vBlinkTask, "Blink", 256, NULL, 1, NULL);
+    vTaskStartScheduler();
+    while (1);
+    return 0;
+}
+]],
+    ['include/main.h'] = [[#ifndef MAIN_H_\n#define MAIN_H_\n#endif]],
+  },
+  boiler = function(self) boiler(self) end,
+}
+
+----------------------------------------------------
+--Renesas FSP (fsp)
+boilerplate['fsp'] = {
+  plates = {
+    ['src/main.c'] = [[
+#include "hal_data.h"
+#include "main.h"
+
+void hal_entry(void) {
+    /* Initialize or toggle peripherals using */
+    while (1) {
+        R_BSP_SoftwareDelay(1000, BSP_DELAY_UNITS_MILLISECONDS);
+    }
+}
+]],
+    ['include/main.h'] = [[#ifndef MAIN_H_\n#define MAIN_H_\n#endif]],
+  },
+  boiler = function(self) boiler(self) end,
+}
+
+----------------------------------------------------
+-- For pulp-os, pulp-runtime, and pulp-sdk, the syntax is identical
+local pulp_boilerplate = {
+  plates = {
+    ['src/main.c'] = [[
+#include <stdio.h>
+#include "pmsis.h"
+#include "main.h"
+
+void helloworld(void) {
+    printf("Hello from Parallel Ultra Low Power RISC-V Core!\n");
+    pmsis_exit(0);
+}
+
+int main(void) {
+    return pmsis_kickoff((void *)helloworld);
+}
+]],
+    ['include/main.h'] = [[#ifndef MAIN_H_\n#define MAIN_H_\n#endif]],
+  },
+  boiler = function(self) boiler(self) end,
+}
+boilerplate['pulp-os'] = pulp_boilerplate
+boilerplate['pulp-runtime'] = pulp_boilerplate
+boilerplate['pulp-sdk'] = pulp_boilerplate
+
+----------------------------------------------------
+--Shakti SDK (shakti-sdk)
+boilerplate['shakti-sdk'] = {
+  plates = {
+    ['src/main.c'] = [[
+#include <stdio.h>
+#include "utils.h"
+#include "main.h"
+
+int main() {
+    printf("Shakti RISC-V processor initialized via nvim-pio!\n");
+
+    while(1) {
+        // Direct peripheral manipulations go here
+    }
+    return 0;
+}
+]],
+    ['include/main.h'] = [[#ifndef MAIN_H_\n#define MAIN_H_\n#endif]],
+  },
+  boiler = function(self) boiler(self) end,
+}
+
+----------------------------------------------------
+--Western Digital SweRV SDK (wd-riscv-sdk)
+boilerplate['wd-riscv-sdk'] = {
+  plates = {
+    ['src/main.c'] = [[
+#include <stdio.h>
+#include "psp_api.h"
+#include "main.h"
+
+int main(void) {
+    printf("Western Digital SweRV Core initialized successfully!\n");
+    
+    while(1) {
+        // SweRV hardware execution tasks
+    }
+    return 0;
+}
+]],
+    ['include/main.h'] = [[#ifndef MAIN_H_\n#define MAIN_H_\n#endif]],
+  },
+  boiler = function(self) boiler(self) end,
+}
 
 function M.boilerplate_gen(framework, from)
   from = from or ''
