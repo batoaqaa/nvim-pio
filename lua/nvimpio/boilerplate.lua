@@ -375,6 +375,20 @@ CompileFlags:
 }
 
 
+local boiler = function(self)
+  for filepath, _ in pairs(self.plates) do
+    local full_path = vim.fs.joinpath(projectDir, filepath)
+    if vim.uv.fs_stat(full_path) then
+      return false
+    end
+  end
+
+  for filepath, val in pairs(self.plates) do
+    local full_path = vim.fs.joinpath(projectDir, filepath)
+    misc.writeFile(full_path, val, {})
+  end
+  return true
+end
 
 ------------------------------------------------------------------
 --Esp-idf
@@ -477,18 +491,19 @@ void loop() {
 ]],
   },
   boiler = function(self)
-    for filepath, _ in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      if vim.uv.fs_stat(full_path) then
-        return false
-      end
-    end
-
-    for filepath, val in pairs(self.plates) do
-      local full_path = vim.fs.joinpath(projectDir, filepath)
-      misc.writeFile(full_path, val, {})
-    end
-    return true
+    boiler(self)
+    -- for filepath, _ in pairs(self.plates) do
+    --   local full_path = vim.fs.joinpath(projectDir, filepath)
+    --   if vim.uv.fs_stat(full_path) then
+    --     return false
+    --   end
+    -- end
+    --
+    -- for filepath, val in pairs(self.plates) do
+    --   local full_path = vim.fs.joinpath(projectDir, filepath)
+    --   misc.writeFile(full_path, val, {})
+    -- end
+    -- return true
   end,
 }
 
