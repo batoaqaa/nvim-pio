@@ -1,4 +1,4 @@
--- stylua: ignore start
+  -- stylua: ignore start
 local misc = require('nvimpio.utils.misc')
 local projectDir = OS.project_dir
 
@@ -154,7 +154,6 @@ CompileFlags:
     ]
 ---
 CompileFlags:
-  CompilationDatabase: %q
   Remove: [
     %s
     ]
@@ -162,6 +161,7 @@ CompileFlags:
     "@%s",
     ]
 ]],
+  -- CompilationDatabase: %q
   boiler = function(self, project_root_param)
     local core = require('nvimpio')
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
@@ -350,7 +350,8 @@ CompileFlags:
 
     -- 3. ASSEMBLE CLEAN MAIN .CLANGD STRINGS PROFILE
     dynamicBlock =
-      string.format(self.dynamic, table.concat(formatted_libdeps, ',\n    '), OS.project_dir, table.concat(formatted_removed_args, ',\n    '), OS.clangd_flags)
+      string.format(self.dynamic, table.concat(formatted_libdeps, ',\n    '), table.concat(formatted_removed_args, ',\n    '), OS.clangd_flags)
+      -- string.format(self.dynamic, table.concat(formatted_libdeps, ',\n    '), OS.project_dir, table.concat(formatted_removed_args, ',\n    '), OS.clangd_flags)
     -- dynamicBlock = string.format(self.dynamic, table.concat(formatted_removed_args, ',\n    '), OS.clangd_flags)
     local final_content = staticBlock .. '\n' .. dynamicBlock
 
