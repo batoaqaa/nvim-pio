@@ -513,6 +513,9 @@ int main() {
   boiler = function(self) boiler(self) end,
 }
 
+------------------------------------------------------------------
+--     ----------------------------------------------------
+--     -- 2. Kept inside the zephyr/ folder to satisfy PlatformIO's build wrapper
 --     ['zephyr/CMakeLists.txt'] = [[
 -- cmake_minimum_required(VERSION 3.13.1)
 -- include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake NO_POLICY_SCOPE)
@@ -521,35 +524,38 @@ int main() {
 -- FILE(GLOB app_sources ../src/*.c*)
 -- target_sources(app PRIVATE ${app_sources})
 -- ]],
-
-------------------------------------------------------------------
 --zephyr
 boilerplate['zephyr'] = {
   plates = {
-    -- Correct the directory targets to match what PlatformIO builds
-    ['zephyr/prj.conf'] = [[
-# Zephyr Kernel configuration flags
-CONFIG_PRINTK=y
-]],
-
-    -- Keep your standard application and include scaffolding at the project root
+    ----------------------------------------------------
+    -- Modern namespaced include ensures zero clangd LSP warnings
     ['src/main.c'] = [[
 #include <zephyr/kernel.h>
 #include "main.h"
 
 int main(void) {
-    printk("Olimex H407 Zephyr environment initialized successfully!\n");
+    printk("Zephyr v4.4.0 environment initialized successfully via nvim-pio!\n");
+
     while (1) {
+        printk("Loop running...\n");
         k_msleep(1000);
     }
+
     return 0;
 }
 ]],
-
+    ----------------------------------------------------
+    --
     ['include/main.h'] = [[
 #ifndef MAIN_H_
 #define MAIN_H_
-#endif
+#endif /* MAIN_H_ */
+]],
+    ----------------------------------------------------
+    --
+    ['zephyr/prj.conf'] = [[
+# Zephyr Kernel configuration flags
+CONFIG_PRINTK=y
 ]],
   },
   boiler = function(self) boiler(self) end,
