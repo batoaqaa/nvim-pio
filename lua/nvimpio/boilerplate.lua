@@ -518,13 +518,13 @@ int main() {
 boilerplate['zephyr'] = {
   plates = {
     ----------------------------------------------------
-    --
+    -- 1. Source file uses modern namespace include statements
     ['src/main.c'] = [[
-#include <kernel.h>
-#include "main.h"  // IWYU pragma: keep
+#include <zephyr/kernel.h>
+#include "main.h"
 
 int main(void) {
-    printk("Zephyr RTOS template initialized successfully!\n");
+    printk("Zephyr modern template initialized successfully!\n");
 
     while (1) {
         printk("Loop running...\n");
@@ -535,28 +535,25 @@ int main(void) {
 }
 ]],
     ----------------------------------------------------
-    --
+    -- 2. Local header file path mapping
     ['include/main.h'] = [[
 #ifndef MAIN_H_
 #define MAIN_H_
-
-// Zephyr specific definitions go here
-
 #endif /* MAIN_H_ */
 ]],
     ----------------------------------------------------
-    --
-    ['zephyr/CMakeLists.txt'] = [[
-cmake_minimum_required(VERSION 3.13.1)
-include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake NO_POLICY_SCOPE)
+    -- 3. Root-level modern CMake (Fixes the deprecation warning)
+    ['CMakeLists.txt'] = [[
+cmake_minimum_required(VERSION 3.20.0)
+find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(test)
 
-FILE(GLOB app_sources ../src/*.c*)
-target_sources(app PRIVATE ${app_sources})
+target_sources(app PRIVATE src/main.c)
+target_include_directories(app PRIVATE include)
 ]],
     ----------------------------------------------------
-    --
-    ['prj.conf'] = [[
+    -- 4. Nested sub-folder configuration (Fixes the "No prj.conf found" error)
+    ['zephyr/prj.conf'] = [[
 # Zephyr Kernel configuration flags
 CONFIG_PRINTK=y
 ]],
