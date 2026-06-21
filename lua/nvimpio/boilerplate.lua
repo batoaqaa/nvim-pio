@@ -388,7 +388,7 @@ local boiler = function(self)
 end
 
 ------------------------------------------------------------------
---Esp-idf
+--espidf
 boilerplate['espidf'] = {
   plates = {
     ----------------------------------------------------
@@ -441,7 +441,7 @@ project(test)
 }
 
 ------------------------------------------------------------------
---Arduino
+--arduino
 boilerplate['arduino'] = {
   plates = {
     ----------------------------------------------------
@@ -564,7 +564,8 @@ CONFIG_PRINTK=y
   boiler = function(self) boiler(self) end,
 }
 
-----------------------------------------------------
+------------------------------------------------------------------
+--mbed
 boilerplate['mbed'] = {
   plates = {
     ['src/main.cpp'] = [[
@@ -603,7 +604,9 @@ int main() {
   },
   boiler = function(self) boiler(self) end,
 }
+
 ----------------------------------------------------
+--stm32cube
 boilerplate['stm32cube'] = {
   plates = {
     ['src/main.c'] = [[
@@ -640,7 +643,9 @@ void SystemClock_Config(void) {
   },
   boiler = function(self) boiler(self) end,
 }
+
 ----------------------------------------------------
+--cmsis
 boilerplate['cmsis'] = {
   plates = {
     ['src/main.c'] = [[
@@ -668,7 +673,9 @@ int main(void) {
   },
   boiler = function(self) boiler(self) end,
 }
+
 ----------------------------------------------------
+--libopencm3
 boilerplate['libopencm3'] = {
   plates = {
     ['src/main.c'] = [[
