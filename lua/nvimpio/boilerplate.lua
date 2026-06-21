@@ -520,7 +520,7 @@ boilerplate['zephyr'] = {
     ----------------------------------------------------
     --
     ['src/main.c'] = [[
-#include <zephyr/kernel.h>
+#include <kernel.h>
 #include "main.h"
 
 int main(void) {
