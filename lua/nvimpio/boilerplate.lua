@@ -382,7 +382,7 @@ boilerplate['espidf'] = {
   plates = {
     ----------------------------------------------------
     --
-    ['main.c'] = [[
+    ['src/main.c'] = [[
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -402,7 +402,7 @@ void app_main(void) {
 ]],
     ----------------------------------------------------
     --
-    ['main.h'] = [[
+    ['include/main.h'] = [[
 #ifndef MAIN_H_
 #define MAIN_H_
 
