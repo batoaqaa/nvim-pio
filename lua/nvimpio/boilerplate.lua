@@ -194,14 +194,14 @@ CompileFlags:
     ]
 ]],
   boiler = function(self, project_root_param)
-    local core = require('nvimpio')
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
     project_root = vim.fs.normalize(project_root)
 
+    local core = require('nvimpio')
     local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
     local coreClangd = vim.fs.joinpath(core.config.pio_storage_dir, '.clangd')
     local flagsFile = OS.clangd_flags
-    local filter_db_path = OS.clangd_filter
+    local filter_db_file = OS.clangd_filter
     local staticBlock, dynamicBlock = '', ''
 
     if vim.uv.fs_stat(cwdClangd) then
@@ -215,16 +215,18 @@ CompileFlags:
     end
 
     -- A: Force-create an empty default database if missing
-    local db_exist = vim.uv.fs_stat(filter_db_path)
+    local db_exist = vim.uv.fs_stat(filter_db_file)
     if not db_exist then
       local default_db = { codes = {}, flags = {} }
-      local f_init = io.open(filter_db_path, 'wb')
+      local f_init = io.open(filter_db_file, 'wb')
       if f_init then
         f_init:write(misc.jsonFormat and misc.jsonFormat(default_db) or '{\n  "codes": {},\n  "flags": {}\n}')
         f_init:close()
       end
     end
 
+    --------------------------------------------------------------------------------
+    ------------------ start .clangd remove section --------------------------------
     -- 1. HYDRODYNAMIC SYNC (WITH DIRECT DISK FALLBACK GATING):
     local removed_args = {}
     local flags_dictionary = {}
@@ -235,7 +237,7 @@ CompileFlags:
         flags_dictionary[flag] = is_blocked
       end
     else
-      local f = io.open(filter_db_path, 'r')
+      local f = io.open(filter_db_file, 'r')
       if f then
         local raw = f:read('*a')
         f:close()
@@ -259,10 +261,11 @@ CompileFlags:
     end
     table.sort(removed_args)
 
-    local formatted_removed_args = {}
+    local formatted_remove = {}
     for i = 1, #removed_args do
-      table.insert(formatted_removed_args, string.format('%q', removed_args[i]))
+      table.insert(formatted_remove, string.format('%q', removed_args[i]))
     end
+    --------------------- end .clangd remove section -----------------------------
 
     -- 2. METADATA EXTRACTOR
     local target_meta = nil
@@ -282,15 +285,14 @@ CompileFlags:
       end
     end
 
-    -- local log_file = vim.fs.joinpath(project_root, 'nvim_pio_boot_trace.log')
-    -- local f_log = io.open(log_file, 'a')
 
-    local formatted_libdeps = {}
-    local mapped_flags_path = string.format('"@%s"', OS.clangd_flags)
-    table.insert(formatted_libdeps, mapped_flags_path)
+    --------------------------------------------------------------------------------
+    ------------------- start .clangd response file --------------------------------
     local options_file_lines = {}
     if target_meta then
-      -- -- 🔍 TRACE LOGGING: Record successful dynamic extraction parameters
+      -- --INFO: 🔍 TRACE LOGGING: Record successful dynamic extraction parameters
+      -- local log_file = vim.fs.joinpath(project_root, 'nvim_pio_boot_trace.log')
+      -- local f_log = io.open(log_file, 'a')
       -- if f_log then
       --   local timestamp = os.date('%Y-%m-%d %H:%M:%S')
       --   f_log:write(string.format('[%s] 🟢 NESTED DATA FOUND! Unpacking include pools...\n', timestamp))
@@ -298,20 +300,10 @@ CompileFlags:
       --   f_log = nil
       -- end
 
-      -- -- Phase A: Extract board macro defines safely
-      -- if type(target_meta.auto_defines) == 'table' then
-      --   for i = 1, #target_meta.auto_defines do
-      --     local define = target_meta.auto_defines[i]
-      --     if type(define) == 'string' and define ~= '' then
-      --       table.insert(options_file_lines, define)
-      --     end
-      --   end
-      -- end
-
       -- 🟢  phase A: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL
       local define_pools = {
-        target_meta.auto_defines,
-        target_meta.defines,
+        target_meta.auto_defines,  -- board macro defines
+        target_meta.defines,       -- GENERIC compiler target flags
       }
 
       table.insert(options_file_lines, "-x c++")
@@ -349,11 +341,6 @@ CompileFlags:
       --   end
       -- end
 
-      -- prepare include lipdeps (set from upkeep to have nested includes like ArduinoJson)
-      for i = 1, #target_meta.includes_libdeps do
-        table.insert(formatted_libdeps, string.format('%q', target_meta.includes_libdeps[i]))
-      end
-
       -- 🟢  Phase C: Write fresh data lines out to disk
       local final_flags_content = table.concat(options_file_lines, '\n')
       local pio_build_dir = vim.fs.dirname(flagsFile)
@@ -365,8 +352,9 @@ CompileFlags:
       if not f_ok or old_flags ~= final_flags_content then
         misc.writeFile(flagsFile, final_flags_content, {})
       end
+
     else
-      -- -- 🔍 TRACE LOGGING: Record if lookup continues failing across all levels
+      -- --INFO: 🔍 TRACE LOGGING: Record if lookup continues failing across all levels
       -- if f_log then
       --   local timestamp = os.date('%Y-%m-%d %H:%M:%S')
       --   f_log:write(string.format('[%s] ⚠️  Structural scan failed. Metadata properties unreachable.\n', timestamp))
@@ -382,25 +370,35 @@ CompileFlags:
         misc.writeFile(flagsFile, '', {})
       end
     end
+    --------------------- end .clangd response file -----------------------------
 
-    -- 3. ASSEMBLE CLEAN MAIN .CLANGD STRINGS PROFILE
+    ------------------------------------------------------------------------------
+    ------------------ start .clangd Add section  --------------------------------
+    local formatted_add = {}
+    -- a. Format the flags path string exactly how clangd expects to receive it
+    local mapped_flags_path = string.format('"@%s"', OS.clangd_flags)
+    -- b. Insert it straight into the end of your tracking table
+    table.insert(formatted_add, mapped_flags_path)
 
-    -- -- a. Format the flags path string exactly how clangd expects to receive it
-    -- local mapped_flags_path = string.format('"@%s"', OS.clangd_flags)
-    -- -- b. Insert it straight into the end of your tracking table
-    -- table.insert(formatted_libdeps, mapped_flags_path)
-    -- c. Run a clean, single-pass string format loop. No more loose comma bugs!
+    if target_meta then
+      -- c. prepare include lipdeps (set from upkeep to have nested includes like ArduinoJson)
+      for i = 1, #target_meta.includes_libdeps do
+        table.insert(formatted_add, string.format('%q', target_meta.includes_libdeps[i]))
+      end
+    end
+    --------------------- end .clangd add section ---------------------------------
+
+    -- 3. Run a clean, single-pass string format for dynamicBlock
     dynamicBlock = string.format(
       self.dynamic,
-      table.concat(formatted_removed_args, ',\n    '),
-      table.concat(formatted_libdeps, ',\n    ')
+      table.concat(formatted_remove, ',\n    '),
+      table.concat(formatted_add, ',\n    ')
     )
-
     -- dynamicBlock =
-    --   string.format(self.dynamic, table.concat(formatted_libdeps, ',\n    '), table.concat(formatted_removed_args, ',\n    '), OS.clangd_flags)
-    --   -- string.format(self.dynamic, table.concat(formatted_libdeps, ',\n    '), OS.project_dir, table.concat(formatted_removed_args, ',\n    '), OS.clangd_flags)
-    --   -- string.format(self.dynamic, table.concat(formatted_libdeps, ',\n    '), OS.clangd_flags, table.concat(formatted_removed_args, ',\n    '))
-    --   -- string.format(self.dynamic, table.concat(formatted_removed_args, ',\n    '), OS.clangd_flags)
+    --   string.format(self.dynamic, table.concat(formatted_add, ',\n    '), table.concat(formatted_remove, ',\n    '), OS.clangd_flags)
+    --   -- string.format(self.dynamic, table.concat(formatted_add, ',\n    '), OS.project_dir, table.concat(formatted_remove, ',\n    '), OS.clangd_flags)
+    --   -- string.format(self.dynamic, table.concat(formatted_add, ',\n    '), OS.clangd_flags, table.concat(formatted_remove, ',\n    '))
+    --   -- string.format(self.dynamic, table.concat(formatted_remove, ',\n    '), OS.clangd_flags)
 
     local final_content = staticBlock .. '\n' .. dynamicBlock
 
