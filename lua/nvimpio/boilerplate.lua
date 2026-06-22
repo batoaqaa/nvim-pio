@@ -265,7 +265,6 @@ CompileFlags:
     end
 
     -- 2. METADATA EXTRACTOR
-    local options_file_lines = {}
     local formatted_libdeps = {}
     local target_meta = nil
 
@@ -287,6 +286,7 @@ CompileFlags:
     -- local log_file = vim.fs.joinpath(project_root, 'nvim_pio_boot_trace.log')
     -- local f_log = io.open(log_file, 'a')
 
+    local options_file_lines = {}
     if target_meta then
       -- -- 🔍 TRACE LOGGING: Record successful dynamic extraction parameters
       -- if f_log then
@@ -308,11 +308,12 @@ CompileFlags:
 
       -- 🟢  phase A: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL
       local define_pools = {
-        {"-std=c++17", "-x c++"},
         target_meta.auto_defines,
         target_meta.defines,
       }
 
+      table.insert(options_file_lines, "-std=c++17")
+      table.insert(options_file_lines, "-x c++")
       -- High-performance JIT-optimized loop for all definitions pools
       for pool_idx = 1, #define_pools do
         local pool = define_pools[pool_idx]
