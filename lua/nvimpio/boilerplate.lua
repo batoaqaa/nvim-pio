@@ -80,7 +80,7 @@ boilerplate['.clangdConfig.json'] = {
     "objc",
     "objcpp",
     "cuda",
-    "proto",
+    "proto"
   ],
   "init_options": {
     "clangdFileStatus": true,
@@ -98,10 +98,10 @@ boilerplate['.clangdConfig.json'] = {
     ".clang-format",
     "CMakeLists.txt",
     "compile_flags.txt",
-    "configure.ac",
+    "configure.ac"
   ],
   "single_file_support": true,
-  "workspace_required": true,
+  "workspace_required": true
 }
 ]],
   boiler = function(self)
