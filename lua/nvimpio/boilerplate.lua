@@ -80,7 +80,7 @@ boilerplate['.clangdConfig.json'] = {
     "objc",
     "objcpp",
     "cuda",
-    "proto"
+    "proto",
   ],
   "init_options": {
     "clangdFileStatus": true,
@@ -92,7 +92,7 @@ boilerplate['.clangdConfig.json'] = {
   "root_markers": [
     "platformio.ini",
     "compile_commands.json",
-    ".git"
+    ".git",
     ".clangd",
     ".clang-tidy",
     ".clang-format",
@@ -101,11 +101,11 @@ boilerplate['.clangdConfig.json'] = {
     "configure.ac",
   ],
   "single_file_support": true,
-  "workspace_required": true
+  "workspace_required": true,
 }
 ]],
   boiler = function(self)
-    local file_path = vim.fs.joinpath(OS.nvimpio_config_dir, '.clangdConfig.json')
+    local file_path = vim.fs.joinpath(OS.clangd_config)
     if vim.uv.fs_stat(file_path) then
       if not self.rewrite then
         if self.read then
