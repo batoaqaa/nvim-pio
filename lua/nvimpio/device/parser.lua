@@ -474,7 +474,7 @@ end
 function M.handlePiolib(result)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
-  elseif result == 'PASS' then
+  elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
     OS.notify('PIO lib+db:  pass ' .. current_id, "info")
     -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
