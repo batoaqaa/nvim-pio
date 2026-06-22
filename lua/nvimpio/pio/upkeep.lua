@@ -649,88 +649,8 @@ end
 -------------------------------------------------------------------------------
 -- INFO:
 -- Fix compile_commands.json file with absoulute paths
--- function M.compile_commandsFix() --M.dbPathsFix()
---   local filename = vim.fs.joinpath(vim.uv.cwd(), 'compile_commands.json')
---   local content = vim.fn.readfile(filename)
---   if #content == 0 then return end
---
---   local start_time = vim.loop.hrtime()
---   local ok, data = pcall(vim.json.decode, table.concat(content, '\n'))
---   if not ok or type(data) ~= 'table' then return end
---
---   -- 1. Build Path Map (Scan toolchain)
---   local path_map = {}
---   local pio_binaries = _G.metadata.query_driver or '/bin/*'
---   -- local pio_binaries = (_G.metadata.toolchain_root or "") .. '/bin/*'
---   for _, full_path in ipairs(vim.fn.glob(pio_binaries, false, true)) do
---     local name = full_path:match('([^/\\\\]+)$'):gsub('%.exe$', '')
---     path_map[name] = full_path
---   end
---
---   -- 2. Update Entries
---   local modified = false
---   local prntFlags = true
---   for _, entry in ipairs(data) do
---     -- Standard normalization
---     if entry.directory then entry.directory = vim.fs.normalize(entry.directory) end
---     if entry.file then entry.file = vim.fs.normalize(entry.file) end
---     if entry.arguments then entry.arguments = vim.fs.normalizeFlags(entry.arguments) end
---     if entry.output then entry.output = vim.fs.normalize(entry.output) end
---
---     if entry.command then
---       -- Extract compiler and everything after it
---       local compiler, args = entry.command:match("^%s*(%S+)(.*)")
---       if compiler then
---         local is_absolute = compiler:sub(1, 1) == '/' or compiler:match('^%a:')
---
---         if not is_absolute then
---           local short_name = compiler:match('([^/\\\\]+)$'):gsub('%.exe$', '')
---
---           if path_map[short_name] then
---             -- Use normalizePath on the new path
---             local full_compiler_path = vim.fs.normalize(path_map[short_name])
---
---             -- Quote the path if it contains spaces
---             if full_compiler_path:find(" ") then
---               full_compiler_path = '"' .. full_compiler_path .. '"'
---             end
---             if prntFlags then
---               -- print(string.format('ful_compiler_path = %s flags=%s', full_compiler_path, args))
---               prntFlags = false
---             end
---             entry.command = full_compiler_path .. args
---             modified = true
---           end
---         end
---       end
---     end
---   end
---   -- -- 3. Save with Formatting
---   if modified then
---     local jok, formatted = pcall(misc.jsonFormat, data)
---     -- local jok, formatted = pcall(M.pretty_print, data)
---     if not jok then
---       OS.notify('Formatting failed: ' .. formatted, 'error')
---       return
---     end
---
---     local wk, err = misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
---     if not wk then OS.notify(err, 'error') end
---
---     local end_time = vim.loop.hrtime()
---     local duration = (end_time - start_time) / 1e6
---     OS.notify(string.format('compiledb: paths fixed in %.2fms', duration), "info")
---     -- clangd.restart()
---   end
---   OS.notify("no need to fixPaths")
---   _G.isBusy = false
--- end
-
-function M.compile_commandsFix()
+function M.compile_commandsFix() --M.dbPathsFix()
   local filename = vim.fs.joinpath(vim.uv.cwd(), 'compile_commands.json')
-
-  -- Handle file existence validation safely
-  if not vim.uv.fs_stat(filename) then return end
   local content = vim.fn.readfile(filename)
   if #content == 0 then return end
 
@@ -738,21 +658,11 @@ function M.compile_commandsFix()
   local ok, data = pcall(vim.json.decode, table.concat(content, '\n'))
   if not ok or type(data) ~= 'table' then return end
 
-  -- 1. Build Path Map (Scan toolchain packages)
+  -- 1. Build Path Map (Scan toolchain)
   local path_map = {}
-
-  -- Use a broad, safe fallback mapping loop to catch standard toolchains
-  local home = os.getenv("USERPROFILE") or os.getenv("HOME")
-  local fallback_packages = home .. "/.platformio/packages/*/bin/*"
-  -- local pio_binaries = _G.metadata.query_driver or fallback_packages
-  local pio_binaries = vim.fs.normalize(vim.fn.fnamemodify(_G.metadata.cxx_path, ':h')) or fallback_packages
-
-  -- If query_driver contains a comma-separated list, clean or iterate it
-  if pio_binaries:find(",") then
-    -- Clean the string target down to a clean scanning glob wildcard pattern
-    pio_binaries = fallback_packages
-  end
-
+  -- local pio_binaries = _G.metadata.query_driver or '/bin/*'
+  local pio_binaries = vim.fs.normalize(vim.fn.fnamemodify(_G.metadata.cxx_path, ':h')) or  '/bin/*'
+  -- local pio_binaries = (_G.metadata.toolchain_root or "") .. '/bin/*'
   for _, full_path in ipairs(vim.fn.glob(pio_binaries, false, true)) do
     local name = full_path:match('([^/\\\\]+)$'):gsub('%.exe$', '')
     path_map[name] = full_path
@@ -760,13 +670,16 @@ function M.compile_commandsFix()
 
   -- 2. Update Entries
   local modified = false
+  local prntFlags = true
   for _, entry in ipairs(data) do
+    -- Standard normalization
     if entry.directory then entry.directory = vim.fs.normalize(entry.directory) end
     if entry.file then entry.file = vim.fs.normalize(entry.file) end
     if entry.arguments then entry.arguments = vim.fs.normalizeFlags(entry.arguments) end
     if entry.output then entry.output = vim.fs.normalize(entry.output) end
 
     if entry.command then
+      -- Extract compiler and everything after it
       local compiler, args = entry.command:match("^%s*(%S+)(.*)")
       if compiler then
         local is_absolute = compiler:sub(1, 1) == '/' or compiler:match('^%a:')
@@ -775,13 +688,17 @@ function M.compile_commandsFix()
           local short_name = compiler:match('([^/\\\\]+)$'):gsub('%.exe$', '')
 
           if path_map[short_name] then
-            -- Clean Windows paths to use universal forward slashes inside JSON blocks
-            local full_compiler_path = vim.fs.normalize(path_map[short_name]):gsub("\\", "/")
+            -- Use normalizePath on the new path
+            local full_compiler_path = vim.fs.normalize(path_map[short_name])
 
+            -- Quote the path if it contains spaces
             if full_compiler_path:find(" ") then
               full_compiler_path = '"' .. full_compiler_path .. '"'
             end
-
+            if prntFlags then
+              -- print(string.format('ful_compiler_path = %s flags=%s', full_compiler_path, args))
+              prntFlags = false
+            end
             entry.command = full_compiler_path .. args
             modified = true
           end
@@ -789,31 +706,116 @@ function M.compile_commandsFix()
       end
     end
   end
-
-  -- 3. Save and Notify
+  -- -- 3. Save with Formatting
   if modified then
     local jok, formatted = pcall(misc.jsonFormat, data)
+    -- local jok, formatted = pcall(M.pretty_print, data)
     if not jok then
       OS.notify('Formatting failed: ' .. formatted, 'error')
-      _G.isBusy = false
       return
     end
 
     local wk, err = misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
-    if not wk then
-      OS.notify(err, 'error')
-    else
-      local end_time = vim.loop.hrtime()
-      local duration = (end_time - start_time) / 1e6
-      OS.notify(string.format('compiledb: paths fixed in %.2fms', duration), "info")
+    if not wk then OS.notify(err, 'error') end
 
-      -- Force Clangd to reload your fresh absolute paths database instantly
-      pcall(function() vim.cmd("LspRestart") end)
-    end
-  else
-    OS.notify("no need to fixPaths", "info")
+    local end_time = vim.loop.hrtime()
+    local duration = (end_time - start_time) / 1e6
+    OS.notify(string.format('compiledb: paths fixed in %.2fms', duration), "info")
+    -- clangd.restart()
   end
-
+  OS.notify("no need to fixPaths")
   _G.isBusy = false
 end
+
+-- function M.compile_commandsFix()
+--   local filename = vim.fs.joinpath(vim.uv.cwd(), 'compile_commands.json')
+--
+--   -- Handle file existence validation safely
+--   if not vim.uv.fs_stat(filename) then return end
+--   local content = vim.fn.readfile(filename)
+--   if #content == 0 then return end
+--
+--   local start_time = vim.loop.hrtime()
+--   local ok, data = pcall(vim.json.decode, table.concat(content, '\n'))
+--   if not ok or type(data) ~= 'table' then return end
+--
+--   -- 1. Build Path Map (Scan toolchain packages)
+--   local path_map = {}
+--
+--   -- Use a broad, safe fallback mapping loop to catch standard toolchains
+--   local home = os.getenv("USERPROFILE") or os.getenv("HOME")
+--   local fallback_packages = home .. "/.platformio/packages/*/bin/*"
+--   -- local pio_binaries = _G.metadata.query_driver or fallback_packages
+--   local pio_binaries = vim.fs.normalize(vim.fn.fnamemodify(_G.metadata.cxx_path, ':h')) or fallback_packages
+--
+--   -- If query_driver contains a comma-separated list, clean or iterate it
+--   if pio_binaries:find(",") then
+--     -- Clean the string target down to a clean scanning glob wildcard pattern
+--     pio_binaries = fallback_packages
+--   end
+--
+--   for _, full_path in ipairs(vim.fn.glob(pio_binaries, false, true)) do
+--     local name = full_path:match('([^/\\\\]+)$'):gsub('%.exe$', '')
+--     path_map[name] = full_path
+--   end
+--
+--   -- 2. Update Entries
+--   local modified = false
+--   for _, entry in ipairs(data) do
+--     if entry.directory then entry.directory = vim.fs.normalize(entry.directory) end
+--     if entry.file then entry.file = vim.fs.normalize(entry.file) end
+--     if entry.arguments then entry.arguments = vim.fs.normalizeFlags(entry.arguments) end
+--     if entry.output then entry.output = vim.fs.normalize(entry.output) end
+--
+--     if entry.command then
+--       local compiler, args = entry.command:match("^%s*(%S+)(.*)")
+--       if compiler then
+--         local is_absolute = compiler:sub(1, 1) == '/' or compiler:match('^%a:')
+--
+--         if not is_absolute then
+--           local short_name = compiler:match('([^/\\\\]+)$'):gsub('%.exe$', '')
+--
+--           if path_map[short_name] then
+--             -- Clean Windows paths to use universal forward slashes inside JSON blocks
+--             local full_compiler_path = vim.fs.normalize(path_map[short_name]):gsub("\\", "/")
+--
+--             if full_compiler_path:find(" ") then
+--               full_compiler_path = '"' .. full_compiler_path .. '"'
+--             end
+--
+--             entry.command = full_compiler_path .. args
+--             modified = true
+--           end
+--         end
+--       end
+--     end
+--   end
+--
+--   -- 3. Save and Notify
+--   if modified then
+--     local jok, formatted = pcall(misc.jsonFormat, data)
+--     if not jok then
+--       OS.notify('Formatting failed: ' .. formatted, 'error')
+--       _G.isBusy = false
+--       return
+--     end
+--
+--     local wk, err = misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
+--     if not wk then
+--       OS.notify(err, 'error')
+--     else
+--       local end_time = vim.loop.hrtime()
+--       local duration = (end_time - start_time) / 1e6
+--       OS.notify(string.format('compiledb: paths fixed in %.2fms', duration), "info")
+--
+--       -- Force Clangd to reload your fresh absolute paths database instantly
+--       pcall(function() vim.cmd("LspRestart") end)
+--     end
+--   else
+--     OS.notify("no need to fixPaths", "info")
+--   end
+--
+--   _G.isBusy = false
+-- end
+
 return M
