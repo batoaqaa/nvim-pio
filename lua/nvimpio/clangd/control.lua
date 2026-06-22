@@ -83,11 +83,12 @@ function M.getClangdConfig()
     return nil
   end
 
-  local f_flags = [["-std=c++17", "-xc++", "-ferror-limit=0"]]
+  -- local f_flags = [["-std=c++17", "-xc++", "-ferror-limit=0"]]
   local _, count = json_config:gsub('%%s', '')
   -- Only use string.format if there is one or less %s
-  if count <= 3 then
-    merged_json = string.format(json_config or '', OS.project_dir, q_driver, f_flags)
+  if count <= 2 then
+    -- merged_json = string.format(json_config or '', OS.project_dir, q_driver, f_flags)
+    merged_json = string.format(json_config or '', OS.project_dir, q_driver)
   end
 
   -- 'decode' converts JSON string -> Lua table
