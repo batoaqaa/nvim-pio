@@ -265,7 +265,6 @@ CompileFlags:
     end
 
     -- 2. METADATA EXTRACTOR
-    local formatted_libdeps = {}
     local target_meta = nil
 
     if _G.metadata then
@@ -286,6 +285,9 @@ CompileFlags:
     -- local log_file = vim.fs.joinpath(project_root, 'nvim_pio_boot_trace.log')
     -- local f_log = io.open(log_file, 'a')
 
+    local formatted_libdeps = {}
+    local mapped_flags_path = string.format('"@%s"', OS.clangd_flags)
+    table.insert(formatted_libdeps, mapped_flags_path)
     local options_file_lines = {}
     if target_meta then
       -- -- 🔍 TRACE LOGGING: Record successful dynamic extraction parameters
@@ -312,8 +314,7 @@ CompileFlags:
         target_meta.defines,
       }
 
-      table.insert(options_file_lines, "-x")
-      table.insert(options_file_lines, "c++")
+      table.insert(options_file_lines, "-x c++")
       table.insert(options_file_lines, "-std=c++17")
       -- High-performance JIT-optimized loop for all definitions pools
       for pool_idx = 1, #define_pools do
@@ -384,10 +385,10 @@ CompileFlags:
 
     -- 3. ASSEMBLE CLEAN MAIN .CLANGD STRINGS PROFILE
 
-    -- a. Format the flags path string exactly how clangd expects to receive it
-    local mapped_flags_path = string.format('"@%s"', OS.clangd_flags)
-    -- b. Insert it straight into the end of your tracking table
-    table.insert(formatted_libdeps, mapped_flags_path)
+    -- -- a. Format the flags path string exactly how clangd expects to receive it
+    -- local mapped_flags_path = string.format('"@%s"', OS.clangd_flags)
+    -- -- b. Insert it straight into the end of your tracking table
+    -- table.insert(formatted_libdeps, mapped_flags_path)
     -- c. Run a clean, single-pass string format loop. No more loose comma bugs!
     dynamicBlock = string.format(
       self.dynamic,
