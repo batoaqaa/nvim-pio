@@ -280,8 +280,8 @@ CompileFlags:
 
     --------------------------------------------------------------------------------
     ------------------- start .clangd response file --------------------------------
-    local options_file_lines = {}
     local function compileDefines(flagsFile, defines)
+      local options_file_lines = {}
       if target_meta then
         -- --INFO: 🔍 TRACE LOGGING: Record successful dynamic extraction parameters
         -- local log_file = vim.fs.joinpath(project_root, 'nvim_pio_boot_trace.log')
