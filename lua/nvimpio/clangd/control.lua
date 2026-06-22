@@ -103,7 +103,8 @@ function M.getClangdConfig()
     project_root = vim.fs.normalize(project_root)
 
     -- Assign pristine native configuration options inside memory
-    config.init_options = {
+    -- config.init_options = {
+    config.initializationOptions = {
       clangdFileStatus = true,
       completeUnimported = true,
       usePlaceholders = true,
