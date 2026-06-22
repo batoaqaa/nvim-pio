@@ -100,7 +100,7 @@ function M.getClangdConfig()
     completeUnimported = true,
     usePlaceholders = true,
     compilationDatabasePath = OS.project_dir,
-    fallbackFlags = { '-ferror-limit=0' },
+    fallbackFlags = { '-std=c++17', '-ferror-limit=0' },
   }
 
   -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
