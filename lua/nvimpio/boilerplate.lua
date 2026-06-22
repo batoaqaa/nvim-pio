@@ -377,16 +377,16 @@ CompileFlags:
     table.insert(formatted_add, "c++")
     table.insert(formatted_add, "-std=c++17")
     -- a. Format the flags path string exactly how clangd expects to receive it
-    local mapped_flags_path = string.format('"@%s"', OS.clangd_flags)
+    local response_file_path = string.format('"@%s"', OS.clangd_flags)
     -- b. Insert it straight into the end of your tracking table
-    table.insert(formatted_add, mapped_flags_path)
+    table.insert(formatted_add, response_file_path)
 
-    if target_meta then
-      -- c. prepare include lipdeps (set from upkeep to have nested includes like ArduinoJson)
-      for i = 1, #target_meta.includes_libdeps do
-        table.insert(formatted_add, string.format('%q', target_meta.includes_libdeps[i]))
-      end
-    end
+    -- if target_meta then
+    --   -- c. prepare include lipdeps (set from upkeep to have nested includes like ArduinoJson)
+    --   for i = 1, #target_meta.includes_libdeps do
+    --     table.insert(formatted_add, string.format('%q', target_meta.includes_libdeps[i]))
+    --   end
+    -- end
     --------------------- end .clangd add section ---------------------------------
 
     -- 3. Run a clean, single-pass string format for dynamicBlock
