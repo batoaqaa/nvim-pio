@@ -306,8 +306,6 @@ CompileFlags:
         target_meta.defines,       -- GENERIC compiler target flags
       }
 
-      table.insert(options_file_lines, "-x c++")
-      table.insert(options_file_lines, "-std=c++17")
       -- High-performance JIT-optimized loop for all definitions pools
       for pool_idx = 1, #define_pools do
         local pool = define_pools[pool_idx]
@@ -375,6 +373,9 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd Add section  --------------------------------
     local formatted_add = {}
+    table.insert(formatted_add, "-x")
+    table.insert(formatted_add, "c++")
+    table.insert(formatted_add, "-std=c++17")
     -- a. Format the flags path string exactly how clangd expects to receive it
     local mapped_flags_path = string.format('"@%s"', OS.clangd_flags)
     -- b. Insert it straight into the end of your tracking table
