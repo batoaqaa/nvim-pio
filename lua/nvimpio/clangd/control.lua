@@ -89,6 +89,7 @@ function M.getClangdConfig()
   if count <= 3 then
     merged_json = string.format(json_config or '', OS.project_dir, q_driver, f_flags)
   end
+  print(merged_json)
 
   -- 'decode' converts JSON string -> Lua table
   local tok, clangd_config = pcall(vim.json.decode, merged_json)
