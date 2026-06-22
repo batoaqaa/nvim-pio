@@ -309,6 +309,7 @@ CompileFlags:
 
       -- 🟢  phase A: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL
       local define_pools = {
+        {"-std=c++17", "-x c++"},
         target_meta.auto_defines,
         target_meta.defines,
       }

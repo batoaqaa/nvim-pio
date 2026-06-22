@@ -79,7 +79,7 @@ function M.get_sysroot_triplet(cc_compiler)
 
   -- 1. Essential: Normalize slashes to match the host system style
   local normalized_compiler = vim.fs.normalize(cc_compiler)
-  local auto_defines = {"-std=c++17", "-x c++"}
+  local auto_defines = {}
 
   -- 2. Pass the arguments as an isolated Lua array table. 
   -- This completely shields the flags from PowerShell's parser!
