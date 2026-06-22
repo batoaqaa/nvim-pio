@@ -72,6 +72,7 @@ boilerplate['.clangdConfig.json'] = {
     "--pch-storage=memory",
     "--pretty",
     "--ranking-model=decision_forest",
+    "--compile-commands-dir=%s",
     "--query-driver=%s"
   ],
   "filetypes": [
