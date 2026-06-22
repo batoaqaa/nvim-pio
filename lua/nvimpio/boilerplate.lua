@@ -380,12 +380,11 @@ CompileFlags:
     end
 
     -- 3. ASSEMBLE CLEAN MAIN .CLANGD STRINGS PROFILE
+
     -- a. Format the flags path string exactly how clangd expects to receive it
     local mapped_flags_path = string.format('"@%s"', OS.clangd_flags)
-
     -- b. Insert it straight into the end of your tracking table
     table.insert(formatted_libdeps, mapped_flags_path)
-
     -- c. Run a clean, single-pass string format loop. No more loose comma bugs!
     dynamicBlock = string.format(
       self.dynamic,
