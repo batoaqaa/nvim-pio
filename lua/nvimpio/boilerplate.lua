@@ -381,12 +381,12 @@ CompileFlags:
     -- b. Insert it straight into the end of your tracking table
     table.insert(formatted_add, response_file_path)
 
-    -- if target_meta then
-    --   -- c. prepare include lipdeps (set from upkeep to have nested includes like ArduinoJson)
-    --   for i = 1, #target_meta.includes_libdeps do
-    --     table.insert(formatted_add, string.format('%q', target_meta.includes_libdeps[i]))
-    --   end
-    -- end
+    if target_meta then
+      -- c. prepare include lipdeps (set from upkeep to have nested includes like ArduinoJson)
+      for i = 1, #target_meta.includes_libdeps do
+        table.insert(formatted_add, string.format('%q', target_meta.includes_libdeps[i]))
+      end
+    end
     --------------------- end .clangd add section ---------------------------------
 
     -- 3. Run a clean, single-pass string format for dynamicBlock
@@ -395,12 +395,6 @@ CompileFlags:
       table.concat(formatted_remove, ',\n    '),
       table.concat(formatted_add, ',\n    ')
     )
-    -- dynamicBlock =
-    --   string.format(self.dynamic, table.concat(formatted_add, ',\n    '), table.concat(formatted_remove, ',\n    '), OS.clangd_flags)
-    --   -- string.format(self.dynamic, table.concat(formatted_add, ',\n    '), OS.project_dir, table.concat(formatted_remove, ',\n    '), OS.clangd_flags)
-    --   -- string.format(self.dynamic, table.concat(formatted_add, ',\n    '), OS.clangd_flags, table.concat(formatted_remove, ',\n    '))
-    --   -- string.format(self.dynamic, table.concat(formatted_remove, ',\n    '), OS.clangd_flags)
-
     local final_content = staticBlock .. '\n' .. dynamicBlock
 
     -- 4. UNCONDITIONAL DISK WRITER MATRIX
