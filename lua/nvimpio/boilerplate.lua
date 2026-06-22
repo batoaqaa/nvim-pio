@@ -405,7 +405,7 @@ CompileFlags:
     local read_ok, old_content = misc.readFile(cwdClangd)
     if not read_ok or old_content ~= final_content then
       misc.writeFile(cwdClangd, final_content, {})
-      -- misc.writeFile(coreClangd, final_content, {})
+      misc.writeFile(coreClangd, final_content, {})
 
       vim.schedule(function()
         for _, client in ipairs(vim.lsp.get_clients({ name = 'clangd' })) do
