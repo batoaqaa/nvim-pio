@@ -666,7 +666,6 @@ function M.compile_commandsFix() --M.dbPathsFix()
   for _, full_path in ipairs(vim.fn.glob(pio_binaries, false, true)) do
     local name = full_path:match('([^/\\\\]+)$'):gsub('%.exe$', '')
     path_map[name] = full_path
-    print(full_path)
   end
 
   -- 2. Update Entries
@@ -697,7 +696,7 @@ function M.compile_commandsFix() --M.dbPathsFix()
               full_compiler_path = '"' .. full_compiler_path .. '"'
             end
             if prntFlags then
-              print(string.format('ful_compiler_path = %s flags=%s', full_compiler_path, args))
+              -- print(string.format('ful_compiler_path = %s flags=%s', full_compiler_path, args))
               prntFlags = false
             end
             entry.command = full_compiler_path .. args
