@@ -661,7 +661,7 @@ function M.compile_commandsFix() --M.dbPathsFix()
   -- 1. Build Path Map (Scan toolchain)
   local path_map = {}
   -- local pio_binaries = _G.metadata.query_driver or '/bin/*'
-  local pio_binaries = vim.fs.normalize(vim.fn.fnamemodify(_G.metadata.cxx_path, ':h')) or  '/bin/*'
+  local pio_binaries = vim.fs.normalize(vim.fn.fnamemodify(_G.metadata.cxx_path, ':h')) .. '/*' or  '/bin/*'
   -- local pio_binaries = (_G.metadata.toolchain_root or "") .. '/bin/*'
   for _, full_path in ipairs(vim.fn.glob(pio_binaries, false, true)) do
     local name = full_path:match('([^/\\\\]+)$'):gsub('%.exe$', '')
