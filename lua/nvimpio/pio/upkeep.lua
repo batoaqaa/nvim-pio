@@ -744,7 +744,8 @@ function M.compile_commandsFix()
   -- Use a broad, safe fallback mapping loop to catch standard toolchains
   local home = os.getenv("USERPROFILE") or os.getenv("HOME")
   local fallback_packages = home .. "/.platformio/packages/*/bin/*"
-  local pio_binaries = _G.metadata.query_driver or fallback_packages
+  -- local pio_binaries = _G.metadata.query_driver or fallback_packages
+  local pio_binaries = vim.fs.normalize(vim.fn.fnamemodify(_G.metadata.cxx_path, ':h')) or fallback_packages
 
   -- If query_driver contains a comma-separated list, clean or iterate it
   if pio_binaries:find(",") then
