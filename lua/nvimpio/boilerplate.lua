@@ -373,9 +373,9 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd Add section  --------------------------------
     local formatted_add = {}
-    table.insert(formatted_add, "-x")
-    table.insert(formatted_add, "c++")
-    table.insert(formatted_add, "-std=c++17")
+    -- table.insert(formatted_add, "-x")
+    -- table.insert(formatted_add, "c++")
+    -- table.insert(formatted_add, "-std=c++17")
     -- a. Format the flags path string exactly how clangd expects to receive it
     local response_file_path = string.format('"@%s"', OS.clangd_flags)
     -- b. Insert it straight into the end of your tracking table
