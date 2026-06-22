@@ -312,8 +312,9 @@ CompileFlags:
         target_meta.defines,
       }
 
+      table.insert(options_file_lines, "-x")
+      table.insert(options_file_lines, "c++")
       table.insert(options_file_lines, "-std=c++17")
-      table.insert(options_file_lines, "-x c++")
       -- High-performance JIT-optimized loop for all definitions pools
       for pool_idx = 1, #define_pools do
         local pool = define_pools[pool_idx]
