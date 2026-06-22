@@ -95,6 +95,13 @@ function M.getClangdConfig()
   if not tok then
     return nil
   end
+  clangd_config.init_options = {
+    clangdFileStatus = true,
+    completeUnimported = true,
+    usePlaceholders = true,
+    compilationDatabasePath = OS.project_dir,
+    fallbackFlags = { '-ferror-limit=0' },
+  }
 
   -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
   clangd_config.before_init = function(params, config)
@@ -103,8 +110,7 @@ function M.getClangdConfig()
     project_root = vim.fs.normalize(project_root)
 
     -- Assign pristine native configuration options inside memory
-    -- config.init_options = {
-    config.initializationOptions = {
+    config.init_options = {
       clangdFileStatus = true,
       completeUnimported = true,
       usePlaceholders = true,
