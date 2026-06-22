@@ -87,7 +87,7 @@ boilerplate['.clangdConfig.json'] = {
     "clangdFileStatus": true,
     "completeUnimported": true,
     "fallbackFlags": [
-    "%s"
+    %s,
     ],
     "usePlaceholders": true
   },
