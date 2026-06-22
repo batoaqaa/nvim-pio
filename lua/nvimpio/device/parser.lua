@@ -481,12 +481,12 @@ function M.handlePiolib(result)
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
       OS.notify('PIO lib+db: Done', "info")
-      M.pio_refresh(function(success)
-        if success then
-          do end
-          -- require('nvimpio.clangd.control').getUnknownArgsCli('PIO lib+db: ')
-        end
-      end, 'PIO lib+db: ')
+      -- M.pio_refresh(function(success)
+      --   if success then
+      --     do end
+      --     -- require('nvimpio.clangd.control').getUnknownArgsCli('PIO lib+db: ')
+      --   end
+      -- end, 'PIO lib+db: ')
     end)
     cliTerm:hide()
     M.cleanSequencer()
