@@ -77,49 +77,56 @@ function M.get_sysroot_triplet(cc_compiler)
   if vim.fn.isdirectory(sysroot) == 1 then _G.metadata.sysroot = sysroot
   else _G.metadata.sysroot = toolchain_root end
 
-  -- 1. Essential: Normalize slashes to match the host system style
-  local normalized_compiler = vim.fs.normalize(cc_compiler)
-  local auto_defines = {}
 
-  -- 2. Pass the arguments as an isolated Lua array table. 
-  -- This completely shields the flags from PowerShell's parser!
-  local obj = vim.system({ normalized_compiler, "-dM", "-E", "-x", "c++", "-" }, {
-    stdin = "\n" -- Clean input stream data
-  }):wait()
-  -- 3. Check if the direct process returned data
-  if obj.code == 0 and obj.stdout then
-    -- Convert the raw stdout block into an array of lines
-    local lines = vim.split(obj.stdout, "\n")
-    for _, line in ipairs(lines) do
-      local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
-      if macro then
-        -- GENERIC INCLUSION RULES: Only capture clear target flags
-        -- 1. Keeps short system targets like __ELF__ or __xtensa__
-        local is_short_target = macro:match("^__[a-zA-Z0-9]+__$")
-        -- 2. Keeps pure standard variables like __cplusplus
-        local is_language_std = macro:match("^__cplusplus$")
-        -- 3. Keeps clear, readable configuration tokens that do not use internal prefixes
-        local is_clean_token  = not macro:match("^__")
-        if is_short_target or is_language_std or is_clean_token then
-          value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
-          if value == "" then table.insert(auto_defines, "-D" .. macro)
-          else table.insert(auto_defines, "-D" .. macro .. "=" .. value) end
+  local function getDefines(command)
+    local auto_defines = {}
+    -- A. Pass the arguments as an isolated Lua array table. 
+    -- This completely shields the flags from PowerShell's parser!
+    local obj = vim.system(command, {
+      stdin = "\n" -- Clean input stream data
+    }):wait()
+    -- B. Check if the direct process returned data
+    if obj.code == 0 and obj.stdout then
+      -- Convert the raw stdout block into an array of lines
+      local lines = vim.split(obj.stdout, "\n")
+      for _, line in ipairs(lines) do
+        local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
+        if macro then
+          -- GENERIC INCLUSION RULES: Only capture clear target flags
+          -- 1. Keeps short system targets like __ELF__ or __xtensa__
+          local is_short_target = macro:match("^__[a-zA-Z0-9]+__$")
+          -- 2. Keeps pure standard variables like __cplusplus
+          local is_language_std = macro:match("^__cplusplus$")
+          -- 3. Keeps clear, readable configuration tokens that do not use internal prefixes
+          local is_clean_token  = not macro:match("^__")
+          if is_short_target or is_language_std or is_clean_token then
+            value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
+            if value == "" then table.insert(auto_defines, "-D" .. macro)
+            else table.insert(auto_defines, "-D" .. macro .. "=" .. value) end
+          end
         end
       end
+      return auto_defines
     end
-    _G.metadata.auto_defines = auto_defines
-  -- else
-  --   print("Compiler process execution failed.")
-  --   if obj.stderr and obj.stderr ~= "" then print("Error details: " .. obj.stderr) end
   end
 
+  -- 1. get cxx defines
+  local normalized_compiler = vim.fs.normalize(_G.metadata.cxx_path)
+  local command = { normalized_compiler, "-dM", "-E", "-x", "c++", "-" }
+  _G.metadata.cxx_defines = getDefines(command)
+
+  -- 2. get cc defines
+  normalized_compiler = vim.fs.normalize(_G.metadata.cc_path)
+  command = { normalized_compiler, "-dM", "-E", "-x", "c", "-" }
+  _G.metadata.cc_defines = getDefines(command)
 
   return {
     triplet = triplet,
     sysroot = _G.metadata.sysroot,
     toolchain_root = toolchain_root,
     query_driver = query_driver,
-    auto_defines = auto_defines,
+    cxx_defines = _G.metadata.cxx_defines,
+    cc_defines = _G.metadata.cc_defines,
   }
 end
 
@@ -445,7 +452,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     -- 5. Flags & Defines
     meta.cc_flags = map_list(data.cc_flags)
     meta.cxx_flags = map_list(data.cxx_flags)
-    meta.defines = map_list(data.defines)
+    meta.pio_defines = map_list(data.defines)
 
     -- 6. Includes (Completely automated and isolated)
     local inc = data.includes or {}
