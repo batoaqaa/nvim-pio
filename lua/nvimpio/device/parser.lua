@@ -303,8 +303,6 @@ function M.handleIdedata(result, active_env, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
   elseif result == 'PASS' .. current_id then
-    -- Force PlatformIO to output full absolute paths for the toolchain binaries
-    vim.fn.setenv("COMPILATIONDB_INCLUDE_TOOLCHAIN", "True")
     OS.notify(string.format('%sidedata handling  pass%s', fromMsg, current_id), "info")
     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   -- elseif result == 'PASS2' then
@@ -378,8 +376,6 @@ end
 -- *=============================================================================
 function M.handlePioDB(result, active_env, on_done)
   if result == 'INIT' then
-    -- Force PlatformIO to output full absolute paths for the toolchain binaries
-    vim.fn.setenv("COMPILATIONDB_INCLUDE_TOOLCHAIN", "True")
     cliTerm:send(pop(M.queue))
   elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
     OS.notify(string.format('%sls  for %s', fromMsg, active_env), "info")
@@ -480,8 +476,6 @@ function M.handlePiolib(result)
     cliTerm:send(pop(M.queue))
   elseif result == 'PASS' then
     OS.notify('PIO lib+db:  pass ' .. current_id, "info")
-    -- Force PlatformIO to output full absolute paths for the toolchain binaries
-    vim.fn.setenv("COMPILATIONDB_INCLUDE_TOOLCHAIN", "True")
     -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   elseif result == 'DONE' then -- result of the last command

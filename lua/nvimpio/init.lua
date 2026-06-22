@@ -90,6 +90,9 @@ function M.activate()
   -- vim.schedule(function ()
   vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
 
+  -- Force PlatformIO to output full absolute paths for the toolchain binaries
+  vim.fn.setenv("COMPILATIONDB_INCLUDE_TOOLCHAIN", "True")
+
   -- CRITICAL PATH REPAIR: Force Python environment isolation before options are parsed or commands register
   require('nvimpio.core').enforce_virtualenv_isolation()
   M.initialize_full_options()
