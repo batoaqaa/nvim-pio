@@ -389,8 +389,8 @@ CompileFlags:
     -- c. Run a clean, single-pass string format loop. No more loose comma bugs!
     dynamicBlock = string.format(
       self.dynamic,
-      table.concat(formatted_libdeps, ',\n    '),
-      table.concat(formatted_removed_args, ',\n    ')
+      table.concat(formatted_removed_args, ',\n    '),
+      table.concat(formatted_libdeps, ',\n    ')
     )
 
     -- dynamicBlock =
