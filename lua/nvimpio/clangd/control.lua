@@ -82,17 +82,12 @@ function M.getClangdConfig()
   local json_config = boilerplate_gen([[.clangdConfig.json]])
   if not json_config then return nil end
 
-  local formatted_fallbackFlags = { '"-std=c++17"', '"-ferror-limit=0"' }  -- cxx std=c==17 + response file
-  for i = 1, #_G.metadata.includes_libdeps do
-    table.insert(formatted_fallbackFlags, string.format('%q', _G.metadata.includes_libdeps[i]))
-  end
-
-  -- local f_flags = [["-std=c++17", "-xc++", "-ferror-limit=0"]]
+  -- local formatted_fallbackFlags = { '"-std=c++17"', '"-ferror-limit=0"' }  -- cxx std=c==17 + response file
   local _, count = json_config:gsub('%%s', '')
   -- Only use string.format if there is one or less %s
-  if count <= 3 then
-    merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ','))
-    -- merged_json = string.format(json_config or '', OS.project_dir, q_driver)
+  if count <= 2 then
+    -- merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ','))
+    merged_json = string.format(json_config or '', OS.project_dir, q_driver)
   end
 
   -- 'decode' converts JSON string -> Lua table
