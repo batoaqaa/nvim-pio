@@ -199,15 +199,15 @@ function M.getClangdConfig()
           pio_diag.clean_project_wide_flags(project_root_dir, result.diagnostics)
         end
 
-        -- SECURE ADJUSTMENT: Filter out only unknown argument warnings from the view array,
-        -- instead of running a flat return which blindingly suppresses genuine syntax errors.
-        local filtered_diags = {}
-        for _, d in ipairs(result.diagnostics) do
-          if not d.message:find('unknown argument') and not d.message:find('unsupported option') then
-            table.insert(filtered_diags, d)
-          end
-        end
-        result.diagnostics = filtered_diags
+        -- -- SECURE ADJUSTMENT: Filter out only unknown argument warnings from the view array,
+        -- -- instead of running a flat return which blindingly suppresses genuine syntax errors.
+        -- local filtered_diags = {}
+        -- for _, d in ipairs(result.diagnostics) do
+        --   if not d.message:find('unknown argument') and not d.message:find('unsupported option') then
+        --     table.insert(filtered_diags, d)
+        --   end
+        -- end
+        -- result.diagnostics = filtered_diags
         -- return -- Block configuration diagnostics from polluting user view
       else
         if pio_diag.clean_file_path_pipeline then
