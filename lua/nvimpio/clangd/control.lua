@@ -91,7 +91,7 @@ function M.getClangdConfig()
   local _, count = json_config:gsub('%%s', '')
   -- Only use string.format if there is one or less %s
   if count <= 3 then
-    merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ',\n    '))
+    merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ','))
     -- merged_json = string.format(json_config or '', OS.project_dir, q_driver)
   end
 
