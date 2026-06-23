@@ -104,17 +104,9 @@ function M.getClangdConfig()
     project_root = (type(project_root) == 'string' and project_root ~= '') and project_root or '.'
     project_root = vim.fs.normalize(project_root)
 
-    -- Assign pristine native configuration options inside memory
-    -- config.init_options = {
-    --   clangdFileStatus = true,
-    --   completeUnimported = true,
-    --   usePlaceholders = true,
-    --   compilationDatabasePath = project_root,
-    --   fallbackFlags = { '-ferror-limit=0' },
-    -- }
-
     -- Step 1: Parse database into an isolated local table variable first
-    local local_flags_cache = {}
+    local pio_diag = require('nvimpio.clangd.diagnostic')
+    -- local local_flags_cache = {}
     local filter_db_path = OS.clangd_filter
     local f = io.open(filter_db_path, 'r')
     if f then
@@ -125,20 +117,21 @@ function M.getClangdConfig()
         if ok and data and type(data.flags) == 'table' then
           for flag, blocked in pairs(data.flags) do
             if blocked then
-              local_flags_cache[flag] = true
+              -- local_flags_cache[flag] = true
+              pio_diag.removed_flags[flag] = true
             end
           end
         end
       end
     end
 
-    -- Step 2: Runtime Lazy-Load of the diagnostic module RAM maps
-    local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-    if success and pio_diag then
-      for flag, is_blocked in pairs(local_flags_cache) do
-        pio_diag.removed_flags[flag] = is_blocked
-      end
-    end
+    -- -- Step 2: Runtime Lazy-Load of the diagnostic module RAM maps
+    -- local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+    -- if success and pio_diag then
+    --   for flag, is_blocked in pairs(local_flags_cache) do
+    --     pio_diag.removed_flags[flag] = is_blocked
+    --   end
+    -- end
 
     -- Step 3: Refresh your physical configuration files natively last
     local boiler = require('nvimpio.boilerplate')
