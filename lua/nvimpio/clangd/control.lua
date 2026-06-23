@@ -82,9 +82,9 @@ function M.getClangdConfig()
   local json_config = boilerplate_gen([[.clangdConfig.json]])
   if not json_config then return nil end
 
-  local formatted_fallbackFlags = { "-std=c++17", "-ferror-limit=0" }  -- cxx std=c==17 + response file
+  local formatted_fallbackFlags = { '"-std=c++17"', '"-ferror-limit=0"' }  -- cxx std=c==17 + response file
   for i = 1, #_G.metadata.includes_libdeps do
-    table.insert(formatted_fallbackFlags, _G.metadata.includes_libdeps[i])
+    table.insert(formatted_fallbackFlags, string.format('%q', _G.metadata.includes_libdeps[i]))
   end
 
   -- local f_flags = [["-std=c++17", "-xc++", "-ferror-limit=0"]]
@@ -94,7 +94,6 @@ function M.getClangdConfig()
     merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ','))
     -- merged_json = string.format(json_config or '', OS.project_dir, q_driver)
   end
-  print(merged_json)
 
   -- 'decode' converts JSON string -> Lua table
   local tok, clangd_config = pcall(vim.json.decode, merged_json)
