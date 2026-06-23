@@ -84,7 +84,7 @@ function M.getClangdConfig()
 
   local formatted_fallbackFlags = { "-std=c++17", "-ferror-limit=0" }  -- cxx std=c==17 + response file
   for i = 1, #_G.metadata.includes_libdeps do
-    table.insert(formatted_fallbackFlags, string.format('%q', _G.metadata.includes_libdeps[i]))
+    table.insert(formatted_fallbackFlags, _G.metadata.includes_libdeps[i])
   end
   print(vim.inspect(formatted_fallbackFlags))
 
