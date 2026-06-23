@@ -164,16 +164,10 @@ function M.getClangdConfig()
         -- local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
         -- if success and pio_diag then
         if is_config then
-          if pio_diag.clean_project_wide_flags then
-            pio_diag.clean_project_wide_flags(project_root_dir, result.diagnostics)
-            OS.notify('project cleaned')
-          end
+          if pio_diag.clean_project_wide_flags then pio_diag.clean_project_wide_flags(result.diagnostics) end
           return -- Block configuration diagnostics from polluting user view
         else
-          if pio_diag.clean_file_path_pipeline then
-            result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics)
-            OS.notify('file cleaned')
-          end
+          if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
         end
       end
 
@@ -182,9 +176,7 @@ function M.getClangdConfig()
     end,
   }
 
-  if clangd_config then
-    return clangd_config
-  end
+  if clangd_config then return clangd_config end
 end
 
 -- INFO: clangdRestart()
@@ -212,9 +204,7 @@ function M.setFormatStyle()
   vim.ui.select(styles, {
     prompt = 'Select Clang-Format base style:',
   }, function(choice)
-    if not choice then
-      return
-    end
+    if not choice then return end
     M.clangdIntall(function(clangdCmd)
       -- -- gui using terminal for setting clang-format style
       -- local cmd = string.format('%s --style=%s --dump-config > .clang-format', clangdCmd, choice:lower())

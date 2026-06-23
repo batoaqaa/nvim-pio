@@ -62,10 +62,10 @@ local function parse_db_file_pure(db_path)
   return blocked_codes
 end
 
--- ===================================================================
--- 🛠️ ENGINE PATH A: Clean Project-Wide Toolchain Flags (The Extractor)
--- ===================================================================
-function M.clean_project_wide_flags(project_root, diagnostics)
+-- ========================================================================================
+-- 🛠️ ENGINE PATH A: Auto Clean Project-Wide(col 0, raw 0) Toolchain Flags (The Extractor)
+-- ========================================================================================
+function M.clean_project_wide_flags(diagnostics)
   if not diagnostics or #diagnostics == 0 then
     return
   end
@@ -133,15 +133,14 @@ function M.unknownArgs()
   end
 end
 
--- ===================================================================
--- 🛠️ ENGINE PATH B: Clean Source Code File Diagnostics (Pure Files)
--- ===================================================================
+-- ========================================================================
+-- 🛠️ ENGINE PATH B: manual Clean Source Code File Diagnostics (Pure Files)
+-- ========================================================================
 function M.clean_file_path_pipeline(diagnostics)
   if not diagnostics or #diagnostics == 0 then
     return diagnostics
   end
   local filter_db_path = OS.clangd_filter --get_db_path(absolute_file_path)
-  local project_root = OS.project_dir --vim.fs.dirname(filter_db_path)
 
   -- Pure localized read ensures we only check blocks configured for THIS project folder
   local manual_blocked = parse_db_file_pure(filter_db_path)
