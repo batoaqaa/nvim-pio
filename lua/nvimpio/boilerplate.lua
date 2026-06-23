@@ -446,20 +446,16 @@ CompileFlags:
     ------------------ start .clangd Add2 section  --------------------------------
     local formatted_add2 = {}  -- cxx std=c==17 + response file
     table.insert(formatted_add2, '"-std=c++17"')
-    -- a. Format the flags path string exactly how clangd expects to receive it
-    local response_file_path = string.format('"@%s"', OS.cxx_flags)
-    -- b. Insert it straight into the end of your tracking table
-    table.insert(formatted_add2, response_file_path)
+    -- local response_file_path = string.format('"@%s"', OS.cxx_flags)
+    -- table.insert(formatted_add2, response_file_path)
     --------------------- end .clangd add2 section ---------------------------------
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd Add2 section  --------------------------------
     local formatted_add3 = {} -- c std=gnu23 + response file
     table.insert(formatted_add3, '"-std=gnu23"')
-    -- a. Format the flags path string exactly how clangd expects to receive it
-    response_file_path = string.format('"@%s"', OS.cc_flags)
-    -- b. Insert it straight into the end of your tracking table
-    table.insert(formatted_add3, response_file_path)
+    -- response_file_path = string.format('"@%s"', OS.cc_flags)
+    -- table.insert(formatted_add3, response_file_path)
 
     --------------------- end .clangd add2 section ---------------------------------
 
