@@ -353,14 +353,14 @@ CompileFlags:
           return safe_flags
         end
         local compilerFlags = filter_compiler_flags(compiler_flags)
-        -- for i = 1, #compilerFlags do
-        --   table.insert(options_file_lines, compilerFlags[i])    -- compiler flags
-        -- end
+        for i = 1, #compilerFlags do
+          table.insert(options_file_lines, compilerFlags[i])    -- compiler flags
+        end
         --------------------------------------------------------------------
 
         -- 🟢  phase B: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL (compiler_defines and pio_defines)
         local define_pools = {
-          -- compiler_defines,  -- GENERIC compiler target defines
+          compiler_defines,  -- GENERIC compiler target defines
           target_meta.pio_defines,  -- board macro defines
         }
 
@@ -446,16 +446,16 @@ CompileFlags:
     ------------------ start .clangd Add2 section  --------------------------------
     local formatted_add2 = {}  -- cxx std=c==17 + response file
     table.insert(formatted_add2, '"-std=c++17"')
-    -- local response_file_path = string.format('"@%s"', OS.cxx_flags)
-    -- table.insert(formatted_add2, response_file_path)
+    local response_file_path = string.format('"@%s"', OS.cxx_flags)
+    table.insert(formatted_add2, response_file_path)
     --------------------- end .clangd add2 section ---------------------------------
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd Add2 section  --------------------------------
     local formatted_add3 = {} -- c std=gnu23 + response file
     table.insert(formatted_add3, '"-std=gnu23"')
-    -- response_file_path = string.format('"@%s"', OS.cc_flags)
-    -- table.insert(formatted_add3, response_file_path)
+    response_file_path = string.format('"@%s"', OS.cc_flags)
+    table.insert(formatted_add3, response_file_path)
 
     --------------------- end .clangd add2 section ---------------------------------
 
