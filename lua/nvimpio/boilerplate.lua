@@ -321,26 +321,7 @@ CompileFlags:
     --------------------------------------------------------------------------------
     ------------------- start .clangd response file --------------------------------
 
-
-
-    local function filter_compiler_flags(raw_flags)
-      local safe_flags = {}
-      for _, flag in ipairs(raw_flags) do
-        -- 1. Scan for the only structural prefixes an LSP semantic engine cares about
-        local is_warning = flag:find("^%-W")
-        local is_macro   = flag:find("^%-D")
-        local is_include = flag:find("^%-I") or flag:find("^%-isystem")
-
-        -- 2. Pure Allowlist Evaluation:
-        -- If it's a warning, a macro, or an include path, it is perfectly safe.
-        -- Absolutely everything else (-f..., -m..., -O..., -g...) is dropped dynamically!
-        if is_warning or is_macro or is_include then table.insert(safe_flags, flag) end
-      end
-      return safe_flags
-    end
-
-    -- Completely platform-agnostic across any vendor architecture toolchain!
-
+    -- extract flags out of cc_defines, cxx_defines and cc_flags, cxx_flags
     local function compileDefines(flagsFile, compiler_defines, compiler_flags)
       local options_file_lines = {}
       if target_meta then
@@ -354,13 +335,30 @@ CompileFlags:
         --   f_log = nil
         -- end
 
+        --------------------------------------------------------------------
+        -- 🟢  phase A: extract flags out cc_flags or cxx_flags
+        local function filter_compiler_flags(raw_flags)
+          local safe_flags = {}
+          for _, flag in ipairs(raw_flags) do
+            -- 1. Scan for the only structural prefixes an LSP semantic engine cares about
+            local is_warning = flag:find("^%-W")
+            local is_macro   = flag:find("^%-D")
+            local is_include = flag:find("^%-I") or flag:find("^%-isystem")
 
+            -- 2. Pure Allowlist Evaluation:
+            -- If it's a warning, a macro, or an include path, it is perfectly safe.
+            -- Absolutely everything else (-f..., -m..., -O..., -g...) is dropped dynamically!
+            if is_warning or is_macro or is_include then table.insert(safe_flags, flag) end
+          end
+          return safe_flags
+        end
         local compilerFlags = filter_compiler_flags(compiler_flags)
         for i = 1, #compilerFlags do
           table.insert(options_file_lines, compilerFlags[i])    -- compiler flags
         end
+        --------------------------------------------------------------------
 
-        -- 🟢  phase A: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL
+        -- 🟢  phase B: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL (compiler_defines and pio_defines)
         local define_pools = {
           compiler_defines,  -- GENERIC compiler target defines
           -- compilerFlags,    -- compiler flags
@@ -382,7 +380,7 @@ CompileFlags:
           end
         end
 
-        -- -- 🟢  Phase B: Extract all pre-sorted include path using JIT sequential loops
+        -- -- 🟢  Phase C: Extract all pre-sorted include path using JIT sequential loops
         -- local include_pools = {
         --   -- target_meta.includes_libdeps,
         --   -- target_meta.includes_build,
@@ -400,7 +398,7 @@ CompileFlags:
         --   end
         -- end
 
-        -- 🟢  Phase C: Write fresh data lines out to disk
+        -- 🟢  Phase D: Write fresh data lines out to disk
         local final_flags_content = table.concat(options_file_lines, '\n')
         local pio_build_dir = vim.fs.dirname(flagsFile)
         if not vim.uv.fs_stat(pio_build_dir) then
@@ -430,7 +428,6 @@ CompileFlags:
         end
       end
     end
-
 
     compileDefines(OS.cxx_flags, _G.metadata.cxx_defines, _G.metadata.cxx_flags)
     compileDefines(OS.cc_flags, _G.metadata.cc_defines, _G.metadata.cc_flags)

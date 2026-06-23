@@ -3,6 +3,8 @@ local M = {}
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 local diagnosticClangd = require('nvimpio.clangd.diagnostic')
+-- 1. CACHE MODULE ONCE AT THE TOP (Eliminates keystroke lookup latency completely)
+local has_pio_diag, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
 
 --- stylua: ignore start
 ----------------------------------------------------------------------------------------
@@ -100,12 +102,15 @@ function M.getClangdConfig()
 
   -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
   clangd_config.before_init = function(params, config)
+    if (not has_pio_diag) or not pio_diag then
+      return
+    end
     local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
     project_root = (type(project_root) == 'string' and project_root ~= '') and project_root or '.'
     project_root = vim.fs.normalize(project_root)
 
     -- Step 1: Parse database into an isolated local table variable first
-    local pio_diag = require('nvimpio.clangd.diagnostic')
+    -- local pio_diag = require('nvimpio.clangd.diagnostic')
     -- local local_flags_cache = {}
     local filter_db_path = OS.clangd_filter
     local f = io.open(filter_db_path, 'r')
@@ -144,6 +149,10 @@ function M.getClangdConfig()
   -- SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
   clangd_config.handlers = {
     ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
+      if (not has_pio_diag) or not pio_diag then
+        return
+      end
+
       if err or not result or not result.diagnostics then
         local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
         if default_handler then
@@ -183,19 +192,29 @@ function M.getClangdConfig()
       -- end
 
       -- RIGID ROUTING ENGINE
-      local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-      if success and pio_diag then
-        if is_config then
-          if pio_diag.clean_project_wide_flags then
-            pio_diag.clean_project_wide_flags(project_root_dir, result.diagnostics)
-          end
-          return -- Block configuration diagnostics from polluting user view
-        else
-          if pio_diag.clean_file_path_pipeline then
-            result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics)
+      -- local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+      -- if success and pio_diag then
+      if is_config then
+        if pio_diag.clean_project_wide_flags then
+          pio_diag.clean_project_wide_flags(project_root_dir, result.diagnostics)
+        end
+
+        -- SECURE ADJUSTMENT: Filter out only unknown argument warnings from the view array,
+        -- instead of running a flat return which blindingly suppresses genuine syntax errors.
+        local filtered_diags = {}
+        for _, d in ipairs(result.diagnostics) do
+          if not d.message:find('unknown argument') and not d.message:find('unsupported option') then
+            table.insert(filtered_diags, d)
           end
         end
+        result.diagnostics = filtered_diags
+        -- return -- Block configuration diagnostics from polluting user view
+      else
+        if pio_diag.clean_file_path_pipeline then
+          result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics)
+        end
       end
+      -- end
 
       local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
       if default_handler then
