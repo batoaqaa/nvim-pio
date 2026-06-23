@@ -86,7 +86,6 @@ function M.getClangdConfig()
   for i = 1, #_G.metadata.includes_libdeps do
     table.insert(formatted_fallbackFlags, _G.metadata.includes_libdeps[i])
   end
-  print(vim.inspect(formatted_fallbackFlags))
 
   -- local f_flags = [["-std=c++17", "-xc++", "-ferror-limit=0"]]
   local _, count = json_config:gsub('%%s', '')
@@ -95,6 +94,7 @@ function M.getClangdConfig()
     merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ','))
     -- merged_json = string.format(json_config or '', OS.project_dir, q_driver)
   end
+  print(merged_json)
 
   -- 'decode' converts JSON string -> Lua table
   local tok, clangd_config = pcall(vim.json.decode, merged_json)
