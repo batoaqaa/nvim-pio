@@ -361,7 +361,7 @@ CompileFlags:
 
 
         local compilerFlags = filter_compiler_flags(compiler_flags)
-        for i = 1, #compilerFlags.includes_libdeps do
+        for i = 1, #compilerFlags do
           table.insert(options_file_lines, compilerFlags[i])    -- compiler flags
         end
 
