@@ -86,6 +86,7 @@ function M.getClangdConfig()
   for i = 1, #_G.metadata.includes_libdeps do
     table.insert(formatted_fallbackFlags, string.format('%q', _G.metadata.includes_libdeps[i]))
   end
+  print(vim.inspect(formatted_fallbackFlags))
 
   -- local f_flags = [["-std=c++17", "-xc++", "-ferror-limit=0"]]
   local _, count = json_config:gsub('%%s', '')
