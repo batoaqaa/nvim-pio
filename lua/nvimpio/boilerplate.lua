@@ -87,6 +87,7 @@ boilerplate['.clangdConfig.json'] = {
     "clangdFileStatus": true,
     "completeUnimported": true,
     "fallbackFlags": [
+      %s
     ],
     "usePlaceholders": true
   },
@@ -430,8 +431,8 @@ CompileFlags:
       end
     end
 
-    compileDefines(OS.cxx_flags, _G.metadata.cxx_defines, _G.metadata.cxx_flags)
-    compileDefines(OS.cc_flags, _G.metadata.cc_defines, _G.metadata.cc_flags)
+    -- compileDefines(OS.cxx_flags, _G.metadata.cxx_defines, _G.metadata.cxx_flags)
+    -- compileDefines(OS.cc_flags, _G.metadata.cc_defines, _G.metadata.cc_flags)
     --------------------- end .clangd response file -----------------------------
 
     ------------------------------------------------------------------------------
