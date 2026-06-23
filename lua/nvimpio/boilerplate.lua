@@ -220,83 +220,83 @@ CompileFlags:
     --------------------------------------------------------------------------------
     ------------------ start .clangd remove section --------------------------------
     -- 1. HYDRODYNAMIC SYNC (WITH DIRECT DISK FALLBACK GATING):
-    -- local removed_args = {}
-    -- local flags_dictionary = {}
-    --
-    -- local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-    -- if success and pio_diag and pio_diag.removed_flags and next(pio_diag.removed_flags) then
-    --   for flag, is_blocked in pairs(pio_diag.removed_flags) do
-    --     flags_dictionary[flag] = is_blocked
-    --   end
-    -- else
-    --   local f = io.open(filter_db_file, 'r')
-    --   if f then
-    --     local raw = f:read('*a')
-    --     f:close()
-    --     if raw and raw ~= '' then
-    --       local ok, data = pcall(vim.json.decode, raw)
-    --       if ok and data and type(data.flags) == 'table' then
-    --         for flag, blocked in pairs(data.flags) do
-    --           if blocked then
-    --             flags_dictionary[flag] = true
-    --           end
-    --         end
-    --       end
-    --     end
-    --   end
-    -- end
-    --
-    -- for flag, is_blocked in pairs(flags_dictionary) do
-    --   if is_blocked and type(flag) == 'string' and flag ~= '' then
-    --     table.insert(removed_args, flag)
-    --   end
-    -- end
-    -- table.sort(removed_args)
-    --
-    -- local formatted_remove = {}
-    -- for i = 1, #removed_args do
-    --   table.insert(formatted_remove, string.format('%q', removed_args[i]))
-    -- end
+    local removed_args = {}
+    local flags_dictionary = {}
 
-    local function extract_remove_flags(cc_flags, cxx_flags)
-      local remove_map = {}
-      local unified_raw = {}
-
-      -- 1. Merge both flag lists into a single flat array for parsing context
-      if cc_flags then for _, f in ipairs(cc_flags) do table.insert(unified_raw, f) end end
-      if cxx_flags then for _, f in ipairs(cxx_flags) do table.insert(unified_raw, f) end end
-
-      for _, flag in ipairs(unified_raw) do
-        -- 2. Classify flag types strictly by prefix patterns (No literal names!)
-        local is_standard  = flag:find("^%-std=")
-        local is_warning   = flag:find("^%-W")
-        local is_macro     = flag:find("^%-D")
-        local is_include   = flag:find("^%-I") or flag:find("^%-isystem")
-
-        -- Target all Machine/Architecture-specific flags (-mlongcalls, -mthumb, etc.)
-        local is_machine   = flag:find("^%-m")
-        -- Target all Optimization and Code-generation features (-Og, -O2, -fno-shrink-wrap, etc.)
-        local is_optimization = flag:find("^%-O") or flag:find("^%-g") or flag:find("^%-f")
-
-        -- 3. Pure Rule Evaluation:
-        -- If it's a structural machine flag or an optimization flag, we must drop it from our includes
-        -- and throw it straight into the .clangd Remove block!
-        if not is_standard and not is_warning and not is_macro and not is_include then
-          if is_machine or is_optimization then
-            -- Exclude the two distinct exceptions clangd needs for semantic context:
-            if flag ~= "-fno-exceptions" and flag ~= "-fno-rtti" then remove_map[flag] = true end
+    local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
+    if success and pio_diag and pio_diag.removed_flags and next(pio_diag.removed_flags) then
+      for flag, is_blocked in pairs(pio_diag.removed_flags) do
+        flags_dictionary[flag] = is_blocked
+      end
+    else
+      local f = io.open(filter_db_file, 'r')
+      if f then
+        local raw = f:read('*a')
+        f:close()
+        if raw and raw ~= '' then
+          local ok, data = pcall(vim.json.decode, raw)
+          if ok and data and type(data.flags) == 'table' then
+            for flag, blocked in pairs(data.flags) do
+              if blocked then
+                flags_dictionary[flag] = true
+              end
+            end
           end
         end
       end
-
-      -- 4. Convert our deduplicated map back into a flat array list
-      -- Always insert the global standard wildcard right at index 1
-      local final_remove_list = { '"-std=*"' }
-      for flag, _ in pairs(remove_map) do table.insert(final_remove_list, string.format('%q', flag)) end
-
-      return final_remove_list
     end
-    local formatted_remove = extract_remove_flags(_G.metadata.cc_flags, _G.metadata.cxx_flags)
+
+    for flag, is_blocked in pairs(flags_dictionary) do
+      if is_blocked and type(flag) == 'string' and flag ~= '' then
+        table.insert(removed_args, flag)
+      end
+    end
+    table.sort(removed_args)
+
+    local formatted_remove = {}
+    for i = 1, #removed_args do
+      table.insert(formatted_remove, string.format('%q', removed_args[i]))
+    end
+
+    -- local function extract_remove_flags(cc_flags, cxx_flags)
+    --   local remove_map = {}
+    --   local unified_raw = {}
+    --
+    --   -- 1. Merge both flag lists into a single flat array for parsing context
+    --   if cc_flags then for _, f in ipairs(cc_flags) do table.insert(unified_raw, f) end end
+    --   if cxx_flags then for _, f in ipairs(cxx_flags) do table.insert(unified_raw, f) end end
+    --
+    --   for _, flag in ipairs(unified_raw) do
+    --     -- 2. Classify flag types strictly by prefix patterns (No literal names!)
+    --     local is_standard  = flag:find("^%-std=")
+    --     local is_warning   = flag:find("^%-W")
+    --     local is_macro     = flag:find("^%-D")
+    --     local is_include   = flag:find("^%-I") or flag:find("^%-isystem")
+    --
+    --     -- Target all Machine/Architecture-specific flags (-mlongcalls, -mthumb, etc.)
+    --     local is_machine   = flag:find("^%-m")
+    --     -- Target all Optimization and Code-generation features (-Og, -O2, -fno-shrink-wrap, etc.)
+    --     local is_optimization = flag:find("^%-O") or flag:find("^%-g") or flag:find("^%-f")
+    --
+    --     -- 3. Pure Rule Evaluation:
+    --     -- If it's a structural machine flag or an optimization flag, we must drop it from our includes
+    --     -- and throw it straight into the .clangd Remove block!
+    --     if not is_standard and not is_warning and not is_macro and not is_include then
+    --       if is_machine or is_optimization then
+    --         -- Exclude the two distinct exceptions clangd needs for semantic context:
+    --         if flag ~= "-fno-exceptions" and flag ~= "-fno-rtti" then remove_map[flag] = true end
+    --       end
+    --     end
+    --   end
+    --
+    --   -- 4. Convert our deduplicated map back into a flat array list
+    --   -- Always insert the global standard wildcard right at index 1
+    --   local final_remove_list = { '"-std=*"' }
+    --   for flag, _ in pairs(remove_map) do table.insert(final_remove_list, string.format('%q', flag)) end
+    --
+    --   return final_remove_list
+    -- end
+    -- local formatted_remove = extract_remove_flags(_G.metadata.cc_flags, _G.metadata.cxx_flags)
 
     --------------------- end .clangd remove section -----------------------------
 
@@ -325,7 +325,6 @@ CompileFlags:
 
     local function filter_compiler_flags(raw_flags)
       local safe_flags = {}
-
       for _, flag in ipairs(raw_flags) do
         -- 1. Scan for the only structural prefixes an LSP semantic engine cares about
         local is_warning = flag:find("^%-W")
@@ -335,13 +334,9 @@ CompileFlags:
         -- 2. Pure Allowlist Evaluation:
         -- If it's a warning, a macro, or an include path, it is perfectly safe.
         -- Absolutely everything else (-f..., -m..., -O..., -g...) is dropped dynamically!
-        if is_warning or is_macro or is_include then
-          table.insert(safe_flags, flag)
-        end
+        if is_warning or is_macro or is_include then table.insert(safe_flags, flag) end
       end
-
       return safe_flags
-
     end
 
     -- Completely platform-agnostic across any vendor architecture toolchain!
