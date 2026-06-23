@@ -284,28 +284,19 @@ CompileFlags:
         if not is_standard and not is_warning and not is_macro and not is_include then
           if is_machine or is_optimization then
             -- Exclude the two distinct exceptions clangd needs for semantic context:
-            if flag ~= "-fno-exceptions" and flag ~= "-fno-rtti" then
-              remove_map[flag] = true
-            end
+            if flag ~= "-fno-exceptions" and flag ~= "-fno-rtti" then remove_map[flag] = true end
           end
         end
       end
 
       -- 4. Convert our deduplicated map back into a flat array list
-      local final_remove_list = {
-        "-std=*" -- Always insert the global standard wildcard right at index 1
-      }
-      for flag, _ in pairs(remove_map) do
-        table.insert(final_remove_list, flag)
-      end
+      -- Always insert the global standard wildcard right at index 1
+      local final_remove_list = { '"-std=*"' }
+      for flag, _ in pairs(remove_map) do table.insert(final_remove_list, string.format('%q', flag)) end
 
       return final_remove_list
     end
-
     local formatted_remove = extract_remove_flags(_G.metadata.cc_flags, _G.metadata.cxx_flags)
-
-
-
 
     --------------------- end .clangd remove section -----------------------------
 
@@ -331,36 +322,29 @@ CompileFlags:
     ------------------- start .clangd response file --------------------------------
 
 
-    local function filter_flags_completely_generic(raw_flags)
+
+    local function filter_compiler_flags(raw_flags)
       local safe_flags = {}
 
       for _, flag in ipairs(raw_flags) do
-        -- 1. Identify flags using universal compiler prefix patterns
-        local is_standard     = flag:find("^%-std=")
-        local is_warning      = flag:find("^%-W")
-        local is_macro        = flag:find("^%-D")
-        local is_include      = flag:find("^%-I") or flag:find("^%-isystem")
+        -- 1. Scan for the only structural prefixes an LSP semantic engine cares about
+        local is_warning = flag:find("^%-W")
+        local is_macro   = flag:find("^%-D")
+        local is_include = flag:find("^%-I") or flag:find("^%-isystem")
 
-        -- 2. Identify semantic language feature modifiers (-fno-exceptions, -fno-rtti)
-        -- We want these because they affect how clangd parses symbols, but we want to 
-        -- exclude optimization/codegen flags like -fno-shrink-wrap or -ffunction-sections.
-        local is_semantic_feature = flag == "-fno-exceptions" or flag == "-fno-rtti"
-
-        -- 3. Pure Rule-Based Evaluation (No hardcoded names!)
-        if not is_standard then
-          -- Keep warnings, macros, explicit includes, and core semantic language traits
-          if is_warning or is_macro or is_include or is_semantic_feature then
-            table.insert(safe_flags, flag)
-          end
-          -- All machine flags (-mlongcalls), debugging options (-ggdb), and 
-          -- compiler optimization behaviors (-Og, -fno-shrink-wrap) are dropped 
-          -- completely automatically across any chip architecture.
+        -- 2. Pure Allowlist Evaluation:
+        -- If it's a warning, a macro, or an include path, it is perfectly safe.
+        -- Absolutely everything else (-f..., -m..., -O..., -g...) is dropped dynamically!
+        if is_warning or is_macro or is_include then
+          table.insert(safe_flags, flag)
         end
       end
 
       return safe_flags
+
     end
 
+    -- Completely platform-agnostic across any vendor architecture toolchain!
 
     local function compileDefines(flagsFile, compiler_defines, compiler_flags)
       local options_file_lines = {}
@@ -376,11 +360,15 @@ CompileFlags:
         -- end
 
 
-        local flags = filter_flags_completely_generic(compiler_flags)
+        local compilerFlags = filter_compiler_flags(compiler_flags)
+        for i = 1, #compilerFlags.includes_libdeps do
+          table.insert(options_file_lines, compilerFlags[i])    -- compiler flags
+        end
+
         -- 🟢  phase A: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL
         local define_pools = {
           compiler_defines,  -- GENERIC compiler target defines
-          flags,    -- compiler flags
+          -- compilerFlags,    -- compiler flags
           target_meta.pio_defines,  -- board macro defines
         }
 
