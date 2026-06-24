@@ -446,7 +446,8 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd Add2 section  --------------------------------
     local formatted_add2 = {}  -- cxx std=c==17 + response file
-    table.insert(formatted_add2, '"-std=c++17"')
+    -- table.insert(formatted_add2, '"-std=c++23"')
+    table.insert(formatted_add2, '"-std=gnu++23"')
     local response_file_path = string.format('"@%s"', OS.cxx_flags)
     table.insert(formatted_add2, response_file_path)
     --------------------- end .clangd add2 section ---------------------------------
