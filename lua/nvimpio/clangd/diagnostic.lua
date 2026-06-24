@@ -62,57 +62,57 @@ local function parse_db_file_pure(db_path)
   return blocked_codes
 end
 
--- ========================================================================================
--- 🛠️ ENGINE PATH A: Auto Clean Project-Wide(col 0, raw 0) Toolchain Flags (The Extractor)
--- ========================================================================================
-function M.clean_project_wide_flags(diagnostics)
-  if not diagnostics or #diagnostics == 0 then
-    return
-  end
-  local flags_updated = false
-
-  for _, diag in ipairs(diagnostics) do
-    local code = diag.code
-    local msg = diag.message or ''
-    local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
-
-    if is_drv then
-      -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
-      -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
-      -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
-      -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
-      -- O: Optimization Levels (e.g., -Os, -O2)
-      -- d / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
-      -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
-      -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
-      local flag = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
-      -- 🟢 SINGLE SEED: Only modify your private master module dictionary map!
-      if flag and not M.removed_flags[flag] then
-        M.removed_flags[flag] = true
-        flags_updated = true
-      end
-    end
-  end
-
-  if flags_updated then
-    local filter_db_path = OS.clangd_filter --get_db_path(project_root)
-    local current_blocked = parse_db_file_pure(filter_db_path)
-
-    local f = io.open(filter_db_path, 'wb')
-    if f then
-      local payload = { codes = current_blocked, flags = M.removed_flags }
-      f:write(require('nvimpio.utils.misc').jsonFormat(payload))
-      f:close()
-    end
-
-    -- Trigger the boilerplate generation process
-    local boiler = require('nvimpio.boilerplate')
-    if boiler and boiler.boilerplate_gen then
-      -- pcall(boiler.boilerplate_gen, '.clangd', project_root, 'diagnostics wipe flags')
-      pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics wipe flags')
-    end
-  end
-end
+-- -- ========================================================================================
+-- -- 🛠️ ENGINE PATH A: Auto Clean Project-Wide(col 0, raw 0) Toolchain Flags (The Extractor)
+-- -- ========================================================================================
+-- function M.clean_project_wide_flags(diagnostics)
+--   if not diagnostics or #diagnostics == 0 then
+--     return
+--   end
+--   local flags_updated = false
+--
+--   for _, diag in ipairs(diagnostics) do
+--     local code = diag.code
+--     local msg = diag.message or ''
+--     local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
+--
+--     if is_drv then
+--       -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
+--       -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
+--       -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
+--       -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
+--       -- O: Optimization Levels (e.g., -Os, -O2)
+--       -- d / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
+--       -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
+--       -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
+--       local flag = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
+--       -- 🟢 SINGLE SEED: Only modify your private master module dictionary map!
+--       if flag and not M.removed_flags[flag] then
+--         M.removed_flags[flag] = true
+--         flags_updated = true
+--       end
+--     end
+--   end
+--
+--   if flags_updated then
+--     local filter_db_path = OS.clangd_filter --get_db_path(project_root)
+--     local current_blocked = parse_db_file_pure(filter_db_path)
+--
+--     local f = io.open(filter_db_path, 'wb')
+--     if f then
+--       local payload = { codes = current_blocked, flags = M.removed_flags }
+--       f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+--       f:close()
+--     end
+--
+--     -- Trigger the boilerplate generation process
+--     local boiler = require('nvimpio.boilerplate')
+--     if boiler and boiler.boilerplate_gen then
+--       -- pcall(boiler.boilerplate_gen, '.clangd', project_root, 'diagnostics wipe flags')
+--       pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics wipe flags')
+--     end
+--   end
+-- end
 
 function M.unknownArgs()
   local filter_db_path = OS.clangd_filter --get_db_path(project_root)
@@ -152,7 +152,6 @@ function M.clean_file_path_pipeline(diagnostics)
     local msg = diag.message or ''
     local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
 
-    is_drv = false   -- ????????
     if is_drv then
       show_diagnostics = false
       -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
@@ -228,8 +227,8 @@ function M.manage_file_diagnostics_interactive(state_override)
   for _, d in ipairs(raw_diagnostics) do
     local c = d.code or ''
     local msg = d.message or ''
-    local is_automated_arg = false --c:match('^drv_') or c:match('^fatal_')
-    local is_flag_err = false --msg:lower():match('argument') or msg:lower():match('unknown flag')
+    local is_automated_arg = c:match('^drv_') or c:match('^fatal_')
+    local is_flag_err = msg:lower():match('argument') or msg:lower():match('unknown flag')
 
     if c ~= '' and not is_automated_arg and not is_flag_err then
       M.session_discovered_codes[c] = true

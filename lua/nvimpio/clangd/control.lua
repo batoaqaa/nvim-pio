@@ -135,35 +135,11 @@ function M.getClangdConfig()
         local target_path = vim.uri_to_fname(result.uri)
         local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
 
-        -- -- 🔍 BACKGROUND INDEXING NETWORK TRACER
-        -- local trace_log = vim.fs.joinpath(project_root_dir, 'nvim_pio_boot_trace.log')
-        -- local f_trace = io.open(trace_log, 'a')
-        -- if f_trace then
-        --   local timestamp = os.date('%Y-%m-%d %H:%M:%S')
-        --   -- Check if the buffer is currently active/visible to the user's eye
-        --   local is_buf_loaded = vim.fn.bufloaded(target_path) == 1
-        --
-        --   if #result.diagnostics > 0 then
-        --     f_trace:write(string.format('[%s] 📡 LSP DIAGNOSTIC PACKET RECEIVED!\n', timestamp))
-        --     f_trace:write(string.format('   -> Target File: %s\n', target_path))
-        --     f_trace:write(string.format('   -> Is File Open/Loaded in Editor? %s\n', tostring(is_buf_loaded)))
-        --
-        --     for idx = 1, #result.diagnostics do
-        --       local diag = result.diagnostics[idx]
-        --       local start_line = diag.range and diag.range.start and diag.range.start.line or -1
-        --       local start_col = diag.range and diag.range.start and diag.range.start.character or -1
-        --
-        --       f_trace:write(string.format('   [%d] Code: [%s] at Row %d, Col %d\n', idx, tostring(diag.code), start_line, start_col))
-        --       f_trace:write(string.format('        Msg: %s\n', diag.message or ''))
-        --     end
-        --   end
-        --   f_trace:close()
-        -- end
-
         -- RIGID ROUTING ENGINE
         -- local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
         -- if success and pio_diag then
         if is_config then
+          print(target_path)
           if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
           -- if pio_diag.clean_project_wide_flags then pio_diag.clean_project_wide_flags(result.diagnostics) end
           -- return -- Block configuration diagnostics from polluting user view
