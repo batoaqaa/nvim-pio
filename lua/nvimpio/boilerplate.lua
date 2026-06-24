@@ -455,7 +455,7 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd Add2 section  --------------------------------
     local formatted_add3 = {} -- c std=gnu23 + response file
-    table.insert(formatted_add3, '"-std=gnu11"')
+    table.insert(formatted_add3, '"-std=gnu23"')
     response_file_path = string.format('"@%s"', OS.cc_flags)
     table.insert(formatted_add3, response_file_path)
 
