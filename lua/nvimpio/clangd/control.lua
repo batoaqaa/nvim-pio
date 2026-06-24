@@ -164,8 +164,9 @@ function M.getClangdConfig()
         -- local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
         -- if success and pio_diag then
         if is_config then
-          if pio_diag.clean_project_wide_flags then pio_diag.clean_project_wide_flags(result.diagnostics) end
-          return -- Block configuration diagnostics from polluting user view
+          if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
+          -- if pio_diag.clean_project_wide_flags then pio_diag.clean_project_wide_flags(result.diagnostics) end
+          -- return -- Block configuration diagnostics from polluting user view
         else
           if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
         end

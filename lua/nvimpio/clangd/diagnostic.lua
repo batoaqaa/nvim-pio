@@ -149,13 +149,14 @@ function M.clean_file_path_pipeline(diagnostics)
   local flags_updated = false
 
   for _, diag in ipairs(diagnostics) do
-    local keep = true
+    local show = true
     local code = diag.code
     local msg = diag.message or ''
     local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
 
+    is_drv = false     --???????
     if is_drv then
-      keep = false
+      show = false
       -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
       -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
       -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
@@ -171,9 +172,9 @@ function M.clean_file_path_pipeline(diagnostics)
         M.removed_flags[flag] = true
         flags_updated = true
       end
-    elseif code and manual_blocked[code] then keep = false end
+    elseif code and manual_blocked[code] then show = false end
 
-    if keep then table.insert(clean_diagnostics, diag) end
+    if show then table.insert(clean_diagnostics, diag) end
   end
 
   -- 🟢 SINGLE-POINT FLUSH POINT: Trigger only if a brand-new unknown flag was caught mid-flight
