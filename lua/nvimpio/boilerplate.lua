@@ -353,14 +353,15 @@ CompileFlags:
           return safe_flags
         end
         local compilerFlags = filter_compiler_flags(compiler_flags)
-        for i = 1, #compilerFlags do
-          table.insert(options_file_lines, compilerFlags[i])    -- compiler flags
-        end
+        -- for i = 1, #compilerFlags do
+        --   table.insert(options_file_lines, compilerFlags[i])    -- compiler flags
+        -- end
         --------------------------------------------------------------------
 
         -- 🟢  phase B: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL (compiler_defines and pio_defines)
         local define_pools = {
           compiler_defines,  -- GENERIC compiler target defines
+          compilerFlags,    -- compiler flags
           target_meta.pio_defines,  -- board macro defines
         }
 
@@ -372,8 +373,9 @@ CompileFlags:
               local define = pool[flag_idx]
               if type(define) == 'string' and define ~= '' then
                 -- Safely check if it already starts with "-D". If not, prepend it.
-                local formatted_define = define:match('^%-D') and define or ('-D' .. define)
-                table.insert(options_file_lines, formatted_define)
+                -- local formatted_define = define:match('^%-D') and define or ('-D' .. define)
+                -- table.insert(options_file_lines, formatted_define)
+                table.insert(options_file_lines, define)
               end
             end
           end
@@ -453,7 +455,7 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd Add2 section  --------------------------------
     local formatted_add3 = {} -- c std=gnu23 + response file
-    table.insert(formatted_add3, '"-std=gnu23"')
+    table.insert(formatted_add3, '"-std=gnu11"')
     response_file_path = string.format('"@%s"', OS.cc_flags)
     table.insert(formatted_add3, response_file_path)
 
