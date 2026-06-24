@@ -137,9 +137,7 @@ end
 -- 🛠️ ENGINE PATH B: manual Clean Source Code File Diagnostics (Pure Files)
 -- ========================================================================
 function M.clean_file_path_pipeline(diagnostics)
-  if not diagnostics or #diagnostics == 0 then
-    return diagnostics
-  end
+  if not diagnostics or #diagnostics == 0 then return diagnostics end
   local filter_db_path = OS.clangd_filter --get_db_path(absolute_file_path)
 
   -- Pure localized read ensures we only check blocks configured for THIS project folder
@@ -149,13 +147,14 @@ function M.clean_file_path_pipeline(diagnostics)
   local flags_updated = false
 
   for _, diag in ipairs(diagnostics) do
-    local show = true
+    local show_diagnostics = true
     local code = diag.code
     local msg = diag.message or ''
     local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
 
+    is_drv = false
     if is_drv then
-      show = false
+      show_diagnostics = false
       -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
       -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
       -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
@@ -171,9 +170,9 @@ function M.clean_file_path_pipeline(diagnostics)
         M.removed_flags[flag] = true
         flags_updated = true
       end
-    elseif code and manual_blocked[code] then show = false end
+    elseif code and manual_blocked[code] then show_diagnostics = false end
 
-    if show then table.insert(clean_diagnostics, diag) end
+    if show_diagnostics then table.insert(clean_diagnostics, diag) end
   end
 
   -- 🟢 SINGLE-POINT FLUSH POINT: Trigger only if a brand-new unknown flag was caught mid-flight
@@ -229,7 +228,7 @@ function M.manage_file_diagnostics_interactive(state_override)
   for _, d in ipairs(raw_diagnostics) do
     local c = d.code or ''
     local msg = d.message or ''
-    local is_automated_arg = c:match('^drv_') or c:match('^fatal_')
+    local is_automated_arg = false --c:match('^drv_') or c:match('^fatal_')
     local is_flag_err = msg:lower():match('argument') or msg:lower():match('unknown flag')
 
     if c ~= '' and not is_automated_arg and not is_flag_err then
