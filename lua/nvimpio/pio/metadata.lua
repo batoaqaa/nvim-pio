@@ -107,9 +107,9 @@ _G.metadata = setmetatable({}, {
         -- OS.notify(string.format('%s %s removed from path in %.2fms', from, oldPath, duration), 'info')
         OS.notify(string.format('%s %s removed from path', from, oldPath), 'info')
 
-        vim.env.PLATFORMIO_BUILD_FLAGS="-std=gnu23 -std=gnu++23"
         vim.env.PATH = binPath .. OS.path_sep .. vim.env.PATH
-        vim.env.PATH = OS.project_dir .. OS.path_sep .. vim.env.PATH
+        -- vim.env.PATH = OS.project_dir .. OS.path_sep .. vim.env.PATH
+        -- vim.env.PLATFORMIO_BUILD_FLAGS="-std=gnu23 -std=gnu++23"
         OS.notify(string.format('%s %s added to path',from, binPath), 'info')
 
         -- ----------------------------- Trace ----------------------------------------
