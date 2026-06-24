@@ -152,7 +152,7 @@ function M.clean_file_path_pipeline(diagnostics)
     local msg = diag.message or ''
     local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
 
-    is_drv = false
+    is_drv = false   -- ????????
     if is_drv then
       show_diagnostics = false
       -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
@@ -229,7 +229,7 @@ function M.manage_file_diagnostics_interactive(state_override)
     local c = d.code or ''
     local msg = d.message or ''
     local is_automated_arg = false --c:match('^drv_') or c:match('^fatal_')
-    local is_flag_err = msg:lower():match('argument') or msg:lower():match('unknown flag')
+    local is_flag_err = false --msg:lower():match('argument') or msg:lower():match('unknown flag')
 
     if c ~= '' and not is_automated_arg and not is_flag_err then
       M.session_discovered_codes[c] = true
