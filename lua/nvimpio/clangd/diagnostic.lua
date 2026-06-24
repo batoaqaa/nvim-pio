@@ -77,15 +77,15 @@ end
 --     local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
 --
 --     if is_drv then
---       -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
+--       -- [fmWOgsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
 --       -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
 --       -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
 --       -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
 --       -- O: Optimization Levels (e.g., -Os, -O2)
---       -- d / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
+--       -- g / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
 --       -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
 --       -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
---       local flag = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
+--       local flag = msg:match('(%-[fmWOgsx][%w%-%.%*]+)')
 --       -- 🟢 SINGLE SEED: Only modify your private master module dictionary map!
 --       if flag and not M.removed_flags[flag] then
 --         M.removed_flags[flag] = true
@@ -154,15 +154,15 @@ function M.clean_file_path_pipeline(diagnostics)
 
     if is_drv then
       show_diagnostics = false
-      -- [fmWOdsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
-      -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
-      -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
-      -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
-      -- O: Optimization Levels (e.g., -Os, -O2)
-      -- d / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
+      -- [fmWOgsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
+      -- f*: Compiler Features / Optimizations , codegen, and system prefix maps (e.g., -fexceptions, -fno-rtti)
+      -- m*: Target machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
+      -- W*: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
+      -- O*: Optimization Levels (e.g., -Os, -O2)
+      -- g* / s* / x*: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
       -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
       -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
-      local flag = msg:match('(%-[fmWOdsx][%w%-%.%*]+)')
+      local flag = msg:match('(%-[fmWOgsx][%w%-%.%*]+)')
 
       -- 🟢 SINGLE SOURCE SEED: Update only your master memory dictionary map!
       if flag and not M.removed_flags[flag] then
