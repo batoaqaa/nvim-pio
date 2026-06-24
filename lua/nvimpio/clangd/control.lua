@@ -132,14 +132,11 @@ function M.getClangdConfig()
       if has_pio_diag and pio_diag then
         local client = vim.lsp.get_client_by_id(ctx.client_id)
         local project_root_dir = client and client.config.root_dir or vim.uv.cwd()
+
         local target_path = vim.uri_to_fname(result.uri)
         local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
-
-        -- RIGID ROUTING ENGINE
-        -- local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-        -- if success and pio_diag then
+        -- if diagnostics for column 0 , row 0
         if is_config then
-          print(target_path)
           if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
           -- if pio_diag.clean_project_wide_flags then pio_diag.clean_project_wide_flags(result.diagnostics) end
           -- return -- Block configuration diagnostics from polluting user view
