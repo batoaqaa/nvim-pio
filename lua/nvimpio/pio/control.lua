@@ -321,7 +321,7 @@ end
 function M.init(clangd_config)
   OS.notify('PIO Control: initialize', "info")
   -- vim.env.PATH = OS.project_dir .. OS.path_sep .. vim.env.PATH
-  vim.env.PLATFORMIO_BUILD_FLAGS="-std=gnu23 -std=gnu++23"
+  -- vim.env.PLATFORMIO_BUILD_FLAGS="-std=gnu23 -std=gnu++23"
   require('nvimpio.pio.commands')
   require('nvimpio.pio.metadata') --.load_project_config()
   -- require('nvimpio.pio.diagnostic')
