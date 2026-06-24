@@ -372,7 +372,7 @@ CompileFlags:
             for flag_idx = 1, #pool do
               local define = pool[flag_idx]
               if type(define) == 'string' and define ~= '' then
-                -- Safely check if it already starts with "-D". If not, prepend it.
+                -- Safely check if it already starts with "-". If not, prepend "-D" to it.
                 local formatted_define = define:match('^%-') and define or ('-D' .. define)
                 table.insert(options_file_lines, formatted_define)
               end
