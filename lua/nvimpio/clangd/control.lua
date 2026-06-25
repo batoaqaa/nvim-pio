@@ -362,13 +362,13 @@ function M.init(clangd)
   require('nvimpio.clangd.diagnostic')
   require('nvimpio.clangd.attach')
 
-  -- Apply and Enable
-  local getClangdConfig = require('nvimpio.clangd.control').getClangdConfig
-  if getClangdConfig then
+  -- -- Apply and Enable
+  -- local getClangdConfig = require('nvimpio.clangd.control').getClangdConfig
+  -- if getClangdConfig then
     local clangConfig = M.getClangdConfig()
     vim.lsp.config('clangd', clangConfig)
     vim.lsp.enable('clangd')
-  end
+  -- end
 
 
   vim.keymap.set('n', 'gll', function()
