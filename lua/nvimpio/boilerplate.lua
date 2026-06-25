@@ -82,6 +82,16 @@ boilerplate['.clangdConfig.json'] = {
     "objcpp",
     "cuda"
   ],
+  "root_markers": [
+    "platformio.ini",
+    "compile_commands.json",
+    ".clangd",
+    ".clang-tidy",
+    ".clang-format",
+    "compile_flags.txt",
+    "configure.ac",
+    ".git"
+  ],
   "init_options": {
     "clangdFileStatus": true,
     "completeUnimported": true,
@@ -109,16 +119,6 @@ boilerplate['.clangdConfig.json'] = {
   end,
 }
 
-  -- "root_markers": [
-  --   ".clangd",
-  --   ".clang-tidy",
-  --   "platformio.ini",
-  --   ".clang-format",
-  --   "compile_commands.json",
-  --   "compile_flags.txt",
-  --   "configure.ac",
-  --   ".git"
-  -- ],
 
 
 --   dynamic = [[
