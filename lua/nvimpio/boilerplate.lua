@@ -336,20 +336,56 @@ CompileFlags:
 
         --------------------------------------------------------------------
         -- phase A: extract flags out cc_flags or cxx_flags
+        -- local function filter_compiler_flags(raw_flags)
+        --   local safe_flags = {}
+        --   local total_flags = #raw_flags
+        --   local idx = 1
+        --
+        --   -- Using a sequential while-loop lets us grab multi-index flag pairs cleanly
+        --   while idx <= total_flags do
+        --     local flag = raw_flags[idx]
+        --
+        --     -- 1. Scan for universal single-element prefix markers
+        --     local is_warning = flag:find("^%-W")
+        --     local is_macro   = flag:find("^%-D")
+        --     -- Notice: This now only checks for single-string -I includes (like -I/path/src)
+        --     local is_single_include = flag:find("^%-I")
+        --     local is_imacro  = flag == "-imacros"
+        --     local is_isystem = flag == "-isystem"
+        --
+        --     if is_warning or is_macro or is_single_include then
+        --       table.insert(safe_flags, flag)
+        --       idx = idx + 1
+        --     elseif is_imacro or is_isystem then
+        --       -- Multi-Element Capture: Extract the flag AND the value sitting right next to it
+        --       local next_element = raw_flags[idx + 1]
+        --       if next_element then
+        --         table.insert(safe_flags, flag)         -- Inserts "-imacros" or "-isystem"
+        --         table.insert(safe_flags, next_element)  -- Inserts the matching path string value
+        --       end
+        --       idx = idx + 2 -- Advance loop past both indices safely
+        --     else
+        --       -- Dynamically discards all optimization/hardware noise (-mcpu, -mthumb, -Os)
+        --       idx = idx + 1
+        --     end
+        --   end
+        --   return safe_flags
+        -- end
+
         local function filter_compiler_flags(raw_flags)
           local safe_flags = {}
           local total_flags = #raw_flags
           local idx = 1
 
-          -- Using a sequential while-loop lets us grab multi-index flag pairs cleanly
           while idx <= total_flags do
             local flag = raw_flags[idx]
 
             -- 1. Scan for universal single-element prefix markers
             local is_warning = flag:find("^%-W")
             local is_macro   = flag:find("^%-D")
-            -- Notice: This now only checks for single-string -I includes (like -I/path/src)
             local is_single_include = flag:find("^%-I")
+
+            -- 2. Scan for dual-element compiler flag signatures
             local is_imacro  = flag == "-imacros"
             local is_isystem = flag == "-isystem"
 
@@ -357,21 +393,25 @@ CompileFlags:
               table.insert(safe_flags, flag)
               idx = idx + 1
             elseif is_imacro or is_isystem then
-              -- Multi-Element Capture: Extract the flag AND the value sitting right next to it
               local next_element = raw_flags[idx + 1]
-              if next_element then
+
+              -- DEFENSIVE GUARD: Ensure the next index is a valid path string and NOT another compiler flag!
+              if next_element and not next_element:find("^%-") then
                 table.insert(safe_flags, flag)         -- Inserts "-imacros" or "-isystem"
-                table.insert(safe_flags, next_element)  -- Inserts the matching path string value
+                table.insert(safe_flags, next_element)  -- Inserts the clean path string
+                idx = idx + 2 -- Safe pair step: Advance past both tokens cleanly
+              else
+                -- Fallback: The flag was dangling or malformed. Drop the flag alone and advance by 1!
+                idx = idx + 1
               end
-              idx = idx + 2 -- Advance loop past both indices safely
             else
-              -- Dynamically discards all optimization/hardware noise (-mcpu, -mthumb, -Os)
+              -- Dynamically discards all architecture/optimization noise (-mcpu, -Os, -g)
               idx = idx + 1
             end
           end
+
           return safe_flags
         end
-
         -- phase B: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL (compiler_defines, compiler_flags and pio_defines)
         local define_pools = {
           compiler_defines,  -- GENERIC compiler target defines

@@ -39,11 +39,11 @@ function M.clangdIntall(callback, package_name)
 
       -- 2. TRIGGER: Not installed and NOT installing? Start the install.
       if not pkg:is_installed() and not pkg:is_installing() then
-        vim.schedule(function()
+        -- vim.schedule(function()
           OS.notify('Mason: Auto-installing ' .. package_name .. ' ...', 'info')
           pkg:install()
           -- After triggering install, we continue to poll to wait for completion
-        end)
+        -- end)
       end
 
       -- 3. WAIT: If we haven't timed out, check again in 1 second
