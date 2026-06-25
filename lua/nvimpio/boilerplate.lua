@@ -401,8 +401,18 @@ CompileFlags:
           target_meta.pio_defines,  -- board macro defines
         }
         -- local options_file_lines = {}
-        local options_file_lines = filter_compiler_flags(define_pools)
-        print(vim.inspect(options_file_lines))
+        -- 1. FLATTEN THE POOLS: Merge all multi-dimensional arrays into a single flat list
+        local unified_raw_flags = {}
+        for _, pool in ipairs(define_pools) do
+          if pool then
+            for _, flag in ipairs(pool) do
+              table.insert(unified_raw_flags, flag)
+            end
+          end
+        end
+
+        -- 2. FILTER SAFELY: Pass the clean string array into your dual-element while loop
+        local options_file_lines = filter_compiler_flags(unified_raw_flags)
 
         -- High-performance JIT-optimized loop for all definitions pools
         -- for pool_idx = 1, #define_pools do
