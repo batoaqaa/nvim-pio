@@ -322,6 +322,7 @@ CompileFlags:
 
     -- extract flags out of cc_defines, cxx_defines and cc_flags, cxx_flags
     local function compileDefines(flagsFile, compiler_defines, compiler_flags)
+      local final_flags_content = ''
       if target_meta then
         -- --INFO: 🔍 TRACE LOGGING: Record successful dynamic extraction parameters
         -- local log_file = vim.fs.joinpath(project_root, 'nvim_pio_boot_trace.log')
@@ -334,23 +335,7 @@ CompileFlags:
         -- end
 
         --------------------------------------------------------------------
-        -- 🟢  phase A: extract flags out cc_flags or cxx_flags
-        -- local function filter_compiler_flags(raw_flags)
-        --   local safe_flags = {}
-        --   for _, flag in ipairs(raw_flags) do
-        --     -- 1. Scan for the only structural prefixes an LSP semantic engine cares about
-        --     local is_warning = flag:find("^%-W")
-        --     local is_macro   = flag:find("^%-D")
-        --     local is_include = false -- flag:find("^%-I") or flag:find("^%-isystem")
-        --
-        --     -- 2. Pure Allowlist Evaluation:
-        --     -- If it's a warning, a macro, or an include path, it is perfectly safe.
-        --     -- Absolutely everything else (-f..., -m..., -O..., -g...) is dropped dynamically!
-        --     if is_warning or is_macro or is_include then table.insert(safe_flags, flag) end
-        --   end
-        --   return safe_flags
-        -- end
-
+        -- phase A: extract flags out cc_flags or cxx_flags
         local function filter_compiler_flags(raw_flags)
           local safe_flags = {}
           local total_flags = #raw_flags
@@ -384,35 +369,26 @@ CompileFlags:
               idx = idx + 1
             end
           end
-
           return safe_flags
         end
-        -- local compilerFlags = filter_compiler_flags(compiler_flags)
-        -- for i = 1, #compilerFlags do
-        --   table.insert(options_file_lines, compilerFlags[i])    -- compiler flags
-        -- end
-        --------------------------------------------------------------------
 
-        -- 🟢  phase B: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL (compiler_defines and pio_defines)
+        -- phase B: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL (compiler_defines, compiler_flags and pio_defines)
         local define_pools = {
           compiler_defines,  -- GENERIC compiler target defines
-          -- compilerFlags,    -- compiler flags
           compiler_flags,    -- compiler flags
           target_meta.pio_defines,  -- board macro defines
         }
-        -- local options_file_lines = {}
-        -- 1. FLATTEN THE POOLS: Merge all multi-dimensional arrays into a single flat list
+        -- 1. FLATTEN THE POOLS: loop for all define pools
         local unified_raw_flags = {}
         for _, pool in ipairs(define_pools) do
           if pool then
-            for _, flag in ipairs(pool) do
-              table.insert(unified_raw_flags, flag)
-            end
+            for _, flag in ipairs(pool) do table.insert(unified_raw_flags, flag) end
           end
         end
 
         -- 2. FILTER SAFELY: Pass the clean string array into your dual-element while loop
         local options_file_lines = filter_compiler_flags(unified_raw_flags)
+        --------------------------------------------------------------------
 
         -- High-performance JIT-optimized loop for all definitions pools
         -- for pool_idx = 1, #define_pools do
@@ -429,7 +405,7 @@ CompileFlags:
         --   end
         -- end
 
-        -- -- 🟢  Phase C: Extract all pre-sorted include path using JIT sequential loops
+        -- -- Phase C: Extract all pre-sorted include path using JIT sequential loops
         -- local include_pools = {
         --   -- target_meta.includes_libdeps,
         --   -- target_meta.includes_build,
@@ -446,38 +422,18 @@ CompileFlags:
         --     end
         --   end
         -- end
-
-        -- 🟢  Phase D: Write fresh data lines out to disk
-        local final_flags_content = table.concat(options_file_lines, '\n')
-        local pio_build_dir = vim.fs.dirname(flagsFile)
-        if not vim.uv.fs_stat(pio_build_dir) then
-          vim.fn.mkdir(pio_build_dir, 'p')
-        end
-
-        local f_ok, old_flags = misc.readFile(flagsFile)
-        if not f_ok or old_flags ~= final_flags_content then
-          misc.writeFile(flagsFile, final_flags_content, {})
-        end
-
-      else
-        -- --INFO: 🔍 TRACE LOGGING: Record if lookup continues failing across all levels
-        -- if f_log then
-        --   local timestamp = os.date('%Y-%m-%d %H:%M:%S')
-        --   f_log:write(string.format('[%s] ⚠️  Structural scan failed. Metadata properties unreachable.\n', timestamp))
-        --   f_log:close()
-        -- end
-
-        local flags_exist = vim.uv.fs_stat(flagsFile)
-        if not flags_exist then
-          local pio_build_dir = vim.fs.dirname(flagsFile)
-          if not vim.uv.fs_stat(pio_build_dir) then
-            vim.fn.mkdir(pio_build_dir, 'p')
-          end
-          misc.writeFile(flagsFile, '', {})
-        end
+        final_flags_content = table.concat(options_file_lines, '\n')
       end
+      -- Phase D: Write fresh data lines out to disk
+      local nvimpio_dir = vim.fs.dirname(flagsFile)
+      if not vim.uv.fs_stat(nvimpio_dir) then
+        -- 0777  511  Read, Write, and Execute for Everyone
+        -- 0755  493  Read/Write/Execute for Owner; Read/Execute for Others
+        -- 0700  448  Read, Write, and Execute Strictly for the Owner only.
+        vim.uv.fs_mkdir(nvimpio_dir, 493)
+      end
+      misc.writeFile(flagsFile, final_flags_content, {})
     end
-
     compileDefines(OS.cxx_flags, _G.metadata.cxx_defines, _G.metadata.cxx_flags)
     compileDefines(OS.cc_flags, _G.metadata.cc_defines, _G.metadata.cc_flags)
     --------------------- end .clangd response file -----------------------------

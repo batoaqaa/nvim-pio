@@ -111,7 +111,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
 
     local raw_storage_dir = M.resolve_user_path(current_pio_opts.pio_storage_dir) or vim.env.PLATFORMIO_CORE_DIR or base_runtime
     if raw_storage_dir and vim.fn.isdirectory(raw_storage_dir) == 0 then
-      vim.fn.mkdir(raw_storage_dir, 'p')
+      vim.uv.fs_mkdir(raw_storage_dir, 493)
     end
 
     main.config.pio_storage_dir = raw_storage_dir
