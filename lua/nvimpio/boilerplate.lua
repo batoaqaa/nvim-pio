@@ -511,7 +511,7 @@ CompileFlags:
 
     local formattedCxxAdd = { "-x", "c++" }
     vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
-    table.insert(formattedASSEMBLY, string.format('"@%s"', OS.cxx_flags))
+    table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
     --------------------- end .clangd formattedCxxAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
