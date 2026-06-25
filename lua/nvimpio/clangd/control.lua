@@ -510,6 +510,7 @@ function M.init(clangd)
   -- local getClangdConfig = require('nvimpio.clangd.control').getClangdConfig
   -- if getClangdConfig then
     local clangConfig = M.getClangdConfig()
+    print(vim.inspect(clangConfig))
     vim.lsp.config('clangd', clangConfig)
     vim.lsp.enable('clangd')
   -- end
