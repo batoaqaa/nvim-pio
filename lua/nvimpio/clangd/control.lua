@@ -153,19 +153,25 @@ function M.getClangdConfig()
   }
   clangd_config.root_dir = function (...)
       local active_project_root = vim.uv.cwd():gsub("\\", "/")
-
-      -- 1. DYNAMIC TYPE SCANNER: Loop through all parameters to find the string path
       local fname = nil
       local args = { ... }
-      for i = 1, #args do
-        if type(args[i]) == "string" then
-          fname = args[i]
-          break
+
+      -- 1. UNIVERSAL NEOVIM 0.11+ PATH RESOLUTION
+      -- Check if the first argument is an integer buffer number (bufnr)
+      if type(args[1]) == "number" and args[1] > 0 then
+        fname = vim.api.nvim_buf_get_name(args[1])
+      else
+        -- Fallback: Scan the tuple for a raw string path (legacy lspconfig compatibility)
+        for i = 1, #args do
+          if type(args[i]) == "string" then
+            fname = args[i]
+            break
+          end
         end
       end
 
-      -- 2. Escape hatch if no string argument is found
-      if not fname then
+      -- 2. Clean up formatting and escape if completely invalid
+      if not fname or fname == "" then
         return active_project_root
       end
 
@@ -177,11 +183,11 @@ function M.getClangdConfig()
       end
 
       -- 4. Upward project landmark lookup loop
-      local success, util = pcall(require, 'lspconfig.util')
-      if success and util.root_pattern then
-        local project_match = util.root_pattern('platformio.ini', 'compile_commands.json')(fname)
-        if project_match then
-          return project_match
+      local project_landmarks = { "platformio.ini", "compile_commands.json" }
+      for _, marker in ipairs(project_landmarks) do
+        local found = vim.fs.find(marker, { path = fname, upward = true })
+        if found and #found > 0 then
+          return vim.fs.dirname(found[1]) -- Explicitly pull the first index string out of the table array!
         end
       end
 
