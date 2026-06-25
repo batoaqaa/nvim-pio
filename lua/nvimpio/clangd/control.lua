@@ -96,59 +96,59 @@ function M.getClangdConfig()
   if not tok then return nil end
 
   -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
-  clangd_config.before_init = function(_, _)
-    -- Step 1: Parse database into an isolated local table variable first
-    if has_pio_diag and pio_diag then
-      local filter_db_path = OS.clangd_filter
-      local f = io.open(filter_db_path, 'r')
-      if f then
-        local raw = f:read('*a')
-        f:close()
-        if raw and raw ~= '' then
-          local ok, data = pcall(vim.json.decode, raw)
-          if ok and data and type(data.flags) == 'table' then
-            for flag, blocked in pairs(data.flags) do
-              if blocked then pio_diag.removed_flags[flag] = true end
-            end
-          end
-        end
-      end
-    end
-
-    -- Step 2: Refresh your physical configuration files natively last
-    local boiler = require('nvimpio.boilerplate')
-    if boiler and boiler.boilerplate_gen then pcall(boiler.boilerplate_gen, '.clangd') end
-  end
-
-  -- SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
-  -- clangd_config.handlers = {
-  --   ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
-  --     if err or not result or not result.diagnostics then
-  --       local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
-  --       if default_handler then default_handler(err, result, ctx, config) end
-  --       return
-  --     end
-  --
-  --     if has_pio_diag and pio_diag then
-  --       local client = vim.lsp.get_client_by_id(ctx.client_id)
-  --       local project_root_dir = client and client.config.root_dir or vim.uv.cwd()
-  --
-  --       local target_path = vim.uri_to_fname(result.uri)
-  --       local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
-  --       -- if diagnostics for column 0 , row 0
-  --       if is_config then
-  --         if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
-  --         -- if pio_diag.clean_project_wide_flags then pio_diag.clean_project_wide_flags(result.diagnostics) end
-  --         -- return -- Block configuration diagnostics from polluting user view
-  --       else
-  --         if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
+  -- clangd_config.before_init = function(_, _)
+  --   -- Step 1: Parse database into an isolated local table variable first
+  --   if has_pio_diag and pio_diag then
+  --     local filter_db_path = OS.clangd_filter
+  --     local f = io.open(filter_db_path, 'r')
+  --     if f then
+  --       local raw = f:read('*a')
+  --       f:close()
+  --       if raw and raw ~= '' then
+  --         local ok, data = pcall(vim.json.decode, raw)
+  --         if ok and data and type(data.flags) == 'table' then
+  --           for flag, blocked in pairs(data.flags) do
+  --             if blocked then pio_diag.removed_flags[flag] = true end
+  --           end
+  --         end
   --       end
   --     end
+  --   end
   --
-  --     local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
-  --     if default_handler then default_handler(err, result, ctx, config) end
-  --   end,
-  -- }
+  --   -- Step 2: Refresh your physical configuration files natively last
+  --   local boiler = require('nvimpio.boilerplate')
+  --   if boiler and boiler.boilerplate_gen then pcall(boiler.boilerplate_gen, '.clangd') end
+  -- end
+
+  -- SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
+  clangd_config.handlers = {
+    ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
+      if err or not result or not result.diagnostics then
+        local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
+        if default_handler then default_handler(err, result, ctx, config) end
+        return
+      end
+
+      if has_pio_diag and pio_diag then
+        local client = vim.lsp.get_client_by_id(ctx.client_id)
+        local project_root_dir = client and client.config.root_dir or vim.uv.cwd()
+
+        local target_path = vim.uri_to_fname(result.uri)
+        local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
+        -- if diagnostics for column 0 , row 0
+        if is_config then
+          if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
+          -- if pio_diag.clean_project_wide_flags then pio_diag.clean_project_wide_flags(result.diagnostics) end
+          -- return -- Block configuration diagnostics from polluting user view
+        else
+          if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
+        end
+      end
+
+      local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
+      if default_handler then default_handler(err, result, ctx, config) end
+    end,
+  }
 
   if clangd_config then return clangd_config end
 end
