@@ -544,6 +544,7 @@ CompileFlags:
       table.concat(formattedHppAdd, ',\n    ')  -- formattedHppAdd
     )
     local final_content = staticBlock .. '\n' .. dynamicBlock
+    print(final_content)
 
     -- 4. UNCONDITIONAL DISK WRITER MATRIX
     local read_ok, old_content = misc.readFile(cwdClangd)
