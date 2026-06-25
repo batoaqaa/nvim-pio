@@ -182,7 +182,7 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: .*\.cpp
+  PathMatch: .*\.(cpp|hpp)
 CompileFlags:
   Add: [
     %s
@@ -190,7 +190,7 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: .*\.(h|hpp)
+  PathMatch: .*\.h
 CompileFlags:
   Add: [
     %s
@@ -523,8 +523,8 @@ CompileFlags:
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedHppAdd section  --------------------------------
-    local formattedHppAdd = vim.deepcopy(formattedASSEMBLY)
-    table.insert(formattedHppAdd, string.format('"@%s"', OS.cc_flags))
+    local formattedHAdd = vim.deepcopy(formattedASSEMBLY)
+    table.insert(formattedHAdd, string.format('"@%s"', OS.cc_flags))
     --------------------- end .clangd formattedHppAdd section ---------------------------------
 
 
@@ -534,8 +534,8 @@ CompileFlags:
       table.concat(formatted_remove, ',\n    '),
       table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
       table.concat(formattedCcAdd, ',\n    '),  -- formattedCcAdd
-      table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
-      table.concat(formattedHppAdd, ',\n    ')  -- formattedHppAdd
+      table.concat(formattedHAdd, ',\n    '),  -- formattedHAdd
+      table.concat(formattedCxxAdd, ',\n    ')  -- formattedCxxAdd
     )
     local final_content = staticBlock .. '\n' .. dynamicBlock
 
