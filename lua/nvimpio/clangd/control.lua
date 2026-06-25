@@ -151,6 +151,26 @@ function M.getClangdConfig()
       if default_handler then default_handler(err, result, ctx, config) end
     end,
   }
+  clangd_config.root_dir = function (fname)
+    local path_lower = fname:lower()
+    local active_project_root = vim.uv.cwd():gsub("\\", "/")
+
+    -- Structural Package Guard: Anchors external files directly back to the project workspace
+    if path_lower:find("%.platformio") or path_lower:find("packages") or path_lower:find("libdeps") then
+      return active_project_root
+    end
+
+    -- Upward project landmark lookup loop
+    local project_landmarks = { "platformio.ini", "compile_commands.json" }
+    for _, marker in ipairs(project_landmarks) do
+      local found = vim.fs.find(marker, { path = fname, upward = true })
+      if found and #found > 0 then
+        return vim.fs.dirname(found[1])
+      end
+    end
+
+    return active_project_root
+  end
 
   if clangd_config then return clangd_config end
 end

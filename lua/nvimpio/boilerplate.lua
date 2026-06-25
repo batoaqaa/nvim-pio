@@ -89,16 +89,6 @@ boilerplate['.clangdConfig.json'] = {
     ],
     "usePlaceholders": true
   },
-  "root_markers": [
-    ".clangd",
-    ".clang-tidy",
-    "platformio.ini",
-    ".clang-format",
-    "compile_commands.json",
-    "compile_flags.txt",
-    "configure.ac",
-    ".git"
-  ],
   "single_file_support": true,
   "workspace_required": true
 }
@@ -119,6 +109,16 @@ boilerplate['.clangdConfig.json'] = {
   end,
 }
 
+  -- "root_markers": [
+  --   ".clangd",
+  --   ".clang-tidy",
+  --   "platformio.ini",
+  --   ".clang-format",
+  --   "compile_commands.json",
+  --   "compile_flags.txt",
+  --   "configure.ac",
+  --   ".git"
+  -- ],
 
 
 --   dynamic = [[
