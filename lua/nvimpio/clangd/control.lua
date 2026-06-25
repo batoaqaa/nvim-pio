@@ -173,15 +173,15 @@ function M.getClangdConfig()
     local project_landmarks = { "platformio.ini", "compile_commands.json" }
     for _, marker in ipairs(project_landmarks) do
       local found = vim.fs.find(marker, { path = fname, upward = true })
+
+      -- FIXED: Ensure found exists and has at least one entry before indexing index 1!
       if found and #found > 0 then
-        -- In modern Neovim versions, vim.fs.find returns a table of paths
         local target_file = found[1]
         return vim.fs.dirname(target_file)
       end
     end
-
-    return active_project_root
-  end
+      return active_project_root
+    end
 
   if clangd_config then return clangd_config end
 end
