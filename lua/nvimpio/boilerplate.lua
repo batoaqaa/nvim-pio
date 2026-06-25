@@ -509,29 +509,23 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCxxAdd section  --------------------------------
 
-    local formattedCxxAdd = {
-      "-x", "c++",
-      table.unpack(formattedASSEMBLY),
-      string.format('"@%s"', OS.cxx_flags)
-    }
+    local formattedCxxAdd = { "-x", "c++" }
+    vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
+    table.insert(formattedASSEMBLY, string.format('"@%s"', OS.cxx_flags))
     --------------------- end .clangd formattedCxxAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCcAdd section  --------------------------------
-    local formattedCcAdd = {
-      "-x", "c",
-      table.unpack(formattedASSEMBLY),
-      string.format('"@%s"', OS.cc_flags)
-    }
+    local formattedCcAdd = { "-x", "c" }
+    vim.list_extend(formattedCcAdd, formattedASSEMBLY)
+    table.insert(formattedCcAdd, string.format('"@%s"', OS.cc_flags))
     --------------------- end .clangd formattedCcAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
-    ------------------ start .clangd formattedCcAdd section  --------------------------------
-    local formattedHppAdd = {
-      table.unpack(formattedASSEMBLY),
-      string.format('"@%s"', OS.cc_flags)
-    }
-    --------------------- end .clangd formattedCcAdd section ---------------------------------
+    ------------------ start .clangd formattedHppAdd section  --------------------------------
+    local formattedHppAdd = vim.deepcopy(formattedASSEMBLY)
+    table.insert(formattedHppAdd, string.format('"@%s"', OS.cc_flags))
+    --------------------- end .clangd formattedHppAdd section ---------------------------------
 
 
     -- 3. Run a clean, single-pass string format for dynamicBlock
