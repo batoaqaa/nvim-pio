@@ -122,9 +122,8 @@ keymap('n', '<A-Down>', '<cmd>resize +2<CR>', { silent = true })
 keymap('n', '<A-Left>', '<cmd>vertical resize -2<CR>', { silent = true })
 keymap('n', '<A-Right>', '<cmd>vertical resize +2<CR>', { silent = true })
 
-keymap('n', '<leader>bb', ':bprevious<CR>', { desc = '[B]efore Buffer' })
-keymap('n', '<leader>ba', ':bnext<CR>', { desc = '[A]fter Buffer' })
-keymap('n', '<leader>bs', ':ball<CR>', { desc = '[S]how AllOpened Buffers' })
+keymap('n', 'H', ':bprevious<CR>', { desc = '[B]efore Buffer' })
+keymap('n', 'L', ':bnext<CR>', { desc = '[A]fter Buffer' })
 
 keymap('n', '<leader>bd', function()
   local bufnr = vim.api.nvim_get_current_buf()
