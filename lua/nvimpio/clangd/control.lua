@@ -152,36 +152,27 @@ function M.getClangdConfig()
     end,
   }
   clangd_config.root_dir = function (p1, p2)
-    -- 1. UNIVERSAL PARAMETER RESOLUTION:
-    -- If p1 is a string, it's lspconfig. If p2 is a string, it's native Neovim 0.11+.
-    local fname = type(p1) == "string" and p1 or p2
-    local active_project_root = vim.uv.cwd():gsub("\\", "/")
+      -- 1. Safely calculate the active project root directly inside this local scope
+      local active_project_root = vim.uv.cwd():gsub("\\", "/")
 
-    -- Safety escape hatch: If both are missing or nil, fallback immediately
-    if not fname or type(fname) ~= "string" then
-      return active_project_root
-    end
+      -- 2. Extract the file name path depending on Neovim version strings
+      local fname = type(p1) == "string" and p1 or p2
+      local path_lower = fname and fname:lower() or ""
 
-    local path_lower = fname:lower()
-
-    -- 2. Framework Floating Buffer Guard
-    if path_lower:find("%.platformio") or path_lower:find("packages") or path_lower:find("libdeps") then
-      return active_project_root
-    end
-
-    -- 3. Upward project landmark lookup loop
-    local project_landmarks = { "platformio.ini", "compile_commands.json" }
-    for _, marker in ipairs(project_landmarks) do
-      local found = vim.fs.find(marker, { path = fname, upward = true })
-
-      -- FIXED: Ensure found exists and has at least one entry before indexing index 1!
-      if found and #found > 0 then
-        local target_file = found[1]
-        return vim.fs.dirname(target_file)
+      -- 3. Framework Floating Buffer Guard
+      if path_lower:find("%.platformio") or path_lower:find("packages") or path_lower:find("libdeps") then
+        return active_project_root
       end
-    end
+
+      -- 4. Upward project landmark lookup loop
+      local project_match = require('lspconfig.util').root_pattern('platformio.ini', 'compile_commands.json')(fname)
+      if project_match then
+        return project_match
+      end
+
+      -- 5. Fallback anchor
       return active_project_root
-    end
+  end
 
   if clangd_config then return clangd_config end
 end
