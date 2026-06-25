@@ -322,7 +322,6 @@ CompileFlags:
 
     -- extract flags out of cc_defines, cxx_defines and cc_flags, cxx_flags
     local function compileDefines(flagsFile, compiler_defines, compiler_flags)
-      local options_file_lines = {}
       if target_meta then
         -- --INFO: 🔍 TRACE LOGGING: Record successful dynamic extraction parameters
         -- local log_file = vim.fs.joinpath(project_root, 'nvim_pio_boot_trace.log')
@@ -388,7 +387,7 @@ CompileFlags:
 
           return safe_flags
         end
-        local compilerFlags = filter_compiler_flags(compiler_flags)
+        -- local compilerFlags = filter_compiler_flags(compiler_flags)
         -- for i = 1, #compilerFlags do
         --   table.insert(options_file_lines, compilerFlags[i])    -- compiler flags
         -- end
@@ -397,24 +396,27 @@ CompileFlags:
         -- 🟢  phase B: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL (compiler_defines and pio_defines)
         local define_pools = {
           compiler_defines,  -- GENERIC compiler target defines
-          compilerFlags,    -- compiler flags
+          -- compilerFlags,    -- compiler flags
+          compiler_flags,    -- compiler flags
           target_meta.pio_defines,  -- board macro defines
         }
+        -- local options_file_lines = {}
+        local options_file_lines = filter_compiler_flags(define_pools)
 
         -- High-performance JIT-optimized loop for all definitions pools
-        for pool_idx = 1, #define_pools do
-          local pool = define_pools[pool_idx]
-          if type(pool) == 'table' then
-            for flag_idx = 1, #pool do
-              local define = pool[flag_idx]
-              if type(define) == 'string' and define ~= '' then
-                -- Safely check if it already starts with "-". If not, prepend "-D" to it.
-                local formatted_define = define:match('^%-') and define or ('-D' .. define)
-                table.insert(options_file_lines, formatted_define)
-              end
-            end
-          end
-        end
+        -- for pool_idx = 1, #define_pools do
+        --   local pool = define_pools[pool_idx]
+        --   if type(pool) == 'table' then
+        --     for flag_idx = 1, #pool do
+        --       local define = pool[flag_idx]
+        --       if type(define) == 'string' and define ~= '' then
+        --         -- Safely check if it already starts with "-". If not, prepend "-D" to it.
+        --         local formatted_define = define:match('^%-') and define or ('-D' .. define)
+        --         table.insert(options_file_lines, formatted_define)
+        --       end
+        --     end
+        --   end
+        -- end
 
         -- -- 🟢  Phase C: Extract all pre-sorted include path using JIT sequential loops
         -- local include_pools = {
