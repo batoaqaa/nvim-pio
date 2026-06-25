@@ -496,6 +496,7 @@ CompileFlags:
     ------------------ start .clangd Add2 section  --------------------------------
     local formatted_add2 = {}  -- cxx std=c==17 + response file
     -- table.insert(formatted_add2, '"-std=gnu++23"')
+    table.insert(formatted_add2, '"-x", "c++"')
     local response_file_path = string.format('"@%s"', OS.cxx_flags)
     table.insert(formatted_add2, response_file_path)
     --------------------- end .clangd add2 section ---------------------------------
@@ -504,6 +505,7 @@ CompileFlags:
     ------------------ start .clangd Add2 section  --------------------------------
     local formatted_add3 = {} -- c std=gnu23 + response file
     -- table.insert(formatted_add3, '"-std=gnu23"')
+    table.insert(formatted_add2, '"-x", "c"')
     response_file_path = string.format('"@%s"', OS.cc_flags)
     table.insert(formatted_add3, response_file_path)
 
