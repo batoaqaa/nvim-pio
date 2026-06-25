@@ -151,49 +151,6 @@ function M.getClangdConfig()
       if default_handler then default_handler(err, result, ctx, config) end
     end,
   }
-  clangd_config.root_dir = function (...)
-      local active_project_root = vim.uv.cwd():gsub("\\", "/")
-      local fname = nil
-      local args = { ... }
-
-      -- 1. UNIVERSAL NEOVIM 0.11+ PATH RESOLUTION
-      -- Check if the first argument is an integer buffer number (bufnr)
-      if type(args[1]) == "number" and args[1] > 0 then
-        fname = vim.api.nvim_buf_get_name(args[1])
-      else
-        -- Fallback: Scan the tuple for a raw string path (legacy lspconfig compatibility)
-        for i = 1, #args do
-          if type(args[i]) == "string" then
-            fname = args[i]
-            break
-          end
-        end
-      end
-
-      -- 2. Clean up formatting and escape if completely invalid
-      if not fname or fname == "" then
-        return active_project_root
-      end
-
-      local path_lower = fname:lower()
-
-      -- 3. Framework Floating Buffer Guard
-      if path_lower:find("%.platformio") or path_lower:find("packages") or path_lower:find("libdeps") then
-        return active_project_root
-      end
-
-      -- 4. Upward project landmark lookup loop
-      local project_landmarks = { "platformio.ini", "compile_commands.json" }
-      for _, marker in ipairs(project_landmarks) do
-        local found = vim.fs.find(marker, { path = fname, upward = true })
-        if found and #found > 0 then
-          return vim.fs.dirname(found[1]) -- Explicitly pull the first index string out of the table array!
-        end
-      end
-
-      -- 5. Fallback anchor
-      return active_project_root
-  end
 
   if clangd_config then return clangd_config end
 end
