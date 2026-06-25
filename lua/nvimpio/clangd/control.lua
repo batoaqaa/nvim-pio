@@ -151,13 +151,25 @@ function M.getClangdConfig()
       if default_handler then default_handler(err, result, ctx, config) end
     end,
   }
-  clangd_config.root_dir = function (p1, p2)
-      -- 1. Safely calculate the active project root directly inside this local scope
+  clangd_config.root_dir = function (...)
       local active_project_root = vim.uv.cwd():gsub("\\", "/")
 
-      -- 2. Extract the file name path depending on Neovim version strings
-      local fname = type(p1) == "string" and p1 or p2
-      local path_lower = fname and fname:lower() or ""
+      -- 1. DYNAMIC TYPE SCANNER: Loop through all parameters to find the string path
+      local fname = nil
+      local args = { ... }
+      for i = 1, #args do
+        if type(args[i]) == "string" then
+          fname = args[i]
+          break
+        end
+      end
+
+      -- 2. Escape hatch if no string argument is found
+      if not fname then
+        return active_project_root
+      end
+
+      local path_lower = fname:lower()
 
       -- 3. Framework Floating Buffer Guard
       if path_lower:find("%.platformio") or path_lower:find("packages") or path_lower:find("libdeps") then
@@ -165,9 +177,12 @@ function M.getClangdConfig()
       end
 
       -- 4. Upward project landmark lookup loop
-      local project_match = require('lspconfig.util').root_pattern('platformio.ini', 'compile_commands.json')(fname)
-      if project_match then
-        return project_match
+      local success, util = pcall(require, 'lspconfig.util')
+      if success and util.root_pattern then
+        local project_match = util.root_pattern('platformio.ini', 'compile_commands.json')(fname)
+        if project_match then
+          return project_match
+        end
       end
 
       -- 5. Fallback anchor
