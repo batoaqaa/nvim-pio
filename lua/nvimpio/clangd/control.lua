@@ -151,28 +151,38 @@ function M.getClangdConfig()
       if default_handler then default_handler(err, result, ctx, config) end
     end,
   }
-  clangd_config.root_dir = function (fname)
-    local path_lower = fname:lower()
+  clangd_config.root_dir = function (p1, p2)
+    -- 1. UNIVERSAL PARAMETER RESOLUTION:
+    -- If p1 is a string, it's lspconfig. If p2 is a string, it's native Neovim 0.11+.
+    local fname = type(p1) == "string" and p1 or p2
     local active_project_root = vim.uv.cwd():gsub("\\", "/")
 
-    -- Structural Package Guard: Anchors external files directly back to the project workspace
+    -- Safety escape hatch: If both are missing or nil, fallback immediately
+    if not fname or type(fname) ~= "string" then
+      return active_project_root
+    end
+
+    local path_lower = fname:lower()
+
+    -- 2. Framework Floating Buffer Guard
     if path_lower:find("%.platformio") or path_lower:find("packages") or path_lower:find("libdeps") then
       return active_project_root
     end
 
-    -- Upward project landmark lookup loop
+    -- 3. Upward project landmark lookup loop
     local project_landmarks = { "platformio.ini", "compile_commands.json" }
     for _, marker in ipairs(project_landmarks) do
       local found = vim.fs.find(marker, { path = fname, upward = true })
       if found and #found > 0 then
-        return vim.fs.dirname(found[1])
+        -- In modern Neovim versions, vim.fs.find returns a table of paths
+        local target_file = found[1]
+        return vim.fs.dirname(target_file)
       end
     end
 
     return active_project_root
   end
 
-  print(vim.inspect(clangd_config))
   if clangd_config then return clangd_config end
 end
 
