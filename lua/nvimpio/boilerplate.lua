@@ -80,8 +80,7 @@ boilerplate['.clangdConfig.json'] = {
     "cpp",
     "objc",
     "objcpp",
-    "cuda",
-    "proto"
+    "cuda"
   ],
   "init_options": {
     "clangdFileStatus": true,
@@ -91,15 +90,14 @@ boilerplate['.clangdConfig.json'] = {
     "usePlaceholders": true
   },
   "root_markers": [
+    '.clangd',
+    '.clang-tidy',
     "platformio.ini",
-    "compile_commands.json",
-    ".git",
-    ".clangd",
-    ".clang-tidy",
-    ".clang-format",
-    "CMakeLists.txt",
-    "compile_flags.txt",
-    "configure.ac"
+    '.clang-format',
+    'compile_commands.json',
+    'compile_flags.txt',
+    'configure.ac', -- AutoTools
+    '.git'
   ],
   "single_file_support": true,
   "workspace_required": true

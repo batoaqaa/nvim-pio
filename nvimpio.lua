@@ -116,10 +116,11 @@ keymap('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
 keymap('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
 
 -- Resize with arrows
-keymap('n', '<C-Up>', '<cmd>resize -2<CR>', { silent = true })
-keymap('n', '<C-Down>', '<cmd>resize +2<CR>', { silent = true })
-keymap('n', '<C-Left>', '<cmd>vertical resize -2<CR>', { silent = true })
-keymap('n', '<C-Right>', '<cmd>vertical resize +2<CR>', { silent = true })
+
+keymap('n', '<A-Up>', '<cmd>resize -2<CR>', { silent = true })
+keymap('n', '<A-Down>', '<cmd>resize +2<CR>', { silent = true })
+keymap('n', '<A-Left>', '<cmd>vertical resize -2<CR>', { silent = true })
+keymap('n', '<A-Right>', '<cmd>vertical resize +2<CR>', { silent = true })
 
 keymap('n', '<leader>bb', ':bprevious<CR>', { desc = '[B]efore Buffer' })
 keymap('n', '<leader>ba', ':bnext<CR>', { desc = '[A]fter Buffer' })
