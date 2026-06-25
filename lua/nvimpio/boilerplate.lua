@@ -96,7 +96,7 @@ boilerplate['.clangdConfig.json'] = {
     '.clang-format',
     'compile_commands.json',
     'compile_flags.txt',
-    'configure.ac', -- AutoTools
+    'configure.ac',
     '.git'
   ],
   "single_file_support": true,
