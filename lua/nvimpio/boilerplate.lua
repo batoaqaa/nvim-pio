@@ -90,7 +90,7 @@ boilerplate['.clangdConfig.json'] = {
     "usePlaceholders": true
   },
   "root_markers": [
-    '.clangd',
+    ".clangd",
     ".clang-tidy",
     "platformio.ini",
     ".clang-format",
