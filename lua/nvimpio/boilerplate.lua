@@ -342,7 +342,7 @@ CompileFlags:
             -- 1. Scan for the only structural prefixes an LSP semantic engine cares about
             local is_warning = flag:find("^%-W")
             local is_macro   = flag:find("^%-D")
-            local is_include = flag:find("^%-I") or flag:find("^%-isystem")
+            local is_include = false -- flag:find("^%-I") or flag:find("^%-isystem")
 
             -- 2. Pure Allowlist Evaluation:
             -- If it's a warning, a macro, or an include path, it is perfectly safe.
