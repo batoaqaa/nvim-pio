@@ -172,6 +172,7 @@ function M.getClangdConfig()
     return active_project_root
   end
 
+  print(vim.inspect(clangd_config))
   if clangd_config then return clangd_config end
 end
 
