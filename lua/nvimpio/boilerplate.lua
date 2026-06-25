@@ -501,22 +501,22 @@ CompileFlags:
     --------------------- end .clangd add1 section ---------------------------------
 
     local formattedASSEMBLY = {
-      "-U_ASMLANGUAGE",
-      "-U__ASSEMBLY__",
-      "-U__ASSEMBLER__",
-      "-U_ASSEMBLY_",
+      '"-U_ASMLANGUAGE"',
+      '"-U__ASSEMBLY__"',
+      '"-U__ASSEMBLER__"',
+      '"-U_ASSEMBLY_"',
     }
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCxxAdd section  --------------------------------
 
-    local formattedCxxAdd = { "-x", "c++" }
+    local formattedCxxAdd = { '"-x"', '"c++"' }
     vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
     table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
     --------------------- end .clangd formattedCxxAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCcAdd section  --------------------------------
-    local formattedCcAdd = { "-x", "c" }
+    local formattedCcAdd = { '"-x"', '"c"' }
     vim.list_extend(formattedCcAdd, formattedASSEMBLY)
     table.insert(formattedCcAdd, string.format('"@%s"', OS.cc_flags))
     --------------------- end .clangd formattedCcAdd section ---------------------------------
