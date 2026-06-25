@@ -174,7 +174,7 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: .*\.(cpp|hpp)
+  PathMatch: .*\.c
 CompileFlags:
   Add: [
     %s
@@ -182,7 +182,15 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: .*\.(c|h)
+  PathMatch: .*\.cpp
+CompileFlags:
+  Add: [
+    %s
+    ]
+
+---
+If:
+  PathMatch: .*\.(h|hpp)
 CompileFlags:
   Add: [
     %s
@@ -484,41 +492,56 @@ CompileFlags:
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd Add1 section  --------------------------------
-    local formatted_add1 = {}  -- libdep_includes
+    local formatteLibdepsAdd = {}  -- libdep_includes
     if target_meta then
       for i = 1, #target_meta.includes_libdeps do
-        table.insert(formatted_add1, string.format('%q', target_meta.includes_libdeps[i]))
+        table.insert(formatteLibdepsAdd, string.format('%q', target_meta.includes_libdeps[i]))
       end
     end
     --------------------- end .clangd add1 section ---------------------------------
 
+    local formattedASSEMBLY = {
+      "-U_ASMLANGUAGE",
+      "-U__ASSEMBLY__",
+      "-U__ASSEMBLER__",
+      "-U_ASSEMBLY_",
+    }
     ------------------------------------------------------------------------------
-    ------------------ start .clangd Add2 section  --------------------------------
-    local formatted_add2 = {}  -- cxx std=c==17 + response file
-    -- table.insert(formatted_add2, '"-std=gnu++23"')
-    table.insert(formatted_add2, '"-x", "c++"')
-    local response_file_path = string.format('"@%s"', OS.cxx_flags)
-    table.insert(formatted_add2, response_file_path)
-    --------------------- end .clangd add2 section ---------------------------------
+    ------------------ start .clangd formattedCxxAdd section  --------------------------------
+
+    local formattedCxxAdd = {
+      "-x", "c++",
+      table.unpack(formattedASSEMBLY),
+      string.format('"@%s"', OS.cxx_flags)
+    }
+    --------------------- end .clangd formattedCxxAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
-    ------------------ start .clangd Add2 section  --------------------------------
-    local formatted_add3 = {} -- c std=gnu23 + response file
-    -- table.insert(formatted_add3, '"-std=gnu23"')
-    table.insert(formatted_add2, '"-x", "c"')
-    response_file_path = string.format('"@%s"', OS.cc_flags)
-    table.insert(formatted_add3, response_file_path)
+    ------------------ start .clangd formattedCcAdd section  --------------------------------
+    local formattedCcAdd = {
+      "-x", "c",
+      table.unpack(formattedASSEMBLY),
+      string.format('"@%s"', OS.cc_flags)
+    }
+    --------------------- end .clangd formattedCcAdd section ---------------------------------
 
-    --------------------- end .clangd add2 section ---------------------------------
+    ------------------------------------------------------------------------------
+    ------------------ start .clangd formattedCcAdd section  --------------------------------
+    local formattedHppAdd = {
+      table.unpack(formattedASSEMBLY),
+      string.format('"@%s"', OS.cc_flags)
+    }
+    --------------------- end .clangd formattedCcAdd section ---------------------------------
 
 
     -- 3. Run a clean, single-pass string format for dynamicBlock
     dynamicBlock = string.format(
       self.dynamic,
       table.concat(formatted_remove, ',\n    '),
-      table.concat(formatted_add1, ',\n    '),
-      table.concat(formatted_add2, ',\n    '),
-      table.concat(formatted_add3, ',\n    ')
+      table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
+      table.concat(formattedCcAdd, ',\n    '),  -- formattedCcAdd
+      table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
+      table.concat(formattedHppAdd, ',\n    ')  -- formattedHppAdd
     )
     local final_content = staticBlock .. '\n' .. dynamicBlock
 
