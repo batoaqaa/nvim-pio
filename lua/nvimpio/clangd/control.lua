@@ -3,6 +3,7 @@ local M = {}
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 local diagnosticClangd = require('nvimpio.clangd.diagnostic')
+local has_pio_diag, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
 
 -- stylua: ignore start
 ----------------------------------------------------------------------------------------
@@ -68,90 +69,6 @@ end
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
--- function M.getClangdConfig()
--- local has_pio_diag, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
---   -- Safe defaults (Standard clangd behavior)
---   local q_driver, merged_json = '**', ''
---
---   if _G.metadata and _G.metadata.query_driver and _G.metadata.query_driver ~= '' then
---     q_driver = _G.metadata.query_driver
---   end
---
---   -- Format your template string
---   -- local json_config = boilerplate_gen([[.clangdConfig.json]], OS.nvimpio_config_dir)
---   local json_config = boilerplate_gen([[.clangdConfig.json]])
---   if not json_config then return nil end
---
---   -- local formatted_fallbackFlags = { '"-std=c++17"', '"-ferror-limit=0"' }  -- cxx std=c==17 + response file
---   local _, count = json_config:gsub('%%s', '')
---   -- Only use string.format if there is one or less %s
---   if count <= 2 then
---     -- merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ','))
---     merged_json = string.format(json_config or '', OS.project_dir, q_driver)
---   end
---
---   -- 'decode' converts JSON string -> Lua table
---   local tok, clangd_config = pcall(vim.json.decode, merged_json)
---
---   if not tok then return nil end
---
---   -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
---   clangd_config.before_init = function(_, _)
---     -- Step 1: Parse database into an isolated local table variable first
---     if has_pio_diag and pio_diag then
---       local filter_db_path = OS.clangd_filter
---       local f = io.open(filter_db_path, 'r')
---       if f then
---         local raw = f:read('*a')
---         f:close()
---         if raw and raw ~= '' then
---           local ok, data = pcall(vim.json.decode, raw)
---           if ok and data and type(data.flags) == 'table' then
---             for flag, blocked in pairs(data.flags) do
---               if blocked then pio_diag.removed_flags[flag] = true end
---             end
---           end
---         end
---       end
---     end
---
---     -- Step 2: Refresh your physical configuration files natively last
---     local boiler = require('nvimpio.boilerplate')
---     if boiler and boiler.boilerplate_gen then pcall(boiler.boilerplate_gen, '.clangd') end
---   end
---
---   -- SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
---   clangd_config.handlers = {
---     ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
---       if err or not result or not result.diagnostics then
---         local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
---         if default_handler then default_handler(err, result, ctx, config) end
---         return
---       end
---
---       if has_pio_diag and pio_diag then
---         local client = vim.lsp.get_client_by_id(ctx.client_id)
---         local project_root_dir = client and client.config.root_dir or vim.uv.cwd()
---
---         local target_path = vim.uri_to_fname(result.uri)
---         local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
---         -- if diagnostics for column 0 , row 0
---         if is_config then
---           if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
---           -- if pio_diag.clean_project_wide_flags then pio_diag.clean_project_wide_flags(result.diagnostics) end
---           -- return -- Block configuration diagnostics from polluting user view
---         else
---           if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
---         end
---       end
---
---       local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
---       if default_handler then default_handler(err, result, ctx, config) end
---     end,
---   }
---
---   if clangd_config then return clangd_config end
--- end
 function M.getClangdConfig()
   -- Safe defaults (Standard clangd behavior)
   local q_driver, merged_json = '**', ''
@@ -163,71 +80,44 @@ function M.getClangdConfig()
   -- Format your template string
   -- local json_config = boilerplate_gen([[.clangdConfig.json]], OS.nvimpio_config_dir)
   local json_config = boilerplate_gen([[.clangdConfig.json]])
-  if not json_config then
-    return nil
-  end
+  if not json_config then return nil end
 
+  -- local formatted_fallbackFlags = { '"-std=c++17"', '"-ferror-limit=0"' }  -- cxx std=c==17 + response file
   local _, count = json_config:gsub('%%s', '')
   -- Only use string.format if there is one or less %s
-  if count <= 1 then
-    merged_json = string.format(json_config or '', q_driver)
+  if count <= 2 then
+    -- merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ','))
+    merged_json = string.format(json_config or '', OS.project_dir, q_driver)
   end
 
   -- 'decode' converts JSON string -> Lua table
   local tok, clangd_config = pcall(vim.json.decode, merged_json)
 
-  if not tok then
-    return nil
-  end
+  if not tok then return nil end
 
   -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
-  clangd_config.before_init = function(params, config)
-    local project_root = params.rootPath or (params.rootUri and vim.uri_to_fname(params.rootUri)) or vim.uv.cwd()
-    project_root = (type(project_root) == 'string' and project_root ~= '') and project_root or '.'
-    project_root = vim.fs.normalize(project_root)
-
-    -- Assign pristine native configuration options inside memory
-    config.init_options = {
-      clangdFileStatus = true,
-      completeUnimported = true,
-      usePlaceholders = true,
-      compilationDatabasePath = project_root,
-      fallbackFlags = { '-ferror-limit=0' },
-    }
-
+  clangd_config.before_init = function(_, _)
     -- Step 1: Parse database into an isolated local table variable first
-    local local_flags_cache = {}
-    local filter_db_path = OS.clangd_filter
-    local f = io.open(filter_db_path, 'r')
-    if f then
-      local raw = f:read('*a')
-      f:close()
-      if raw and raw ~= '' then
-        local ok, data = pcall(vim.json.decode, raw)
-        if ok and data and type(data.flags) == 'table' then
-          for flag, blocked in pairs(data.flags) do
-            if blocked then
-              local_flags_cache[flag] = true
+    if has_pio_diag and pio_diag then
+      local filter_db_path = OS.clangd_filter
+      local f = io.open(filter_db_path, 'r')
+      if f then
+        local raw = f:read('*a')
+        f:close()
+        if raw and raw ~= '' then
+          local ok, data = pcall(vim.json.decode, raw)
+          if ok and data and type(data.flags) == 'table' then
+            for flag, blocked in pairs(data.flags) do
+              if blocked then pio_diag.removed_flags[flag] = true end
             end
           end
         end
       end
     end
 
-    -- Step 2: Runtime Lazy-Load of the diagnostic module RAM maps
-    local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-    if success and pio_diag then
-      for flag, is_blocked in pairs(local_flags_cache) do
-        pio_diag.removed_flags[flag] = is_blocked
-      end
-    end
-
-    -- Step 3: Refresh your physical configuration files natively last
+    -- Step 2: Refresh your physical configuration files natively last
     local boiler = require('nvimpio.boilerplate')
-    if boiler and boiler.boilerplate_gen then
-      -- pcall(boiler.boilerplate_gen, '.clangd', OS.project_dir)
-      pcall(boiler.boilerplate_gen, '.clangd')
-    end
+    if boiler and boiler.boilerplate_gen then pcall(boiler.boilerplate_gen, '.clangd') end
   end
 
   -- SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
@@ -235,68 +125,34 @@ function M.getClangdConfig()
     ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
       if err or not result or not result.diagnostics then
         local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
-        if default_handler then
-          default_handler(err, result, ctx, config)
-        end
+        if default_handler then default_handler(err, result, ctx, config) end
         return
       end
 
-      local client = vim.lsp.get_client_by_id(ctx.client_id)
-      local project_root_dir = client and client.config.root_dir or vim.uv.cwd()
-      local target_path = vim.uri_to_fname(result.uri)
-      local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
+      if has_pio_diag and pio_diag then
+        local client = vim.lsp.get_client_by_id(ctx.client_id)
+        local project_root_dir = client and client.config.root_dir or vim.uv.cwd()
 
-      -- -- 🔍 BACKGROUND INDEXING NETWORK TRACER
-      -- local trace_log = vim.fs.joinpath(project_root_dir, 'nvim_pio_boot_trace.log')
-      -- local f_trace = io.open(trace_log, 'a')
-      -- if f_trace then
-      --   local timestamp = os.date('%Y-%m-%d %H:%M:%S')
-      --   -- Check if the buffer is currently active/visible to the user's eye
-      --   local is_buf_loaded = vim.fn.bufloaded(target_path) == 1
-      --
-      --   if #result.diagnostics > 0 then
-      --     f_trace:write(string.format('[%s] 📡 LSP DIAGNOSTIC PACKET RECEIVED!\n', timestamp))
-      --     f_trace:write(string.format('   -> Target File: %s\n', target_path))
-      --     f_trace:write(string.format('   -> Is File Open/Loaded in Editor? %s\n', tostring(is_buf_loaded)))
-      --
-      --     for idx = 1, #result.diagnostics do
-      --       local diag = result.diagnostics[idx]
-      --       local start_line = diag.range and diag.range.start and diag.range.start.line or -1
-      --       local start_col = diag.range and diag.range.start and diag.range.start.character or -1
-      --
-      --       f_trace:write(string.format('   [%d] Code: [%s] at Row %d, Col %d\n', idx, tostring(diag.code), start_line, start_col))
-      --       f_trace:write(string.format('        Msg: %s\n', diag.message or ''))
-      --     end
-      --   end
-      --   f_trace:close()
-      -- end
-
-      -- RIGID ROUTING ENGINE
-      local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-      if success and pio_diag then
+        local target_path = vim.uri_to_fname(result.uri)
+        local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
+        -- if diagnostics for column 0 , row 0
         if is_config then
-          if pio_diag.clean_project_wide_flags then
-            pio_diag.clean_project_wide_flags(project_root_dir, result.diagnostics)
-          end
-          return -- Block configuration diagnostics from polluting user view
+          if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
+          -- if pio_diag.clean_project_wide_flags then pio_diag.clean_project_wide_flags(result.diagnostics) end
+          -- return -- Block configuration diagnostics from polluting user view
         else
-          if pio_diag.clean_file_path_pipeline then
-            result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics)
-          end
+          if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
         end
       end
 
       local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
-      if default_handler then
-        default_handler(err, result, ctx, config)
-      end
+      if default_handler then default_handler(err, result, ctx, config) end
     end,
   }
 
-  if clangd_config then
-    return clangd_config
-  end
+  if clangd_config then return clangd_config end
 end
+
 -- INFO: clangdRestart()
 --------------------------------------------------------------------------------
 function M.restart()
@@ -510,7 +366,6 @@ function M.init(clangd)
   -- local getClangdConfig = require('nvimpio.clangd.control').getClangdConfig
   -- if getClangdConfig then
     local clangConfig = M.getClangdConfig()
-    print(vim.inspect(clangConfig))
     vim.lsp.config('clangd', clangConfig)
     vim.lsp.enable('clangd')
   -- end
