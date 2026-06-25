@@ -402,6 +402,7 @@ CompileFlags:
         }
         -- local options_file_lines = {}
         local options_file_lines = filter_compiler_flags(define_pools)
+        print(vim.inspect(options_file_lines))
 
         -- High-performance JIT-optimized loop for all definitions pools
         -- for pool_idx = 1, #define_pools do
