@@ -594,7 +594,7 @@ CompileFlags:
     dynamicBlock = string.format(
       self.dynamic,
       -- OS.project_dir,
-      '"."',
+      ".",
       table.concat(formatted_remove, ',\n    '),
       table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
       -- OS.project_dir,
