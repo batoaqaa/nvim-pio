@@ -561,7 +561,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
           local idok1, content2 = misc.readFile(idedata_file)
           if idok1 and (content2 ~= '') then
             local cok1, decoded1 = pcall(vim.json.decode, content2)
-            if cok1 and apply_metadata(decoded1) then
+            if cok1 and apply_metadata(decoded1[active_env]) then
               OS.notify(from .. 'Metadata synced from download', 'info')
               require('nvimpio.pio.metadata').save_project_config(from)
               fire_callback(true)
@@ -581,7 +581,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- end
   elseif idok and content ~= '' then
     local cok, decoded = pcall(vim.json.decode, content)
-    if cok and apply_metadata(decoded) then
+    if cok and apply_metadata(decoded[active_env]) then
       if (from == 'Meta active_env change: ')then
       -- cli
         require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
