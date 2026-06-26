@@ -182,7 +182,7 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: .*\.c
+  PathMatch: .*\.(c|s)
 CompileFlags:
   Add: [
     %s
