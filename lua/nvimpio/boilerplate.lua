@@ -593,7 +593,8 @@ CompileFlags:
     -- 3. Run a clean, single-pass string format for dynamicBlock
     dynamicBlock = string.format(
       self.dynamic,
-      OS.project_dir,
+      -- OS.project_dir,
+      '".',
       table.concat(formatted_remove, ',\n    '),
       table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
       -- OS.project_dir,
