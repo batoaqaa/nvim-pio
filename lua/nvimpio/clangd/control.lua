@@ -76,7 +76,7 @@ function M.getClangdConfig()
   local q_driver, merged_json = '**', ''
 
   if _G.metadata and _G.metadata.query_driver and _G.metadata.query_driver ~= '' then
-    q_driver = 'C:\\**\\*.exe,C:/**' --_G.metadata.query_driver
+    q_driver = "C:\\**\\*.exe,C:/**" --_G.metadata.query_driver
   end
 
   -- Format your template string
