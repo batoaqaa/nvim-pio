@@ -18,7 +18,6 @@ platforms_dir = ${platformio.core_dir}/platforms
 packages_dir = ${platformio.core_dir}/packages
 ;libdeps_dir = ./external_libs
 
-default_envs =
 ;default_envs = uno, nodemcu
 
 ;--------------------------------------------------------------------------
@@ -29,10 +28,6 @@ monitor_speed = 9600
 
 monitor_rts = 1   ; 1 combination to reset esp32c6 (Table 32.3-2. CDC-ACM Settings with RTS and DTR)
 monitor_dtr = 0   ; 0 // pio dev mon --rts=0 --dtr=0 then pio dev mon --rts=1 dtr=0
-
-extra_scripts =
-  ;post:generate_compileDB.py
-  ;pre:enable_toolchain.py ; enabled global env 'PLATFORMIO_SETTING_COMPILATIONDB_INCLUDE_TOOLCHAIN'
 
 lib_ldf_mode = chain   ;Library dependencies Finder ldf
 
@@ -137,6 +132,14 @@ boilerplate['.clangdConfig.json'] = {
 --     ]
 -- ]],
 
+--
+-- ---
+-- If:
+--   PathMatch: .*\.h
+-- CompileFlags:
+--   Add: [
+--     %s
+--     ]
 boilerplate['.clangd'] = {
   static = [[
 ---
@@ -174,7 +177,7 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: .*\.(cpp|hpp)
+  PathMatch: [.*\.cpp, .*\.hpp)
 CompileFlags:
   Add: [
     %s
@@ -182,15 +185,7 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: .*\.(c|s)
-CompileFlags:
-  Add: [
-    %s
-    ]
-
----
-If:
-  PathMatch: .*\.h
+  PathMatch: [.*\.c, .*\.h]
 CompileFlags:
   Add: [
     %s
@@ -525,10 +520,10 @@ CompileFlags:
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedHppAdd section  --------------------------------
-    local formattedHAdd = {} --vim.deepcopy(formattedASSEMBLY)
-    table.insert(formattedHAdd, '"-std=gnu23"')
-    table.insert(formattedHAdd, string.format('"@%s"', OS.cc_flags))
-    vim.list_extend(formattedHAdd, formattedASSEMBLY)
+    -- local formattedHAdd = {} --vim.deepcopy(formattedASSEMBLY)
+    -- table.insert(formattedHAdd, '"-std=gnu23"')
+    -- table.insert(formattedHAdd, string.format('"@%s"', OS.cc_flags))
+    -- vim.list_extend(formattedHAdd, formattedASSEMBLY)
     --------------------- end .clangd formattedHppAdd section ---------------------------------
 
 
@@ -538,8 +533,8 @@ CompileFlags:
       table.concat(formatted_remove, ',\n    '),
       table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
       table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
-      table.concat(formattedCcAdd, ',\n    '),  -- formattedCcAdd
-      table.concat(formattedHAdd, ',\n    ')  -- formattedHAdd
+      table.concat(formattedCcAdd, ',\n    ')  -- formattedCcAdd
+      -- table.concat(formattedHAdd, ',\n    ')  -- formattedHAdd
     )
     local final_content = staticBlock .. '\n' .. dynamicBlock
 
