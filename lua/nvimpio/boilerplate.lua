@@ -426,7 +426,7 @@ CompileFlags:
             end
           end
 
-          table.insert(safe_flags, '"-U_ASMLANGUAGE"')
+          table.insert(safe_flags, "-U_ASMLANGUAGE")
           return safe_flags
         end
         -- phase B: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL (compiler_defines, compiler_flags and pio_defines)
