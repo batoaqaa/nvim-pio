@@ -49,6 +49,7 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
   end,
 }
 
+-- "--background-index-priority=low",
 -- INFO: .clangd_config
 ----------------------------------------------------------------------------------------
 boilerplate['.clangdConfig.json'] = {
@@ -61,7 +62,7 @@ boilerplate['.clangdConfig.json'] = {
     "--enable-config",
     "--limit-results=100",
     "--background-index",
-    "--background-index-priority=low",
+    "--index-user-symbols-only",
     "--all-scopes-completion",
     "--clang-tidy",
     "--completion-parse=always",
