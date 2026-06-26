@@ -604,10 +604,10 @@ CompileFlags:
       table.concat(formatted_remove, ',\n    '),
       table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
       -- OS.project_dir,
-      '"-std=*',
+      '"-std=*"',
       table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
       -- OS.project_dir,
-      '"-std=*',
+      '"-std=*"',
       table.concat(formattedCcAdd, ',\n    ')  -- formattedCcAdd
       -- table.concat(formattedHAdd, ',\n    ')  -- formattedHAdd
     )
