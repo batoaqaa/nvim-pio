@@ -408,25 +408,24 @@ CompileFlags:
             if is_warning or is_macro or is_single_include then
               table.insert(safe_flags, flag)
               idx = idx + 1
-            -- elseif is_imacro or is_isystem then
-            --   local next_element = raw_flags[idx + 1]
-            --
-            --   -- DEFENSIVE GUARD: Ensure the next index is a valid path string and NOT another compiler flag!
-            --   if next_element and not next_element:find("^%-") then
-            --     table.insert(safe_flags, flag)         -- Inserts "-imacros" or "-isystem"
-            --     table.insert(safe_flags, next_element)  -- Inserts the clean path string
-            --     idx = idx + 2 -- Safe pair step: Advance past both tokens cleanly
-            --   else
-            --     -- Fallback: The flag was dangling or malformed. Drop the flag alone and advance by 1!
-            --     idx = idx + 1
-            --   end
+            elseif is_imacro or is_isystem then
+              local next_element = raw_flags[idx + 1]
+
+              -- DEFENSIVE GUARD: Ensure the next index is a valid path string and NOT another compiler flag!
+              if next_element and not next_element:find("^%-") then
+                table.insert(safe_flags, flag)         -- Inserts "-imacros" or "-isystem"
+                table.insert(safe_flags, next_element)  -- Inserts the clean path string
+                idx = idx + 2 -- Safe pair step: Advance past both tokens cleanly
+              else
+                -- Fallback: The flag was dangling or malformed. Drop the flag alone and advance by 1!
+                idx = idx + 1
+              end
             else
               -- Dynamically discards all architecture/optimization noise (-mcpu, -Os, -g)
               idx = idx + 1
             end
           end
 
-          table.insert(safe_flags, "-U_ASMLANGUAGE")
           return safe_flags
         end
         -- phase B: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL (compiler_defines, compiler_flags and pio_defines)
@@ -515,17 +514,17 @@ CompileFlags:
     ------------------ start .clangd formattedCxxAdd section  --------------------------------
 
     local formattedCxxAdd = { '"-x"', '"c++"' }
-    -- vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
     table.insert(formattedCxxAdd, '"-std=gnu++23"')
     table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
+    vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
     --------------------- end .clangd formattedCxxAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCcAdd section  --------------------------------
     local formattedCcAdd = { '"-x"', '"c"' }
-    -- vim.list_extend(formattedCcAdd, formattedASSEMBLY)
     table.insert(formattedCcAdd, '"-std=gnu23"')
     table.insert(formattedCcAdd, string.format('"@%s"', OS.cc_flags))
+    vim.list_extend(formattedCcAdd, formattedASSEMBLY)
     --------------------- end .clangd formattedCcAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
@@ -533,6 +532,7 @@ CompileFlags:
     local formattedHAdd = {} --vim.deepcopy(formattedASSEMBLY)
     table.insert(formattedHAdd, '"-std=gnu23"')
     table.insert(formattedHAdd, string.format('"@%s"', OS.cc_flags))
+    vim.list_extend(formattedHAdd, formattedASSEMBLY)
     --------------------- end .clangd formattedHppAdd section ---------------------------------
 
 
