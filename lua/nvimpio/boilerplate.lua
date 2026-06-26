@@ -534,8 +534,8 @@ CompileFlags:
       table.concat(formatted_remove, ',\n    '),
       table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
       table.concat(formattedCcAdd, ',\n    '),  -- formattedCcAdd
-      table.concat(formattedHAdd, ',\n    '),  -- formattedHAdd
-      table.concat(formattedCxxAdd, ',\n    ')  -- formattedCxxAdd
+      table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
+      table.concat(formattedHAdd, ',\n    ')  -- formattedHAdd
     )
     local final_content = staticBlock .. '\n' .. dynamicBlock
 

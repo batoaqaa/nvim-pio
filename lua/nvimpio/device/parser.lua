@@ -315,7 +315,7 @@ function M.handleIdedata(result, active_env, on_done)
     -- vim.defer_fn(function()
     --   require('nvimpio.clangd.control').getUnknownArgsCli(fromMsg)
     -- end, 50) -- 50ms delay, adjust as needed
-    -- require('nvimpio.clangd.control').restart()
+    require('nvimpio.clangd.control').restart()
     if on_done and type(on_done) == 'function' then on_done(true) end
     cliTerm:hide()
     M.cleanSequencer()
