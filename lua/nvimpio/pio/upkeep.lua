@@ -352,9 +352,10 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
   -- Set up file paths
   local build_dir = vim.fs.joinpath(vim.uv.cwd(), '.pio', 'build')
-  local build_env_dir = vim.fs.joinpath(build_dir, active_env)
+  -- local build_env_dir = vim.fs.joinpath(build_dir, active_env)
   local checksum_file = vim.fs.joinpath(build_dir, 'project.checksum')
-  local idedata_file = vim.fs.joinpath(build_env_dir, 'idedata.json')
+  -- local idedata_file = vim.fs.joinpath(build_env_dir, 'idedata.json')
+  local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
 
   local function fire_callback(status)
     refreshBusy = false
@@ -519,12 +520,66 @@ fetch_metadata = function(callback, active_env, from, attempts)
     return true
   end
 
+  local nvimpio_dir = vim.fs.dirname(idedata_file)
+  if not vim.uv.fs_stat(nvimpio_dir) then
+    vim.uv.fs_mkdir(nvimpio_dir, 493)
+  end
   -- ----------------------------------------------------------------
   -- -- STEP 1: Cache Path (idedata.json exists )
   -- ----------------------------------------------------------------
   -- Complete Cache-Hit Evaluation Rule
   local idok, content = misc.readFile(idedata_file)
-  if idok and content ~= '' then
+  if (not idok) or (content == '') then
+    ------------------------------------------------------------------------------------
+    -- STEP 2: Auto-Initialize (If file idedata.json missing)
+    ------------------------------------------------------------------------------------
+    -- buildIdedata()
+
+    -- cli
+    -- require('nvimpio.pio.cli').buildIdedata(from, active_env, function(is_successful)
+    --   if is_successful then
+    --     -- OS.notify(from .. 'Idedata is ready. Proceeding with analysis...')
+    --       -- Execute recursive check loop to accurately verify and load newly compiled files
+    --     if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
+    --     else fire_callback(false); return end
+    --   else
+    --     OS.notify(from .. 'Skipping next steps due to compilation idedata failure.', 'error')
+    --     fire_callback(false)
+    --     print('out')
+    --     return
+    --   end
+    -- end)
+
+    -- gui
+    local cb = function(status)
+      require('nvimpio.device.parser').handleIdedata(status, active_env, function(success)
+        if success then
+          OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), 'info')
+          -- Execute recursive check loop to accurately verify and load newly compiled files
+          -- if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
+          -- else fire_callback(false) end
+          local idok1, content2 = misc.readFile(idedata_file)
+          if idok1 and (content2 ~= '') then
+            local cok1, decoded1 = pcall(vim.json.decode, content2)
+            if cok1 and apply_metadata(decoded1) then
+              OS.notify(from .. 'Metadata synced from download', 'info')
+              require('nvimpio.pio.metadata').save_project_config(from)
+              fire_callback(true)
+              return true
+            end
+          end
+        else
+          OS.notify(from .. 'Build Failed', 'error')
+          fire_callback(false)
+        end
+      end)
+    end
+    -- local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
+    local idecmd = string.format('pio project metadata -e %s --json-outputpat %s', active_env, idedata_file )
+    local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+    require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+  -- end
+  elseif idok and content ~= '' then
     local cok, decoded = pcall(vim.json.decode, content)
     if cok and apply_metadata(decoded) then
       if (from == 'Meta active_env change: ')then
@@ -574,44 +629,46 @@ fetch_metadata = function(callback, active_env, from, attempts)
     end
   end
 
-  ------------------------------------------------------------------------------------
-  -- STEP 2: Auto-Initialize (If file idedata.json missing)
-  ------------------------------------------------------------------------------------
-  -- buildIdedata()
-
-  -- cli
-  -- require('nvimpio.pio.cli').buildIdedata(from, active_env, function(is_successful)
-  --   if is_successful then
-  --     -- OS.notify(from .. 'Idedata is ready. Proceeding with analysis...')
+  -- ------------------------------------------------------------------------------------
+  -- -- STEP 2: Auto-Initialize (If file idedata.json missing)
+  -- ------------------------------------------------------------------------------------
+  -- -- buildIdedata()
+  --
+  -- -- cli
+  -- -- require('nvimpio.pio.cli').buildIdedata(from, active_env, function(is_successful)
+  -- --   if is_successful then
+  -- --     -- OS.notify(from .. 'Idedata is ready. Proceeding with analysis...')
+  -- --       -- Execute recursive check loop to accurately verify and load newly compiled files
+  -- --     if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
+  -- --     else fire_callback(false); return end
+  -- --   else
+  -- --     OS.notify(from .. 'Skipping next steps due to compilation idedata failure.', 'error')
+  -- --     fire_callback(false)
+  -- --     print('out')
+  -- --     return
+  -- --   end
+  -- -- end)
+  --
+  -- -- gui
+  -- local cb = function(status)
+  --   require('nvimpio.device.parser').handleIdedata(status, active_env, function(success)
+  --     if success then
+  --       OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), 'info')
   --       -- Execute recursive check loop to accurately verify and load newly compiled files
-  --     if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
-  --     else fire_callback(false); return end
-  --   else
-  --     OS.notify(from .. 'Skipping next steps due to compilation idedata failure.', 'error')
-  --     fire_callback(false)
-  --     print('out')
-  --     return
-  --   end
-  -- end)
-
-  -- gui
-  local cb = function(status)
-    require('nvimpio.device.parser').handleIdedata(status, active_env, function(success)
-      if success then
-        OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), 'info')
-        -- Execute recursive check loop to accurately verify and load newly compiled files
-        if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
-        else fire_callback(false) end
-      else
-        OS.notify(from .. 'Build Failed', 'error')
-        fire_callback(false)
-      end
-    end)
-  end
+  --       if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
+  --       else fire_callback(false) end
+  --     else
+  --       OS.notify(from .. 'Build Failed', 'error')
+  --       fire_callback(false)
+  --     end
+  --   end)
+  -- end
+  -- -- local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
   -- local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
-  local idecmd = string.format('pio run -e %s -s', active_env)
-  local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-  require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+  -- local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+  -- require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+
+  -------------------------------------------------------------------------------
   -- clangd.clangdIntall(function(clangdCmd)
   --   local check_file = vim.fs.find(function(name)
   --     return name:match('%.cpp$') or name:match('%.c$')
