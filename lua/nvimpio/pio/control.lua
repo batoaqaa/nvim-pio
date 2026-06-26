@@ -153,9 +153,10 @@ function M.start_watchers()
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function(success)
                 if success then
-                  do end
+                  -- do end
                   require('nvimpio.clangd.control').restart()
                   -- clangd.getUnknownArgsCli('PIO platformio.ini  change: ')
+                else OS.notify("PIO platformio change: compiledb fail")
                 end
                 _G.isBusy = false
                 self.isBusy = false
