@@ -89,8 +89,8 @@ function M.getClangdConfig()
   -- Only use string.format if there is one or less %s
   if count <= 1 then
     -- merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ','))
-    -- merged_json = string.format(json_config or '', OS.project_dir, q_driver)
-    merged_json = string.format(json_config or '', q_driver)
+    merged_json = string.format(json_config or '', OS.project_dir, q_driver)
+    -- merged_json = string.format(json_config or '', q_driver)
   end
 
   -- 'decode' converts JSON string -> Lua table
