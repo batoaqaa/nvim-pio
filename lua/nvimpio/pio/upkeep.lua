@@ -558,16 +558,16 @@ fetch_metadata = function(callback, active_env, from, attempts)
           -- Execute recursive check loop to accurately verify and load newly compiled files
           -- if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
           -- else fire_callback(false) end
-          local idok1, content2 = misc.readFile(idedata_file)
-          if idok1 and (content2 ~= '') then
-            local cok1, decoded1 = pcall(vim.json.decode, content2)
-            if cok1 and apply_metadata(decoded1[active_env]) then
-              OS.notify(from .. 'Metadata synced from download', 'info')
-              require('nvimpio.pio.metadata').save_project_config(from)
-              fire_callback(true)
-              return true
-            end
-          end
+          idok, content = misc.readFile(idedata_file)
+          -- if idok and (content ~= '') then
+          --   local cok, decoded = pcall(vim.json.decode, content)
+          --   if cok and apply_metadata(decoded[active_env]) then
+          --     OS.notify(from .. 'Metadata synced from download', 'info')
+          --     require('nvimpio.pio.metadata').save_project_config(from)
+          --     fire_callback(true)
+          --     return true
+          --   end
+          -- end
         else
           OS.notify(from .. 'Build Failed', 'error')
           fire_callback(false)
@@ -576,10 +576,13 @@ fetch_metadata = function(callback, active_env, from, attempts)
     end
     -- local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
     local idecmd = string.format('pio project metadata -e %s --json-output-path %s', active_env, idedata_file )
-    local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-    require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
-  -- end
-  elseif idok and content ~= '' then
+    -- local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+    -- require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+    local runcmd = string.format('pio run -t compiledb -e %s', active_env)
+    require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, runcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+  end
+
+  if idok and content ~= '' then
     local cok, decoded = pcall(vim.json.decode, content)
     if cok and apply_metadata(decoded[active_env]) then
       if (from == 'Meta active_env change: ')then

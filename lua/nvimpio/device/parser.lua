@@ -307,10 +307,12 @@ function M.handleIdedata(result, active_env, on_done)
     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the only and the last command
-    OS.notify(string.format('%s compiledb handling success for %s.', fromMsg, active_env), "info")
+    -- OS.notify(string.format('%s compiledb handling success for %s.', fromMsg, active_env), "info")
+    OS.notify(string.format('%s build handling success for %s.', fromMsg, active_env), "info")
     -- vim.defer_fn(function()
     --   require('nvimpio.clangd.control').getUnknownArgsCli(fromMsg)
     -- end, 50) -- 50ms delay, adjust as needed
+    -- require('nvimpio.clangd.control').restart()
     if on_done and type(on_done) == 'function' then on_done(true) end
     cliTerm:hide()
     M.cleanSequencer()
