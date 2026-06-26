@@ -44,6 +44,7 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
   end,
 }
 
+    -- "--compile-commands-dir=%s",
 -- "--background-index-priority=low",
 -- INFO: .clangd_config
 ----------------------------------------------------------------------------------------
@@ -67,7 +68,6 @@ boilerplate['.clangdConfig.json'] = {
     "--pch-storage=memory",
     "--pretty",
     "--ranking-model=decision_forest",
-    "--compile-commands-dir=%s",
     "--query-driver=%s"
   ],
   "filetypes": [
