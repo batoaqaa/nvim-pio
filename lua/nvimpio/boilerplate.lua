@@ -237,7 +237,7 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: '.*\.(hpp|cpp)'
+  PathMatch: [.*\.hpp, .*\.cpp]
 CompileFlags:
   Remove: [
     %s
@@ -248,7 +248,7 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: '.*\.(h|c)'
+  PathMatch: [.*\.h, .*\.c]
 CompileFlags:
   Remove: [
     %s
