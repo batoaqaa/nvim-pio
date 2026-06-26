@@ -144,6 +144,10 @@ CompileFlags:
   Remove: [
     ]
   Add:  [
+    "-U_ASMLANGUAGE",
+    "-U__ASSEMBLY__",
+    "-U__ASSEMBLER__",
+    "-U_ASSEMBLY_"
     ]
 Diagnostics:
   Suppress:  [
