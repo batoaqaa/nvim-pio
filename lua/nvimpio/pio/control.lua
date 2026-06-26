@@ -154,6 +154,7 @@ function M.start_watchers()
               pio_refresh(function(success)
                 if success then
                   do end
+                  require('nvimpio.clangd.control').restart()
                   -- clangd.getUnknownArgsCli('PIO platformio.ini  change: ')
                 end
                 _G.isBusy = false
