@@ -305,9 +305,9 @@ function M.handleIdedata(result, active_env, on_done)
   elseif result == 'PASS' .. current_id then
     OS.notify(string.format('%sidedata handling  pass%s', fromMsg, current_id), "info")
     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
-  elseif result == 'PASS' .. current_id then
-    OS.notify(string.format('%sbuild handling  pass%s', fromMsg, current_id), "info")
-    if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
+  -- elseif result == 'PASS' .. current_id then
+  --   OS.notify(string.format('%sbuild handling  pass%s', fromMsg, current_id), "info")
+  --   if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the only and the last command
     -- OS.notify(string.format('%s compiledb handling success for %s.', fromMsg, active_env), "info")

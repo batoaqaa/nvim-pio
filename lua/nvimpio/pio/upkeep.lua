@@ -576,10 +576,10 @@ fetch_metadata = function(callback, active_env, from, attempts)
     end
     -- local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
     local idecmd = string.format('pio project metadata -e %s --json-output-path %s', active_env, idedata_file )
-    local runcmd = string.format('pio run -e %s', active_env)
+    -- local runcmd = string.format('pio run -e %s', active_env)
     local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-    -- require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
-    require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, runcmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+    require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+    -- require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, runcmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
   -- end
   elseif idok and content ~= '' then
     local cok, decoded = pcall(vim.json.decode, content)
