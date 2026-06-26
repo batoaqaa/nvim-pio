@@ -519,18 +519,18 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCxxAdd section  --------------------------------
 
-    local formattedCxxAdd = { '"-xc++"' }
-    table.insert(formattedCxxAdd, '"-std=gnu++23"')
-    table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
-    vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
+    local formattedCxxAdd = { "-xc++" }
+    table.insert(formattedCxxAdd, "-std=gnu++23")
+    table.insert(formattedCxxAdd, string.format("@%s", OS.cxx_flags))
+    -- vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
     --------------------- end .clangd formattedCxxAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCcAdd section  --------------------------------
-    local formattedCcAdd = { '"-xc"' }
-    table.insert(formattedCcAdd, '"-std=gnu23"')
-    table.insert(formattedCcAdd, string.format('"@%s"', OS.cc_flags))
-    vim.list_extend(formattedCcAdd, formattedASSEMBLY)
+    local formattedCcAdd = { "-xc" }
+    table.insert(formattedCcAdd, "-std=gnu23")
+    table.insert(formattedCcAdd, string.format("@%s", OS.cc_flags))
+    -- vim.list_extend(formattedCcAdd, formattedASSEMBLY)
     --------------------- end .clangd formattedCcAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
