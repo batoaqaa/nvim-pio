@@ -320,7 +320,7 @@ CompileFlags:
     table.sort(removed_args)
 
     -- local formatted_remove = {}
-    local formatted_remove = {'"-std*"'}
+    local formatted_remove = {'"-std=c17"'}
     for i = 1, #removed_args do
       table.insert(formatted_remove, string.format('%q', removed_args[i]))
     end
