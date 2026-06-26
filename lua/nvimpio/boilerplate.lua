@@ -326,7 +326,7 @@ CompileFlags:
     table.sort(removed_args)
 
     local formatted_remove = {}
-    -- local formatted_remove = {'"-std=c17"'}
+    -- local formatted_remove = {'"-std=*"'}
     for i = 1, #removed_args do
       table.insert(formatted_remove, string.format('%q', removed_args[i]))
     end
@@ -604,10 +604,10 @@ CompileFlags:
       table.concat(formatted_remove, ',\n    '),
       table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
       -- OS.project_dir,
-      '"-std=c17"',
+      '"-std=*"',
       table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
       -- OS.project_dir,
-      '"-std=c17"',
+      '"-std=*"',
       table.concat(formattedCcAdd, ',\n    ')  -- formattedCcAdd
       -- table.concat(formattedHAdd, ',\n    ')  -- formattedHAdd
     )
