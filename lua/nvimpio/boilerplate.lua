@@ -240,6 +240,9 @@ CompileFlags:
 If:
   PathMatch: '.*\.(hpp|cpp)'
 CompileFlags:
+  Remove: [
+    %s
+    ]
   Add: [
     %s
     ]
@@ -248,6 +251,9 @@ CompileFlags:
 If:
   PathMatch: '.*\.(h|c)'
 CompileFlags:
+  Remove: [
+    %s
+    ]
   Add: [
     %s
     ]
@@ -319,8 +325,8 @@ CompileFlags:
     end
     table.sort(removed_args)
 
-    -- local formatted_remove = {}
-    local formatted_remove = {'"-std=c17"'}
+    local formatted_remove = {}
+    -- local formatted_remove = {'"-std=c17"'}
     for i = 1, #removed_args do
       table.insert(formatted_remove, string.format('%q', removed_args[i]))
     end
@@ -598,8 +604,10 @@ CompileFlags:
       table.concat(formatted_remove, ',\n    '),
       table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
       -- OS.project_dir,
+      '"-std=*',
       table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
       -- OS.project_dir,
+      '"-std=*',
       table.concat(formattedCcAdd, ',\n    ')  -- formattedCcAdd
       -- table.concat(formattedHAdd, ',\n    ')  -- formattedHAdd
     )
