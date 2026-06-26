@@ -150,6 +150,22 @@ function M.getClangdConfig()
       local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
       if default_handler then default_handler(err, result, ctx, config) end
     end,
+
+    on_new_config = function(new_config, new_root_dir)
+      -- Initialize the LSP initialization settings if missing
+      if not new_config.init_options then
+        new_config.init_options = {}
+      end
+
+      -- Explicitly configure compilation database override configurations.
+      -- This intercepts clangd's core logic, forcing it to drop any matching token 
+      -- from its workspace database mapping arrays across your active Neovim tree.
+      new_config.init_options.compilationDatabaseChanges = {
+        ["-D_ASMLANGUAGE"] = { remove = true },
+        ["-D_ASMLANGUAGE=1"] = { remove = true },
+        ["-D__ASSEMBLY__"] = { remove = true }
+      }
+    end,
   }
 
   if clangd_config then return clangd_config end
