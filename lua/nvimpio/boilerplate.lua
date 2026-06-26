@@ -504,7 +504,7 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCxxAdd section  --------------------------------
 
-    local formattedCxxAdd = { '"-x"', '"c++"' }
+    local formattedCxxAdd = { '"-xc++"' }
     table.insert(formattedCxxAdd, '"-std=gnu++23"')
     table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
     vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
@@ -512,7 +512,7 @@ CompileFlags:
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCcAdd section  --------------------------------
-    local formattedCcAdd = { '"-x"', '"c"' }
+    local formattedCcAdd = { '"-xc"' }
     table.insert(formattedCcAdd, '"-std=gnu23"')
     table.insert(formattedCcAdd, string.format('"@%s"', OS.cc_flags))
     vim.list_extend(formattedCcAdd, formattedASSEMBLY)
