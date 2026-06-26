@@ -177,7 +177,7 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: [.*\.cpp, .*\.hpp]
+  PathMatch: [.*\.hpp, .*\.cpp]
 CompileFlags:
   Add: [
     %s
@@ -185,7 +185,7 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: [.*\.c, .*\.h]
+  PathMatch: [.*\.h, .*\.c]
 CompileFlags:
   Add: [
     %s
