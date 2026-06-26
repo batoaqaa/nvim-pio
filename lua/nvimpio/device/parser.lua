@@ -311,7 +311,7 @@ function M.handleIdedata(result, active_env, on_done)
   -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the only and the last command
     -- OS.notify(string.format('%s compiledb handling success for %s.', fromMsg, active_env), "info")
-    OS.notify(string.format('%compiledb handling success for %s.', fromMsg, active_env), "info")
+    OS.notify(string.format('%scompiledb handling success for %s.', fromMsg, active_env), "info")
     -- vim.defer_fn(function()
     --   require('nvimpio.clangd.control').getUnknownArgsCli(fromMsg)
     -- end, 50) -- 50ms delay, adjust as needed
