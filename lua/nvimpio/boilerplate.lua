@@ -142,12 +142,12 @@ boilerplate['.clangd'] = {
 ---
 CompileFlags:
   Remove: [
+    "-D_ASMLANGUAGE",
+    "-D__ASSEMBLY__",
+    "-D__ASSEMBLER__",
+    "-D_ASSEMBLY_"
     ]
   Add:  [
-    "-U_ASMLANGUAGE",
-    "-U__ASSEMBLY__",
-    "-U__ASSEMBLER__",
-    "-U_ASSEMBLY_"
     ]
 Diagnostics:
   Suppress:  [
@@ -518,20 +518,20 @@ CompileFlags:
     ------------------ start .clangd formattedCxxAdd section  --------------------------------
 
     local formattedCxxAdd = { '"-x"', '"c++"' }
-    vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
+    -- vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
     table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
     --------------------- end .clangd formattedCxxAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCcAdd section  --------------------------------
     local formattedCcAdd = { '"-x"', '"c"' }
-    vim.list_extend(formattedCcAdd, formattedASSEMBLY)
+    -- vim.list_extend(formattedCcAdd, formattedASSEMBLY)
     table.insert(formattedCcAdd, string.format('"@%s"', OS.cc_flags))
     --------------------- end .clangd formattedCcAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedHppAdd section  --------------------------------
-    local formattedHAdd = vim.deepcopy(formattedASSEMBLY)
+    local formattedHAdd = {} --vim.deepcopy(formattedASSEMBLY)
     table.insert(formattedHAdd, string.format('"@%s"', OS.cc_flags))
     --------------------- end .clangd formattedHppAdd section ---------------------------------
 
