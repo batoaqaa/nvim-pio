@@ -257,13 +257,12 @@ CompileFlags:
 If:
   PathMatch: .*\.h
 CompileFlags:
-  BlockFlags: [
+  Remove: [
+    "-std=*",
     "-D_ASMLANGUAGE",
     "-D__ASSEMBLY__",
-    "-D__ASSEMBLER__",
-    "-D_ASSEMBLY_"
+    "-D__ASSEMBLER__"
     ]
-  Remove: ["-std=*"]
   Add: [
     "-xc",
     "-std=gnu23"
