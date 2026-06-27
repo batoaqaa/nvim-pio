@@ -10,8 +10,6 @@ local function generate_generic_clangd_db()
   -- local output_dir = OS.nvimpio_config_dir
   local output_path = OS.clangd_db
 
-
-
   if vim.fn.filereadable(input_path) == 0 then return end
 
   -- 1. Open and read the raw compile_commands.json file
@@ -25,26 +23,41 @@ local function generate_generic_clangd_db()
 
   local cleaned_db = {}
 
-  -- 2. Process every single entry safely as a flat string map
+  -- 2. Process every entry by safely parsing compiler arguments
   for _, entry in ipairs(db) do
-    if entry.command and entry.command ~= "" then
-      local cmd = entry.command
+    local command_str = entry.command or ""
+    local raw_args = entry.arguments or {}
 
-      -- FIX HERE: The hyphen is escaped with '%' to match a literal '-D_ASMLANGUAGE'.
-      -- The fourth argument (1) limits it to exactly 1 replacement pass.
-      -- This fixes the argument error and keeps your include paths 100% untouched.
-      cmd = string.gsub(cmd, "%s%-D_ASMLANGUAGE", "", 1)
-      cmd = string.gsub(cmd, "%s%-D__ASSEMBLY__", "", 1)
-      cmd = string.gsub(cmd, "%s%-D__ASSEMBLER__", "", 1)
-      cmd = string.gsub(cmd, "%s%-D_ASSEMBLY_", "", 1)
-      entry.command = cmd
+    -- If the database uses a flat command string, extract tokens safely
+    if #raw_args == 0 and command_str ~= "" then
+      raw_args = {}
+      for token in command_str:gmatch("%S+") do
+        table.insert(raw_args, token)
+      end
     end
 
-    -- Keep everything else exactly as it was generated (arguments, file, directory)
-    table.insert(cleaned_db, entry)
+    local clean_args = {}
+    for _, arg in ipairs(raw_args) do
+      -- FIXED HERE: Explicitly inspect and drop all duplicates of the assembly flags
+      -- We do not filter include paths or target options, ensuring 100% zero data loss.
+      if arg ~= "-D_ASMLANGUAGE" and
+         arg ~= "-D__ASSEMBLY__" and
+         arg ~= "-D__ASSEMBLER__" and
+         arg ~= "-D_ASSEMBLY_" then
+        table.insert(clean_args, arg)
+      end
+    end
+
+    -- Reconstruct the clean entry block using structured arguments
+    table.insert(cleaned_db, {
+      directory = entry.directory or OS.project_dir,
+      file = entry.file,
+      arguments = clean_args,
+      output = entry.output
+    })
   end
 
-  -- 3. Export the pristine, modified database mirror
+  -- 3. Export the clean database mirror
   local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
   if ok and pretty_json then
     local status, err = misc.writeFile(output_path, pretty_json, {})
