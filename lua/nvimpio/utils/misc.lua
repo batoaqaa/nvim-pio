@@ -302,12 +302,9 @@ function M.writeFile(path, data, opts)
   -- 2. Recursive directory creation
   if opts.mkdir ~= false then
     local parent = vim.fs.dirname(path)
-    stat = uv.fs_stat(parent)
-    if not stat or not stat.type ~= 'directory'  then
-      -- 0777  511  Read, Write, and Execute for Everyone
-      -- 0755  493  Read/Write/Execute for Owner; Read/Execute for Others
-      -- 0700  448  Read, Write, and Execute Strictly for the Owner only.
-      vim.uv.fs_mkdir(parent, 493)
+    if vim.fn.isdirectory(parent) == 0 then
+      -- 'p' flag makes it fully recursive like 'mkdir -p'
+      vim.fn.mkdir(parent, 'p', '700')
     end
     -- -- local parent = vim.fn.fnamemodify(path, ':h')
     -- if not stat or stat.type ~= 'directory' then
