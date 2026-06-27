@@ -20,58 +20,48 @@ local function generate_generic_clangd_db()
   if not file then return end
   local content = file:read("*a")
   file:close()
-
+  
   local success, db = pcall(vim.json.decode, content)
   if not success or type(db) ~= "table" then return end
 
   local cleaned_db = {}
 
-  -- 2. Process every entry cleanly via native JSON array manipulation
+  -- 2. Process every entry safely by leveraging native JSON structures
   for _, entry in ipairs(db) do
-    -- If the raw database provides a structured array already, use it.
-    -- Otherwise, convert the string into a safe array table.
-    local raw_args = entry.arguments
-    if not raw_args and entry.command and entry.command ~= "" then
-      raw_args = {}
-      -- Safe fallback to capture parameters
-      for token in entry.command:gmatch("%S+") do
-        table.insert(raw_args, token)
-      end
-    end
-
-    if raw_args and #raw_args > 0 then
+    if entry.command and entry.command ~= "" then
+      local old_cmd = entry.command
       local clean_args = {}
 
-      for _, arg in ipairs(raw_args) do
-        -- SURGICAL ARRAY CLEANUP:
-        -- Strip out the specific assembler macros matching exact standalone items.
-        -- Because we evaluate this at an item-by-item array level, we never 
-        -- slice string indexes, preserving your complex include paths perfectly.
-        if arg ~= "-D_ASMLANGUAGE" and
-           arg ~= "-D__ASSEMBLY__" and
-           arg ~= "-D__ASSEMBLER__" and
-           arg ~= "-D_ASSEMBLY_" then
-          table.insert(clean_args, arg)
+      -- Standard token separation wrapper
+      for token in old_cmd:gmatch("%S+") do
+        -- THE PERFECT PLUGIN FILTER:
+        -- Explicitly strip out ONLY the exact assembly macros.
+        -- This leaves your Arduino include trees and paths completely untouched.
+        if token ~= "-D_ASMLANGUAGE" and 
+           token ~= "-D__ASSEMBLY__" and 
+           token ~= "-D__ASSEMBLER__" and 
+           token ~= "-D_ASSEMBLY_" then
+          table.insert(clean_args, token)
         end
       end
 
-      -- 3. BUILD THE PERFECT CLANGD ENTRY
-      -- We completely DROP the "command" text field. 
-      -- Providing a native "arguments" table array completely stops text collapsing, 
-      -- resolving the 'expected "FILENAME"' preprocessor crashes forever.
+      -- 3. THE NO-LOSS INJECTION:
+      -- We explicitly DROP the problematic "command" text string.
+      -- Providing a structured "arguments" array ensures that clangd parses 
+      -- the Arduino parameters perfectly without token collapsing or path corruption.
       table.insert(cleaned_db, {
         directory = entry.directory or OS.project_dir,
         file = entry.file,
-        arguments = clean_args, -- Feeds clangd a structured parameters list
+        arguments = clean_args, -- Pass standard parameters list array to clangd
         output = entry.output
       })
     else
-      -- Fallback pass if the entry doesn't contain compile strings
       table.insert(cleaned_db, entry)
     end
   end
 
   -- 4. Export the clean, mirrored database
+  -- 3. Export the clean database mirror
   local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
   if ok and pretty_json then
     local status, err = misc.writeFile(output_path, pretty_json, {})
