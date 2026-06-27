@@ -11,29 +11,49 @@ local function generate_generic_clangd_db()
   local output_path = OS.clangd_db
 
 
-
-
   if vim.fn.filereadable(input_path) == 0 then return end
 
-  -- 1. READ RAW DATABASE TEXT
+  -- 1. Open and read the raw compile_commands.json file
   local file = io.open(input_path, "r")
   if not file then return end
   local content = file:read("*a")
   file:close()
 
-  -- 2. THE ERROR-PROOF PLUGIN
-  -- We do NOT slice indexes or split spaces. We use explicit plain text replacements 
-  -- that target the flag ALONG WITH its leading space (" -D...").
-  -- Replacing the leading space ensures that adjacent tokens NEVER collapse together,
-  -- keeping your paths, macros, and framework options completely un-mangled.
-  content = string.gsub(content, " %-D_ASMLANGUAGE", "")
-  content = string.gsub(content, " %-D__ASSEMBLY__", "")
-  content = string.gsub(content, " %-D__ASSEMBLER__", "")
-  content = string.gsub(content, " %-D_ASSEMBLY_", "")
+  local success, db = pcall(vim.json.decode, content)
+  if not success or type(db) ~= "table" then return end
 
-  -- Safely decode the clean text block to ensure validity
-  local success, cleaned_db = pcall(vim.json.decode, content)
-  if not success or type(cleaned_db) ~= "table" then return end
+  local cleaned_db = {}
+  -- Target list of assembler macros to strip out verbatim
+  local blacklisted_flags = {
+    ["-D_ASMLANGUAGE"] = true,
+    ["-D__ASSEMBLY__"] = true,
+    ["-D__ASSEMBLER__"] = true,
+    ["-D_ASSEMBLY_"] = true
+  }
+
+  -- 2. Process every entry safely as a list of independent arguments
+  for _, entry in ipairs(db) do
+    if entry.command and entry.command ~= "" then
+      local old_command = entry.command
+      local new_args = {}
+
+      -- Use a safe pattern to separate parameters by space, 
+      -- but protect complex paths containing backslashes or internal text blocks
+      for token in string.gmatch(old_command, "%S+") do
+        -- Check if the extracted token matches our exact assembly flags literal
+        if not blacklisted_flags[token] then
+          table.insert(new_args, token)
+        end
+      end
+
+      -- Reconstruct the command safely with clean space delimiters
+      entry.command = table.concat(new_args, " ")
+    end
+
+    table.insert(cleaned_db, entry)
+  end
+
+
   -- 3. Export the clean database mirror
   local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
   if ok and pretty_json then
