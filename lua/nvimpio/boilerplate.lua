@@ -605,12 +605,12 @@ CompileFlags:
       table.concat(formatted_remove, ',\n    '),
       table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
       -- _G.metadata.cxx_path,
-      -- '"-std=*"',
-      table.concat(formattedASSEMBLY, ',\n    '),
+      '"-std=*"',
+      -- table.concat(formattedASSEMBLY, ',\n    '),
       table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
       -- _G.metadata.cc_path,
-      -- '"-std=*"',
-      table.concat(formattedASSEMBLY, ',\n    '),
+      '"-std=*"',
+      -- table.concat(formattedASSEMBLY, ',\n    '),
       table.concat(formattedCcAdd, ',\n    ')  -- formattedCcAdd
       -- table.concat(formattedHAdd, ',\n    ')  -- formattedHAdd
     )
