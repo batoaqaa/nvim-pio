@@ -10,6 +10,7 @@ local function generate_generic_clangd_db()
   -- local output_dir = OS.nvimpio_config_dir
   local output_path = OS.clangd_db
 
+
   if vim.fn.filereadable(input_path) == 0 then return end
 
   -- 1. Open and read the raw compile_commands.json file
@@ -23,38 +24,33 @@ local function generate_generic_clangd_db()
 
   local cleaned_db = {}
 
-  -- 2. Process every entry by safely parsing compiler arguments
+  -- 2. Process every single entry as a flat string map to prevent path mangling
   for _, entry in ipairs(db) do
-    local command_str = entry.command or ""
-    local raw_args = entry.arguments or {}
+    if entry.command and entry.command ~= "" then
+      local cmd = entry.command
 
-    -- If the database uses a flat command string, extract tokens safely
-    if #raw_args == 0 and command_str ~= "" then
-      raw_args = {}
-      for token in command_str:gmatch("%S+") do
-        table.insert(raw_args, token)
-      end
+      -- SURGICAL CLEANUP:
+      -- We do NOT tokenize or split spaces. We use a safe character-set pattern
+      -- to globally strip out the exact assembler macro instances.
+      -- The omission of the trailing number allows it to clear ALL duplicates.
+      cmd = string.gsub(cmd, "---D_ASMLANGUAGE", "")
+      cmd = string.gsub(cmd, "%s%-D_ASMLANGUAGE%s", " ")
+      cmd = string.gsub(cmd, "%s%-D_ASMLANGUAGE$", "")
+
+      cmd = string.gsub(cmd, "%s%-D__ASSEMBLY__%s", " ")
+      cmd = string.gsub(cmd, "%s%-D__ASSEMBLY__$", "")
+
+      cmd = string.gsub(cmd, "%s%-D__ASSEMBLER__%s", " ")
+      cmd = string.gsub(cmd, "%s%-D__ASSEMBLER__$", "")
+
+      cmd = string.gsub(cmd, "%s%-D_ASSEMBLY_%s", " ")
+      cmd = string.gsub(cmd, "%s%-D_ASSEMBLY_$", "")
+
+      entry.command = cmd
     end
 
-    local clean_args = {}
-    for _, arg in ipairs(raw_args) do
-      -- FIXED HERE: Explicitly inspect and drop all duplicates of the assembly flags
-      -- We do not filter include paths or target options, ensuring 100% zero data loss.
-      if arg ~= "-D_ASMLANGUAGE" and
-         arg ~= "-D__ASSEMBLY__" and
-         arg ~= "-D__ASSEMBLER__" and
-         arg ~= "-D_ASSEMBLY_" then
-        table.insert(clean_args, arg)
-      end
-    end
-
-    -- Reconstruct the clean entry block using structured arguments
-    table.insert(cleaned_db, {
-      directory = entry.directory or OS.project_dir,
-      file = entry.file,
-      arguments = clean_args,
-      output = entry.output
-    })
+    -- Keep everything else exactly as it was generated (arguments, file, directory)
+    table.insert(cleaned_db, entry)
   end
 
   -- 3. Export the clean database mirror
