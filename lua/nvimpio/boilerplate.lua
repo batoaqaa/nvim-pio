@@ -559,10 +559,15 @@ CompileFlags:
     --------------------- end .clangd add1 section ---------------------------------
 
     local formattedASSEMBLY = {
-      '"-U_ASMLANGUAGE"',
-      '"-U__ASSEMBLY__"',
-      '"-U__ASSEMBLER__"',
-      '"-U_ASSEMBLY_"',
+      '"-std=*"',
+      '"-D_ASMLANGUAGE"',
+      '"-D__ASSEMBLY__"',
+      '"-D__ASSEMBLER__"',
+      '"-D_ASSEMBLY_"'
+      -- '"-U_ASMLANGUAGE"',
+      -- '"-U__ASSEMBLY__"',
+      -- '"-U__ASSEMBLER__"',
+      -- '"-U_ASSEMBLY_"'
     }
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCxxAdd section  --------------------------------
@@ -571,7 +576,7 @@ CompileFlags:
     -- local formattedCxxAdd = { }
     table.insert(formattedCxxAdd, '"-std=gnu++23"')
     -- table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
-    vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
+    -- vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
     --------------------- end .clangd formattedCxxAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
@@ -580,7 +585,7 @@ CompileFlags:
     local formattedCcAdd = { }
     table.insert(formattedCcAdd, '"-std=gnu23"')
     -- table.insert(formattedCcAdd, string.format('"@%s"', OS.cc_flags))
-    vim.list_extend(formattedCcAdd, formattedASSEMBLY)
+    -- vim.list_extend(formattedCcAdd, formattedASSEMBLY)
     --------------------- end .clangd formattedCcAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
@@ -600,10 +605,12 @@ CompileFlags:
       table.concat(formatted_remove, ',\n    '),
       table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
       -- _G.metadata.cxx_path,
-      '"-std=*"',
+      -- '"-std=*"',
+      table.concat(formattedASSEMBLY, ',\n    '),
       table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
       -- _G.metadata.cc_path,
-      '"-std=*"',
+      -- '"-std=*"',
+      table.concat(formattedASSEMBLY, ',\n    '),
       table.concat(formattedCcAdd, ',\n    ')  -- formattedCcAdd
       -- table.concat(formattedHAdd, ',\n    ')  -- formattedHAdd
     )
