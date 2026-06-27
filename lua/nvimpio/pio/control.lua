@@ -5,6 +5,62 @@ local clangd = require('nvimpio.clangd.control')
 local misc = require('nvimpio.utils.misc')
 local clangdRestart = clangd.clangdRestart
 
+local function generate_generic_clangd_db()
+  local input_path = vim.fs.joinpath(OS.project_dir, 'compile_commands.json')
+  local output_dir = OS.nvimpio_config_dir
+  local output_path = OS.clangd_db
+
+  if vim.fn.filereadable(input_path) == 0 then return end
+
+  local file = io.open(input_path, "r")
+  if not file then return end
+  local content = file:read("*a")
+  file:close()
+
+  local success, db = pcall(vim.json.decode, content)
+  if not success or type(db) ~= "table" then return end
+
+  local cleaned_db = {}
+  local valid_exts = { c = true, cpp = true, cc = true, cxx = true, h = true, hpp = true, hxx = true }
+
+  for _, entry in ipairs(db) do
+    local filename = entry.file or ""
+    local ext = filename:match("^.+(%..+)$")
+    if ext then ext = ext:lower():sub(2) end
+
+    if valid_exts[ext] then
+      local raw_args = entry.arguments or {}
+      if #raw_args == 0 and entry.command then
+        for token in entry.command:gmatch("%S+") do
+          table.insert(raw_args, token)
+        end
+      end
+
+      local cleaned_flags = {}
+      for _, arg in ipairs(raw_args) do
+        if arg:sub(1, 2) == "-I" or arg:sub(1, 2) == "-D" or arg:sub(1, 2) == "-U" or arg:sub(1, 8) == "-isystem" then
+          table.insert(cleaned_flags, arg)
+        end
+      end
+
+      local generic_command = "clang " .. table.concat(cleaned_flags, " ") .. " -c " .. filename
+      table.insert(cleaned_db, {
+        directory = entry.directory or OS.project_dir,
+        file = filename,
+        command = generic_command
+      })
+    end
+  end
+
+  vim.fn.mkdir(output_dir, "p")
+  local out_file = io.open(output_path, "w")
+  if out_file then
+    out_file:write(vim.json.encode(cleaned_db))
+    out_file:close()
+    -- Force clangd to re-read the updated configuration dynamically
+    require('nvimpio.clangd.control').restart()
+  end
+end
 --INFO:
 --=============================================================================
 --  watchers setup
@@ -118,6 +174,30 @@ function M.start_watchers()
   local project_root = vim.uv.cwd() -- Use dynamic CWD instead of hardcoded path
 
   local targets = {
+    { -- watcher for compile_commands.json
+      name = 'ini',
+      isBusy = false,
+      last_hash = '',
+      path = vim.fs.joinpath(project_root, 'compile_commands.json'),
+      cb = function(self)
+      -- If no real change, unlock immediately and exit
+      local new_hash = get_hash(self.path) or ''
+      if new_hash == self.last_hash then
+        self.isBusy = false
+        _G.isBusy = false
+        return
+      end
+
+      self.last_hash = new_hash
+
+      self.isBusy = true
+      _G.isBusy = true
+      OS.notify('PIO compiledb change: clangdb update ...', 'info')
+        vim.schedule(function()
+          generate_generic_clangd_db()
+        end)
+      end,
+    },
     { -- watcher for platformio.ini
       name = 'ini',
       isBusy = false,

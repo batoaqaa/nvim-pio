@@ -18,7 +18,6 @@ local nixHome = vim.uv.os_homedir() or "/root"
 local defaultHome = is_win and winHome or nixHome
 local projectDir = vim.uv.cwd() or '.'
 local nvimpioConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
-
 ---@class OS
 ---@field name "windows"|"macos"|"linux"
 ---@field app_name string
@@ -42,6 +41,7 @@ local nvimpioConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
 ---@field project_dir string
 ---@field clangd_filter string
 ---@field clangd_config string
+---@field clangd_db string
 ---@field cc_flags string
 ---@field cxx_flags string
 ---@field project_config string
@@ -77,6 +77,7 @@ local os_info = {
   project_dir = vim.fs.normalize(projectDir),
   clangd_filter = vim.fs.joinpath(nvimpioConfigDir, '.clangdFilter.json'),
   clangd_config = vim.fs.joinpath(nvimpioConfigDir, '.clangdConfig.json'),
+  clangd_db = vim.fs.joinpath(nvimpioConfigDir, 'compile_commands.json'),
   cc_flags = vim.fs.joinpath(nvimpioConfigDir, '.clangdCCFlags.txt'),
   cxx_flags = vim.fs.joinpath(nvimpioConfigDir, '.clangdCXXFlags.txt'),
   project_config = vim.fs.joinpath(nvimpioConfigDir, '.projectConfig.json'),

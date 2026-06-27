@@ -246,29 +246,14 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: .*\.c
+  PathMatch: [.*\.h, .*\.c]
+CompileFlags:
 CompileFlags:
   Remove: [%s]
   Add: [
     %s
     ]
 
----
-If:
-  PathMatch: .*\.h
-CompileFlags:
-  Remove: [
-    "-std=*",
-    "-D_ASMLANGUAGE",     # Strips the assembly flag if leaked from an .s file
-    "-D__ASSEMBLY__",
-    "-D__ASSEMBLER__"
-  ]
-  Add: [
-    "-xc",                # Explicitly forces the file reader frontend back to C mode
-    "-std=gnu23",
-    "-U_ASMLANGUAGE",     # Forces an explicit undefine at the compiler boundary
-    "-U__ASSEMBLY__"
-  ]
 ]],
   -- Compiler: %s
   boiler = function(self, project_root_param)
