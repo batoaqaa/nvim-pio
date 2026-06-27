@@ -180,6 +180,7 @@ function M.start_watchers()
       last_hash = '',
       path = vim.fs.joinpath(project_root, 'compile_commands.json'),
       cb = function(self)
+      OS.notify('PIO compiledb change: Change ...', 'info')
       -- If no real change, unlock immediately and exit
       local new_hash = get_hash(self.path) or ''
       if new_hash == self.last_hash then
@@ -187,9 +188,7 @@ function M.start_watchers()
         _G.isBusy = false
         return
       end
-
       self.last_hash = new_hash
-
       self.isBusy = true
       _G.isBusy = true
       OS.notify('PIO compiledb change: clangdb update ...', 'info')
