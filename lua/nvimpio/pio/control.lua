@@ -69,7 +69,6 @@ end
 -------------------------------------------------------------------------------
 local uv = vim.uv or vim.loop
 M.watcher_handles = {}
-local debounce_timer = uv.new_timer()
 
 -- INFO:
 -- Unified hashing for change detection
@@ -104,10 +103,10 @@ end
 -------------------------------------------------------------------------------
 function M.cleanup()
   M.stop_watchers()
-  if debounce_timer and not debounce_timer:is_closing() then
-    debounce_timer:stop()
-    debounce_timer:close()
-  end
+  -- if debounce_timer and not debounce_timer:is_closing() then
+  --   debounce_timer:stop()
+  --   debounce_timer:close()
+  -- end
 end
 
 -- Force cleanup when leaving Neovim to prevent :qa lag
@@ -121,8 +120,10 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
 --3. MAIN WATCHER: Efficient Folder Monitoring
 -------------------------------------------------------------------------------
 local function watch_file(target, callback)
-  local folder_path = target.path:match('(.*[/\\])')
-  local target_filename = target.path:match('[^/\\]+$')
+  local folder_path     = vim.fs.dirname(target.path)
+  local target_filename = vim.fs.basename(target.path)
+  -- local folder_path = target.path:match('(.*[/\\])')
+  -- local target_filename = target.path:match('[^/\\]+$')
   local last_mtime = 0
 
   local handle = uv.new_fs_event()
@@ -130,12 +131,18 @@ local function watch_file(target, callback)
     return
   end
 
+  local debounce_timer = uv.new_timer()
   handle:start(folder_path, { recursive = false }, function(err, filename, events)
     if err or (filename and filename ~= target_filename) then return end
-    if target.isBusy or _G.isBusy then return end
+    -- if target.isBusy or _G.isBusy then return end
+    if target.isBusy then return end
     if events and not (events.change or events['rename']) then return end
 
-    if not uv.fs_access(target.path, 'R') then return end
+    -- 'r': Read access
+    --'w': Write access
+    --'x': Execute access
+    --'f': Existence check (checks if the file simply exists on disk
+    if not uv.fs_access(target.path, 'r') then return end
 
     if debounce_timer then
       debounce_timer:stop()
@@ -171,27 +178,28 @@ function M.start_watchers()
     M.stop_watchers()
   end
 
-  local project_root = vim.uv.cwd() -- Use dynamic CWD instead of hardcoded path
+  -- local project_root = vim.uv.cwd() -- Use dynamic CWD instead of hardcoded path
+  local project_root = OS.project_dir
 
   local targets = {
     { -- watcher for compile_commands.json
-      name = 'ini',
+      name = 'db',
       isBusy = false,
       last_hash = '',
       path = vim.fs.joinpath(project_root, 'compile_commands.json'),
       cb = function(self)
-      OS.notify('PIO compiledb change: Change ...', 'info')
-      -- If no real change, unlock immediately and exit
-      local new_hash = get_hash(self.path) or ''
-      if new_hash == self.last_hash then
-        self.isBusy = false
-        _G.isBusy = false
-        return
-      end
-      self.last_hash = new_hash
-      self.isBusy = true
-      _G.isBusy = true
-      OS.notify('PIO compiledb change: clangdb update ...', 'info')
+        OS.notify('PIO compiledb change: Change ...', 'info')
+        -- If no real change, unlock immediately and exit
+        local new_hash = get_hash(self.path) or ''
+        if new_hash == self.last_hash then
+          self.isBusy = false
+          _G.isBusy = false
+          return
+        end
+        self.last_hash = new_hash
+        self.isBusy = true
+        _G.isBusy = true
+        OS.notify('PIO compiledb change: clangdb update ...', 'info')
         vim.schedule(function()
           generate_generic_clangd_db()
         end)

@@ -7,8 +7,13 @@ local misc = require('nvimpio.utils.misc')
 -- =============================================================================
 -- UNIVERSAL TOOLCHAIN DETECTION
 -- =============================================================================
+--file name without its extension, you can use :t:r (Tail + Root).
+--final file name with its extension :t (Tail)
+--Get Directory Head/Parent :h (Head)
 function M.get_sysroot_triplet(cc_compiler)
-  local bin_path = vim.fs.normalize(vim.fn.fnamemodify(cc_compiler, ':h'))
+  local bin_path     = vim.fs.dirname(cc_compiler)
+  -- local bin_path = vim.fs.normalize(vim.fn.fnamemodify(cc_compiler, ':h'))
+  --local target_filename = vim.fs.basename(cc_compiler) -- get file name with extension
   if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
   if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
 
