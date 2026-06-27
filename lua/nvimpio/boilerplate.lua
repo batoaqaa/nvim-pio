@@ -252,6 +252,15 @@ CompileFlags:
   Add: [
     %s
     ]
+
+---
+If:
+  PathMatch: .*\.h
+CompileFlags:
+  Add: [
+    "-xc",
+    "-std=gnu23"
+  ]
 ]],
   -- Compiler: %s
   boiler = function(self, project_root_param)
