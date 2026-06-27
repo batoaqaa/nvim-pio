@@ -11,6 +11,7 @@ local function generate_generic_clangd_db()
   local output_path = OS.clangd_db
 
 
+
   if vim.fn.filereadable(input_path) == 0 then return end
 
   -- 1. Open and read the raw compile_commands.json file
@@ -23,33 +24,29 @@ local function generate_generic_clangd_db()
   if not success or type(db) ~= "table" then return end
 
   local cleaned_db = {}
+  -- Target list of assembler macros to search and destroy
+  local targets = { "-D_ASMLANGUAGE", "-D__ASSEMBLY__", "-D__ASSEMBLER__", "-D_ASSEMBLY_" }
 
-  -- 2. Process every single entry as a flat string map to prevent path mangling
+  -- 2. Process every single entry as an immutable text block
   for _, entry in ipairs(db) do
     if entry.command and entry.command ~= "" then
       local cmd = entry.command
 
-      -- SURGICAL CLEANUP:
-      -- We do NOT tokenize or split spaces. We use a safe character-set pattern
-      -- to globally strip out the exact assembler macro instances.
-      -- The omission of the trailing number allows it to clear ALL duplicates.
-      cmd = string.gsub(cmd, "---D_ASMLANGUAGE", "")
-      cmd = string.gsub(cmd, "%s%-D_ASMLANGUAGE%s", " ")
-      cmd = string.gsub(cmd, "%s%-D_ASMLANGUAGE$", "")
-
-      cmd = string.gsub(cmd, "%s%-D__ASSEMBLY__%s", " ")
-      cmd = string.gsub(cmd, "%s%-D__ASSEMBLY__$", "")
-
-      cmd = string.gsub(cmd, "%s%-D__ASSEMBLER__%s", " ")
-      cmd = string.gsub(cmd, "%s%-D__ASSEMBLER__$", "")
-
-      cmd = string.gsub(cmd, "%s%-D_ASSEMBLY_%s", " ")
-      cmd = string.gsub(cmd, "%s%-D_ASSEMBLY_$", "")
+      -- LITERAL REMOVAL ENGINE (Zero regex, Zero path slicing)
+      for _, target in ipairs(targets) do
+        local start_idx, end_idx = string.find(cmd, target, 1, true)
+        -- Loop to capture and scrub out all duplicate instances of the macro
+        while start_idx do
+          -- Snip exactly the target character space out of the command string
+          cmd = string.sub(cmd, 1, start_idx - 1) .. string.sub(cmd, end_idx + 1)
+          -- Re-scan the modified string for remaining duplicates
+          start_idx, end_idx = string.find(cmd, target, 1, true)
+        end
+      end
 
       entry.command = cmd
     end
 
-    -- Keep everything else exactly as it was generated (arguments, file, directory)
     table.insert(cleaned_db, entry)
   end
 
