@@ -248,7 +248,6 @@ CompileFlags:
 If:
   PathMatch: [.*\.h, .*\.c]
 CompileFlags:
-CompileFlags:
   Remove: [%s]
   Add: [
     %s
