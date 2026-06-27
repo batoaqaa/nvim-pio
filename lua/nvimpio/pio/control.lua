@@ -65,7 +65,7 @@ local function generate_generic_clangd_db()
 
   local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
   if ok and pretty_json then
-    local status, err = misc.writeFile(output_dir, pretty_json, {})
+    local status, err = misc.writeFile(output_path, pretty_json, {})
     if status then
       OS.notify('DB sanitize success', 'info')
       clangdRestart()
