@@ -3,7 +3,7 @@ local M = {}
 --stylua: ignore start
 local clangd = require('nvimpio.clangd.control')
 local misc = require('nvimpio.utils.misc')
-local clangdRestart = clangd.clangdRestart
+local clangdRestart = clangd.restart
 
 local function generate_generic_clangd_db()
   local input_path = vim.fs.joinpath(OS.project_dir, 'compile_commands.json')
