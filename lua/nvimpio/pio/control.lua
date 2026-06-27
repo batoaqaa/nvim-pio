@@ -6,72 +6,102 @@ local misc = require('nvimpio.utils.misc')
 local clangdRestart = clangd.restart
 
 local function generate_generic_clangd_db()
-  local input_path = vim.fs.joinpath(OS.project_dir, 'compile_commands.json')
-  -- local output_dir = OS.nvimpio_config_dir
-  local output_path = OS.clangd_db
 
+  -- Safely pick vim.uv (Neovim 0.10+) or fallback to vim.loop (Older releases)
+  local uv = vim.uv or vim.loop
+  local root = vim.fn.getcwd()
 
+  -- Define your strict input and output directory target maps
+  local source_path = root .. "/.pio/build/olimex_h407/compile_commands.json"
+  local target_dir  = root .. "/.nvimpio"
+  local target_path = target_dir .. "/compile_commands.json"
 
-
-  if vim.fn.filereadable(input_path) == 0 then return end
-
-  -- 1. Open and read the raw compile_commands.json file
-  local file = io.open(input_path, "r")
-  if not file then return end
-  local content = file:read("*a")
-  file:close()
-  
-  local success, db = pcall(vim.json.decode, content)
-  if not success or type(db) ~= "table" then return end
-
-  local cleaned_db = {}
-
-  -- 2. Process every entry safely by leveraging native JSON structures
-  for _, entry in ipairs(db) do
-    if entry.command and entry.command ~= "" then
-      local old_cmd = entry.command
-      local clean_args = {}
-
-      -- Standard token separation wrapper
-      for token in old_cmd:gmatch("%S+") do
-        -- THE PERFECT PLUGIN FILTER:
-        -- Explicitly strip out ONLY the exact assembly macros.
-        -- This leaves your Arduino include trees and paths completely untouched.
-        if token ~= "-D_ASMLANGUAGE" and 
-           token ~= "-D__ASSEMBLY__" and 
-           token ~= "-D__ASSEMBLER__" and 
-           token ~= "-D_ASSEMBLY_" then
-          table.insert(clean_args, token)
-        end
-      end
-
-      -- 3. THE NO-LOSS INJECTION:
-      -- We explicitly DROP the problematic "command" text string.
-      -- Providing a structured "arguments" array ensures that clangd parses 
-      -- the Arduino parameters perfectly without token collapsing or path corruption.
-      table.insert(cleaned_db, {
-        directory = entry.directory or OS.project_dir,
-        file = entry.file,
-        arguments = clean_args, -- Pass standard parameters list array to clangd
-        output = entry.output
-      })
-    else
-      table.insert(cleaned_db, entry)
-    end
+  -- 1. Check if PlatformIO has generated the database yet
+  if vim.fn.filereadable(source_path) == 0 then
+    return false, "Source compile_commands.json not found yet."
   end
 
-  -- 4. Export the clean, mirrored database
-  -- 3. Export the clean database mirror
-  local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
-  if ok and pretty_json then
-    local status, err = misc.writeFile(output_path, pretty_json, {})
-    if status then
-      OS.notify('DB sanitize success', 'info')
-      clangdRestart()
-    else
-      OS.notify('DB sanitize failed==> ' .. (err or 'unknown error'), 'error')
-    end
-  else OS.notify('DB format failed==> ', 'error') end
+  -- 2. Ensure the destination directory exists (.nvimpio)
+  if vim.fn.isdirectory(target_dir) == 0 then
+    vim.fn.mkdir(target_dir, "p")
+  end
+
+  -- 3. Run a native, non-blocking OS file copy stream block
+  -- The third parameter (fs_copyfile flags) is set to 0 for a standard overwrite copy.
+  local success, err = uv.fs_copyfile(source_path, target_path, 0)
+
+  if not success then
+    print("Plugin Error: Failed to mirror database: " .. tostring(err))
+    return false, err
+  end
+
+  return true, target_path
+  -- local input_path = vim.fs.joinpath(OS.project_dir, 'compile_commands.json')
+  -- -- local output_dir = OS.nvimpio_config_dir
+  -- local output_path = OS.clangd_db
+  --
+  --
+  --
+  --
+  -- if vim.fn.filereadable(input_path) == 0 then return end
+  --
+  -- -- 1. Open and read the raw compile_commands.json file
+  -- local file = io.open(input_path, "r")
+  -- if not file then return end
+  -- local content = file:read("*a")
+  -- file:close()
+  --
+  -- local success, db = pcall(vim.json.decode, content)
+  -- if not success or type(db) ~= "table" then return end
+  --
+  -- local cleaned_db = {}
+  --
+  -- -- 2. Process every entry safely by leveraging native JSON structures
+  -- for _, entry in ipairs(db) do
+  --   if entry.command and entry.command ~= "" then
+  --     local old_cmd = entry.command
+  --     local clean_args = {}
+  --
+  --     -- Standard token separation wrapper
+  --     for token in old_cmd:gmatch("%S+") do
+  --       -- THE PERFECT PLUGIN FILTER:
+  --       -- Explicitly strip out ONLY the exact assembly macros.
+  --       -- This leaves your Arduino include trees and paths completely untouched.
+  --       if token ~= "-D_ASMLANGUAGE" and
+  --          token ~= "-D__ASSEMBLY__" and
+  --          token ~= "-D__ASSEMBLER__" and
+  --          token ~= "-D_ASSEMBLY_" then
+  --         table.insert(clean_args, token)
+  --       end
+  --     end
+  --
+  --     -- 3. THE NO-LOSS INJECTION:
+  --     -- We explicitly DROP the problematic "command" text string.
+  --     -- Providing a structured "arguments" array ensures that clangd parses 
+  --     -- the Arduino parameters perfectly without token collapsing or path corruption.
+  --     table.insert(cleaned_db, {
+  --       directory = entry.directory or OS.project_dir,
+  --       file = entry.file,
+  --       arguments = clean_args, -- Pass standard parameters list array to clangd
+  --       output = entry.output
+  --     })
+  --   else
+  --     table.insert(cleaned_db, entry)
+  --   end
+  -- end
+  --
+  -- -- 4. Export the clean, mirrored database
+  -- -- 3. Export the clean database mirror
+  -- local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
+  -- if ok and pretty_json then
+  --   local status, err = misc.writeFile(output_path, pretty_json, {})
+  --   if status then
+  --     OS.notify('DB sanitize success', 'info')
+  --     clangdRestart()
+  --   else
+  --     OS.notify('DB sanitize failed==> ' .. (err or 'unknown error'), 'error')
+  --   end
+  -- else OS.notify('DB format failed==> ', 'error') end
 end
 
 --INFO:
