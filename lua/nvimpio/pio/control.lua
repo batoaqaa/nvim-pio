@@ -11,35 +11,10 @@ local function generate_generic_clangd_db()
   local output_path = OS.clangd_db
 
 
+
   if vim.fn.filereadable(input_path) == 0 then return end
 
-  -- 1. Dynamic platformio dependencies scanner loop
-  local extra_includes = {}
-  local libdeps_path = OS.project_dir .. "/.pio/libdeps"
-
-  if vim.fn.isdirectory(libdeps_path) == 1 then
-    local envs = vim.fn.readdir(libdeps_path)
-    for _, env in ipairs(envs) do
-      local env_path = libdeps_path .. "/" .. env
-      if vim.fn.isdirectory(env_path) == 1 then
-        local libs = vim.fn.readdir(env_path)
-        for _, lib in ipairs(libs) do
-          local lib_path = env_path .. "/" .. lib
-          if vim.fn.isdirectory(lib_path) == 1 then
-            table.insert(extra_includes, "-I" .. lib_path)
-            if vim.fn.isdirectory(lib_path .. "/src") == 1 then
-              table.insert(extra_includes, "-I" .. lib_path .. "/src")
-            end
-            if vim.fn.isdirectory(lib_path .. "/utility") == 1 then
-              table.insert(extra_includes, "-I" .. lib_path .. "/utility")
-            end
-          end
-        end
-      end
-    end
-  end
-
-  -- 2. Open and parse the main compile_commands.json data file
+  -- 1. Open and read the raw compile_commands.json file
   local file = io.open(input_path, "r")
   if not file then return end
   local content = file:read("*a")
@@ -50,43 +25,30 @@ local function generate_generic_clangd_db()
 
   local cleaned_db = {}
 
-  -- 3. Loop through compilation database mapping arrays
+  -- 2. Process every single entry safely as a flat string map
   for _, entry in ipairs(db) do
-    local filename = entry.file or ""
-    local command_str = entry.command or ""
+    if entry.command and entry.command ~= "" then
+      local cmd = entry.command
 
-    local raw_args = entry.arguments or {}
-    if #raw_args == 0 and command_str ~= "" then
-      raw_args = {}
-      for token in command_str:gmatch("%S+") do
-        table.insert(raw_args, token)
-      end
+      -- SURGICAL CLEANUP: 
+      -- We do NOT tokenize the command or split spaces. 
+      -- We use string.gsub to replace the exact assembler macro instances 
+      -- with empty space, preserving all complex Windows paths perfectly.
+      cmd = cmd:gsub("%s%-D_ASMLANGUAGE%s", " ")
+      cmd = cmd:gsub("%s%-D_ASMLANGUAGE$", "")
+      cmd = cmd:gsub("%s%-D__ASSEMBLY__%s", " ")
+      cmd = cmd:gsub("%s%-D__ASSEMBLY__$", "")
+      cmd = cmd:gsub("%s%-D__ASSEMBLER__%s", " ")
+      cmd = cmd:gsub("%s%-D__ASSEMBLER__$", "")
+
+      entry.command = cmd
     end
 
-    local clean_args = {}
-    for _, arg in ipairs(raw_args) do
-      -- Surgical parameter scrubbing keeping 100% core target settings active
-      if arg ~= "-D_ASMLANGUAGE" and
-         arg ~= "-D__ASSEMBLY__" and
-         arg ~= "-D_ASSEMBLY_" and
-         arg ~= "-D__ASSEMBLER__" then
-        table.insert(clean_args, arg)
-      end
-    end
-
-    -- Inject dynamically discovered library paths into argument stacks
-    for _, inc in ipairs(extra_includes) do
-      table.insert(clean_args, inc)
-    end
-    table.insert(cleaned_db, {
-      directory = entry.directory or OS.project_dir,
-      file = filename,
-      arguments = clean_args,
-      output = entry.output
-    })
+    -- Keep everything else exactly as it was generated (arguments, file, directory)
+    table.insert(cleaned_db, entry)
   end
 
-  -- 4. Export clean database mirror file directly to output directory path
+  -- 3. Export the pristine, modified database mirror
   local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
   if ok and pretty_json then
     local status, err = misc.writeFile(output_path, pretty_json, {})
