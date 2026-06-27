@@ -253,6 +253,21 @@ CompileFlags:
     %s
     ]
 
+---
+If:
+  PathMatch: .*\.h
+CompileFlags:
+  BlockFlags: [
+    "-D_ASMLANGUAGE",
+    "-D__ASSEMBLY__",
+    "-D__ASSEMBLER__",
+    "-D_ASSEMBLY_"
+    ]
+  Remove: ["-std=*"]
+  Add: [
+    "-xc",
+    "-std=gnu23"
+    ]
 ]],
   -- Compiler: %s
   boiler = function(self, project_root_param)
