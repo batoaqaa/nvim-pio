@@ -248,7 +248,7 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: [.*\.c]
+  PathMatch: .*\.c
 CompileFlags:
   Remove: [
     %s
