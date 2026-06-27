@@ -239,6 +239,7 @@ CompileFlags:
 If:
   PathMatch: [.*\.hpp, .*\.cpp]
 CompileFlags:
+  CompilationDatabase: None   # FIX HERE: Forces clangd to break the JSON database lock
   Remove: [
     %s
     ]
@@ -250,6 +251,7 @@ CompileFlags:
 If:
   PathMatch: .*\.c
 CompileFlags:
+  CompilationDatabase: None   # FIX HERE: Forces clangd to break the JSON database lock
   Remove: [
     %s
     ]
