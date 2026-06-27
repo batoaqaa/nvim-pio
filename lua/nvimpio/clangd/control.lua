@@ -91,8 +91,8 @@ function M.getClangdConfig()
   if count <= 2 then
     -- merged_json = string.format(json_config or '', q_driver)
     -- merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ','))
-    merged_json = string.format(json_config or '', OS.project_dir, q_driver)
-    -- merged_json = string.format(json_config or '', OS.nvimpio_config_dir, q_driver)
+    -- merged_json = string.format(json_config or '', OS.project_dir, q_driver)
+    merged_json = string.format(json_config or '', OS.nvimpio_config_dir, q_driver)
   end
 
   -- 'decode' converts JSON string -> Lua table
