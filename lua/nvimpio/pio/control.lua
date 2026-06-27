@@ -11,6 +11,8 @@ local function generate_generic_clangd_db()
   local output_path = OS.clangd_db
 
 
+
+
   if vim.fn.filereadable(input_path) == 0 then return end
 
   -- 1. Open and read the raw compile_commands.json file
@@ -23,38 +25,53 @@ local function generate_generic_clangd_db()
   if not success or type(db) ~= "table" then return end
 
   local cleaned_db = {}
-  -- Target list of assembler macros to strip out verbatim
-  local blacklisted_flags = {
-    ["-D_ASMLANGUAGE"] = true,
-    ["-D__ASSEMBLY__"] = true,
-    ["-D__ASSEMBLER__"] = true,
-    ["-D_ASSEMBLY_"] = true
-  }
 
-  -- 2. Process every entry safely as a list of independent arguments
+  -- 2. Process every entry cleanly via native JSON array manipulation
   for _, entry in ipairs(db) do
-    if entry.command and entry.command ~= "" then
-      local old_command = entry.command
-      local new_args = {}
+    -- If the raw database provides a structured array already, use it.
+    -- Otherwise, convert the string into a safe array table.
+    local raw_args = entry.arguments
+    if not raw_args and entry.command and entry.command ~= "" then
+      raw_args = {}
+      -- Safe fallback to capture parameters
+      for token in entry.command:gmatch("%S+") do
+        table.insert(raw_args, token)
+      end
+    end
 
-      -- Use a safe pattern to separate parameters by space, 
-      -- but protect complex paths containing backslashes or internal text blocks
-      for token in string.gmatch(old_command, "%S+") do
-        -- Check if the extracted token matches our exact assembly flags literal
-        if not blacklisted_flags[token] then
-          table.insert(new_args, token)
+    if raw_args and #raw_args > 0 then
+      local clean_args = {}
+
+      for _, arg in ipairs(raw_args) do
+        -- SURGICAL ARRAY CLEANUP:
+        -- Strip out the specific assembler macros matching exact standalone items.
+        -- Because we evaluate this at an item-by-item array level, we never 
+        -- slice string indexes, preserving your complex include paths perfectly.
+        if arg ~= "-D_ASMLANGUAGE" and
+           arg ~= "-D__ASSEMBLY__" and
+           arg ~= "-D__ASSEMBLER__" and
+           arg ~= "-D_ASSEMBLY_" then
+          table.insert(clean_args, arg)
         end
       end
 
-      -- Reconstruct the command safely with clean space delimiters
-      entry.command = table.concat(new_args, " ")
+      -- 3. BUILD THE PERFECT CLANGD ENTRY
+      -- We completely DROP the "command" text field. 
+      -- Providing a native "arguments" table array completely stops text collapsing, 
+      -- resolving the 'expected "FILENAME"' preprocessor crashes forever.
+      table.insert(cleaned_db, {
+        directory = entry.directory or OS.project_dir,
+        file = entry.file,
+        arguments = clean_args, -- Feeds clangd a structured parameters list
+        output = entry.output
+      })
+    else
+      -- Fallback pass if the entry doesn't contain compile strings
+      table.insert(cleaned_db, entry)
     end
-
-    table.insert(cleaned_db, entry)
   end
 
-
-  -- 3. Export the clean database mirror
+  -- 4. Export the clean, mirrored database
   local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
   if ok and pretty_json then
     local status, err = misc.writeFile(output_path, pretty_json, {})
