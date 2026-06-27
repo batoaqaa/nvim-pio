@@ -239,7 +239,7 @@ CompileFlags:
 If:
   PathMatch: [.*\.hpp, .*\.cpp]
 CompileFlags:
-  CompilationDatabase: None   # FIX HERE: Forces clangd to break the JSON database lock
+  Compiler: %s
   Remove: [
     %s
     ]
@@ -251,7 +251,7 @@ CompileFlags:
 If:
   PathMatch: .*\.c
 CompileFlags:
-  CompilationDatabase: None   # FIX HERE: Forces clangd to break the JSON database lock
+  Compiler: %s
   Remove: [
     %s
     ]
@@ -604,10 +604,10 @@ CompileFlags:
       -- ".",
       table.concat(formatted_remove, ',\n    '),
       table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
-      -- OS.project_dir,
+      _G.metadata.cxx_path,
       '"-std=*"',
       table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
-      -- OS.project_dir,
+      _G.metadata.cc_path,
       '"-std=*"',
       table.concat(formattedCcAdd, ',\n    ')  -- formattedCcAdd
       -- table.concat(formattedHAdd, ',\n    ')  -- formattedHAdd
