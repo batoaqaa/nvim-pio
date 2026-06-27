@@ -10,6 +10,7 @@ local function generate_generic_clangd_db()
   local output_dir = OS.nvimpio_config_dir
   local output_path = OS.clangd_db
 
+
   if vim.fn.filereadable(input_path) == 0 then return end
 
   local file = io.open(input_path, "r")
@@ -21,45 +22,62 @@ local function generate_generic_clangd_db()
   if not success or type(db) ~= "table" then return end
 
   local cleaned_db = {}
-  local valid_exts = { c = true, cpp = true, cc = true, cxx = true, h = true, hpp = true, hxx = true }
+  -- Core tracking map for actual source and header files
+  local c_extensions = { c = true, cpp = true, cc = true, cxx = true, h = true, hpp = true, hxx = true }
 
   for _, entry in ipairs(db) do
     local filename = entry.file or ""
     local ext = filename:match("^.+(%..+)$")
     if ext then ext = ext:lower():sub(2) end
 
-    if valid_exts[ext] then
+    -- 1. KEEP ASSEMBLY FILES 100% UNTOUCHED (Zero loss for your users)
+    if ext == "s" or ext == "S" or ext == "asm" then
+      table.insert(cleaned_db, entry)
+
+    -- 2. GENERICALLY CLEAN C CONTEXT BLOCKS
+    elseif c_extensions[ext] then
       local raw_args = entry.arguments or {}
+      -- Convert a long flat command string into a proper, structured JSON argument array
       if #raw_args == 0 and entry.command then
+        raw_args = {}
         for token in entry.command:gmatch("%S+") do
           table.insert(raw_args, token)
         end
       end
 
-      local cleaned_flags = {}
+      local clean_args = {}
       for _, arg in ipairs(raw_args) do
-        if arg:sub(1, 2) == "-I" or arg:sub(1, 2) == "-D" or arg:sub(1, 2) == "-U" or arg:sub(1, 8) == "-isystem" then
-          table.insert(cleaned_flags, arg)
+        -- GENERIC FILTER RULE: 
+        -- If we are in a C file context block, drop any flag containing the word "ASM" 
+        -- or "ASSEMBLY" to block cross-contamination, without losing your compilers or targets.
+        if not (arg:upper():match("ASM") or arg:upper():match("ASSEMBLY")) then
+          table.insert(clean_args, arg)
         end
       end
 
-      local generic_command = "clang " .. table.concat(cleaned_flags, " ") .. " -c " .. filename
       table.insert(cleaned_db, {
         directory = entry.directory or OS.project_dir,
         file = filename,
-        command = generic_command
+        arguments = clean_args -- Output as a structured argument array
       })
     end
   end
 
-  vim.fn.mkdir(output_dir, "p")
-  local out_file = io.open(output_path, "w")
-  if out_file then
-    out_file:write(vim.json.encode(cleaned_db))
-    out_file:close()
-    -- Force clangd to re-read the updated configuration dynamically
-    require('nvimpio.clangd.control').restart()
+  local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
+  local status, err = misc.writeFile(output_dir, pretty_json, {})
+  if status then
+    OS.notify('DB sanitize success', 'info')
+    clangdRestart()
+  else
+    OS.notify('DB sanitize failed==> ' .. (err or 'unknown error'), 'error')
   end
+  -- Output the clean generic database mirror
+  -- vim.fn.mkdir(output_dir, "p")
+  -- local out_file = io.open(output_path, "w")
+  -- if out_file then
+  --   out_file:write(vim.json.encode(cleaned_db))
+  --   out_file:close()
+  -- end
 end
 --INFO:
 --=============================================================================
