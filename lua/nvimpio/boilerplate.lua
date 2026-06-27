@@ -230,10 +230,10 @@ Hover:
 CompileFlags:
   Remove: [
     %s
-  ]
+    ]
   Add: [
     %s
-  ]
+    ]
 
 ---
 If:
@@ -242,36 +242,18 @@ CompileFlags:
   Remove: [%s]
   Add: [
     %s
-  ]
+    ]
 
 ---
 If:
-  PathMatch: .*\.c
+  PathMatch: [.*\.h, .*\.c]
 CompileFlags:
   Remove: [%s]
   Add: [
     %s
-  ] 
+    ]
 
----
-# THE PLUGIN FIX: Zero loss, 100% native flag scrubbing for headers
-If:
-  PathMatch: .*\.h
-CompileFlags:
-  # BlockFlags surgically strips assembly variables ONLY when parsing headers
-  BlockFlags: [
-    "-D_ASMLANGUAGE",
-    "-D__ASSEMBLY__",
-    "-D__ASSEMBLER__",
-    "-D_ASSEMBLY_"
-  ]
-  Remove: ["-std=*"]
-  Add: [
-    "-xc",
-    "-std=gnu23"
-  ]
 ]],
-  -- PathMatch: [.*\.h, .*\.c]
   -- Compiler: %s
   boiler = function(self, project_root_param)
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
