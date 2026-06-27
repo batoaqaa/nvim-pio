@@ -30,17 +30,13 @@ local function generate_generic_clangd_db()
     if entry.command and entry.command ~= "" then
       local cmd = entry.command
 
-      -- SURGICAL CLEANUP: 
-      -- We do NOT tokenize the command or split spaces. 
-      -- We use string.gsub to replace the exact assembler macro instances 
-      -- with empty space, preserving all complex Windows paths perfectly.
-      cmd = cmd:gsub("%s%-D_ASMLANGUAGE%s", " ")
-      cmd = cmd:gsub("%s%-D_ASMLANGUAGE$", "")
-      cmd = cmd:gsub("%s%-D__ASSEMBLY__%s", " ")
-      cmd = cmd:gsub("%s%-D__ASSEMBLY__$", "")
-      cmd = cmd:gsub("%s%-D__ASSEMBLER__%s", " ")
-      cmd = cmd:gsub("%s%-D__ASSEMBLER__$", "")
-
+      -- FIX HERE: The hyphen is escaped with '%' to match a literal '-D_ASMLANGUAGE'.
+      -- The fourth argument (1) limits it to exactly 1 replacement pass.
+      -- This fixes the argument error and keeps your include paths 100% untouched.
+      cmd = string.gsub(cmd, "%s%-D_ASMLANGUAGE", "", 1)
+      cmd = string.gsub(cmd, "%s%-D__ASSEMBLY__", "", 1)
+      cmd = string.gsub(cmd, "%s%-D__ASSEMBLER__", "", 1)
+      cmd = string.gsub(cmd, "%s%-D_ASSEMBLY_", "", 1)
       entry.command = cmd
     end
 
