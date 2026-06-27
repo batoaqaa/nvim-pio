@@ -257,9 +257,17 @@ CompileFlags:
 If:
   PathMatch: .*\.h
 CompileFlags:
+  Remove: [
+    "-std=*",
+    "-D_ASMLANGUAGE",     # Strips the assembly flag if leaked from an .s file
+    "-D__ASSEMBLY__",
+    "-D__ASSEMBLER__"
+  ]
   Add: [
-    "-xc",
-    "-std=gnu23"
+    "-xc",                # Explicitly forces the file reader frontend back to C mode
+    "-std=gnu23",
+    "-U_ASMLANGUAGE",     # Forces an explicit undefine at the compiler boundary
+    "-U__ASSEMBLY__"
   ]
 ]],
   -- Compiler: %s
