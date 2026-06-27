@@ -239,10 +239,7 @@ CompileFlags:
 If:
   PathMatch: [.*\.hpp, .*\.cpp]
 CompileFlags:
-  Compiler: %s
-  Remove: [
-    %s
-    ]
+  Remove: [%s]
   Add: [
     %s
     ]
@@ -251,14 +248,12 @@ CompileFlags:
 If:
   PathMatch: .*\.c
 CompileFlags:
-  Compiler: %s
-  Remove: [
-    %s
-    ]
+  Remove: [%s]
   Add: [
     %s
     ]
 ]],
+  -- Compiler: %s
   boiler = function(self, project_root_param)
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
     project_root = vim.fs.normalize(project_root)
@@ -604,10 +599,10 @@ CompileFlags:
       -- ".",
       table.concat(formatted_remove, ',\n    '),
       table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
-      _G.metadata.cxx_path,
+      -- _G.metadata.cxx_path,
       '"-std=*"',
       table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
-      _G.metadata.cc_path,
+      -- _G.metadata.cc_path,
       '"-std=*"',
       table.concat(formattedCcAdd, ',\n    ')  -- formattedCcAdd
       -- table.concat(formattedHAdd, ',\n    ')  -- formattedHAdd
