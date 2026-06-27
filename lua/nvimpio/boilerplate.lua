@@ -230,10 +230,10 @@ Hover:
 CompileFlags:
   Remove: [
     %s
-    ]
+  ]
   Add: [
     %s
-    ]
+  ]
 
 ---
 If:
@@ -242,7 +242,7 @@ CompileFlags:
   Remove: [%s]
   Add: [
     %s
-    ]
+  ]
 
 ---
 If:
@@ -251,7 +251,8 @@ CompileFlags:
   Remove: [%s]
   Add: [
     %s
-   
+  ] 
+
 ---
 # THE PLUGIN FIX: Zero loss, 100% native flag scrubbing for headers
 If:
@@ -268,7 +269,7 @@ CompileFlags:
   Add: [
     "-xc",
     "-std=gnu23"
-  ] ]
+  ]
 ]],
   -- PathMatch: [.*\.h, .*\.c]
   -- Compiler: %s
