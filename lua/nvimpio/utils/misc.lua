@@ -300,7 +300,7 @@ function M.writeFile(path, data, opts)
   end
 
   -- 2. Recursive directory creation
-  if opts.mkdir then
+  if opts.mkdir ~= false then
     local parent = vim.fs.dirname(path)
     stat = uv.fs_stat(parent)
     if not stat or not stat.type ~= 'directory'  then
