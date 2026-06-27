@@ -64,12 +64,15 @@ local function generate_generic_clangd_db()
   end
 
   local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
-  local status, err = misc.writeFile(output_dir, pretty_json, {})
-  if status then
-    OS.notify('DB sanitize success', 'info')
-    clangdRestart()
-  else
-    OS.notify('DB sanitize failed==> ' .. (err or 'unknown error'), 'error')
+  if ok and pretty_json then
+    local status, err = misc.writeFile(output_dir, pretty_json, {})
+    if status then
+      OS.notify('DB sanitize success', 'info')
+      clangdRestart()
+    else
+      OS.notify('DB sanitize failed==> ' .. (err or 'unknown error'), 'error')
+    end
+  else OS.notify('DB format failed==> ', 'error')
   end
   -- Output the clean generic database mirror
   -- vim.fn.mkdir(output_dir, "p")
