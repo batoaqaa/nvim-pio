@@ -483,8 +483,9 @@ CompileFlags:
 
               -- DEFENSIVE GUARD: Ensure the next index is a valid path string and NOT another compiler flag!
               if next_element and not next_element:find("^%-") then
-                table.insert(safe_flags, flag)         -- Inserts "-imacros" or "-isystem"
-                table.insert(safe_flags, next_element)  -- Inserts the clean path string
+                table.insert(safe_flags, flag .. next_element)         -- Inserts "-imacros" or "-isystem"
+                -- table.insert(safe_flags, flag)         -- Inserts "-imacros" or "-isystem"
+                -- table.insert(safe_flags, next_element)  -- Inserts the clean path string
                 idx = idx + 2 -- Safe pair step: Advance past both tokens cleanly
               else
                 -- Fallback: The flag was dangling or malformed. Drop the flag alone and advance by 1!
