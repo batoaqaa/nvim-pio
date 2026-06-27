@@ -259,9 +259,10 @@ If:
 CompileFlags:
   Remove: [
     "-std=*",
-    "-D_ASMLANGUAGE",
-    "-D__ASSEMBLY__",
-    "-D__ASSEMBLER__"
+    "-D_ASMLANGUAGE*",
+    "-D__ASSEMBLY__*",
+    "-D__ASSEMBLER__*",
+    "-D_ASSEMBLY_*"
     ]
   Add: [
     "-xc",
