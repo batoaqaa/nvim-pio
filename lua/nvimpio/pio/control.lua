@@ -12,44 +12,28 @@ local function generate_generic_clangd_db()
 
 
 
+
   if vim.fn.filereadable(input_path) == 0 then return end
 
-  -- 1. Open and read the raw compile_commands.json file
+  -- 1. READ RAW DATABASE TEXT
   local file = io.open(input_path, "r")
   if not file then return end
   local content = file:read("*a")
   file:close()
 
-  local success, db = pcall(vim.json.decode, content)
-  if not success or type(db) ~= "table" then return end
+  -- 2. THE ERROR-PROOF PLUGIN
+  -- We do NOT slice indexes or split spaces. We use explicit plain text replacements 
+  -- that target the flag ALONG WITH its leading space (" -D...").
+  -- Replacing the leading space ensures that adjacent tokens NEVER collapse together,
+  -- keeping your paths, macros, and framework options completely un-mangled.
+  content = string.gsub(content, " %-D_ASMLANGUAGE", "")
+  content = string.gsub(content, " %-D__ASSEMBLY__", "")
+  content = string.gsub(content, " %-D__ASSEMBLER__", "")
+  content = string.gsub(content, " %-D_ASSEMBLY_", "")
 
-  local cleaned_db = {}
-  -- Target list of assembler macros to search and destroy
-  local targets = { "-D_ASMLANGUAGE", "-D__ASSEMBLY__", "-D__ASSEMBLER__", "-D_ASSEMBLY_" }
-
-  -- 2. Process every single entry as an immutable text block
-  for _, entry in ipairs(db) do
-    if entry.command and entry.command ~= "" then
-      local cmd = entry.command
-
-      -- LITERAL REMOVAL ENGINE (Zero regex, Zero path slicing)
-      for _, target in ipairs(targets) do
-        local start_idx, end_idx = string.find(cmd, target, 1, true)
-        -- Loop to capture and scrub out all duplicate instances of the macro
-        while start_idx do
-          -- Snip exactly the target character space out of the command string
-          cmd = string.sub(cmd, 1, start_idx - 1) .. string.sub(cmd, end_idx + 1)
-          -- Re-scan the modified string for remaining duplicates
-          start_idx, end_idx = string.find(cmd, target, 1, true)
-        end
-      end
-
-      entry.command = cmd
-    end
-
-    table.insert(cleaned_db, entry)
-  end
-
+  -- Safely decode the clean text block to ensure validity
+  local success, cleaned_db = pcall(vim.json.decode, content)
+  if not success or type(cleaned_db) ~= "table" then return end
   -- 3. Export the clean database mirror
   local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
   if ok and pretty_json then
