@@ -279,6 +279,7 @@ CompileFlags:
       local safe_start_pattern = start_marker:gsub("%-", "%%-")
       local safe_end_pattern = end_marker:gsub("%-", "%%-")
       content = content:gsub("\n?" .. safe_start_pattern .. ".-" .. safe_end_pattern .. "\n?", "")
+    else content = ''
     end
 
     -- A: Force-create an empty default database if missing
