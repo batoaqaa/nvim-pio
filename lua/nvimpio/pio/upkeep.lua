@@ -567,10 +567,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
           if idok and (content ~= '') then
             _G.metadata.framework = _G.metadata.envs[active_env].framework
 
-
-            local pattern = string.format(
-                "([A-Za-z]:[^/\\]-[/\\]%%.platformio.-[/\\]packages[/\\]framework%%-%s[^/\\]-)[/\\]",
-                _G.metadata.framework)
+local pattern = string.format("^(.-framework%%-%s[^/\\\\]*)", _G.metadata.framework)
 
 
             -- local pattern = string.format('([A-Za-z]:[^\"]-/%%.platformio/.-packages/framework%%-%s[^/\\\"]-)/', _G.metadata.framework)
@@ -602,10 +599,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- end
   elseif idok and content and content ~= '' then
     _G.metadata.framework = _G.metadata.envs[active_env].framework
+local pattern = string.format("^(.-framework%%-%s[^/\\\\]*)", _G.metadata.framework)
 
-            local pattern = string.format(
-                "([A-Za-z]:[^/\\]-[/\\]%%.platformio.-[/\\]packages[/\\]framework%%-%s[^/\\]-)[/\\]",
-                _G.metadata.framework)
 
   -- local pattern_template = [=[([A-Za-z]:[^"]-/%.platformio/.-packages/framework%%-%s[^/"]-)/]=]
   -- local pattern = string.format(pattern_template, _G.metadata.framework)
