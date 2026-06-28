@@ -592,7 +592,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
     -- require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, runcmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
   -- end
-  elseif idok and content ~= '' then
+  elseif idok and content and content ~= '' then
     print('here')
     print(_G.metadata.envs[active_env].framework)
     _G.metadata.framework = _G.metadata.envs[active_env].framework
