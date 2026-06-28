@@ -234,9 +234,9 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    '%s/.*\.(c)',
-    '%s/.*\.(c)',
-    '%s/.*\.(c)'
+    '%s/.*\.(c)$',
+    '%s/.*\.(c)$',
+    '%s/.*\.(c)$'
   ]
 CompileFlags:
   Remove: [%s]
