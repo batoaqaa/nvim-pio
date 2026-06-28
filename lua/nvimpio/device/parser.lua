@@ -215,6 +215,7 @@ function M.handlePioinit(result, framework, board, on_done)
     -- OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
     boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
     -- boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
+    _G.metadata.framework = framework
     boilerplate_gen([[platformio.ini]])
     boilerplate_gen(framework)
     cliTerm:send(pop(M.queue))

@@ -1,7 +1,8 @@
 -- stylua: ignore start 
 
+local uv = vim.uv or vim.loop
 -- 1. Gather all the data first
-local sysname = vim.uv.os_uname().sysname
+local sysname = uv.os_uname().sysname
 local is_win = (sysname:find('Windows') or vim.fn.has('win32') == 1 or vim.fn.has("win64") == 1)
 local is_mac = sysname == 'Darwin'
 local is_linux = sysname == 'Linux'
@@ -14,9 +15,10 @@ if is_linux and vim.fn.filereadable('/proc/version') == 1 then
   if version:lower():find('microsoft') then is_wsl = true end
 end
 local winHome = os.getenv("USERPROFILE") or "C:\\"
-local nixHome = vim.uv.os_homedir() or "/root"
+local nixHome = uv.os_homedir() or "/root"
 local defaultHome = is_win and winHome or nixHome
-local projectDir = vim.uv.cwd() or '.'
+local projectDir = uv.cwd() or '.'
+local clangd_user_dir = is_win and vim.fn.expand("$LOCALAPPDATA/clangd") or vim.fn.expand("~/.config/clangd")
 local nvimpioConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
 ---@class OS
 ---@field name "windows"|"macos"|"linux"
@@ -45,6 +47,8 @@ local nvimpioConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
 ---@field cc_flags string
 ---@field cxx_flags string
 ---@field project_config string
+---@field clangd_user_file string
+---@field clangd_user_dir string
 ---@field nvimpio_config_dir string
 ---@field notify fun(msg: string, level?: string|integer)
 ---@field pioReady fun(): boolean
@@ -78,6 +82,8 @@ local os_info = {
   clangd_filter = vim.fs.joinpath(nvimpioConfigDir, '.clangdFilter.json'),
   clangd_config = vim.fs.joinpath(nvimpioConfigDir, '.clangdConfig.json'),
   clangd_db = vim.fs.joinpath(nvimpioConfigDir, 'compile_commands.json'),
+  clangd_user_dir = clangd_user_dir,
+  clangd_user_file = vim.fs.joinpath(clangd_user_dir, "config.yaml"),
   cc_flags = vim.fs.joinpath(nvimpioConfigDir, '.clangdCCFlags.txt'),
   cxx_flags = vim.fs.joinpath(nvimpioConfigDir, '.clangdCXXFlags.txt'),
   project_config = vim.fs.joinpath(nvimpioConfigDir, '.projectConfig.json'),
