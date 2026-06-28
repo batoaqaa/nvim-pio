@@ -593,10 +593,10 @@ fetch_metadata = function(callback, active_env, from, attempts)
     -- require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, runcmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
   -- end
   elseif idok and content and content ~= '' then
-    print('here')
     _G.metadata.framework = _G.metadata.envs[active_env].framework
     local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
     print(pattern)
+    print(content)
     _G.metadata.framework_root = content:match(pattern)
     print(_G.metadata.framework_root)
     require('nvimpio.pio.metadata').save_project_config(from)
