@@ -211,6 +211,7 @@ local function get_session_cache_id()
   local pid = uv.os_getpid and uv.os_getpid() or uv.getpid()
   return string.format("%x_%d", hash, pid)
 end
+
 boilerplate['.clangd'] = {
   dynamic = [[
 %s
@@ -242,6 +243,7 @@ CompileFlags:
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
     project_root = vim.fs.normalize(project_root)
 
+    print('here')
     local core = require('nvimpio')
     local cwdClangd = OS.clangd_user_file
     -- local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
