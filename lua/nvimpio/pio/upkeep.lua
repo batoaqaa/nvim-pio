@@ -344,7 +344,7 @@ function M.configure_hardware_parameters()
 
   run(1)
 end
-''
+-- ''
 
 local function extract_framework_path(raw_json_chunk, active_env)
     -- 1. Convert double-escaped JSON backslashes to forward slashes
