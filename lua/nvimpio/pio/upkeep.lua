@@ -637,6 +637,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
         end
       end
 
+      print('here')
+      print(_G.metadata.envs[active_env].framework)
       _G.metadata.framework = _G.metadata.envs[active_env].framework
       local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
       _G.metadata.framework_root = content:match(pattern)
