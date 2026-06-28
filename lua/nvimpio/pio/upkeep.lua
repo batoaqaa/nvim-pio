@@ -345,6 +345,25 @@ function M.configure_hardware_parameters()
   run(1)
 end
 
+local function extract_framework_path(raw_json_chunk, active_env)
+    -- 1. Convert double-escaped JSON backslashes to forward slashes
+    local normalized = raw_json_chunk:gsub("\\\\", "/")
+
+    -- 2. Clean pattern allowing characters (like espressif32) after your framework name
+    local pattern = string.format(
+                         '([A-Za-z]:[^"]-/.platformio/.-/packages/framework%%-%s[^"/]-)/',
+                         _G.metadata.envs[active_env].framework)
+
+    -- 3. Match and capture the full path
+    local match = normalized:match(pattern)
+
+    if match then
+        -- Return backslash formatting for Windows LSP consistency
+        return match:gsub("/", "\\")
+    end
+    return nil
+end
+
 --=============================================================================
 --INFO:get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
@@ -565,17 +584,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
           -- else fire_callback(false) end
           idok, content = misc.readFile(idedata_file)
           if idok and (content ~= '') then
-            _G.metadata.framework = _G.metadata.envs[active_env].framework
-
--- Safe cross-platform Lua pattern
-   -- local pattern = string.format('([A-Za-z]:[^/\"]-[/\\]%%.platformio[/\\].-[/\\]packages[/\\]framework%%-%s[^/\\\"]-)[/\\]', _G.metadata.framework)
--- local pattern = string.format("^(.-framework%%-%s[^/\\\\]*)", _G.metadata.framework)
-
-    local normalized = content:gsub("\\\\", "/")
-    local pattern = string.format('([A-Za-z]:[^"]-/.platformio/.-/packages/framework%%-%s[^"/]-)/', _G.metadata.framework)
-    _G.metadata.framework_root = normalized:match(pattern)
--- Only use this if you are regex-matching raw text directly out of the file
--- local pattern = string.format('([A-Za-z]:[^"]-\\\\\\\\.platformio\\\\\\\\.-\\\\\\\\packages\\\\\\\\framework%%-%s[^"]-)\\\\\\\\', _G.metadata.framework)
+            _G.metadata.framework_root = extract_framework_path(content, active_env)
 
             -- local pattern = string.format('([A-Za-z]:[^\"]-/%%.platformio/.-packages/framework%%-%s[^/\\\"]-)/', _G.metadata.framework)
             -- _G.metadata.framework_root = content:match(pattern)
@@ -605,24 +614,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
     -- require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, runcmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
   -- end
   elseif idok and content and content ~= '' then
-    _G.metadata.framework = _G.metadata.envs[active_env].framework
-   -- local pattern = string.format('([A-Za-z]:[^/\"]-[/\\]%%.platformio[/\\].-[/\\]packages[/\\]framework%%-%s[^/\\\"]-)[/\\]', _G.metadata.framework)
--- local pattern = string.format("^(.-framework%%-%s[^/\\\\]*)", _G.metadata.framework)
--- Only use this if you are regex-matching raw text directly out of the file
--- local pattern = string.format('([A-Za-z]:[^"]-\\\\\\\\.platformio\\\\\\\\.-\\\\\\\\packages\\\\\\\\framework%%-%s[^"]-)\\\\\\\\', _G.metadata.framework)
-
-    local normalized = content:gsub("\\\\", "/")
-    local pattern = string.format('([A-Za-z]:[^"]-/.platformio/.-/packages/framework%%-%s[^"/]-)/', _G.metadata.framework)
-    _G.metadata.framework_root = normalized:match(pattern)
-
-  -- local pattern_template = [=[([A-Za-z]:[^"]-/%.platformio/.-packages/framework%%-%s[^/"]-)/]=]
-  -- local pattern = string.format(pattern_template, _G.metadata.framework)
-    -- FIXED SECTION: added ".-" after platformio to safely skip intermediate architecture folders!
-    -- local pattern = string.format('([A-Za-z]:[^\"]-/%%.platformio/.-packages/framework%%-%s[^/\\\"]-)/', _G.metadata.framework)
-    -- _G.metadata.framework_root = content:match(pattern)
+    _G.metadata.framework_root = extract_framework_path(content, active_env)
     print(_G.metadata.framework_root)
-    print(pattern)
-    print(content)
     require('nvimpio.pio.metadata').save_project_config(from)
     local cok, decoded = pcall(vim.json.decode, content)
     if cok and apply_metadata(decoded[active_env]) then
