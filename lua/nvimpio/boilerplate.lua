@@ -278,7 +278,11 @@ CompileFlags:
     if ok and type(content) == string and content ~= '' then
       local safe_start_pattern = start_marker:gsub("%-", "%%-")
       local safe_end_pattern = end_marker:gsub("%-", "%%-")
-      content = content:gsub("\n?" .. safe_start_pattern .. ".-" .. safe_end_pattern .. "\n?", "")
+
+      -- content = content:gsub("\n?" .. safe_start_pattern .. ".-" .. safe_end_pattern .. "\n?", "")
+      if content:find(start_marker, 1, true) and content:find(end_marker, 1, true) then
+        content = content:gsub("\n?" .. safe_start_pattern .. ".-" .. safe_end_pattern .. "\n?", "")
+      end
     else content = ''
     end
 
