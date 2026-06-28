@@ -275,29 +275,22 @@ CompileFlags:
     local end_marker   = "# --- NVIM-PIO SESSION END: " .. cache_id .. " ---"
 
     local  ok, content = misc.readFile(cwdClangd)
-    if ok and type(content) == string and content ~= '' then
-      -- local safe_start_pattern = start_marker:gsub("%-", "%%-")
-      -- local safe_end_pattern = end_marker:gsub("%-", "%%-")
-      --
-      -- 1. Use pure plain-text indices (100% immune to pattern over-matching bugs!)
-      local start_idx = content:find(start_marker, 1, true)
-      local end_idx = content:find(end_marker, 1, true)
 
-      -- 2. If this specific project session block exists, slice it out cleanly by indices
-      if start_idx and end_idx then
-        local actual_end = end_idx + #end_marker
-        -- Consume any trailing newline characters following the end marker safely
-        if content:sub(actual_end, actual_end) == "\n" then
-          actual_end = actual_end + 1
-        end
-        -- Glue the text blocks before and after this specific project's sandbox together
-        content = content:sub(1, start_idx - 1) .. content:sub(actual_end)
+    if not ok or type(content) ~= "string" then content = "" end
+
+    -- 1. Use pure plain-text indices (100% immune to pattern over-matching bugs!)
+    local start_idx = content:find(start_marker, 1, true)
+    local end_idx = content:find(end_marker, 1, true)
+
+    -- 2. If this specific project session block exists, slice it out cleanly by indices
+    if start_idx and end_idx then
+      local actual_end = end_idx + #end_marker
+      -- Consume any trailing newline characters following the end marker safely
+      if content:sub(actual_end, actual_end) == "\n" then
+        actual_end = actual_end + 1
       end
-      -- -- content = content:gsub("\n?" .. safe_start_pattern .. ".-" .. safe_end_pattern .. "\n?", "")
-      -- if content:find(start_marker, 1, true) and content:find(end_marker, 1, true) then
-      --   content = content:gsub("\n?" .. safe_start_pattern .. ".-" .. safe_end_pattern .. "\n?", "")
-      -- end
-    else content = ''
+      -- Glue the text blocks before and after this specific project's sandbox together
+      content = content:sub(1, start_idx - 1) .. content:sub(actual_end)
     end
 
     -- A: Force-create an empty default database if missing
