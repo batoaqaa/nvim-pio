@@ -571,7 +571,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
             if cok and apply_metadata(decoded[active_env]) then
             -- if cok and apply_metadata(decoded) then
               OS.notify(from .. 'Metadata synced from download', 'info')
-              _G.metadata.framework = _G.metadata.envs.active_env.framework
+              _G.metadata.framework = _G.metadata.envs[active_env].framework
               local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
               _G.metadata.framework_root = content:match(pattern)
               require('nvimpio.pio.metadata').save_project_config(from)
