@@ -566,8 +566,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
           idok, content = misc.readFile(idedata_file)
           if idok and (content ~= '') then
             local cok, decoded = pcall(vim.json.decode, content)
-            -- if cok and apply_metadata(decoded[active_env]) then
-            if cok and apply_metadata(decoded) then
+            if cok and apply_metadata(decoded[active_env]) then
+            -- if cok and apply_metadata(decoded) then
               OS.notify(from .. 'Metadata synced from download', 'info')
               require('nvimpio.pio.metadata').save_project_config(from)
               fire_callback(true)
@@ -580,8 +580,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
         end
       end)
     end
-    local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
-    -- local idecmd = string.format('pio project metadata -e %s --json-output-path %s', active_env, idedata_file )
+    -- local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
+    local idecmd = string.format('pio project metadata -e %s --json-output-path %s', active_env, idedata_file )
 
     -- local runcmd = string.format('pio run -e %s', active_env)
 

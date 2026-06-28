@@ -6,45 +6,63 @@ local misc = require('nvimpio.utils.misc')
 local clangdRestart = clangd.restart
 
 local function generate_generic_clangd_db()
-  local input_path = vim.fs.joinpath(OS.project_dir, 'compile_commands.json')
+  local source_path = vim.fs.joinpath(OS.project_dir, 'compile_commands.json')
   -- local output_dir = OS.nvimpio_config_dir
   local output_path = OS.clangd_db
 
-  if vim.fn.filereadable(input_path) == 0 then return end
 
-  -- 1. Read the user's raw, pristine compilation database from disk
-  local file = io.open(input_path, "r")
-  if not file then return end
-  local content = file:read("*a")
-  file:close()
+  local uv = vim.uv or vim.loop
+  -- 1. Asynchronously read the original source file from disk
+  uv.fs_open(source_path, "r", 438, function(err, fd_in)
+    if err or not fd_in then return end
 
-  local success, db = pcall(vim.json.decode, content)
-  if not success or type(db) ~= "table" then return end
+    uv.fs_fstat(fd_in, function(err_stat, stat)
+      if err_stat or not stat then uv.fs_close(fd_in) return end
 
-  local cleaned_db = {}
+      uv.fs_read(fd_in, stat.size, 0, function(err_read, data)
+        uv.fs_close(fd_in)
+        if err_read or not data or data == "" then return end
 
-  -- 2. THE CHOSEN PLUGIN ARCHITECTURE:
-  -- We do NOT run loops over flags, tokenize strings, or alter compilation paths.
-  -- We simply drop entries where the tracking target points to an assembly file.
-  -- This keeps your Arduino includes and target compiler flags 100% untouched.
-  for _, entry in ipairs(db) do
-    local filename = entry.file or ""
-    if not (filename:match("%.[sS]$") or filename:match("%.asm$")) then
-      table.insert(cleaned_db, entry)
-    end
-  end
+        -- 2. Decode the JSON array structures safely inside the background pipeline
+        local success, db = pcall(vim.json.decode, data)
+        if not success or type(db) ~= "table" then return end
 
-  -- 3. Export the clean, mirrored database
-  local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
-  if ok and pretty_json then
-    local status, err = misc.writeFile(output_path, pretty_json, {})
-    if status then
-      OS.notify('DB sanitize success', 'info')
-      clangdRestart()
-    else
-      OS.notify('DB sanitize failed==> ' .. (err or 'unknown error'), 'error')
-    end
-  else OS.notify('DB format failed==> ', 'error') end
+        local cleaned_db = {}
+
+        -- High-level row extraction: Filters out ONLY the assembly file paths.
+        -- This leaves your unique includes, architectures, and compiler targets 100% pristine.
+        for _, entry in ipairs(db) do
+          local filename = entry.file or ""
+          if not (filename:match("%.[sS]$") or filename:match("%.asm$")) then
+            table.insert(cleaned_db, entry)
+          end
+        end
+
+        -- 3. Export the clean, mirrored database
+        local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
+        if ok and pretty_json then
+          local status, error = misc.writeFile(output_path, pretty_json, {})
+          if status then
+            OS.notify('DB sanitize success', 'info')
+            clangdRestart()
+          else
+            OS.notify('DB sanitize failed==> ' .. (error or 'unknown error'), 'error')
+          end
+        else OS.notify('DB format failed==> ', 'error') end
+      end)
+    end)
+  end)
+  -- -- 3. Export the clean, mirrored database
+  -- local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
+  -- if ok and pretty_json then
+  --   local status, err = misc.writeFile(output_path, pretty_json, {})
+  --   if status then
+  --     OS.notify('DB sanitize success', 'info')
+  --     clangdRestart()
+  --   else
+  --     OS.notify('DB sanitize failed==> ' .. (err or 'unknown error'), 'error')
+  --   end
+  -- else OS.notify('DB format failed==> ', 'error') end
 end
 
 --INFO:

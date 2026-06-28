@@ -100,17 +100,8 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
-  clangd_config.init_options.fallbackFlags = {
-    "-xc++",
-    "-std=gnu++23",
-    "-U_ASMLANGUAGE",
-    "-U__ASSEMBLY__",
-    "-U__ASSEMBLER__",
-    "-U_ASSEMBLY_"
-  }
-
   -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
-  clangd_config.before_init = function(initialize_params, config)
+  clangd_config.before_init = function(_, _)
     -- Step 1: Parse database into an isolated local table variable first
     if has_pio_diag and pio_diag then
       local filter_db_path = OS.clangd_filter

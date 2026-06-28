@@ -205,6 +205,10 @@ boilerplate['.clangd'] = {
 ---
 CompileFlags:
   Remove: [
+    "-D_ASMLANGUAGE*",
+    "-D__ASSEMBLY__*",
+    "-D__ASSEMBLER__*",
+    "-D_ASSEMBLY_*"
     ]
   Add:  [
     ]
@@ -246,28 +250,13 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: .*\.c
+  PathMatch: [.*\.h, .*\.c]
 CompileFlags:
   Remove: [%s]
   Add: [
     %s
     ]
 
----
-If:
-  PathMatch: .*\.h
-CompileFlags:
-  Remove: [
-    "-std=*",
-    "-D_ASMLANGUAGE*",
-    "-D__ASSEMBLY__*",
-    "-D__ASSEMBLER__*",
-    "-D_ASSEMBLY_*"
-    ]
-  Add: [
-    "-xc",
-    "-std=gnu23"
-    ]
 ]],
   -- Compiler: %s
   boiler = function(self, project_root_param)
