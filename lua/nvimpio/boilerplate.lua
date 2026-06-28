@@ -598,7 +598,6 @@ CompileFlags:
       OS.project_dir,
       _G.metadata.framework_root,
       _G.metadata.toolchain_root,
-      -- ".",
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
       -- _G.metadata.cxx_path,
@@ -621,6 +620,7 @@ CompileFlags:
       content = content .. "\n"
     end
     local final_content = content .. dynamicBlock
+    print(final_content)
 
     -- 4. UNCONDITIONAL DISK WRITER MATRIX
     local read_ok, old_content = misc.readFile(cwdClangd)
