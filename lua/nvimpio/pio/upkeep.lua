@@ -571,12 +571,15 @@ fetch_metadata = function(callback, active_env, from, attempts)
    -- local pattern = string.format('([A-Za-z]:[^/\"]-[/\\]%%.platformio[/\\].-[/\\]packages[/\\]framework%%-%s[^/\\\"]-)[/\\]', _G.metadata.framework)
 -- local pattern = string.format("^(.-framework%%-%s[^/\\\\]*)", _G.metadata.framework)
 
+    local normalized = content:gsub("\\\\", "/")
+    local pattern = string.format('([A-Za-z]:[^"]-/.platformio/.-/packages/framework%%-%s[^"/]-)/', _G.metadata.framework)
+    _G.metadata.framework_root = normalized:match(pattern)
 -- Only use this if you are regex-matching raw text directly out of the file
-local pattern = string.format('([A-Za-z]:[^"]-\\\\\\\\.platformio\\\\\\\\.-\\\\\\\\packages\\\\\\\\framework%%-%s[^"]-)\\\\\\\\', _G.metadata.framework)
+-- local pattern = string.format('([A-Za-z]:[^"]-\\\\\\\\.platformio\\\\\\\\.-\\\\\\\\packages\\\\\\\\framework%%-%s[^"]-)\\\\\\\\', _G.metadata.framework)
 
             -- local pattern = string.format('([A-Za-z]:[^\"]-/%%.platformio/.-packages/framework%%-%s[^/\\\"]-)/', _G.metadata.framework)
-            _G.metadata.framework_root = content:match(pattern)
-            _G.metadata.framework_root = content:match(pattern)
+            -- _G.metadata.framework_root = content:match(pattern)
+            -- _G.metadata.framework_root = content:match(pattern)
             require('nvimpio.pio.metadata').save_project_config(from)
             local cok, decoded = pcall(vim.json.decode, content)
             if cok and apply_metadata(decoded[active_env]) then
@@ -606,14 +609,17 @@ local pattern = string.format('([A-Za-z]:[^"]-\\\\\\\\.platformio\\\\\\\\.-\\\\\
    -- local pattern = string.format('([A-Za-z]:[^/\"]-[/\\]%%.platformio[/\\].-[/\\]packages[/\\]framework%%-%s[^/\\\"]-)[/\\]', _G.metadata.framework)
 -- local pattern = string.format("^(.-framework%%-%s[^/\\\\]*)", _G.metadata.framework)
 -- Only use this if you are regex-matching raw text directly out of the file
-local pattern = string.format('([A-Za-z]:[^"]-\\\\\\\\.platformio\\\\\\\\.-\\\\\\\\packages\\\\\\\\framework%%-%s[^"]-)\\\\\\\\', _G.metadata.framework)
+-- local pattern = string.format('([A-Za-z]:[^"]-\\\\\\\\.platformio\\\\\\\\.-\\\\\\\\packages\\\\\\\\framework%%-%s[^"]-)\\\\\\\\', _G.metadata.framework)
 
+    local normalized = content:gsub("\\\\", "/")
+    local pattern = string.format('([A-Za-z]:[^"]-/.platformio/.-/packages/framework%%-%s[^"/]-)/', _G.metadata.framework)
+    _G.metadata.framework_root = normalized:match(pattern)
 
   -- local pattern_template = [=[([A-Za-z]:[^"]-/%.platformio/.-packages/framework%%-%s[^/"]-)/]=]
   -- local pattern = string.format(pattern_template, _G.metadata.framework)
     -- FIXED SECTION: added ".-" after platformio to safely skip intermediate architecture folders!
     -- local pattern = string.format('([A-Za-z]:[^\"]-/%%.platformio/.-packages/framework%%-%s[^/\\\"]-)/', _G.metadata.framework)
-    _G.metadata.framework_root = content:match(pattern)
+    -- _G.metadata.framework_root = content:match(pattern)
     print(_G.metadata.framework_root)
     print(pattern)
     print(content)
