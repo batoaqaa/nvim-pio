@@ -616,7 +616,7 @@ local pattern = string.format('([A-Za-z]:[^"]-\\\\\\\\.platformio\\\\\\\\.-\\\\\
     _G.metadata.framework_root = content:match(pattern)
     print(_G.metadata.framework_root)
     print(pattern)
-    -- print(content)
+    print(content)
     require('nvimpio.pio.metadata').save_project_config(from)
     local cok, decoded = pcall(vim.json.decode, content)
     if cok and apply_metadata(decoded[active_env]) then
