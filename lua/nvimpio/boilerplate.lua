@@ -243,7 +243,7 @@ CompileFlags:
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
     project_root = vim.fs.normalize(project_root)
 
-    print('here')
+    print('here1')
     local core = require('nvimpio')
     local cwdClangd = OS.clangd_user_file
     -- local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
@@ -255,6 +255,7 @@ CompileFlags:
       vim.fn.mkdir(OS.clangd_user_dir, "p")
     end
 
+    print('here2')
     local cache_id = get_session_cache_id()
     local start_marker = "# --- NVIM-PIO SESSION START: " .. cache_id .. " ---"
     local end_marker   = "# --- NVIM-PIO SESSION END: " .. cache_id .. " ---"
@@ -270,6 +271,7 @@ CompileFlags:
       end
     end
 
+    print('here3')
     -- A: Force-create an empty default database if missing
     local db_exist = vim.uv.fs_stat(filter_db_file)
     if not db_exist then
