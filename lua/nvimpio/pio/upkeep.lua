@@ -566,7 +566,17 @@ fetch_metadata = function(callback, active_env, from, attempts)
           idok, content = misc.readFile(idedata_file)
           if idok and (content ~= '') then
             _G.metadata.framework = _G.metadata.envs[active_env].framework
-            local pattern = string.format('([A-Za-z]:[^\"]-/%%.platformio/.-packages/framework%%-%s[^/\\\"]-)/', _G.metadata.framework)
+
+
+  local pattern_template = [=[([A-Za-z]:[^"]-/%.platformio/.-packages/framework%%-%s[^/"]-)/]=]
+  local pattern = string.format(pattern_template, _G.metadata.framework)
+
+
+
+
+
+
+            -- local pattern = string.format('([A-Za-z]:[^\"]-/%%.platformio/.-packages/framework%%-%s[^/\\\"]-)/', _G.metadata.framework)
             _G.metadata.framework_root = content:match(pattern)
             _G.metadata.framework_root = content:match(pattern)
             require('nvimpio.pio.metadata').save_project_config(from)
@@ -596,8 +606,10 @@ fetch_metadata = function(callback, active_env, from, attempts)
   elseif idok and content and content ~= '' then
     _G.metadata.framework = _G.metadata.envs[active_env].framework
 
+  local pattern_template = [=[([A-Za-z]:[^"]-/%.platformio/.-packages/framework%%-%s[^/"]-)/]=]
+  local pattern = string.format(pattern_template, _G.metadata.framework)
     -- FIXED SECTION: added ".-" after platformio to safely skip intermediate architecture folders!
-    local pattern = string.format('([A-Za-z]:[^\"]-/%%.platformio/.-packages/framework%%-%s[^/\\\"]-)/', _G.metadata.framework)
+    -- local pattern = string.format('([A-Za-z]:[^\"]-/%%.platformio/.-packages/framework%%-%s[^/\\\"]-)/', _G.metadata.framework)
     _G.metadata.framework_root = content:match(pattern)
     print(_G.metadata.framework_root)
     print(pattern)
