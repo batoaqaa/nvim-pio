@@ -345,20 +345,20 @@ function M.configure_hardware_parameters()
   run(1)
 end
 
+
 local function extract_framework_path(raw_json_chunk, active_env)
     -- 1. Convert double-escaped JSON backslashes to forward slashes
     local normalized = raw_json_chunk:gsub("\\\\", "/")
 
-    -- 2. Clean pattern allowing characters (like espressif32) after your framework name
-    local pattern = string.format(
-                         '([A-Za-z]:[^"]-/.platformio/.-/packages/framework%%-%s[^"/]-)/',
-                         _G.metadata.envs[active_env].framework)
+    -- 2. ADDED [^",]- TO PREVENT CROSSING COMMAS INTO PREVIOUS PATHS
+    local pattern = string.format('([A-Za-z]:[^",]-/.platformio/[^",]-/packages/framework%%-%s[^",/]-)/',
+                                  _G.metadata.envs[active_env].framework)
 
-    -- 3. Match and capture the full path
+    -- 3. Match and capture the strict single element path
     local match = normalized:match(pattern)
 
     if match then
-        -- Return backslash formatting for Windows LSP consistency
+        -- Return backslash formatting for Windows consistency
         return match:gsub("/", "\\")
     end
     return nil
