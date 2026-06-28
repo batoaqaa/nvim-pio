@@ -215,7 +215,7 @@ function M.handlePioinit(result, framework, board, on_done)
     -- OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
     boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
     -- boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
-    _G.metadata.framework = framework
+    -- _G.metadata.framework = framework
     boilerplate_gen([[platformio.ini]])
     boilerplate_gen(framework)
     cliTerm:send(pop(M.queue))
@@ -225,11 +225,11 @@ function M.handlePioinit(result, framework, board, on_done)
     -- boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
     -- boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
     cliTerm:hide()
-    if on_done and type(on_done) == "function" then on_done(true) end
+    if on_done and type(on_done) == "function" then on_done(true, framework) end
     -- _G.metadata.active_env = board
     M.cleanSequencer()
   elseif result == 'FAIL' then
-    if on_done and type(on_done) == "function" then on_done(false) end
+    if on_done and type(on_done) == "function" then on_done(false, framework) end
     M.cleanSequencer()
   end
 end
