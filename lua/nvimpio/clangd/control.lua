@@ -100,6 +100,15 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
+  clangd_config.init_options.fallbackFlags = {
+    "-xc++",
+    "-std=gnu++23",
+    "-U_ASMLANGUAGE",
+    "-U__ASSEMBLY__",
+    "-U__ASSEMBLER__",
+    "-U_ASSEMBLY_"
+  }
+
   -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
   clangd_config.before_init = function(initialize_params, config)
     -- Step 1: Parse database into an isolated local table variable first
@@ -123,29 +132,6 @@ function M.getClangdConfig()
     -- Step 2: Refresh your physical configuration files natively last
     local boiler = require('nvimpio.boilerplate')
     if boiler and boiler.boilerplate_gen then pcall(boiler.boilerplate_gen, '.clangd') end
-
-
-    -- 1. Ensure the init_options sub-table exists securely inside the config block
-    if not config.init_options then
-      config.init_options = {
-        clangdFileStatus = true,
-        completeUnimported = true,
-        usePlaceholders = true
-      }
-    end
-
-    -- 2. Inject the modern compilation standards directly into lspconfig's active track.
-    -- This guarantees that the sent JSON payload populates fallbackFlags natively.
-    config.init_options.fallbackFlags = {
-      "-xc++",
-      "-std=gnu++23",
-      "-U_ASMLANGUAGE",
-      "-U__ASSEMBLY__",
-      "-U__ASSEMBLER__",
-      "-U_ASSEMBLY_"
-    }
-
-
   end
 
   -- SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
