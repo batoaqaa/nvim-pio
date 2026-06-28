@@ -600,10 +600,9 @@ fetch_metadata = function(callback, active_env, from, attempts)
     -- FIXED SECTION: added [^/\\\"]- to force Lua to stop searching at the directory boundary mark
     local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^/\\\\\"]-)[/\\\\]", _G.metadata.framework)
     -- local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
-    print(pattern)
-    print(content)
     _G.metadata.framework_root = content:match(pattern)
     print(_G.metadata.framework_root)
+    print(pattern)
     require('nvimpio.pio.metadata').save_project_config(from)
     local cok, decoded = pcall(vim.json.decode, content)
     if cok and apply_metadata(decoded[active_env]) then
