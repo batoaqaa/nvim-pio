@@ -568,9 +568,11 @@ fetch_metadata = function(callback, active_env, from, attempts)
             _G.metadata.framework = _G.metadata.envs[active_env].framework
 
 -- Safe cross-platform Lua pattern
-   local pattern = string.format('([A-Za-z]:[^/\"]-[/\\]%%.platformio[/\\].-[/\\]packages[/\\]framework%%-%s[^/\\\"]-)[/\\]', _G.metadata.framework)
+   -- local pattern = string.format('([A-Za-z]:[^/\"]-[/\\]%%.platformio[/\\].-[/\\]packages[/\\]framework%%-%s[^/\\\"]-)[/\\]', _G.metadata.framework)
 -- local pattern = string.format("^(.-framework%%-%s[^/\\\\]*)", _G.metadata.framework)
 
+-- Only use this if you are regex-matching raw text directly out of the file
+local pattern = string.format('([A-Za-z]:[^"]-\\\\\\\\.platformio\\\\\\\\.-\\\\\\\\packages\\\\\\\\framework%%-%s[^"]-)\\\\\\\\', _G.metadata.framework)
 
             -- local pattern = string.format('([A-Za-z]:[^\"]-/%%.platformio/.-packages/framework%%-%s[^/\\\"]-)/', _G.metadata.framework)
             _G.metadata.framework_root = content:match(pattern)
@@ -601,8 +603,10 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- end
   elseif idok and content and content ~= '' then
     _G.metadata.framework = _G.metadata.envs[active_env].framework
-   local pattern = string.format('([A-Za-z]:[^/\"]-[/\\]%%.platformio[/\\].-[/\\]packages[/\\]framework%%-%s[^/\\\"]-)[/\\]', _G.metadata.framework)
+   -- local pattern = string.format('([A-Za-z]:[^/\"]-[/\\]%%.platformio[/\\].-[/\\]packages[/\\]framework%%-%s[^/\\\"]-)[/\\]', _G.metadata.framework)
 -- local pattern = string.format("^(.-framework%%-%s[^/\\\\]*)", _G.metadata.framework)
+-- Only use this if you are regex-matching raw text directly out of the file
+local pattern = string.format('([A-Za-z]:[^"]-\\\\\\\\.platformio\\\\\\\\.-\\\\\\\\packages\\\\\\\\framework%%-%s[^"]-)\\\\\\\\', _G.metadata.framework)
 
 
   -- local pattern_template = [=[([A-Za-z]:[^"]-/%.platformio/.-packages/framework%%-%s[^/"]-)/]=]
