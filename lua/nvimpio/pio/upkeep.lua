@@ -594,10 +594,11 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- end
   elseif idok and content and content ~= '' then
     print('here')
-    print(_G.metadata.envs[active_env].framework)
     _G.metadata.framework = _G.metadata.envs[active_env].framework
     local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
+    print(pattern)
     _G.metadata.framework_root = content:match(pattern)
+    print(_G.metadata.framework_root)
     require('nvimpio.pio.metadata').save_project_config(from)
     local cok, decoded = pcall(vim.json.decode, content)
     if cok and apply_metadata(decoded[active_env]) then
