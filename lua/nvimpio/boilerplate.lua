@@ -221,7 +221,6 @@ boilerplate['.clangd'] = {
   dynamic = [[
 %s
 ---
----
 If:
   PathMatch: [
     "%s/.*\.(hpp|cpp|cc|cxx)$",
@@ -232,6 +231,7 @@ CompileFlags:
   Remove: [%s]
   Add: [%s]
 
+---
 If:
   PathMatch: [
     "%s/.*\.(c)$",
@@ -242,6 +242,7 @@ CompileFlags:
   Remove: [%s]
   Add: [%s]
 
+---
 If:
   PathMatch: [
     "%s/.*\.(h)$",
