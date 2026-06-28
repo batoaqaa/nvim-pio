@@ -625,7 +625,8 @@ CompileFlags:
       _G.metadata.framework_root,
       _G.metadata.toolchain_root,
       table.concat(formatted_remove, ',\n    '),
-      table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
+      table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
+      -- table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
       -- _G.metadata.cc_path,
       -- '"-std=*"',
       -- table.concat(formattedASSEMBLY, ',\n    '),

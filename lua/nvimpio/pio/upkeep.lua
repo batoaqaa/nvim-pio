@@ -347,21 +347,16 @@ end
 -- ''
 
 local function extract_framework_path(raw_json_chunk, active_env)
-    -- 1. Convert double-escaped JSON backslashes to forward slashes
-    local normalized = raw_json_chunk:gsub("\\\\", "/")
+    -- 1. Unify all path separators to forward slashes first
+    local normalized = raw_json_chunk:gsub("\\\\", "/"):gsub("\\", "/")
 
-    -- 2. ADDED [^",]- TO PREVENT CROSSING COMMAS INTO PREVIOUS PATHS
-    -- local pattern = string.format('([A-Za-z]:[^",]-/.platformio/[^",]-/packages/framework%%-%s[^",/]-)/',
-
+    -- 2. Match from the quote up to the framework folder
     local pattern = string.format('"([^"]-/packages/framework%%-%s[^"/]-)/',
                                   _G.metadata.envs[active_env].framework)
     -- 3. Match and capture the strict single element path
     local match = normalized:match(pattern)
 
-    if match then
-        -- Return backslash formatting for Windows consistency
-        return vim.fs.normalize(match)
-    end
+    if match then return vim.fs.normalize(match) end
     return nil
 end
 
