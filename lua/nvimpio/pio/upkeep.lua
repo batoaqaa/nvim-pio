@@ -534,7 +534,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- ----------------------------------------------------------------
   -- Complete Cache-Hit Evaluation Rule
   local idok, content = misc.readFile(idedata_file)
-  if (not idok) or (content == '') then
+  if (not idok) or not content then
     ------------------------------------------------------------------------------------
     -- STEP 2: Auto-Initialize (If file idedata.json missing)
     ------------------------------------------------------------------------------------
@@ -596,6 +596,11 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- end
   elseif idok and content ~= '' then
     local cok, decoded = pcall(vim.json.decode, content)
+    _G.metadata.framework = _G.metadata.envs[active_env].framework
+    local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
+    _G.metadata.framework_root = content:match(pattern)
+    require('nvimpio.pio.metadata').save_project_config(from)
+
     if cok and apply_metadata(decoded[active_env]) then
       if (from == 'Meta active_env change: ')then
       -- cli

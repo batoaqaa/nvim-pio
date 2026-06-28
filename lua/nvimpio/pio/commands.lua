@@ -6,6 +6,27 @@
 -- +: At least one argument.
 -- -1: Zero or one argument (like ?, explicitly).
 
+-- GARBAGE COLLECTION ENGINE: Wipes the global YAML block completely upon exit
+local misc = require('nvimpio.utils.misc')
+vim.api.nvim_create_autocmd('VimLeavePre', {
+  callback = function()
+    local cache_id = require('nvimpio.boilerplate').get_session_cache_id()
+    local start_marker = '# --- NVIM-PIO SESSION START: ' .. cache_id .. ' ---'
+    local end_marker = '# --- NVIM-PIO SESSION END: ' .. cache_id .. ' ---'
+
+    local cwdClangd = OS.clangd_user_file
+    local ok, content = misc.readFile(cwdClangd)
+    if ok and type(content) == string and content ~= '' then
+      local safe_start_pattern = start_marker:gsub('%-', '%%-')
+      local safe_end_pattern = end_marker:gsub('%-', '%%-')
+      content = content:gsub('\n?' .. safe_start_pattern .. '.-' .. safe_end_pattern .. '\n?', '')
+    end
+    if ok and content then
+      misc.writeFile(cwdClangd, content, {})
+    end
+  end,
+})
+
 -- stylua: ignore start
 local upkeep = require('nvimpio.pio.upkeep')
 local cmd = vim.api.nvim_create_user_command

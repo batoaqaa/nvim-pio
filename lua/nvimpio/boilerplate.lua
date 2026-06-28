@@ -202,7 +202,7 @@ boilerplate['.clangdConfig.json'] = {
 --     ]
 -- UNIQUE SIGNATURE GENERATOR (0ms Lag / Alphanumeric Safe Strings)
 local uv = vim.uv or vim.loop
-local function get_session_cache_id()
+function M.get_session_cache_id()
   local bit = require("bit")
   local hash = 0
   local target_path = OS.project_dir
@@ -223,9 +223,9 @@ boilerplate['.clangd'] = {
 ---
 If:
   PathMatch: [
-    "%s/.*\\.(h|c)$",
-    "%s/.*\\.(h|c)$",
-    "%s/.*\\.(h|c)$"
+    "%s/.*\.(h|c)$",
+    "%s/.*\.(h|c)$",
+    "%s/.*\.(h|c)$"
   ]
 CompileFlags:
   Remove: [%s]
@@ -234,9 +234,9 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    "%s/.*\\.(hpp|cpp|cc|cxx)$",
-    "%s/.*\\.(hpp|cpp|cc|cxx)$",
-    "%s/.*\\.(hpp|cpp|cc|cxx)$"
+    "%s/.*\.(hpp|cpp|cc|cxx)$",
+    "%s/.*\.(hpp|cpp|cc|cxx)$",
+    "%s/.*\.(hpp|cpp|cc|cxx)$"
   ]
 CompileFlags:
   Remove: [%s]
@@ -259,19 +259,15 @@ CompileFlags:
       vim.fn.mkdir(OS.clangd_user_dir, "p")
     end
 
-    local cache_id = get_session_cache_id()
+    local cache_id = M.get_session_cache_id()
     local start_marker = "# --- NVIM-PIO SESSION START: " .. cache_id .. " ---"
     local end_marker   = "# --- NVIM-PIO SESSION END: " .. cache_id .. " ---"
 
-    local ok, content = false, nil
-    content = ''
-    if vim.uv.fs_stat(cwdClangd) then
-      ok, content = misc.readFile(cwdClangd)
-      if ok and content then
-        local safe_start_pattern = start_marker:gsub("%-", "%%-")
-        local safe_end_pattern = end_marker:gsub("%-", "%%-")
-        content = content:gsub("\n?" .. safe_start_pattern .. ".-" .. safe_end_pattern .. "\n?", "")
-      end
+    local  ok, content = misc.readFile(cwdClangd)
+    if ok and type(content) == string and content ~= '' then
+      local safe_start_pattern = start_marker:gsub("%-", "%%-")
+      local safe_end_pattern = end_marker:gsub("%-", "%%-")
+      content = content:gsub("\n?" .. safe_start_pattern .. ".-" .. safe_end_pattern .. "\n?", "")
     end
 
     -- A: Force-create an empty default database if missing
