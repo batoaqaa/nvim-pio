@@ -221,22 +221,32 @@ boilerplate['.clangd'] = {
   dynamic = [[
 %s
 ---
-If:
-  PathMatch: [
-    "%s/.*\.(h|c)$",
-    "%s/.*\.(h|c)$",
-    "%s/.*\.(h|c)$"
-  ]
-CompileFlags:
-  Remove: [%s]
-  Add: [%s]
-
 ---
 If:
   PathMatch: [
     "%s/.*\.(hpp|cpp|cc|cxx)$",
     "%s/.*\.(hpp|cpp|cc|cxx)$",
     "%s/.*\.(hpp|cpp|cc|cxx)$"
+  ]
+CompileFlags:
+  Remove: [%s]
+  Add: [%s]
+
+If:
+  PathMatch: [
+    "%s/.*\.(c)$",
+    "%s/.*\.(c)$",
+    "%s/.*\.(c)$"
+  ]
+CompileFlags:
+  Remove: [%s]
+  Add: [%s]
+
+If:
+  PathMatch: [
+    "%s/.*\.(h)$",
+    "%s/.*\.(h)$",
+    "%s/.*\.(h)$"
   ]
 CompileFlags:
   Remove: [%s]
@@ -601,15 +611,19 @@ CompileFlags:
       _G.metadata.framework_root,
       _G.metadata.toolchain_root,
       table.concat(formatted_remove, ',\n    '),
-      table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
-      -- _G.metadata.cxx_path,
-      -- '"-std=*"',
-      -- table.concat(formattedASSEMBLY, ',\n    '),
+      table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
+
       OS.project_dir,
       _G.metadata.framework_root,
       _G.metadata.toolchain_root,
       table.concat(formatted_remove, ',\n    '),
-      table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
+      table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
+
+      OS.project_dir,
+      _G.metadata.framework_root,
+      _G.metadata.toolchain_root,
+      table.concat(formatted_remove, ',\n    '),
+      table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
       -- _G.metadata.cc_path,
       -- '"-std=*"',
       -- table.concat(formattedASSEMBLY, ',\n    '),
