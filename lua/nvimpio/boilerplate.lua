@@ -205,7 +205,8 @@ local uv = vim.uv or vim.loop
 local function get_session_cache_id()
   local hash = 0
   for i = 1, #OS.project_dir do
-    hash = (hash * 31 + M.root:byte(i)) & 0xFFFFFFFF
+    -- hash = (hash * 31 + M.root:byte(i)) & 0xFFFFFFFF
+    hash = bit.band(hash * 31 + M.root:byte(i), 0xFFFFFFFF)
   end
   local pid = uv.os_getpid and uv.os_getpid() or uv.getpid()
   return string.format("%x_%d", hash, pid)
