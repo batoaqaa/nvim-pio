@@ -344,14 +344,15 @@ function M.configure_hardware_parameters()
 
   run(1)
 end
-
+''
 
 local function extract_framework_path(raw_json_chunk, active_env)
     -- 1. Convert double-escaped JSON backslashes to forward slashes
     local normalized = raw_json_chunk:gsub("\\\\", "/")
 
     -- 2. ADDED [^",]- TO PREVENT CROSSING COMMAS INTO PREVIOUS PATHS
-    local pattern = string.format('([A-Za-z]:[^",]-/.platformio/[^",]-/packages/framework%%-%s[^",/]-)/',
+    -- local pattern = string.format('([A-Za-z]:[^",]-/.platformio/[^",]-/packages/framework%%-%s[^",/]-)/',
+    local pattern = string.format('"([^"]-/packages/framework%%-%s[^"/]-)/',
                                   _G.metadata.envs[active_env].framework)
 
     -- 3. Match and capture the strict single element path
