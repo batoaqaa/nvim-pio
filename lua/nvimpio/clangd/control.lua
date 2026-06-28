@@ -91,8 +91,8 @@ function M.getClangdConfig()
   if count <= 2 then
     -- merged_json = string.format(json_config or '', q_driver)
     -- merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ','))
-    -- merged_json = string.format(json_config or '', OS.project_dir, q_driver)
-    merged_json = string.format(json_config or '', OS.nvimpio_config_dir, q_driver)
+    merged_json = string.format(json_config or '', OS.project_dir, q_driver)
+    -- merged_json = string.format(json_config or '', OS.nvimpio_config_dir, q_driver)
   end
 
   -- 'decode' converts JSON string -> Lua table
@@ -101,7 +101,7 @@ function M.getClangdConfig()
   if not tok then return nil end
 
   -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
-  clangd_config.before_init = function(_, _)
+  clangd_config.before_init = function(initialize_params, config)
     -- Step 1: Parse database into an isolated local table variable first
     if has_pio_diag and pio_diag then
       local filter_db_path = OS.clangd_filter
@@ -123,6 +123,26 @@ function M.getClangdConfig()
     -- Step 2: Refresh your physical configuration files natively last
     local boiler = require('nvimpio.boilerplate')
     if boiler and boiler.boilerplate_gen then pcall(boiler.boilerplate_gen, '.clangd') end
+
+
+    -- 1. Ensure the initialization options block table exists securely
+    if not initialize_params.initializationOptions then
+      initialize_params.initializationOptions = {}
+    end
+
+    -- 2. Inject fallback flags directly into the early startup memory payload.
+    -- When clangd text-matches a loose header to an assembly command track, 
+    -- these parameters force the engine to safely undefine the blocker macros 
+    -- and parse the file as a modern C/C++ translation unit context.
+    initialize_params.initializationOptions.fallbackFlags = {
+      "-xc++",
+      "-std=gnu++23",
+      "-U_ASMLANGUAGE",
+      "-U__ASSEMBLY__",
+      "-U__ASSEMBLER__",
+      "-U_ASSEMBLY_"
+    }
+
   end
 
   -- SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
