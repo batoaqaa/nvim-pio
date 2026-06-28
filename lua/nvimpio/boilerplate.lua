@@ -248,7 +248,6 @@ CompileFlags:
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
     project_root = vim.fs.normalize(project_root)
 
-    print('here1')
     local core = require('nvimpio')
     local cwdClangd = OS.clangd_user_file
     -- local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
@@ -260,12 +259,10 @@ CompileFlags:
       vim.fn.mkdir(OS.clangd_user_dir, "p")
     end
 
-    print('here2')
     local cache_id = get_session_cache_id()
     local start_marker = "# --- NVIM-PIO SESSION START: " .. cache_id .. " ---"
     local end_marker   = "# --- NVIM-PIO SESSION END: " .. cache_id .. " ---"
 
-    print('here3')
     local ok, content = false, nil
     content = ''
     if vim.uv.fs_stat(cwdClangd) then
@@ -599,7 +596,6 @@ CompileFlags:
     --------------------- end .clangd formattedHppAdd section ---------------------------------
 
 
-    print('here')
     vim.list_extend(formatted_remove, formattedASSEMBLY)
     -- 3. Run a clean, single-pass string format for dynamicBlock
     dynamicBlock = string.format(
@@ -630,7 +626,6 @@ CompileFlags:
       content = content .. "\n"
     end
     local final_content = content .. dynamicBlock
-    print(final_content)
 
     -- 4. UNCONDITIONAL DISK WRITER MATRIX
     local read_ok, old_content = misc.readFile(cwdClangd)
