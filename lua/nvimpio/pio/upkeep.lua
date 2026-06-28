@@ -565,16 +565,14 @@ fetch_metadata = function(callback, active_env, from, attempts)
           -- else fire_callback(false) end
           idok, content = misc.readFile(idedata_file)
           if idok and (content ~= '') then
-
-
+            _G.metadata.framework = _G.metadata.envs[active_env].framework
+            local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
+            _G.metadata.framework_root = content:match(pattern)
+            require('nvimpio.pio.metadata').save_project_config(from)
             local cok, decoded = pcall(vim.json.decode, content)
             if cok and apply_metadata(decoded[active_env]) then
             -- if cok and apply_metadata(decoded) then
               OS.notify(from .. 'Metadata synced from download', 'info')
-              _G.metadata.framework = _G.metadata.envs[active_env].framework
-              local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
-              _G.metadata.framework_root = content:match(pattern)
-              require('nvimpio.pio.metadata').save_project_config(from)
               fire_callback(true)
               return true
             end
@@ -595,6 +593,12 @@ fetch_metadata = function(callback, active_env, from, attempts)
     -- require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, runcmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
   -- end
   elseif idok and content ~= '' then
+    print('here')
+    print(_G.metadata.envs[active_env].framework)
+    _G.metadata.framework = _G.metadata.envs[active_env].framework
+    local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
+    _G.metadata.framework_root = content:match(pattern)
+    require('nvimpio.pio.metadata').save_project_config(from)
     local cok, decoded = pcall(vim.json.decode, content)
     if cok and apply_metadata(decoded[active_env]) then
       if (from == 'Meta active_env change: ')then
@@ -637,12 +641,6 @@ fetch_metadata = function(callback, active_env, from, attempts)
         end
       end
 
-      print('here')
-      print(_G.metadata.envs[active_env].framework)
-      _G.metadata.framework = _G.metadata.envs[active_env].framework
-      local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
-      _G.metadata.framework_root = content:match(pattern)
-      require('nvimpio.pio.metadata').save_project_config(from)
       OS.notify(from .. 'Metadata synced from cache', 'info')
       require('nvimpio.pio.metadata').save_project_config(from)
       fire_callback(true)
