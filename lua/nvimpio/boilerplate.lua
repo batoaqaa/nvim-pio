@@ -590,6 +590,7 @@ CompileFlags:
     --------------------- end .clangd formattedHppAdd section ---------------------------------
 
 
+    print('here')
     vim.list_extend(formatted_remove, formattedASSEMBLY)
     -- 3. Run a clean, single-pass string format for dynamicBlock
     dynamicBlock = string.format(
