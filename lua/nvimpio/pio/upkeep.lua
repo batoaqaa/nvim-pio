@@ -352,9 +352,9 @@ local function extract_framework_path(raw_json_chunk, active_env)
 
     -- 2. ADDED [^",]- TO PREVENT CROSSING COMMAS INTO PREVIOUS PATHS
     -- local pattern = string.format('([A-Za-z]:[^",]-/.platformio/[^",]-/packages/framework%%-%s[^",/]-)/',
+
     local pattern = string.format('"([^"]-/packages/framework%%-%s[^"/]-)/',
                                   _G.metadata.envs[active_env].framework)
-
     -- 3. Match and capture the strict single element path
     local match = normalized:match(pattern)
 
