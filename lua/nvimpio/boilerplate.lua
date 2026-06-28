@@ -223,9 +223,9 @@ boilerplate['.clangd'] = {
 ---
 If:
   PathMatch: [
-    "%s/.*\.(hpp|cpp|cc|cxx)$",
-    "%s/.*\.(hpp|cpp|cc|cxx)$",
-    "%s/.*\.(hpp|cpp|cc|cxx)$"
+    '%s/.*\.(hpp|cpp|cc|cxx)$',
+    '%s/.*\.(hpp|cpp|cc|cxx)$',
+    '%s/.*\.(hpp|cpp|cc|cxx)$'
   ]
 CompileFlags:
   Remove: [%s]
@@ -234,9 +234,9 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    "%s/.*\.(c)$",
-    "%s/.*\.(c)$",
-    "%s/.*\.(c)$"
+    '%s/.*\.(c)',
+    '%s/.*\.(c)',
+    '%s/.*\.(c)'
   ]
 CompileFlags:
   Remove: [%s]
@@ -245,9 +245,9 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    "%s/.*\.(h)$",
-    "%s/.*\.(h)$",
-    "%s/.*\.(h)$"
+    '%s/.*\.(h)$',
+    '%s/.*\.(h)$',
+    '%s/.*\.(h)$'
   ]
 CompileFlags:
   Remove: [%s]
