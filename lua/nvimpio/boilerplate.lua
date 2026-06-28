@@ -203,14 +203,34 @@ boilerplate['.clangdConfig.json'] = {
 -- UNIQUE SIGNATURE GENERATOR (0ms Lag / Alphanumeric Safe Strings)
 local uv = vim.uv or vim.loop
 local function get_session_cache_id()
+  local bit = require("bit")
   local hash = 0
-  for i = 1, #OS.project_dir do
-    -- hash = (hash * 31 + M.root:byte(i)) & 0xFFFFFFFF
-    hash = bit.band(hash * 31 + M.root:byte(i), 0xFFFFFFFF)
+
+  -- CENTRALIZED VARIABLE TRACK: We look at OS.project_dir uniformly
+  local target_path = OS.project_dir
+
+  for i = 1, #target_path do
+    local byte = target_path:byte(i)
+    -- bit.tobit forces the intermediate math to stay inside a stable 32-bit integer workspace
+    -- This prevents floating-point truncation crashes during massive multiplications
+    hash = bit.tobit(hash * 31 + byte)
   end
+
+  -- Force the final output representation into a clean, unsigned 32-bit hex layout string
+  local final_hash = bit.band(hash, 0xFFFFFFFF)
   local pid = uv.os_getpid and uv.os_getpid() or uv.getpid()
-  return string.format("%x_%d", hash, pid)
+
+  return string.format("%x_%d", final_hash, pid)
 end
+-- local function get_session_cache_id()
+--   local hash = 0
+--   for i = 1, #OS.project_dir do
+--     -- hash = (hash * 31 + M.root:byte(i)) & 0xFFFFFFFF
+--     hash = bit.band(hash * 31 + M.root:byte(i), 0xFFFFFFFF)
+--   end
+--   local pid = uv.os_getpid and uv.os_getpid() or uv.getpid()
+--   return string.format("%x_%d", hash, pid)
+-- end
 
 boilerplate['.clangd'] = {
   dynamic = [[
