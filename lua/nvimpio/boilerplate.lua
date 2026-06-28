@@ -260,6 +260,7 @@ CompileFlags:
     local start_marker = "# --- NVIM-PIO SESSION START: " .. cache_id .. " ---"
     local end_marker   = "# --- NVIM-PIO SESSION END: " .. cache_id .. " ---"
 
+    print('here3')
     local ok, content = false, nil
     content = ''
     if vim.uv.fs_stat(cwdClangd) then
@@ -271,7 +272,6 @@ CompileFlags:
       end
     end
 
-    print('here3')
     -- A: Force-create an empty default database if missing
     local db_exist = vim.uv.fs_stat(filter_db_file)
     if not db_exist then
