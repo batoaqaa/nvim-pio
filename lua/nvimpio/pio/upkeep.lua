@@ -359,7 +359,7 @@ local function extract_framework_path(raw_json_chunk, active_env)
 
     if match then
         -- Return backslash formatting for Windows consistency
-        return match:gsub("/", "\\")
+        return vim.fs.normalize(match)
     end
     return nil
 end
