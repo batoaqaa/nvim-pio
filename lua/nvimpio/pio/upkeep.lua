@@ -567,15 +567,13 @@ fetch_metadata = function(callback, active_env, from, attempts)
           if idok and (content ~= '') then
 
 
-            local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
-            -- We safely separate the backslash matching tokens from the raw Lua long bracket boundaries
-            -- local pattern = string.format([[([A-Za-z]:[^"]-[/\]%%.platformio[/\]packages[/\]framework%%-]] .. "%s" .. [[[^"]-)[/\]]], _G.metadata.framework)
-            -- local pattern = string.format([[([A-Za-z]:[^"]-[/\]%%.platformio[/\]packages[/\]framework%%-%s[^"]-)[/\]], _G.metadata.framework)
-            _G.metadata.framework_root = content:match(pattern)
             local cok, decoded = pcall(vim.json.decode, content)
             if cok and apply_metadata(decoded[active_env]) then
             -- if cok and apply_metadata(decoded) then
               OS.notify(from .. 'Metadata synced from download', 'info')
+              _G.metadata.framework = _G.metadata.envs.active_env.framework
+              local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
+              _G.metadata.framework_root = content:match(pattern)
               require('nvimpio.pio.metadata').save_project_config(from)
               fire_callback(true)
               return true

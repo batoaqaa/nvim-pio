@@ -123,12 +123,8 @@ function M.setup(user_opts)
     require('nvimpio.core').ensure_toolchain_active(
       function(success)
         if success then
-          require('nvimpio.pio.ui.pioInit').pioInit(function(done, framework)
-            if done then
-              framework = framework or ''
-              M.activate()
-              _G.metadata.framework = framework
-            end
+          require('nvimpio.pio.ui.pioInit').pioInit(function(done)
+            if done then M.activate() end
           end)
         else
         end

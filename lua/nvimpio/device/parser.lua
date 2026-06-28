@@ -225,11 +225,11 @@ function M.handlePioinit(result, framework, board, on_done)
     -- boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
     -- boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
     cliTerm:hide()
-    if on_done and type(on_done) == "function" then on_done(true, framework) end
+    if on_done and type(on_done) == "function" then on_done(true) end
     -- _G.metadata.active_env = board
     M.cleanSequencer()
   elseif result == 'FAIL' then
-    if on_done and type(on_done) == "function" then on_done(false, framework) end
+    if on_done and type(on_done) == "function" then on_done(false) end
     M.cleanSequencer()
   end
 end
