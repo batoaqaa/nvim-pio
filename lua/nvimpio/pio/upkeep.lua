@@ -566,7 +566,9 @@ fetch_metadata = function(callback, active_env, from, attempts)
           idok, content = misc.readFile(idedata_file)
           if idok and (content ~= '') then
             _G.metadata.framework = _G.metadata.envs[active_env].framework
-            local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
+            -- FIXED SECTION: added [^/\\\"]- to force Lua to stop searching at the directory boundary mark
+            local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^/\\\\\"]-)[/\\\\]", _G.metadata.framework)
+            -- local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
             _G.metadata.framework_root = content:match(pattern)
             require('nvimpio.pio.metadata').save_project_config(from)
             local cok, decoded = pcall(vim.json.decode, content)
@@ -594,7 +596,10 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- end
   elseif idok and content and content ~= '' then
     _G.metadata.framework = _G.metadata.envs[active_env].framework
-    local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
+
+    -- FIXED SECTION: added [^/\\\"]- to force Lua to stop searching at the directory boundary mark
+    local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^/\\\\\"]-)[/\\\\]", _G.metadata.framework)
+    -- local pattern = string.format("([A-Za-z]:[^\"]-[/\\\\]%%.platformio[/\\\\]packages[/\\\\]framework%%-%s[^\"]-)[/\\\\]", _G.metadata.framework)
     print(pattern)
     print(content)
     _G.metadata.framework_root = content:match(pattern)
