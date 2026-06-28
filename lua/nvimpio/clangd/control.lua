@@ -125,16 +125,18 @@ function M.getClangdConfig()
     if boiler and boiler.boilerplate_gen then pcall(boiler.boilerplate_gen, '.clangd') end
 
 
-    -- 1. Ensure the initialization options block table exists securely
-    if not initialize_params.initializationOptions then
-      initialize_params.initializationOptions = {}
+    -- 1. Ensure the init_options sub-table exists securely inside the config block
+    if not config.init_options then
+      config.init_options = {
+        clangdFileStatus = true,
+        completeUnimported = true,
+        usePlaceholders = true
+      }
     end
 
-    -- 2. Inject fallback flags directly into the early startup memory payload.
-    -- When clangd text-matches a loose header to an assembly command track, 
-    -- these parameters force the engine to safely undefine the blocker macros 
-    -- and parse the file as a modern C/C++ translation unit context.
-    initialize_params.initializationOptions.fallbackFlags = {
+    -- 2. Inject the modern compilation standards directly into lspconfig's active track.
+    -- This guarantees that the sent JSON payload populates fallbackFlags natively.
+    config.init_options.fallbackFlags = {
       "-xc++",
       "-std=gnu++23",
       "-U_ASMLANGUAGE",
@@ -142,6 +144,7 @@ function M.getClangdConfig()
       "-U__ASSEMBLER__",
       "-U_ASSEMBLY_"
     }
+
 
   end
 
