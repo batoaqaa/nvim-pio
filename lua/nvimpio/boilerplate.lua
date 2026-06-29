@@ -353,6 +353,7 @@ CompileFlags:
 
     -- extract flags out of cc_defines, cxx_defines and cc_flags, cxx_flags
     local function compileDefines(flagsFile, compiler_defines, compiler_flags)
+      flagsFile= vim.fs.joinpath(OS.nvimpio_config_dir, _G.metadata.active_env,  flagsFile)
       local final_flags_content = ''
       if target_meta then
         -- --INFO: 🔍 TRACE LOGGING: Record successful dynamic extraction parameters
@@ -506,8 +507,8 @@ CompileFlags:
       end
       misc.writeFile(flagsFile, final_flags_content, {})
     end
-    compileDefines(OS.cxx_flags, _G.metadata.cxx_defines, _G.metadata.cxx_flags)
-    compileDefines(OS.cc_flags, _G.metadata.cc_defines, _G.metadata.cc_flags)
+    compileDefines('.clangdCXXFlags.txt', _G.metadata.cxx_defines, _G.metadata.cxx_flags)
+    compileDefines('.clangdCCFlags.txt', _G.metadata.cc_defines, _G.metadata.cc_flags)
     --------------------- end .clangd response file -----------------------------
 
     ------------------------------------------------------------------------------
