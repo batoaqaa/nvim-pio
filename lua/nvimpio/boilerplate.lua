@@ -167,33 +167,24 @@ boilerplate['.clangd'] = {
   dynamic = [[
 %s
 ---
+# *.cpp
 If:
   PathMatch: [
-    '%s/.*\.(hpp|cpp|cc|cxx)$',
-    '%s/.*\.(hpp|cpp|cc|cxx)$',
-    '%s/.*\.(hpp|cpp|cc|cxx)$'
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$'
   ]
 CompileFlags:
   Remove: [%s]
   Add: [%s]
 
 ---
+# *.c
 If:
   PathMatch: [
-    '%s/.*\.(c)$',
-    '%s/.*\.(c)$',
-    '%s/.*\.(c)$'
-  ]
-CompileFlags:
-  Remove: [%s]
-  Add: [%s]
-
----
-If:
-  PathMatch: [
-    '%s/.*\.(h)$',
-    '%s/.*\.(h)$',
-    '%s/.*\.(h)$'
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$'
   ]
 CompileFlags:
   Remove: [%s]
@@ -561,30 +552,33 @@ CompileFlags:
     --------------------- end .clangd formattedHppAdd section ---------------------------------
 
 
+    local is_cpp = is_cpp_project()
+
+    local cpp_extensions = is_cpp and "hpp|cpp|cc|cxx|h" or "hpp|cpp|cc|cxx"
+    local c_extensions   = is_cpp and "c" or "c|h"
     vim.list_extend(formatted_remove, formattedASSEMBLY)
     -- 3. Run a clean, single-pass string format for dynamicBlock
     dynamicBlock = string.format(
       self.dynamic,
       start_marker,
       OS.project_dir,
+      cpp_extensions,
       _G.metadata.framework_root,
+      cpp_extensions,
       _G.metadata.toolchain_root,
+      cpp_extensions,
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
 
       OS.project_dir,
+      c_extensions,
       _G.metadata.framework_root,
+      c_extensions,
       _G.metadata.toolchain_root,
+      c_extensions,
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
 
-      OS.project_dir,
-      _G.metadata.framework_root,
-      _G.metadata.toolchain_root,
-      table.concat(formatted_remove, ',\n    '),
-      -- table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
-      is_cpp_project() and table.concat(formattedCxxAdd, ',\n    ')
-                       or table.concat(formattedCcAdd, ',\n    '),
       -- table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
       -- table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
       end_marker

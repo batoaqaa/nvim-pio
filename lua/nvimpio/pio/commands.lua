@@ -8,7 +8,6 @@
 
 vim.api.nvim_create_autocmd('VimLeavePre', {
   callback = function()
-    local cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16)
     local global_path = OS.clangd_user_file
     if vim.fn.filereadable(global_path) == 0 then
       return
@@ -20,6 +19,7 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
     local content = file_read:read('*a')
     file_read:close()
 
+    local cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16)
     local start_marker = '# --- NVIM-PIO SESSION START: ' .. cache_id .. ' ---'
     local end_marker = '# --- NVIM-PIO SESSION END: ' .. cache_id .. ' ---'
 
