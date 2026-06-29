@@ -7,7 +7,7 @@ local last_saved_hash = ''
 --INFO:
 -- stylua: ignore start
 -------------------------------------------------------------------------------
-local function removeFromPath(path_to_remove)
+function M.removeFromPath(path_to_remove)
   if not path_to_remove or path_to_remove == '' then return end
 
   -- 1. Standardize the path we want to delete using Neovim's built-in normalizer
@@ -87,96 +87,89 @@ _G.metadata = setmetatable({}, {
   __index = _pio_metadata,
   __newindex = function(_, key, value)
     -- Guard: Skip execution if the new value is identical to the current state
-    if key == 'active_env' then
-      OS.nvimpio_env_dir = vim.fs.joinpath(OS.nvimpio_config_dir, value)
-    end
+    if key == 'active_env' then OS.nvimpio_env_dir = vim.fs.joinpath(OS.nvimpio_config_dir, value) end
     if _pio_metadata[key] == value then return end -- Performance check
     -- print('Newindex attempt for: ' .. tostring(key)) -- DEBUG LINE
-    local oldValue = _pio_metadata[key]
+    -- local oldValue = _pio_metadata[key]
     _pio_metadata[key] = value
+    -------------------------------------------------------------------------------
+    -------------------------------------------------------------------------------
+    if key == 'active_env' then
+      local from = 'Meta active_env change: '
 
-    -- Trigger background actions
-    -- vim.schedule(function()
-      -- M.save_project_config(true)
-      -------------------------------------------------------------------------------
-      if key == 'toolchain_root' then
-        local from = 'Meta PATH env: '
-        local binPath = value .. '/bin'
-
-        local oldPath = oldValue .. '/bin'
-        removeFromPath(oldPath)
-        removeFromPath(OS.project_dir)
-        -- local end_time = vim.loop.hrtime()
-        -- local duration = (end_time - start_time) / 1e6
-        -- OS.notify(string.format('%s %s removed from path in %.2fms', from, oldPath, duration), 'info')
-        OS.notify(string.format('%s %s removed from path', from, oldPath), 'info')
-
-        vim.env.PATH = binPath .. OS.path_sep .. vim.env.PATH
-        -- vim.env.PATH = OS.project_dir .. OS.path_sep .. vim.env.PATH
-        -- vim.env.PLATFORMIO_BUILD_FLAGS="-std=gnu23 -std=gnu++23"
-        OS.notify(string.format('%s %s added to path',from, binPath), 'info')
-
-        -- ----------------------------- Trace ----------------------------------------
-        -- -- 1. Grab the current execution stack call trace
-        -- local trace = debug.traceback()
-        --
-        -- -- 2. Format a highly detailed visual report string
-        -- local log_msg = string.format(
-        --   "\n=================== PIO TRACE: isBusy changed ===================\n" ..
-        --   "Time: %s\n" ..
-        --   "Mutation: %s -> %s\n" ..
-        --   "Call Stack:\n%s\n" ..
-        --   "===============================================================\n",
-        --   os.date("%Y-%m-%d %H:%M:%S"),
-        --   tostring(oldValue),
-        --   tostring(value),
-        --   trace
-        -- )
-        --
-        -- -- 3. CHOOSE AN OUTPUT TARGET:
-        --
-        -- -- Option A: Print directly to Neovim's system logs (Read via typing :messages)
-        -- vim.schedule(function() print(log_msg) end)
-        --
-        -- -- Option B: Write to a dedicated file in your project directory (Recommended!)
-        -- -- local log_file_path = vim.fn.stdpath("data") .. "/pio_isBusy_trace.log"
-        -- -- local file = io.open(log_file_path, "a")
-        -- -- if file then
-        -- --   file:write(log_msg)
-        -- --   file:close()
-        -- -- end
-        -- -------------------------------------------------------------------------------
-      -------------------------------------------------------------------------------
-      elseif key == 'active_env' then
-        local from = 'Meta active_env change: '
-
-        OS.notify("in active_env change")
-        -- local pio = require('nvimpio.pio.upkeep')
-        local active_env, metadata = M.get_active_env(from)
-        if active_env and active_env ~= '' then
-          metadata = metadata or {}
-          _pio_metadata.core_dir = metadata.core_dir
-          _pio_metadata.packages_dir = metadata.packages_dir
-          _pio_metadata.platforms_dir = metadata.platforms_dir
-          _pio_metadata.default_envs = metadata.default_envs
-          _pio_metadata.envs = metadata.envs
-        end
-
-        vim.schedule(function()
-          _G.isBusy = true
-          local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-          pio_refresh(function(suscess)
-            if (suscess) then
-              do end
-              -- require('nvimpio.clangd.control').getUnknownArgsCli(from)
-            end
-            _G.isBusy = false
-          end, from)
-          vim.cmd('redrawstatus')
-        end)
-      -- elseif key == 'last_projectChecksum' then
+      OS.notify("in active_env change")
+      -- local pio = require('nvimpio.pio.upkeep')
+      local active_env, metadata = M.get_active_env(from)
+      if active_env and active_env ~= '' then
+        metadata = metadata or {}
+        _pio_metadata.core_dir = metadata.core_dir
+        _pio_metadata.packages_dir = metadata.packages_dir
+        _pio_metadata.platforms_dir = metadata.platforms_dir
+        _pio_metadata.default_envs = metadata.default_envs
+        _pio_metadata.envs = metadata.envs
       end
-    -- end)
+
+      vim.schedule(function()
+        _G.isBusy = true
+        local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+        pio_refresh(function(suscess)
+          if (suscess) then
+            do end
+            -- require('nvimpio.clangd.control').getUnknownArgsCli(from)
+          end
+          _G.isBusy = false
+        end, from)
+        vim.cmd('redrawstatus')
+      end)
+    -- elseif key == 'last_projectChecksum' then
+    -- elseif key == 'toolchain_root' then
+    --   local from = 'Meta PATH env: '
+    --   local binPath = value .. '/bin'
+    --
+    --   local oldPath = oldValue .. '/bin'
+    --   M.removeFromPath(oldPath)
+    --   M.removeFromPath(OS.project_dir)
+    --   -- local end_time = vim.loop.hrtime()
+    --   -- local duration = (end_time - start_time) / 1e6
+    --   -- OS.notify(string.format('%s %s removed from path in %.2fms', from, oldPath, duration), 'info')
+    --   OS.notify(string.format('%s %s removed from path', from, oldPath), 'info')
+    --
+    --   vim.env.PATH = binPath .. OS.path_sep .. vim.env.PATH
+    --   -- vim.env.PATH = OS.project_dir .. OS.path_sep .. vim.env.PATH
+    --   -- vim.env.PLATFORMIO_BUILD_FLAGS="-std=gnu23 -std=gnu++23"
+    --   OS.notify(string.format('%s %s added to path',from, binPath), 'info')
+    --
+    --   -- ----------------------------- Trace ----------------------------------------
+    --   -- -- 1. Grab the current execution stack call trace
+    --   -- local trace = debug.traceback()
+    --   --
+    --   -- -- 2. Format a highly detailed visual report string
+    --   -- local log_msg = string.format(
+    --   --   "\n=================== PIO TRACE: isBusy changed ===================\n" ..
+    --   --   "Time: %s\n" ..
+    --   --   "Mutation: %s -> %s\n" ..
+    --   --   "Call Stack:\n%s\n" ..
+    --   --   "===============================================================\n",
+    --   --   os.date("%Y-%m-%d %H:%M:%S"),
+    --   --   tostring(oldValue),
+    --   --   tostring(value),
+    --   --   trace
+    --   -- )
+    --   --
+    --   -- -- 3. CHOOSE AN OUTPUT TARGET:
+    --   --
+    --   -- -- Option A: Print directly to Neovim's system logs (Read via typing :messages)
+    --   -- vim.schedule(function() print(log_msg) end)
+    --   --
+    --   -- -- Option B: Write to a dedicated file in your project directory (Recommended!)
+    --   -- -- local log_file_path = vim.fn.stdpath("data") .. "/pio_isBusy_trace.log"
+    --   -- -- local file = io.open(log_file_path, "a")
+    --   -- -- if file then
+    --   -- --   file:write(log_msg)
+    --   -- --   file:close()
+    --   -- -- end
+    --   -- -------------------------------------------------------------------------------
+    end
   end,
 })
 
@@ -251,20 +244,18 @@ function M.load_project_config()
   local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
   local idok, content = misc.readFile(idedata_file)
   if idok and (content ~= '') then
-    -- _G.metadata.framework_root = extract_framework_path(content, active_env)
+    _G.metadata.framework_root = require('nvimpio.pio.upkeep').extract_framework_path(content, active_env)
+    _G.isBusy = true
     local cok, decoded = pcall(vim.json.decode, content)
     if cok and require('nvimpio.pio.upkeep').apply_metadata(decoded[active_env], active_env) then
-      do end
+      _G.isBusy = false
     end
   else
     vim.schedule(function()
       _G.isBusy = true
       local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
       pio_refresh(function(suscess)
-        if (suscess) then
-          do end
-          -- require('nvimpio.clangd.control').getUnknownArgsCli(from)
-        end
+        if (suscess) then do end end
         _G.isBusy = false
       end, 'Project load: ')
       vim.cmd('redrawstatus')

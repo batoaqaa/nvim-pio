@@ -72,8 +72,17 @@ function M.get_sysroot_triplet(cc_compiler)
   -- local query_driver = vim.fs.normalize(toolchain_root .. '/**/' .. triplet .. '*')
 
   _G.metadata.triplet = triplet
-  _G.metadata.toolchain_root = toolchain_root
   _G.metadata.query_driver = query_driver
+
+  _G.metadata.toolchain_root = toolchain_root
+  local from = 'get_sysroot'
+  local oldPath = _G.metadata.toolchain_root .. '/bin'
+  require('nvimpio.pio.metadata').removeFromPath(oldPath)
+  -- require('nvimpio.pio.metadata').removeFromPath(OS.project_dir)
+  OS.notify(string.format('%s %s removed from path', from, oldPath), 'info')
+  vim.env.PATH = bin_path .. OS.path_sep .. vim.env.PATH
+  -- vim.env.PATH = OS.project_dir .. OS.path_sep .. vim.env.PATH
+  OS.notify(string.format('%s %s added to path',from, bin_path), 'info')
 
   -- sysroot folder is expected to have the same name as the triplet
   local sysroot = vim.fs.joinpath(toolchain_root, triplet)
