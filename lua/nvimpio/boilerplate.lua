@@ -411,7 +411,7 @@ CompileFlags:
         end
         -- phase B: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL (compiler_defines, compiler_flags and pio_defines)
         local define_pools = {
-          -- compiler_defines,  -- GENERIC compiler target defines
+          compiler_defines,  -- GENERIC compiler target defines
           compiler_flags,    -- compiler flags
           target_meta.pio_defines,  -- board macro defines
         }
@@ -471,8 +471,8 @@ CompileFlags:
       end
       misc.writeFile(flagsFile, final_flags_content, {})
     end
-    compileDefines(OS.cxx_flags, _G.metadata.cxx_defines, _G.metadata.cxx_flags)
-    compileDefines(OS.cc_flags, _G.metadata.cc_defines, _G.metadata.cc_flags)
+    -- compileDefines(OS.cxx_flags, _G.metadata.cxx_defines, _G.metadata.cxx_flags)
+    -- compileDefines(OS.cc_flags, _G.metadata.cc_defines, _G.metadata.cc_flags)
     --------------------- end .clangd response file -----------------------------
 
     ------------------------------------------------------------------------------
