@@ -74,10 +74,10 @@ function M.get_sysroot_triplet(cc_compiler)
   _G.metadata.triplet = triplet
   _G.metadata.query_driver = query_driver
 
-  _G.metadata.toolchain_root = toolchain_root
-  local from = 'get_sysroot'
   local oldPath = (_G.metadata.toolchain_root or '') .. '/bin'
+  _G.metadata.toolchain_root = toolchain_root
 
+  local from = 'get_sysroot'
   -- require('nvimpio.pio.metadata').removeFromPath(OS.project_dir)
   require('nvimpio.pio.metadata').removeFromPath(oldPath)
   OS.notify(string.format('%s %s removed from path', from, oldPath), 'info')
