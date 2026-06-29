@@ -251,15 +251,15 @@ function M.load_project_config()
   -- end
 
 
-  local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
-  local idok, content = misc.readFile(idedata_file)
-  if idok and (content ~= '') then
-    -- _G.metadata.framework_root = extract_framework_path(content, active_env)
-    local cok, decoded = pcall(vim.json.decode, content)
-    if cok and require('nvimpio.pio.upkeep').apply_metadata(decoded[active_env], active_env) then
-      do end
-    end
-  end
+  -- local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
+  -- local idok, content = misc.readFile(idedata_file)
+  -- if idok and (content ~= '') then
+  --   -- _G.metadata.framework_root = extract_framework_path(content, active_env)
+  --   local cok, decoded = pcall(vim.json.decode, content)
+  --   if cok and require('nvimpio.pio.upkeep').apply_metadata(decoded[active_env], active_env) then
+  --     do end
+  --   end
+  -- end
 
 
 
