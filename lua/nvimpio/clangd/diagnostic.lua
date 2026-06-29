@@ -6,7 +6,6 @@ M.manual_blocked_codes = M.manual_blocked_codes or {}
 M.removed_flags = M.removed_flags or {}
 M.session_discovered_codes = M.session_discovered_codes or {}
 
-local filter_db_path = OS.clangd_filter --get_db_path(absolute_file_path)
 -- ===================================================================
 -- 📁  1. SELF-HEALING ENGINE: Seeds a default configuration template if missing
 -- ===================================================================
@@ -116,7 +115,7 @@ end
 -- end
 
 function M.unknownArgs()
-  -- local filter_db_path = OS.clangd_filter --get_db_path(project_root)
+  local filter_db_path = OS.clangd_filter --get_db_path(project_root)
   local current_blocked = parse_db_file_pure(filter_db_path)
 
   local f = io.open(filter_db_path, 'wb')
@@ -139,7 +138,7 @@ end
 -- ========================================================================
 function M.clean_file_path_pipeline(diagnostics)
   if not diagnostics or #diagnostics == 0 then return diagnostics end
-  -- local filter_db_path = OS.clangd_filter --get_db_path(absolute_file_path)
+  local filter_db_path = OS.clangd_filter --get_db_path(absolute_file_path)
 
   -- Pure localized read ensures we only check blocks configured for THIS project folder
   local manual_blocked = parse_db_file_pure(filter_db_path)
@@ -202,7 +201,7 @@ end
 -- ===================================================================
 function M.manage_file_diagnostics_interactive(state_override)
   local bufnr = vim.api.nvim_get_current_buf()
-  -- local filter_db_path = OS.clangd_filter --get_db_path(bufnr)
+  local filter_db_path = OS.clangd_filter --get_db_path(bufnr)
 
   -- 🟢 SELF-HEALING INTERCEPTION: Guarantee the database file is active before memory tracking maps populate
   ensure_default_db_exists(filter_db_path)
