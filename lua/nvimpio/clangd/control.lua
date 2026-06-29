@@ -104,7 +104,7 @@ function M.getClangdConfig()
   clangd_config.before_init = function(_, _)
     -- Step 1: Parse database into an isolated local table variable first
     if has_pio_diag and pio_diag then
-      local filter_db_path = OS.clangd_filter
+      local filter_db_path = vim.fs.joinpath(OS.nvimpio_env_dir, OS.clangd_filter)
       local f = io.open(filter_db_path, 'r')
       if f then
         local raw = f:read('*a')

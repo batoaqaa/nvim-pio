@@ -205,7 +205,7 @@ CompileFlags:
     local cwdClangd = OS.clangd_user_file
     -- local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
     local coreClangd = vim.fs.joinpath(core.config.pio_storage_dir, '.clangd')
-    local filter_db_file = OS.clangd_filter
+    local filter_db_file = vim.fs.joinpath(OS.nvimpio_env_dir,OS.clangd_filter)
     local dynamicBlock = ''
 
     if vim.fn.isdirectory(OS.clangd_user_dir) == 0 then
@@ -353,7 +353,7 @@ CompileFlags:
 
     -- extract flags out of cc_defines, cxx_defines and cc_flags, cxx_flags
     local function compileDefines(flagsFile, compiler_defines, compiler_flags)
-      flagsFile= vim.fs.joinpath(OS.nvimpio_config_dir, _G.metadata.active_env,  flagsFile)
+      flagsFile= vim.fs.joinpath(OS.nvimpio_env_dir, flagsFile)
       local final_flags_content = ''
       if target_meta then
         -- --INFO: 🔍 TRACE LOGGING: Record successful dynamic extraction parameters

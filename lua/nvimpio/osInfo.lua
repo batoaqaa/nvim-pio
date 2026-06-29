@@ -42,7 +42,7 @@ local nvimpioConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
 ---@field bin_dir string
 ---@field project_dir string
 ---@field clangd_filter string
----@field clangdfilter string
+---@field nvimpio_env_dir string
 ---@field clangd_config string
 ---@field clangd_db string
 ---@field cc_flags string
@@ -80,8 +80,7 @@ local os_info = {
   cache_dir = vim.fn.stdpath('cache'),
   bin_dir = is_win and "Scripts" or "bin",
   project_dir = vim.fs.normalize(projectDir),
-  clangd_filter = '',
-  clangdfilter = '.clangdFilter.json',
+  clangd_filter = '.clangdFilter.json',
   clangd_config = vim.fs.joinpath(nvimpioConfigDir, '.clangdConfig.json'),
   clangd_db = vim.fs.joinpath(nvimpioConfigDir, 'compile_commands.json'),
   clangd_user_dir = vim.fs.normalize(clangd_user_dir),
@@ -90,6 +89,7 @@ local os_info = {
   cxx_flags = '.clangdCXXFlags.txt',
   project_config = vim.fs.joinpath(nvimpioConfigDir, '.projectConfig.json'),
   nvimpio_config_dir = vim.fs.normalize(nvimpioConfigDir),
+  nvimpio_env_dir = '',
   shell = OS.is_win and {
     'pwsh.exe',
     '-NoExit',
@@ -108,10 +108,8 @@ local os_info = {
   notify = function(msg, level)
     -- vim.log = { levels = { TRACE = 0, DEBUG = 1, INFO = 2, WARN = 3, ERROR = 4, OFF = 5, }, }
     local string_to_level = {
-      info = vim.log.levels.INFO,
-      warn = vim.log.levels.WARN,
-      error = vim.log.levels.ERROR,
-      debug = vim.log.levels.DEBUG,
+      info = vim.log.levels.INFO, warn = vim.log.levels.WARN,
+      error = vim.log.levels.ERROR, debug = vim.log.levels.DEBUG,
     }
     if type(level) == 'string' then level = string_to_level[level:lower()] end
 
@@ -127,12 +125,9 @@ local os_info = {
   ---@return boolean
   pioReady = function()
     if _pioReady then return true end
-
     -- local local_pio_executable = target_bin .. OS.folder_sep .. (OS.is_win and 'pio.exe' or 'pio')
     if vim.fn.executable('pio') ~= 1 then return false end
-
     local ok, obj = pcall(function() return vim.system({ 'pio', '--version' }):wait() end)
-
     if ok and obj and obj.code == 0 then
       _pioReady = true
       return true
@@ -147,7 +142,7 @@ setmetatable(OS, {
   __newindex = function(_, key, value)
     if os_info[key] ~= nil then
       if os_info[key] == value then return end -- Performance check
-      if key == 'clangd_filter' then
+      if key == 'nvimpio_env_dir' then
         os_info[key] = value
       end
     else
