@@ -461,10 +461,10 @@ function M.apply_metadata(data, active_env)
   -- M.get_sysroot_triplet(meta.cxx_path)
   pcall(M.get_sysroot_triplet, meta.cxx_path)
 
-  -- -- 5. Flags & Defines
-  -- meta.cc_flags = map_list(data.cc_flags)
-  -- meta.cxx_flags = map_list(data.cxx_flags)
-  -- meta.pio_defines = map_list(data.defines)
+  -- 5. Flags & Defines
+  meta.cc_flags = map_list(data.cc_flags)
+  meta.cxx_flags = map_list(data.cxx_flags)
+  meta.pio_defines = map_list(data.defines)
 
   -- -- 6. Includes (Completely automated and isolated)
   -- local inc = data.includes or {}
