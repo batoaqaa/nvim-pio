@@ -136,9 +136,7 @@ local function is_cpp_project()
   -- A. Check explicit framework metadata states first
   if _G.metadata and _G.metadata.envs then
     local fw = _G.metadata.envs[_G.metadata.active_env].framework:lower()
-    if fw:find("arduino", 1, true) or fw:find("mbed", 1, true) then
-      return true
-    end
+    if fw:find("arduino", 1, true) or fw:find("mbed", 1, true) then return true end
   end
 
   local db_path = OS.project_dir .. "/compile_commands.json"
@@ -148,8 +146,7 @@ local function is_cpp_project()
   local is_cpp = false
   local line_count = 0
 
-  -- B. HIGH-PERFORMANCE LINE ITERATOR SCANNERS:
-  -- Streams lines sequentially. It drops out the moment a match resolves, 
+  -- B.Streams lines sequentially. It drops out the moment a match resolves, 
   -- maximizing speed while preventing huge memory allocations.
   for line in f:lines() do
     line_count = line_count + 1
@@ -169,7 +166,6 @@ local function is_cpp_project()
       end
     end
   end
-
   f:close()
   return is_cpp
 end
@@ -178,7 +174,6 @@ boilerplate['.clangd'] = {
   dynamic = [[
 %s
 ---
-# *.cpp
 If:
   PathMatch: [
     '%s/.*\.(%s)$',
@@ -190,7 +185,6 @@ CompileFlags:
   Add: [%s]
 
 ---
-# *.c
 If:
   PathMatch: [
     '%s/.*\.(%s)$',
@@ -567,7 +561,8 @@ CompileFlags:
 
     local cpp_extensions = is_cpp and "hpp|cpp|cc|cxx|h" or "hpp|cpp|cc|cxx"
     local c_extensions   = is_cpp and "c" or "c|h"
-    vim.list_extend(formatted_remove, formattedASSEMBLY)
+    -- vim.list_extend(formatted_remove, formattedASSEMBLY)
+
     -- 3. Run a clean, single-pass string format for dynamicBlock
     dynamicBlock = string.format(
       self.dynamic,
