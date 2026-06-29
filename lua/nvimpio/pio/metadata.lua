@@ -73,7 +73,6 @@ local _pio_metadata = {
   gdb_path = '',
   pio_defines = {},
   triplet = '',
-  framework = '',
   framework_root = '',
   toolchain_root = '',
   sysroot = '',

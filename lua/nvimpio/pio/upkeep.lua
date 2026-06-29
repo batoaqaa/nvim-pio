@@ -587,6 +587,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
             -- _G.metadata.framework_root = content:match(pattern)
             local cok, decoded = pcall(vim.json.decode, content)
             if cok and apply_metadata(decoded[active_env]) then
+              local ok, pretty_json = pcall(misc.jsonFormat, decoded)
+              if ok then misc.writeFile(idedata_file, pretty_json, {}) end
               require('nvimpio.pio.metadata').save_project_config(from)
               OS.notify(from .. 'Metadata synced from download', 'info')
               fire_callback(true)
@@ -653,6 +655,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
       end
 
       OS.notify(from .. 'Metadata synced from cache', 'info')
+      -- local ok, pretty_json = pcall(misc.jsonFormat, decoded)
+      -- if ok then misc.writeFile(idedata_file, pretty_json, {}) end
       require('nvimpio.pio.metadata').save_project_config(from)
       fire_callback(true)
       return true
