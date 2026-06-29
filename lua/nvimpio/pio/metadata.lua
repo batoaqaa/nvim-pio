@@ -88,6 +88,9 @@ _G.metadata = setmetatable({}, {
   __index = _pio_metadata,
   __newindex = function(_, key, value)
     -- Guard: Skip execution if the new value is identical to the current state
+    if key == 'active_env' then
+      OS.clangd_filter = vim.fs.joinpath(OS.nvimpio_config_dir, value, OS.clangdfilter)
+    end
     if _pio_metadata[key] == value then return end -- Performance check
     -- print('Newindex attempt for: ' .. tostring(key)) -- DEBUG LINE
     local oldValue = _pio_metadata[key]
