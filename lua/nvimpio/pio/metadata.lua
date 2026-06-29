@@ -182,8 +182,18 @@ local config_path = OS.project_config  --vim.fs.joinpath(project_root, '.nvimpio
 -------------------------------------------------------------------------------
 function M.save_project_config(from)
   local misc = require('nvimpio.utils.misc')
+  local projectData = {}
+  projectData.envs = _G.metadata.envs
+  projectData.active_env = _G.metadata.active_env
+  projectData.default_envs = _G.metadata.default_envs
+  projectData.penv_dir = _G.metadata.penv_dir
+  projectData.core_dir = _G.metadata.core_dir
+  projectData.packages_dir = _G.metadata.packages_dir
+  projectData.platforms_dir = _G.metadata.platforms_dir
+  projectData.port_parameters = _G.metadata.port_parameters
+
   -- 1. Generate the formatted string directly, jsonFormat already returns a string!
-  local ok, pretty_json = pcall(misc.jsonFormat, _G.metadata)
+  local ok, pretty_json = pcall(misc.jsonFormat, projectData)
 
   if not ok or not pretty_json then
     OS.notify('Error formatting metadata', 'error')
@@ -215,10 +225,9 @@ function M.load_project_config()
       local ok, table_data = pcall(vim.json.decode, json_data)
       if ok and type(table_data) == 'table' then
         for k, v in pairs(table_data) do
-          -- _G.metadata[k] = v
-          -- _pio_metadata[k] = v
-          if k == 'toolchain_root' then _G.metadata[k] = v
-          else _pio_metadata[k] = v end
+          _pio_metadata[k] = v
+          -- if k == 'toolchain_root' then _G.metadata[k] = v
+          -- else _pio_metadata[k] = v end
         end
         last_saved_hash = vim.fn.sha256(json_data)
         -- return
