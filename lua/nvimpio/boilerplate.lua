@@ -145,22 +145,33 @@ local function is_cpp_project()
   local f = io.open(db_path, "r")
   if not f then return false end
 
-  -- B. MICRO-STREAM DETECTOR: Read only the first 8KB of data block
-  local chunk = f:read(8192) or ""
-  f:close()
+  local is_cpp = false
+  local line_count = 0
 
-  -- C. STRUCTURAL META-KEY SEARCH:
-  -- We search explicitly for the JSON "file" value definition mapping.
-  -- This ignores directory path names, string comments, or nested flags entirely, 
-  -- ensuring 100% precision for pure C frameworks and mixed C++ applications alike!
-  if chunk:find('"file"%s*:%s*"[^"]-%.cpp"') or
-     chunk:find('"file"%s*:%s*"[^"]-%.hpp"') or
-     chunk:find('"file"%s*:%s*"[^"]-%.cc"')  or
-     chunk:find('"file"%s*:%s*"[^"]-%.cxx"') then
-    return true
+  -- B. HIGH-PERFORMANCE LINE ITERATOR SCANNERS:
+  -- Streams lines sequentially. It drops out the moment a match resolves, 
+  -- maximizing speed while preventing huge memory allocations.
+  for line in f:lines() do
+    line_count = line_count + 1
+
+    -- Safety throttle boundary check: If we read 300 lines and find zero real C++ entries,
+    -- this is green-lit as a pure C workspace. Break out to maintain 0ms lag!
+    if line_count > 300 then break end
+
+    -- Check if the line maps to an explicit compilation file path property key
+    if line:find('"file"') then
+      -- THE PLATFORMIO DUMMY MASK: Explicitly ignore synthetic compiler primer targets
+      if not (line:find("__dummy") or line:find("_bare_module")) then
+        if line:find("%.cpp") or line:find("%.hpp") or line:find("%.cc") or line:find("%.cxx") then
+          is_cpp = true
+          break
+        end
+      end
+    end
   end
 
-  return false
+  f:close()
+  return is_cpp
 end
 
 boilerplate['.clangd'] = {
