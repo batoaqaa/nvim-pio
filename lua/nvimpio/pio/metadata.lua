@@ -256,7 +256,7 @@ function M.load_project_config()
   if idok and (content ~= '') then
     -- _G.metadata.framework_root = extract_framework_path(content, active_env)
     local cok, decoded = pcall(vim.json.decode, content)
-    if cok and M.apply_metadata(decoded[active_env], active_env) then
+    if cok and require('nvimpio.pio.upkeep').apply_metadata(decoded[active_env], active_env) then
       do end
     end
   end
