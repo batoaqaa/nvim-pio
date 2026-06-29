@@ -346,7 +346,7 @@ function M.configure_hardware_parameters()
 end
 -- ''
 
-local function extract_framework_path(raw_json_chunk, active_env)
+function M.extract_framework_path(raw_json_chunk, active_env)
     -- 1. Unify all path separators to forward slashes first
     local normalized = raw_json_chunk:gsub("\\\\", "/"):gsub("\\", "/")
 
@@ -360,6 +360,169 @@ local function extract_framework_path(raw_json_chunk, active_env)
     return nil
 end
 
+
+
+function M.apply_metadata(data, active_env)
+  local meta = _G.metadata
+  if not data then return false end
+
+  -- Cache the project workspace root path cleanly
+  local project_root = vim.g.platformioRootDir or vim.uv.cwd() or '.'
+  local norm_project_root = vim.fs.normalize(project_root) or ''
+
+  local norm = function(p) return vim.fs.normalize(p) or '' end
+
+  -- 1. HIGH-PERFORMANCE LIST MAPPER: Optimized for raw strings (Flags & Defines)
+  local map_list = function(list)
+    local res = {}
+    for _, v in ipairs(list or {}) do
+      -- Direct assignment is faster than string.format('%s', v) in LuaJIT
+      table.insert(res, v)
+    end
+    return res
+  end
+
+  -- 2. RIGID WORKSPACE INCLUDE PATH SORTER (Zero Naming Assumptions)
+  local map_includes = function(list)
+    local res = {}
+    for _, v in ipairs(list or {}) do
+      local clean_path = norm(v)
+      if clean_path ~= "" then
+        -- DETERMINISTIC RULE LAYER:
+        -- Check if the include path physically initiates inside your active project directory tree
+        local is_under_project = clean_path:sub(1, #norm_project_root) == norm_project_root
+        -- Check if it belongs to the temporary downloaded vendor packages registry folder
+        local is_managed_lib = clean_path:match("%.pio/libdeps")
+        -- If it's outside your projecto repo, or inside the downloaded library cache, it's third-party!
+        -- Unlike -I, the -isystem flag requires a separator (space or =) in clangd configuration files to parse correctly.
+        local prefix = (not is_under_project or is_managed_lib) and "-isystem " or "-I"
+        -- local prefix = (not is_under_project or is_managed_lib) and "-I" or "-I"
+        -- Direct concatenation optimization
+        table.insert(res, prefix .. clean_path)
+      end
+    end
+    return res
+  end
+
+  -- 3. Get PlatformIO project libdep includes paths
+  local function get_libdeps_includes(root_path, board)
+    if not root_path or not board then return {}, {} end
+
+    local base_dir = vim.fs.joinpath(root_path, ".pio", "libdeps", board)
+    if vim.fn.isdirectory(base_dir) == 0 then return {}, {} end
+
+    local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge })
+    local flat_libs = {}
+    local nested_libs = {}
+
+    for _, src_path in ipairs(src_dirs) do
+      local normalized_path = vim.fs.normalize(src_path)
+
+      -- INSTANT GENERIC CHECK: Scan ONLY the first layer of the directory (no slow recursive loops)
+      local is_nested = false
+      local handle = vim.uv.fs_scandir(normalized_path)
+
+      if handle then
+        while true do
+          local name, type_str = vim.uv.fs_scandir_next(handle)
+          if not name then break end
+
+          -- If it contains even one sub-folder, treat it as a nested library path
+          if type_str == "directory" then is_nested = true break end
+        end
+      end
+
+      -- Sort the paths into their perfect configuration streams
+      if is_nested then table.insert(nested_libs, "-I" .. normalized_path)
+      else table.insert(flat_libs, "-isystem " .. normalized_path) end
+    end
+
+    -- return flat_libs, nested_libs
+    return nested_libs
+  end
+
+  -- 4. Base Paths & Compilers
+  meta.cc_path = norm(data.cc_path)
+  meta.cxx_path = norm(data.cxx_path)
+  meta.gdb_path = norm(data.gdb_path)
+  -- M.get_sysroot_triplet(meta.cxx_path)
+  pcall(M.get_sysroot_triplet, meta.cxx_path)
+
+  -- 5. Flags & Defines
+  meta.cc_flags = map_list(data.cc_flags)
+  meta.cxx_flags = map_list(data.cxx_flags)
+  meta.pio_defines = map_list(data.defines)
+
+  -- 6. Includes (Completely automated and isolated)
+  local inc = data.includes or {}
+  meta.includes_build = map_includes(inc.build)
+  meta.includes_toolchain = map_includes(inc.toolchain)
+  meta.includes_compatlib = map_includes(inc.compatlib)
+  -- meta.includes_libdeps = map_includes(get_pio_includes(project_root, active_env))
+  meta.includes_libdeps = get_libdeps_includes(project_root, active_env)
+  --
+
+  -- --🟢  keep for later if to deal with cxx_flags
+  -- if _G.metadata and type(_G.metadata.cxx_flags) == 'table' then
+  --   local boiler = require('nvimpio.boilerplate')
+  --   local pio_diag = require('nvimpio.clangd.diagnostic')
+  --
+  --   local flags_updated = false
+  --
+  --   -- Loop through every compiler flag supplied by idedata.json
+  --   for _, flag in ipairs(_G.metadata.cxx_flags) do
+  --     if type(flag) == 'string' then
+  --       -- Rule A: It's an architecture machine directive flag (e.g., -mlongcalls)
+  --       local is_machine_directive = flag:match('^%-m[%w%-]+')
+  --
+  --       -- Rule B: It's a heavy compiler loop/optimization tweak (e.g., -fno-tree-switch-conversion)
+  --       local is_problematic_opt = flag:match('^%-fno%-tree%-') or flag:match('^%-fno%-jump%-')
+  --
+  --       if (is_machine_directive or is_problematic_opt) and not pio_diag.removed_flags[flag] then
+  --         -- Permanently register the flag inside your plugin's dynamic databases
+  --         pio_diag.removed_flags[flag] = true
+  --         flags_updated = true
+  --       end
+  --     end
+  --   end
+  --
+  --   -- Trigger your boilerplate writer to output the updated .clangd file to disk instantly
+  --   if flags_updated and boiler.boilerplate_gen then
+  --     pcall(boiler.boilerplate_gen, '.clangd', project_root)
+  --
+  --     -- Save the newly tracked flags down to your .filter.json file
+  --     local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
+  --     local f = io.open(filter_db_path, 'wb')
+  --     if f then
+  --       local payload = { codes = pio_diag.manual_blocked_codes, flags = pio_diag.removed_flags }
+  --       f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+  --       f:close()
+  --     end
+  --   end
+  -- end
+
+  -- Set up file paths
+  local build_dir = vim.fs.joinpath(vim.uv.cwd(), '.pio', 'build')
+  -- local build_env_dir = vim.fs.joinpath(build_dir, active_env)
+  local checksum_file = vim.fs.joinpath(build_dir, 'project.checksum')
+  -- Secure the validation signature token right after creation succeeds
+  local read_ok, fresh_checksum = misc.readFile(checksum_file)
+  if read_ok and fresh_checksum ~= '' and fresh_checksum ~= meta.last_projectChecksum then
+    meta.last_projectChecksum = fresh_checksum
+    OS.notify('checksum change ', 'info')
+  end
+
+  vim.schedule(function()
+    local boiler = require('nvimpio.boilerplate')
+    if boiler and boiler.boilerplate_gen then
+      -- pcall(boiler.boilerplate_gen, '.clangd', project_root, 'upkeep')
+      pcall(boiler.boilerplate_gen, '.clangd', 'upkeep')
+    end
+  end)
+  return true
+end
+
+
 --=============================================================================
 --INFO:get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
@@ -368,12 +531,11 @@ fetch_metadata = function(callback, active_env, from, attempts)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
   attempts = tonumber(attempts) or 1
-  local meta = _G.metadata
+  -- local meta = _G.metadata
 
-  -- Set up file paths
-  local build_dir = vim.fs.joinpath(vim.uv.cwd(), '.pio', 'build')
+  -- -- Set up file paths
+  -- local build_dir = vim.fs.joinpath(vim.uv.cwd(), '.pio', 'build')
   -- local build_env_dir = vim.fs.joinpath(build_dir, active_env)
-  local checksum_file = vim.fs.joinpath(build_dir, 'project.checksum')
   -- local idedata_file = vim.fs.joinpath(build_env_dir, 'idedata.json')
   local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
 
@@ -385,160 +547,160 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
   --INFO:INTERNAL PROCESSOR: Applies parsed data to _G.metadata
   ---------------------------------------------------------
-  local function apply_metadata(data)
-    if not data then return false end
-
-    -- Cache the project workspace root path cleanly
-    local project_root = vim.g.platformioRootDir or vim.uv.cwd() or '.'
-    local norm_project_root = vim.fs.normalize(project_root) or ''
-
-    local norm = function(p) return vim.fs.normalize(p) or '' end
-
-    -- 1. HIGH-PERFORMANCE LIST MAPPER: Optimized for raw strings (Flags & Defines)
-    local map_list = function(list)
-      local res = {}
-      for _, v in ipairs(list or {}) do
-        -- Direct assignment is faster than string.format('%s', v) in LuaJIT
-        table.insert(res, v)
-      end
-      return res
-    end
-
-    -- 2. RIGID WORKSPACE INCLUDE PATH SORTER (Zero Naming Assumptions)
-    local map_includes = function(list)
-      local res = {}
-      for _, v in ipairs(list or {}) do
-        local clean_path = norm(v)
-        if clean_path ~= "" then
-          -- DETERMINISTIC RULE LAYER:
-          -- Check if the include path physically initiates inside your active project directory tree
-          local is_under_project = clean_path:sub(1, #norm_project_root) == norm_project_root
-          -- Check if it belongs to the temporary downloaded vendor packages registry folder
-          local is_managed_lib = clean_path:match("%.pio/libdeps")
-          -- If it's outside your projecto repo, or inside the downloaded library cache, it's third-party!
-          -- Unlike -I, the -isystem flag requires a separator (space or =) in clangd configuration files to parse correctly.
-          local prefix = (not is_under_project or is_managed_lib) and "-isystem " or "-I"
-          -- local prefix = (not is_under_project or is_managed_lib) and "-I" or "-I"
-          -- Direct concatenation optimization
-          table.insert(res, prefix .. clean_path)
-        end
-      end
-      return res
-    end
-
-    -- 3. Get PlatformIO project libdep includes paths
-    local function get_libdeps_includes(root_path, board)
-      if not root_path or not board then return {}, {} end
-
-      local base_dir = vim.fs.joinpath(root_path, ".pio", "libdeps", board)
-      if vim.fn.isdirectory(base_dir) == 0 then return {}, {} end
-
-      local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge })
-      local flat_libs = {}
-      local nested_libs = {}
-
-      for _, src_path in ipairs(src_dirs) do
-        local normalized_path = vim.fs.normalize(src_path)
-
-        -- INSTANT GENERIC CHECK: Scan ONLY the first layer of the directory (no slow recursive loops)
-        local is_nested = false
-        local handle = vim.uv.fs_scandir(normalized_path)
-
-        if handle then
-          while true do
-            local name, type_str = vim.uv.fs_scandir_next(handle)
-            if not name then break end
-
-            -- If it contains even one sub-folder, treat it as a nested library path
-            if type_str == "directory" then is_nested = true break end
-          end
-        end
-
-        -- Sort the paths into their perfect configuration streams
-        if is_nested then table.insert(nested_libs, "-I" .. normalized_path)
-        else table.insert(flat_libs, "-isystem " .. normalized_path) end
-      end
-
-      -- return flat_libs, nested_libs
-      return nested_libs
-    end
-
-    -- 4. Base Paths & Compilers
-    meta.cc_path = norm(data.cc_path)
-    meta.cxx_path = norm(data.cxx_path)
-    meta.gdb_path = norm(data.gdb_path)
-    -- M.get_sysroot_triplet(meta.cxx_path)
-    pcall(M.get_sysroot_triplet, meta.cxx_path)
-
-    -- 5. Flags & Defines
-    meta.cc_flags = map_list(data.cc_flags)
-    meta.cxx_flags = map_list(data.cxx_flags)
-    meta.pio_defines = map_list(data.defines)
-
-    -- 6. Includes (Completely automated and isolated)
-    local inc = data.includes or {}
-    meta.includes_build = map_includes(inc.build)
-    meta.includes_toolchain = map_includes(inc.toolchain)
-    meta.includes_compatlib = map_includes(inc.compatlib)
-    -- meta.includes_libdeps = map_includes(get_pio_includes(project_root, active_env))
-    meta.includes_libdeps = get_libdeps_includes(project_root, active_env)
-    --
-
-    -- --🟢  keep for later if to deal with cxx_flags
-    -- if _G.metadata and type(_G.metadata.cxx_flags) == 'table' then
-    --   local boiler = require('nvimpio.boilerplate')
-    --   local pio_diag = require('nvimpio.clangd.diagnostic')
-    --
-    --   local flags_updated = false
-    --
-    --   -- Loop through every compiler flag supplied by idedata.json
-    --   for _, flag in ipairs(_G.metadata.cxx_flags) do
-    --     if type(flag) == 'string' then
-    --       -- Rule A: It's an architecture machine directive flag (e.g., -mlongcalls)
-    --       local is_machine_directive = flag:match('^%-m[%w%-]+')
-    --
-    --       -- Rule B: It's a heavy compiler loop/optimization tweak (e.g., -fno-tree-switch-conversion)
-    --       local is_problematic_opt = flag:match('^%-fno%-tree%-') or flag:match('^%-fno%-jump%-')
-    --
-    --       if (is_machine_directive or is_problematic_opt) and not pio_diag.removed_flags[flag] then
-    --         -- Permanently register the flag inside your plugin's dynamic databases
-    --         pio_diag.removed_flags[flag] = true
-    --         flags_updated = true
-    --       end
-    --     end
-    --   end
-    --
-    --   -- Trigger your boilerplate writer to output the updated .clangd file to disk instantly
-    --   if flags_updated and boiler.boilerplate_gen then
-    --     pcall(boiler.boilerplate_gen, '.clangd', project_root)
-    --
-    --     -- Save the newly tracked flags down to your .filter.json file
-    --     local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
-    --     local f = io.open(filter_db_path, 'wb')
-    --     if f then
-    --       local payload = { codes = pio_diag.manual_blocked_codes, flags = pio_diag.removed_flags }
-    --       f:write(require('nvimpio.utils.misc').jsonFormat(payload))
-    --       f:close()
-    --     end
-    --   end
-    -- end
-
-    -- Secure the validation signature token right after creation succeeds
-    local read_ok, fresh_checksum = misc.readFile(checksum_file)
-    if read_ok and fresh_checksum ~= '' and fresh_checksum ~= meta.last_projectChecksum then
-      meta.last_projectChecksum = fresh_checksum
-      OS.notify('checksum change ', 'info')
-    end
-
-    vim.schedule(function()
-      local boiler = require('nvimpio.boilerplate')
-      if boiler and boiler.boilerplate_gen then
-        -- pcall(boiler.boilerplate_gen, '.clangd', project_root, 'upkeep')
-        pcall(boiler.boilerplate_gen, '.clangd', 'upkeep')
-      end
-    end)
-    return true
-  end
+  -- local function apply_metadata(data)
+  --   if not data then return false end
+  --
+  --   -- Cache the project workspace root path cleanly
+  --   local project_root = vim.g.platformioRootDir or vim.uv.cwd() or '.'
+  --   local norm_project_root = vim.fs.normalize(project_root) or ''
+  --
+  --   local norm = function(p) return vim.fs.normalize(p) or '' end
+  --
+  --   -- 1. HIGH-PERFORMANCE LIST MAPPER: Optimized for raw strings (Flags & Defines)
+  --   local map_list = function(list)
+  --     local res = {}
+  --     for _, v in ipairs(list or {}) do
+  --       -- Direct assignment is faster than string.format('%s', v) in LuaJIT
+  --       table.insert(res, v)
+  --     end
+  --     return res
+  --   end
+  --
+  --   -- 2. RIGID WORKSPACE INCLUDE PATH SORTER (Zero Naming Assumptions)
+  --   local map_includes = function(list)
+  --     local res = {}
+  --     for _, v in ipairs(list or {}) do
+  --       local clean_path = norm(v)
+  --       if clean_path ~= "" then
+  --         -- DETERMINISTIC RULE LAYER:
+  --         -- Check if the include path physically initiates inside your active project directory tree
+  --         local is_under_project = clean_path:sub(1, #norm_project_root) == norm_project_root
+  --         -- Check if it belongs to the temporary downloaded vendor packages registry folder
+  --         local is_managed_lib = clean_path:match("%.pio/libdeps")
+  --         -- If it's outside your projecto repo, or inside the downloaded library cache, it's third-party!
+  --         -- Unlike -I, the -isystem flag requires a separator (space or =) in clangd configuration files to parse correctly.
+  --         local prefix = (not is_under_project or is_managed_lib) and "-isystem " or "-I"
+  --         -- local prefix = (not is_under_project or is_managed_lib) and "-I" or "-I"
+  --         -- Direct concatenation optimization
+  --         table.insert(res, prefix .. clean_path)
+  --       end
+  --     end
+  --     return res
+  --   end
+  --
+  --   -- 3. Get PlatformIO project libdep includes paths
+  --   local function get_libdeps_includes(root_path, board)
+  --     if not root_path or not board then return {}, {} end
+  --
+  --     local base_dir = vim.fs.joinpath(root_path, ".pio", "libdeps", board)
+  --     if vim.fn.isdirectory(base_dir) == 0 then return {}, {} end
+  --
+  --     local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge })
+  --     local flat_libs = {}
+  --     local nested_libs = {}
+  --
+  --     for _, src_path in ipairs(src_dirs) do
+  --       local normalized_path = vim.fs.normalize(src_path)
+  --
+  --       -- INSTANT GENERIC CHECK: Scan ONLY the first layer of the directory (no slow recursive loops)
+  --       local is_nested = false
+  --       local handle = vim.uv.fs_scandir(normalized_path)
+  --
+  --       if handle then
+  --         while true do
+  --           local name, type_str = vim.uv.fs_scandir_next(handle)
+  --           if not name then break end
+  --
+  --           -- If it contains even one sub-folder, treat it as a nested library path
+  --           if type_str == "directory" then is_nested = true break end
+  --         end
+  --       end
+  --
+  --       -- Sort the paths into their perfect configuration streams
+  --       if is_nested then table.insert(nested_libs, "-I" .. normalized_path)
+  --       else table.insert(flat_libs, "-isystem " .. normalized_path) end
+  --     end
+  --
+  --     -- return flat_libs, nested_libs
+  --     return nested_libs
+  --   end
+  --
+  --   -- 4. Base Paths & Compilers
+  --   meta.cc_path = norm(data.cc_path)
+  --   meta.cxx_path = norm(data.cxx_path)
+  --   meta.gdb_path = norm(data.gdb_path)
+  --   -- M.get_sysroot_triplet(meta.cxx_path)
+  --   pcall(M.get_sysroot_triplet, meta.cxx_path)
+  --
+  --   -- 5. Flags & Defines
+  --   meta.cc_flags = map_list(data.cc_flags)
+  --   meta.cxx_flags = map_list(data.cxx_flags)
+  --   meta.pio_defines = map_list(data.defines)
+  --
+  --   -- 6. Includes (Completely automated and isolated)
+  --   local inc = data.includes or {}
+  --   meta.includes_build = map_includes(inc.build)
+  --   meta.includes_toolchain = map_includes(inc.toolchain)
+  --   meta.includes_compatlib = map_includes(inc.compatlib)
+  --   -- meta.includes_libdeps = map_includes(get_pio_includes(project_root, active_env))
+  --   meta.includes_libdeps = get_libdeps_includes(project_root, active_env)
+  --   --
+  --
+  --   -- --🟢  keep for later if to deal with cxx_flags
+  --   -- if _G.metadata and type(_G.metadata.cxx_flags) == 'table' then
+  --   --   local boiler = require('nvimpio.boilerplate')
+  --   --   local pio_diag = require('nvimpio.clangd.diagnostic')
+  --   --
+  --   --   local flags_updated = false
+  --   --
+  --   --   -- Loop through every compiler flag supplied by idedata.json
+  --   --   for _, flag in ipairs(_G.metadata.cxx_flags) do
+  --   --     if type(flag) == 'string' then
+  --   --       -- Rule A: It's an architecture machine directive flag (e.g., -mlongcalls)
+  --   --       local is_machine_directive = flag:match('^%-m[%w%-]+')
+  --   --
+  --   --       -- Rule B: It's a heavy compiler loop/optimization tweak (e.g., -fno-tree-switch-conversion)
+  --   --       local is_problematic_opt = flag:match('^%-fno%-tree%-') or flag:match('^%-fno%-jump%-')
+  --   --
+  --   --       if (is_machine_directive or is_problematic_opt) and not pio_diag.removed_flags[flag] then
+  --   --         -- Permanently register the flag inside your plugin's dynamic databases
+  --   --         pio_diag.removed_flags[flag] = true
+  --   --         flags_updated = true
+  --   --       end
+  --   --     end
+  --   --   end
+  --   --
+  --   --   -- Trigger your boilerplate writer to output the updated .clangd file to disk instantly
+  --   --   if flags_updated and boiler.boilerplate_gen then
+  --   --     pcall(boiler.boilerplate_gen, '.clangd', project_root)
+  --   --
+  --   --     -- Save the newly tracked flags down to your .filter.json file
+  --   --     local filter_db_path = vim.fs.joinpath(project_root, '.filter.json')
+  --   --     local f = io.open(filter_db_path, 'wb')
+  --   --     if f then
+  --   --       local payload = { codes = pio_diag.manual_blocked_codes, flags = pio_diag.removed_flags }
+  --   --       f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+  --   --       f:close()
+  --   --     end
+  --   --   end
+  --   -- end
+  --
+  --   -- Secure the validation signature token right after creation succeeds
+  --   local read_ok, fresh_checksum = misc.readFile(checksum_file)
+  --   if read_ok and fresh_checksum ~= '' and fresh_checksum ~= meta.last_projectChecksum then
+  --     meta.last_projectChecksum = fresh_checksum
+  --     OS.notify('checksum change ', 'info')
+  --   end
+  --
+  --   vim.schedule(function()
+  --     local boiler = require('nvimpio.boilerplate')
+  --     if boiler and boiler.boilerplate_gen then
+  --       -- pcall(boiler.boilerplate_gen, '.clangd', project_root, 'upkeep')
+  --       pcall(boiler.boilerplate_gen, '.clangd', 'upkeep')
+  --     end
+  --   end)
+  --   return true
+  -- end
 
   local nvimpio_dir = vim.fs.dirname(idedata_file)
   if not vim.uv.fs_stat(nvimpio_dir) then
@@ -580,13 +742,13 @@ fetch_metadata = function(callback, active_env, from, attempts)
           -- else fire_callback(false) end
           idok, content = misc.readFile(idedata_file)
           if idok and (content ~= '') then
-            _G.metadata.framework_root = extract_framework_path(content, active_env)
+            _G.metadata.framework_root = M.extract_framework_path(content, active_env)
 
             -- local pattern = string.format('([A-Za-z]:[^\"]-/%%.platformio/.-packages/framework%%-%s[^/\\\"]-)/', _G.metadata.framework)
             -- _G.metadata.framework_root = content:match(pattern)
             -- _G.metadata.framework_root = content:match(pattern)
             local cok, decoded = pcall(vim.json.decode, content)
-            if cok and apply_metadata(decoded[active_env]) then
+            if cok and M.apply_metadata(decoded[active_env], active_env) then
               local ok, pretty_json = pcall(misc.jsonFormat, decoded)
               if ok then misc.writeFile(idedata_file, pretty_json, {}) end
               require('nvimpio.pio.metadata').save_project_config(from)
@@ -611,9 +773,9 @@ fetch_metadata = function(callback, active_env, from, attempts)
     -- require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, runcmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
   -- end
   elseif idok and content and content ~= '' then
-    _G.metadata.framework_root = extract_framework_path(content, active_env)
+    _G.metadata.framework_root = M.extract_framework_path(content, active_env)
     local cok, decoded = pcall(vim.json.decode, content)
-    if cok and apply_metadata(decoded[active_env]) then
+    if cok and M.apply_metadata(decoded[active_env], active_env) then
       if (from == 'Meta active_env change: ')then
       -- cli
         require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)

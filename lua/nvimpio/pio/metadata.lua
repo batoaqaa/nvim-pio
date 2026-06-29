@@ -250,13 +250,29 @@ function M.load_project_config()
   end
   -- end
 
+
+  local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
+  local idok, content = misc.readFile(idedata_file)
+  if idok and (content ~= '') then
+    -- _G.metadata.framework_root = extract_framework_path(content, active_env)
+    local cok, decoded = pcall(vim.json.decode, content)
+    if cok and M.apply_metadata(decoded[active_env], active_env) then
+      do end
+    end
+  end
+
+
+
+
+
+
   -- If no file, initialize hash with defaults
   last_saved_hash = vim.fn.sha256(misc.jsonFormat(_pio_metadata))
 
-  vim.schedule(function()
-    local boiler = require('nvimpio.boilerplate')
-    if boiler and boiler.boilerplate_gen then pcall(boiler.boilerplate_gen, '.clangd', 'metadata') end
-  end)
+  -- vim.schedule(function()
+  --   local boiler = require('nvimpio.boilerplate')
+  --   if boiler and boiler.boilerplate_gen then pcall(boiler.boilerplate_gen, '.clangd', 'metadata') end
+  -- end)
 end
 
 -- ///////////////////// get_active_env /////////////////////
