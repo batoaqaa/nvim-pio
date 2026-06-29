@@ -88,7 +88,6 @@ _G.metadata = setmetatable({}, {
   __newindex = function(_, key, value)
     -- Guard: Skip execution if the new value is identical to the current state
     if key == 'active_env' then
-      print('here')
       OS.clangd_filter = vim.fs.joinpath(OS.nvimpio_config_dir, value, OS.clangdfilter)
     end
     if _pio_metadata[key] == value then return end -- Performance check
@@ -250,21 +249,28 @@ function M.load_project_config()
   end
   -- end
 
-
-  -- local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
-  -- local idok, content = misc.readFile(idedata_file)
-  -- if idok and (content ~= '') then
-  --   -- _G.metadata.framework_root = extract_framework_path(content, active_env)
-  --   local cok, decoded = pcall(vim.json.decode, content)
-  --   if cok and require('nvimpio.pio.upkeep').apply_metadata(decoded[active_env], active_env) then
-  --     do end
-  --   end
-  -- end
-
-
-
-
-
+  local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
+  local idok, content = misc.readFile(idedata_file)
+  if idok and (content ~= '') then
+    -- _G.metadata.framework_root = extract_framework_path(content, active_env)
+    local cok, decoded = pcall(vim.json.decode, content)
+    if cok and require('nvimpio.pio.upkeep').apply_metadata(decoded[active_env], active_env) then
+      do end
+    end
+  else
+    vim.schedule(function()
+      _G.isBusy = true
+      local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+      pio_refresh(function(suscess)
+        if (suscess) then
+          do end
+          -- require('nvimpio.clangd.control').getUnknownArgsCli(from)
+        end
+        _G.isBusy = false
+      end, 'Project load: ')
+      vim.cmd('redrawstatus')
+    end)
+  end
 
   -- If no file, initialize hash with defaults
   last_saved_hash = vim.fn.sha256(misc.jsonFormat(_pio_metadata))
