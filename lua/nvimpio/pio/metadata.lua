@@ -248,6 +248,11 @@ function M.load_project_config()
 
   -- If no file, initialize hash with defaults
   last_saved_hash = vim.fn.sha256(misc.jsonFormat(_pio_metadata))
+
+  vim.schedule(function()
+    local boiler = require('nvimpio.boilerplate')
+    if boiler and boiler.boilerplate_gen then pcall(boiler.boilerplate_gen, '.clangd', 'metadata') end
+  end)
 end
 
 -- ///////////////////// get_active_env /////////////////////

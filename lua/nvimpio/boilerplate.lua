@@ -548,20 +548,11 @@ CompileFlags:
     -- vim.list_extend(formattedCcAdd, formattedASSEMBLY)
     --------------------- end .clangd formattedCcAdd section ---------------------------------
 
-    ------------------------------------------------------------------------------
-    ------------------ start .clangd formattedHppAdd section  --------------------------------
-    -- local formattedHAdd = {} --vim.deepcopy(formattedASSEMBLY)
-    -- table.insert(formattedHAdd, '"-std=gnu23"')
-    -- table.insert(formattedHAdd, string.format('"@%s"', OS.cc_flags))
-    -- vim.list_extend(formattedHAdd, formattedASSEMBLY)
-    --------------------- end .clangd formattedHppAdd section ---------------------------------
-
+    vim.list_extend(formatted_remove, formattedASSEMBLY)
 
     local is_cpp = is_cpp_project()
-
     local cpp_extensions = is_cpp and "hpp|cpp|cc|cxx|h" or "hpp|cpp|cc|cxx"
     local c_extensions   = is_cpp and "c" or "c|h"
-    -- vim.list_extend(formatted_remove, formattedASSEMBLY)
 
     -- 3. Run a clean, single-pass string format for dynamicBlock
     dynamicBlock = string.format(
@@ -584,9 +575,7 @@ CompileFlags:
       c_extensions,
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
-
       -- table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
-      -- table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
       end_marker
     )
 
