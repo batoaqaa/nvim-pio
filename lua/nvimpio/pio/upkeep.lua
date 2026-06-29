@@ -76,10 +76,12 @@ function M.get_sysroot_triplet(cc_compiler)
 
   _G.metadata.toolchain_root = toolchain_root
   local from = 'get_sysroot'
-  local oldPath = _G.metadata.toolchain_root .. '/bin'
-  require('nvimpio.pio.metadata').removeFromPath(oldPath)
+  local oldPath = (_G.metadata.toolchain_root or '') .. '/bin'
+
   -- require('nvimpio.pio.metadata').removeFromPath(OS.project_dir)
+  require('nvimpio.pio.metadata').removeFromPath(oldPath)
   OS.notify(string.format('%s %s removed from path', from, oldPath), 'info')
+
   vim.env.PATH = bin_path .. OS.path_sep .. vim.env.PATH
   -- vim.env.PATH = OS.project_dir .. OS.path_sep .. vim.env.PATH
   OS.notify(string.format('%s %s added to path',from, bin_path), 'info')
