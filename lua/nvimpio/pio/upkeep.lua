@@ -461,17 +461,17 @@ function M.apply_metadata(data, active_env)
   -- M.get_sysroot_triplet(meta.cxx_path)
   pcall(M.get_sysroot_triplet, meta.cxx_path)
 
-  -- 5. Flags & Defines
-  meta.cc_flags = map_list(data.cc_flags)
-  meta.cxx_flags = map_list(data.cxx_flags)
-  meta.pio_defines = map_list(data.defines)
+  -- -- 5. Flags & Defines
+  -- meta.cc_flags = map_list(data.cc_flags)
+  -- meta.cxx_flags = map_list(data.cxx_flags)
+  -- meta.pio_defines = map_list(data.defines)
 
-  -- 6. Includes (Completely automated and isolated)
-  local inc = data.includes or {}
-  meta.includes_build = map_includes(inc.build)
-  meta.includes_toolchain = map_includes(inc.toolchain)
-  meta.includes_compatlib = map_includes(inc.compatlib)
-  -- meta.includes_libdeps = map_includes(get_pio_includes(project_root, active_env))
+  -- -- 6. Includes (Completely automated and isolated)
+  -- local inc = data.includes or {}
+  -- meta.includes_build = map_includes(inc.build)
+  -- meta.includes_toolchain = map_includes(inc.toolchain)
+  -- meta.includes_compatlib = map_includes(inc.compatlib)
+  -- -- meta.includes_libdeps = map_includes(get_pio_includes(project_root, active_env))
   meta.includes_libdeps = get_libdeps_includes(project_root, active_env)
   --
 

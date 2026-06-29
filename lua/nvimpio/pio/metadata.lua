@@ -224,17 +224,12 @@ function M.load_project_config()
     if json_data then
       local ok, table_data = pcall(vim.json.decode, json_data)
       if ok and type(table_data) == 'table' then
-        for k, v in pairs(table_data) do
-          _pio_metadata[k] = v
-          -- if k == 'toolchain_root' then _G.metadata[k] = v
-          -- else _pio_metadata[k] = v end
-        end
+        for k, v in pairs(table_data) do _pio_metadata[k] = v end
         last_saved_hash = vim.fn.sha256(json_data)
-        -- return
       end
     end
   end
-  -- else
+
   local active_env, metadata = M.get_active_env('meta load: ')
   if active_env and active_env ~= '' then
     OS.notify("load_project_config" .. active_env)
@@ -244,11 +239,8 @@ function M.load_project_config()
     _pio_metadata.platforms_dir = metadata.platforms_dir
     _pio_metadata.default_envs = metadata.default_envs
     _pio_metadata.envs = metadata.envs
-    -- if _pio_metadata.active_env ~= active_env then
       _G.metadata.active_env = active_env
-    -- end
   end
-  -- end
 
   local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
   local idok, content = misc.readFile(idedata_file)
@@ -274,10 +266,6 @@ function M.load_project_config()
   -- If no file, initialize hash with defaults
   last_saved_hash = vim.fn.sha256(misc.jsonFormat(_pio_metadata))
 
-  -- vim.schedule(function()
-  --   local boiler = require('nvimpio.boilerplate')
-  --   if boiler and boiler.boilerplate_gen then pcall(boiler.boilerplate_gen, '.clangd', 'metadata') end
-  -- end)
 end
 
 -- ///////////////////// get_active_env /////////////////////
