@@ -147,6 +147,7 @@ _G.metadata = setmetatable({}, {
       -------------------------------------------------------------------------------
       elseif key == 'active_env' then
         local from = 'Meta active_env change: '
+        OS.clangd_filter = vim.fs.joinpath(OS.nvimpio_config_dir, value, OS.clangdfilter)
 
         OS.notify("in active_env change")
         -- local pio = require('nvimpio.pio.upkeep')

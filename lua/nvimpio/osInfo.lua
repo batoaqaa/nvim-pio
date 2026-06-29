@@ -42,6 +42,7 @@ local nvimpioConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
 ---@field bin_dir string
 ---@field project_dir string
 ---@field clangd_filter string
+---@field clangdfilter string
 ---@field clangd_config string
 ---@field clangd_db string
 ---@field cc_flags string
@@ -79,13 +80,14 @@ local os_info = {
   cache_dir = vim.fn.stdpath('cache'),
   bin_dir = is_win and "Scripts" or "bin",
   project_dir = vim.fs.normalize(projectDir),
-  clangd_filter = vim.fs.joinpath(nvimpioConfigDir, '.clangdFilter.json'),
+  clangd_filter = '',
+  clangdfilter = '.clangdFilter.json',
   clangd_config = vim.fs.joinpath(nvimpioConfigDir, '.clangdConfig.json'),
   clangd_db = vim.fs.joinpath(nvimpioConfigDir, 'compile_commands.json'),
   clangd_user_dir = vim.fs.normalize(clangd_user_dir),
   clangd_user_file = vim.fs.joinpath(clangd_user_dir, "config.yaml"),
-  cc_flags = vim.fs.joinpath(nvimpioConfigDir, '.clangdCCFlags.txt'),
-  cxx_flags = vim.fs.joinpath(nvimpioConfigDir, '.clangdCXXFlags.txt'),
+  cc_flags = '.clangdCCFlags.txt',
+  cxx_flags = '.clangdCXXFlags.txt',
   project_config = vim.fs.joinpath(nvimpioConfigDir, '.projectConfig.json'),
   nvimpio_config_dir = vim.fs.normalize(nvimpioConfigDir),
   shell = OS.is_win and {
@@ -104,9 +106,7 @@ local os_info = {
   ---@param msg string The message to display
   ---@param level string|integer|nil
   notify = function(msg, level)
-
     -- vim.log = { levels = { TRACE = 0, DEBUG = 1, INFO = 2, WARN = 3, ERROR = 4, OFF = 5, }, }
-
     local string_to_level = {
       info = vim.log.levels.INFO,
       warn = vim.log.levels.WARN,
@@ -144,8 +144,16 @@ local os_info = {
 -- 3. Lock it down
 setmetatable(OS, {
   __index = os_info,
-  __newindex = function(_, key)
-    error("Error: Table 'OS' is read-only. Cannot modify key: " .. tostring(key), 2)
+  __newindex = function(_, key, value)
+    if os_info[key] ~= nil then
+      if os_info[key] == value then return end -- Performance check
+      if key == 'clangd_filter' then
+        os_info[key] = value
+      end
+    else
+      error("Error: Cannot assign new property '" .. tostring(key) .. "' to protected OS registry.", 2)
+    end
+    -- error("Error: Table 'OS' is read-only. Cannot modify key: " .. tostring(key), 2)
   end,
   __metatable = false,
 })
