@@ -78,14 +78,14 @@ function M.get_sysroot_triplet(cc_compiler)
   _G.metadata.toolchain_root = toolchain_root
 
   vim.schedule(function ()
-    local from = 'get_sysroot'
-    -- require('nvimpio.pio.metadata').removeFromPath(OS.project_dir)
+    local from = 'get_sysroot: '
     require('nvimpio.pio.metadata').removeFromPath(oldPath)
     OS.notify(string.format('%s %s removed from path', from, oldPath), 'info')
 
     vim.env.PATH = bin_path .. OS.path_sep .. vim.env.PATH
-    -- vim.env.PATH = OS.project_dir .. OS.path_sep .. vim.env.PATH
     OS.notify(string.format('%s %s added to path',from, bin_path), 'info')
+    -- require('nvimpio.pio.metadata').removeFromPath(OS.project_dir)
+    -- vim.env.PATH = OS.project_dir .. OS.path_sep .. vim.env.PATH
   end)
 
   -- sysroot folder is expected to have the same name as the triplet
@@ -458,8 +458,8 @@ function M.apply_metadata(data, active_env)
   meta.cc_path = norm(data.cc_path)
   meta.cxx_path = norm(data.cxx_path)
   meta.gdb_path = norm(data.gdb_path)
-  M.get_sysroot_triplet(meta.cxx_path)
-  -- pcall(M.get_sysroot_triplet, meta.cxx_path)
+  -- M.get_sysroot_triplet(meta.cxx_path)
+  pcall(M.get_sysroot_triplet, meta.cxx_path)
 
   -- 5. Flags & Defines
   meta.cc_flags = map_list(data.cc_flags)
