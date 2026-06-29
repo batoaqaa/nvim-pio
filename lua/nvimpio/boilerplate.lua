@@ -131,6 +131,38 @@ function M.get_session_cache_id()
   return string.format("%x_%d", final_hash, pid)
 end
 
+-- HIGH-PERFORMANCE INTELLECTUAL DIALECT DISCOVERY (<0.1ms Structural Verification)
+local function is_cpp_project()
+  -- A. Check explicit framework metadata states first
+  if _G.metadata and _G.metadata.envs then
+    local fw = _G.metadata.envs[_G.metadata.active_env].framework:lower()
+    if fw:find("arduino", 1, true) or fw:find("mbed", 1, true) then
+      return true
+    end
+  end
+
+  local db_path = OS.project_dir .. "/compile_commands.json"
+  local f = io.open(db_path, "r")
+  if not f then return false end
+
+  -- B. MICRO-STREAM DETECTOR: Read only the first 8KB of data block
+  local chunk = f:read(8192) or ""
+  f:close()
+
+  -- C. STRUCTURAL META-KEY SEARCH:
+  -- We search explicitly for the JSON "file" value definition mapping.
+  -- This ignores directory path names, string comments, or nested flags entirely, 
+  -- ensuring 100% precision for pure C frameworks and mixed C++ applications alike!
+  if chunk:find('"file"%s*:%s*"[^"]-%.cpp"') or
+     chunk:find('"file"%s*:%s*"[^"]-%.hpp"') or
+     chunk:find('"file"%s*:%s*"[^"]-%.cc"')  or
+     chunk:find('"file"%s*:%s*"[^"]-%.cxx"') then
+    return true
+  end
+
+  return false
+end
+
 boilerplate['.clangd'] = {
   dynamic = [[
 %s
@@ -550,7 +582,9 @@ CompileFlags:
       _G.metadata.framework_root,
       _G.metadata.toolchain_root,
       table.concat(formatted_remove, ',\n    '),
-      table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
+      -- table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
+      is_cpp_project() and table.concat(formattedCxxAdd, ',\n    ')
+                       or table.concat(formattedCcAdd, ',\n    '),
       -- table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
       -- table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
       end_marker

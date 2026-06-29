@@ -6,6 +6,40 @@
 -- +: At least one argument.
 -- -1: Zero or one argument (like ?, explicitly).
 
+vim.api.nvim_create_autocmd('VimLeavePre', {
+  callback = function()
+    local cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16)
+    local global_path = OS.clangd_user_file
+    if vim.fn.filereadable(global_path) == 0 then
+      return
+    end
+    local file_read = io.open(global_path, 'r')
+    if not file_read then
+      return
+    end
+    local content = file_read:read('*a')
+    file_read:close()
+
+    local start_marker = '# --- NVIM-PIO SESSION START: ' .. cache_id .. ' ---'
+    local end_marker = '# --- NVIM-PIO SESSION END: ' .. cache_id .. ' ---'
+
+    local start_idx = content:find(start_marker, 1, true)
+    local end_idx = content:find(end_marker, 1, true)
+    if start_idx and end_idx then
+      local actual_end = end_idx + #end_marker
+      if content:sub(actual_end, actual_end) == '\n' then
+        actual_end = actual_end + 1
+      end
+      content = content:sub(1, start_idx - 1) .. content:sub(actual_end)
+      content = content:gsub('\n\n+$', '\n')
+      local file_write = io.open(global_path, 'w')
+      if file_write then
+        file_write:write(content)
+        file_write:close()
+      end
+    end
+  end,
+})
 -- GARBAGE COLLECTION ENGINE: Wipes the global YAML block completely upon exit
 -- local misc = require('nvimpio.utils.misc')
 -- vim.api.nvim_create_autocmd('VimLeavePre', {
