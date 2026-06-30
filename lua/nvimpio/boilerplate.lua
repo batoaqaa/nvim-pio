@@ -489,7 +489,8 @@ CompileFlags:
     ------------------ start .clangd formattedCxxAdd section  --------------------------------
 
     -- local formattedCxxAdd = { }
-    local formattedCxxAdd = { '"-xc++"'}
+    local formattedCxxAdd = { '"-xc++"', "-xc++-header" }
+    -- local formattedCxxAdd = { '"-xc++"'}
     -- local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
     vim.list_extend(formattedCxxAdd, formatteLibdepsAdd)
     -- table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
@@ -509,7 +510,7 @@ CompileFlags:
     vim.list_extend(formatted_remove, formattedASSEMBLY)
 
     local is_cpp = is_cpp_project()
-    local cpp_extensions = is_cpp and "hpp|cpp|cc|cxx|h" or "hpp|cpp|cc|cxx"
+    local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
     local c_extensions   = is_cpp and "c" or "c|h"
 
     -- 3. Run a clean, single-pass string format for dynamicBlock
