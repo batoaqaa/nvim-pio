@@ -66,9 +66,9 @@ function M.get_sysroot_triplet(cc_compiler)
   -- if not triplet then return nil end
 
   -- local query_driver = vim.fs.normalize('**')
-  local query_driver = vim.fs.normalize(toolchain_root .. '/**/')
+  -- local query_driver = vim.fs.normalize(toolchain_root .. '/**/')
   -- local query_driver = vim.fs.normalize(bin_path .. '/' .. triplet .. '-*')
-  -- local query_driver = vim.fs.normalize(bin_path .. '/*')
+  local query_driver = vim.fs.normalize(bin_path .. '/*')
   -- local query_driver = vim.fs.normalize(toolchain_root .. '/**/' .. triplet .. '*')
 
   _G.metadata.triplet = triplet
