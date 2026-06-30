@@ -170,13 +170,12 @@ local function is_cpp_project()
   return is_cpp
 end
 
+
 -- %s
 -- ---
 -- If:
 --   PathMatch: [
---     '%s/.*\.(%s)$',
---     '%s/.*\.(%s)$',
---     '%s/.*\.(%s)$'
+--     .*\.(%s)
 --   ]
 -- CompileFlags:
 --   Remove: [%s]
@@ -185,21 +184,23 @@ end
 -- ---
 -- If:
 --   PathMatch: [
---     '%s/.*\.(%s)$',
---     '%s/.*\.(%s)$',
---     '%s/.*\.(%s)$'
+--     .*\.(%s)
 --   ]
 -- CompileFlags:
 --   Remove: [%s]
 --   Add: [%s]
 -- %s
+
+
 boilerplate['.clangd'] = {
   dynamic = [[
 %s
 ---
 If:
   PathMatch: [
-    .*\.(%s)
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$'
   ]
 CompileFlags:
   Remove: [%s]
@@ -208,7 +209,9 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    .*\.(%s)
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$'
   ]
 CompileFlags:
   Remove: [%s]
@@ -542,7 +545,7 @@ CompileFlags:
 local function escape_path_dots(path)
   -- (%.) captures every literal dot. 
   -- \\\\%%1 replaces it with a literal backslash + the captured dot.
-  return path:gsub("(%%.)", "\\\\%%1")
+  return path:gsub("(%%.)", "%\\%%1")
 end
 
 -- Simply wrap your dynamic variables before feeding them to string.format
@@ -554,21 +557,21 @@ local clean_project   = escape_path_dots(OS.project_dir)
     dynamicBlock = string.format(
       self.dynamic,
       start_marker,
-      -- clean_project,
+      clean_project,
       cpp_extensions,
-      -- clean_framework,
-      -- cpp_extensions,
-      -- clean_toolchain,
-      -- cpp_extensions,
+      clean_framework,
+      cpp_extensions,
+      clean_toolchain,
+      cpp_extensions,
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
 
-      -- clean_project,
+      clean_project,
       c_extensions,
-      -- clean_framework,
-      -- c_extensions,
-      -- clean_toolchain,
-      -- c_extensions,
+      clean_framework,
+      c_extensions,
+      clean_toolchain,
+      c_extensions,
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
       -- table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
