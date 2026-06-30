@@ -220,10 +220,12 @@ CompileFlags:
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
     project_root = vim.fs.normalize(project_root)
 
-    local core = require('nvimpio')
-    local cwdClangd = OS.clangd_user_file
-    -- local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
-    local coreClangd = vim.fs.joinpath(core.config.pio_storage_dir, '.clangd')
+    -- local cwdClangd = OS.clangd_user_file
+    local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
+
+    -- local core = require('nvimpio')
+    -- local coreClangd = vim.fs.joinpath(core.config.pio_storage_dir, '.clangd')
+    local coreClangd = OS.clangd_user_file
     local filter_db_file = vim.fs.joinpath(OS.nvimpio_env_dir,OS.clangd_filter)
     local dynamicBlock = ''
 
@@ -582,7 +584,7 @@ local clean_project   = escape_path_dots(OS.project_dir)
     local read_ok, old_content = misc.readFile(cwdClangd)
     if not read_ok or old_content ~= final_content then
       misc.writeFile(cwdClangd, final_content, {})
-      -- misc.writeFile(coreClangd, final_content, {})
+      misc.writeFile(coreClangd, final_content, {})
 
       vim.schedule(function()
         for _, client in ipairs(vim.lsp.get_clients({ name = 'clangd' })) do
