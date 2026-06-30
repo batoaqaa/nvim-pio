@@ -249,12 +249,15 @@ CompileFlags:
     --------------------------------------------------------------------------------
     ------------------ start .clangd remove section --------------------------------
     -- 1. HYDRODYNAMIC SYNC (WITH DIRECT DISK FALLBACK GATING):
-    local flags_dictionary = {}
-
+    local formatted_remove = {}
+    -- local flags_dictionary = {}
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
     if success and pio_diag and pio_diag.removed_flags and next(pio_diag.removed_flags) then
-      for flag, is_blocked in pairs(pio_diag.removed_flags) do
-        flags_dictionary[flag] = is_blocked
+      for flag, isblocked in pairs(pio_diag.removed_flags) do
+        if isblocked then
+          table.insert(formatted_remove, string.format('%q', flag))
+          -- flags_dictionary[flag] = is_blocked
+        end
       end
     else
       local f = io.open(filter_db_file, 'r')
@@ -264,9 +267,10 @@ CompileFlags:
         if raw and raw ~= '' then
           local dok, data = pcall(vim.json.decode, raw)
           if dok and data and type(data.flags) == 'table' then
-            for flag, blocked in pairs(data.flags) do
-              if blocked then
-                flags_dictionary[flag] = true
+            for flag, isblocked in pairs(data.flags) do
+              if isblocked then
+                table.insert(formatted_remove, string.format('%q', flag))
+                -- flags_dictionary[flag] = isblocked
               end
             end
           end
@@ -274,26 +278,11 @@ CompileFlags:
       end
     end
 
-    local formatted_remove = {}
-    for flag, is_blocked in pairs(flags_dictionary) do
-      if is_blocked and type(flag) == 'string' and flag ~= '' then
-        table.insert(formatted_remove, string.format('%q', flag))
-      end
-    end
-    -- local removed_args = {}
-    -- local formatted_remove = {}
     -- for flag, is_blocked in pairs(flags_dictionary) do
     --   if is_blocked and type(flag) == 'string' and flag ~= '' then
-    --     table.insert(removed_args, flag)
+    --     table.insert(formatted_remove, string.format('%q', flag))
     --   end
     -- end
-    -- table.sort(removed_args)
-    --
-    -- -- local formatted_remove = {'"-std=*"'}
-    -- for i = 1, #removed_args do
-    --   table.insert(formatted_remove, string.format('%q', removed_args[i]))
-    -- end
-    ----------------------------------------------------------------------------
 
     -- local function extract_remove_flags(cc_flags, cxx_flags)
     --   local remove_map = {}
