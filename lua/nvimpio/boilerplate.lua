@@ -192,15 +192,50 @@ end
 -- %s
 
 
+-- %s
+-- ---
+-- If:
+--   PathMatch: [
+--     '%s/.*\.(%s)$',
+--     '%s/.*\.(%s)$',
+--     '%s/.*\.(%s)$'
+--   ]
+-- CompileFlags:
+--   Remove: [%s]
+--   Add: [%s]
+--
+-- ---
+-- If:
+--   PathMatch: [
+--     '%s/.*\.(%s)$',
+--     '%s/.*\.(%s)$',
+--     '%s/.*\.(%s)$'
+--   ]
+-- CompileFlags:
+--   Remove: [%s]
+--   Add: [%s]
+--
+-- ---
+-- If:
+--   PathMatch: [
+--     '%s/.*\.(h)$',
+--     '%s/.*\.(h)$',
+--     '%s/.*\.(h)$'
+--   ]
+-- CompileFlags:
+--   Remove: [%s]
+--   Add: [%s]
+-- %s
+
 boilerplate['.clangd'] = {
   dynamic = [[
 %s
 ---
 If:
   PathMatch: [
-    '%s/.*\.(%s)$',
-    '%s/.*\.(%s)$',
-    '%s/.*\.(%s)$'
+    %s/.*\.(%s),
+    %s/.*\.(%s),
+    %s/.*\.(%s)
   ]
 CompileFlags:
   Remove: [%s]
@@ -209,9 +244,9 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    '%s/.*\.(%s)$',
-    '%s/.*\.(%s)$',
-    '%s/.*\.(%s)$'
+    %s/.*\.(%s),
+    %s/.*\.(%s),
+    %s/.*\.(%s)
   ]
 CompileFlags:
   Remove: [%s]
@@ -220,9 +255,9 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    '%s/.*\.(h)$',
-    '%s/.*\.(h)$',
-    '%s/.*\.(h)$'
+    %s/.*\.(h)$,
+    %s/.*\.(h)$,
+    %s/.*\.(h)$
   ]
 CompileFlags:
   Remove: [%s]
