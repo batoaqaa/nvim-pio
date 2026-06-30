@@ -189,6 +189,15 @@ end
 -- CompileFlags:
 --   Remove: [%s]
 --   Add: [%s]
+--
+-- ---
+-- If:
+--   PathMatch: [
+--     .*\.(%s)
+--   ]
+-- CompileFlags:
+--   Remove: [%s]
+--   Add: [%s]
 -- %s
 
 
@@ -233,9 +242,7 @@ boilerplate['.clangd'] = {
 ---
 If:
   PathMatch: [
-    %s/.*\.(%s),
-    %s/.*\.(%s),
-    %s/.*\.(%s)
+    '.*\.(h)$'
   ]
 CompileFlags:
   Remove: [%s]
@@ -244,9 +251,7 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    %s/.*\.(%s),
-    %s/.*\.(%s),
-    %s/.*\.(%s)
+    '.*\.(h)$'
   ]
 CompileFlags:
   Remove: [%s]
@@ -255,9 +260,7 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    %s/.*\.(h)$,
-    %s/.*\.(h)$,
-    %s/.*\.(h)$
+    '.*\.(h)$'
   ]
 CompileFlags:
   Remove: [%s]
@@ -611,30 +614,43 @@ CompileFlags:
     dynamicBlock = string.format(
       self.dynamic,
       start_marker,
-      clean_project,
-      cpp_extensions,
-      clean_framework,
-      cpp_extensions,
-      clean_toolchain,
+
       cpp_extensions,
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
 
-      clean_project,
-      c_extensions,
-      clean_framework,
-      c_extensions,
-      clean_toolchain,
       c_extensions,
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
       -- table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
 
-      clean_project,
-      clean_framework,
-      clean_toolchain,
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedHAdd, ',\n    '),  -- formatteLibdepsAdd
+
+      -- clean_project,
+      -- cpp_extensions,
+      -- clean_framework,
+      -- cpp_extensions,
+      -- clean_toolchain,
+      -- cpp_extensions,
+      -- table.concat(formatted_remove, ',\n    '),
+      -- table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
+      --
+      -- clean_project,
+      -- c_extensions,
+      -- clean_framework,
+      -- c_extensions,
+      -- clean_toolchain,
+      -- c_extensions,
+      -- table.concat(formatted_remove, ',\n    '),
+      -- table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
+      -- -- table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
+      --
+      -- clean_project,
+      -- clean_framework,
+      -- clean_toolchain,
+      -- table.concat(formatted_remove, ',\n    '),
+      -- table.concat(formattedHAdd, ',\n    '),  -- formatteLibdepsAdd
 
       end_marker
     )
