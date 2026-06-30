@@ -249,7 +249,7 @@ CompileFlags:
     --------------------------------------------------------------------------------
     ------------------ start .clangd remove section --------------------------------
     -- 1. HYDRODYNAMIC SYNC (WITH DIRECT DISK FALLBACK GATING):
-    local formatted_remove = {}
+    local formatted_remove = {'"-std=*"',}
     -- local flags_dictionary = {}
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
     if success and pio_diag and pio_diag.removed_flags and next(pio_diag.removed_flags) then
@@ -278,11 +278,6 @@ CompileFlags:
       end
     end
 
-    -- for flag, is_blocked in pairs(flags_dictionary) do
-    --   if is_blocked and type(flag) == 'string' and flag ~= '' then
-    --     table.insert(formatted_remove, string.format('%q', flag))
-    --   end
-    -- end
 
     -- local function extract_remove_flags(cc_flags, cxx_flags)
     --   local remove_map = {}
@@ -482,7 +477,7 @@ CompileFlags:
     --------------------- end .clangd add1 section ---------------------------------
 
     local formattedASSEMBLY = {
-      '"-std=*"',
+      -- '"-std=*"',
       '"-D_ASMLANGUAGE"',
       '"-D__ASSEMBLY__"',
       '"-D__ASSEMBLER__"',
@@ -491,9 +486,7 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCxxAdd section  --------------------------------
 
-    local formattedCxxAdd = { '"-xc++"' }
-    -- local formattedCxxAdd = { }
-    table.insert(formattedCxxAdd, '"-std=gnu++23"')
+    local formattedCxxAdd = { '"-xc++"', '"-std=gnu++23"'}
     vim.list_extend(formattedCxxAdd, formatteLibdepsAdd)
     -- table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
     -- vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
@@ -501,9 +494,7 @@ CompileFlags:
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCcAdd section  --------------------------------
-    local formattedCcAdd = { '"-xc"' }
-    -- local formattedCcAdd = { }
-    table.insert(formattedCcAdd, '"-std=gnu23"')
+    local formattedCcAdd = { '"-xc"', '"-std=gnu23"' }
     vim.list_extend(formattedCcAdd, formatteLibdepsAdd)
     -- table.insert(formattedCcAdd, string.format('"@%s"', OS.cc_flags))
     -- vim.list_extend(formattedCcAdd, formattedASSEMBLY)
