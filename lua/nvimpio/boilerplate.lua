@@ -579,10 +579,8 @@ CompileFlags:
 
 
     local is_cpp = is_cpp_project()
-    -- local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
-    -- local c_extensions   = is_cpp and "c" or "c|h"
-    local cpp_extensions = "hpp|cpp|cc|cu|cxx"
-    local c_extensions   = "c"
+    local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
+    local c_extensions   = is_cpp and "c" or "c|h"
 
     local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
     vim.list_extend(formattedHAdd, formatteLibdepsAdd)
