@@ -284,8 +284,8 @@ CompileFlags:
     --------------------------------------------------------------------------------
     ------------------ start .clangd remove section --------------------------------
     -- 1. HYDRODYNAMIC SYNC (WITH DIRECT DISK FALLBACK GATING):
-    local formatted_remove = {}
-    -- local formatted_remove = {'"-std=*"'}
+    -- local formatted_remove = {}
+    local formatted_remove = {'"-std=*"'}
     -- local flags_dictionary = {}
     -- add diagnostic removed flags
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
@@ -529,6 +529,7 @@ CompileFlags:
     -- local formattedCxxAdd = { '"-xc++-header"', '"-std=gnu++17"' }
     -- local formattedCxxAdd = { '"-xc++"'}
     local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
+    -- local formattedCxxAdd = { '"-std=gnu++17"'}
     vim.list_extend(formattedCxxAdd, formatteLibdepsAdd)
     -- table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
     -- vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
@@ -541,6 +542,7 @@ CompileFlags:
     -- local formattedCcAdd = { '"-xc"', '"-xc-header"', '"-std=gnu17"' }
     -- local formattedCcAdd = { '"-xc-header"', '"-std=gnu17"' }
     local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
+    -- local formattedCcAdd = { '"-std=gnu17"' }
     vim.list_extend(formattedCcAdd, formatteLibdepsAdd)
     -- table.insert(formattedCcAdd, string.format('"@%s"', OS.cc_flags))
     -- vim.list_extend(formattedCcAdd, formattedASSEMBLY)
