@@ -288,45 +288,45 @@ CompileFlags:
       table.insert(formatted_remove, string.format('%q', removed_args[i]))
     end
 
-    -- local function extract_remove_flags(cc_flags, cxx_flags)
-    --   local remove_map = {}
-    --   local unified_raw = {}
-    --
-    --   -- 1. Merge both flag lists into a single flat array for parsing context
-    --   if cc_flags then for _, f in ipairs(cc_flags) do table.insert(unified_raw, f) end end
-    --   if cxx_flags then for _, f in ipairs(cxx_flags) do table.insert(unified_raw, f) end end
-    --
-    --   for _, flag in ipairs(unified_raw) do
-    --     -- 2. Classify flag types strictly by prefix patterns (No literal names!)
-    --     local is_standard  = flag:find("^%-std=")
-    --     local is_warning   = flag:find("^%-W")
-    --     local is_macro     = flag:find("^%-D")
-    --     local is_include   = flag:find("^%-I") or flag:find("^%-isystem")
-    --
-    --     -- Target all Machine/Architecture-specific flags (-mlongcalls, -mthumb, etc.)
-    --     local is_machine   = flag:find("^%-m")
-    --     -- Target all Optimization and Code-generation features (-Og, -O2, -fno-shrink-wrap, etc.)
-    --     local is_optimization = flag:find("^%-O") or flag:find("^%-g") or flag:find("^%-f")
-    --
-    --     -- 3. Pure Rule Evaluation:
-    --     -- If it's a structural machine flag or an optimization flag, we must drop it from our includes
-    --     -- and throw it straight into the .clangd Remove block!
-    --     if not is_standard and not is_warning and not is_macro and not is_include then
-    --       if is_machine or is_optimization then
-    --         -- Exclude the two distinct exceptions clangd needs for semantic context:
-    --         if flag ~= "-fno-exceptions" and flag ~= "-fno-rtti" then remove_map[flag] = true end
-    --       end
-    --     end
-    --   end
-    --
-    --   -- 4. Convert our deduplicated map back into a flat array list
-    --   -- Always insert the global standard wildcard right at index 1
-    --   local final_remove_list = { '"-std=*"' }
-    --   for flag, _ in pairs(remove_map) do table.insert(final_remove_list, string.format('%q', flag)) end
-    --
-    --   return final_remove_list
-    -- end
-    -- local formatted_remove = extract_remove_flags(_G.metadata.cc_flags, _G.metadata.cxx_flags)
+    local function extract_remove_flags(cc_flags, cxx_flags)
+      local remove_map = {}
+      local unified_raw = {}
+
+      -- 1. Merge both flag lists into a single flat array for parsing context
+      if cc_flags then for _, f in ipairs(cc_flags) do table.insert(unified_raw, f) end end
+      if cxx_flags then for _, f in ipairs(cxx_flags) do table.insert(unified_raw, f) end end
+
+      for _, flag in ipairs(unified_raw) do
+        -- 2. Classify flag types strictly by prefix patterns (No literal names!)
+        local is_standard  = flag:find("^%-std=")
+        local is_warning   = flag:find("^%-W")
+        local is_macro     = flag:find("^%-D")
+        local is_include   = flag:find("^%-I") or flag:find("^%-isystem")
+
+        -- Target all Machine/Architecture-specific flags (-mlongcalls, -mthumb, etc.)
+        local is_machine   = flag:find("^%-m")
+        -- Target all Optimization and Code-generation features (-Og, -O2, -fno-shrink-wrap, etc.)
+        local is_optimization = flag:find("^%-O") or flag:find("^%-g") or flag:find("^%-f")
+
+        -- 3. Pure Rule Evaluation:
+        -- If it's a structural machine flag or an optimization flag, we must drop it from our includes
+        -- and throw it straight into the .clangd Remove block!
+        if not is_standard and not is_warning and not is_macro and not is_include then
+          if is_machine or is_optimization then
+            -- Exclude the two distinct exceptions clangd needs for semantic context:
+            if flag ~= "-fno-exceptions" and flag ~= "-fno-rtti" then remove_map[flag] = true end
+          end
+        end
+      end
+
+      -- 4. Convert our deduplicated map back into a flat array list
+      -- Always insert the global standard wildcard right at index 1
+      local final_remove_list = { '"-std=*"' }
+      for flag, _ in pairs(remove_map) do table.insert(final_remove_list, string.format('%q', flag)) end
+
+      return final_remove_list
+    end
+    vim.list_extend(formatted_remove, extract_remove_flags(_G.metadata.cc_flags, _G.metadata.cxx_flags))
 
     --------------------- end .clangd remove section -----------------------------
 
@@ -348,132 +348,132 @@ CompileFlags:
       end
     end
 
-    --------------------------------------------------------------------------------
-    ------------------- start .clangd response file --------------------------------
-
-    -- extract flags out of cc_defines, cxx_defines and cc_flags, cxx_flags
-    local function compileDefines(flagsFile, compiler_defines, compiler_flags)
-      flagsFile= vim.fs.joinpath(OS.nvimpio_env_dir, flagsFile)
-      local final_flags_content = ''
-      if target_meta then
-        -- --INFO: 🔍 TRACE LOGGING: Record successful dynamic extraction parameters
-        -- local log_file = vim.fs.joinpath(project_root, 'nvim_pio_boot_trace.log')
-        -- local f_log = io.open(log_file, 'a')
-        -- if f_log then
-        --   local timestamp = os.date('%Y-%m-%d %H:%M:%S')
-        --   f_log:write(string.format('[%s] 🟢 NESTED DATA FOUND! Unpacking include pools...\n', timestamp))
-        --   f_log:close()
-        --   f_log = nil
-        -- end
-
-        --------------------------------------------------------------------
-        -- phase A: extract flags out cc_flags or cxx_flags
-        local function filter_compiler_flags(raw_flags)
-          local safe_flags = {}
-          local total_flags = #raw_flags
-          local idx = 1
-
-          while idx <= total_flags do
-            local flag = raw_flags[idx]
-
-            -- 1. Scan for universal single-element prefix markers
-            local is_warning = flag:find("^%-W")
-            local is_macro   = flag:find("^%-D")
-            local is_single_include = flag:find("^%-I")
-
-            -- 2. Scan for dual-element compiler flag signatures
-            local is_imacro  = flag == "-imacros"
-            local is_isystem = flag == "-isystem"
-
-            if is_warning or is_macro or is_single_include then
-              table.insert(safe_flags, flag)
-              idx = idx + 1
-            elseif is_imacro or is_isystem then
-              local next_element = raw_flags[idx + 1]
-
-              -- DEFENSIVE GUARD: Ensure the next index is a valid path string and NOT another compiler flag!
-              if next_element and not next_element:find("^%-") then
-                table.insert(safe_flags, flag .. next_element)         -- Inserts "-imacros" or "-isystem"
-                -- table.insert(safe_flags, flag)         -- Inserts "-imacros" or "-isystem"
-                -- table.insert(safe_flags, next_element)  -- Inserts the clean path string
-                idx = idx + 2 -- Safe pair step: Advance past both tokens cleanly
-              else
-                -- Fallback: The flag was dangling or malformed. Drop the flag alone and advance by 1!
-                idx = idx + 1
-              end
-            else
-              -- Dynamically discards all architecture/optimization noise (-mcpu, -Os, -g)
-              idx = idx + 1
-            end
-          end
-
-          return safe_flags
-        end
-        -- phase B: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL (compiler_defines, compiler_flags and pio_defines)
-        local define_pools = {
-          compiler_defines,  -- GENERIC compiler target defines
-          compiler_flags,    -- compiler flags
-          target_meta.pio_defines,  -- board macro defines
-        }
-        -- 1. FLATTEN THE POOLS: loop for all define pools
-        local unified_raw_flags = {}
-        for _, pool in ipairs(define_pools) do
-          if pool then
-            for _, flag in ipairs(pool) do table.insert(unified_raw_flags, flag) end
-          end
-        end
-
-        -- 2. FILTER SAFELY: Pass the clean string array into your dual-element while loop
-        local options_file_lines = filter_compiler_flags(unified_raw_flags)
-        --------------------------------------------------------------------
-
-        -- High-performance JIT-optimized loop for all definitions pools
-        -- for pool_idx = 1, #define_pools do
-        --   local pool = define_pools[pool_idx]
-        --   if type(pool) == 'table' then
-        --     for flag_idx = 1, #pool do
-        --       local define = pool[flag_idx]
-        --       if type(define) == 'string' and define ~= '' then
-        --         -- Safely check if it already starts with "-". If not, prepend "-D" to it.
-        --         local formatted_define = define:match('^%-') and define or ('-D' .. define)
-        --         table.insert(options_file_lines, formatted_define)
-        --       end
-        --     end
-        --   end
-        -- end
-
-        -- -- Phase C: Extract all pre-sorted include path using JIT sequential loops
-        -- local include_pools = {
-        --   -- target_meta.includes_libdeps,
-        --   -- target_meta.includes_build,
-        --   -- target_meta.includes_toolchain,
-        --   -- target_meta.includes_compatlib,
-        -- }
-        -- for pool_idx = 1, #include_pools do
-        --   local pool = include_pools[pool_idx]
-        --   for flag_idx = 1, #(pool or {}) do
-        --     local raw_flag = pool[flag_idx]
-        --     if type(raw_flag) == 'string' and raw_flag ~= '' then
-        --       -- table.insert(options_file_lines, string.format('%q', vim.fs.normalize(raw_flag)))
-        --       table.insert(options_file_lines, vim.fs.normalize(raw_flag))
-        --     end
-        --   end
-        -- end
-        final_flags_content = table.concat(options_file_lines, '\n')
-      end
-      -- Phase D: Write fresh data lines out to disk
-      local nvimpio_dir = vim.fs.dirname(flagsFile)
-      if not vim.uv.fs_stat(nvimpio_dir) then
-        -- 0777  511  Read, Write, and Execute for Everyone
-        -- 0755  493  Read/Write/Execute for Owner; Read/Execute for Others
-        -- 0700  448  Read, Write, and Execute Strictly for the Owner only.
-        vim.uv.fs_mkdir(nvimpio_dir, 493)
-      end
-      misc.writeFile(flagsFile, final_flags_content, {})
-    end
+    -- --------------------------------------------------------------------------------
+    -- ------------------- start .clangd response file --------------------------------
+    --
+    -- -- extract flags out of cc_defines, cxx_defines and cc_flags, cxx_flags
+    -- local function compileDefines(flagsFile, compiler_defines, compiler_flags)
+    --   flagsFile= vim.fs.joinpath(OS.nvimpio_env_dir, flagsFile)
+    --   local final_flags_content = ''
+    --   if target_meta then
+    --     -- --INFO: 🔍 TRACE LOGGING: Record successful dynamic extraction parameters
+    --     -- local log_file = vim.fs.joinpath(project_root, 'nvim_pio_boot_trace.log')
+    --     -- local f_log = io.open(log_file, 'a')
+    --     -- if f_log then
+    --     --   local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+    --     --   f_log:write(string.format('[%s] 🟢 NESTED DATA FOUND! Unpacking include pools...\n', timestamp))
+    --     --   f_log:close()
+    --     --   f_log = nil
+    --     -- end
+    --
+    --     --------------------------------------------------------------------
+    --     -- phase A: extract flags out cc_flags or cxx_flags
+    --     local function filter_compiler_flags(raw_flags)
+    --       local safe_flags = {}
+    --       local total_flags = #raw_flags
+    --       local idx = 1
+    --
+    --       while idx <= total_flags do
+    --         local flag = raw_flags[idx]
+    --
+    --         -- 1. Scan for universal single-element prefix markers
+    --         local is_warning = flag:find("^%-W")
+    --         local is_macro   = flag:find("^%-D")
+    --         local is_single_include = flag:find("^%-I")
+    --
+    --         -- 2. Scan for dual-element compiler flag signatures
+    --         local is_imacro  = flag == "-imacros"
+    --         local is_isystem = flag == "-isystem"
+    --
+    --         if is_warning or is_macro or is_single_include then
+    --           table.insert(safe_flags, flag)
+    --           idx = idx + 1
+    --         elseif is_imacro or is_isystem then
+    --           local next_element = raw_flags[idx + 1]
+    --
+    --           -- DEFENSIVE GUARD: Ensure the next index is a valid path string and NOT another compiler flag!
+    --           if next_element and not next_element:find("^%-") then
+    --             table.insert(safe_flags, flag .. next_element)         -- Inserts "-imacros" or "-isystem"
+    --             -- table.insert(safe_flags, flag)         -- Inserts "-imacros" or "-isystem"
+    --             -- table.insert(safe_flags, next_element)  -- Inserts the clean path string
+    --             idx = idx + 2 -- Safe pair step: Advance past both tokens cleanly
+    --           else
+    --             -- Fallback: The flag was dangling or malformed. Drop the flag alone and advance by 1!
+    --             idx = idx + 1
+    --           end
+    --         else
+    --           -- Dynamically discards all architecture/optimization noise (-mcpu, -Os, -g)
+    --           idx = idx + 1
+    --         end
+    --       end
+    --
+    --       return safe_flags
+    --     end
+    --     -- phase B: UNIFIED MACRO DEFINITIONS POOL TRAVERSAL (compiler_defines, compiler_flags and pio_defines)
+    --     local define_pools = {
+    --       compiler_defines,  -- GENERIC compiler target defines
+    --       compiler_flags,    -- compiler flags
+    --       target_meta.pio_defines,  -- board macro defines
+    --     }
+    --     -- 1. FLATTEN THE POOLS: loop for all define pools
+    --     local unified_raw_flags = {}
+    --     for _, pool in ipairs(define_pools) do
+    --       if pool then
+    --         for _, flag in ipairs(pool) do table.insert(unified_raw_flags, flag) end
+    --       end
+    --     end
+    --
+    --     -- 2. FILTER SAFELY: Pass the clean string array into your dual-element while loop
+    --     local options_file_lines = filter_compiler_flags(unified_raw_flags)
+    --     --------------------------------------------------------------------
+    --
+    --     -- High-performance JIT-optimized loop for all definitions pools
+    --     -- for pool_idx = 1, #define_pools do
+    --     --   local pool = define_pools[pool_idx]
+    --     --   if type(pool) == 'table' then
+    --     --     for flag_idx = 1, #pool do
+    --     --       local define = pool[flag_idx]
+    --     --       if type(define) == 'string' and define ~= '' then
+    --     --         -- Safely check if it already starts with "-". If not, prepend "-D" to it.
+    --     --         local formatted_define = define:match('^%-') and define or ('-D' .. define)
+    --     --         table.insert(options_file_lines, formatted_define)
+    --     --       end
+    --     --     end
+    --     --   end
+    --     -- end
+    --
+    --     -- -- Phase C: Extract all pre-sorted include path using JIT sequential loops
+    --     -- local include_pools = {
+    --     --   -- target_meta.includes_libdeps,
+    --     --   -- target_meta.includes_build,
+    --     --   -- target_meta.includes_toolchain,
+    --     --   -- target_meta.includes_compatlib,
+    --     -- }
+    --     -- for pool_idx = 1, #include_pools do
+    --     --   local pool = include_pools[pool_idx]
+    --     --   for flag_idx = 1, #(pool or {}) do
+    --     --     local raw_flag = pool[flag_idx]
+    --     --     if type(raw_flag) == 'string' and raw_flag ~= '' then
+    --     --       -- table.insert(options_file_lines, string.format('%q', vim.fs.normalize(raw_flag)))
+    --     --       table.insert(options_file_lines, vim.fs.normalize(raw_flag))
+    --     --     end
+    --     --   end
+    --     -- end
+    --     final_flags_content = table.concat(options_file_lines, '\n')
+    --   end
+    --   -- Phase D: Write fresh data lines out to disk
+    --   local nvimpio_dir = vim.fs.dirname(flagsFile)
+    --   if not vim.uv.fs_stat(nvimpio_dir) then
+    --     -- 0777  511  Read, Write, and Execute for Everyone
+    --     -- 0755  493  Read/Write/Execute for Owner; Read/Execute for Others
+    --     -- 0700  448  Read, Write, and Execute Strictly for the Owner only.
+    --     vim.uv.fs_mkdir(nvimpio_dir, 493)
+    --   end
+    --   misc.writeFile(flagsFile, final_flags_content, {})
+    -- end
     -- compileDefines(OS.cxx_flags, _G.metadata.cxx_defines, _G.metadata.cxx_flags)
     -- compileDefines(OS.cc_flags, _G.metadata.cc_defines, _G.metadata.cc_flags)
-    --------------------- end .clangd response file -----------------------------
+    -- --------------------- end .clangd response file -----------------------------
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd Add1 section  --------------------------------
