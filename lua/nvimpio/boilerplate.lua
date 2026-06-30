@@ -679,12 +679,12 @@ CompileFlags:
       end
       return data .. dynamicBlock
     end
-    finalContent()
+    local final_content = finalContent(cwdContent)
 
     -- 4. UNCONDITIONAL DISK WRITER MATRIX
     -- local read_ok, old_content = misc.readFile(cwdClangd)
     -- if not read_ok or old_content ~= final_content then
-      misc.writeFile(cwdClangd, finalContent(cwdContent), {})
+      misc.writeFile(cwdClangd, final_content, {})
       misc.writeFile(pkgClangd, finalContent(pkgContent), {})
       misc.writeFile(frmClangd, finalContent(frmContent), {})
 
