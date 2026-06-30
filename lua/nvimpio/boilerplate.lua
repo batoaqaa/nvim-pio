@@ -249,8 +249,8 @@ CompileFlags:
     --------------------------------------------------------------------------------
     ------------------ start .clangd remove section --------------------------------
     -- 1. HYDRODYNAMIC SYNC (WITH DIRECT DISK FALLBACK GATING):
-    local formatted_remove = {}
-    -- local formatted_remove = {'"-std=*"'}
+    -- local formatted_remove = {}
+    local formatted_remove = {'"-std=*"'}
     -- local flags_dictionary = {}
     -- add diagnostic removed flags
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
@@ -490,7 +490,7 @@ CompileFlags:
 
     -- local formattedCxxAdd = { }
     -- local formattedCxxAdd = { '"-xc++"'}
-    local formattedCxxAdd = { '"-xc++"', '"-std=gnu++20"'}
+    local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
     vim.list_extend(formattedCxxAdd, formatteLibdepsAdd)
     -- table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
     -- vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
@@ -509,10 +509,8 @@ CompileFlags:
     vim.list_extend(formatted_remove, formattedASSEMBLY)
 
     local is_cpp = is_cpp_project()
-    -- local cpp_extensions = is_cpp and "hpp|cpp|cc|cxx|h" or "hpp|cpp|cc|cxx"
-    -- local c_extensions   = is_cpp and "c" or "c|h"
-    local cpp_extensions = "hpp|cpp|cc|cxx"
-    local c_extensions   = "c|h"
+    local cpp_extensions = is_cpp and "hpp|cpp|cc|cxx|h" or "hpp|cpp|cc|cxx"
+    local c_extensions   = is_cpp and "c" or "c|h"
 
     -- 3. Run a clean, single-pass string format for dynamicBlock
     dynamicBlock = string.format(
