@@ -242,7 +242,7 @@ boilerplate['.clangd'] = {
 ---
 If:
   PathMatch: [
-    '.*\.(h)$'
+    '.*\.(%s)$',
   ]
 CompileFlags:
   Remove: [%s]
@@ -251,7 +251,7 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    '.*\.(h)$'
+    '.*\.(%s)$',
   ]
 CompileFlags:
   Remove: [%s]
