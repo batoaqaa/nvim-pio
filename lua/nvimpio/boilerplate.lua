@@ -545,7 +545,7 @@ CompileFlags:
 local function escape_path_dots(path)
   -- (%.) captures every literal dot. 
   -- \\\\%%1 replaces it with a literal backslash + the captured dot.
-  return path:gsub("(%%.)", "%\\%%1")
+  return path:gsub("(%%.)", "%\\%\\%%1")
 end
 
 -- Simply wrap your dynamic variables before feeding them to string.format
