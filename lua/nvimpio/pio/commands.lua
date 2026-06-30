@@ -30,9 +30,14 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
       local end_idx = content:find(end_marker, 1, true)
       if start_idx and end_idx then
         local actual_end = end_idx + #end_marker
-        if content:sub(actual_end, actual_end) == '\n' then
+        -- If it encounters Windows CRLF (\r\n), skip both characters cleanly.
+        if content:sub(actual_end, actual_end + 1) == '\r\n' then
+          actual_end = actual_end + 2
+        -- If it encounters Linux/macOS LF (\n), skip the single character.
+        elseif content:sub(actual_end, actual_end) == '\n' then
           actual_end = actual_end + 1
         end
+
         content = content:sub(1, start_idx - 1) .. content:sub(actual_end)
         content = content:gsub('\n\n+$', '\n')
         local file_write = io.open(global_path, 'w')
