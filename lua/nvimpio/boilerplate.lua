@@ -176,9 +176,9 @@ boilerplate['.clangd'] = {
 ---
 If:
   PathMatch: [
-    '%s/.*\\.(%s)$',
-    '%s/.*\\.(%s)$',
-    '%s/.*\\.(%s)$'
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$'
   ]
 CompileFlags:
   Remove: [%s]
@@ -187,9 +187,9 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    '%s/.*\\.(%s)$',
-    '%s/.*\\.(%s)$',
-    '%s/.*\\.(%s)$'
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$'
   ]
 CompileFlags:
   Remove: [%s]
@@ -489,8 +489,8 @@ CompileFlags:
     ------------------ start .clangd formattedCxxAdd section  --------------------------------
 
     -- local formattedCxxAdd = { }
-    local formattedCxxAdd = { '"-xc++"'}
-    -- local formattedCxxAdd = { '"-xc++"', '"-std=gnu++23"'}
+    -- local formattedCxxAdd = { '"-xc++"'}
+    local formattedCxxAdd = { '"-xc++"', '"-std=gnu++20"'}
     vim.list_extend(formattedCxxAdd, formatteLibdepsAdd)
     -- table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
     -- vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
@@ -499,8 +499,8 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCcAdd section  --------------------------------
     -- local formattedCcAdd = { }
-    local formattedCcAdd = { '"-xc"' }
-    -- local formattedCcAdd = { '"-xc"', '"-std=gnu23"' }
+    -- local formattedCcAdd = { '"-xc"' }
+    local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
     vim.list_extend(formattedCcAdd, formatteLibdepsAdd)
     -- table.insert(formattedCcAdd, string.format('"@%s"', OS.cc_flags))
     -- vim.list_extend(formattedCcAdd, formattedASSEMBLY)
