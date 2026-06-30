@@ -509,8 +509,10 @@ CompileFlags:
     vim.list_extend(formatted_remove, formattedASSEMBLY)
 
     local is_cpp = is_cpp_project()
-    local cpp_extensions = is_cpp and "hpp|cpp|cc|cxx|h" or "hpp|cpp|cc|cxx"
-    local c_extensions   = is_cpp and "c" or "c|h"
+    -- local cpp_extensions = is_cpp and "hpp|cpp|cc|cxx|h" or "hpp|cpp|cc|cxx"
+    -- local c_extensions   = is_cpp and "c" or "c|h"
+    local cpp_extensions = "hpp|cpp|cc|cxx"
+    local c_extensions   = "c|h"
 
     -- 3. Run a clean, single-pass string format for dynamicBlock
     dynamicBlock = string.format(
