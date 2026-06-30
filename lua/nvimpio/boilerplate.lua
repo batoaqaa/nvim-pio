@@ -509,9 +509,9 @@ CompileFlags:
 
     -- local formattedCxxAdd = { }
     -- local formattedCxxAdd = { '"-xc++"', '"-xc++-header"', '"-std=gnu++17"' }
-    local formattedCxxAdd = { '"-xc++-header"', '"-std=gnu++17"' }
+    -- local formattedCxxAdd = { '"-xc++-header"', '"-std=gnu++17"' }
     -- local formattedCxxAdd = { '"-xc++"'}
-    -- local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
+    local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
     vim.list_extend(formattedCxxAdd, formatteLibdepsAdd)
     -- table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
     -- vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
