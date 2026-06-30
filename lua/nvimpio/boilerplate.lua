@@ -245,6 +245,7 @@ If:
 CompileFlags:
   Remove: [%s]
   Add: [%s]
+  CompilationDatabase: "%s"
 
 ---
 If:
@@ -252,6 +253,7 @@ If:
 CompileFlags:
   Remove: [%s]
   Add: [%s]
+  CompilationDatabase: "%s"
 
 ---
 If:
@@ -259,6 +261,7 @@ If:
 CompileFlags:
   Remove: [%s]
   Add: [%s]
+  CompilationDatabase: "%s"
 %s
 ]],
   -- Compiler: %s
@@ -612,14 +615,17 @@ CompileFlags:
       cpp_extensions,
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
+      clean_project,
 
       c_extensions,
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
+      clean_project,
       -- table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
 
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedHAdd, ',\n    '),  -- formatteLibdepsAdd
+      clean_project,
 
       -- clean_project,
       -- cpp_extensions,
