@@ -489,7 +489,8 @@ CompileFlags:
     ------------------ start .clangd formattedCxxAdd section  --------------------------------
 
     -- local formattedCxxAdd = { }
-    local formattedCxxAdd = { '"-xc++"', '"-xc++-header"', '"-std=gnu++17"' }
+    -- local formattedCxxAdd = { '"-xc++"', '"-xc++-header"', '"-std=gnu++17"' }
+    local formattedCxxAdd = { '"-xc++-header"', '"-std=gnu++17"' }
     -- local formattedCxxAdd = { '"-xc++"'}
     -- local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
     vim.list_extend(formattedCxxAdd, formatteLibdepsAdd)
@@ -501,8 +502,9 @@ CompileFlags:
     ------------------ start .clangd formattedCcAdd section  --------------------------------
     -- local formattedCcAdd = { }
     -- local formattedCcAdd = { '"-xc"' }
-    local formattedCcAdd = { '"-xc"', '"-xc-header"', '"-std=gnu17"' }
-    -- local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
+    -- local formattedCcAdd = { '"-xc"', '"-xc-header"', '"-std=gnu17"' }
+    -- local formattedCcAdd = { '"-xc-header"', '"-std=gnu17"' }
+    local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
     vim.list_extend(formattedCcAdd, formatteLibdepsAdd)
     -- table.insert(formattedCcAdd, string.format('"@%s"', OS.cc_flags))
     -- vim.list_extend(formattedCcAdd, formattedASSEMBLY)
@@ -514,24 +516,37 @@ CompileFlags:
     local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
     local c_extensions   = is_cpp and "c" or "c|h"
 
+
+-- This works completely dynamically for ANY path string
+local function escape_path_dots(path)
+  -- (%.) captures every literal dot. 
+  -- \\\\%%1 replaces it with a literal backslash + the captured dot.
+  return path:gsub("(%%.)", "\\\\%%1")
+end
+
+-- Simply wrap your dynamic variables before feeding them to string.format
+local clean_framework = escape_path_dots(_G.metadata.framework_root)
+local clean_toolchain = escape_path_dots(_G.metadata.toolchain_root)
+local clean_project   = escape_path_dots(OS.project_dir)
+
     -- 3. Run a clean, single-pass string format for dynamicBlock
     dynamicBlock = string.format(
       self.dynamic,
       start_marker,
-      OS.project_dir,
+      clean_project,
       cpp_extensions,
-      _G.metadata.framework_root,
+      clean_framework,
       cpp_extensions,
-      _G.metadata.toolchain_root,
+      clean_toolchain,
       cpp_extensions,
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
 
-      OS.project_dir,
+      clean_project,
       c_extensions,
-      _G.metadata.framework_root,
+      clean_framework,
       c_extensions,
-      _G.metadata.toolchain_root,
+      clean_toolchain,
       c_extensions,
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
