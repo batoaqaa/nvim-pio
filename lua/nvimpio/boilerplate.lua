@@ -216,6 +216,17 @@ If:
 CompileFlags:
   Remove: [%s]
   Add: [%s]
+
+---
+If:
+  PathMatch: [
+    '%s/.*\.(h)$',
+    '%s/.*\.(h)$',
+    '%s/.*\.(h)$'
+  ]
+CompileFlags:
+  Remove: [%s]
+  Add: [%s]
 %s
 ]],
   -- Compiler: %s
@@ -509,6 +520,7 @@ CompileFlags:
       '"-D__ASSEMBLER__"',
       '"-D_ASSEMBLY_"'
     }
+    vim.list_extend(formatted_remove, formattedASSEMBLY)
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCxxAdd section  --------------------------------
 
@@ -534,26 +546,27 @@ CompileFlags:
     -- vim.list_extend(formattedCcAdd, formattedASSEMBLY)
     --------------------- end .clangd formattedCcAdd section ---------------------------------
 
-    vim.list_extend(formatted_remove, formattedASSEMBLY)
 
     local is_cpp = is_cpp_project()
     local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
     local c_extensions   = is_cpp and "c" or "c|h"
 
+    local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
+    vim.list_extend(formattedHAdd, formatteLibdepsAdd)
 
--- This works completely dynamically for ANY path string
-local function escape_path_dots(path)
-  -- (%.) captures every literal dot. 
-  -- \\\\%%1 replaces it with a literal backslash + the captured dot.
-  -- return path:gsub("(%%.)", "%\\%\\%%1")
-  -- return path.gsub("%.(%w+)", "\\\\.%1")
-return string.gsub(path, "%.%w+", [[\%0]])
-end
+    -- This works completely dynamically for ANY path string
+    local function escape_path_dots(path)
+      -- (%.) captures every literal dot. 
+      -- \\\\%%1 replaces it with a literal backslash + the captured dot.
+      -- return path:gsub("(%%.)", "%\\%\\%%1")
+      -- return path.gsub("%.(%w+)", "\\\\.%1")
+    return string.gsub(path, "%.%w+", [[\%0]])
+    end
 
--- Simply wrap your dynamic variables before feeding them to string.format
-local clean_framework = escape_path_dots(_G.metadata.framework_root)
-local clean_toolchain = escape_path_dots(_G.metadata.toolchain_root)
-local clean_project   = escape_path_dots(OS.project_dir)
+    -- Simply wrap your dynamic variables before feeding them to string.format
+    local clean_framework = escape_path_dots(_G.metadata.framework_root)
+    local clean_toolchain = escape_path_dots(_G.metadata.toolchain_root)
+    local clean_project   = escape_path_dots(OS.project_dir)
 
     -- 3. Run a clean, single-pass string format for dynamicBlock
     dynamicBlock = string.format(
@@ -577,6 +590,13 @@ local clean_project   = escape_path_dots(OS.project_dir)
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
       -- table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
+
+      clean_project,
+      clean_framework,
+      clean_toolchain,
+      table.concat(formatted_remove, ',\n    '),
+      table.concat(formattedHAdd, ',\n    '),  -- formatteLibdepsAdd
+
       end_marker
     )
 
