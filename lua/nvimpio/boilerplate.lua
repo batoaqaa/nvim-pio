@@ -184,30 +184,45 @@ end
 -- %s
 
 
-
-
 -- %s
+-- CompileFlags:
+--   Compiler: %s
+--   CompilationDatabase: %s
 -- ---
 -- If:
---   PathMatch: [ '.*\.(%s)$' ]
+--   PathMatch: [
+--     '%s/.*\.(%s)$',
+--     '%s/.*\.(%s)$',
+--     '%s/.*\.(%s)$'
+--   ]
 -- CompileFlags:
 --   Remove: [%s]
 --   Add: [%s]
 --
 -- ---
 -- If:
---   PathMatch: [ '.*\.(%s)$' ]
+--   PathMatch: [
+--     '%s/.*\.(%s)$',
+--     '%s/.*\.(%s)$',
+--     '%s/.*\.(%s)$'
+--   ]
 -- CompileFlags:
 --   Remove: [%s]
 --   Add: [%s]
 --
 -- ---
 -- If:
---   PathMatch: [ '.*\.(h)$' ]
+--   PathMatch: [
+--     '%s/.*\.(h)$',
+--     '%s/.*\.(h)$',
+--     '%s/.*\.(h)$'
+--   ]
 -- CompileFlags:
---   Remove: [ %s ]
+--   Remove: [%s]
 --   Add: [%s]
 -- %s
+
+
 
 
 
@@ -247,43 +262,28 @@ end
 
 boilerplate['.clangd'] = {
   dynamic = [[
-%s
-CompileFlags:
-  Compiler: %s
-  CompilationDatabase: %s
----
-If:
-  PathMatch: [
-    '%s/.*\.(%s)$',
-    '%s/.*\.(%s)$',
-    '%s/.*\.(%s)$'
-  ]
-CompileFlags:
-  Remove: [%s]
-  Add: [%s]
-
----
-If:
-  PathMatch: [
-    '%s/.*\.(%s)$',
-    '%s/.*\.(%s)$',
-    '%s/.*\.(%s)$'
-  ]
-CompileFlags:
-  Remove: [%s]
-  Add: [%s]
-
----
-If:
-  PathMatch: [
-    '%s/.*\.(h)$',
-    '%s/.*\.(h)$',
-    '%s/.*\.(h)$'
-  ]
-CompileFlags:
-  Remove: [%s]
-  Add: [%s]
-%s
+-- %s
+-- ---
+-- If:
+--   PathMatch: [ '.*\.(%s)$' ]
+-- CompileFlags:
+--   Remove: [%s]
+--   Add: [%s]
+--
+-- ---
+-- If:
+--   PathMatch: [ '.*\.(%s)$' ]
+-- CompileFlags:
+--   Remove: [%s]
+--   Add: [%s]
+--
+-- ---
+-- If:
+--   PathMatch: [ '.*\.(h)$' ]
+-- CompileFlags:
+--   Remove: [ %s ]
+--   Add: [%s]
+-- %s
 ]],
   -- Compiler: %s
   boiler = function(self, project_root_param)
@@ -296,15 +296,15 @@ CompileFlags:
     end
 
     --------------------------------------------------------------------------------
-    -- local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
-    -- local pkgClangd = vim.fs.joinpath(_G.metadata.toolchain_root, '.clangd')
-    -- local frmClangd = vim.fs.joinpath(_G.metadata.framework_root, '.clangd')
-    local coreClangd = OS.clangd_user_file
+    local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
+    local pkgClangd = vim.fs.joinpath(_G.metadata.toolchain_root, '.clangd')
+    local frmClangd = vim.fs.joinpath(_G.metadata.framework_root, '.clangd')
+    -- local coreClangd = OS.clangd_user_file
     local clangdFiles = {
-      -- cwd = { file = cwdClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
-      -- pkg = { file = pkgClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
-      -- frm = { file = frmClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
-      core = { file = coreClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
+      cwd = { file = cwdClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
+      pkg = { file = pkgClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
+      frm = { file = frmClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
+      -- core = { file = coreClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
     }
     M.readContent(clangdFiles)
     --------------------------------------------------------------------------------
@@ -446,30 +446,31 @@ CompileFlags:
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
     vim.list_extend(formattedHAdd, formattedAdd)
 
-    local function prepare_path_for_clangd(raw_path)
-      -- 1. Clean up slashes using Neovim's normalizer
-      local path = vim.fs.normalize(raw_path)
-
-      -- 2. Strip any trailing slash if it exists, so it fits your "%s/.*" template perfectly
-      path = path:gsub("/$", "")
-
-      -- 3. Extract the Windows drive letter if it exists
-      local drive, main_path = path:match("^(%a:)(.*)$")
-
-      if drive then
-        drive = drive:lower()
-        path = main_path
-      else
-        drive = "" -- Linux/macOS
-      end
-
-      -- 4. Escape every literal dot inside the folders completely dynamically
-      -- path = path:gsub("(%%.)", "\\\\%%1")
-      -- path = path:gsub("%.%w+", [[\%0]])
-
-      -- 5. Recombine them seamlessly without a trailing slash
-      return drive .. path
-    end
+    -- local function prepare_path_for_clangd(raw_path)
+    --   -- 1. Clean up slashes using Neovim's normalizer
+    --   local path = vim.fs.normalize(raw_path)
+    --
+    --   -- 2. Strip any trailing slash if it exists, so it fits your "%s/.*" template perfectly
+    --   path = path:gsub("/$", "")
+    --
+    --   -- 3. Extract the Windows drive letter if it exists
+    --   local drive, main_path = path:match("^(%a:)(.*)$")
+    --
+    --   if drive then
+    --     drive = drive:lower()
+    --     path = main_path
+    --   else
+    --     drive = "" -- Linux/macOS
+    --   end
+    --
+    --   -- 4. Escape every literal dot inside the folders completely dynamically
+    --   -- path = path:gsub("(%%.)", "\\\\%%1")
+    --   -- path = path:gsub("%.%w+", [[\%0]])
+    --
+    --   -- 5. Recombine them seamlessly without a trailing slash
+    --   return drive .. path
+    -- end
+    -- prepare_path_for_clangd('')
     -- Keep Keep Keep
     -- -- This works completely dynamically for ANY path string
     -- local function escape_path_dots(path)
@@ -480,9 +481,9 @@ CompileFlags:
     --   return string.gsub(path, "%.%w+", [[\%0]])
     -- end
     -- -- Simply wrap your dynamic variables before feeding them to string.format
-    local clean_framework = prepare_path_for_clangd(_G.metadata.framework_root)
-    local clean_toolchain = prepare_path_for_clangd(_G.metadata.toolchain_root)
-    local clean_project   = prepare_path_for_clangd(OS.project_dir)
+    -- local clean_framework = prepare_path_for_clangd(_G.metadata.framework_root)
+    -- local clean_toolchain = prepare_path_for_clangd(_G.metadata.toolchain_root)
+    -- local clean_project   = prepare_path_for_clangd(OS.project_dir)
 
     local function finalContent(data)
       if data ~= "" and not data:match("\n$") then
@@ -496,31 +497,22 @@ CompileFlags:
         self.dynamic,
         tbl.start_marker,
 
-        _G.metadata.cxx_path,
-        clean_project,
-        clean_project, cpp_extensions,
-        clean_framework, cpp_extensions,
-        clean_toolchain, cpp_extensions,
+        cpp_extensions,
         table.concat(formatted_remove, ',\n    '),
         table.concat(formattedCxxAdd, ',\n    '),
 
-        clean_project, c_extensions,
-        clean_framework, c_extensions,
-        clean_toolchain, c_extensions,
+        c_extensions,
         table.concat(formatted_remove, ',\n    '),
         table.concat(formattedCcAdd, ',\n    '),
         -- table.concat(formatteLibdepsAdd, ',\n    '),
 
-        clean_project,
-        clean_framework,
-        clean_toolchain,
         table.concat(formatted_remove, ',\n    '),
         table.concat(formattedHAdd, ',\n    '),
 
         tbl.end_marker
       )
       -- 4. UNCONDITIONAL DISK WRITER MATRIX
-      -- misc.writeFile(tbl.file, finalContent(tbl.content) .. dynamicBlock, {})
+      misc.writeFile(tbl.file, finalContent(tbl.content) .. dynamicBlock, {})
     end
 
     vim.schedule(function()
