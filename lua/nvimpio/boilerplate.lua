@@ -520,7 +520,7 @@ CompileFlags:
         tbl.end_marker
       )
       -- 4. UNCONDITIONAL DISK WRITER MATRIX
-      misc.writeFile(tbl.file, finalContent(tbl.content) .. dynamicBlock, {})
+      -- misc.writeFile(tbl.file, finalContent(tbl.content) .. dynamicBlock, {})
     end
 
     vim.schedule(function()
