@@ -468,7 +468,7 @@ function M.apply_metadata(data, active_env)
 
   -- -- 6. Includes (Completely automated and isolated)
   local inc = data.includes or {}
-  -- meta.includes_build = map_includes(inc.build)
+  meta.includes_build = map_includes(inc.build)
   meta.includes_toolchain = map_includes(inc.toolchain)
   -- meta.includes_compatlib = map_includes(inc.compatlib)
   -- -- meta.includes_libdeps = map_includes(get_pio_includes(project_root, active_env))

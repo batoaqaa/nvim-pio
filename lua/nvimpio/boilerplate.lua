@@ -394,7 +394,7 @@ CompileFlags:
     -- Phase C: Extract all pre-sorted include path using JIT sequential loops
     local include_pools = {
       target_meta and target_meta.includes_libdeps or {},
-      -- target_meta.includes_build,
+      target_meta and target_meta.includes_build or {},
       target_meta and target_meta.includes_toolchain or {},
       -- target_meta.includes_compatlib,
     }
