@@ -249,6 +249,7 @@ boilerplate['.clangd'] = {
   dynamic = [[
 %s
 CompileFlags:
+  Compiler: %s
   CompilationDatabase: %s
 ---
 If:
@@ -495,6 +496,7 @@ CompileFlags:
         self.dynamic,
         tbl.start_marker,
 
+        _G.metadata.cxx_path,
         clean_project,
         clean_project, cpp_extensions,
         clean_framework, cpp_extensions,
