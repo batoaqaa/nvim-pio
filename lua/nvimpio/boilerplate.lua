@@ -262,28 +262,28 @@ end
 
 boilerplate['.clangd'] = {
   dynamic = [[
--- %s
--- ---
--- If:
---   PathMatch: [ '.*\.(%s)$' ]
--- CompileFlags:
---   Remove: [%s]
---   Add: [%s]
---
--- ---
--- If:
---   PathMatch: [ '.*\.(%s)$' ]
--- CompileFlags:
---   Remove: [%s]
---   Add: [%s]
---
--- ---
--- If:
---   PathMatch: [ '.*\.(h)$' ]
--- CompileFlags:
---   Remove: [ %s ]
---   Add: [%s]
--- %s
+%s
+---
+If:
+  PathMatch: [ '.*\.(%s)$' ]
+CompileFlags:
+  Remove: [%s]
+  Add: [%s]
+
+---
+If:
+  PathMatch: [ '.*\.(%s)$' ]
+CompileFlags:
+  Remove: [%s]
+  Add: [%s]
+
+---
+If:
+  PathMatch: [ '.*\.(h)$' ]
+CompileFlags:
+  Remove: [ %s ]
+  Add: [%s]
+%s
 ]],
   -- Compiler: %s
   boiler = function(self, project_root_param)
