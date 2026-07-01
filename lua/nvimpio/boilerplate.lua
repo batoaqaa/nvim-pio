@@ -310,8 +310,8 @@ CompileFlags:
       return content
     end
     local cwdContent = readContent(cwdClangd)
-    local pkgContent = readContent(pkgClangd)
-    local frmContent = readContent(frmClangd)
+    -- local pkgContent = readContent(pkgClangd)
+    -- local frmContent = readContent(frmClangd)
     --------------------------------------------------------------------------------
 
     -- A: Force-create an empty default database if missing
