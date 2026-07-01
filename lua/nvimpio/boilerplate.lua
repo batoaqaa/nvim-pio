@@ -153,80 +153,6 @@ local function is_cpp_project()
   return is_cpp
 end
 
-
--- %s
--- ---
--- If:
---   PathMatch: [
---     .*\.(%s)
---   ]
--- CompileFlags:
---   Remove: [%s]
---   Add: [%s]
---
--- ---
--- If:
---   PathMatch: [
---     .*\.(%s)
---   ]
--- CompileFlags:
---   Remove: [%s]
---   Add: [%s]
---
--- ---
--- If:
---   PathMatch: [
---     .*\.(%s)
---   ]
--- CompileFlags:
---   Remove: [%s]
---   Add: [%s]
--- %s
-
-
--- %s
--- CompileFlags:
---   Compiler: %s
---   CompilationDatabase: %s
--- ---
--- If:
---   PathMatch: [
---     '%s/.*\.(%s)$',
---     '%s/.*\.(%s)$',
---     '%s/.*\.(%s)$'
---   ]
--- CompileFlags:
---   Remove: [%s]
---   Add: [%s]
---
--- ---
--- If:
---   PathMatch: [
---     '%s/.*\.(%s)$',
---     '%s/.*\.(%s)$',
---     '%s/.*\.(%s)$'
---   ]
--- CompileFlags:
---   Remove: [%s]
---   Add: [%s]
---
--- ---
--- If:
---   PathMatch: [
---     '%s/.*\.(h)$',
---     '%s/.*\.(h)$',
---     '%s/.*\.(h)$'
---   ]
--- CompileFlags:
---   Remove: [%s]
---   Add: [%s]
--- %s
-
-
-
-
-
-
 -- CompilationDatabase: "%s"
 function M.readContent(files)
   for _, tbl in pairs(files) do
@@ -325,7 +251,7 @@ CompileFlags:
 
     --------------------------------------------------------------------------------
     ------------------ start .clangd remove section --------------------------------
-    -- 1. HYDRODYNAMIC SYNC (WITH DIRECT DISK FALLBACK GATING):
+    -- 1. SYNC (WITH DIRECT DISK FALLBACK GATING):
     -- local formatted_remove = {}
     local formatted_remove = {'"-std=*"'}
     -- add diagnostic removed flags
@@ -376,12 +302,6 @@ CompileFlags:
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd Add1 section  --------------------------------
-    -- local formatteLibdepsAdd = {}  -- libdep_includes
-    -- if target_meta then
-    --   for i = 1, #target_meta.includes_libdeps do
-    --     table.insert(formatteLibdepsAdd, string.format('%q', target_meta.includes_libdeps[i]))
-    --   end
-    -- end
 
     -- Extract all pre-sorted include path using JIT sequential loops
     local formattedAdd = {}  -- libdep_includes
@@ -415,29 +335,19 @@ CompileFlags:
     ------------------ start .clangd formattedCxxAdd section  --------------------------------
 
     -- local formattedCxxAdd = { }
-    -- local formattedCxxAdd = { '"-xc++"', '"-xc++-header"', '"-std=gnu++17"' }
-    -- local formattedCxxAdd = { '"-xc++-header"', '"-std=gnu++17"' }
-    -- local formattedCxxAdd = { '"-xc++"'}
     local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
-    -- local formattedCxxAdd = { '"-std=gnu++17"'}
-    -- vim.list_extend(formattedCxxAdd, formatteLibdepsAdd)
     vim.list_extend(formattedCxxAdd, formattedAdd)
-    -- table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
-    -- vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
     --------------------- end .clangd formattedCxxAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCcAdd section  --------------------------------
     -- local formattedCcAdd = { }
-    -- local formattedCcAdd = { '"-xc"' }
-    -- local formattedCcAdd = { '"-xc"', '"-xc-header"', '"-std=gnu17"' }
-    -- local formattedCcAdd = { '"-xc-header"', '"-std=gnu17"' }
     local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
-    -- local formattedCcAdd = { '"-std=gnu17"' }
-    -- vim.list_extend(formattedCcAdd, formatteLibdepsAdd)
     vim.list_extend(formattedCcAdd, formattedAdd)
     --------------------- end .clangd formattedCcAdd section ---------------------------------
 
+    ------------------------------------------------------------------------------
+    ------------------ start .clangd formattedHAdd section  --------------------------------
     local is_cpp = is_cpp_project()
     local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
     local c_extensions   = is_cpp and "c" or "c|h"
@@ -445,45 +355,7 @@ CompileFlags:
     local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
     vim.list_extend(formattedHAdd, formattedAdd)
-
-    -- local function prepare_path_for_clangd(raw_path)
-    --   -- 1. Clean up slashes using Neovim's normalizer
-    --   local path = vim.fs.normalize(raw_path)
-    --
-    --   -- 2. Strip any trailing slash if it exists, so it fits your "%s/.*" template perfectly
-    --   path = path:gsub("/$", "")
-    --
-    --   -- 3. Extract the Windows drive letter if it exists
-    --   local drive, main_path = path:match("^(%a:)(.*)$")
-    --
-    --   if drive then
-    --     drive = drive:lower()
-    --     path = main_path
-    --   else
-    --     drive = "" -- Linux/macOS
-    --   end
-    --
-    --   -- 4. Escape every literal dot inside the folders completely dynamically
-    --   -- path = path:gsub("(%%.)", "\\\\%%1")
-    --   -- path = path:gsub("%.%w+", [[\%0]])
-    --
-    --   -- 5. Recombine them seamlessly without a trailing slash
-    --   return drive .. path
-    -- end
-    -- prepare_path_for_clangd('')
-    -- Keep Keep Keep
-    -- -- This works completely dynamically for ANY path string
-    -- local function escape_path_dots(path)
-    --   -- (%.) captures every literal dot. 
-    --   -- \\\\%%1 replaces it with a literal backslash + the captured dot.
-    --   -- return path:gsub("(%%.)", "%\\%\\%%1")
-    --   -- return path.gsub("%.(%w+)", "\\\\.%1")
-    --   return string.gsub(path, "%.%w+", [[\%0]])
-    -- end
-    -- -- Simply wrap your dynamic variables before feeding them to string.format
-    -- local clean_framework = prepare_path_for_clangd(_G.metadata.framework_root)
-    -- local clean_toolchain = prepare_path_for_clangd(_G.metadata.toolchain_root)
-    -- local clean_project   = prepare_path_for_clangd(OS.project_dir)
+    --------------------- end .clangd formattedHAdd section ---------------------------------
 
     local function finalContent(data)
       if data ~= "" and not data:match("\n$") then
