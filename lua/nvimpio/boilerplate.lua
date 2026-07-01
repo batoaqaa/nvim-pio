@@ -256,6 +256,7 @@ If:
     %s/.*\.(%s)$
   ]
 CompileFlags:
+  CompilationDatabase: %s
   Remove: [%s]
   Add: [%s]
 
@@ -267,6 +268,7 @@ If:
     %s/.*\.(%s)$
   ]
 CompileFlags:
+  CompilationDatabase: %s
   Remove: [%s]
   Add: [%s]
 
@@ -278,6 +280,7 @@ If:
     %s/.*\.(h)$
   ]
 CompileFlags:
+  CompilationDatabase: %s
   Remove: [%s]
   Add: [%s]
 %s
@@ -496,12 +499,14 @@ CompileFlags:
         clean_project, cpp_extensions,
         clean_framework, cpp_extensions,
         clean_toolchain, cpp_extensions,
+        clean_project,
         table.concat(formatted_remove, ',\n    '),
         table.concat(formattedCxxAdd, ',\n    '),
 
         clean_project, c_extensions,
         clean_framework, c_extensions,
         clean_toolchain, c_extensions,
+        clean_project,
         table.concat(formatted_remove, ',\n    '),
         table.concat(formattedCcAdd, ',\n    '),
         -- table.concat(formatteLibdepsAdd, ',\n    '),
@@ -509,6 +514,7 @@ CompileFlags:
         clean_project,
         clean_framework,
         clean_toolchain,
+        clean_project,
         table.concat(formatted_remove, ',\n    '),
         table.concat(formattedHAdd, ',\n    '),
 
