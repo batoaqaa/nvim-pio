@@ -393,12 +393,12 @@ CompileFlags:
     --   end
     -- end
 
+    -- Extract all pre-sorted include path using JIT sequential loops
     local formattedAdd = {}  -- libdep_includes
-    -- Phase C: Extract all pre-sorted include path using JIT sequential loops
     local include_pools = {
       target_meta and target_meta.includes_libdeps or {},
-      target_meta and target_meta.includes_build or {},
-      target_meta and target_meta.includes_toolchain or {},
+      -- target_meta and target_meta.includes_build or {},
+      -- target_meta and target_meta.includes_toolchain or {},
       -- target_meta.includes_compatlib,
     }
     for pool_idx = 1, #include_pools do
@@ -406,8 +406,8 @@ CompileFlags:
       for flag_idx = 1, #(pool or {}) do
         local raw_flag = pool[flag_idx]
         if type(raw_flag) == 'string' and raw_flag ~= '' then
-          -- table.insert(options_file_lines, string.format('%q', vim.fs.normalize(raw_flag)))
-          table.insert(formattedAdd, vim.fs.normalize(raw_flag))
+          table.insert(formattedAdd, string.format('%q', vim.fs.normalize(raw_flag)))
+          -- table.insert(formattedAdd, vim.fs.normalize(raw_flag))
         end
       end
     end
@@ -491,8 +491,8 @@ CompileFlags:
 
       clean_project,
       table.concat(formatted_remove, ',\n    '),
-      -- table.concat(formatted_remove, ',\n    '),
       table.concat(formattedHAdd, ',\n    '),
+      -- table.concat(formatted_remove, ',\n    '),
       -- table.concat(formattedHAdd, ',\n    '),
       -- clean_project,
 
@@ -534,9 +534,9 @@ CompileFlags:
     -- local read_ok, old_content = misc.readFile(cwdClangd)
     -- if not read_ok or old_content ~= final_content then
       misc.writeFile(cwdClangd, final_content, {})
-      -- misc.writeFile(pkgClangd, finalContent(pkgContent), {})
-      -- misc.writeFile(frmClangd, finalContent(frmContent), {})
-      misc.writeFile(coreClangd, finalContent(frmContent), {})
+      misc.writeFile(pkgClangd, finalContent(pkgContent), {})
+      misc.writeFile(frmClangd, finalContent(frmContent), {})
+      -- misc.writeFile(coreClangd, finalContent(frmContent), {})
 
       vim.schedule(function()
         for _, client in ipairs(vim.lsp.get_clients({ name = 'clangd' })) do
