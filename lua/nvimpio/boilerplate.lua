@@ -251,9 +251,9 @@ boilerplate['.clangd'] = {
 ---
 If:
   PathMatch: [
-    %s/.*\.(%s)$,
-    %s/.*\.(%s)$,
-    %s/.*\.(%s)$
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$'
   ]
 CompileFlags:
   CompilationDatabase: %s
@@ -263,9 +263,9 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    %s/.*\.(%s)$,
-    %s/.*\.(%s)$,
-    %s/.*\.(%s)$
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$',
+    '%s/.*\.(%s)$'
   ]
 CompileFlags:
   CompilationDatabase: %s
@@ -275,9 +275,9 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    %s/.*\.(h)$,
-    %s/.*\.(h)$,
-    %s/.*\.(h)$
+    '%s/.*\.(h)$',
+    '%s/.*\.(h)$',
+    '%s/.*\.(h)$'
   ]
 CompileFlags:
   CompilationDatabase: %s
