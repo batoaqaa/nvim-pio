@@ -128,11 +128,11 @@ function M.getClangdConfig()
   -- SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
   clangd_config.handlers = {
     ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
-      if err or not result or not result.diagnostics then
-        local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
-        if default_handler then default_handler(err, result, ctx, config) end
-        return
-      end
+      -- if err or not result or not result.diagnostics then
+      --   local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
+      --   if default_handler then default_handler(err, result, ctx, config) end
+      --   return
+      -- end
 
       if has_pio_diag and pio_diag then
         local client = vim.lsp.get_client_by_id(ctx.client_id)
