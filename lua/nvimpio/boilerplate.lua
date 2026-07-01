@@ -486,7 +486,7 @@ CompileFlags:
 
       table.concat(formatted_remove, ',\n    '),
       -- table.concat(formatted_remove, ',\n    '),
-      table.concat(formattedAdd, ',\n    '),
+      table.concat(formattedHAdd, ',\n    '),
       -- table.concat(formattedHAdd, ',\n    '),
       -- clean_project,
 
