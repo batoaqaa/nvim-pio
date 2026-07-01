@@ -251,9 +251,9 @@ boilerplate['.clangd'] = {
 ---
 If:
   PathMatch: [
-    '%s/.*\.(%s)$',
-    '%s/.*\.(%s)$',
-    '%s/.*\.(%s)$'
+    %s/.*\.(%s)$,
+    %s/.*\.(%s)$,
+    %s/.*\.(%s)$
   ]
 CompileFlags:
   Remove: [%s]
@@ -262,9 +262,9 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    '%s/.*\.(%s)$',
-    '%s/.*\.(%s)$',
-    '%s/.*\.(%s)$'
+    %s/.*\.(%s)$,
+    %s/.*\.(%s)$,
+    %s/.*\.(%s)$
   ]
 CompileFlags:
   Remove: [%s]
@@ -273,9 +273,9 @@ CompileFlags:
 ---
 If:
   PathMatch: [
-    '%s/.*\.(h)$',
-    '%s/.*\.(h)$',
-    '%s/.*\.(h)$'
+    %s/.*\.(h)$,
+    %s/.*\.(h)$,
+    %s/.*\.(h)$
   ]
 CompileFlags:
   Remove: [%s]
@@ -462,12 +462,11 @@ CompileFlags:
 
       -- 4. Escape every literal dot inside the folders completely dynamically
       -- path = path:gsub("(%%.)", "\\\\%%1")
-      path = path:gsub("%.%w+", [[\%0]])
+      -- path = path:gsub("%.%w+", [[\%0]])
 
       -- 5. Recombine them seamlessly without a trailing slash
       return drive .. path
     end
-    prepare_path_for_clangd('xx')
     -- Keep Keep Keep
     -- -- This works completely dynamically for ANY path string
     -- local function escape_path_dots(path)
