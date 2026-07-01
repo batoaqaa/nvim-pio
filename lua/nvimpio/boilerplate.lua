@@ -259,6 +259,7 @@ If:
   PathMatch: [ '.*\\.(h)$' ]
 CompileFlags:
   Remove: [ %s ]
+  Add: [%s]
 %s
 ]],
   -- Compiler: %s
@@ -310,8 +311,8 @@ CompileFlags:
       return content
     end
     local cwdContent = readContent(cwdClangd)
-    -- local pkgContent = readContent(pkgClangd)
-    -- local frmContent = readContent(frmClangd)
+    local pkgContent = readContent(pkgClangd)
+    local frmContent = readContent(frmClangd)
     --------------------------------------------------------------------------------
 
     -- A: Force-create an empty default database if missing
@@ -382,10 +383,29 @@ CompileFlags:
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd Add1 section  --------------------------------
-    local formatteLibdepsAdd = {}  -- libdep_includes
-    if target_meta then
-      for i = 1, #target_meta.includes_libdeps do
-        table.insert(formatteLibdepsAdd, string.format('%q', target_meta.includes_libdeps[i]))
+    -- local formatteLibdepsAdd = {}  -- libdep_includes
+    -- if target_meta then
+    --   for i = 1, #target_meta.includes_libdeps do
+    --     table.insert(formatteLibdepsAdd, string.format('%q', target_meta.includes_libdeps[i]))
+    --   end
+    -- end
+
+    local formattedAdd = {}  -- libdep_includes
+    -- Phase C: Extract all pre-sorted include path using JIT sequential loops
+    local include_pools = {
+      target_meta and target_meta.includes_libdeps or {},
+      -- target_meta.includes_build,
+      target_meta and target_meta.includes_toolchain or {},
+      -- target_meta.includes_compatlib,
+    }
+    for pool_idx = 1, #include_pools do
+      local pool = include_pools[pool_idx]
+      for flag_idx = 1, #(pool or {}) do
+        local raw_flag = pool[flag_idx]
+        if type(raw_flag) == 'string' and raw_flag ~= '' then
+          -- table.insert(options_file_lines, string.format('%q', vim.fs.normalize(raw_flag)))
+          table.insert(formattedAdd, vim.fs.normalize(raw_flag))
+        end
       end
     end
     --------------------- end .clangd add1 section ---------------------------------
@@ -407,7 +427,8 @@ CompileFlags:
     -- local formattedCxxAdd = { '"-xc++"'}
     local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
     -- local formattedCxxAdd = { '"-std=gnu++17"'}
-    vim.list_extend(formattedCxxAdd, formatteLibdepsAdd)
+    -- vim.list_extend(formattedCxxAdd, formatteLibdepsAdd)
+    vim.list_extend(formattedCxxAdd, formattedAdd)
     -- table.insert(formattedCxxAdd, string.format('"@%s"', OS.cxx_flags))
     -- vim.list_extend(formattedCxxAdd, formattedASSEMBLY)
     --------------------- end .clangd formattedCxxAdd section ---------------------------------
@@ -420,7 +441,8 @@ CompileFlags:
     -- local formattedCcAdd = { '"-xc-header"', '"-std=gnu17"' }
     local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
     -- local formattedCcAdd = { '"-std=gnu17"' }
-    vim.list_extend(formattedCcAdd, formatteLibdepsAdd)
+    -- vim.list_extend(formattedCcAdd, formatteLibdepsAdd)
+    vim.list_extend(formattedCcAdd, formattedAdd)
     -- table.insert(formattedCcAdd, string.format('"@%s"', OS.cc_flags))
     -- vim.list_extend(formattedCcAdd, formattedASSEMBLY)
     --------------------- end .clangd formattedCcAdd section ---------------------------------
@@ -431,21 +453,22 @@ CompileFlags:
     local c_extensions   = is_cpp and "c" or "c|h"
 
     local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
-    vim.list_extend(formattedHAdd, formatteLibdepsAdd)
+    -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
+    vim.list_extend(formattedHAdd, formattedAdd)
 
-    -- This works completely dynamically for ANY path string
-    local function escape_path_dots(path)
-      -- (%.) captures every literal dot. 
-      -- \\\\%%1 replaces it with a literal backslash + the captured dot.
-      -- return path:gsub("(%%.)", "%\\%\\%%1")
-      -- return path.gsub("%.(%w+)", "\\\\.%1")
-    return string.gsub(path, "%.%w+", [[\%0]])
-    end
-
-    -- Simply wrap your dynamic variables before feeding them to string.format
-    local clean_framework = escape_path_dots(_G.metadata.framework_root)
-    local clean_toolchain = escape_path_dots(_G.metadata.toolchain_root)
-    local clean_project   = escape_path_dots(OS.project_dir)
+    -- -- This works completely dynamically for ANY path string
+    -- local function escape_path_dots(path)
+    --   -- (%.) captures every literal dot. 
+    --   -- \\\\%%1 replaces it with a literal backslash + the captured dot.
+    --   -- return path:gsub("(%%.)", "%\\%\\%%1")
+    --   -- return path.gsub("%.(%w+)", "\\\\.%1")
+    -- return string.gsub(path, "%.%w+", [[\%0]])
+    -- end
+    --
+    -- -- Simply wrap your dynamic variables before feeding them to string.format
+    -- local clean_framework = escape_path_dots(_G.metadata.framework_root)
+    -- local clean_toolchain = escape_path_dots(_G.metadata.toolchain_root)
+    -- local clean_project   = escape_path_dots(OS.project_dir)
 
     -- 3. Run a clean, single-pass string format for dynamicBlock
     dynamicBlock = string.format(
@@ -454,16 +477,17 @@ CompileFlags:
 
       cpp_extensions,
       table.concat(formatted_remove, ',\n    '),
-      table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
+      table.concat(formattedCxxAdd, ',\n    '),
 
       c_extensions,
       table.concat(formatted_remove, ',\n    '),
-      table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
-      -- table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
+      table.concat(formattedCcAdd, ',\n    '),
+      -- table.concat(formatteLibdepsAdd, ',\n    '),
 
       table.concat(formatted_remove, ',\n    '),
       -- table.concat(formatted_remove, ',\n    '),
-      -- table.concat(formattedHAdd, ',\n    '),  -- formatteLibdepsAdd
+      table.concat(formattedAdd, ',\n    '),
+      -- table.concat(formattedHAdd, ',\n    '),
       -- clean_project,
 
       -- clean_project,
@@ -473,7 +497,7 @@ CompileFlags:
       -- clean_toolchain,
       -- cpp_extensions,
       -- table.concat(formatted_remove, ',\n    '),
-      -- table.concat(formattedCxxAdd, ',\n    '),  -- formattedCxxAdd
+      -- table.concat(formattedCxxAdd, ',\n    '),
       --
       -- clean_project,
       -- c_extensions,
@@ -482,14 +506,12 @@ CompileFlags:
       -- clean_toolchain,
       -- c_extensions,
       -- table.concat(formatted_remove, ',\n    '),
-      -- table.concat(formattedCcAdd, ',\n    '),  -- formatteLibdepsAdd
-      -- -- table.concat(formatteLibdepsAdd, ',\n    '),  -- formatteLibdepsAdd
+      -- table.concat(formattedCcAdd, ',\n    '),
+      -- -- table.concat(formatteLibdepsAdd, ',\n    '),
       --
       -- clean_project,
       -- clean_framework,
       -- clean_toolchain,
-      -- table.concat(formatted_remove, ',\n    '),
-      -- table.concat(formattedHAdd, ',\n    '),  -- formatteLibdepsAdd
 
       end_marker
     )
@@ -506,8 +528,8 @@ CompileFlags:
     -- local read_ok, old_content = misc.readFile(cwdClangd)
     -- if not read_ok or old_content ~= final_content then
       misc.writeFile(cwdClangd, final_content, {})
-      misc.writeFile(pkgClangd, finalContent(pkgContent), {})
-      misc.writeFile(frmClangd, finalContent(frmContent), {})
+      -- misc.writeFile(pkgClangd, finalContent(pkgContent), {})
+      -- misc.writeFile(frmClangd, finalContent(frmContent), {})
 
       vim.schedule(function()
         for _, client in ipairs(vim.lsp.get_clients({ name = 'clangd' })) do
