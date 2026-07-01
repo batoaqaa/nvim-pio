@@ -277,9 +277,9 @@ CompileFlags:
     -- local coreClangd = vim.fs.joinpath(core.config.pio_storage_dir, '.clangd')
     local coreClangd = OS.clangd_user_file
 
-    -- if vim.fn.isdirectory(OS.clangd_user_dir) == 0 then
-    --   vim.fn.mkdir(OS.clangd_user_dir, "p")
-    -- end
+    if vim.fn.isdirectory(OS.clangd_user_dir) == 0 then
+      vim.fn.mkdir(OS.clangd_user_dir, "p")
+    end
 
     --------------------------------------------------------------------------------
     local cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16)  --M.get_session_cache_id()
@@ -530,6 +530,7 @@ CompileFlags:
       misc.writeFile(cwdClangd, final_content, {})
       -- misc.writeFile(pkgClangd, finalContent(pkgContent), {})
       -- misc.writeFile(frmClangd, finalContent(frmContent), {})
+      misc.writeFile(coreClangd, finalContent(frmContent), {})
 
       vim.schedule(function()
         for _, client in ipairs(vim.lsp.get_clients({ name = 'clangd' })) do
