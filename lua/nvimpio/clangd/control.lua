@@ -134,32 +134,21 @@ function M.getClangdConfig()
         return
       end
 
-      if result then
-        if vim.islist(result) then
-          for _, location in ipairs(result) do
-            if location.uri then
-              location.uri = vim.uri_from_fname(vim.fn.fnamemodify(vim.uri_to_fname(location.uri), ":p"))
-            end
-          end
-        elseif result.uri then
-          result.uri = vim.uri_from_fname(vim.fn.fnamemodify(vim.uri_to_fname(result.uri), ":p"))
+      if has_pio_diag and pio_diag then
+        local client = vim.lsp.get_client_by_id(ctx.client_id)
+        local project_root_dir = client and client.config.root_dir or vim.uv.cwd()
+
+        local target_path = vim.uri_to_fname(result.uri)
+        local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
+        -- if diagnostics for column 0 , row 0
+        if is_config then
+          if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
+          -- if pio_diag.clean_project_wide_flags then pio_diag.clean_project_wide_flags(result.diagnostics) end
+          -- return -- Block configuration diagnostics from polluting user view
+        else
+          if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
         end
       end
-      -- if has_pio_diag and pio_diag then
-      --   local client = vim.lsp.get_client_by_id(ctx.client_id)
-      --   local project_root_dir = client and client.config.root_dir or vim.uv.cwd()
-      --
-      --   local target_path = vim.uri_to_fname(result.uri)
-      --   local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
-      --   -- if diagnostics for column 0 , row 0
-      --   if is_config then
-      --     if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
-      --     -- if pio_diag.clean_project_wide_flags then pio_diag.clean_project_wide_flags(result.diagnostics) end
-      --     -- return -- Block configuration diagnostics from polluting user view
-      --   else
-      --     if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
-      --   end
-      -- end
 
       local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
       if default_handler then default_handler(err, result, ctx, config) end
