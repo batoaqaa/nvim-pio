@@ -244,6 +244,7 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: [ '.*\.(%s)$' ]
 CompileFlags:
+  CompilationDatabase: %s 
   Remove: [%s]
   Add: [%s]
 
@@ -251,6 +252,7 @@ CompileFlags:
 If:
   PathMatch: [ '.*\.(%s)$' ]
 CompileFlags:
+  CompilationDatabase: %s 
   Remove: [%s]
   Add: [%s]
 
@@ -258,6 +260,7 @@ CompileFlags:
 If:
   PathMatch: [ '.*\.(h)$' ]
 CompileFlags:
+  CompilationDatabase: %s 
   Remove: [ %s ]
   Add: [%s]
 %s
@@ -456,19 +459,19 @@ CompileFlags:
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
     vim.list_extend(formattedHAdd, formattedAdd)
 
-    -- -- This works completely dynamically for ANY path string
-    -- local function escape_path_dots(path)
-    --   -- (%.) captures every literal dot. 
-    --   -- \\\\%%1 replaces it with a literal backslash + the captured dot.
-    --   -- return path:gsub("(%%.)", "%\\%\\%%1")
-    --   -- return path.gsub("%.(%w+)", "\\\\.%1")
-    -- return string.gsub(path, "%.%w+", [[\%0]])
-    -- end
-    --
-    -- -- Simply wrap your dynamic variables before feeding them to string.format
+    -- This works completely dynamically for ANY path string
+    local function escape_path_dots(path)
+      -- (%.) captures every literal dot. 
+      -- \\\\%%1 replaces it with a literal backslash + the captured dot.
+      -- return path:gsub("(%%.)", "%\\%\\%%1")
+      -- return path.gsub("%.(%w+)", "\\\\.%1")
+    return string.gsub(path, "%.%w+", [[\%0]])
+    end
+
+    -- Simply wrap your dynamic variables before feeding them to string.format
     -- local clean_framework = escape_path_dots(_G.metadata.framework_root)
     -- local clean_toolchain = escape_path_dots(_G.metadata.toolchain_root)
-    -- local clean_project   = escape_path_dots(OS.project_dir)
+    local clean_project   = escape_path_dots(OS.project_dir)
 
     -- 3. Run a clean, single-pass string format for dynamicBlock
     dynamicBlock = string.format(
@@ -476,14 +479,17 @@ CompileFlags:
       start_marker,
 
       cpp_extensions,
+      clean_project,
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCxxAdd, ',\n    '),
 
       c_extensions,
+      clean_project,
       table.concat(formatted_remove, ',\n    '),
       table.concat(formattedCcAdd, ',\n    '),
       -- table.concat(formatteLibdepsAdd, ',\n    '),
 
+      clean_project,
       table.concat(formatted_remove, ',\n    '),
       -- table.concat(formatted_remove, ',\n    '),
       table.concat(formattedHAdd, ',\n    '),
