@@ -70,6 +70,9 @@ boilerplate['.clangdConfig.json'] = {
     "--compile-commands-dir=%s",
     "--query-driver=%s"
   ],
+  "cmd_env": {
+      "CLANGD_TRACE": 'clangd.log'
+  },
   "filetypes": [
     "c",
     "cpp",
@@ -379,8 +382,8 @@ CompileFlags:
       end
 
       -- 4. Escape every literal dot inside the folders completely dynamically
-      -- path = path:gsub("(%%.)", "\\\\%%1")
-      path = path:gsub("%.%w+", [[\%0]])
+      path = path:gsub("%.%w+", [[\%0]])  -- this only for passing string.format()
+      -- path = path:gsub("(%%.)", "\\\\%%1") -- this for everything else
 
       -- 5. Recombine them seamlessly without a trailing slash
       return drive .. path
