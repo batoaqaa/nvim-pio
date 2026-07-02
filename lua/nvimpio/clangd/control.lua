@@ -95,6 +95,7 @@ function M.getClangdConfig()
     -- merged_json = string.format(json_config or '', OS.nvimpio_config_dir, q_driver)
   end
 
+  print(merged_json)
   -- 'decode' converts JSON string -> Lua table
   local tok, clangd_config = pcall(vim.json.decode, merged_json)
 
