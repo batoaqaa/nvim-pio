@@ -272,8 +272,8 @@ CompileFlags:
     --------------------------------------------------------------------------------
     ------------------ start .clangd remove section --------------------------------
     -- 1. SYNC (WITH DIRECT DISK FALLBACK GATING):
-    local formatted_remove = {}
-    -- local formatted_remove = {'"-std=*"'}
+    -- local formatted_remove = {}
+    local formatted_remove = {'"-std=*"'}
     -- add diagnostic removed flags
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
     if success and pio_diag and pio_diag.removed_flags and next(pio_diag.removed_flags) then
@@ -324,7 +324,7 @@ CompileFlags:
     ------------------ start .clangd Add1 section  --------------------------------
 
     -- Extract all pre-sorted include path using JIT sequential loops
-    local formattedAdd = {}  -- libdep_includes
+    local formattedInc = {}  -- libdep_includes
     local include_pools = {
       target_meta and target_meta.includes_libdeps or {},
       -- target_meta and target_meta.includes_build or {},
@@ -336,8 +336,8 @@ CompileFlags:
       for flag_idx = 1, #(pool or {}) do
         local raw_flag = pool[flag_idx]
         if type(raw_flag) == 'string' and raw_flag ~= '' then
-          table.insert(formattedAdd, string.format('%q', vim.fs.normalize(raw_flag)))
-          -- table.insert(formattedAdd, vim.fs.normalize(raw_flag))
+          table.insert(formattedInc, string.format('%q', vim.fs.normalize(raw_flag)))
+          -- table.insert(formattedInc, vim.fs.normalize(raw_flag))
         end
       end
     end
@@ -352,29 +352,34 @@ CompileFlags:
     }
     -- vim.list_extend(formatted_remove, formattedASSEMBLY)
     ------------------------------------------------------------------------------
-    ------------------ start .clangd formattedCxxAdd section  --------------------------------
+    ------------------ start .clangd formattedCxxAdd section  --------------------
 
     -- local formattedCxxAdd = { }
     local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
-    vim.list_extend(formattedCxxAdd, formattedAdd)
+    vim.list_extend(formattedCxxAdd, formattedInc)
     --------------------- end .clangd formattedCxxAdd section ---------------------------------
 
     ------------------------------------------------------------------------------
-    ------------------ start .clangd formattedCcAdd section  --------------------------------
+    ------------------ start .clangd formattedCcAdd section  ---------------------
     -- local formattedCcAdd = { }
     local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
-    vim.list_extend(formattedCcAdd, formattedAdd)
+    vim.list_extend(formattedCcAdd, formattedInc)
     --------------------- end .clangd formattedCcAdd section ---------------------------------
 
-    ------------------------------------------------------------------------------
-    ------------------ start .clangd formattedHAdd section  --------------------------------
     local is_cpp = is_cpp_project()
+    ------------------------------------------------------------------------------
+    local formattedAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"'} or { '"-xc"', '"-std=gnu17"' }
+    vim.list_extend(formattedAdd, formattedInc)
+    ------------------------------------------------------------------------------
+
+    ------------------------------------------------------------------------------
+    ------------------ start .clangd formattedHAdd section  ----------------------
     local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
     local c_extensions   = is_cpp and "c" or "c|h"
 
     local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
-    vim.list_extend(formattedHAdd, formattedAdd)
+    vim.list_extend(formattedHAdd, formattedInc)
     --------------------- end .clangd formattedHAdd section ---------------------------------
 
     local function prepare_path_for_clangd(raw_path)
@@ -438,7 +443,7 @@ CompileFlags:
         -- c_extensions,
         OS.project_dir,
         table.concat(formatted_remove, ',\n    '),
-        table.concat(formattedAdd, ',\n    '),
+        table.concat(formattedInc, ',\n    '),
         -- table.concat(formattedCcAdd, ',\n    '),
         -- table.concat(formatteLibdepsAdd, ',\n    '),
 
