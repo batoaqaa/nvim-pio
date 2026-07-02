@@ -423,8 +423,7 @@ function M.init(clangd_config)
   if clangd_config.support then clangd.init(clangd_config) end
 
   -- Set log level to see RPC communication (choose 'debug' or 'trace')
-  vim.lsp.log.set_level('debug')
-
+  -- vim.lsp.log.set_level('debug')
   -- Force multi-line formatting for all LSP entries
   vim.lsp.log.set_format_func(vim.inspect)
 
