@@ -187,35 +187,13 @@ function M.readContent(files)
     tbl.content = content
   end
 end
--- /.*\.(h|hpp|cpp|cc|cu|cxx)$
--- %s
--- ---
--- If:
---   PathMatch: [ '.*\.(%s)$' ]
--- CompileFlags:
---   Remove: [%s]
---   Add: [%s]
---
--- ---
--- If:
---   PathMatch: [ '.*\.(%s)$' ]
--- CompileFlags:
---   Remove: [%s]
---   Add: [%s]
---
--- ---
--- If:
---   PathMatch: [ '.*\.(h)$' ]
--- CompileFlags:
---   Remove: [ %s ]
---   Add: [%s]
--- %s
+
 boilerplate['.clangd'] = {
   dynamic = [[
 %s
 ---
 If:
-  PathMatch: [ '%s/.*' ]
+  PathMatch: ['%s/.*']
 CompileFlags:
   Remove: [
     "-D_ASMLANGUAGE",
@@ -226,9 +204,9 @@ CompileFlags:
 
 ---
 If:
-  PathMatch: [ '%s/.*' ]
+  PathMatch: ['%s/.*']
 CompileFlags:
-  Remove: [ %s ]
+  Remove: [%s]
   Add: [%s]
 %s
 ]],
@@ -375,8 +353,8 @@ CompileFlags:
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedHAdd section  ----------------------
-    local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
-    local c_extensions   = is_cpp and "c" or "c|h"
+    -- local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
+    -- local c_extensions   = is_cpp and "c" or "c|h"
 
     local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
@@ -401,8 +379,8 @@ CompileFlags:
       end
 
       -- 4. Escape every literal dot inside the folders completely dynamically
-      path = path:gsub("(%%.)", "\\\\%%1")
-      -- path = path:gsub("%.%w+", [[\%0]])
+      -- path = path:gsub("(%%.)", "\\\\%%1")
+      path = path:gsub("%.%w+", [[\%0]])
 
       -- 5. Recombine them seamlessly without a trailing slash
       return drive .. path
