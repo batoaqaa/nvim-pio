@@ -370,9 +370,7 @@ CompileFlags:
       if drive then
         drive = drive:lower()
         path = main_path
-      else
-        drive = "" -- Linux/macOS
-      end
+      else drive = "" end -- Linux/macOS
 
       -- 4. Escape every literal dot inside the folders completely dynamically
       path = path:gsub("%.%w+", [[\%0]])  -- this only for passing string.format()
@@ -403,19 +401,10 @@ CompileFlags:
 
         packages_dir,
         table.concat(formatted_remove_ASSEMBLY, ',\n    '),
-        -- cpp_extensions,
-        -- table.concat(formatted_remove, ',\n    '),
-        -- table.concat(formattedCxxAdd, ',\n    '),
 
-        -- c_extensions,
         OS.project_dir,
         table.concat(formatted_remove, ',\n    '),
         table.concat(formattedAdd, ',\n    '),
-        -- table.concat(formattedCcAdd, ',\n    '),
-        -- table.concat(formatteLibdepsAdd, ',\n    '),
-
-        -- table.concat(formatted_remove, ',\n    '),
-        -- table.concat(formattedHAdd, ',\n    '),
 
         tbl.end_marker
       )
