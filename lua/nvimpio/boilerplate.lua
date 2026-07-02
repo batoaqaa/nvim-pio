@@ -71,7 +71,7 @@ boilerplate['.clangdConfig.json'] = {
     "--query-driver=%s"
   ],
   "cmd_env": {
-      "CLANGD_TRACE": clangd.log
+      "CLANGD_TRACE": "clangd.log"
   },
   "filetypes": [
     "c",
