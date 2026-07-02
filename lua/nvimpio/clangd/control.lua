@@ -168,7 +168,10 @@ function M.restart()
     local clangConfig = M.getClangdConfig()
     -- vim.lsp.config(name, clangConfig)
     vim.lsp.enable(name, false)
-    if not vim.lsp.is_enabled('clangd') then vim.lsp.enable('clangd', clangConfig) end
+    if not vim.lsp.is_enabled('clangd') then
+      print('disabled')
+      vim.lsp.enable('clangd', clangConfig)
+    end
     vim.lsp.enable(name, true)
 
     _G.isBusy = false
