@@ -88,7 +88,7 @@ boilerplate['.clangdConfig.json'] = {
     ".git"
   ],
   "init_options": {
-    "compilationDatabasePath": "%s",
+    "compilationDatabasePath": .,
     "clangdFileStatus": true,
     "completeUnimported": true,
     "fallbackFlags": [
