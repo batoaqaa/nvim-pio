@@ -125,26 +125,6 @@ function M.getClangdConfig()
     if boiler and boiler.boilerplate_gen then pcall(boiler.boilerplate_gen, '.clangd') end
   end
 
-  clangd_config.on_init = function(client, _)
-    table.insert(client.config.cmd, "-U_ASMLANGUAGE")
-    table.insert(client.config.cmd, "-U__ASSEMBLY__")
-    return true
-  end
-  -- clangd_config.on_init = function(client, _)
-  --   -- Define the compiler undefines we want to inject
-  --   local flags_to_inject = {
-  --     "-U_ASMLANGUAGE",
-  --     "-U__ASSEMBLY__",
-  --     "-U__ASSEMBLER__",
-  --     "-U_ASSEMBLY_",
-  --   }
-  --   -- Native clients store their running terminal commands inside client.config.cmd
-  --   for _, flag in ipairs(flags_to_inject) do
-  --     table.insert(client.config.cmd, flag)
-  --   end
-  --   -- Return true to signal that initialization can continue
-  --   return true
-  -- end
   -- SOLID TRANSPORT-LAYER INTERCEPTOR HANDLER
   clangd_config.handlers = {
     ['textDocument/publishDiagnostics'] = function(err, result, ctx, config)

@@ -92,6 +92,16 @@ boilerplate['.clangdConfig.json'] = {
     "completeUnimported": true,
     "fallbackFlags": [
     ],
+    "compilationDatabaseChanges": {
+      "[%q]": {
+        "CompilerFlags": [
+          "-D_ASMLANGUAGE",
+          "-D__ASSEMBLY__",
+          "-D__ASSEMBLER__",
+          "-D_ASSEMBLY_"
+        ]
+      }
+    }
     "usePlaceholders": true
   },
   "single_file_support": true,
