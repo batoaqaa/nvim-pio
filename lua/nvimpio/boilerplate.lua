@@ -99,8 +99,8 @@ boilerplate['.clangdConfig.json'] = {
           "-D__ASSEMBLY__",
           "-D__ASSEMBLER__",
           "-D_ASSEMBLY_"
-        ],
-      },
+        ]
+      }
     },
     "usePlaceholders": true
   },
