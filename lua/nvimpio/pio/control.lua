@@ -52,17 +52,6 @@ local function generate_generic_clangd_db()
       end)
     end)
   end)
-  -- -- 3. Export the clean, mirrored database
-  -- local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
-  -- if ok and pretty_json then
-  --   local status, err = misc.writeFile(output_path, pretty_json, {})
-  --   if status then
-  --     OS.notify('DB sanitize success', 'info')
-  --     clangdRestart()
-  --   else
-  --     OS.notify('DB sanitize failed==> ' .. (err or 'unknown error'), 'error')
-  --   end
-  -- else OS.notify('DB format failed==> ', 'error') end
 end
 
 --INFO:
@@ -205,7 +194,8 @@ function M.start_watchers()
         _G.isBusy = true
         OS.notify('PIO compiledb change: clangdb update ...', 'info')
         vim.schedule(function()
-          generate_generic_clangd_db()
+          require('nvimpio.pio.upkeep').compile_commandsFix()
+          -- generate_generic_clangd_db()
         end)
       end,
     },

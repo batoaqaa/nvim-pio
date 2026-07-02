@@ -922,10 +922,6 @@ function M.pio_refresh(callback, from)
   end
 end
 
-
-
-
-
 -------------------------------------------------------------------------------
 -- INFO:
 -- Fix compile_commands.json file with absoulute paths
@@ -933,16 +929,15 @@ function M.compile_commandsFix() --M.dbPathsFix()
   local filename = vim.fs.joinpath(vim.uv.cwd(), 'compile_commands.json')
   local content = vim.fn.readfile(filename)
   if #content == 0 then return end
-
+vim.fs.dirname(_G.metadata.cxx_path)
   local start_time = vim.loop.hrtime()
-  local ok, data = pcall(vim.json.decode, table.concat(content, '\n'))
-  if not ok or type(data) ~= 'table' then return end
 
+  -- local pio_binaries = _G.metadata.query_driver or '/bin/*'
+  -- local pio_binaries = vim.fs.normalize(vim.fn.fnamemodify(_G.metadata.cxx_path, ':h')) .. '/*' or  '/bin/*'
+  -- local pio_binaries = (_G.metadata.toolchain_root or "") .. '/bin/*'
   -- 1. Build Path Map (Scan toolchain)
   local path_map = {}
-  -- local pio_binaries = _G.metadata.query_driver or '/bin/*'
-  local pio_binaries = vim.fs.normalize(vim.fn.fnamemodify(_G.metadata.cxx_path, ':h')) .. '/*' or  '/bin/*'
-  -- local pio_binaries = (_G.metadata.toolchain_root or "") .. '/bin/*'
+  local pio_binaries = vim.fs.dirname(_G.metadata.cxx_path) .. '/*' or  '/bin/*'
   for _, full_path in ipairs(vim.fn.glob(pio_binaries, false, true)) do
     local name = full_path:match('([^/\\\\]+)$'):gsub('%.exe$', '')
     path_map[name] = full_path
@@ -950,12 +945,13 @@ function M.compile_commandsFix() --M.dbPathsFix()
 
   -- 2. Update Entries
   local modified = false
-  local prntFlags = true
+  local ok, data = pcall(vim.json.decode, table.concat(content, '\n'))
+  if not ok or type(data) ~= 'table' then return end
   for _, entry in ipairs(data) do
     -- Standard normalization
     if entry.directory then entry.directory = vim.fs.normalize(entry.directory) end
     if entry.file then entry.file = vim.fs.normalize(entry.file) end
-    if entry.arguments then entry.arguments = vim.fs.normalizeFlags(entry.arguments) end
+    if entry.arguments then entry.arguments = misc.normalizeFlags(entry.arguments) end
     if entry.output then entry.output = vim.fs.normalize(entry.output) end
 
     if entry.command then
@@ -975,10 +971,6 @@ function M.compile_commandsFix() --M.dbPathsFix()
             if full_compiler_path:find(" ") then
               full_compiler_path = '"' .. full_compiler_path .. '"'
             end
-            if prntFlags then
-              -- print(string.format('ful_compiler_path = %s flags=%s', full_compiler_path, args))
-              prntFlags = false
-            end
             entry.command = full_compiler_path .. args
             modified = true
           end
@@ -995,7 +987,8 @@ function M.compile_commandsFix() --M.dbPathsFix()
       return
     end
 
-    local wk, err = misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
+    local output = vim.fs.joinpath(OS.nvimpio_config_dir, _G.metadata.active_env, 'compile_commands.json')
+    local wk, err = misc.writeFile(output, formatted, { overwrite = true, mkdir = true })
     if not wk then OS.notify(err, 'error') end
 
     local end_time = vim.loop.hrtime()
