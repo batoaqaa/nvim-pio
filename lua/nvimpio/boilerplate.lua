@@ -272,8 +272,8 @@ CompileFlags:
     --------------------------------------------------------------------------------
     ------------------ start .clangd remove section --------------------------------
     -- 1. SYNC (WITH DIRECT DISK FALLBACK GATING):
-    -- local formatted_remove = {}
-    local formatted_remove = {'"-std=*"'}
+    local formatted_remove = {}
+    -- local formatted_remove = {'"-std=*"'}
     -- add diagnostic removed flags
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
     if success and pio_diag and pio_diag.removed_flags and next(pio_diag.removed_flags) then
@@ -350,7 +350,7 @@ CompileFlags:
       '"-D__ASSEMBLER__*"',
       '"-D_ASSEMBLY_*"'
     }
-    vim.list_extend(formatted_remove, formattedASSEMBLY)
+    -- vim.list_extend(formatted_remove, formattedASSEMBLY)
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCxxAdd section  --------------------------------
 
@@ -438,7 +438,8 @@ CompileFlags:
         -- c_extensions,
         OS.project_dir,
         table.concat(formatted_remove, ',\n    '),
-        table.concat(formattedCcAdd, ',\n    '),
+        table.concat(formattedAdd, ',\n    '),
+        -- table.concat(formattedCcAdd, ',\n    '),
         -- table.concat(formatteLibdepsAdd, ',\n    '),
 
         -- table.concat(formatted_remove, ',\n    '),
