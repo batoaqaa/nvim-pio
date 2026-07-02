@@ -98,14 +98,14 @@ boilerplate['.clangdConfig.json'] = {
           "-D_ASMLANGUAGE",
           "-D__ASSEMBLY__",
           "-D__ASSEMBLER__",
-          "-D_ASSEMBLY_"
-        ]
-      }
-    }
-    "usePlaceholders": true
+          "-D_ASSEMBLY_",
+        ],
+      },
+    },
+    "usePlaceholders": true,
   },
   "single_file_support": true,
-  "workspace_required": false
+  "workspace_required": false,
 }
 ]],
     -- "compilationDatabasePath": %q,
