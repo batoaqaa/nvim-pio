@@ -93,7 +93,7 @@ boilerplate['.clangdConfig.json'] = {
     "fallbackFlags": [
     ],
     "compilationDatabaseChanges": {
-      "[%q]": {
+      "%s": {
         "CompilerFlags": [
           "-D_ASMLANGUAGE",
           "-D__ASSEMBLY__",
