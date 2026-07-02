@@ -96,7 +96,7 @@ boilerplate['.clangdConfig.json'] = {
     "usePlaceholders": true
   },
   "single_file_support": true,
-  "workspace_required": true
+  "workspace_required": false
 }
 ]],
   boiler = function(self)
