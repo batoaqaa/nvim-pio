@@ -88,7 +88,6 @@ boilerplate['.clangdConfig.json'] = {
     ".git"
   ],
   "init_options": {
-    "compilationDatabasePath": %q,
     "clangdFileStatus": true,
     "completeUnimported": true,
     "fallbackFlags": [
@@ -99,6 +98,7 @@ boilerplate['.clangdConfig.json'] = {
   "workspace_required": false
 }
 ]],
+  -- "compilationDatabasePath": %q,
   boiler = function(self)
     local file_path = vim.fs.joinpath(OS.clangd_config)
     if vim.uv.fs_stat(file_path) then
