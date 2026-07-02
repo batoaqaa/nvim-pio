@@ -443,7 +443,7 @@ CompileFlags:
         -- c_extensions,
         OS.project_dir,
         table.concat(formatted_remove, ',\n    '),
-        table.concat(formattedInc, ',\n    '),
+        table.concat(formattedAdd, ',\n    '),
         -- table.concat(formattedCcAdd, ',\n    '),
         -- table.concat(formatteLibdepsAdd, ',\n    '),
 
