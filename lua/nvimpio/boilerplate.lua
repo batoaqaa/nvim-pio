@@ -92,16 +92,6 @@ boilerplate['.clangdConfig.json'] = {
     "completeUnimported": true,
     "fallbackFlags": [
     ],
-    "compilationDatabaseChanges": {
-      "%s": {
-        "CompilerFlags": [
-          "-D_ASMLANGUAGE",
-          "-D__ASSEMBLY__",
-          "-D__ASSEMBLER__",
-          "-D_ASSEMBLY_"
-        ]
-      }
-    },
     "usePlaceholders": true
   },
   "single_file_support": true,
@@ -196,27 +186,46 @@ function M.readContent(files)
     tbl.content = content
   end
 end
-
+-- /.*\.(h|hpp|cpp|cc|cu|cxx)$
+-- %s
+-- ---
+-- If:
+--   PathMatch: [ '.*\.(%s)$' ]
+-- CompileFlags:
+--   Remove: [%s]
+--   Add: [%s]
+--
+-- ---
+-- If:
+--   PathMatch: [ '.*\.(%s)$' ]
+-- CompileFlags:
+--   Remove: [%s]
+--   Add: [%s]
+--
+-- ---
+-- If:
+--   PathMatch: [ '.*\.(h)$' ]
+-- CompileFlags:
+--   Remove: [ %s ]
+--   Add: [%s]
+-- %s
 boilerplate['.clangd'] = {
   dynamic = [[
 %s
 ---
 If:
-  PathMatch: [ '.*\.(%s)$' ]
+  PathMatch: [ '%s/.*' ]
 CompileFlags:
-  Remove: [%s]
-  Add: [%s]
+  Remove: [
+    "-D_ASMLANGUAGE",
+    "-D__ASSEMBLY__",
+    "-D__ASSEMBLER__",
+    "-D_ASSEMBLY_"
+  ]
 
 ---
 If:
-  PathMatch: [ '.*\.(%s)$' ]
-CompileFlags:
-  Remove: [%s]
-  Add: [%s]
-
----
-If:
-  PathMatch: [ '.*\.(h)$' ]
+  PathMatch: [ '%s/.*' ]
 CompileFlags:
   Remove: [ %s ]
   Add: [%s]
@@ -233,15 +242,15 @@ CompileFlags:
     end
 
     --------------------------------------------------------------------------------
-    local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
+    -- local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
     -- local pkgClangd = vim.fs.joinpath(_G.metadata.toolchain_root, '.clangd')
     -- local frmClangd = vim.fs.joinpath(_G.metadata.framework_root, '.clangd')
-    -- local coreClangd = OS.clangd_user_file
+    local coreClangd = OS.clangd_user_file
     local clangdFiles = {
-      cwd = { file = cwdClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
+      -- cwd = { file = cwdClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
       -- pkg = { file = pkgClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
       -- frm = { file = frmClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
-      -- core = { file = coreClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
+      core = { file = coreClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
     }
     M.readContent(clangdFiles)
     --------------------------------------------------------------------------------
@@ -368,6 +377,47 @@ CompileFlags:
     vim.list_extend(formattedHAdd, formattedAdd)
     --------------------- end .clangd formattedHAdd section ---------------------------------
 
+    local function prepare_path_for_clangd(raw_path)
+      -- 1. Clean up slashes using Neovim's normalizer
+      local path = vim.fs.normalize(raw_path)
+
+      -- 2. Strip any trailing slash if it exists, so it fits your "%s/.*" template perfectly
+      path = path:gsub("/$", "")
+
+      -- 3. Extract the Windows drive letter if it exists
+      local drive, main_path = path:match("^(%a:)(.*)$")
+
+      if drive then
+        drive = drive:lower()
+        path = main_path
+      else
+        drive = "" -- Linux/macOS
+      end
+
+      -- 4. Escape every literal dot inside the folders completely dynamically
+      path = path:gsub("(%%.)", "\\\\%%1")
+      -- path = path:gsub("%.%w+", [[\%0]])
+
+      -- 5. Recombine them seamlessly without a trailing slash
+      return drive .. path
+    end
+    prepare_path_for_clangd('')
+    -- -- Keep Keep Keep
+    -- -- This works completely dynamically for ANY path string
+    -- local function escape_path_dots(path)
+    --   -- (%.) captures every literal dot. 
+    --   -- \\\\%%1 replaces it with a literal backslash + the captured dot.
+    --   -- return path:gsub("(%%.)", "%\\%\\%%1")
+    --   -- return path.gsub("%.(%w+)", "\\\\.%1")
+    --   return string.gsub(path, "%.%w+", [[\%0]])
+    -- endvim.fs.dirname(path)
+    -- Simply wrap your dynamic variables before feeding them to string.format
+    -- local clean_framework = prepare_path_for_clangd(_G.metadata.framework_root)
+    -- local clean_toolchain = prepare_path_for_clangd(_G.metadata.toolchain_root)
+    -- local clean_project   = prepare_path_for_clangd(OS.project_dir)
+    local packages_dir   = prepare_path_for_clangd(_G.metadata.packages_dir)
+
+
     local function finalContent(data)
       if data ~= "" and not data:match("\n$") then
         data = data .. "\n"
@@ -380,17 +430,19 @@ CompileFlags:
         self.dynamic,
         tbl.start_marker,
 
-        cpp_extensions,
-        table.concat(formatted_remove, ',\n    '),
-        table.concat(formattedCxxAdd, ',\n    '),
+        packages_dir,
+        -- cpp_extensions,
+        -- table.concat(formatted_remove, ',\n    '),
+        -- table.concat(formattedCxxAdd, ',\n    '),
 
-        c_extensions,
+        -- c_extensions,
+        OS.project_dir,
         table.concat(formatted_remove, ',\n    '),
         table.concat(formattedCcAdd, ',\n    '),
         -- table.concat(formatteLibdepsAdd, ',\n    '),
 
-        table.concat(formatted_remove, ',\n    '),
-        table.concat(formattedHAdd, ',\n    '),
+        -- table.concat(formatted_remove, ',\n    '),
+        -- table.concat(formattedHAdd, ',\n    '),
 
         tbl.end_marker
       )

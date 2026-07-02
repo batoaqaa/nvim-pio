@@ -10,15 +10,15 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
   callback = function()
     --------------------------------------------------------------------------------
     --------------------------------------------------------------------------------
-    local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
+    -- local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
     -- local pkgClangd = vim.fs.joinpath(_G.metadata.toolchain_root, '.clangd')
     -- local frmClangd = vim.fs.joinpath(_G.metadata.framework_root, '.clangd')
-    -- local coreClangd = OS.clangd_user_file
+    local coreClangd = OS.clangd_user_file
     local clangdFiles = {
-      cwd = { file = cwdClangd, content = '', cache_id = '', start_marker = '', end_marker = '' },
+      -- cwd = { file = cwdClangd, content = '', cache_id = '', start_marker = '', end_marker = '' },
       -- pkg = { file = pkgClangd, content = '', cache_id = '', start_marker = '', end_marker = '' },
       -- frm = { file = frmClangd, content = '', cache_id = '', start_marker = '', end_marker = '' },
-      -- core = { file = coreClangd, content = '', cache_id = '', start_marker = '', end_marker = '' },
+      core = { file = coreClangd, content = '', cache_id = '', start_marker = '', end_marker = '' },
     }
     require('nvimpio.boilerplate').readContent(clangdFiles)
     --------------------------------------------------------------------------------
