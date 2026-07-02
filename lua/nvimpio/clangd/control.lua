@@ -88,7 +88,7 @@ function M.getClangdConfig()
   -- local formatted_fallbackFlags = { '"-std=c++17"', '"-ferror-limit=0"' }  -- cxx std=c==17 + response file
   local _, count = json_config:gsub('%%s', '')
   -- Only use string.format if there is one or less %s
-  if count <= 2 then
+  if count <= 3 then
     -- merged_json = string.format(json_config or '', q_driver)
     -- merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ','))
     merged_json = string.format(json_config or '', OS.project_dir, q_driver, OS.project_dir)
