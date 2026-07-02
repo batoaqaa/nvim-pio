@@ -91,7 +91,7 @@ function M.getClangdConfig()
   if count <= 2 then
     -- merged_json = string.format(json_config or '', q_driver)
     -- merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ','))
-    merged_json = string.format(json_config or '', OS.project_dir, q_driver)
+    merged_json = string.format(json_config or '', OS.project_dir, q_driver, OS.project_dir)
     -- merged_json = string.format(json_config or '', OS.nvimpio_config_dir, q_driver)
   end
 
@@ -166,10 +166,12 @@ function M.restart()
     OS.notify('LSP: Clangd restart.', 'warn')
     --
     vim.lsp.enable(name, false)
+
     local clangConfig = M.getClangdConfig()
     vim.lsp.config(name, clangConfig)
+
+    -- if not vim.lsp.is_enabled('clangd') then vim.lsp.enable('clangd', true) end
     vim.lsp.enable(name, true)
-    -- vim.lsp.enable('clangd', clangConfig)
 
     _G.isBusy = false
   end)

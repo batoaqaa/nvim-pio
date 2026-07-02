@@ -330,6 +330,7 @@ local plugins = {
     },
   },
 
+  { 'dchinmay2/clangd_extensions.nvim' },
   {
     'batoaqaa/nvim-pio',
     -- lazy = true,
