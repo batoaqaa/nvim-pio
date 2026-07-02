@@ -5,55 +5,6 @@ local clangd = require('nvimpio.clangd.control')
 local misc = require('nvimpio.utils.misc')
 local clangdRestart = clangd.restart
 
-local function generate_generic_clangd_db()
-  local source_path = vim.fs.joinpath(OS.project_dir, 'compile_commands.json')
-  -- local output_dir = OS.nvimpio_config_dir
-  local output_path = OS.clangd_db
-
-
-  local uv = vim.uv or vim.loop
-  -- 1. Asynchronously read the original source file from disk
-  uv.fs_open(source_path, "r", 438, function(err, fd_in)
-    if err or not fd_in then return end
-
-    uv.fs_fstat(fd_in, function(err_stat, stat)
-      if err_stat or not stat then uv.fs_close(fd_in) return end
-
-      uv.fs_read(fd_in, stat.size, 0, function(err_read, data)
-        uv.fs_close(fd_in)
-        if err_read or not data or data == "" then return end
-
-        -- 2. Decode the JSON array structures safely inside the background pipeline
-        local success, db = pcall(vim.json.decode, data)
-        if not success or type(db) ~= "table" then return end
-
-        local cleaned_db = {}
-
-        -- High-level row extraction: Filters out ONLY the assembly file paths.
-        -- This leaves your unique includes, architectures, and compiler targets 100% pristine.
-        for _, entry in ipairs(db) do
-          local filename = entry.file or ""
-          if not (filename:match("%.[sS]$") or filename:match("%.asm$")) then
-            table.insert(cleaned_db, entry)
-          end
-        end
-
-        -- 3. Export the clean, mirrored database
-        local ok, pretty_json = pcall(misc.jsonFormat, cleaned_db)
-        if ok and pretty_json then
-          local status, error = misc.writeFile(output_path, pretty_json, {})
-          if status then
-            OS.notify('DB sanitize success', 'info')
-            clangdRestart()
-          else
-            OS.notify('DB sanitize failed==> ' .. (error or 'unknown error'), 'error')
-          end
-        else OS.notify('DB format failed==> ', 'error') end
-      end)
-    end)
-  end)
-end
-
 --INFO:
 --=============================================================================
 --  watchers setup
@@ -194,8 +145,8 @@ function M.start_watchers()
         _G.isBusy = true
         OS.notify('PIO compiledb change: clangdb update ...', 'info')
         vim.schedule(function()
-          require('nvimpio.pio.upkeep').compile_commandsFix()
-          -- generate_generic_clangd_db()
+          do end
+          -- require('nvimpio.pio.upkeep').compile_commandsFix()
         end)
       end,
     },
