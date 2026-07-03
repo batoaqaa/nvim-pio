@@ -312,8 +312,8 @@ CompileFlags:
     local formattedIncAdd = {}  -- libdep_includes
     local include_pools = {
       target_meta and target_meta.includes_libdeps or {},
-      target_meta and target_meta.includes_build or {},
-      target_meta and target_meta.includes_toolchain or {},
+      -- target_meta and target_meta.includes_build or {},
+      -- target_meta and target_meta.includes_toolchain or {},
       -- target_meta.includes_compatlib,
     }
     for pool_idx = 1, #include_pools do
