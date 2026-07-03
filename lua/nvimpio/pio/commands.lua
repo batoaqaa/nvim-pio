@@ -9,20 +9,50 @@
 vim.api.nvim_create_autocmd('VimLeavePre', {
   callback = function()
     --------------------------------------------------------------------------------
-    --------------------------------------------------------------------------------
-    local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
+    -- --------------------------------------------------------------------------------
+    -- local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
+    -- -- local pkgClangd = vim.fs.joinpath(_G.metadata.toolchain_root, '.clangd')
+    -- -- local frmClangd = vim.fs.joinpath(_G.metadata.framework_root, '.clangd')
+    -- -- local userClangd = OS.clangd_user_file
+    -- local clangdFiles = {
+    --   cwd = { file = cwdClangd, content = '', cache_id = '', start_marker = '', end_marker = '' },
+    --   -- pkg = { file = pkgClangd, content = '', cache_id = '', start_marker = '', end_marker = '' },
+    --   -- frm = { file = frmClangd, content = '', cache_id = '', start_marker = '', end_marker = '' },
+    --   -- core = { file = userClangd, content = '', cache_id = '', start_marker = '', end_marker = '' },
+    -- }
+    -- require('nvimpio.boilerplate').readContent(clangdFiles)
+    -- --------------------------------------------------------------------------------
+
+    ------------------------------------------------------------------------------
+    -- local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
     -- local pkgClangd = vim.fs.joinpath(_G.metadata.toolchain_root, '.clangd')
     -- local frmClangd = vim.fs.joinpath(_G.metadata.framework_root, '.clangd')
-    -- local userClangd = OS.clangd_user_file
+    local userClangd = OS.clangd_user_file
     local clangdFiles = {
-      cwd = { file = cwdClangd, content = '', cache_id = '', start_marker = '', end_marker = '' },
-      -- pkg = { file = pkgClangd, content = '', cache_id = '', start_marker = '', end_marker = '' },
-      -- frm = { file = frmClangd, content = '', cache_id = '', start_marker = '', end_marker = '' },
-      -- core = { file = userClangd, content = '', cache_id = '', start_marker = '', end_marker = '' },
+      -- cwd = { file = cwdClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
+      -- pkg = { file = pkgClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
+      -- frm = { file = frmClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
+      userGlob = {
+        file = userClangd,
+        content = '',
+        cache_id = '',
+        block = '',
+        start_marker = '',
+        end_marker = '',
+        delete = false,
+      },
+      userProj = {
+        file = userClangd,
+        content = '',
+        cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),
+        block = '',
+        start_marker = '',
+        end_marker = '',
+        delete = true,
+      },
     }
-    require('nvimpio.boilerplate').readContent(clangdFiles)
-    --------------------------------------------------------------------------------
-
+    -- M.readContent(clangdFiles)
+    ------------------------------------------------------------------------------
     local function finalContent(data)
       if data ~= '' and not data:match('\n$') then
         data = data .. '\n'
@@ -32,7 +62,9 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
     local misc = require('nvimpio.utils.misc')
     -- misc.writeFile(clangdFiles['pkg'].file, finalContent(clangdFiles['pkg'].content), {})
     -- misc.writeFile(clangdFiles['frm'].file, finalContent(clangdFiles['frm'].content), {})
-    misc.writeFile(clangdFiles['core'].file, finalContent(clangdFiles['core'].content), {})
+    -- misc.writeFile(clangdFiles['core'].file, finalContent(clangdFiles['core'].content), {})
+    require('nvimpio.boilerplate').readContent(clangdFiles['userProj'])
+    misc.writeFile(clangdFiles['userProj'].file, finalContent(clangdFiles['userProj'].content), {})
   end,
 })
 

@@ -392,27 +392,24 @@ CompileFlags:
       userGlob = { file = userClangd, content = '',
         cache_id = '',
         block = function (ref)
-          return string.format(self.Global,
-                            ref.start_marker,
-                            packages_dir,
-                            table.concat(formatted_remove_ASSEMBLY, ',\n    '),
+          return string.format(self.Global, ref.start_marker,
+                            packages_dir, table.concat(formatted_remove_ASSEMBLY, ',\n    '),
                             ref.end_marker)
         end,
         start_marker = '',
-        end_marker   = ''
+        end_marker   = '',
+        delete= false,
       },
       userProj = { file = userClangd, content = '',
         cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),
         block = function (ref)
-          return string.format(self.Project,
-                            ref.start_marker,
-                            OS.project_dir,
-                            table.concat(formatted_remove, ',\n    '),
-                            table.concat(formattedAdd, ',\n    '),
-                            ref.end_marker)
+          return string.format(self.Project, ref.start_marker,
+                            OS.project_dir, table.concat(formatted_remove, ',\n    '),
+                            table.concat(formattedAdd, ',\n    '), ref.end_marker)
         end,
         start_marker = '',
-        end_marker   = ''
+        end_marker   = '',
+        delete= true,
       },
     }
     -- M.readContent(clangdFiles)
