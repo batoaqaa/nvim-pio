@@ -219,21 +219,21 @@ CompileFlags:
       vim.fn.mkdir(OS.clangd_user_dir, "p")
     end
 
-    --------------------------------------------------------------------------------
-    -- local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
+    ------------------------------------------------------------------------------
+    local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
     -- local pkgClangd = vim.fs.joinpath(_G.metadata.toolchain_root, '.clangd')
     -- local frmClangd = vim.fs.joinpath(_G.metadata.framework_root, '.clangd')
-    local coreClangd = OS.clangd_user_file
+    -- local userClangd = OS.clangd_user_file
     local clangdFiles = {
-      -- cwd = { file = cwdClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
+      cwd = { file = cwdClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
       -- pkg = { file = pkgClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
       -- frm = { file = frmClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
-      core = { file = coreClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
+      -- core = { file = userClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
     }
     M.readContent(clangdFiles)
-    --------------------------------------------------------------------------------
+    ------------------------------------------------------------------------------
 
-    --------------------------------------------------------------------------------
+    ------------------------------------------------------------------------------
     -- A: Force-create an empty default database if missing
     local filter_db_file = vim.fs.joinpath(OS.nvimpio_env_dir,OS.clangd_filter)
     local db_exist = vim.uv.fs_stat(filter_db_file)
@@ -245,10 +245,10 @@ CompileFlags:
         f_init:close()
       end
     end
-    --------------------------------------------------------------------------------
+    ------------------------------------------------------------------------------
 
-    --------------------------------------------------------------------------------
-    ------------------ start .clangd remove section --------------------------------
+    ------------------------------------------------------------------------------
+    ------------------ start .clangd remove section ------------------------------
     -- 1. SYNC (WITH DIRECT DISK FALLBACK GATING):
     -- local formatted_remove = {}
     local formatted_remove = {'"-std=*"'}
@@ -286,7 +286,7 @@ CompileFlags:
     -- vim.list_extend(formatted_remove, formatted_remove_ASSEMBLY)
     --------------------- end .clangd remove section -----------------------------
 
-    --------------------------------------------------------------------------------
+    ------------------------------------------------------------------------------
     -- 2. METADATA EXTRACTOR
     local target_meta = nil
 
@@ -306,7 +306,7 @@ CompileFlags:
     end
 
     ------------------------------------------------------------------------------
-    ------------------ start .clangd IncAdd section  --------------------------------
+    ------------------ start .clangd IncAdd section  -----------------------------
 
     -- Extract all pre-sorted include path using JIT sequential loops
     local formattedIncAdd = {}  -- libdep_includes
@@ -326,7 +326,7 @@ CompileFlags:
         end
       end
     end
-    --------------------- end .clangd IncAdd section ---------------------------------
+    --------------------- end .clangd IncAdd section -----------------------------
 
 
     ------------------------------------------------------------------------------
@@ -334,14 +334,14 @@ CompileFlags:
     -- local formattedCxxAdd = { }
     local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
     vim.list_extend(formattedCxxAdd, formattedIncAdd)
-    --------------------- end .clangd formattedCxxAdd section ---------------------------------
+    --------------------- end .clangd formattedCxxAdd section --------------------
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCcAdd section  ---------------------
     -- local formattedCcAdd = { }
     local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
     vim.list_extend(formattedCcAdd, formattedIncAdd)
-    --------------------- end .clangd formattedCcAdd section ---------------------------------
+    --------------------- end .clangd formattedCcAdd section ---------------------
 
     local is_cpp = is_cpp_project()
     ------------------------------------------------------------------------------
@@ -356,27 +356,22 @@ CompileFlags:
     local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
     vim.list_extend(formattedHAdd, formattedIncAdd)
-    --------------------- end .clangd formattedHAdd section ---------------------------------
+    --------------------- end .clangd formattedHAdd section ----------------------
 
     local function prepare_path_for_clangd(raw_path)
       -- 1. Clean up slashes using Neovim's normalizer
       local path = vim.fs.normalize(raw_path)
-
       -- 2. Strip any trailing slash if it exists, so it fits your "%s/.*" template perfectly
       path = path:gsub("/$", "")
-
       -- 3. Extract the Windows drive letter if it exists
       local drive, main_path = path:match("^(%a:)(.*)$")
-
       if drive then
         drive = drive:lower()
         path = main_path
       else drive = "" end -- Linux/macOS
-
       -- 4. Escape every literal dot inside the folders completely dynamically
       path = path:gsub("%.%w+", [[\%0]])  -- this only for passing string.format()
       -- path = path:gsub("(%%.)", "\\\\%%1") -- this for everything else
-
       -- 5. Recombine them seamlessly without a trailing slash
       return drive .. path
     end
@@ -385,20 +380,14 @@ CompileFlags:
     -- local clean_framework = prepare_path_for_clangd(_G.metadata.framework_root)
     -- local clean_toolchain = prepare_path_for_clangd(_G.metadata.toolchain_root)
     -- local clean_project   = prepare_path_for_clangd(OS.project_dir)
+    -- local compiler = is_cpp and _G.metadata.cxx_path or _G.metadata.cc_path
     local packages_dir   = prepare_path_for_clangd(_G.metadata.packages_dir)
 
-    local compiler = is_cpp
-       and _G.metadata.cxx_path
-       or _G.metadata.cc_path
-       -- and prepare_path_for_clangd(_G.metadata.cxx_path)
-       -- or prepare_path_for_clangd(_G.metadata.cc_path)
-
     local function finalContent(data)
-      if data ~= "" and not data:match("\n$") then
-        data = data .. "\n"
-      end
+      if data ~= "" and not data:match("\n$") then data = data .. "\n" end
       return data
     end
+
     for _, tbl in pairs(clangdFiles) do
       -- 3. Run a clean, single-pass string format for dynamicBlock
       local dynamicBlock = string.format(
