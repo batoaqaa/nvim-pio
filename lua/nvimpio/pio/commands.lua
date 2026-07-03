@@ -60,11 +60,12 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
       return data
     end
     local misc = require('nvimpio.utils.misc')
-    -- misc.writeFile(clangdFiles['pkg'].file, finalContent(clangdFiles['pkg'].content), {})
-    -- misc.writeFile(clangdFiles['frm'].file, finalContent(clangdFiles['frm'].content), {})
-    -- misc.writeFile(clangdFiles['core'].file, finalContent(clangdFiles['core'].content), {})
-    require('nvimpio.boilerplate').readContent(clangdFiles['userProj'])
-    misc.writeFile(clangdFiles['userProj'].file, finalContent(clangdFiles['userProj'].content), {})
+    for _, tbl in pairs(clangdFiles) do
+      if tbl.delete then
+        require('nvimpio.boilerplate').readContent(tbl)
+        misc.writeFile(tbl.file, finalContent(tbl.content) .. tbl:block(), {})
+      end
+    end
   end,
 })
 
