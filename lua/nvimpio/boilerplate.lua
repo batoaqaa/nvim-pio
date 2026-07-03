@@ -407,8 +407,8 @@ CompileFlags:
         tbl.start_marker,
 
         packages_dir,
-        OS.project_dir,
         compiler,
+        OS.project_dir,
         table.concat(formatted_remove_ASSEMBLY, ',\n    '),
 
         OS.project_dir,
