@@ -102,29 +102,6 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
-  -- The custom resolution logic
-  clangd_config.root_dir = function(fname)
-    local markers = {
-      ".clangd",
-      ".clang-tidy",
-      ".clang-format",
-      "compile_commands.json",
-      "platformio.ini",
-      "compile_flags.txt",
-      "configure.ac",
-      ".git"
-    }
-
-    -- 1. Search upward from the file being edited
-    local found = vim.fs.find(markers, { upward = true, path = fname })[1]
-    if found then
-      return vim.fs.dirname(found)
-    end
-
-    -- 2. If not found upward, explicitly fall back to your current workspace root
-    return vim.uv.cwd()
-  end
-
   -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
   clangd_config.before_init = function(_, _)
     -- Step 1: Parse database into an isolated local table variable first
