@@ -80,6 +80,16 @@ boilerplate['.clangdConfig.json'] = {
     "objcpp",
     "cuda"
   ],
+  "root_markers": [
+    ".clangd",
+    ".clang-tidy",
+    ".clang-format",
+    "compile_commands.json",
+    "platformio.ini",
+    "compile_flags.txt",
+    "configure.ac",
+    ".git"
+  ],
   "init_options": {
     "clangdFileStatus": true,
     "completeUnimported": true,
@@ -91,16 +101,6 @@ boilerplate['.clangdConfig.json'] = {
   "workspace_required": true
 }
 ]],
-  -- "root_markers": [
-  --   ".clangd",
-  --   ".clang-tidy",
-  --   ".clang-format",
-  --   "compile_commands.json",
-  --   "platformio.ini",
-  --   "compile_flags.txt",
-  --   "configure.ac",
-  --   ".git"
-  -- ],
     -- "compilationDatabasePath": %q,
   boiler = function(self)
     local file_path = vim.fs.joinpath(OS.clangd_config)
