@@ -392,7 +392,7 @@ CompileFlags:
       userGlob = { file = userClangd, content = '',
         cache_id = '',
         block = function (ref)
-          return string.format(self.Project,
+          return string.format(self.Global,
                             ref.start_marker,
                             packages_dir,
                             table.concat(formatted_remove_ASSEMBLY, ',\n    '),
