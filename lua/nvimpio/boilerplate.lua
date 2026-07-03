@@ -81,11 +81,11 @@ boilerplate['.clangdConfig.json'] = {
     "cuda"
   ],
   "root_markers": [
-    "platformio.ini",
-    "compile_commands.json",
     ".clangd",
     ".clang-tidy",
     ".clang-format",
+    "compile_commands.json",
+    "platformio.ini",
     "compile_flags.txt",
     "configure.ac",
     ".git"
@@ -98,7 +98,7 @@ boilerplate['.clangdConfig.json'] = {
     "usePlaceholders": true
   },
   "single_file_support": true,
-  "workspace_required": false
+  "workspace_required": true
 }
 ]],
     -- "compilationDatabasePath": %q,
