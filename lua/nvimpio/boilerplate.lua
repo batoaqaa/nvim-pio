@@ -415,7 +415,7 @@ CompileFlags:
         end_marker   = ''
       },
     }
-    M.readContent(clangdFiles)
+    -- M.readContent(clangdFiles)
     ------------------------------------------------------------------------------
     for _, tbl in pairs(clangdFiles) do
       -- 3. Run a clean, single-pass string format for dynamicBlock
