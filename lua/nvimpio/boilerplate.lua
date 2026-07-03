@@ -198,10 +198,7 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
-  Compiler: "%s"
-  CompilationDatabase: "%s"
   Remove: [%s]
-  Add: [%s]
 
 ---
 If:
@@ -211,7 +208,8 @@ CompileFlags:
   Add: [%s]
 %s
 ]],
-  -- Compiler: %s
+  -- Compiler: "%s"
+  -- CompilationDatabase: "%s"
   boiler = function(self, project_root_param)
     local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
     project_root = vim.fs.normalize(project_root)
@@ -408,10 +406,10 @@ CompileFlags:
         tbl.start_marker,
 
         packages_dir,
-        compiler,
-        OS.project_dir,
+        -- compiler,
+        -- OS.project_dir,
         table.concat(formatted_remove_ASSEMBLY, ',\n    '),
-        table.concat(formattedAdd, ',\n    '),
+        -- table.concat(formattedAdd, ',\n    '),
 
         OS.project_dir,
         table.concat(formatted_remove, ',\n    '),
