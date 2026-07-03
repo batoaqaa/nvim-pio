@@ -102,13 +102,8 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
-  local filename = vim.api.nvim_buf_get_name(0)
-  -- Check if we are jumping into the out-of-tree platformio framework cache
-  local is_platformio = filename:match("c:/Users/batoaqaa/.platformio")
-  -- If we are in platformio, pass an empty table so it NEVER matches a fake root!
-  clangd_config.root_markers = is_platformio and {} or { "platformio.ini", "compile_commands.json", ".clangd" }
-  -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
 
+  -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
   clangd_config.before_init = function(_, _)
     -- Step 1: Parse database into an isolated local table variable first
     if has_pio_diag and pio_diag then
