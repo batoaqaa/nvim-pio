@@ -63,7 +63,7 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
     for _, tbl in pairs(clangdFiles) do
       if tbl.delete then
         require('nvimpio.boilerplate').readContent(tbl)
-        misc.writeFile(tbl.file, finalContent(tbl.content) .. tbl:block(), {})
+        misc.writeFile(tbl.file, finalContent(tbl.content), {})
       end
     end
   end,
