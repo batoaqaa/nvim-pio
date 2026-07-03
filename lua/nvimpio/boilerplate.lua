@@ -388,8 +388,10 @@ CompileFlags:
     local packages_dir   = prepare_path_for_clangd(_G.metadata.packages_dir)
 
     local compiler = is_cpp
-       and prepare_path_for_clangd(_G.metadata.cxx_path) 
-       or prepare_path_for_clangd(_G.metadata.cc_path)
+       and _G.metadata.cxx_path
+       or _G.metadata.cc_path
+       -- and prepare_path_for_clangd(_G.metadata.cxx_path)
+       -- or prepare_path_for_clangd(_G.metadata.cc_path)
 
     local function finalContent(data)
       if data ~= "" and not data:match("\n$") then
