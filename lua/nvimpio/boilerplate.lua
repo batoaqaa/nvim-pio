@@ -389,6 +389,18 @@ CompileFlags:
       -- cwd = { file = cwdClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
       -- pkg = { file = pkgClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
       -- frm = { file = frmClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
+      userGlob = { file = userClangd, content = '',
+        cache_id = '',
+        block = function (ref)
+          return string.format(self.Project,
+                            ref.start_marker,
+                            packages_dir,
+                            table.concat(formatted_remove_ASSEMBLY, ',\n    '),
+                            ref.end_marker)
+        end,
+        start_marker = '',
+        end_marker   = ''
+      },
       userProj = { file = userClangd, content = '',
         cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),
         block = function (ref)
@@ -397,18 +409,6 @@ CompileFlags:
                             OS.project_dir,
                             table.concat(formatted_remove, ',\n    '),
                             table.concat(formattedAdd, ',\n    '),
-                            ref.end_marker)
-        end,
-        start_marker = '',
-        end_marker   = ''
-      },
-      userGlob = { file = userClangd, content = '',
-        cache_id = '',
-        block = function (ref)
-          return string.format(self.Project,
-                            ref.start_marker,
-                            packages_dir,
-                            table.concat(formatted_remove_ASSEMBLY, ',\n    '),
                             ref.end_marker)
         end,
         start_marker = '',
