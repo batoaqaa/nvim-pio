@@ -1,5 +1,6 @@
 local M = {}
 
+local uv = vim.uv or vim.loop
 local misc = require('nvimpio.utils.misc')
 
 -- stylua: ignore start
@@ -76,6 +77,8 @@ function M.get_sysroot_triplet(cc_compiler)
 
   local oldPath = (_G.metadata.toolchain_root or '') .. '/bin'
   _G.metadata.toolchain_root = toolchain_root
+
+  -- Add toolchain binary to PATH
   vim.schedule(function ()
     local from = 'get_sysroot: '
     require('nvimpio.pio.metadata').removeFromPath(oldPath)
@@ -83,8 +86,6 @@ function M.get_sysroot_triplet(cc_compiler)
 
     vim.env.PATH = bin_path .. OS.path_sep .. vim.env.PATH
     OS.notify(string.format('%s %s added to path',from, bin_path), 'info')
-    -- require('nvimpio.pio.metadata').removeFromPath(OS.project_dir)
-    -- vim.env.PATH = OS.project_dir .. OS.path_sep .. vim.env.PATH
   end)
 
   -- sysroot folder is expected to have the same name as the triplet
@@ -223,7 +224,7 @@ function M.configure_hardware_parameters()
 
   -- Defensive, Context-Aware File System Injector Engine
   local function inject_into_ini()
-    local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
+    local path = vim.fs.joinpath(uv.cwd(), 'platformio.ini')
     if vim.fn.filereadable(path) ~= 1 then return end
     local raw_lines = vim.fn.readfile(path)
     _G.isBusy = true
@@ -379,7 +380,7 @@ function M.apply_metadata(data, active_env)
   if not data then return false end
 
   -- Cache the project workspace root path cleanly
-  local project_root = vim.g.platformioRootDir or vim.uv.cwd() or '.'
+  local project_root = vim.g.platformioRootDir or uv.cwd() or '.'
   local norm_project_root = vim.fs.normalize(project_root) or ''
 
   local norm = function(p) return vim.fs.normalize(p) or '' end
@@ -432,11 +433,11 @@ function M.apply_metadata(data, active_env)
 
       -- INSTANT GENERIC CHECK: Scan ONLY the first layer of the directory (no slow recursive loops)
       local is_nested = false
-      local handle = vim.uv.fs_scandir(normalized_path)
+      local handle = uv.fs_scandir(normalized_path)
 
       if handle then
         while true do
-          local name, type_str = vim.uv.fs_scandir_next(handle)
+          local name, type_str = uv.fs_scandir_next(handle)
           if not name then break end
 
           -- If it contains even one sub-folder, treat it as a nested library path
@@ -514,7 +515,7 @@ function M.apply_metadata(data, active_env)
   -- end
 
   -- Set up file paths
-  local build_dir = vim.fs.joinpath(vim.uv.cwd(), '.pio', 'build')
+  local build_dir = vim.fs.joinpath(uv.cwd(), '.pio', 'build')
   -- local build_env_dir = vim.fs.joinpath(build_dir, active_env)
   local checksum_file = vim.fs.joinpath(build_dir, 'project.checksum')
   -- Secure the validation signature token right after creation succeeds
@@ -546,7 +547,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- local meta = _G.metadata
 
   -- -- Set up file paths
-  -- local build_dir = vim.fs.joinpath(vim.uv.cwd(), '.pio', 'build')
+  -- local build_dir = vim.fs.joinpath(uv.cwd(), '.pio', 'build')
   -- local build_env_dir = vim.fs.joinpath(build_dir, active_env)
   -- local idedata_file = vim.fs.joinpath(build_env_dir, 'idedata.json')
   local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
@@ -563,7 +564,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   --   if not data then return false end
   --
   --   -- Cache the project workspace root path cleanly
-  --   local project_root = vim.g.platformioRootDir or vim.uv.cwd() or '.'
+  --   local project_root = vim.g.platformioRootDir or uv.cwd() or '.'
   --   local norm_project_root = vim.fs.normalize(project_root) or ''
   --
   --   local norm = function(p) return vim.fs.normalize(p) or '' end
@@ -616,11 +617,11 @@ fetch_metadata = function(callback, active_env, from, attempts)
   --
   --       -- INSTANT GENERIC CHECK: Scan ONLY the first layer of the directory (no slow recursive loops)
   --       local is_nested = false
-  --       local handle = vim.uv.fs_scandir(normalized_path)
+  --       local handle = uv.fs_scandir(normalized_path)
   --
   --       if handle then
   --         while true do
-  --           local name, type_str = vim.uv.fs_scandir_next(handle)
+  --           local name, type_str = uv.fs_scandir_next(handle)
   --           if not name then break end
   --
   --           -- If it contains even one sub-folder, treat it as a nested library path
@@ -715,8 +716,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- end
 
   local nvimpio_dir = vim.fs.dirname(idedata_file)
-  if not vim.uv.fs_stat(nvimpio_dir) then
-    vim.uv.fs_mkdir(nvimpio_dir, 493)
+  if not uv.fs_stat(nvimpio_dir) then
+    uv.fs_mkdir(nvimpio_dir, 493)
   end
   -- ----------------------------------------------------------------
   -- -- STEP 1: Cache Path (idedata.json exists )
@@ -813,11 +814,11 @@ fetch_metadata = function(callback, active_env, from, attempts)
           -- clangd.clangdIntall(function(clangdCmd)
           --   local check_file = vim.fs.find(function(name)
           --     return name:match('%.cpp$') or name:match('%.c$')
-          --   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
+          --   end, { limit = 1, path = uv.cwd() .. '/src' })[1]
           --   if not check_file then
-          --     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
-          --     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-          --     check_file = vim.uv.cwd() .. '/src/main.cpp'
+          --     boilerplate_gen([[main.cpp]], uv.cwd() .. '/src')
+          --     boilerplate_gen([[main.hpp]], uv.cwd() .. '/include')
+          --     check_file = uv.cwd() .. '/src/main.cpp'
           --   end
           --   -- local argscmd = string.format('%s --compile-commands-dir=. --check=%s --log=error', clangdCmd, check_file)
           --   local argscmd = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error', clangdCmd, check_file, _G.metadata.query_driver)
@@ -880,11 +881,11 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- clangd.clangdIntall(function(clangdCmd)
   --   local check_file = vim.fs.find(function(name)
   --     return name:match('%.cpp$') or name:match('%.c$')
-  --   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
+  --   end, { limit = 1, path = uv.cwd() .. '/src' })[1]
   --   if not check_file then
-  --     boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
-  --     boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-  --     check_file = vim.uv.cwd() .. '/src/main.cpp'
+  --     boilerplate_gen([[main.cpp]], uv.cwd() .. '/src')
+  --     boilerplate_gen([[main.hpp]], uv.cwd() .. '/include')
+  --     check_file = uv.cwd() .. '/src/main.cpp'
   --   end
   --   -- local argscmd = string.format('%s --compile-commands-dir=. --check=%s --log=error', clangdCmd, check_file)
   --   local argscmd = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error', clangdCmd, check_file, _G.metadata.query_driver)
@@ -925,7 +926,7 @@ end
 -- INFO:
 -- Fix compile_commands.json file with absoulute paths
 function M.compile_commandsFix() --M.dbPathsFix()
-  local filename = vim.fs.joinpath(vim.uv.cwd(), 'compile_commands.json')
+  local filename = vim.fs.joinpath(uv.cwd(), 'compile_commands.json')
   local content = vim.fn.readfile(filename)
   if #content == 0 then return end
 vim.fs.dirname(_G.metadata.cxx_path)
@@ -978,6 +979,7 @@ vim.fs.dirname(_G.metadata.cxx_path)
     end
   end
   -- -- 3. Save with Formatting
+  local output = vim.fs.joinpath(OS.nvimpio_config_dir, _G.metadata.active_env, 'compile_commands.json')
   if modified then
     local jok, formatted = pcall(misc.jsonFormat, data)
     -- local jok, formatted = pcall(M.pretty_print, data)
@@ -986,9 +988,14 @@ vim.fs.dirname(_G.metadata.cxx_path)
       return
     end
 
-    local output = vim.fs.joinpath(OS.nvimpio_config_dir, _G.metadata.active_env, 'compile_commands.json')
     local wk, err = misc.writeFile(output, formatted, { overwrite = true, mkdir = true })
     if not wk then OS.notify(err, 'error') end
+
+    -- -- delete input compile_commands.json
+    -- uv.fs_unlink(filename, function(uerr)
+    --     if uerr then print("Failed to delete file: " .. uerr)
+    --     else print("File deleted seamlessly in the background!") end
+    -- end)
 
     local end_time = vim.loop.hrtime()
     local duration = (end_time - start_time) / 1e6
@@ -996,6 +1003,11 @@ vim.fs.dirname(_G.metadata.cxx_path)
     -- clangd.restart()
   else
     OS.notify("no need to fixPaths")
+    -- -- move compile_commands.json to .nvimpio/env
+    -- uv.fs_rename(filename, output, function(err)
+    --   if err then print("Neovim failed to move file: " .. err)
+    --   else print("Neovim moved file successfully!") end
+    -- end)
   end
   _G.isBusy = false
 end

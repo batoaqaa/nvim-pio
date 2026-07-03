@@ -399,7 +399,7 @@ CompileFlags:
         self.dynamic,
         tbl.start_marker,
 
-        packages_dir,
+        packages_dir .. 'why',
         table.concat(formatted_remove_ASSEMBLY, ',\n    '),
 
         OS.project_dir,
