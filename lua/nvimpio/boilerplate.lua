@@ -438,8 +438,8 @@ CompileFlags:
 
       -- 4. UNCONDITIONAL DISK WRITER MATRIX
       -- misc.writeFile(tbl.file, finalContent(tbl.content) .. dynamicBlock, {})
-      finalContent(tbl)
-      misc.writeFile(tbl.file, tbl.content .. tbl:block(), {})
+      M.readContent(tbl)
+      misc.writeFile(tbl.file, finalContent(tbl.content) .. tbl:block(), {})
     end
 
     vim.schedule(function()
