@@ -339,7 +339,7 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCcAdd section  ---------------------
     -- local formattedCcAdd = { }
-    local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
+    local formattedCcAdd = { '"-xc"', '"-std=gnu11"' }
     vim.list_extend(formattedCcAdd, formattedIncAdd)
     --------------------- end .clangd formattedCcAdd section ---------------------------------
 
