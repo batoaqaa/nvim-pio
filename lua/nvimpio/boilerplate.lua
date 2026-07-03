@@ -396,46 +396,24 @@ CompileFlags:
                             OS.project_dir, table.concat(formatted_remove, ',\n    '),
                             table.concat(formattedAdd, ',\n    '), ref.end_marker)
         end,
-        start_marker = '',
-        end_marker   = '',
-        delete= true,
+        start_marker = '', end_marker   = '', delete= true,
       },
-      userGlob = { file = userClangd, content = '',
-        cache_id = '',
+      userGlob = { file = userClangd, content = '', cache_id = '',
         block = function (ref)
           return string.format(self.Global, ref.start_marker,
                             packages_dir, table.concat(formatted_remove_ASSEMBLY, ',\n    '),
                             ref.end_marker)
         end,
-        start_marker = '',
-        end_marker   = '',
-        delete= false,
+        start_marker = '', end_marker   = '', delete= false,
       },
     }
     -- M.readContent(clangdFiles)
     ------------------------------------------------------------------------------
     for _, tbl in pairs(clangdFiles) do
       -- 3. Run a clean, single-pass string format for dynamicBlock
-      -- local dynamicBlock = string.format(
-      --   self.dynamic,
-      --   tbl.start_marker,
-      --
-      --   packages_dir,
-      --   -- compiler,
-      --   -- OS.project_dir,
-      --   table.concat(formatted_remove_ASSEMBLY, ',\n    '),
-      --   -- table.concat(formattedAdd, ',\n    '),
-      --
-      --   OS.project_dir,
-      --   table.concat(formatted_remove, ',\n    '),
-      --   table.concat(formattedAdd, ',\n    '),
-      --
-      --   tbl.end_marker
-      -- )
-
+      M.readContent(tbl)
       -- 4. UNCONDITIONAL DISK WRITER MATRIX
       -- misc.writeFile(tbl.file, finalContent(tbl.content) .. dynamicBlock, {})
-      M.readContent(tbl)
       misc.writeFile(tbl.file, finalContent(tbl.content) .. tbl:block(), {})
     end
 
