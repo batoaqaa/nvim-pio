@@ -98,7 +98,7 @@ boilerplate['.clangdConfig.json'] = {
     "usePlaceholders": true
   },
   "single_file_support": true,
-  "workspace_required": true
+  "workspace_required": false
 }
 ]],
     -- "compilationDatabasePath": %q,
@@ -198,9 +198,7 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
-  CompilationDatabase: "%s"
   Remove: [%s]
-  Add: [%s]
 
 ---
 If:
@@ -409,9 +407,9 @@ CompileFlags:
 
         packages_dir,
         -- compiler,
-        OS.project_dir,
+        -- OS.project_dir,
         table.concat(formatted_remove_ASSEMBLY, ',\n    '),
-        table.concat(formattedAdd, ',\n    '),
+        -- table.concat(formattedAdd, ',\n    '),
 
         OS.project_dir,
         table.concat(formatted_remove, ',\n    '),
