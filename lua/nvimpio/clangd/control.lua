@@ -114,21 +114,15 @@ function M.getClangdConfig()
       "configure.ac",
       ".git"
     }
-    -- Guard Clause 2: Ensure we evaluate from a valid absolute folder directory
-    local search_start_path = vim.fs.dirname(fname)
-    if not search_start_path or search_start_path == "" then
-      return vim.uv.cwd()
-    end
 
-    -- 1. Look for the markers starting from the safe path going upward
-    local found = vim.fs.find(markers, { upward = true, path = search_start_path })[1]
+    -- 1. Search upward from the file being edited
+    local found = vim.fs.find(markers, { upward = true, path = fname })[1]
     if found then
       return vim.fs.dirname(found)
     end
 
-    -- 2. Fallback to where your terminal/Neovim session was launched
+    -- 2. If not found upward, explicitly fall back to your current workspace root
     return vim.uv.cwd()
-
   end
 
   -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
