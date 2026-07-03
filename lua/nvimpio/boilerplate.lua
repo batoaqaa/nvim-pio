@@ -436,7 +436,6 @@ CompileFlags:
       -- 4. UNCONDITIONAL DISK WRITER MATRIX
       -- misc.writeFile(tbl.file, finalContent(tbl.content) .. dynamicBlock, {})
       M.readContent(tbl)
-      print(tbl.content)
       misc.writeFile(tbl.file, finalContent(tbl.content) .. tbl:block(), {})
     end
 
