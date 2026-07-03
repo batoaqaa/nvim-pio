@@ -209,12 +209,6 @@ If:
   PathMatch: ['%s/.*']
 CompileFlags:
   Remove: [%s]
-
----
-If:
-  PathMatch: ['%s/.*']
-CompileFlags:
-  Remove: [%s]
   Add: [%s]
 %s
 ]],
