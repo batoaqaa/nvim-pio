@@ -198,7 +198,8 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
-  Compiler: %s
+  Compiler: "%s"
+  CompilationDatabase: "%s"
   Remove: [%s]
 
 ---
@@ -406,6 +407,7 @@ CompileFlags:
         tbl.start_marker,
 
         packages_dir,
+        OS.project_dir,
         compiler,
         table.concat(formatted_remove_ASSEMBLY, ',\n    '),
 
