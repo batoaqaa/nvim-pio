@@ -198,6 +198,7 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
+  Compiler: %s
   Remove: [%s]
 
 ---
@@ -386,6 +387,9 @@ CompileFlags:
     -- local clean_project   = prepare_path_for_clangd(OS.project_dir)
     local packages_dir   = prepare_path_for_clangd(_G.metadata.packages_dir)
 
+    local compiler = is_cpp
+       and prepare_path_for_clangd(_G.metadata.cxx_path) 
+       or prepare_path_for_clangd(_G.metadata.cc_path)
 
     local function finalContent(data)
       if data ~= "" and not data:match("\n$") then
@@ -400,6 +404,7 @@ CompileFlags:
         tbl.start_marker,
 
         packages_dir,
+        compiler,
         table.concat(formatted_remove_ASSEMBLY, ',\n    '),
 
         OS.project_dir,
