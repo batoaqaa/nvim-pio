@@ -264,10 +264,10 @@ CompileFlags:
       end
     end
     local formatted_remove_ASSEMBLY = {
-      '"-D_ASMLANGUAGE*"',
-      '"-D__ASSEMBLY__*"',
-      '"-D__ASSEMBLER__*"',
-      '"-D_ASSEMBLY_*"'
+      '"-D_ASMLANGUAGE"',
+      '"-D__ASSEMBLY__"',
+      '"-D__ASSEMBLER__"',
+      '"-D_ASSEMBLY_"'
     }
     -- vim.list_extend(formatted_remove, formatted_remove_ASSEMBLY)
     --------------------- end .clangd remove section -----------------------------
