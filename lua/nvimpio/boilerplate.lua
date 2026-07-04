@@ -408,6 +408,7 @@ CompileFlags:
       -- 3. Run a clean, single-pass string format for dynamicBlock
       -- M.readContent(tbl)
       -- 4. UNCONDITIONAL DISK WRITER MATRIX
+      print(tbl:content())
       misc.writeFile(tbl.file, tbl:content() .. tbl:block(), {})
     end
     ------------------------------------------------------------------------------
