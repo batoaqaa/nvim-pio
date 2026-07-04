@@ -344,7 +344,7 @@ CompileFlags:
     vim.list_extend(formattedHAdd, formattedIncAdd)
     --------------------- end .clangd formattedHAdd section ----------------------
 
-    local function prepare_path_for_clangd(raw_path)
+    local function preparePathMatch(raw_path)
       -- 1. Clean up slashes using Neovim's normalizer
       local path = vim.fs.normalize(raw_path)
       -- 2. Strip any trailing slash if it exists, so it fits your "%s/.*" template perfectly
@@ -363,11 +363,10 @@ CompileFlags:
     end
 
     -- Simply wrap your dynamic variables before feeding them to string.format
-    -- local clean_framework = prepare_path_for_clangd(_G.metadata.framework_root)
-    -- local clean_toolchain = prepare_path_for_clangd(_G.metadata.toolchain_root)
-    -- local clean_project   = prepare_path_for_clangd(OS.project_dir)
-    -- local compiler = is_cpp and _G.metadata.cxx_path or _G.metadata.cc_path
-    local packages_dir   = prepare_path_for_clangd(_G.metadata.packages_dir)
+    -- local clean_framework = preparePathMatch(_G.metadata.framework_root)
+    -- local clean_toolchain = preparePathMatch(_G.metadata.toolchain_root)
+    -- local clean_project   = preparePathMatch(OS.project_dir)
+    local clean_packages_dir   = preparePathMatch(_G.metadata.packages_dir)
 
     ------------------------------------------------------------------------------
     local userClangd = OS.clangd_user_file
@@ -375,7 +374,7 @@ CompileFlags:
       { key = 'userGlob', file = userClangd, content = function (ref) return M.readContent(ref) end, cache_id = '',
         block = function (ref)
           return string.format(self.Global, ref.start_marker,
-                            packages_dir, table.concat(formatted_remove_ASSEMBLY, ',\n    '),
+                            clean_packages_dir, table.concat(formatted_remove_ASSEMBLY, ',\n    '),
                             ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= false,
