@@ -360,6 +360,9 @@ CompileFlags:
       -- path = path:gsub("%.", ".")  -- this only for passing string.format()
       -- path = path:gsub("/", "[/\\]")  -- this only for passing string.format()
       path = path:gsub("%.", "."):gsub("/", ".")
+      if path:sub(1, 1) == "." then
+        path = path:sub(2)
+      end
       -- path = path:gsub("(%%.)", "\\\\%%1") -- this for everything else
       -- 5. Recombine them seamlessly without a trailing slash
       return drive .. path
