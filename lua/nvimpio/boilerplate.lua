@@ -180,7 +180,7 @@ function M.readContent(tbl)
     local before = start_idx > 1 and content:sub(1, start_idx - 1) or ""
     local after = content:sub(actual_end)
 
-    content = before .. tbl:block() .. after
+    content = before .. "\n" .. tbl:block() .. after
   else content = content .. (content ~= "" and not content:match("\n$") and "\n" or "") .. tbl:block() end
   return content
 end
