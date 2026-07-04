@@ -19,11 +19,11 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
       -- pkg = { file = pkgClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
       -- frm = { file = frmClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
       { key = 'userGlob', file = userClangd, content = function (ref) return require('nvimpio.boilerplate').readContent(ref) end,
-        cache_id = '', block = '', start_marker = '', end_marker = '', delete = false,
+        cache_id = '', block = function () return '' end, start_marker = '', end_marker = '', delete = false,
       },
       { key = 'userProj', file = userClangd, content = function (ref) return require('nvimpio.boilerplate').readContent(ref) end,
         cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),
-        block = '', start_marker = '', end_marker = '', delete = true,
+        block = function () return '' end, start_marker = '', end_marker = '', delete = true,
       },
     }
     ------------------------------------------------------------------------------
