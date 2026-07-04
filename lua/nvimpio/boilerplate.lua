@@ -359,13 +359,14 @@ CompileFlags:
       -- path = path:gsub("%.%w+", [[\%0]])  -- this only for passing string.format()
       -- path = path:gsub("%.", ".")  -- this only for passing string.format()
       -- path = path:gsub("/", "[/\\]")  -- this only for passing string.format()
-      path = path:gsub("%.", "."):gsub("/", ".")
-      if path:sub(1, 1) == "." then
-        path = path:sub(2)
+      local finalPath = drive .. path
+      finalPath = finalPath:gsub("%.", "."):gsub("/", ".")
+      if finalPath:sub(1, 1) == "." then
+        finalPath = finalPath:sub(2)
       end
       -- path = path:gsub("(%%.)", "\\\\%%1") -- this for everything else
       -- 5. Recombine them seamlessly without a trailing slash
-      return drive .. path
+      return finalPath
     end
 
     -- Simply wrap your dynamic variables before feeding them to string.format
