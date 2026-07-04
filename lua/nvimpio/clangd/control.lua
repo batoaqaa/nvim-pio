@@ -113,11 +113,11 @@ function M.getClangdConfig()
   -- }
 
   -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
-  clangd_config.before_init = function(params, config)
-    if params.rootUri then
-      params.rootUri = vim.uri_from_fname(vim.fn.resolve(vim.uri_to_fname(params.rootUri)))
-    end
-  -- clangd_config.before_init = function(_, _)
+  -- clangd_config.before_init = function(params, config)
+    -- if params.rootUri then
+    --   params.rootUri = vim.uri_from_fname(vim.fn.resolve(vim.uri_to_fname(params.rootUri)))
+    -- end
+  clangd_config.before_init = function(_, _)
     -- Step 1: Parse database into an isolated local table variable first
     if has_pio_diag and pio_diag then
       local filter_db_path = vim.fs.joinpath(OS.nvimpio_env_dir, OS.clangd_filter)
