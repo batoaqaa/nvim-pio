@@ -356,7 +356,7 @@ CompileFlags:
         path = main_path
       else drive = "" end -- Linux/macOS
       -- 4. Escape every literal dot inside the folders completely dynamically
-      path = path:gsub("%.%w+", [[\%0]])  -- this only for passing string.format()
+      -- path = path:gsub("%.%w+", [[\%0]])  -- this only for passing string.format()
       path = path:gsub("%.", "[.]")  -- this only for passing string.format()
       -- path = path:gsub("(%%.)", "\\\\%%1") -- this for everything else
       -- 5. Recombine them seamlessly without a trailing slash
