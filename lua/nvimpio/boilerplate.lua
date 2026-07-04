@@ -220,7 +220,8 @@ function M.readContent(tbl)
       -- Glue the text blocks before and after this specific project's sandbox together
       -- content = content:sub(1, start_idx - 1) .. tbl:block() .. content:sub(actual_end)
     else
-      content = content .. (content ~= "" and not content:match("\n$") and "\n" or "") .. tbl:block()
+      -- content = content .. (content ~= "" and not content:match("\n$") and "\n" or "") .. tbl:block()
+      content = content .. tbl:block()
       -- content = ''
       -- if content ~= "" and not content:match("\n$") then content = content .. "\n" end
     end
