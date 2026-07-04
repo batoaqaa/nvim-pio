@@ -194,7 +194,7 @@ boilerplate['.clangd'] = {
 %s
 ---
 If:
-  PathMatch: [%s/.*]
+  PathMatch: ['%s/.*']
 CompileFlags:
   Remove: [%s]
 
@@ -205,7 +205,7 @@ CompileFlags:
 %s
 ---
 If:
-  PathMatch: [%s/.*]
+  PathMatch: ['%s/.*']
 CompileFlags:
   Remove: [%s]
   Add: [%s]
@@ -362,9 +362,7 @@ CompileFlags:
       -- path = path:gsub("/", "[/\\]")  -- this only for passing string.format()
       local finalPath = drive .. path
       -- finalPath = finalPath:gsub("%.", "."):gsub("/", ".")
-      --
-      -- finalPath = finalPath:gsub("%.", "[.]")
-      --
+      finalPath = finalPath:gsub("%.", "[.]")
       -- if finalPath:sub(1, 1) == "." then
       --   finalPath = finalPath:sub(2)
       -- end
