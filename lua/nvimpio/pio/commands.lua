@@ -19,20 +19,21 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
       -- pkg = { file = pkgClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
       -- frm = { file = frmClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
       userGlob = {
-        file = userClangd, content = '', cache_id = '', block = '',
-        start_marker = '', end_marker = '', delete = false,
+        file = userClangd, content = function (ref) require('nvimpio.boilerplate').readContent(ref) end,
+        cache_id = '', block = '', start_marker = '', end_marker = '', delete = false,
       },
       userProj = {
-        file = userClangd, content = '', cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),
+        file = userClangd, content = function (ref) require('nvimpio.boilerplate').readContent(ref) end,
+        cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),
         block = '', start_marker = '', end_marker = '', delete = true,
       },
     }
     ------------------------------------------------------------------------------
     local misc = require('nvimpio.utils.misc')
     for _, tbl in pairs(clangdFiles) do
-      if tbl.delete then
+      if tbl and tbl.delete then
         require('nvimpio.boilerplate').readContent(tbl)
-        misc.writeFile(tbl.file, tbl.content, {})
+        misc.writeFile(tbl.file, tbl:content(), {})
       end
     end
   end,

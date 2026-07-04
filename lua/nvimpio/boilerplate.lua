@@ -386,7 +386,7 @@ CompileFlags:
       -- cwd = { file = cwdClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
       -- pkg = { file = pkgClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
       -- frm = { file = frmClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
-      userProj = { file = userClangd, content = '',
+      userProj = { file = userClangd, content = function (ref) M.readContent(ref) end,
         cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),
         block = function (ref)
           return string.format(self.Project, ref.start_marker,
@@ -395,7 +395,7 @@ CompileFlags:
         end,
         start_marker = '', end_marker   = '', delete= true,
       },
-      userGlob = { file = userClangd, content = '', cache_id = '',
+      userGlob = { file = userClangd, content = function (ref) M.readContent(ref) end, cache_id = '',
         block = function (ref)
           return string.format(self.Global, ref.start_marker,
                             packages_dir, table.concat(formatted_remove_ASSEMBLY, ',\n    '),
@@ -406,9 +406,9 @@ CompileFlags:
     }
     for _, tbl in pairs(clangdFiles) do
       -- 3. Run a clean, single-pass string format for dynamicBlock
-      M.readContent(tbl)
+      -- M.readContent(tbl)
       -- 4. UNCONDITIONAL DISK WRITER MATRIX
-      misc.writeFile(tbl.file, tbl.content .. tbl:block(), {})
+      misc.writeFile(tbl.file, tbl:content() .. tbl:block(), {})
     end
     ------------------------------------------------------------------------------
 
