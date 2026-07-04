@@ -212,8 +212,9 @@ function M.readContent(tbl)
       elseif content:sub(actual_end, actual_end) == "\n" then
         actual_end = actual_end + 1
       end
+
       local before = start_idx > 1 and content:sub(1, start_idx - 1) or ""
-      local after = content:sub(end_idx + #tbl.end_marker)
+      local after = content:sub(actual_end + #tbl.end_marker)
       content = before .. tbl:block() .. after
       -- Glue the text blocks before and after this specific project's sandbox together
       -- content = content:sub(1, start_idx - 1) .. tbl:block() .. content:sub(actual_end)
