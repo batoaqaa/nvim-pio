@@ -11,7 +11,6 @@ vim.api.nvim_create_autocmd('LspAttach', {
     -- Fast exit: If this attached server isn't clangd, do absolutely nothing
     if not client or client.name ~= 'clangd' then return end
 
-    client.server_capabilities.semanticTokensProvider = nil
     -- Stop here for non-file buffers (like git:// or nvim://)
     local uri = vim.uri_from_bufnr(bufnr) if not uri:match('^file://') then return end
 
