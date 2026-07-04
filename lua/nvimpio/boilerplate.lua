@@ -190,6 +190,7 @@ function M.readContent(tbl)
     end
     if content ~= "" and not content:match("\n$") then content = content .. "\n" end
     tbl.content = content
+    print(tbl.content)
   -- end
 end
 
