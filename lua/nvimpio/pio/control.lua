@@ -366,7 +366,7 @@ function M.init(clangd_config)
   -- Set log level to see RPC communication (choose 'debug' or 'trace')
   -- vim.lsp.log.set_level('debug')
   -- Force multi-line formatting for all LSP entries
-  vim.lsp.log.set_format_func(vim.inspect)
+  -- vim.lsp.log.set_format_func(vim.inspect)
 
   -- Always start the watcher so it can catch a future 'pio init'
   M.start_watchers()
