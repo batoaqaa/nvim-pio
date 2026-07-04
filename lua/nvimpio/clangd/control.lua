@@ -103,6 +103,14 @@ function M.getClangdConfig()
   if not tok then return nil end
 
 
+  clangd_config.cmd_env = {
+    CPATH = "",
+    C_INCLUDE_PATH = "",
+    CPLUS_INCLUDE_PATH = "",
+    -- Ensures it uses the exact same environment variables as normal user mode
+    HOME = vim.env.HOME,
+    XDG_CONFIG_HOME = vim.env.XDG_CONFIG_HOME or (vim.env.HOME .. "/.config")
+  }
   -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
   clangd_config.before_init = function(_, _)
     -- Step 1: Parse database into an isolated local table variable first
