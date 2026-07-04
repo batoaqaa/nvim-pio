@@ -372,6 +372,16 @@ require('lazy').setup(plugins, {
   ui = { border = 'rounded' },
 })
 
+-- Force Neovim mini to provide absolute paths to native LSP triggers
+local original_buf_get_name = vim.api.nvim_buf_get_name
+vim.api.nvim_buf_get_name = function(bufnr)
+  local name = original_buf_get_name(bufnr)
+  -- If Neovim mini passes a relative path, expand it to a full absolute system path
+  if name and name ~= '' and not name:match('^/') then
+    return vim.fn.fnamemodify(name, ':p')
+  end
+  return name
+end
 ----------------------------------------------------------------------------------------
 -- stylua: ignore
 if vim.fn.has('nvim-0.11') == 1 then
