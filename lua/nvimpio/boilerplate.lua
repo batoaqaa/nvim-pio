@@ -193,7 +193,7 @@ boilerplate['.clangd'] = {
 %s
 ---
 If:
-  PathMatch: ['%s/.*']
+  PathMatch: ['%s[/\].*']
 CompileFlags:
   Remove: [%s]
 
@@ -204,7 +204,7 @@ CompileFlags:
 %s
 ---
 If:
-  PathMatch: ['%s/.*']
+  PathMatch: ['%s[/\].*']
 CompileFlags:
   Remove: [%s]
   Add: [%s]
