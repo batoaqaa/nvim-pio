@@ -28,15 +28,11 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
       },
     }
     ------------------------------------------------------------------------------
-    local function finalContent(data)
-      if data ~= '' and not data:match('\n$') then data = data .. '\n' end
-      return data
-    end
     local misc = require('nvimpio.utils.misc')
     for _, tbl in pairs(clangdFiles) do
       if tbl.delete then
         require('nvimpio.boilerplate').readContent(tbl)
-        misc.writeFile(tbl.file, finalContent(tbl.content), {})
+        misc.writeFile(tbl.file, tbl.content, {})
       end
     end
   end,

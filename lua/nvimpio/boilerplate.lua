@@ -188,6 +188,7 @@ function M.readContent(tbl)
     else
       content = ''
     end
+    if content ~= "" and not content:match("\n$") then content = content .. "\n" end
     tbl.content = content
   -- end
 end
@@ -375,16 +376,12 @@ CompileFlags:
     -- local compiler = is_cpp and _G.metadata.cxx_path or _G.metadata.cc_path
     local packages_dir   = prepare_path_for_clangd(_G.metadata.packages_dir)
 
-    local function finalContent(data)
-      if data ~= "" and not data:match("\n$") then data = data .. "\n" end
-      return data
-    end
-
     ------------------------------------------------------------------------------
     -- local cwdClangd = vim.fs.joinpath(OS.project_dir, '.clangd')
     -- local pkgClangd = vim.fs.joinpath(_G.metadata.toolchain_root, '.clangd')
     -- local frmClangd = vim.fs.joinpath(_G.metadata.framework_root, '.clangd')
     local userClangd = OS.clangd_user_file
+
     local clangdFiles = {
       -- cwd = { file = cwdClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
       -- pkg = { file = pkgClangd, content = '', cache_id = '', start_marker = '', end_marker   = ''},
@@ -407,15 +404,13 @@ CompileFlags:
         start_marker = '', end_marker   = '', delete= false,
       },
     }
-    -- M.readContent(clangdFiles)
-    ------------------------------------------------------------------------------
     for _, tbl in pairs(clangdFiles) do
       -- 3. Run a clean, single-pass string format for dynamicBlock
       M.readContent(tbl)
       -- 4. UNCONDITIONAL DISK WRITER MATRIX
-      -- misc.writeFile(tbl.file, finalContent(tbl.content) .. dynamicBlock, {})
-      misc.writeFile(tbl.file, finalContent(tbl.content) .. tbl:block(), {})
+      misc.writeFile(tbl.file, tbl.content .. tbl:block(), {})
     end
+    ------------------------------------------------------------------------------
 
     vim.schedule(function()
       for _, client in ipairs(vim.lsp.get_clients({ name = 'clangd' })) do
@@ -425,7 +420,7 @@ CompileFlags:
       end
     end)
 
-    return clangdFiles['cwd'].content
+    return clangdFiles['userProj'].content
   end,
 }
 
