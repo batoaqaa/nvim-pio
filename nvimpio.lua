@@ -372,19 +372,6 @@ require('lazy').setup(plugins, {
   ui = { border = 'rounded' },
 })
 
--- Auto-align Neovim's active directory to the true project root
-vim.api.nvim_create_autocmd('BufEnter', {
-  callback = function(ctx)
-    local markers = { 'compile_commands.json', 'platformio.ini', '.git' }
-    -- Search upward starting from the opened file buffer
-    local found = vim.fs.find(markers, { upward = true, path = ctx.file })
-    if found and #found > 0 then
-      -- Lock Neovim's working directory to the discovered project root
-      local root_dir = vim.fs.dirname(found[1])
-      vim.fn.chdir(root_dir)
-    end
-  end,
-})
 ----------------------------------------------------------------------------------------
 -- stylua: ignore
 if vim.fn.has('nvim-0.11') == 1 then
