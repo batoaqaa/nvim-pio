@@ -60,11 +60,11 @@ function M.configure_paths()
   -- vim.schedule(function()
     vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir' }, function(r)
       if not r or r == '' then
-        return
+        return nil
       end
       vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(s)
         if not s or s == '' then
-          return
+          return nil
         end
         main.options.pio.pio_runtime_dir = r
         main.options.pio.pio_storage_dir = s
@@ -157,17 +157,18 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     -- BLOCKING GATEWAY: Wrap prompt setup and FORCE return to stop the caller thread from continuing!
     vim.schedule(function()
       if vim.fn.confirm('PlatformIO not found. Install toolchain?', '&Yes\n&No', 1) == 1 then
-        M.configure_paths()
-        local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
-        if ok then
-          installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
-          -- installer.pioInstall(base_runtime, function(_)
-            -- Once terminal install finishes, run recursion step 1 to register paths cleanly
-            M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
-          end)
-        else
-          OS.notify('Installer module missing', 'error')
-          if type(on_success_callback) == 'function' then on_success_callback(false) end
+        if (M.configure_paths()) then
+          local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
+          if ok then
+            installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
+            -- installer.pioInstall(base_runtime, function(_)
+              -- Once terminal install finishes, run recursion step 1 to register paths cleanly
+              M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
+            end)
+          else
+            OS.notify('Installer module missing', 'error')
+            if type(on_success_callback) == 'function' then on_success_callback(false) end
+          end
         end
       else
         OS.notify('Execution aborted: Toolchain missing.', 'warn')
