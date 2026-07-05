@@ -66,8 +66,8 @@ function M.configure_paths()
         if not s or s == '' then
           return false
         end
-        main.options.pio.pio_runtime_dir = r
-        main.options.pio.pio_storage_dir = s
+        main.options.pio.pio_runtime_dir = M.resolve_user_path(r)
+        main.options.pio.pio_storage_dir = M.resolve_user_path(s)
         return true
         -- _G.metadata.core_dir = s
         -- _G.metadata.penv_dir = r
