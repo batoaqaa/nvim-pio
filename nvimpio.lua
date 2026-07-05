@@ -24,26 +24,6 @@ end
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
 
--- 1. Apply the fillchars configuration safely
-vim.opt.fillchars = {
-  eob = " ",       -- Replace tilde (~) with a blank space character
-  vert = "│",      -- Clean vertical split separator line
-  fold = " ",      -- Remove trailing dashes from code folds
-  foldopen = "",  -- Custom icon for open folds
-  foldclose = "", -- Custom icon for closed folds
-}
--- 2. Force Neovim to make the blank spaces truly invisible
--- This MUST run after Kanagawa has initialized!
-vim.api.nvim_create_autocmd("ColorScheme", {
-  pattern = "*",
-  callback = function()
-    vim.api.nvim_set_hl(0, "EndOfBuffer", { link = "Normal" })
-  end,
-})
-
--- Trigger it immediately for the current session
-vim.api.nvim_set_hl(0, "EndOfBuffer", { link = "Normal" })
-
 -- optionally enable 24-bit colour
 opt.termguicolors = true
 
@@ -350,6 +330,25 @@ require('lazy').setup(plugins, {
   install = { missing = true },
   ui = { border = 'rounded' },
 })
+
+-- 1. Apply the fillchars configuration safely
+vim.opt.fillchars = {
+  eob = " ",       -- Replace tilde (~) with a blank space character
+  vert = "│",      -- Clean vertical split separator line
+  fold = " ",      -- Remove trailing dashes from code folds
+  foldopen = "",  -- Custom icon for open folds
+  foldclose = "", -- Custom icon for closed folds
+}
+-- 2. Force Neovim to make the blank spaces truly invisible
+-- This MUST run after Kanagawa has initialized!
+vim.api.nvim_create_autocmd("ColorScheme", {
+  pattern = "*",
+  callback = function()
+    vim.api.nvim_set_hl(0, "EndOfBuffer", { link = "Normal" })
+  end,
+})
+-- Trigger it immediately for the current session
+vim.api.nvim_set_hl(0, "EndOfBuffer", { link = "Normal" })
 
 ----------------------------------------------------------------------------------------
 -- INFO: autocommand to Update lazy.nvim plugins in the background
