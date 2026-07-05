@@ -32,11 +32,13 @@ local function pioInstall(runtime_dir, on_done)
 
   -- 5. Construction of the cross-platform commands string
   local download_cmd = string.format("%s -c \"import urllib.request; urllib.request.urlretrieve('%s%s', '%s')\"", python, script_url, script_name, script_path)
-  local install_cmd, pioUpgrade_cmd, pipUpgrade_cmd, pioEnv, penvRestore_cmd
+  local install_cmd, pioUpgrade_cmd, pipUpgrade_cmd, pioEnv, penvRestore_cmd, pioYaml_cmd
   if OS.is_win then
     install_cmd = string.format('$env:PLATFORMIO_PENV_DIR=%q; %s %s', custom_penv_dir, python, script_path)
     pipUpgrade_cmd = string.format('$env:PLATFORMIO_PENV_DIR=%q; %s/Scripts/python.exe -m pip install -U pip', custom_penv_dir, custom_penv_dir)
-    pioUpgrade_cmd = string.format('$env:PLATFORMIO_PENV_DIR=%q; %s/Scripts/pip.exe install -U platformio', custom_penv_dir, custom_penv_dir)
+    pioUpgrade_cmd = string.format('$env:PLATFORMIO_PENV_DIR=%q; %s/Scripts/python.exe -m pip install -U platformio', custom_penv_dir, custom_penv_dir)
+    pioYaml_cmd =
+      string.format('$env:PLATFORMIO_PENV_DIR=%q; %s/Scripts/python.exe -m pip install --upgrade --force-reinstall PyYAML', custom_penv_dir, custom_penv_dir)
     penvRestore_cmd = string.format('$env:PLATFORMIO_PENV_DIR=%q; %s/Scripts/python.exe -m ensurepip --default-pip', custom_penv_dir, custom_penv_dir)
     -- pipUpgrade_cmd = string.format('%s/Scripts/python.exe -m pip install -U pip', custom_penv_dir)
     -- pioUpgrade_cmd = string.format('%s/Scripts/pip.exe install -U platformio', custom_penv_dir)
@@ -44,7 +46,8 @@ local function pioInstall(runtime_dir, on_done)
   else
     install_cmd = string.format('PLATFORMIO_PENV_DIR=%q %s %s', custom_penv_dir, python, script_path)
     pipUpgrade_cmd = string.format('PLATFORMIO_PENV_DIR=%q %s/bin/python3 -m pip install -U pip', custom_penv_dir, custom_penv_dir)
-    pioUpgrade_cmd = string.format('PLATFORMIO_PENV_DIR=%q %s/bin/pip install -U platformio', custom_penv_dir, custom_penv_dir)
+    pioUpgrade_cmd = string.format('PLATFORMIO_PENV_DIR=%q %s/bin/python3 -m pip install -U platformio', custom_penv_dir, custom_penv_dir)
+    pioYaml_cmd = string.format('PLATFORMIO_PENV_DIR=%q %s/bin/python3 -m pip install --upgrade --force-reinstall PyYAML', custom_penv_dir, custom_penv_dir)
     penvRestore_cmd = string.format('PLATFORMIO_PENV_DIR=%q %s/bin/python3 -m ensurepip --default-pip', custom_penv_dir, custom_penv_dir)
     -- pipUpgrade_cmd = string.format('%s/bin/python3 -m pip install -U pip', custom_penv_dir)
     -- pioUpgrade_cmd = string.format('%s/bin/pip install -U platformio', custom_penv_dir)
@@ -62,7 +65,7 @@ local function pioInstall(runtime_dir, on_done)
   -- require('nvimpio.pio.upkeep').run_sequence({ cmnds = { download_cmd, install_cmd }, cb = cb, from = 'PioInstall:' })
   require('nvimpio.device.parser').run_sequence({
     -- cmnds = { download_cmd, install_cmd, pipUpgrade_cmd, pioUpgrade_cmd, penvRestore_cmd, pioEnv },
-    cmnds = { download_cmd, install_cmd, pipUpgrade_cmd, pioUpgrade_cmd, pioEnv .. ' ; ' .. penvRestore_cmd },
+    cmnds = { download_cmd, install_cmd, pipUpgrade_cmd, pioUpgrade_cmd, pioYaml_cmd, pioEnv .. ' ; ' .. penvRestore_cmd },
     cb = cb,
     from = 'PioInstall:',
   })
