@@ -1,6 +1,6 @@
 -- stylua: ignore start
 local uv = vim.uv or vim.loop
-local opt = opt
+local opt = vim.opt
 
 -- 1. Gather all the data first
 local sysname = uv.os_uname().sysname
