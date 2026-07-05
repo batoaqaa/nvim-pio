@@ -13,8 +13,8 @@ describe('PlatformIO Configuration & Validation System', function()
     -- Reset baseline M.defaults to pristine factory state before every single test run
     M.defaults = {
       pio = {
-        pio_runtime_dir = vim.fs.joinpath(OS.defaultHome, '.platformio'),
-        pio_storage_dir = vim.fs.joinpath(OS.defaultHome, '.platformio'),
+        pio_runtime_dir = vim.fs.joinpath(OS.home('.platformio')),
+        pio_storage_dir = vim.fs.joinpath(OS.home, '.platformio'),
       },
       clangd = { support = true, install = false },
       menu_key = '<leader>\\',

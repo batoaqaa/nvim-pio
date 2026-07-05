@@ -1,7 +1,7 @@
 local defConfig = {
   pio = {
-    pio_runtime_dir = vim.fs.joinpath(OS.defaultHome, '.platformio'),
-    pio_storage_dir = vim.fs.joinpath(OS.defaultHome, '.platformio'),
+    pio_runtime_dir = vim.fs.joinpath(OS.home, '.platformio'),
+    pio_storage_dir = vim.fs.joinpath(OS.home, '.platformio'),
   },
   clangd = {
     support = true,

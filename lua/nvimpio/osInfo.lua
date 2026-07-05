@@ -3,7 +3,7 @@ local uv = vim.uv or vim.loop
 
 -- 1. Gather all the data first
 local sysname = uv.os_uname().sysname
-local home = vim.uv.os_homedir()
+local home = uv.os_homedir()
 local is_win = (sysname:find('Windows') or vim.fn.has('win32') == 1 or vim.fn.has("win64") == 1)
 local is_mac = sysname == 'Darwin'
 local is_linux = sysname == 'Linux'
