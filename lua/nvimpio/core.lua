@@ -57,7 +57,7 @@ end
 function M.configure_paths()
   local main = require('nvimpio')
   main.initialize_full_options()
-  vim.schedule(function()
+  -- vim.schedule(function()
     vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir' }, function(r)
       if not r or r == '' then
         return
@@ -75,7 +75,7 @@ function M.configure_paths()
         -- end)
       end)
     end)
-  end)
+  -- end)
 end
 
 -- Checks toolchain existence and resolves paths without parsing heavy structures
