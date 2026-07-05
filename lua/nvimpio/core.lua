@@ -54,6 +54,30 @@ function M.resolve_user_path(raw_path)
   return vim.fs.normalize(expanded)
 end
 
+function M.configure_paths()
+  local main = require('nvimpio')
+  main.initialize_full_options()
+  vim.schedule(function()
+    vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir' }, function(r)
+      if not r or r == '' then
+        return
+      end
+      vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(s)
+        if not s or s == '' then
+          return
+        end
+        main.options.pio.pio_runtime_dir = r
+        main.options.pio.pio_storage_dir = s
+        _G.metadata.core_dir = s
+        _G.metadata.penv_dir = r
+        -- M.ensure_toolchain_active(function()
+        --   OS.notify('PlatformIO Wizard workspace paths updated successfully!')
+        -- end)
+      end)
+    end)
+  end)
+end
+
 -- Checks toolchain existence and resolves paths without parsing heavy structures
 -- stylua: ignore
 function M.ensure_toolchain_active(on_success_callback, retry_counter)
@@ -133,6 +157,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     -- BLOCKING GATEWAY: Wrap prompt setup and FORCE return to stop the caller thread from continuing!
     vim.schedule(function()
       if vim.fn.confirm('PlatformIO not found. Install toolchain?', '&Yes\n&No', 1) == 1 then
+        M.configure_paths()
         local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
         if ok then
           installer.pioInstall(base_runtime, function(_)
@@ -149,28 +174,6 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
       end
     end)
   end
-end
-
-function M.configure_paths()
-  local main = require('nvimpio')
-  main.initialize_full_options()
-  vim.schedule(function()
-    vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir' }, function(r)
-      if not r or r == '' then
-        return
-      end
-      vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(s)
-        if not s or s == '' then
-          return
-        end
-        main.options.pio.pio_runtime_dir = r
-        main.options.pio.pio_storage_dir = s
-        M.ensure_toolchain_active(function()
-          OS.notify('PlatformIO Wizard workspace paths updated successfully!')
-        end)
-      end)
-    end)
-  end)
 end
 
 return M

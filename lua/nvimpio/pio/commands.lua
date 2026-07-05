@@ -7,6 +7,10 @@
 -- +: At least one argument.
 -- -1: Zero or one argument (like ?, explicitly).
 
+-- stylua: ignore start
+local upkeep = require('nvimpio.pio.upkeep')
+local cmd = vim.api.nvim_create_user_command
+
 vim.api.nvim_create_autocmd('VimLeavePre', {
   callback = function()
     --------------------------------------------------------------------------------
@@ -30,10 +34,6 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
     end
   end,
 })
-
--- stylua: ignore start
-local upkeep = require('nvimpio.pio.upkeep')
-local cmd = vim.api.nvim_create_user_command
 
 -- INFO: set PlatformIO paths
 cmd('PioPathSet', function ()
