@@ -160,7 +160,8 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
         M.configure_paths()
         local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
         if ok then
-          installer.pioInstall(base_runtime, function(_)
+          installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
+          -- installer.pioInstall(base_runtime, function(_)
             -- Once terminal install finishes, run recursion step 1 to register paths cleanly
             M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
           end)
