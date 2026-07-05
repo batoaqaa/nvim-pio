@@ -68,8 +68,8 @@ function M.configure_paths()
         end
         main.options.pio.pio_runtime_dir = r
         main.options.pio.pio_storage_dir = s
-        _G.metadata.core_dir = s
-        _G.metadata.penv_dir = r
+        -- _G.metadata.core_dir = s
+        -- _G.metadata.penv_dir = r
         -- M.ensure_toolchain_active(function()
         --   OS.notify('PlatformIO Wizard workspace paths updated successfully!')
         -- end)
