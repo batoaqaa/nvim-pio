@@ -68,38 +68,25 @@ function M.initialize_full_options()
   M.options = final_options
 end
 
+
 local function read_json_file(filepath)
-  -- 1. Open the file in read-only mode ("r")
-  local fd = vim.uv.fs_open(filepath, "r", 438) -- 438 equals 0666 permissions
-  if not fd then
-    vim.notify("Could not open file: " .. filepath, vim.log.levels.ERROR)
-    return nil
-  end
+  -- 1. Ensure file exists before touching handles
+  local stat = vim.uv.fs_stat(filepath)
+  if not stat or stat.type ~= "file" then return nil end
 
-  -- 2. Get file size to read the whole buffer at once
-  local stat = vim.uv.fs_fstat(fd)
-  if not stat then
-    vim.uv.fs_close(fd)
-    return nil
-  end
+  -- 2. Open file descriptor (Read-Only)
+  local fd = vim.uv.fs_open(filepath, "r", 438)
+  if not fd then return nil end
 
-  -- 3. Read the contents
+  -- 3. High-speed raw binary read into buffer memory
   local chunk = vim.uv.fs_read(fd, stat.size, 0)
-  vim.uv.fs_close(fd) -- Always clean up and close the file descriptor
+  vim.uv.fs_close(fd) -- Immediate resource release
 
-  if not chunk or chunk == "" then
-    vim.notify("File is empty: " .. filepath, vim.log.levels.WARN)
-    return nil
-  end
+  if not chunk or chunk == "" then return nil end
 
-  -- 4. Safely parse the raw text data into a Lua table
+  -- 4. Protected evaluation parsing safeguard
   local success, result = pcall(vim.json.decode, chunk)
-  if not success then
-    vim.notify("Failed to parse JSON layout: " .. tostring(result), vim.log.levels.ERROR)
-    return nil
-  end
-
-  return result -- Returns a standard Lua table
+  return success and result or nil
 end
 
 ------------------------------------------------------------------------
