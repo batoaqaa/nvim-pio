@@ -717,7 +717,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
   local nvimpio_dir = vim.fs.dirname(idedata_file)
   if not uv.fs_stat(nvimpio_dir) then
-    uv.fs_mkdir(nvimpio_dir, 493)
+    -- uv.fs_mkdir(nvimpio_dir, 493)
+    vim.fn.mkdir(nvimpio_dir, "p")
   end
   -- ----------------------------------------------------------------
   -- -- STEP 1: Cache Path (idedata.json exists )
