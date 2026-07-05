@@ -242,11 +242,11 @@ local plugins = {
     'tinted-theming/tinted-nvim',
     config = function()
       require('tinted-nvim').setup()
-      require('tinted-nvim').load('base24-gruvbox-dark')
+      -- require('tinted-nvim').load('base24-gruvbox-dark')
       -- require('tinted-nvim').load('tinted8-catppuccin-mocha')
       -- require('tinted-nvim').load('base24-gruvbox-light')
       -- require('tinted-nvim').load('base24-kanagawa-dragon')
-      -- require('tinted-nvim').load('base24-later-this-evening')
+      require('tinted-nvim').load('base24-later-this-evening')
     end,
   },
 
