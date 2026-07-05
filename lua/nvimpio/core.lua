@@ -158,9 +158,9 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     vim.schedule(function()
       if vim.fn.confirm('PlatformIO not found. Install toolchain?', '&Yes\n&No', 1) == 1 then
         if (M.configure_paths()) then
+          print('here')
           local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
           if ok then
-            print('here')
             installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
             -- installer.pioInstall(base_runtime, function(_)
               -- Once terminal install finishes, run recursion step 1 to register paths cleanly
