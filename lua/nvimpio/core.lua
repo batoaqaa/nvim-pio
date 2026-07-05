@@ -58,25 +58,23 @@ function M.configure_paths()
   local main = require('nvimpio')
   -- main.initialize_full_options()
   -- vim.schedule(function()
-    vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir' }, function(r)
-      if not r or r == '' then
-        return false
-      end
-      vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(s)
-        if not s or s == '' then
-          return false
-        end
-        main.options.pio.pio_runtime_dir = M.resolve_user_path(r)
-        main.options.pio.pio_storage_dir = M.resolve_user_path(s)
-        return true
-        -- _G.metadata.core_dir = s
-        -- _G.metadata.penv_dir = r
-        -- M.ensure_toolchain_active(function()
-        --   OS.notify('PlatformIO Wizard workspace paths updated successfully!')
-        -- end)
-      end)
+  vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir' }, function(r)
+    if not r or r == '' then return false end
+    vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(s)
+      if not s or s == '' then return false end
+      main.options.pio.pio_runtime_dir = M.resolve_user_path(r)
+      main.options.pio.pio_storage_dir = M.resolve_user_path(s)
+      print('here')
+      return true
+      -- _G.metadata.core_dir = s
+      -- _G.metadata.penv_dir = r
+      -- M.ensure_toolchain_active(function()
+      --   OS.notify('PlatformIO Wizard workspace paths updated successfully!')
+      -- end)
     end)
+  end)
   -- end)
+  return false
 end
 
 -- Checks toolchain existence and resolves paths without parsing heavy structures
