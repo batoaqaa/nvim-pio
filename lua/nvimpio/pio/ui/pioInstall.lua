@@ -61,7 +61,8 @@ local function pioInstall(runtime_dir, on_done)
   -- 7. open toggleterm and install platformio
   -- require('nvimpio.pio.upkeep').run_sequence({ cmnds = { download_cmd, install_cmd }, cb = cb, from = 'PioInstall:' })
   require('nvimpio.device.parser').run_sequence({
-    cmnds = { download_cmd, install_cmd, pipUpgrade_cmd, pioUpgrade_cmd, penvRestore_cmd, pioEnv },
+    -- cmnds = { download_cmd, install_cmd, pipUpgrade_cmd, pioUpgrade_cmd, penvRestore_cmd, pioEnv },
+    cmnds = { download_cmd, install_cmd, pipUpgrade_cmd, pioUpgrade_cmd, penvRestore_cmd },
     cb = cb,
     from = 'PioInstall:',
   })
