@@ -163,86 +163,86 @@ keymap('n', '\\', '<cmd>Neotree toggle<CR>', { desc = 'NeoTreeToggle' })
 ----------------------------------------------------------------------------------------
 -- stylua: ignore
 ---[[
--- local function setup_xdg_paths()
---   -- local isWindows = vim.fn.has('win32') == 1
---   -- local isMac = vim.fn.has('mac') == 1
---   local home = vim.uv.os_homedir()
---   local app_name = 'nvim-pio' -- pick a temp root
---
---   -- 1. XDG_CONFIG_HOME (Settings/Configs)
---   if not vim.env.XDG_CONFIG_HOME then
---     local path = isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
---               or isMac and (home .. '/Library/Preferences')
---               or (home .. '/.config')
---     vim.env.XDG_CONFIG_HOME = vim.fs.joinpath(path, app_name)
---   end
---
---   -- 2. XDG_DATA_HOME (Large data/Databases)
---   if not vim.env.XDG_DATA_HOME then
---     local path = isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
---               or isMac and (home .. '/Library/Application Support')
---               or (home .. '/.local/share')
---     vim.env.XDG_DATA_HOME = vim.fs.joinpath(path, app_name)
---   end
---
---   -- 3. XDG_STATE_HOME (Logs/History/Persistent State)
---   if not vim.env.XDG_STATE_HOME then
---     local path = isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
---               or isMac and (home .. '/Library/Application Support')
---               or (home .. '/.local/state')
---     vim.env.XDG_STATE_HOME = vim.fs.joinpath(path, app_name)
---   end
---
---   -- 4. XDG_CACHE_HOME (Temporary/Disposable data)
---   if not vim.env.XDG_CACHE_HOME then
---     local path = isWindows and (vim.env.TEMP or (home .. '/AppData/Local/Temp'))
---               or isMac and (home .. '/Library/Caches')
---               or (home .. '/.cache')
---     vim.env.XDG_CACHE_HOME = vim.fs.joinpath(path, app_name)
---   end
--- end
--- setup_xdg_paths()
-
-local function setup_isolated_paths()
+local function setup_xdg_paths()
+  -- local isWindows = vim.fn.has('win32') == 1
+  -- local isMac = vim.fn.has('mac') == 1
   local home = vim.uv.os_homedir()
-  local app_name = 'nvim-pio'
+  local app_name = 'nvim-pio' -- pick a temp root
 
-  -- 1. Identify the genuine system XDG roots (DO NOT append app_name to XDG_CONFIG_HOME!)
-  local xdg_config = vim.env.XDG_CONFIG_HOME or (
-    isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
-    or isMac and (home .. '/Library/Preferences')
-    or (home .. '/.config')
-  )
+  -- 1. XDG_CONFIG_HOME (Settings/Configs)
+  if not vim.env.XDG_CONFIG_HOME then
+    local path = isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
+              or isMac and (home .. '/Library/Preferences')
+              or (home .. '/.config')
+    vim.env.XDG_CONFIG_HOME = vim.fs.joinpath(path, app_name)
+  end
 
-  local xdg_data = vim.env.XDG_DATA_HOME or (
-    isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
-    or isMac and (home .. '/Library/Application Support')
-    or (home .. '/.local/share')
-  )
+  -- 2. XDG_DATA_HOME (Large data/Databases)
+  if not vim.env.XDG_DATA_HOME then
+    local path = isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
+              or isMac and (home .. '/Library/Application Support')
+              or (home .. '/.local/share')
+    vim.env.XDG_DATA_HOME = vim.fs.joinpath(path, app_name)
+  end
 
-  local xdg_state = vim.env.XDG_STATE_HOME or (
-    isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
-    or isMac and (home .. '/Library/Application Support')
-    or (home .. '/.local/state')
-  )
+  -- 3. XDG_STATE_HOME (Logs/History/Persistent State)
+  if not vim.env.XDG_STATE_HOME then
+    local path = isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
+              or isMac and (home .. '/Library/Application Support')
+              or (home .. '/.local/state')
+    vim.env.XDG_STATE_HOME = vim.fs.joinpath(path, app_name)
+  end
 
-  local xdg_cache = vim.env.XDG_CACHE_HOME or (
-    isWindows and (vim.env.TEMP or (home .. '/AppData/Local/Temp'))
-    or isMac and (home .. '/Library/Caches')
-    or (home .. '/.cache')
-  )
-
-  -- 2. Restore standard XDG_CONFIG_HOME environment so child processes (like clangd) 
-  -- find their files at the default location (e.g. ~/.config/clangd/config.yaml)
-  vim.env.XDG_CONFIG_HOME = xdg_config
-
-  -- 3. Isolate the environment variables that child processes see
-  vim.env.XDG_DATA_HOME = vim.fs.joinpath(xdg_data, app_name)
-  vim.env.XDG_STATE_HOME = vim.fs.joinpath(xdg_state, app_name)
-  vim.env.XDG_CACHE_HOME = vim.fs.joinpath(xdg_cache, app_name)
+  -- 4. XDG_CACHE_HOME (Temporary/Disposable data)
+  if not vim.env.XDG_CACHE_HOME then
+    local path = isWindows and (vim.env.TEMP or (home .. '/AppData/Local/Temp'))
+              or isMac and (home .. '/Library/Caches')
+              or (home .. '/.cache')
+    vim.env.XDG_CACHE_HOME = vim.fs.joinpath(path, app_name)
+  end
 end
+setup_xdg_paths()
 
-setup_isolated_paths()
+-- local function setup_isolated_paths()
+--   local home = vim.uv.os_homedir()
+--   local app_name = 'nvim-pio'
+--
+--   -- 1. Identify the genuine system XDG roots (DO NOT append app_name to XDG_CONFIG_HOME!)
+--   local xdg_config = vim.env.XDG_CONFIG_HOME or (
+--     isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
+--     or isMac and (home .. '/Library/Preferences')
+--     or (home .. '/.config')
+--   )
+--
+--   local xdg_data = vim.env.XDG_DATA_HOME or (
+--     isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
+--     or isMac and (home .. '/Library/Application Support')
+--     or (home .. '/.local/share')
+--   )
+--
+--   local xdg_state = vim.env.XDG_STATE_HOME or (
+--     isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
+--     or isMac and (home .. '/Library/Application Support')
+--     or (home .. '/.local/state')
+--   )
+--
+--   local xdg_cache = vim.env.XDG_CACHE_HOME or (
+--     isWindows and (vim.env.TEMP or (home .. '/AppData/Local/Temp'))
+--     or isMac and (home .. '/Library/Caches')
+--     or (home .. '/.cache')
+--   )
+--
+--   -- 2. Restore standard XDG_CONFIG_HOME environment so child processes (like clangd)
+--   -- find their files at the default location (e.g. ~/.config/clangd/config.yaml)
+--   vim.env.XDG_CONFIG_HOME = xdg_config
+--
+--   -- 3. Isolate the environment variables that child processes see
+--   vim.env.XDG_DATA_HOME = vim.fs.joinpath(xdg_data, app_name)
+--   vim.env.XDG_STATE_HOME = vim.fs.joinpath(xdg_state, app_name)
+--   vim.env.XDG_CACHE_HOME = vim.fs.joinpath(xdg_cache, app_name)
+-- end
+--
+-- setup_isolated_paths()
 
 ---]]
 --[[

@@ -1,6 +1,7 @@
--- stylua: ignore start 
+-- stylua: ignore start
 
 local uv = vim.uv or vim.loop
+local home = vim.uv.os_homedir()
 -- 1. Gather all the data first
 local sysname = uv.os_uname().sysname
 local is_win = (sysname:find('Windows') or vim.fn.has('win32') == 1 or vim.fn.has("win64") == 1)
@@ -14,11 +15,16 @@ if is_linux and vim.fn.filereadable('/proc/version') == 1 then
   local version = (lines and lines[1]) or ''
   if version:lower():find('microsoft') then is_wsl = true end
 end
-local winHome = os.getenv("USERPROFILE") or "C:\\"
-local nixHome = uv.os_homedir() or "/root"
+local winHome = home or os.getenv("USERPROFILE")
+local nixHome = home or "/root"
 local defaultHome = is_win and winHome or nixHome
 local projectDir = uv.cwd() or '.'
-local clangd_user_dir = is_win and vim.fn.expand("$LOCALAPPDATA/clangd") or vim.fn.expand("~/.config/clangd")
+local xdg_config_home = vim.env.XDG_CONFIG_HOME or (
+  is_win
+    and (vim.env.LOCALAPPDATA or vim.fs.joinpath(home, 'AppData', 'Local'))
+    or  vim.fs.joinpath(home, '.config')
+)
+local clangd_user_dir = vim.fs.joinpath(xdg_config_home, 'clangd')
 local nvimpioConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
 ---@class OS
 ---@field name "windows"|"macos"|"linux"
@@ -108,8 +114,10 @@ local os_info = {
   notify = function(msg, level)
     -- vim.log = { levels = { TRACE = 0, DEBUG = 1, INFO = 2, WARN = 3, ERROR = 4, OFF = 5, }, }
     local string_to_level = {
-      info = vim.log.levels.INFO, warn = vim.log.levels.WARN,
-      error = vim.log.levels.ERROR, debug = vim.log.levels.DEBUG,
+      info = vim.log.levels.INFO,
+      warn = vim.log.levels.WARN,
+      error = vim.log.levels.ERROR,
+      debug = vim.log.levels.DEBUG,
     }
     if type(level) == 'string' then level = string_to_level[level:lower()] end
 
