@@ -211,7 +211,7 @@ setup_isolated_paths()
 -- BOOTSTRAP (Use stdpath so it ALWAYS matches Neovim's internal logic)
 local lazypath = vim.fn.stdpath('data') .. '/lazy/lazy.nvim'
 
-if not (vim.uv or vim.loop).fs_stat(lazypath) then
+if not uv.fs_stat(lazypath) then
   print('Installing lazy.nvim to: ' .. lazypath)
   vim.fn.system({
     'git',
@@ -332,7 +332,7 @@ require('lazy').setup(plugins, {
 })
 
 -- 1. Apply the fillchars configuration safely
-vim.opt.fillchars = {
+opt.fillchars = {
   eob = " ",       -- Replace tilde (~) with a blank space character
   vert = "│",      -- Clean vertical split separator line
   fold = " ",      -- Remove trailing dashes from code folds
