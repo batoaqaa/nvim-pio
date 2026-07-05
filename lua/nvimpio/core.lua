@@ -1,6 +1,35 @@
 --stylua: ignore start
 local M = {}
 
+local function clear_subdirectories(target_dir)
+  -- 1. Scan the target directory for entries
+  local handle = vim.uv.fs_scandir(target_dir)
+  if not handle then
+    return vim.notify("Could not read directory: " .. target_dir, vim.log.levels.ERROR)
+  end
+
+  -- 2. Loop through every item inside the folder
+  while true do
+    local name, type = vim.uv.fs_scandir_next(handle)
+    if not name then break end -- No more files/folders left to check
+
+    -- 3. Isolate folders and delete them recursively
+    if type == "directory" then
+      local full_path = target_dir .. "/" .. name
+
+      -- Native recursive folder deletion
+      local success, err = vim.uv.fs_rmdir(full_path)
+
+      -- If the directory isn't empty, fallback to a recursive removal
+      if not success and err and err:match("ENOTEMPTY") then
+        -- This deletes the folder and all its contents cleanly
+        vim.fn.delete(full_path, "rf")
+      end
+    end
+  end
+end
+clear_subdirectories()
+
 ---Defensively isolates and locks the correct active python path boundaries into Neovim's environment
 function M.enforce_virtualenv_isolation()
   -- 1. Read the environment path strings safely from active system variables
@@ -191,19 +220,23 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
                 end
                 main.options.pio.pio_runtime_dir = resolved_runtime_dir
                 main.options.pio.pio_storage_dir = M.resolve_user_path(storage_dir)
+                -------------------------------------------------------------
                 if choice == 'Reinstall' then
                   local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
                   if ok then
                     installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
                     -- installer.pioInstall(base_runtime, function(_)
                       -- Once terminal install finishes, run recursion step 1 to register paths cleanly
+                      clear_subdirectories(OS.nvimpio_config_dir)
                       M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
                     end)
                   else
                     OS.notify('Installer module missing', 'error')
                     if type(on_success_callback) == 'function' then on_success_callback(false) end
                   end
+                -------------------------------------------------------------
                 elseif choice == 'Rename' then
+                  clear_subdirectories(OS.nvimpio_config_dir)
                   M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
                 end
               end)
