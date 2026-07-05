@@ -64,7 +64,6 @@ function M.configure_paths()
       if not s or s == '' then return false end
       main.options.pio.pio_runtime_dir = M.resolve_user_path(r)
       main.options.pio.pio_storage_dir = M.resolve_user_path(s)
-      print('runTime: ' .. main.options.pio.pio_runtime_dir)
       return true
       -- _G.metadata.core_dir = s
       -- _G.metadata.penv_dir = r
@@ -161,6 +160,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
         if (M.configure_paths()) then
           local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
           if ok then
+            print('here')
             installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
             -- installer.pioInstall(base_runtime, function(_)
               -- Once terminal install finishes, run recursion step 1 to register paths cleanly
