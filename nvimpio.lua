@@ -482,15 +482,9 @@ local pioConfig = {
   --   pio_runtime_dir = '~/.platformio',
   --   pio_storage_dir = '~/.platformio',
   -- },
-  clangd = {
-    support = true,
-    install = true,
-  },
+  clangd = { support = true, install = true, },
   menu_key = '<leader>\\', -- replace this menu key  to your convenience
   menu_name = 'PlatformIO', -- replace this menu name to your convenience
 }
 local pok, nvimpio = pcall(require, 'nvimpio')
-if pok then
-  -- print("here" .. vim.inspect(pioConfig))
-  nvimpio.setup(pioConfig)
-end
+if pok then nvimpio.setup(pioConfig) end
