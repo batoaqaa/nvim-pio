@@ -151,45 +151,6 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   end
 end
 
--- function M.execute_cmd_clean(target_command)
---   local main = require('nvimpio')
---   -- local pio = require('nvimpio.pioCheck')
---   main.initialize_full_options()
---
---   local status, ToggleTerm = pcall(require, 'toggleterm.terminal')
---   if not status then
---     return OS.notify('ToggleTerm is required but missing.', 'error')
---   end
---
---   local pio_bin = main.config.pio_bin_dir or (M.clean(main.options.pio.pio_runtime_dir) .. OS.folder_sep .. 'penv' .. OS.folder_sep .. OS.bin_dir)
---
---   if pio_term then
---     pio_term:shutdown()
---   end
---
---   pio_term = ToggleTerm.Terminal:new({
---     id = 99,
---     cmd = target_command,
---     direction = 'float',
---     float_opts = { border = 'rounded' },
---     close_on_exit = false,
---     env = {
---       PATH = pio_bin .. OS.folder_sep .. (vim.env.PATH or ''),
---     },
---   })
---   pio_term:open()
--- end
---
--- function M.execute_init(args)
---   M.ensure_toolchain_active(function()
---     local full_cmd = 'pio project init'
---     if args and args.fargs and #args.fargs > 0 then
---       full_cmd = full_cmd .. ' ' .. table.concat(args.fargs, ' ')
---     end
---     M.execute_cmd_clean(full_cmd)
---   end)
--- end
-
 function M.configure_paths()
   local main = require('nvimpio')
   main.initialize_full_options()

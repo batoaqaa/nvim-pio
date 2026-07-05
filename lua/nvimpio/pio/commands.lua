@@ -35,6 +35,11 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
 local upkeep = require('nvimpio.pio.upkeep')
 local cmd = vim.api.nvim_create_user_command
 
+-- INFO: set PlatformIO paths
+cmd('PioPathSet', function ()
+  require('nvimpio.core').configure_paths()
+end, {desc = 'set PlatformIO paths'})
+
 -- INFO: Refresh PIO Data
 cmd('PioRefreshData', function ()
    _G.isBusy = true
