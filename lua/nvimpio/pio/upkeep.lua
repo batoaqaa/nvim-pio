@@ -778,7 +778,10 @@ fetch_metadata = function(callback, active_env, from, attempts)
       end)
     end
     -- local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
-    local idecmd = string.format('pio project metadata -e %s --json-output-path "%s"', active_env, idedata_file )
+    --pio project metadata -e olimex_h407 --json-output > "C:\Users\batoaqaa\AppData\Local\ahmed\test3\.nvimpio\olimex_h407\idedata.json"
+
+    -- local idecmd = string.format('pio project metadata -e %s --json-output-path "%s"', active_env, idedata_file )
+    local idecmd = string.format('pio project metadata -e %s --json-output > "%s"', active_env, idedata_file )
 
     -- local runcmd = string.format('pio run -e %s', active_env)
 
