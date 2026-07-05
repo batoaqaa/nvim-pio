@@ -380,7 +380,7 @@ function M.apply_metadata(data, active_env)
   if not data then return false end
 
   -- Cache the project workspace root path cleanly
-  local project_root = vim.g.platformioRootDir or uv.cwd() or '.'
+  local project_root = OS.project_dir or uv.cwd() or '.'
   local norm_project_root = vim.fs.normalize(project_root) or ''
 
   local norm = function(p) return vim.fs.normalize(p) or '' end

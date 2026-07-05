@@ -212,7 +212,7 @@ CompileFlags:
 %s
 ]],
   boiler = function(self, project_root_param)
-    local project_root = project_root_param or vim.g.platformioRootDir or vim.uv.cwd() or '.'
+    local project_root = project_root_param or OS.project_dir or vim.uv.cwd() or '.'
     project_root = vim.fs.normalize(project_root)
 
     -- local core = require('nvimpio')

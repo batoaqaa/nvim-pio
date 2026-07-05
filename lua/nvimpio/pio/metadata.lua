@@ -173,7 +173,7 @@ _G.metadata = setmetatable({}, {
   end,
 })
 
-local project_root = vim.g.platformioRootDir or vim.uv.cwd() or '.'
+local project_root = OS.project_dir or vim.uv.cwd() or '.'
 project_root = vim.fs.normalize(project_root)
 local config_path = OS.project_config  --vim.fs.joinpath(project_root, '.nvimpio', '.project_config.json')
 

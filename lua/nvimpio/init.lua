@@ -68,6 +68,40 @@ function M.initialize_full_options()
   M.options = final_options
 end
 
+local function read_json_file(filepath)
+  -- 1. Open the file in read-only mode ("r")
+  local fd = vim.uv.fs_open(filepath, "r", 438) -- 438 equals 0666 permissions
+  if not fd then
+    vim.notify("Could not open file: " .. filepath, vim.log.levels.ERROR)
+    return nil
+  end
+
+  -- 2. Get file size to read the whole buffer at once
+  local stat = vim.uv.fs_fstat(fd)
+  if not stat then
+    vim.uv.fs_close(fd)
+    return nil
+  end
+
+  -- 3. Read the contents
+  local chunk = vim.uv.fs_read(fd, stat.size, 0)
+  vim.uv.fs_close(fd) -- Always clean up and close the file descriptor
+
+  if not chunk or chunk == "" then
+    vim.notify("File is empty: " .. filepath, vim.log.levels.WARN)
+    return nil
+  end
+
+  -- 4. Safely parse the raw text data into a Lua table
+  local success, result = pcall(vim.json.decode, chunk)
+  if not success then
+    vim.notify("Failed to parse JSON layout: " .. tostring(result), vim.log.levels.ERROR)
+    return nil
+  end
+
+  return result -- Returns a standard Lua table
+end
+
 ------------------------------------------------------------------------
 -- Activation: Turn on the plugin features
 function M.activate()
@@ -118,8 +152,7 @@ function M.setup(user_opts)
 
   -- INFO: Pioini
   vim.api.nvim_create_user_command('Pioinit', function()
-    vim.g.platformioRootDir = vim.uv.cwd()
-    -- require("nvimpio.core").execute_init(args)
+    -- vim.g.platformioRootDir = vim.uv.cwd() require("nvimpio.core").execute_init(args)
     require('nvimpio.core').ensure_toolchain_active(
       function(success)
         if success then
@@ -139,7 +172,15 @@ function M.setup(user_opts)
 
   -- The background auto-activation
   if vim.fn.filereadable('platformio.ini') == 1 then
-    vim.g.platformioRootDir = vim.uv.cwd()
+    local metadata = read_json_file(OS.project_config)
+
+    if metadata and metadata.penv_dir then
+      M.options.pio.pio_runtime_dir = metadata.penv_dir
+      if metadata and metadata.core_dir then
+        M.options.pio.pio_storage_dir = metadata.core_dir
+      end
+    end
+    -- vim.g.platformioRootDir = vim.uv.cwd()
     vim.schedule(function()
       require('nvimpio.core').ensure_toolchain_active(function(success)
         if success then M.activate() end
