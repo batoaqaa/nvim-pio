@@ -1,13 +1,13 @@
 -- stylua: ignore start
-
 local uv = vim.uv or vim.loop
-local home = vim.uv.os_homedir()
+
 -- 1. Gather all the data first
 local sysname = uv.os_uname().sysname
+local home = vim.uv.os_homedir()
 local is_win = (sysname:find('Windows') or vim.fn.has('win32') == 1 or vim.fn.has("win64") == 1)
 local is_mac = sysname == 'Darwin'
 local is_linux = sysname == 'Linux'
--- Check for WSL
+
 -- Safe Check for WSL
 local is_wsl = false
 if is_linux and vim.fn.filereadable('/proc/version') == 1 then
@@ -15,9 +15,6 @@ if is_linux and vim.fn.filereadable('/proc/version') == 1 then
   local version = (lines and lines[1]) or ''
   if version:lower():find('microsoft') then is_wsl = true end
 end
-local winHome = home or os.getenv("USERPROFILE")
-local nixHome = home or "/root"
-local defaultHome = is_win and winHome or nixHome
 local projectDir = uv.cwd() or '.'
 local xdg_config_home = vim.env.XDG_CONFIG_HOME or (
   is_win
@@ -34,9 +31,6 @@ local nvimpioConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
 ---@field is_linux boolean
 ---@field is_wsl boolean
 ---@field home string
----@field winHome string
----@field nixHome string
----@field defaultHome string
 ---@field folder_sep string
 ---@field path_sep string
 ---@field devNul string
@@ -74,9 +68,7 @@ local os_info = {
   is_mac = is_mac,
   is_linux = is_linux,
   is_wsl = is_wsl,
-  winHome = winHome,
-  nixHome = nixHome,
-  defaultHome = defaultHome,
+  home = home,
   path_sep = is_win and ';' or ':',
   folder_sep = is_win and '\\' or '/',
   devNul = is_win and ' nul' or ' /dev/null',
