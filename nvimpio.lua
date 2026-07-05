@@ -1,5 +1,6 @@
 -- stylua: ignore start
 local uv = vim.uv or vim.loop
+local opt = opt
 
 -- 1. Gather all the data first
 local sysname = uv.os_uname().sysname
@@ -23,35 +24,37 @@ end
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
 
--- optionally enable 24-bit colour
-vim.opt.termguicolors = true
+opt.fcs = { eob = ' '}
 
-vim.opt['number'] = true
-vim.opt.autowrite = true -- Enable auto write
+-- optionally enable 24-bit colour
+opt.termguicolors = true
+
+opt['number'] = true
+opt.autowrite = true -- Enable auto write
 
 -- only set clipboard if not in ssh, to make sure the OSC 52
 -- integration works automatically. Requires Neovim >= 0.10.0
-vim.opt.clipboard = vim.env.SSH_TTY and '' or 'unnamedplus' -- Sync with system clipboard
+opt.clipboard = vim.env.SSH_TTY and '' or 'unnamedplus' -- Sync with system clipboard
 
-vim.opt.tabstop = 2 -- Number of spaces tabs count for
-vim.opt.softtabstop = 2
-vim.opt.shiftround = true -- Round indent
-vim.opt.shiftwidth = 2 -- Size of an indent
-vim.opt.smartindent = true -- Insert indents automatically
-vim.opt.expandtab = true -- Use spaces instead of tabs
+opt.tabstop = 2 -- Number of spaces tabs count for
+opt.softtabstop = 2
+opt.shiftround = true -- Round indent
+opt.shiftwidth = 2 -- Size of an indent
+opt.smartindent = true -- Insert indents automatically
+opt.expandtab = true -- Use spaces instead of tabs
 
-vim.opt.smoothscroll = true
-vim.opt.foldmethod = 'expr'
-vim.opt.foldtext = ''
-vim.opt.fillchars = ''
-vim.opt.foldcolumn = '0'
-vim.opt.foldenable = true
-vim.opt.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
-vim.opt.foldlevel = 99
-vim.opt.foldlevelstart = 99
-vim.opt.foldnestmax = 3
+opt.smoothscroll = true
+opt.foldmethod = 'expr'
+opt.foldtext = ''
+opt.fillchars = ''
+opt.foldcolumn = '0'
+opt.foldenable = true
+opt.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+opt.foldlevel = 99
+opt.foldlevelstart = 99
+opt.foldnestmax = 3
 
--- vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_string()}")
+-- opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_string()}")
 
 vim.g.have_nerd_font = true
 vim.g.mapleader = ' '
@@ -59,13 +62,13 @@ vim.g.maplocalleader = ' '
 
 if isWindows then
   local pwsh = vim.fn.executable('pwsh') == 1 and 'pwsh' or 'powershell'
-  vim.opt.shell = pwsh
-  vim.opt.shellcmdflag =
+  opt.shell = pwsh
+  opt.shellcmdflag =
     '-NoLogo -NoProfile -ExecutionPolicy RemoteSigned -Command [Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new();'
-  vim.opt.shellredir = '2>&1 | Out-File -Encoding UTF8 %s; exit $LastExitCode'
-  vim.opt.shellpipe = '2>&1 | Out-File -Encoding UTF8 %s; exit $LastExitCode'
-  vim.opt.shellquote = ''
-  vim.opt.shellxquote = ''
+  opt.shellredir = '2>&1 | Out-File -Encoding UTF8 %s; exit $LastExitCode'
+  opt.shellpipe = '2>&1 | Out-File -Encoding UTF8 %s; exit $LastExitCode'
+  opt.shellquote = ''
+  opt.shellxquote = ''
 
 --elseif vim.fn.has("mac") == 1 then
 else
@@ -223,7 +226,7 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
 end
 
 -- ADD TO RUNTIME PATH (Crucial: makes 'require("lazy")' work)
-vim.opt.rtp:prepend(lazypath)
+opt.rtp:prepend(lazypath)
 
 ----------------------------------------------------------------------------------------
 -- INFO: define plugins table
@@ -351,7 +354,7 @@ vim.api.nvim_create_autocmd('User', {
 vim.api.nvim_create_autocmd("VimLeavePre", { -- Use VimLeavePre to act before the write attempt
   callback = function()
     -- 1. Tell Neovim NOT to write the history file on exit to avoid E138
-    vim.opt.shadafile = "NONE"
+    opt.shadafile = "NONE"
 
     -- 2. Define target paths
     local state_path = vim.fn.stdpath("state")
