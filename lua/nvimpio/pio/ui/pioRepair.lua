@@ -1,14 +1,29 @@
 local function pioRepair()
-  local runtime_dir = require('nvimpio').config.pio_runtime_dir
+  local ok_main, main = pcall(require, 'nvimpio')
+  if not ok_main then
+    return
+  end
+
+  local current_pio_opts = (main.options and main.options.pio) or (main.defaults and main.defaults.pio) or {}
+  local raw_runtime_dir = require('nvimpio.core').resolve_user_path(current_pio_opts.pio_runtime_dir)
+
+  if not raw_runtime_dir or raw_runtime_dir == '' then
+    raw_runtime_dir = OS.is_win and vim.fs.joinpath(vim.env.USERPROFILE, '.platformio') or vim.fs.joinpath(vim.uv.os_homedir(), '.platformio')
+  end
+
+  local base_runtime = raw_runtime_dir
+  local bin_subfolder = OS.is_win and 'Scripts' or 'bin'
+  local target_bin = vim.fs.joinpath(base_runtime, 'penv', bin_subfolder)
+  -- local runtime_dir = require('nvimpio').config.pio_runtime_dir
 
   local pioRepair_cmd, penvRestore_cmd --, pioEnv
   if OS.is_win then
-    pioRepair_cmd = string.format('%s/pip.exe install -U platformio', runtime_dir)
-    penvRestore_cmd = string.format('%s/Scripts/python.exe -m ensurepip --default-pip', runtime_dir)
+    pioRepair_cmd = string.format('%s/pip.exe install -U platformio', target_bin)
+    penvRestore_cmd = string.format('%s/python.exe -m ensurepip --default-pip', target_bin)
     -- pioEnv = string.format('$env:PATH = "%s;" + $env:PATH', runtime_dir)
   else
-    pioRepair_cmd = string.format('%s/pip install -U platformio', runtime_dir)
-    penvRestore_cmd = string.format('%s/bin/python3 -m ensurepip --default-pip', runtime_dir)
+    pioRepair_cmd = string.format('%s/pip install -U platformio', target_bin)
+    penvRestore_cmd = string.format('%s/python3 -m ensurepip --default-pip', target_bin)
     -- pioEnv = string.format('export PATH="%s:$PATH"', runtime_dir)
   end
 

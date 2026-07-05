@@ -60,14 +60,15 @@ function M.configure_paths()
   -- vim.schedule(function()
     vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir' }, function(r)
       if not r or r == '' then
-        return nil
+        return false
       end
       vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(s)
         if not s or s == '' then
-          return nil
+          return false
         end
         main.options.pio.pio_runtime_dir = r
         main.options.pio.pio_storage_dir = s
+        return true
         -- _G.metadata.core_dir = s
         -- _G.metadata.penv_dir = r
         -- M.ensure_toolchain_active(function()
@@ -107,13 +108,15 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
 
   local local_pio_executable = vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio'))
   if vim.fn.executable(local_pio_executable) == 1 then
-    main.config.pio_runtime_dir = target_bin
+    -- main.config.pio_runtime_dir = target_bin
+    main.config.pio_runtime_dir = raw_runtime_dir
     verified = true
   end
 
   if verified then
     local current_path = vim.env.PATH or ''
-    local target_clean = vim.fs.normalize(main.config.pio_runtime_dir)
+    -- local target_clean = vim.fs.normalize(main.config.pio_runtime_dir)
+    local target_clean = vim.fs.normalize(target_bin)
     if OS.is_win then target_clean = target_clean:lower() end
 
     local active_paths = vim.split(current_path, OS.path_sep, { trimempty = true })
@@ -129,7 +132,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     end
 
     if not found_in_path then
-      vim.env.PATH = main.config.pio_runtime_dir .. OS.path_sep .. current_path
+      vim.env.PATH = target_clean .. OS.path_sep .. current_path
       OS.notify("penv bin path added to PATH")
     end
 
