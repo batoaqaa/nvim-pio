@@ -1,5 +1,20 @@
-local isWindows = vim.fn.has('win32') == 1 --jit.os == 'Windows'
-local isMac = vim.fn.has('mac') == 1
+local uv = vim.uv or vim.loop
+
+-- 1. Gather all the data first
+local sysname = uv.os_uname().sysname
+local home = uv.os_homedir()
+local isWindows = (sysname:find('Windows') or vim.fn.has('win32') == 1 or vim.fn.has('win64') == 1)
+local isMac = sysname == 'Darwin'
+local isLinux = sysname == 'Linux'
+-- Safe Check for WSL
+local isWsl = false
+if isLinux and vim.fn.filereadable('/proc/version') == 1 then
+  local lines = vim.fn.readfile('/proc/version')
+  local version = (lines and lines[1]) or ''
+  if version:lower():find('microsoft') then
+    isWsl = true
+  end
+end
 
 ----------------------------------------------------------------------------------------
 -- INFO: Set options
@@ -163,32 +178,31 @@ keymap('n', '\\', '<cmd>Neotree toggle<CR>', { desc = 'NeoTreeToggle' })
 ----------------------------------------------------------------------------------------
 -- stylua: ignore
 local function setup_isolated_paths()
-  local home = vim.uv.os_homedir()
   local app_name = 'nvim-pio'
 
   -- 1. Identify the genuine system XDG roots (DO NOT append app_name to XDG_CONFIG_HOME!)
   local xdg_config = vim.env.XDG_CONFIG_HOME or (
     isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
     or isMac and (home .. '/Library/Preferences')
-    or (home .. '/.config')
+    or (isLinux or isWsl) and (home .. '/.config')
   )
 
   local xdg_data = vim.env.XDG_DATA_HOME or (
     isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
     or isMac and (home .. '/Library/Application Support')
-    or (home .. '/.local/share')
+    or (isLinux or isWsl) and (home .. '/.local/share')
   )
 
   local xdg_state = vim.env.XDG_STATE_HOME or (
     isWindows and (vim.env.LOCALAPPDATA or (home .. '/AppData/Local'))
     or isMac and (home .. '/Library/Application Support')
-    or (home .. '/.local/state')
+    or (isLinux or isWsl) and (home .. '/.local/state')
   )
 
   local xdg_cache = vim.env.XDG_CACHE_HOME or (
     isWindows and (vim.env.TEMP or (home .. '/AppData/Local/Temp'))
     or isMac and (home .. '/Library/Caches')
-    or (home .. '/.cache')
+    or (isLinux or isWsl) and (home .. '/.cache')
   )
 
   -- 2. Restore standard XDG_CONFIG_HOME environment so child processes (like clangd)
@@ -225,11 +239,14 @@ vim.opt.rtp:prepend(lazypath)
 local plugins = {
 
   {
-    'rebelot/kanagawa.nvim',
+    'tinted-theming/tinted-nvim',
     config = function()
-      -- require('kanagawa').load('wave')
-      require('kanagawa').load('dragon')
-      -- require('kanagawa').load('lotus')
+      require('tinted-nvim').setup()
+      require('tinted-nvim').load('base24-gruvbox-dark')
+      -- require('tinted-nvim').load('tinted8-catppuccin-mocha')
+      -- require('tinted-nvim').load('base24-gruvbox-light')
+      -- require('tinted-nvim').load('base24-kanagawa-dragon')
+      -- require('tinted-nvim').load('base24-later-this-evening')
     end,
   },
 
