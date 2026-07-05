@@ -24,13 +24,14 @@ end
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
 
-opt.fillchars = {
-  eob = " ",       -- Hide the tilde (~) characters at the end of a buffer
-  vert = "│",      -- Clean vertical split separator line
-  fold = " ",      -- Remove trailing dashes from code folds
-  foldopen = "",  -- Custom icon for open folds
-  foldclose = "", -- Custom icon for closed folds
-}
+-- opt.fillchars = {
+--   eob = " ",       -- Hide the tilde (~) characters at the end of a buffer
+--   vert = "│",      -- Clean vertical split separator line
+--   fold = " ",      -- Remove trailing dashes from code folds
+--   foldopen = "",  -- Custom icon for open folds
+--   foldclose = "", -- Custom icon for closed folds
+-- }
+opt.fillchars = "eob: ,vert:│,fold: ,foldopen:,foldclose:"
 
 -- optionally enable 24-bit colour
 opt.termguicolors = true
