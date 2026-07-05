@@ -28,7 +28,6 @@ local function clear_subdirectories(target_dir)
     end
   end
 end
-clear_subdirectories()
 
 ---Defensively isolates and locks the correct active python path boundaries into Neovim's environment
 function M.enforce_virtualenv_isolation()
