@@ -1,3 +1,4 @@
+-- stylua: ignore start
 local uv = vim.uv or vim.loop
 
 -- 1. Gather all the data first
@@ -88,20 +89,11 @@ vim.diagnostic.config({
   update_in_insert = false,
   underline = true,
   severity_sort = true,
-  float = {
-    focusable = true,
-    style = 'minimal',
-    border = 'rounded',
-    source = true,
-    header = '',
-    prefix = '',
-  },
+  float = { focusable = true, style = 'minimal', border = 'rounded', source = true, header = '', prefix = '', },
   signs = {
     text = {
-      [vim.diagnostic.severity.ERROR] = ' ',
-      [vim.diagnostic.severity.WARN] = ' ',
-      [vim.diagnostic.severity.HINT] = ' ',
-      [vim.diagnostic.severity.INFO] = ' ',
+      [vim.diagnostic.severity.ERROR] = ' ', [vim.diagnostic.severity.WARN] = ' ',
+      [vim.diagnostic.severity.HINT] = ' ', [vim.diagnostic.severity.INFO] = ' ',
     },
   },
 })
@@ -131,7 +123,6 @@ keymap('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
 keymap('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
 
 -- Resize with arrows
-
 keymap('n', '<A-Up>', '<cmd>resize -2<CR>', { silent = true })
 keymap('n', '<A-Down>', '<cmd>resize +2<CR>', { silent = true })
 keymap('n', '<A-Left>', '<cmd>vertical resize -2<CR>', { silent = true })
@@ -238,8 +229,7 @@ vim.opt.rtp:prepend(lazypath)
 -- INFO: define plugins table
 local plugins = {
 
-  {
-    'tinted-theming/tinted-nvim',
+  { 'tinted-theming/tinted-nvim',
     config = function()
       require('tinted-nvim').setup()
       -- require('tinted-nvim').load('base24-gruvbox-dark')
@@ -252,21 +242,17 @@ local plugins = {
 
   { 'windwp/nvim-autopairs', event = 'InsertEnter', config = true },
 
-  {
-    'Saghen/blink.cmp',
+  { 'Saghen/blink.cmp',
     dependencies = { 'rafamadriz/friendly-snippets' },
     version = '1.*', -- Download pre-built binaries
     opts = {
       keymap = { preset = 'default' }, -- 'default', 'super-tab', or 'enter'
-      sources = {
-        default = { 'lsp', 'path', 'snippets', 'buffer' },
-      },
+      sources = { default = { 'lsp', 'path', 'snippets', 'buffer' }, },
     },
   },
 
   -- Recommended: Minimal statusline/tabline
-  {
-    'nvim-lualine/lualine.nvim',
+  { 'nvim-lualine/lualine.nvim',
     dependencies = {
       'nvim-tree/nvim-web-devicons',
     },
@@ -289,8 +275,7 @@ local plugins = {
     end,
   },
 
-  {
-    'nvim-neo-tree/neo-tree.nvim',
+  { 'nvim-neo-tree/neo-tree.nvim',
     branch = 'v3.x',
     dependencies = {
       'nvim-lua/plenary.nvim',
@@ -298,43 +283,14 @@ local plugins = {
       'MunifTanjim/nui.nvim',
     },
     opts = {
-      window = {
-        mappings = {
-          ['<space>'] = false, -- This disables the default toggle_node mapping
-        },
-      },
-      -- default_component_configs = {
-      --   git_status = {
-      --     symbols = {
-      --       ignored = '◌', -- Optional: add an icon for ignored files
-      --     },
-      --   },
-      -- },
-      -- sources = { 'filesystem', 'buffers', 'git_status' },
-      filesystem = {
-        -- use_libuv_file_watcher = true,
-        filtered_items = {
-          hide_dotfiles = true,
-          hide_gitignored = false,
-
-          -- follow_current_file = { enabled = true },
-          -- use_libuv_file_watcher = true,
-          hide_by_name = {
-            --   '.pio',
-            --   '.cache',
-          },
-          -- never_show = { -- Add any massive folders here
-          --   -- '.cache',
-          --   'node_modules',
-          -- },
-        },
+      window = { mappings = { ['<space>'] = false, }, },
+      filesystem = { filtered_items = { hide_dotfiles = true, hide_gitignored = false, hide_by_name = { }, },
       },
     },
   },
 
   { 'dchinmay2/clangd_extensions.nvim' },
-  {
-    'batoaqaa/nvim-pio',
+  { 'batoaqaa/nvim-pio',
     -- lazy = true,
     lazy = false,
     -- init = function(self)
@@ -373,30 +329,6 @@ require('lazy').setup(plugins, {
   install = { missing = true },
   ui = { border = 'rounded' },
 })
-
--- Force Neovim mini to provide absolute paths to native LSP triggers
-local original_buf_get_name = vim.api.nvim_buf_get_name
-vim.api.nvim_buf_get_name = function(bufnr)
-  local name = original_buf_get_name(bufnr)
-  -- If Neovim mini passes a relative path, expand it to a full absolute system path
-  if name and name ~= '' and not name:match('^/') then
-    return vim.fn.fnamemodify(name, ':p')
-  end
-  return name
-end
-----------------------------------------------------------------------------------------
--- stylua: ignore
-if vim.fn.has('nvim-0.11') == 1 then
-  local json_format_group = vim.api.nvim_create_augroup('JsonFormat', { clear = true })
-  vim.api.nvim_create_autocmd('BufWritePre', {
-    group = json_format_group,
-    pattern = '*.json',
-    -- This runs 'python -m json.tool' on the current buffer content
-    -- It updates the buffer in-place before the file is written to disk
-    callback = function() vim.cmd('%!python -m json.tool') end,
-  })
-elseif vim.fn.has('nvim-0.12') == 1 then
-end
 
 ----------------------------------------------------------------------------------------
 -- INFO: autocommand to Update lazy.nvim plugins in the background
@@ -545,22 +477,6 @@ if tok then
   vim.keymap.set('n', '<leader>fb', '<cmd>Telescope buffers<cr>', { desc = 'Find Buffers' })
 end
 
--- local pioConfig = {
---   pio = {
---     auto_update_path = true,
---     notify_on_missing = true,
---   },
---   lspClangd = {
---     -- enabled = false,
---     enabled = true,
---     attach = {
---       enabled = true,
---       keymaps = true,
---     },
---   },
---   -- menu_key = "<leader>\\", -- replace this menu key  to your convenience
---   -- menu_name = "PlatformIO", -- replace this menu name to your convenience
--- }
 local pioConfig = {
   -- pio = {
   --   pio_runtime_dir = '~/.platformio',
@@ -572,8 +488,6 @@ local pioConfig = {
   },
   menu_key = '<leader>\\', -- replace this menu key  to your convenience
   menu_name = 'PlatformIO', -- replace this menu name to your convenience
-  -- menu_key = "<leader>\\", -- replace this menu key  to your convenience
-  -- menu_name = "PlatformIO", -- replace this menu name to your convenience
 }
 local pok, nvimpio = pcall(require, 'nvimpio')
 if pok then
