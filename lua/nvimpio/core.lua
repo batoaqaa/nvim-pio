@@ -56,24 +56,15 @@ end
 
 function M.configure_paths()
   local main = require('nvimpio')
-  -- main.initialize_full_options()
-  -- vim.schedule(function()
   vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir' }, function(r)
-    if not r or r == '' then return false end
+    if not r or r == '' then return end
     vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(s)
-      if not s or s == '' then return false end
-      main.options.pio.pio_runtime_dir = M.resolve_user_path(r)
+      if not s or s == '' then return end
+      local resolved_runtime_dir  = M.resolve_user_path(r)
+      main.options.pio.pio_runtime_dir = resolved_runtime_dir
       main.options.pio.pio_storage_dir = M.resolve_user_path(s)
-      return true
-      -- _G.metadata.core_dir = s
-      -- _G.metadata.penv_dir = r
-      -- M.ensure_toolchain_active(function()
-      --   OS.notify('PlatformIO Wizard workspace paths updated successfully!')
-      -- end)
     end)
   end)
-  -- end)
-  return false
 end
 
 -- Checks toolchain existence and resolves paths without parsing heavy structures
@@ -95,7 +86,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   -- Execute fallback checks only if options parameters are missing or completely blank strings
   if not raw_runtime_dir or raw_runtime_dir == "" then
     raw_runtime_dir = OS.is_win and vim.fs.joinpath(vim.env.USERPROFILE, '.platformio')
-      or vim.fs.joinpath(vim.uv.os_homedir(), '.platformio')
+      or vim.fs.joinpath(OS.home, '.platformio')
   end
 
   local base_runtime = raw_runtime_dir
@@ -155,27 +146,101 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     end
 
     -- BLOCKING GATEWAY: Wrap prompt setup and FORCE return to stop the caller thread from continuing!
+
+
     vim.schedule(function()
       if vim.fn.confirm('PlatformIO not found. Install toolchain?', '&Yes\n&No', 1) == 1 then
-        if (M.configure_paths()) then
-          print('here')
-          local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
-          if ok then
-            installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
-            -- installer.pioInstall(base_runtime, function(_)
-              -- Once terminal install finishes, run recursion step 1 to register paths cleanly
-              M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
+        vim.ui.input({
+          prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir'
+        }, function(runtim_dir)
+          if runtim_dir == nil then
+            OS.notify('Execution aborted.', 'warn')
+            if type(on_success_callback) == 'function' then on_success_callback(false) end
+            return
+          end -- Escaped
+          if runtim_dir == "" then
+            OS.notify('ath cannot be empty.', 'warn')
+            if type(on_success_callback) == 'function' then on_success_callback(false) end
+            return
+          end
+          local resolved_runtime_dir = M.resolve_user_path(runtim_dir)
+
+          if not resolved_runtime_dir or resolved_runtime_dir == "" then
+            if type(on_success_callback) == 'function' then on_success_callback(false) end
+            return vim.notify("Could not resolve path", vim.log.levels.ERROR)
+          end
+          -- Check if the directory exists using libuv
+          local stat = vim.uv.fs_stat(resolved_runtime_dir)
+          local exists = stat and stat.type == "directory"
+
+          if exists then
+            -- Directory exists! Prompt user for a decision
+            vim.ui.select({ 'Reinstall', 'Rename' }, {
+              prompt = 'Directory already exists! Choose an action:',
+            }, function(choice)
+              if choice == nil then -- Escaped the selection menu, take no action 
+                OS.notify('Execution aborted.', 'warn')
+                if type(on_success_callback) == 'function' then on_success_callback(false) end
+                return
+              end
+              vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(storage_dir)
+                if not storage_dir or storage_dir == '' then
+                  OS.notify('Execution aborted.', 'warn')
+                  if type(on_success_callback) == 'function' then on_success_callback(false) end
+                  return
+                end
+                main.options.pio.pio_runtime_dir = resolved_runtime_dir
+                main.options.pio.pio_storage_dir = M.resolve_user_path(storage_dir)
+                if choice == 'Reinstall' then
+                  local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
+                  if ok then
+                    installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
+                    -- installer.pioInstall(base_runtime, function(_)
+                      -- Once terminal install finishes, run recursion step 1 to register paths cleanly
+                      M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
+                    end)
+                  else
+                    OS.notify('Installer module missing', 'error')
+                    if type(on_success_callback) == 'function' then on_success_callback(false) end
+                  end
+                elseif choice == 'Rename' then
+                  M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
+                end
+              end)
             end)
           else
-            OS.notify('Installer module missing', 'error')
-            if type(on_success_callback) == 'function' then on_success_callback(false) end
+            -- Directory does not exist, safe to proceed directly
+            main.options.pio.pio_runtime_dir = resolved_runtime_dir
+            vim.notify("Path set to: " .. resolved_runtime_dir, vim.log.levels.INFO)
           end
-        end
+        end)
       else
         OS.notify('Execution aborted: Toolchain missing.', 'warn')
         if type(on_success_callback) == 'function' then on_success_callback(false) end
       end
     end)
+
+    -- vim.schedule(function()
+    --   if vim.fn.confirm('PlatformIO not found. Install toolchain?', '&Yes\n&No', 1) == 1 then
+    --     if (M.configure_paths()) then
+    --       print('here')
+    --       local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
+    --       if ok then
+    --         installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
+    --         -- installer.pioInstall(base_runtime, function(_)
+    --           -- Once terminal install finishes, run recursion step 1 to register paths cleanly
+    --           M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
+    --         end)
+    --       else
+    --         OS.notify('Installer module missing', 'error')
+    --         if type(on_success_callback) == 'function' then on_success_callback(false) end
+    --       end
+    --     end
+    --   else
+    --     OS.notify('Execution aborted: Toolchain missing.', 'warn')
+    --     if type(on_success_callback) == 'function' then on_success_callback(false) end
+    --   end
+    -- end)
   end
 end
 

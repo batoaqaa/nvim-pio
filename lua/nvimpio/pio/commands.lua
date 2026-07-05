@@ -61,7 +61,7 @@ cmd('PioInstall', function()
 
   if not raw_runtime_dir or raw_runtime_dir == "" then
     raw_runtime_dir = OS.is_win and vim.fs.joinpath(vim.env.USERPROFILE, '.platformio')
-      or vim.fs.joinpath(vim.uv.os_homedir(), '.platformio')
+      or vim.fs.joinpath(OS.home, '.platformio')
   end
 
   local base_runtime = raw_runtime_dir
