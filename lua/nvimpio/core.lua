@@ -209,9 +209,26 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
               end)
             end)
           else
-            -- Directory does not exist, safe to proceed directly
-            main.options.pio.pio_runtime_dir = resolved_runtime_dir
-            vim.notify("Path set to: " .. resolved_runtime_dir, vim.log.levels.INFO)
+            vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(storage_dir)
+              if not storage_dir or storage_dir == '' then
+                OS.notify('Execution aborted.', 'warn')
+                if type(on_success_callback) == 'function' then on_success_callback(false) end
+                return
+              end
+              main.options.pio.pio_runtime_dir = resolved_runtime_dir
+              main.options.pio.pio_storage_dir = M.resolve_user_path(storage_dir)
+              local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
+              if ok then
+                installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
+                -- installer.pioInstall(base_runtime, function(_)
+                  -- Once terminal install finishes, run recursion step 1 to register paths cleanly
+                  M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
+                end)
+              else
+                OS.notify('Installer module missing', 'error')
+                if type(on_success_callback) == 'function' then on_success_callback(false) end
+              end
+            end)
           end
         end)
       else
