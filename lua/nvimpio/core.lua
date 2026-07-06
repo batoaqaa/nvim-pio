@@ -203,6 +203,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
           local exists = stat and (stat.type == "directory") and (vim.fn.executable(local_pio_executable) == 1)
 
           if exists then
+            OS.notify('penv: exists')
             -- Directory exists! Prompt user for a decision
             vim.ui.select({ 'Reinstall', 'Rename' }, {
               prompt = 'Directory already exists! Choose an action:',
@@ -213,7 +214,6 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
                 return
               end
               vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(storage_dir)
-                  OS.notify('storage: exists')
                 if not storage_dir or storage_dir == '' then
                   OS.notify('Execution aborted.', 'warn')
                   if type(on_success_callback) == 'function' then on_success_callback(false) end
@@ -243,8 +243,8 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
               end)
             end)
           else  -- Not exists
+            OS.notify('penv: no exists')
             vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(storage_dir)
-              OS.notify('storage: no exists')
               if not storage_dir or storage_dir == '' then
                 OS.notify('Execution aborted.', 'warn')
                 if type(on_success_callback) == 'function' then on_success_callback(false) end
