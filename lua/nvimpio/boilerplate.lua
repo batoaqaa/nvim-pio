@@ -591,6 +591,9 @@ CONFIG_PRINTK=y
 cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(idedata_gen)
+
+# Step out of the zephyr/ folder to find your source file
+target_sources(app PRIVATE ../src/main.c)
 ]],
   },
   boiler = function(self) boiler(self) end,
