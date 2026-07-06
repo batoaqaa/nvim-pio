@@ -267,13 +267,15 @@ function M.updateProjectConfig()
       _G.metadata.active_env = active_env
   end
 
-  local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
+  local idedata_file = vim.fs.joinpath(OS.pio_config_dir, 'build', active_env,  'idedata.json')
+  -- local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
   local idok, content = misc.readFile(idedata_file)
   if idok and (content ~= '') then
     _G.metadata.framework_root = require('nvimpio.pio.upkeep').extract_framework_path(content, active_env)
     _G.isBusy = true
     local cok, decoded = pcall(vim.json.decode, content)
-    if cok and require('nvimpio.pio.upkeep').apply_metadata(decoded[active_env], active_env) then
+    if cok and require('nvimpio.pio.upkeep').apply_metadata(decoded, active_env) then
+    -- if cok and require('nvimpio.pio.upkeep').apply_metadata(decoded[active_env], active_env) then
       _G.isBusy = false
     end
   else

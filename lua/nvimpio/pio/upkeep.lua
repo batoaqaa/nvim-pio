@@ -550,7 +550,9 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- local build_dir = vim.fs.joinpath(uv.cwd(), '.pio', 'build')
   -- local build_env_dir = vim.fs.joinpath(build_dir, active_env)
   -- local idedata_file = vim.fs.joinpath(build_env_dir, 'idedata.json')
-  local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
+
+  local idedata_file = vim.fs.joinpath(OS.pio_config_dir, 'build', active_env,  'idedata.json')
+  -- local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
 
   local function fire_callback(status)
     refreshBusy = false
@@ -762,7 +764,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
             -- _G.metadata.framework_root = content:match(pattern)
             -- _G.metadata.framework_root = content:match(pattern)
             local cok, decoded = pcall(vim.json.decode, content)
-            if cok and M.apply_metadata(decoded[active_env], active_env) then
+            -- if cok and M.apply_metadata(decoded[active_env], active_env) then
+            if cok and M.apply_metadata(decoded, active_env) then
               local ok, pretty_json = pcall(misc.jsonFormat, decoded)
               if ok then misc.writeFile(idedata_file, pretty_json, {}) end
               require('nvimpio.pio.metadata').save_project_config(from)
@@ -794,7 +797,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
   elseif idok and content and content ~= '' then
     _G.metadata.framework_root = M.extract_framework_path(content, active_env)
     local cok, decoded = pcall(vim.json.decode, content)
-    if cok and M.apply_metadata(decoded[active_env], active_env) then
+    -- if cok and M.apply_metadata(decoded[active_env], active_env) then
+    if cok and M.apply_metadata(decoded, active_env) then
       if (from == 'Meta active_env change: ')then
       -- cli
         require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
