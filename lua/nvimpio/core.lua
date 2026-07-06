@@ -130,6 +130,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   end
 
   if verified then
+    print('verified')
     local current_path = vim.env.PATH or ''
     -- local target_clean = vim.fs.normalize(main.config.pio_runtime_dir)
     local target_clean = vim.fs.normalize(target_bin)
