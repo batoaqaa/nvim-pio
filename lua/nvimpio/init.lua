@@ -171,7 +171,12 @@ function M.setup(user_opts)
 
     vim.schedule(function()
       require('nvimpio.core').ensure_toolchain_active(function(success)
-        if success then M.activate() end
+        if success then
+          print(M.options.pio.pio_runtime_dir)
+          _G.metadata.penv_dir = M.options.pio.pio_runtime_dir
+          _G.metadata.core_dir = M.options.pio.pio_storage_dir
+          M.activate()
+        end
       end, 0)
       -- end, true)
     end)

@@ -156,16 +156,15 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     if raw_storage_dir and vim.fn.isdirectory(raw_storage_dir) == 0 then
       vim.uv.fs_mkdir(raw_storage_dir, 493)
     end
-
     main.config.pio_storage_dir = raw_storage_dir
 
     -- CRITICAL LOGIC ROUTING: Only fire execution callback downstream if toolchain is active!
     if type(on_success_callback) == 'function' then
-      if retry_counter == 0 then OS.notify('PlatformIO verified and active.') end
+      OS.notify('PlatformIO verified.')
       on_success_callback(true)
     end
-  else
-    -- Toolchain missing and installation failed on retry pass boundary
+
+  else -- Toolchain missing and installation failed on retry pass boundary
     if retry_counter >= 1 then
       return vim.schedule(function()
         OS.notify("PlatformIO path resolution failed. Target missing.", 'error')
@@ -174,8 +173,6 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     end
 
     -- BLOCKING GATEWAY: Wrap prompt setup and FORCE return to stop the caller thread from continuing!
-
-
     vim.schedule(function()
       if vim.fn.confirm('PlatformIO not found. Install toolchain?', '&Yes\n&No', 1) == 1 then
         vim.ui.input({
@@ -244,7 +241,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
                 end
               end)
             end)
-          else
+          else  -- Not exists
             vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(storage_dir)
               if not storage_dir or storage_dir == '' then
                 OS.notify('Execution aborted.', 'warn')
