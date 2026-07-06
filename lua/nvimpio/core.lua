@@ -73,6 +73,12 @@ end
 -- stylua: ignore
 function M.resolve_user_path(raw_path)
   if not raw_path or raw_path == "" then return nil end
+
+  -- If path is already absolute (e.g. starts with C: or /), return it immediately
+  if raw_path:match("^%a:") or raw_path:match("^/") then
+    return vim.fs.normalize(raw_path)
+  end
+
   local trimmed = vim.trim(raw_path)
   local expanded = vim.fn.expand(trimmed)
   -- If expansion fails or tracks an invalid pattern, protect string integrity
