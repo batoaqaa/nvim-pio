@@ -378,9 +378,12 @@ CompileFlags:
     local clean_packages_dir   = preparePathMatch(_G.metadata.packages_dir)
 
     ------------------------------------------------------------------------------
+    --                config.yaml
+    ------------------------------------------------------------------------------
     local userClangd = OS.clangd_user_file
     local clangdFiles = {
-      { key = 'userGlob', file = userClangd, content = function (ref) return M.readContent(ref) end, cache_id = '',
+      { key = 'userGlob', file = userClangd, content = function (ref) return M.readContent(ref) end,
+        cache_id = string.sub(vim.fn.sha256(_G.metadata.packages_dir), 1, 16),
         block = function (ref)
           return string.format(self.Global, ref.start_marker,
                             clean_packages_dir, table.concat(formatted_remove_ASSEMBLY, ',\n    '),

@@ -17,7 +17,8 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
     local userClangd = OS.clangd_user_file
     local clangdFiles = {
       { key = 'userGlob', file = userClangd, content = function (ref) return require('nvimpio.boilerplate').readContent(ref) end,
-        cache_id = '', block = function () return '' end, start_marker = '', end_marker = '', delete = false,
+        cache_id = string.sub(vim.fn.sha256(_G.metadata.packages_dir), 1, 16),
+        block = function () return '' end, start_marker = '', end_marker = '', delete = false,
       },
       { key = 'userProj', file = userClangd, content = function (ref) return require('nvimpio.boilerplate').readContent(ref) end,
         cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),

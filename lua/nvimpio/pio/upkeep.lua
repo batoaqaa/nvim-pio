@@ -780,7 +780,6 @@ fetch_metadata = function(callback, active_env, from, attempts)
         end
       end)
     end
-    --pio project metadata -e olimex_h407 --json-output > "C:\Users\batoaqaa\AppData\Local\ahmed\test3\.nvimpio\olimex_h407\idedata.json"
 
     -- python -c "import subprocess; res = subprocess.run(['pio', 'project', 'metadata', '-e', 'olimex_h407', '--json-output'], 
     --capture_output=True, text=True, encoding='utf-8'); open('C:/Users/batoaqaa/AppData/Local/ahmed/test3/.nvimpio/olimex_h407/idedata.json', 'w', encoding='utf-8').write(res.stdout)"
