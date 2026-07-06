@@ -84,9 +84,9 @@ end
 
 function M.configure_paths()
   local main = require('nvimpio')
-  vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir' }, function(r)
+  vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = (main.options.pio.pio_runtime_dir) or '', completion = 'dir' }, function(r)
     if not r or r == '' then return end
-    vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(s)
+    vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = (main.options.pio.pio_storage_dir) or '', completion = 'dir' }, function(s)
       if not s or s == '' then return end
       local resolved_runtime_dir  = M.resolve_user_path(r)
       main.options.pio.pio_runtime_dir = resolved_runtime_dir
@@ -113,13 +113,11 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
 
   -- Execute fallback checks only if options parameters are missing or completely blank strings
   if not raw_runtime_dir or raw_runtime_dir == "" then
-    raw_runtime_dir = OS.is_win and vim.fs.joinpath(vim.env.USERPROFILE, '.platformio')
-      or vim.fs.joinpath(OS.home, '.platformio')
+    raw_runtime_dir = vim.fs.joinpath(OS.home, '.platformio')
   end
 
-  local base_runtime = raw_runtime_dir
   local bin_subfolder = OS.is_win and 'Scripts' or 'bin'
-  local target_bin = vim.fs.joinpath(base_runtime, 'penv', bin_subfolder)
+  local target_bin = vim.fs.joinpath(raw_runtime_dir, 'penv', bin_subfolder)
   local verified = false
 
   local local_pio_executable = vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio'))
@@ -133,15 +131,16 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     local current_path = vim.env.PATH or ''
     -- local target_clean = vim.fs.normalize(main.config.pio_runtime_dir)
     local target_clean = vim.fs.normalize(target_bin)
-    if OS.is_win then target_clean = target_clean:lower() end
+    -- if OS.is_win then target_clean = target_clean:lower() end
 
+    local check_target = OS.is_win and target_clean:lower() or target_clean
     local active_paths = vim.split(current_path, OS.path_sep, { trimempty = true })
     local found_in_path = false
 
     for _, segment in ipairs(active_paths) do
       local seg_clean = vim.fs.normalize(segment)
       if OS.is_win then seg_clean = seg_clean:lower() end
-      if seg_clean == target_clean then
+      if seg_clean == check_target then
         found_in_path = true
         break
       end
@@ -152,9 +151,9 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
       OS.notify("penv bin path added to PATH")
     end
 
-    local raw_storage_dir = M.resolve_user_path(current_pio_opts.pio_storage_dir) or vim.env.PLATFORMIO_CORE_DIR or base_runtime
+    local raw_storage_dir = M.resolve_user_path(current_pio_opts.pio_storage_dir) or vim.env.PLATFORMIO_CORE_DIR or raw_runtime_dir
     if raw_storage_dir and vim.fn.isdirectory(raw_storage_dir) == 0 then
-      vim.uv.fs_mkdir(raw_storage_dir, 493)
+      vim.fn.mkdir(raw_storage_dir, "p")
     end
     main.config.pio_storage_dir = raw_storage_dir
 
@@ -176,20 +175,15 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     vim.schedule(function()
       if vim.fn.confirm('PlatformIO not found. Install toolchain?', '&Yes\n&No', 1) == 1 then
         vim.ui.input({
-          prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir'
-        }, function(runtim_dir)
-          if runtim_dir == nil then
+          prompt = 'Set pio_runtime_dir path: ', default = (main.options.pio and main.options.pio.pio_runtime_dir) or '', completion = 'dir'
+        }, function(runtime_dir)
+          if runtime_dir == nil or runtime_dir == "" then
             OS.notify('Execution aborted.', 'warn')
             if type(on_success_callback) == 'function' then on_success_callback(false) end
             return
-          end -- Escaped
-          if runtim_dir == "" then
-            OS.notify('ath cannot be empty.', 'warn')
-            if type(on_success_callback) == 'function' then on_success_callback(false) end
-            return
           end
-          local resolved_runtime_dir = M.resolve_user_path(runtim_dir)
 
+          local resolved_runtime_dir = M.resolve_user_path(runtime_dir)
           if not resolved_runtime_dir or resolved_runtime_dir == "" then
             if type(on_success_callback) == 'function' then on_success_callback(false) end
             return vim.notify("Could not resolve path", vim.log.levels.ERROR)
@@ -213,7 +207,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
                 if type(on_success_callback) == 'function' then on_success_callback(false) end
                 return
               end
-              vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(storage_dir)
+              vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = (main.options.pio and main.options.pio.pio_storage_dir) or '', completion = 'dir' }, function(storage_dir)
                 if not storage_dir or storage_dir == '' then
                   OS.notify('Execution aborted.', 'warn')
                   if type(on_success_callback) == 'function' then on_success_callback(false) end
@@ -244,7 +238,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
             end)
           else  -- Not exists
             OS.notify('penv: no exists')
-            vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(storage_dir)
+            vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = (main.options.pio and main.options.pio.pio_storage_dir) or '', completion = 'dir' }, function(storage_dir)
               if not storage_dir or storage_dir == '' then
                 OS.notify('Execution aborted.', 'warn')
                 if type(on_success_callback) == 'function' then on_success_callback(false) end
