@@ -239,6 +239,9 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
                   local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
                   if ok then
                     prepareFolders(storage_dir)
+                    local packages = vim.fs.joinpath(storage_dir, 'packages')
+                    if vim.uv.fs_stat(packages) then vim.fs.rm(packages, { recursive = true }) end
+                    if vim.uv.fs_stat(target_penv) then vim.fs.rm(target_penv, { recursive = true }) end
                     installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
                     -- installer.pioInstall(base_runtime, function(_)
                       -- Once terminal install finishes, run recursion step 1 to register paths cleanly
@@ -272,6 +275,9 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
               local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
               if ok then
                 prepareFolders(storage_dir)
+                local packages = vim.fs.joinpath(storage_dir, 'packages')
+                if vim.uv.fs_stat(packages) then vim.fs.rm(packages, { recursive = true }) end
+                if vim.uv.fs_stat(target_penv) then vim.fs.rm(target_penv, { recursive = true }) end
                 -- clear_subdirectories(OS.nvimpio_config_dir)
                 installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
                 -- installer.pioInstall(base_runtime, function(_)
