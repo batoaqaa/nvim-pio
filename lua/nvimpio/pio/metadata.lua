@@ -218,18 +218,42 @@ end
 -- 3. Load Logic (Populates proxy safely)
 -------------------------------------------------------------------------------
 function M.load_project_config()
-  local misc = require('nvimpio.utils.misc')
-  if vim.fn.filereadable(config_path) == 1 then
-    local _, json_data = misc.readFile(config_path)
-    if json_data then
-      local ok, table_data = pcall(vim.json.decode, json_data)
-      if ok and type(table_data) == 'table' then
-        for k, v in pairs(table_data) do _pio_metadata[k] = v end
-        last_saved_hash = vim.fn.sha256(json_data)
-      end
-    end
+  -- 1. Ensure file exists before touching handles
+  local stat = vim.uv.fs_stat(config_path)
+  if not stat or stat.type ~= "file" then return nil end
+
+  -- 2. Open file descriptor (Read-Only)
+  local fd = vim.uv.fs_open(config_path, "r", 438)
+  if not fd then return nil end
+
+  -- 3. High-speed raw binary read into buffer memory
+  local chunk = vim.uv.fs_read(fd, stat.size, 0)
+  vim.uv.fs_close(fd) -- Immediate resource release
+
+  if not chunk or chunk == "" then return nil end
+
+  -- 4. Protected evaluation parsing safeguard
+  local ok, table_data = pcall(vim.json.decode, chunk)
+  if ok and type(table_data) == 'table' then
+    for k, v in pairs(table_data) do _pio_metadata[k] = v end
+    last_saved_hash = vim.fn.sha256(chunk)
   end
 
+  -- local misc = require('nvimpio.utils.misc')
+  -- if vim.fn.filereadable(config_path) == 1 then
+  --   local _, json_data = misc.readFile(config_path)
+  --   if json_data then
+  --     local ok, table_data = pcall(vim.json.decode, json_data)
+  --     if ok and type(table_data) == 'table' then
+  --       for k, v in pairs(table_data) do _pio_metadata[k] = v end
+  --       last_saved_hash = vim.fn.sha256(json_data)
+  --     end
+  --   end
+  -- end
+end
+
+function M.updateProjectConfig()
+  local misc = require('nvimpio.utils.misc')
   local active_env, metadata = M.get_active_env('meta load: ')
   if active_env and active_env ~= '' then
     OS.notify("load_project_config" .. active_env)
@@ -529,6 +553,7 @@ end
 --INFO:
 -- 4. Initialization
 -------------------------------------------------------------------------------
-M.load_project_config()
+-- M.load_project_config()
+M.updateProjectConfig()
 
 return M

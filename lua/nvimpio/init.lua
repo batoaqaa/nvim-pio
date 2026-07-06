@@ -159,7 +159,8 @@ function M.setup(user_opts)
 
   -- The background auto-activation
   if vim.fn.filereadable('platformio.ini') == 1 then
-    local metadata = read_json_file(OS.project_config)
+    -- local metadata = read_json_file(OS.project_config)
+    local metadata = require('nvimpio.pio.metadata').load_project_config()
 
     if metadata and metadata.penv_dir then
       M.options.pio.pio_runtime_dir = metadata.penv_dir
