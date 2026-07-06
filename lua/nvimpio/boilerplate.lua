@@ -592,8 +592,9 @@ cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(idedata_gen)
 
-# Step out of the zephyr/ folder to find your source file
-target_sources(app PRIVATE ../src/main.c)
+# Locate and apply your app source definitions to the native 'app' build target
+FILE(GLOB app_sources ../src/*.c*)
+target_sources(app PRIVATE ${app_sources})
 ]],
   },
   boiler = function(self) boiler(self) end,
