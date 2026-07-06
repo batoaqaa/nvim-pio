@@ -2,7 +2,9 @@
 local M = {}
 
 local function clear_subdirectories(target_dir)
+  -- delete .pio folder
   if vim.fn.isdirectory(OS.pio_config_dir) == 1 then vim.fs.rm(OS.pio_config_dir, { recursive = true }) end
+
   -- 1. Scan the target directory for entries
   local handle = vim.uv.fs_scandir(target_dir)
   if not handle then
@@ -166,7 +168,6 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     main.config.pio_storage_dir = raw_storage_dir
     vim.env.PLATFORMIO_CORE_DIR = raw_storage_dir
     vim.env.PLATFORMIO_PENV_DIR = target_penv
-    require('nvimpio.device.terminal').reopen()
 
     -- CRITICAL LOGIC ROUTING: Only fire execution callback downstream if toolchain is active!
     if type(on_success_callback) == 'function' then
@@ -201,6 +202,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
           end
 
           target_bin = vim.fs.joinpath(resolved_runtime_dir, 'penv', bin_subfolder)
+          target_penv = vim.fs.joinpath(resolved_runtime_dir, 'penv')
           local_pio_executable = vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio'))
 
           local stat = vim.uv.fs_stat(resolved_runtime_dir)
@@ -226,6 +228,9 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
                 end
                 main.options.pio.pio_runtime_dir = resolved_runtime_dir
                 main.options.pio.pio_storage_dir = M.resolve_user_path(storage_dir)
+                vim.env.PLATFORMIO_CORE_DIR = main.options.pio.pio_storage_dir
+                vim.env.PLATFORMIO_PENV_DIR = target_penv
+                require('nvimpio.device.terminal').reopen()
                 -------------------------------------------------------------
                 if choice == 'Reinstall' then
                   local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
