@@ -551,8 +551,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- local build_env_dir = vim.fs.joinpath(build_dir, active_env)
   -- local idedata_file = vim.fs.joinpath(build_env_dir, 'idedata.json')
 
-  local idedata_file = vim.fs.joinpath(OS.pio_config_dir, 'build', active_env,  'idedata.json')
-  -- local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
+  -- local idedata_file = vim.fs.joinpath(OS.pio_config_dir, 'build', active_env,  'idedata.json')
+  local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
 
   local function fire_callback(status)
     refreshBusy = false
@@ -764,8 +764,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
             -- _G.metadata.framework_root = content:match(pattern)
             -- _G.metadata.framework_root = content:match(pattern)
             local cok, decoded = pcall(vim.json.decode, content)
-            -- if cok and M.apply_metadata(decoded[active_env], active_env) then
-            if cok and M.apply_metadata(decoded, active_env) then
+            if cok and M.apply_metadata(decoded[active_env], active_env) then
+            -- if cok and M.apply_metadata(decoded, active_env) then
               local ok, pretty_json = pcall(misc.jsonFormat, decoded)
               if ok then misc.writeFile(idedata_file, pretty_json, {}) end
               require('nvimpio.pio.metadata').save_project_config(from)
@@ -785,8 +785,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
     -- python -c "import subprocess; res = subprocess.run(['pio', 'project', 'metadata', '-e', 'olimex_h407', '--json-output'], 
     --capture_output=True, text=True, encoding='utf-8'); open('C:/Users/batoaqaa/AppData/Local/ahmed/test3/.nvimpio/olimex_h407/idedata.json', 'w', encoding='utf-8').write(res.stdout)"
 
-    -- local idecmd = string.format('pio project metadata -e %s --json-output > "%s"', active_env, idedata_file )
-    local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
+    local idecmd = string.format('pio project metadata -e %s --json-output > "%s"', active_env, idedata_file )
+    -- local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
 
     -- local idecmd = string.format('pio project metadata -e %s --json-output-path "%s"', active_env, idedata_file )
     -- local runcmd = string.format('pio run -e %s', active_env)
@@ -798,8 +798,8 @@ fetch_metadata = function(callback, active_env, from, attempts)
   elseif idok and content and content ~= '' then
     _G.metadata.framework_root = M.extract_framework_path(content, active_env)
     local cok, decoded = pcall(vim.json.decode, content)
-    -- if cok and M.apply_metadata(decoded[active_env], active_env) then
-    if cok and M.apply_metadata(decoded, active_env) then
+    if cok and M.apply_metadata(decoded[active_env], active_env) then
+    -- if cok and M.apply_metadata(decoded, active_env) then
       if (from == 'Meta active_env change: ')then
       -- cli
         require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
