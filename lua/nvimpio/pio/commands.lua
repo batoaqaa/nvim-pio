@@ -12,7 +12,10 @@ local upkeep = require('nvimpio.pio.upkeep')
 local cmd = vim.api.nvim_create_user_command
 
 
+--------------------------------------------------------------------------------
+-- Preventing swap files in global framework packages
 -- Create a distinct, isolated namespace for your plugin
+--------------------------------------------------------------------------------
 local group = vim.api.nvim_create_augroup("PioFrameworkBufferShield", { clear = true })
 vim.api.nvim_create_autocmd({ "BufReadPre", "BufNewFile" }, {
   group = group,
@@ -40,8 +43,9 @@ vim.api.nvim_create_autocmd("SwapExists", {
   end,
 })
 
-
-
+--------------------------------------------------------------------------------
+-- config.yaml block removal
+--------------------------------------------------------------------------------
 vim.api.nvim_create_autocmd('VimLeavePre', {
   callback = function()
     --------------------------------------------------------------------------------
