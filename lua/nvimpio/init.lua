@@ -159,6 +159,8 @@ function M.setup(user_opts)
 
   -- The background auto-activation
   if vim.fn.filereadable('platformio.ini') == 1 then
+    -- vim.g.platformioRootDir = vim.uv.cwd()
+    vim.schedule(function()
     -- local metadata = read_json_file(OS.project_config)
     local metadata = require('nvimpio.pio.metadata').load_project_config()
 
@@ -169,8 +171,6 @@ function M.setup(user_opts)
         print('here')
       end
     end
-    -- vim.g.platformioRootDir = vim.uv.cwd()
-    vim.schedule(function()
       require('nvimpio.core').ensure_toolchain_active(function(success)
         if success then M.activate() end
       end, 0)
