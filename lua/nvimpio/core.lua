@@ -166,6 +166,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
       on_success_callback(true)
     end
   else
+    print('not verified')
     -- Toolchain missing and installation failed on retry pass boundary
     if retry_counter >= 1 then
       return vim.schedule(function()
