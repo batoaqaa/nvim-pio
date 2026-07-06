@@ -130,7 +130,6 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   end
 
   if verified then
-    print('verified')
     local current_path = vim.env.PATH or ''
     -- local target_clean = vim.fs.normalize(main.config.pio_runtime_dir)
     local target_clean = vim.fs.normalize(target_bin)
@@ -178,7 +177,6 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
 
 
     vim.schedule(function()
-    print('not verified')
       if vim.fn.confirm('PlatformIO not found. Install toolchain?', '&Yes\n&No', 1) == 1 then
         vim.ui.input({
           prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir'
@@ -199,15 +197,13 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
             if type(on_success_callback) == 'function' then on_success_callback(false) end
             return vim.notify("Could not resolve path", vim.log.levels.ERROR)
           end
-          -- Check if the directory exists using libuv
 
-
-          -- local bin_subfolder = OS.is_win and 'Scripts' or 'bin'
           target_bin = vim.fs.joinpath(resolved_runtime_dir, 'penv', bin_subfolder)
           print(target_bin)
           local_pio_executable = vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio'))
 
           local stat = vim.uv.fs_stat(resolved_runtime_dir)
+          -- Check if the directory exists using libuv and pio executable
           local exists = stat and (stat.type == "directory") and (vim.fn.executable(local_pio_executable) == 1)
 
           if exists then
