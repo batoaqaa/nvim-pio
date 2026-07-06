@@ -123,6 +123,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   end
 
   local bin_subfolder = OS.is_win and 'Scripts' or 'bin'
+  local target_penv = vim.fs.joinpath(raw_runtime_dir, 'penv')
   local target_bin = vim.fs.joinpath(raw_runtime_dir, 'penv', bin_subfolder)
   local verified = false
 
@@ -163,6 +164,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     end
     main.config.pio_storage_dir = raw_storage_dir
     vim.env.PLATFORMIO_CORE_DIR = raw_storage_dir
+    vim.env.PLATFORMIO_PENV_DIR = target_penv
 
     -- CRITICAL LOGIC ROUTING: Only fire execution callback downstream if toolchain is active!
     if type(on_success_callback) == 'function' then
