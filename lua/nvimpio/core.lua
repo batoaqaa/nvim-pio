@@ -173,12 +173,12 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
         if type(on_success_callback) == 'function' then on_success_callback(false) end
       end)
     end
-    print('not verified')
 
     -- BLOCKING GATEWAY: Wrap prompt setup and FORCE return to stop the caller thread from continuing!
 
 
     vim.schedule(function()
+    print('not verified')
       if vim.fn.confirm('PlatformIO not found. Install toolchain?', '&Yes\n&No', 1) == 1 then
         vim.ui.input({
           prompt = 'Set pio_runtime_dir path: ', default = main.options.pio.pio_runtime_dir, completion = 'dir'
