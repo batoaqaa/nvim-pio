@@ -213,6 +213,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
                 return
               end
               vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(storage_dir)
+                  OS.notify('storage: exists')
                 if not storage_dir or storage_dir == '' then
                   OS.notify('Execution aborted.', 'warn')
                   if type(on_success_callback) == 'function' then on_success_callback(false) end
@@ -243,6 +244,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
             end)
           else  -- Not exists
             vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = main.options.pio.pio_storage_dir, completion = 'dir' }, function(storage_dir)
+              OS.notify('storage: no exists')
               if not storage_dir or storage_dir == '' then
                 OS.notify('Execution aborted.', 'warn')
                 if type(on_success_callback) == 'function' then on_success_callback(false) end
