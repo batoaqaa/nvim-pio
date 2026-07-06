@@ -199,7 +199,6 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
           end
 
           target_bin = vim.fs.joinpath(resolved_runtime_dir, 'penv', bin_subfolder)
-          print(target_bin)
           local_pio_executable = vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio'))
 
           local stat = vim.uv.fs_stat(resolved_runtime_dir)
