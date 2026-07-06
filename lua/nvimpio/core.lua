@@ -91,18 +91,18 @@ function M.resolve_user_path(raw_path)
   return vim.fs.normalize(expanded)
 end
 
-function M.configure_paths()
-  local main = require('nvimpio')
-  vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = (main.options.pio.pio_runtime_dir) or '', completion = 'dir' }, function(r)
-    if not r or r == '' then return end
-    vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = (main.options.pio.pio_storage_dir) or '', completion = 'dir' }, function(s)
-      if not s or s == '' then return end
-      local resolved_runtime_dir  = M.resolve_user_path(r)
-      main.options.pio.pio_runtime_dir = resolved_runtime_dir
-      main.options.pio.pio_storage_dir = M.resolve_user_path(s)
-    end)
-  end)
-end
+-- function M.configure_paths()
+--   local main = require('nvimpio')
+--   vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = (main.options.pio.pio_runtime_dir) or '', completion = 'dir' }, function(r)
+--     if not r or r == '' then return end
+--     vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = (main.options.pio.pio_storage_dir) or '', completion = 'dir' }, function(s)
+--       if not s or s == '' then return end
+--       local resolved_runtime_dir  = M.resolve_user_path(r)
+--       main.options.pio.pio_runtime_dir = resolved_runtime_dir
+--       main.options.pio.pio_storage_dir = M.resolve_user_path(s)
+--     end)
+--   end)
+-- end
 
 -- Checks toolchain existence and resolves paths without parsing heavy structures
 -- stylua: ignore
@@ -296,28 +296,6 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
         if type(on_success_callback) == 'function' then on_success_callback(false) end
       end
     end)
-
-    -- vim.schedule(function()
-    --   if vim.fn.confirm('PlatformIO not found. Install toolchain?', '&Yes\n&No', 1) == 1 then
-    --     if (M.configure_paths()) then
-    --       print('here')
-    --       local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
-    --       if ok then
-    --         installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
-    --         -- installer.pioInstall(base_runtime, function(_)
-    --           -- Once terminal install finishes, run recursion step 1 to register paths cleanly
-    --           M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
-    --         end)
-    --       else
-    --         OS.notify('Installer module missing', 'error')
-    --         if type(on_success_callback) == 'function' then on_success_callback(false) end
-    --       end
-    --     end
-    --   else
-    --     OS.notify('Execution aborted: Toolchain missing.', 'warn')
-    --     if type(on_success_callback) == 'function' then on_success_callback(false) end
-    --   end
-    -- end)
   end
 end
 
