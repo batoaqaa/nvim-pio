@@ -238,6 +238,7 @@ function M.load_project_config()
     for k, v in pairs(table_data) do _pio_metadata[k] = v end
     last_saved_hash = vim.fn.sha256(chunk)
   end
+  return ok and _G.metadata or nil
 
   -- local misc = require('nvimpio.utils.misc')
   -- if vim.fn.filereadable(config_path) == 1 then
