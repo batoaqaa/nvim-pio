@@ -69,25 +69,25 @@ function M.initialize_full_options()
 end
 
 
-local function read_json_file(filepath)
-  -- 1. Ensure file exists before touching handles
-  local stat = vim.uv.fs_stat(filepath)
-  if not stat or stat.type ~= "file" then return nil end
-
-  -- 2. Open file descriptor (Read-Only)
-  local fd = vim.uv.fs_open(filepath, "r", 438)
-  if not fd then return nil end
-
-  -- 3. High-speed raw binary read into buffer memory
-  local chunk = vim.uv.fs_read(fd, stat.size, 0)
-  vim.uv.fs_close(fd) -- Immediate resource release
-
-  if not chunk or chunk == "" then return nil end
-
-  -- 4. Protected evaluation parsing safeguard
-  local success, result = pcall(vim.json.decode, chunk)
-  return success and result or nil
-end
+-- local function read_json_file(filepath)
+--   -- 1. Ensure file exists before touching handles
+--   local stat = vim.uv.fs_stat(filepath)
+--   if not stat or stat.type ~= "file" then return nil end
+--
+--   -- 2. Open file descriptor (Read-Only)
+--   local fd = vim.uv.fs_open(filepath, "r", 438)
+--   if not fd then return nil end
+--
+--   -- 3. High-speed raw binary read into buffer memory
+--   local chunk = vim.uv.fs_read(fd, stat.size, 0)
+--   vim.uv.fs_close(fd) -- Immediate resource release
+--
+--   if not chunk or chunk == "" then return nil end
+--
+--   -- 4. Protected evaluation parsing safeguard
+--   local success, result = pcall(vim.json.decode, chunk)
+--   return success and result or nil
+-- end
 
 ------------------------------------------------------------------------
 -- Activation: Turn on the plugin features
@@ -166,6 +166,7 @@ function M.setup(user_opts)
       M.options.pio.pio_runtime_dir = metadata.penv_dir
       if metadata and metadata.core_dir then
         M.options.pio.pio_storage_dir = metadata.core_dir
+        print('here')
       end
     end
     -- vim.g.platformioRootDir = vim.uv.cwd()
