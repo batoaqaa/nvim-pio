@@ -555,6 +555,6 @@ end
 -- 4. Initialization
 -------------------------------------------------------------------------------
 -- M.load_project_config()
-M.updateProjectConfig()
+-- M.updateProjectConfig()
 
 return M
