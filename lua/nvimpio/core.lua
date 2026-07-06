@@ -239,6 +239,11 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
                 -------------------------------------------------------------
                 elseif choice == 'Rename' then
                   clear_subdirectories(OS.nvimpio_config_dir)
+
+                  -- --Unload the cached nvimpio state from memory so the 
+                  -- -- next recursive pass reads your newly assigned options fresh!
+                  -- package.loaded["nvimpio"] = nil
+
                   M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
                 end
               end)
@@ -258,6 +263,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
                 installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
                 -- installer.pioInstall(base_runtime, function(_)
                   -- Once terminal install finishes, run recursion step 1 to register paths cleanly
+                  clear_subdirectories(OS.nvimpio_config_dir)
                   M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
                 end)
               else
