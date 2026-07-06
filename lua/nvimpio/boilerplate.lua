@@ -8,12 +8,12 @@ local boilerplate = {}
 
 -- INFO: platformio.ini
 ----------------------------------------------------------------------------------------
+-- core_dir = %s
 boilerplate['platformio.ini'] = {
   rewrite = false,
   read = false,
   plate = [[
 [platformio]
-core_dir = %s
 platforms_dir = ${platformio.core_dir}/platforms
 packages_dir = ${platformio.core_dir}/packages
 ;libdeps_dir = ./external_libs
@@ -36,10 +36,10 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
   boiler = function(self)
     local full_path = vim.fs.joinpath(projectDir, 'platformio.ini')
     if vim.uv.fs_stat(full_path) then return false end
-    local core_dir = require('nvimpio').config.pio_storage_dir
+    -- local core_dir = require('nvimpio').config.pio_storage_dir
 
-    -- misc.writeFile(full_path, self.plate, {})
-    misc.writeFile(full_path, string.format(self.plate, core_dir), {})
+    misc.writeFile(full_path, self.plate, {})
+    -- misc.writeFile(full_path, string.format(self.plate, core_dir), {})
     return true
   end,
 }

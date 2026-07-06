@@ -156,6 +156,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
       vim.fn.mkdir(raw_storage_dir, "p")
     end
     main.config.pio_storage_dir = raw_storage_dir
+    vim.env.PLATFORMIO_CORE_DIR = raw_storage_dir
 
     -- CRITICAL LOGIC ROUTING: Only fire execution callback downstream if toolchain is active!
     if type(on_success_callback) == 'function' then
@@ -260,7 +261,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
             end)
           end
         end)
-      else
+      else -- No, Escape
         OS.notify('Execution aborted: Toolchain missing.', 'warn')
         if type(on_success_callback) == 'function' then on_success_callback(false) end
       end
