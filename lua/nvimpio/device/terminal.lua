@@ -532,6 +532,14 @@ function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
 end
 
+function M.reopen()
+  M.terminals['cli']:close()
+  M.create_terminal('cli', ' CLI ', function(j, d, e)
+    if type(M.stdout_callback) == 'function' then
+      M.stdout_callback(j, d, e)
+    end
+  end)
+end
 ----------------------------------------------------------------------------------------
 -- SYSTEM FACTORY CHANNELS INITIALIZATION
 ----------------------------------------------------------------------------------------

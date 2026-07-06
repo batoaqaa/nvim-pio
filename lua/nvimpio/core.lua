@@ -2,6 +2,7 @@
 local M = {}
 
 local function clear_subdirectories(target_dir)
+  if vim.fn.isdirectory(OS.pio_config_dir) == 1 then vim.fs.rm(OS.pio_config_dir, { recursive = true }) end
   -- 1. Scan the target directory for entries
   local handle = vim.uv.fs_scandir(target_dir)
   if not handle then
@@ -165,6 +166,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     main.config.pio_storage_dir = raw_storage_dir
     vim.env.PLATFORMIO_CORE_DIR = raw_storage_dir
     vim.env.PLATFORMIO_PENV_DIR = target_penv
+    require('nvimpio.device.terminal').reopen()
 
     -- CRITICAL LOGIC ROUTING: Only fire execution callback downstream if toolchain is active!
     if type(on_success_callback) == 'function' then

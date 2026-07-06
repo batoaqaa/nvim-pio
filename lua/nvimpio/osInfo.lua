@@ -23,6 +23,7 @@ local xdg_config_home = vim.env.XDG_CONFIG_HOME or (
 )
 local clangd_user_dir = vim.fs.joinpath(xdg_config_home, 'clangd')
 local nvimpioConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
+local pioConfigDir = vim.fs.joinpath(projectDir, '.pio')
 ---@class OS
 ---@field name "windows"|"macos"|"linux"
 ---@field app_name string
@@ -51,6 +52,7 @@ local nvimpioConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
 ---@field clangd_user_file string
 ---@field clangd_user_dir string
 ---@field nvimpio_config_dir string
+---@field pio_config_dir string
 ---@field notify fun(msg: string, level?: string|integer)
 ---@field pioReady fun(): boolean
 
@@ -87,6 +89,7 @@ local os_info = {
   cxx_flags = '.clangdCXXFlags.txt',
   project_config = vim.fs.joinpath(nvimpioConfigDir, '.projectConfig.json'),
   nvimpio_config_dir = vim.fs.normalize(nvimpioConfigDir),
+  pio_config_dir = vim.fs.normalize(pioConfigDir),
   nvimpio_env_dir = '',
   shell = OS.is_win and {
     'pwsh.exe',
