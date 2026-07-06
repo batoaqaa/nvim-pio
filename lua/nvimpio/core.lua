@@ -200,8 +200,14 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
             return vim.notify("Could not resolve path", vim.log.levels.ERROR)
           end
           -- Check if the directory exists using libuv
+
+
+          -- local bin_subfolder = OS.is_win and 'Scripts' or 'bin'
+          target_bin = vim.fs.joinpath(resolved_runtime_dir, 'penv', bin_subfolder)
+          local_pio_executable = vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio'))
+
           local stat = vim.uv.fs_stat(resolved_runtime_dir)
-          local exists = stat and stat.type == "directory"
+          local exists = stat and (stat.type == "directory") and (vim.fn.executable(local_pio_executable) == 1)
 
           if exists then
             -- Directory exists! Prompt user for a decision
