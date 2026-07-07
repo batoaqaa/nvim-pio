@@ -14,7 +14,7 @@ local function clear_subdirectories(target_dir)
 end
 
 local setPenvBinPath = function (target)
-  local local_penv_bin = vim.fs.normalize(vim.fs.joinpath(target, (OS.is_win and 'penv/Scripts/pio.exe' or 'penv/bin/pio')))
+  local local_penv_bin = vim.fs.normalize(vim.fs.joinpath(target, (OS.is_win and 'penv/Scripts' or 'penv/bin')))
   local current_path = vim.env.PATH or ''
 
   local check_target = OS.is_win and local_penv_bin:lower() or local_penv_bin
