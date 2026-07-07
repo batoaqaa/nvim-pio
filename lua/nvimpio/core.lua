@@ -32,6 +32,27 @@ local function clear_subdirectories(target_dir)
   end
 end
 
+local setPoiBinPath = function (target)
+  local current_path = vim.env.PATH or ''
+
+  local check_target = OS.is_win and target:lower() or target
+  local active_paths = vim.split(current_path, OS.path_sep, { trimempty = true })
+  local found_in_path = false
+
+  for _, segment in ipairs(active_paths) do
+    local seg_clean = vim.fs.normalize(segment)
+    if OS.is_win then seg_clean = seg_clean:lower() end
+    if seg_clean == check_target then
+      found_in_path = true
+      break
+    end
+  end
+  if not found_in_path then
+    vim.env.PATH = target .. OS.path_sep .. current_path
+    OS.notify(string.format("penv-bin: %s  added to PATH", target))
+  end
+end
+
 ---Defensively isolates and locks the correct active python path boundaries into Neovim's environment
 function M.enforce_virtualenv_isolation()
   -- 1. Read the environment path strings safely from active system variables
@@ -44,19 +65,7 @@ function M.enforce_virtualenv_isolation()
   -- Force forward slashes inside Neovim for clean parsing, or stick to native system layouts
   -- 3. Enforce clean forward slashes for the venv target path
   local venv_bin_path = vim.fs.normalize(vim.fs.joinpath(active_venv, bin_folder))
-  local current_path_registry = vim.env.PATH or ''
-
-  -- 4. Normalize the entire PATH string to forward slashes just for the comparison check.
-  -- This ensures matching succeeds even if Windows mixed the slash styles up!
-  local normalized_registry = vim.fs.normalize(current_path_registry)
-
-  -- 5. Perform the raw text search on the matched slash types
-  local is_already_in_path = string.find(normalized_registry, venv_bin_path, 1, true) ~= nil
-
-  if not is_already_in_path then
-    -- Prepend using your system's original string format to maintain stability
-    vim.env.PATH = venv_bin_path .. OS.path_sep .. current_path_registry
-  end
+  setPoiBinPath(venv_bin_path)
 end
 
 function M.clean(raw_path)
@@ -135,27 +144,6 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     -- main.config.pio_runtime_dir = target_bin
     main.config.pio_runtime_dir = raw_runtime_dir
     verified = true
-  end
-
-  local setPoiBinPath = function (target)
-    local current_path = vim.env.PATH or ''
-
-    local check_target = OS.is_win and target:lower() or target
-    local active_paths = vim.split(current_path, OS.path_sep, { trimempty = true })
-    local found_in_path = false
-
-    for _, segment in ipairs(active_paths) do
-      local seg_clean = vim.fs.normalize(segment)
-      if OS.is_win then seg_clean = seg_clean:lower() end
-      if seg_clean == check_target then
-        found_in_path = true
-        break
-      end
-    end
-    if not found_in_path then
-      vim.env.PATH = target .. OS.path_sep .. current_path
-      OS.notify(string.format("penv-bin: %s  added to PATH", target))
-    end
   end
 
   if verified then
