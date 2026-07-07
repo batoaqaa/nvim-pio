@@ -148,6 +148,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
           target_penv = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, 'penv'))
 
           local prepareFolders = function (storage)
+            main.options.pio = main.options.pio or {}
             main.options.pio.pio_runtime_dir = resolved_runtime_dir
             main.options.pio.pio_storage_dir = storage
             vim.env.PLATFORMIO_CORE_DIR = storage

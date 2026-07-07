@@ -26,18 +26,18 @@ local isActivated = false -- Tracks if commands/features are loaded
 -- Persistent internal storage for runtime verified properties
 M.config = { pio_runtime_dir = nil, pio_storage_dir = nil, debug = true}
 
--- M.options = {}
--- Define a metatable that automatically creates a table if the key is missing
-local auto_table_meta = {
-  __index = function(t, k)
-    local new_table = setmetatable({}, t._meta or nil)
-    rawset(t, k, new_table)
-    return new_table
-  end
-}
-auto_table_meta._meta = auto_table_meta
--- 1. Initialize your options table using this metatable
-M.options = setmetatable({}, auto_table_meta) --nil -- This will hold the complete configuration table safely in memory
+M.options = {}
+-- -- Define a metatable that automatically creates a table if the key is missing
+-- local auto_table_meta = {
+--   __index = function(t, k)
+--     local new_table = setmetatable({}, t._meta or nil)
+--     rawset(t, k, new_table)
+--     return new_table
+--   end
+-- }
+-- auto_table_meta._meta = auto_table_meta
+-- -- 1. Initialize your options table using this metatable
+-- M.options = setmetatable({}, auto_table_meta) --nil -- This will hold the complete configuration table safely in memory
 
 
 
