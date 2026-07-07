@@ -18,11 +18,11 @@ local function pioRepair()
 
   local pioRepair_cmd, penvRestore_cmd --, pioEnv
   if OS.is_win then
-    pioRepair_cmd = string.format('%s/python.exe -m pip install -U platformio', target_bin)
+    pioRepair_cmd = string.format('%s/python.exe -m pip install --upgrade --force-reinstall pip platformio', target_bin)
     penvRestore_cmd = string.format('%s/python.exe -m ensurepip --default-pip', target_bin)
     -- pioEnv = string.format('$env:PATH = "%s;" + $env:PATH', runtime_dir)
   else
-    pioRepair_cmd = string.format('%s/python3 -m pip install -U platformio', target_bin)
+    pioRepair_cmd = string.format('%s/python3 -m pip install --upgrade --force-reinstall pip platformio', target_bin)
     penvRestore_cmd = string.format('%s/python3 -m ensurepip --default-pip', target_bin)
     -- pioEnv = string.format('export PATH="%s:$PATH"', runtime_dir)
   end
