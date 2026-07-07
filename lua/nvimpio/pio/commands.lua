@@ -78,13 +78,20 @@ end, {desc = 'set PlatformIO paths'})
 
 -- INFO: Refresh PIO Data
 cmd('PioRefreshData', function ()
-   _G.isBusy = true
-   require('nvimpio.pio.upkeep').refreshBusy = false
-   local pio_refresh = upkeep.pio_refresh
-   pio_refresh(function(success)
-     if success then do end end
-     _G.isBusy = false
-   end, 'PIO refresh command: ')
+  _G.isBusy = true
+  local target_dir = OS.nvimpio_config_dir
+  for name, type in vim.fs.dir(target_dir) do
+    if type == "directory" then
+      local full_path = vim.fs.normalize(vim.fs.joinpath(target_dir, name))
+      vim.fn.delete(full_path, "rf") -- Directly force delete subfolders safely
+    end
+  end
+  require('nvimpio.pio.upkeep').refreshBusy = false
+  local pio_refresh = upkeep.pio_refresh
+  pio_refresh(function(success)
+    if success then do end end
+    _G.isBusy = false
+  end, 'PIO refresh command: ')
 end, {desc = 'Refresh PIO metadata'})
 
 
