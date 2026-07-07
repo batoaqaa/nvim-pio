@@ -16,32 +16,32 @@ local cmd = vim.api.nvim_create_user_command
 -- Preventing swap files in global framework packages
 -- Create a distinct, isolated namespace for your plugin
 --------------------------------------------------------------------------------
-local group = vim.api.nvim_create_augroup("PioFrameworkBufferShield", { clear = true })
-vim.api.nvim_create_autocmd({ "BufReadPre", "BufNewFile" }, {
-  group = group,
-  -- Pattern matches both Unix forward-slash and Windows back-slash variants of .platformio
-  pattern = { "*/.platformio*/**", "*\\.platformio*\\**" },
-  callback = function(_)
-    -- 1. Eliminate the locking mechanism entirely for framework/SDK files
-    vim.opt_local.swapfile = false
-    -- 2. Enforce safety: ensure users don't accidentally mutate core Zephyr/SDK code
-    vim.opt_local.readonly = true
-    -- 3. Optimization: Automatically clean the buffer from memory once closed
-    vim.opt_local.bufhidden = "unload"
-  end,
-})
--- Fail-safe handler: In case an active background thread (like clangd) forces 
--- an early jump before BufReadPre strips the swap option.
-vim.api.nvim_create_autocmd("SwapExists", {
-  group = group,
-  callback = function()
-    local current_file = vim.fn.expand("%:p")
-    -- If the path matches the internal platformio ecosystem, silently bypass the prompt
-    if current_file:match("%.platformio") then
-      vim.v.swapchoice = "o" -- Gracefully auto-select "Open Read-Only"
-    end
-  end,
-})
+-- local group = vim.api.nvim_create_augroup("PioFrameworkBufferShield", { clear = true })
+-- vim.api.nvim_create_autocmd({ "BufReadPre", "BufNewFile" }, {
+--   group = group,
+--   -- Pattern matches both Unix forward-slash and Windows back-slash variants of .platformio
+--   pattern = { "*/.platformio*/**", "*\\.platformio*\\**" },
+--   callback = function(_)
+--     -- 1. Eliminate the locking mechanism entirely for framework/SDK files
+--     vim.opt_local.swapfile = false
+--     -- 2. Enforce safety: ensure users don't accidentally mutate core Zephyr/SDK code
+--     vim.opt_local.readonly = true
+--     -- 3. Optimization: Automatically clean the buffer from memory once closed
+--     vim.opt_local.bufhidden = "unload"
+--   end,
+-- })
+-- -- Fail-safe handler: In case an active background thread (like clangd) forces 
+-- -- an early jump before BufReadPre strips the swap option.
+-- vim.api.nvim_create_autocmd("SwapExists", {
+--   group = group,
+--   callback = function()
+--     local current_file = vim.fn.expand("%:p")
+--     -- If the path matches the internal platformio ecosystem, silently bypass the prompt
+--     if current_file:match("%.platformio") then
+--       vim.v.swapchoice = "o" -- Gracefully auto-select "Open Read-Only"
+--     end
+--   end,
+-- })
 
 --------------------------------------------------------------------------------
 -- config.yaml block removal

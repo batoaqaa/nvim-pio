@@ -164,7 +164,6 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
           -- Check if the directory exists using libuv and pio executable
           local exists = stat and (stat.type == "directory") and (vim.fn.executable(local_pio_executable) == 1)
           if exists then
-            OS.notify('penv: exists')
             if vim.fn.confirm('Directory already exists!, Use it?', '&Yes\n&No', 1) == 1 then
               vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = (main.options.pio and main.options.pio.pio_storage_dir) or '', completion = 'dir' }, function(storage_dir)
                 if not storage_dir or storage_dir == '' then
@@ -184,7 +183,6 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
               end)
             end --)
           else  -- Not exists
-            OS.notify('penv: no exists')
             vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = (main.options.pio and main.options.pio.pio_storage_dir) or '', completion = 'dir' }, function(storage_dir)
               if not storage_dir or storage_dir == '' then
                 OS.notify('Execution aborted. Could not resolve path', 'warn')
