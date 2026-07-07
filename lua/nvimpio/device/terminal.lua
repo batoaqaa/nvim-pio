@@ -535,9 +535,9 @@ end
 ----------------------------------------------------------------------------------------
 -- SYSTEM FACTORY CHANNELS INITIALIZATION
 function M.reopen()
-  if (M.terminals['cli']) then M.terminals['cli']:close() end
-  if (M.terminals['mon']) then M.terminals['mon']:close() end
   if (M.terminals['logs']) then M.terminals['logs']:close() end
+  if (M.terminals['mon']) then M.terminals['mon']:close() end
+  if (M.terminals['cli']) then M.terminals['cli']:close() end
 
   M.create_terminal('cli', ' CLI ', function(j, d, e)
     if type(M.stdout_callback) == 'function' then
