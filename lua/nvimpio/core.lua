@@ -3,7 +3,7 @@ local M = {}
 
 local function clear_subdirectories(target_dir)
   -- delete .pio folder
-  if vim.uv.fs_stat(OS.pio_config_dir) then vim.fs.rm(OS.pio_config_dir, { recursive = true }) end
+  -- if vim.uv.fs_stat(OS.pio_config_dir) then vim.fs.rm(OS.pio_config_dir, { recursive = true }) end
 
   for name, type in vim.fs.dir(target_dir) do
     if type == "directory" then
@@ -54,10 +54,6 @@ function M.clean(raw_path)
   -- return OS.is_win and normalized:gsub('/', '\\') or normalized
   return normalized
 end
--- Verifies tracking paths and triggers the background installer loop if unpopulated
---------------------------------------------------------------------------------
--- UTILITY LAYERS: Safe Path Normalization & Data Strippers
---------------------------------------------------------------------------------
 
 -- Resolves user strings (~/), strips spacing errors, and standardizes sytem paths
 -- stylua: ignore
@@ -99,22 +95,19 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     resolved_runtime_dir = vim.fs.normalize(vim.fs.joinpath(OS.home, '.platformio'))
   end
 
-  -- local bin_subfolder = OS.is_win and 'Scripts' or 'bin'
   local target_penv = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, 'penv'))
-  -- local target_bin = vim.fs.normalize(vim.fs.joinpath(raw_runtime_dir, 'penv', bin_subfolder))
   local verified = false
 
-  -- local local_pio_executable = vim.fs.normalize(vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio')))
   local local_pio_executable = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, (OS.is_win and 'penv/Scripts/pio.exe' or 'penv/bin/pio')))
   if vim.fn.executable(local_pio_executable) == 1 then verified = true end
 
   local resolved_storage_dir = M.resolve_user_path(current_pio_opts.pio_storage_dir) or vim.fs.normalize(vim.env.PLATFORMIO_CORE_DIR) or resolved_runtime_dir
   if verified then
     main.config.pio_runtime_dir = resolved_runtime_dir
-    setPenvBinPath(resolved_runtime_dir)
+    main.config.pio_storage_dir = resolved_storage_dir
 
     if resolved_storage_dir and vim.fn.isdirectory(resolved_storage_dir) == 0 then vim.fn.mkdir(resolved_storage_dir, "p") end
-    main.config.pio_storage_dir = resolved_storage_dir
+    setPenvBinPath(resolved_runtime_dir)
 
     vim.env.PLATFORMIO_CORE_DIR = resolved_storage_dir
     vim.env.PLATFORMIO_PENV_DIR = target_penv
@@ -153,8 +146,6 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
           end
 
           target_penv = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, 'penv'))
-          -- target_bin = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, 'penv', bin_subfolder))
-          -- target_bin = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, (OS.is_win and 'penv/Scripts/pio.exe' or 'penv/bin/pio')))
 
           local prepareFolders = function (storage)
             main.options.pio.pio_runtime_dir = resolved_runtime_dir
@@ -173,16 +164,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
           local exists = stat and (stat.type == "directory") and (vim.fn.executable(local_pio_executable) == 1)
           if exists then
             OS.notify('penv: exists')
-            -- Directory exists! Prompt user for a decision
             if vim.fn.confirm('Directory already exists!, Use it?', '&Yes\n&No', 1) == 1 then
-            -- vim.ui.select({ 'Reinstall', 'Reuse' }, {
-            --   prompt = 'Directory already exists! Choose an action:',
-            -- }, function(choice)
-              -- if choice == nil then -- Escaped the selection menu, take no action 
-              --   OS.notify('Execution aborted.', 'warn')
-              --   if type(on_success_callback) == 'function' then on_success_callback(false) end
-              --   return
-              -- end
               vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = (main.options.pio and main.options.pio.pio_storage_dir) or '', completion = 'dir' }, function(storage_dir)
                 if not storage_dir or storage_dir == '' then
                   OS.notify('Execution aborted. Could not resolve path', 'warn')
@@ -195,34 +177,9 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
                   return vim.notify("Could not resolve path", vim.log.levels.ERROR)
                 end
                 -------------------------------------------------------------
-                -- if choice == 'Reinstall' then
-                --   local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
-                --   if ok then
-                --     prepareFolders(resolved_storage_dir)
-                --     -- local packages = vim.fs.normalize(vim.fs.joinpath(resolved_storage_dir, 'packages'))
-                --     -- if vim.uv.fs_stat(packages) then vim.fs.rm(packages, { recursive = true }) end
-                --     if vim.uv.fs_stat(target_penv) then vim.fs.rm(target_penv, { recursive = true }) end
-                --     installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
-                --     -- installer.pioInstall(base_runtime, function(_)
-                --       -- Once terminal install finishes, run recursion step 1 to register paths cleanly
-                --       M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
-                --     end)
-                --   else
-                --     OS.notify('Installer module missing', 'error')
-                --     if type(on_success_callback) == 'function' then on_success_callback(false) end
-                --   end
-                -- -------------------------------------------------------------
-                -- elseif choice == 'Reuse' then
-                  prepareFolders(resolved_storage_dir)
-                  -- clear_subdirectories(OS.nvimpio_config_dir)
-
-                  -- --Unload the cached nvimpio state from memory so the 
-                  -- -- next recursive pass reads your newly assigned options fresh!
-                  -- package.loaded["nvimpio"] = nil
-
-                  require('nvimpio.pio.ui.pioRepair').pioRepair()
-                  M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
-                -- end
+                prepareFolders(resolved_storage_dir)
+                require('nvimpio.pio.ui.pioRepair').pioRepair()
+                M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
               end)
             end --)
           else  -- Not exists
@@ -241,12 +198,8 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
               local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
               if ok then
                 prepareFolders(resolved_storage_dir)
-                -- local packages = vim.fs.normalize(vim.fs.joinpath(resolved_storage_dir, 'packages'))
-                -- if vim.uv.fs_stat(packages) then vim.fs.rm(packages, { recursive = true }) end
                 if vim.uv.fs_stat(target_penv) then vim.fs.rm(target_penv, { recursive = true }) end
-                -- clear_subdirectories(OS.nvimpio_config_dir)
                 installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
-                -- installer.pioInstall(base_runtime, function(_)
                   -- Once terminal install finishes, run recursion step 1 to register paths cleanly
                   M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
                 end)

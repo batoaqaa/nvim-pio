@@ -69,26 +69,6 @@ function M.initialize_full_options()
 end
 
 
--- local function read_json_file(filepath)
---   -- 1. Ensure file exists before touching handles
---   local stat = vim.uv.fs_stat(filepath)
---   if not stat or stat.type ~= "file" then return nil end
---
---   -- 2. Open file descriptor (Read-Only)
---   local fd = vim.uv.fs_open(filepath, "r", 438)
---   if not fd then return nil end
---
---   -- 3. High-speed raw binary read into buffer memory
---   local chunk = vim.uv.fs_read(fd, stat.size, 0)
---   vim.uv.fs_close(fd) -- Immediate resource release
---
---   if not chunk or chunk == "" then return nil end
---
---   -- 4. Protected evaluation parsing safeguard
---   local success, result = pcall(vim.json.decode, chunk)
---   return success and result or nil
--- end
-
 ------------------------------------------------------------------------
 -- Activation: Turn on the plugin features
 function M.activate()
@@ -139,7 +119,6 @@ function M.setup(user_opts)
 
   -- INFO: Pioini
   vim.api.nvim_create_user_command('Pioinit', function()
-    -- vim.g.platformioRootDir = vim.uv.cwd() require("nvimpio.core").execute_init(args)
     require('nvimpio.core').ensure_toolchain_active(
       function(success)
         if success then
@@ -159,7 +138,6 @@ function M.setup(user_opts)
 
   -- The background auto-activation
   if vim.fn.filereadable('platformio.ini') == 1 then
-    -- local metadata = read_json_file(OS.project_config)
     local metadata = require('nvimpio.pio.metadata').load_project_config()
 
     if metadata and metadata.penv_dir then
