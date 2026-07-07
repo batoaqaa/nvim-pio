@@ -174,14 +174,15 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
           if exists then
             OS.notify('penv: exists')
             -- Directory exists! Prompt user for a decision
-            vim.ui.select({ 'Reinstall', 'Reuse' }, {
-              prompt = 'Directory already exists! Choose an action:',
-            }, function(choice)
-              if choice == nil then -- Escaped the selection menu, take no action 
-                OS.notify('Execution aborted.', 'warn')
-                if type(on_success_callback) == 'function' then on_success_callback(false) end
-                return
-              end
+            if vim.fn.confirm('Directory already exists!, Use it?', '&Yes\n&No', 1) == 1 then
+            -- vim.ui.select({ 'Reinstall', 'Reuse' }, {
+            --   prompt = 'Directory already exists! Choose an action:',
+            -- }, function(choice)
+              -- if choice == nil then -- Escaped the selection menu, take no action 
+              --   OS.notify('Execution aborted.', 'warn')
+              --   if type(on_success_callback) == 'function' then on_success_callback(false) end
+              --   return
+              -- end
               vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = (main.options.pio and main.options.pio.pio_storage_dir) or '', completion = 'dir' }, function(storage_dir)
                 if not storage_dir or storage_dir == '' then
                   OS.notify('Execution aborted. Could not resolve path', 'warn')
@@ -194,24 +195,24 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
                   return vim.notify("Could not resolve path", vim.log.levels.ERROR)
                 end
                 -------------------------------------------------------------
-                if choice == 'Reinstall' then
-                  local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
-                  if ok then
-                    prepareFolders(resolved_storage_dir)
-                    local packages = vim.fs.normalize(vim.fs.joinpath(resolved_storage_dir, 'packages'))
-                    if vim.uv.fs_stat(packages) then vim.fs.rm(packages, { recursive = true }) end
-                    if vim.uv.fs_stat(target_penv) then vim.fs.rm(target_penv, { recursive = true }) end
-                    installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
-                    -- installer.pioInstall(base_runtime, function(_)
-                      -- Once terminal install finishes, run recursion step 1 to register paths cleanly
-                      M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
-                    end)
-                  else
-                    OS.notify('Installer module missing', 'error')
-                    if type(on_success_callback) == 'function' then on_success_callback(false) end
-                  end
-                -------------------------------------------------------------
-                elseif choice == 'Reuse' then
+                -- if choice == 'Reinstall' then
+                --   local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
+                --   if ok then
+                --     prepareFolders(resolved_storage_dir)
+                --     -- local packages = vim.fs.normalize(vim.fs.joinpath(resolved_storage_dir, 'packages'))
+                --     -- if vim.uv.fs_stat(packages) then vim.fs.rm(packages, { recursive = true }) end
+                --     if vim.uv.fs_stat(target_penv) then vim.fs.rm(target_penv, { recursive = true }) end
+                --     installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
+                --     -- installer.pioInstall(base_runtime, function(_)
+                --       -- Once terminal install finishes, run recursion step 1 to register paths cleanly
+                --       M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
+                --     end)
+                --   else
+                --     OS.notify('Installer module missing', 'error')
+                --     if type(on_success_callback) == 'function' then on_success_callback(false) end
+                --   end
+                -- -------------------------------------------------------------
+                -- elseif choice == 'Reuse' then
                   prepareFolders(resolved_storage_dir)
                   -- clear_subdirectories(OS.nvimpio_config_dir)
 
@@ -221,9 +222,9 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
 
                   require('nvimpio.pio.ui.pioRepair').pioRepair()
                   M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
-                end
+                -- end
               end)
-            end)
+            end --)
           else  -- Not exists
             OS.notify('penv: no exists')
             vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = (main.options.pio and main.options.pio.pio_storage_dir) or '', completion = 'dir' }, function(storage_dir)
@@ -240,8 +241,8 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
               local ok, installer = pcall(require, 'nvimpio.pio.ui.pioInstall')
               if ok then
                 prepareFolders(resolved_storage_dir)
-                local packages = vim.fs.normalize(vim.fs.joinpath(resolved_storage_dir, 'packages'))
-                if vim.uv.fs_stat(packages) then vim.fs.rm(packages, { recursive = true }) end
+                -- local packages = vim.fs.normalize(vim.fs.joinpath(resolved_storage_dir, 'packages'))
+                -- if vim.uv.fs_stat(packages) then vim.fs.rm(packages, { recursive = true }) end
                 if vim.uv.fs_stat(target_penv) then vim.fs.rm(target_penv, { recursive = true }) end
                 -- clear_subdirectories(OS.nvimpio_config_dir)
                 installer.pioInstall(main.options.pio.pio_runtime_dir, function(_)
