@@ -532,25 +532,22 @@ function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
 end
 
+----------------------------------------------------------------------------------------
+-- SYSTEM FACTORY CHANNELS INITIALIZATION
 function M.reopen()
   M.terminals['cli']:close()
+  M.terminals['mon']:close()
+  M.terminals['logs']:close()
   M.create_terminal('cli', ' CLI ', function(j, d, e)
     if type(M.stdout_callback) == 'function' then
       M.stdout_callback(j, d, e)
     end
   end)
+  M.create_terminal('mon', ' Monitor ', nil)
+  M.create_terminal('logs', ' OS ', nil)
 end
+M.reopen()
 ----------------------------------------------------------------------------------------
--- SYSTEM FACTORY CHANNELS INITIALIZATION
-----------------------------------------------------------------------------------------
-M.create_terminal('cli', ' CLI ', function(j, d, e)
-  if type(M.stdout_callback) == 'function' then
-    M.stdout_callback(j, d, e)
-  end
-end)
-
-M.create_terminal('mon', ' Monitor ', nil)
-M.create_terminal('logs', ' OS ', nil)
 
 setmetatable(M, {
   __index = function(table, key)

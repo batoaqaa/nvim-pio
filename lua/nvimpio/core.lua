@@ -137,13 +137,10 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     verified = true
   end
 
-  if verified then
+  local setPoiBinPath = function (target)
     local current_path = vim.env.PATH or ''
-    -- local target_clean = vim.fs.normalize(main.config.pio_runtime_dir)
-    local target_clean = vim.fs.normalize(target_bin)
-    -- if OS.is_win then target_clean = target_clean:lower() end
 
-    local check_target = OS.is_win and target_clean:lower() or target_clean
+    local check_target = OS.is_win and target:lower() or target
     local active_paths = vim.split(current_path, OS.path_sep, { trimempty = true })
     local found_in_path = false
 
@@ -155,12 +152,15 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
         break
       end
     end
-
     if not found_in_path then
-      vim.env.PATH = target_clean .. OS.path_sep .. current_path
-      OS.notify("penv bin path added to PATH")
+      vim.env.PATH = target .. OS.path_sep .. current_path
+      OS.notify(string.format("penv-bin: %s  added to PATH", target))
     end
+  end
 
+  if verified then
+    local target_clean = vim.fs.normalize(target_bin)
+    setPoiBinPath(target_clean)
     local raw_storage_dir = M.resolve_user_path(current_pio_opts.pio_storage_dir) or vim.env.PLATFORMIO_CORE_DIR or raw_runtime_dir
     if raw_storage_dir and vim.fn.isdirectory(raw_storage_dir) == 0 then
       vim.fn.mkdir(raw_storage_dir, "p")
@@ -201,13 +201,8 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
             return vim.notify("Could not resolve path", vim.log.levels.ERROR)
           end
 
-          target_bin = vim.fs.joinpath(resolved_runtime_dir, 'penv', bin_subfolder)
           target_penv = vim.fs.joinpath(resolved_runtime_dir, 'penv')
-          local_pio_executable = vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio'))
-
-          local stat = vim.uv.fs_stat(resolved_runtime_dir)
-          -- Check if the directory exists using libuv and pio executable
-          local exists = stat and (stat.type == "directory") and (vim.fn.executable(local_pio_executable) == 1)
+          target_bin = vim.fs.joinpath(resolved_runtime_dir, 'penv', bin_subfolder)
 
           local prepareFolders = function (storage)
             main.options.pio.pio_runtime_dir = resolved_runtime_dir
@@ -215,8 +210,15 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
             vim.env.PLATFORMIO_CORE_DIR = main.options.pio.pio_storage_dir
             vim.env.PLATFORMIO_PENV_DIR = target_penv
             clear_subdirectories(OS.nvimpio_config_dir)
+            local target_clean = vim.fs.normalize(target_bin)
+            setPoiBinPath(target_clean)
             require('nvimpio.device.terminal').reopen()
           end
+
+          local_pio_executable = vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio'))
+          local stat = vim.uv.fs_stat(resolved_runtime_dir)
+          -- Check if the directory exists using libuv and pio executable
+          local exists = stat and (stat.type == "directory") and (vim.fn.executable(local_pio_executable) == 1)
           if exists then
             OS.notify('penv: exists')
             -- Directory exists! Prompt user for a decision
