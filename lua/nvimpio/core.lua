@@ -55,9 +55,11 @@ end
 
 ---Defensively isolates and locks the correct active python path boundaries into Neovim's environment
 function M.enforce_virtualenv_isolation()
+  print('here 0')
   -- 1. Read the environment path strings safely from active system variables
   local active_venv = vim.env.VIRTUAL_ENV
   if not active_venv or active_venv == '' then return end
+  print('here 1')
 
   -- 2. Fully self-contained platform detection (removes reliance on external global tables)
   local bin_folder = OS.is_win and 'Scripts' or 'bin'
