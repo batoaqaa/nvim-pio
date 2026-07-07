@@ -539,7 +539,7 @@ end
 --=============================================================================
 --INFO:get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
-local refreshBusy = false
+M.refreshBusy = false
 fetch_metadata = function(callback, active_env, from, attempts)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
@@ -555,7 +555,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   local idedata_file = vim.fs.joinpath(OS.nvimpio_config_dir, active_env, 'idedata.json')
 
   local function fire_callback(status)
-    refreshBusy = false
+    M.refreshBusy = false
     vim.schedule(function() if type(callback) == 'function' then callback(status) end end)
   end
   if not active_env or active_env == '' then fire_callback(false) return end
@@ -912,12 +912,12 @@ end
 function M.pio_refresh(callback, from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
-  if refreshBusy then
+  if M.refreshBusy then
     OS.notify(string.format('%s refresh busy ...', from), 'info')
     if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
     return
   end
-  refreshBusy = true
+  M.refreshBusy = true
 
   -- local active_env = vim.tbl_get(_G, "metadata", "active_env")
   local active_env = _G.metadata and _G.metadata.active_env
@@ -927,7 +927,7 @@ function M.pio_refresh(callback, from)
     fetch_metadata(callback, active_env, from, 1)
   else
     OS.notify(from ..' No active env', 'error')
-    refreshBusy = false
+    M.refreshBusy = false
     if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
   end
 end

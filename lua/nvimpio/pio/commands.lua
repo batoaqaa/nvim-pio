@@ -79,6 +79,7 @@ end, {desc = 'set PlatformIO paths'})
 -- INFO: Refresh PIO Data
 cmd('PioRefreshData', function ()
    _G.isBusy = true
+   require('nvimpio.pio.upkeep').refreshBusy = false
    local pio_refresh = upkeep.pio_refresh
    pio_refresh(function(success)
      if success then do end end
