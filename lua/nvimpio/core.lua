@@ -5,37 +5,19 @@ local function clear_subdirectories(target_dir)
   -- delete .pio folder
   if vim.uv.fs_stat(OS.pio_config_dir) then vim.fs.rm(OS.pio_config_dir, { recursive = true }) end
 
-  -- 1. Scan the target directory for entries
-  local handle = vim.uv.fs_scandir(target_dir)
-  if not handle then
-    return vim.notify("Could not read directory: " .. target_dir, vim.log.levels.ERROR)
-  end
-
-  -- 2. Loop through every item inside the folder
-  while true do
-    local name, type = vim.uv.fs_scandir_next(handle)
-    if not name then break end -- No more files/folders left to check
-
-    -- 3. Isolate folders and delete them recursively
+  for name, type in vim.fs.dir(target_dir) do
     if type == "directory" then
-      local full_path = target_dir .. "/" .. name
-
-      -- Native recursive folder deletion
-      local success, err = vim.uv.fs_rmdir(full_path)
-
-      -- If the directory isn't empty, fallback to a recursive removal
-      if not success and err and err:match("ENOTEMPTY") then
-        -- This deletes the folder and all its contents cleanly
-        vim.fn.delete(full_path, "rf")
-      end
+      local full_path = vim.fs.normalize(vim.fs.joinpath(target_dir, name))
+      vim.fn.delete(full_path, "rf") -- Directly force delete subfolders safely
     end
   end
 end
 
 local setPenvBinPath = function (target)
+  local local_penv_bin = vim.fs.normalize(vim.fs.joinpath(target, (OS.is_win and 'penv/Scripts/pio.exe' or 'penv/bin/pio')))
   local current_path = vim.env.PATH or ''
 
-  local check_target = OS.is_win and target:lower() or target
+  local check_target = OS.is_win and local_penv_bin:lower() or local_penv_bin
   local active_paths = vim.split(current_path, OS.path_sep, { trimempty = true })
   local found_in_path = false
 
@@ -48,25 +30,21 @@ local setPenvBinPath = function (target)
     end
   end
   if not found_in_path then
-    vim.env.PATH = target .. OS.path_sep .. current_path
-    OS.notify(string.format("penv-bin: %s  added to PATH", target))
+    vim.env.PATH = local_penv_bin .. OS.path_sep .. current_path
+    OS.notify(string.format("penv-bin: %s  added to PATH", local_penv_bin))
   end
 end
 
----Defensively isolates and locks the correct active python path boundaries into Neovim's environment
-function M.enforce_virtualenv_isolation()
-  -- 1. Read the environment path strings safely from active system variables
-  local active_venv = vim.env.VIRTUAL_ENV
-  if not active_venv or active_venv == '' then return end
-
-  -- 2. Fully self-contained platform detection (removes reliance on external global tables)
-  local bin_folder = OS.is_win and 'Scripts' or 'bin'
-
-  -- Force forward slashes inside Neovim for clean parsing, or stick to native system layouts
-  -- 3. Enforce clean forward slashes for the venv target path
-  local venv_bin_path = vim.fs.normalize(vim.fs.joinpath(active_venv, bin_folder))
-  setPenvBinPath(venv_bin_path)
-end
+-- ---Defensively isolates and locks the correct active python path boundaries into Neovim's environment
+-- function M.enforce_virtualenv_isolation()
+--   -- 1. Read the environment path strings safely from active system variables
+--   local active_venv = vim.env.VIRTUAL_ENV
+--   if not active_venv or active_venv == '' then return end
+--
+--   -- 2. Enforce clean forward slashes for the venv target path
+--   local pio_path = vim.fs.normalize(vim.fs.dirname(active_venv))
+--   setPenvBinPath(pio_path)
+-- end
 
 function M.clean(raw_path)
   if not raw_path or raw_path == '' then
@@ -100,19 +78,6 @@ function M.resolve_user_path(raw_path)
   return vim.fs.normalize(expanded)
 end
 
--- function M.configure_paths()
---   local main = require('nvimpio')
---   vim.ui.input({ prompt = 'Set pio_runtime_dir path: ', default = (main.options.pio.pio_runtime_dir) or '', completion = 'dir' }, function(r)
---     if not r or r == '' then return end
---     vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = (main.options.pio.pio_storage_dir) or '', completion = 'dir' }, function(s)
---       if not s or s == '' then return end
---       local resolved_runtime_dir  = M.resolve_user_path(r)
---       main.options.pio.pio_runtime_dir = resolved_runtime_dir
---       main.options.pio.pio_storage_dir = M.resolve_user_path(s)
---     end)
---   end)
--- end
-
 -- Checks toolchain existence and resolves paths without parsing heavy structures
 -- stylua: ignore
 function M.ensure_toolchain_active(on_success_callback, retry_counter)
@@ -127,35 +92,32 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
 
   -- JIT Path Gateway: Safely parses configuration choices at invocation runtime
   local current_pio_opts = (main.options and main.options.pio) or (main.defaults and main.defaults.pio) or {}
-  local raw_runtime_dir = M.resolve_user_path(current_pio_opts.pio_runtime_dir)
+  local resolved_runtime_dir = M.resolve_user_path(current_pio_opts.pio_runtime_dir)
 
   -- Execute fallback checks only if options parameters are missing or completely blank strings
-  if not raw_runtime_dir or raw_runtime_dir == "" then
-    raw_runtime_dir = vim.fs.normalize(vim.fs.joinpath(OS.home, '.platformio'))
+  if not resolved_runtime_dir or resolved_runtime_dir == "" then
+    resolved_runtime_dir = vim.fs.normalize(vim.fs.joinpath(OS.home, '.platformio'))
   end
 
-  local bin_subfolder = OS.is_win and 'Scripts' or 'bin'
-  local target_penv = vim.fs.normalize(vim.fs.joinpath(raw_runtime_dir, 'penv'))
-  local target_bin = vim.fs.normalize(vim.fs.joinpath(raw_runtime_dir, 'penv', bin_subfolder))
+  -- local bin_subfolder = OS.is_win and 'Scripts' or 'bin'
+  local target_penv = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, 'penv'))
+  -- local target_bin = vim.fs.normalize(vim.fs.joinpath(raw_runtime_dir, 'penv', bin_subfolder))
   local verified = false
 
-  local local_pio_executable = vim.fs.normalize(vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio')))
-  if vim.fn.executable(local_pio_executable) == 1 then
-    -- main.config.pio_runtime_dir = target_bin
-    main.config.pio_runtime_dir = raw_runtime_dir
-    verified = true
-  end
+  -- local local_pio_executable = vim.fs.normalize(vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio')))
+  local local_pio_executable = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, (OS.is_win and 'penv/Scripts/pio.exe' or 'penv/bin/pio')))
+  if vim.fn.executable(local_pio_executable) == 1 then verified = true end
 
+  local resolved_storage_dir = M.resolve_user_path(current_pio_opts.pio_storage_dir) or vim.fs.normalize(vim.env.PLATFORMIO_CORE_DIR) or resolved_runtime_dir
   if verified then
-    setPenvBinPath(target_bin)
+    main.config.pio_runtime_dir = resolved_runtime_dir
+    setPenvBinPath(resolved_runtime_dir)
 
-    local raw_storage_dir = M.resolve_user_path(current_pio_opts.pio_storage_dir) or vim.fs.normalize(vim.env.PLATFORMIO_CORE_DIR) or raw_runtime_dir
-    if raw_storage_dir and vim.fn.isdirectory(raw_storage_dir) == 0 then
-      vim.fn.mkdir(raw_storage_dir, "p")
-    end
-    main.config.pio_storage_dir = raw_storage_dir
-    vim.env.PLATFORMIO_CORE_DIR = raw_storage_dir
-    -- vim.env.PLATFORMIO_PENV_DIR = target_penv
+    if resolved_storage_dir and vim.fn.isdirectory(resolved_storage_dir) == 0 then vim.fn.mkdir(resolved_storage_dir, "p") end
+    main.config.pio_storage_dir = resolved_storage_dir
+
+    vim.env.PLATFORMIO_CORE_DIR = resolved_storage_dir
+    vim.env.PLATFORMIO_PENV_DIR = target_penv
     vim.env.VIRTUAL_ENV = target_penv
 
     -- CRITICAL LOGIC ROUTING: Only fire execution callback downstream if toolchain is active!
@@ -184,27 +146,28 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
             return
           end
 
-          local resolved_runtime_dir = M.resolve_user_path(runtime_dir)
+          resolved_runtime_dir = M.resolve_user_path(runtime_dir)
           if not resolved_runtime_dir or resolved_runtime_dir == "" then
             if type(on_success_callback) == 'function' then on_success_callback(false) end
             return vim.notify("Could not resolve path", vim.log.levels.ERROR)
           end
 
           target_penv = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, 'penv'))
-          target_bin = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, 'penv', bin_subfolder))
+          -- target_bin = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, 'penv', bin_subfolder))
+          -- target_bin = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, (OS.is_win and 'penv/Scripts/pio.exe' or 'penv/bin/pio')))
 
           local prepareFolders = function (storage)
             main.options.pio.pio_runtime_dir = resolved_runtime_dir
             main.options.pio.pio_storage_dir = storage
             vim.env.PLATFORMIO_CORE_DIR = storage
-            -- vim.env.PLATFORMIO_PENV_DIR = target_penv
+            vim.env.PLATFORMIO_PENV_DIR = target_penv
             vim.env.VIRTUAL_ENV = target_penv
             clear_subdirectories(OS.nvimpio_config_dir)
-            setPenvBinPath(target_bin)
+            setPenvBinPath(resolved_runtime_dir)
             require('nvimpio.device.terminal').reopen()
           end
 
-          local_pio_executable = vim.fs.normalize(vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio')))
+          local_pio_executable = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, (OS.is_win and 'penv/Scripts/pio.exe' or 'penv/bin/pio')))
           local stat = vim.uv.fs_stat(resolved_runtime_dir)
           -- Check if the directory exists using libuv and pio executable
           local exists = stat and (stat.type == "directory") and (vim.fn.executable(local_pio_executable) == 1)
@@ -225,7 +188,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
                   if type(on_success_callback) == 'function' then on_success_callback(false) end
                   return
                 end
-                local resolved_storage_dir = M.resolve_user_path(storage_dir)
+                resolved_storage_dir = M.resolve_user_path(storage_dir) or ''
                 if not resolved_storage_dir or resolved_runtime_dir == "" then
                   if type(on_success_callback) == 'function' then on_success_callback(false) end
                   return vim.notify("Could not resolve path", vim.log.levels.ERROR)
