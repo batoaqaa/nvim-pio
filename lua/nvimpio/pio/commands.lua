@@ -76,7 +76,7 @@ cmd('PioPathSet', function ()
   require('nvimpio.core').configure_paths()
 end, {desc = 'set PlatformIO paths'})
 
--- INFO: Refresh PIO Data
+-- INFO: Refresh PIO project Data
 cmd('PioRefreshData', function ()
   _G.isBusy = true
   local target_dir = OS.nvimpio_config_dir
