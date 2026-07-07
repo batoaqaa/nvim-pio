@@ -32,7 +32,7 @@ local function clear_subdirectories(target_dir)
   end
 end
 
-local setPoiBinPath = function (target)
+local setPenvBinPath = function (target)
   local current_path = vim.env.PATH or ''
 
   local check_target = OS.is_win and target:lower() or target
@@ -55,11 +55,9 @@ end
 
 ---Defensively isolates and locks the correct active python path boundaries into Neovim's environment
 function M.enforce_virtualenv_isolation()
-  print('here 0')
   -- 1. Read the environment path strings safely from active system variables
   local active_venv = vim.env.VIRTUAL_ENV
   if not active_venv or active_venv == '' then return end
-  print('here 1')
 
   -- 2. Fully self-contained platform detection (removes reliance on external global tables)
   local bin_folder = OS.is_win and 'Scripts' or 'bin'
@@ -67,7 +65,7 @@ function M.enforce_virtualenv_isolation()
   -- Force forward slashes inside Neovim for clean parsing, or stick to native system layouts
   -- 3. Enforce clean forward slashes for the venv target path
   local venv_bin_path = vim.fs.normalize(vim.fs.joinpath(active_venv, bin_folder))
-  setPoiBinPath(venv_bin_path)
+  setPenvBinPath(venv_bin_path)
 end
 
 function M.clean(raw_path)
@@ -149,7 +147,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   end
 
   if verified then
-    setPoiBinPath(target_bin)
+    setPenvBinPath(target_bin)
 
     local raw_storage_dir = M.resolve_user_path(current_pio_opts.pio_storage_dir) or vim.fs.normalize(vim.env.PLATFORMIO_CORE_DIR) or raw_runtime_dir
     if raw_storage_dir and vim.fn.isdirectory(raw_storage_dir) == 0 then
@@ -157,7 +155,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
     end
     main.config.pio_storage_dir = raw_storage_dir
     vim.env.PLATFORMIO_CORE_DIR = raw_storage_dir
-    vim.env.PLATFORMIO_PENV_DIR = target_penv
+    -- vim.env.PLATFORMIO_PENV_DIR = target_penv
     vim.env.VIRTUAL_ENV = target_penv
 
     -- CRITICAL LOGIC ROUTING: Only fire execution callback downstream if toolchain is active!
@@ -199,10 +197,10 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
             main.options.pio.pio_runtime_dir = resolved_runtime_dir
             main.options.pio.pio_storage_dir = storage
             vim.env.PLATFORMIO_CORE_DIR = storage
-            vim.env.PLATFORMIO_PENV_DIR = target_penv
+            -- vim.env.PLATFORMIO_PENV_DIR = target_penv
             vim.env.VIRTUAL_ENV = target_penv
             clear_subdirectories(OS.nvimpio_config_dir)
-            setPoiBinPath(target_bin)
+            setPenvBinPath(target_bin)
             require('nvimpio.device.terminal').reopen()
           end
 

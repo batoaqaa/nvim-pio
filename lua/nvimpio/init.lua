@@ -115,7 +115,7 @@ function M.activate()
   vim.fn.setenv("COMPILATIONDB_INCLUDE_TOOLCHAIN", "True")
 
   -- CRITICAL PATH REPAIR: Force Python environment isolation before options are parsed or commands register
-  require('nvimpio.core').enforce_virtualenv_isolation()
+  -- require('nvimpio.core').enforce_virtualenv_isolation()
   M.initialize_full_options()
 
   -- Load statusline ONLY after verification passes!
