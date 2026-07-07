@@ -255,9 +255,9 @@ end
 
 function M.updateProjectConfig()
   local misc = require('nvimpio.utils.misc')
-  local active_env, metadata = M.get_active_env('meta load: ')
+  local active_env, metadata = M.get_active_env('meta update: ')
   if active_env and active_env ~= '' then
-    OS.notify("load_project_config" .. active_env)
+    OS.notify("update project config for: " .. active_env)
     metadata = metadata or {}
     _pio_metadata.core_dir = metadata.core_dir
     _pio_metadata.packages_dir = metadata.packages_dir
@@ -286,7 +286,7 @@ function M.updateProjectConfig()
       pio_refresh(function(suscess)
         if (suscess) then do end end
         _G.isBusy = false
-      end, 'Project load: ')
+      end, 'meta update : ')
       vim.cmd('redrawstatus')
     end)
   end
