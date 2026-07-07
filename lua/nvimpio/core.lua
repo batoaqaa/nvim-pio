@@ -219,6 +219,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
                   -- -- next recursive pass reads your newly assigned options fresh!
                   -- package.loaded["nvimpio"] = nil
 
+                  require('nvimpio.pio.ui.pioRepair').pioRepair()
                   M.ensure_toolchain_active(on_success_callback, retry_counter + 1)
                 end
               end)
@@ -231,7 +232,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
                 if type(on_success_callback) == 'function' then on_success_callback(false) end
                 return
               end
-              local resolved_storage_dir = M.resolve_user_path(storage_dir)
+              resolved_storage_dir = M.resolve_user_path(storage_dir) or ''
               if not resolved_storage_dir or resolved_runtime_dir == "" then
                 if type(on_success_callback) == 'function' then on_success_callback(false) end
                 return vim.notify("Could not resolve path", vim.log.levels.ERROR)
