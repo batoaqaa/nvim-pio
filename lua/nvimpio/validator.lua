@@ -63,6 +63,19 @@ function M.validate_all_options(opt)
       ['clangd.install'] = { clangd.install, 'boolean' },
     })
 
+    -- Lock validation exactly down to your three string strategies
+    local allowed_modes = { ['attach+'] = true, ['attach'] = true, ['none'] = true }
+    if not allowed_modes[clangd.attach] then
+      error(
+        '\n[NVIM-PIO] Configuration Error:\n'
+          .. "'clangd.attach' must be exactly 'attach+', 'attach', or 'none'.\n"
+          .. "Received: '"
+          .. tostring(clangd.attach)
+          .. "'",
+        0
+      )
+    end
+
     -- 3. Execute nested menu loops
     for i, binding in ipairs(opt.menu_bindings or {}) do
       M.validate_node(binding, string.format('menu_bindings[%d]', i))

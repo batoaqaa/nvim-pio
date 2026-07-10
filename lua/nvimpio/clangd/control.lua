@@ -1,3 +1,4 @@
+-- stylua: ignore start
 local M = {}
 
 local boilerplate = require('nvimpio.boilerplate')
@@ -5,7 +6,6 @@ local boilerplate_gen = boilerplate.boilerplate_gen
 local diagnosticClangd = require('nvimpio.clangd.diagnostic')
 local has_pio_diag, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
 
--- stylua: ignore start
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
@@ -347,13 +347,13 @@ function M.getUnknownArgsGui(from)
     OS.notify('getting unknown arguments for file ' .. check_file)
     --------------------------------------------------------------------------------
     -- gui
-    local cmd_str = string.format('%s -E -dM -xc++ %s', _G.metadata.cxx_path, table.concat(_G.metadata.cxx_flags, ' '))
-    -- local cmd_str = string.format(
-    --   '%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error --enable-config --fallback-style=llvm --compile_args_from=filesystem',
-    --   clangdCmd,
-    --   check_file,
-    --   _G.metadata.query_driver
-    -- )
+    -- local cmd_str = string.format('%s -E -dM -xc++ %s', _G.metadata.cxx_path, table.concat(_G.metadata.cxx_flags, ' '))
+    local cmd_str = string.format(
+      '%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error --enable-config --fallback-style=llvm --compile_args_from=filesystem',
+      clangdCmd,
+      check_file,
+      _G.metadata.query_driver
+    )
     -- local pio = require('nvimpio.pio.upkeep')
     local parser = require('nvimpio.device.parser')
     local cb = function(status)
@@ -383,7 +383,10 @@ function M.init(clangd)
 
   require('nvimpio.clangd.commands')
   require('nvimpio.clangd.diagnostic')
-  require('nvimpio.clangd.attach')
+
+  if clangd.attach ~= "none" then
+    require('nvimpio.clangd.attach').init(clangd)
+  end
 
   -- -- Apply and Enable
   local clangConfig = M.getClangdConfig()
@@ -397,6 +400,5 @@ function M.init(clangd)
 
 end
 
--- stylua: ignore end
-
 return M
+-- stylua: ignore end
