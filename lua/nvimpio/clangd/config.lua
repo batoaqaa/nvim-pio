@@ -31,10 +31,12 @@ if fidgetok then
   if not is_fidget_loaded then
     fidget.setup({ fidget_config })
   else
-    local fidget_settings = require('fidget.settings')
-
-    -- Deep extend the live global configuration table directly
-    fidget_settings.current = vim.tbl_deep_extend('force', fidget_settings.current or {}, fidget_config)
+    if fidget.options then
+      fidget.options = vim.tbl_deep_extend('force', fidget.options or {}, fidget_config)
+    else
+      -- Fallback safe re-setup block if your user's specific fidget version locks down option fields
+      pcall(fidget.setup, fidget_config)
+    end
   end
 end
 vim.notify = require('fidget').notify
