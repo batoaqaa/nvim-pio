@@ -103,7 +103,6 @@ end
 ----------------------------------------------------------------------------------------
 -- INFO: install clangd using mason-lspconfig
 -----------------------------------------------------------------------------------------
-local is_mason_lsp_loaded = package.loaded['mason-lspconfig'] ~= nil
 local mason_lsp_ok, mason_lspconfig = pcall(require, 'mason-lspconfig')
 local lspconfig_config = {
   -- Add any servers you want to guarantee exist in your environment
@@ -111,21 +110,23 @@ local lspconfig_config = {
   automatic_installation = true,
 }
 
+local is_mason_lsp_loaded = package.loaded['mason-lspconfig'] ~= nil
 if mason_lsp_ok then
   if not is_mason_lsp_loaded then
     -- CASE 1: True first-time load. Trigger core bridging system and automatic installs.
     mason_lspconfig.setup(lspconfig_config)
   else
-    -- CASE 2: Already active in runtime memory.
-    -- Mutate the active configuration table to dynamically register new settings/servers.
-    local lsp_settings = require('mason-lspconfig.settings')
-
-    -- Deep extend the live global configuration table directly
-    lsp_settings.current = vim.tbl_deep_extend('force', lsp_settings.current or {}, lspconfig_config)
-
-    -- 💡 Bonus: If your PlatformIO pipeline just updated `ensure_installed`,
-    -- you can tell Mason-LSPConfig to immediately process and check for missing servers right now!
-    require('mason-lspconfig.ensure_installed')()
+    -- -- CASE 2: Already active in runtime memory.
+    -- -- Mutate the active configuration table to dynamically register new settings/servers.
+    -- local lsp_settings = require('mason-lspconfig.settings')
+    --
+    -- -- Deep extend the live global configuration table directly
+    -- lsp_settings.current = vim.tbl_deep_extend('force', lsp_settings.current or {}, lspconfig_config)
+    --
+    -- -- 💡 Bonus: If your PlatformIO pipeline just updated `ensure_installed`,
+    -- -- you can tell Mason-LSPConfig to immediately process and check for missing servers right now!
+    -- require('mason-lspconfig.ensure_installed')()
+    pcall(mason_lspconfig.setup, lspconfig_config)
   end
 else
   OS.notify('mason-lspconfig is not installed on this system!', 'warn')
