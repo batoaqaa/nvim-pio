@@ -22,11 +22,6 @@ function M.init(clangd)
       end
 
       ------------------------------------------------------------------
-      -- INFO: ClangdDiagnosticBlock
-      vim.api.nvim_create_user_command('ClangdFilter', function()
-        require('nvimpio.clangd.diagnostic').manage_file_diagnostics_interactive()
-      end, {})
-
       vim.api.nvim_buf_create_user_command(bufnr, 'LspClangdSwitchSourceHeader', function()
         local params = vim.lsp.util.make_text_document_params(bufnr)
         client:request('textDocument/switchSourceHeader', params, function(err, result)
