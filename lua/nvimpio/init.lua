@@ -26,7 +26,7 @@ local isActivated = false -- Tracks if commands/features are loaded
 -- Persistent internal storage for runtime verified properties
 M.config = { pio_runtime_dir = nil, pio_storage_dir = nil, debug = false}
 
-M.options = {pio = {},}
+M.options = {}
 -- -- Define a metatable that automatically creates a table if the key is missing
 -- local auto_table_meta = {
 --   __index = function(t, k)
@@ -155,6 +155,7 @@ function M.setup(user_opts)
     local metadata = require('nvimpio.pio.metadata').load_project_config()
 
     if metadata and metadata.penv_dir then
+      if not M.options.pio then M.options.pio = {} end
       M.options.pio.pio_runtime_dir = metadata.penv_dir
       if metadata and metadata.core_dir then
         M.options.pio.pio_storage_dir = metadata.core_dir
