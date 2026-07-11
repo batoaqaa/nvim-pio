@@ -19,8 +19,7 @@ function M.init(clangd)
         return
       end
 
-      -- print('Attaching to: ' .. client.name .. ' attached to buffer ' .. bufnr)
-      OS.notify('Attaching to: ' .. client.name .. ' attached to buffer ' .. bufnr, 'info')
+      print('Attaching to: ' .. client.name .. ' attached to buffer ' .. bufnr)
       ------------------------------------------------------------------
       vim.api.nvim_buf_create_user_command(bufnr, 'LspClangdSwitchSourceHeader', function()
         local params = vim.lsp.util.make_text_document_params(bufnr)
@@ -114,8 +113,7 @@ function M.init(clangd)
       local client_id = arg.data.client_id
       local client = vim.lsp.get_client_by_id(client_id)
       if not client or client.name ~= 'clangd' then return end
-      -- print('Detaching ' .. client.name .. ' from buffer ' .. bufnr)
-      OS.notify('Detaching ' .. client.name .. ' from buffer ' .. bufnr, 'info')
+      print('Detaching ' .. client.name .. ' from buffer ' .. bufnr)
     end,
   })
 end
