@@ -26,7 +26,7 @@ local isActivated = false -- Tracks if commands/features are loaded
 -- Persistent internal storage for runtime verified properties
 M.config = { pio_runtime_dir = nil, pio_storage_dir = nil, debug = false}
 
-M.options = { pio_runtime_dir = nil, pio_storage_dir = nil}
+M.options = {pio = {},}
 -- -- Define a metatable that automatically creates a table if the key is missing
 -- local auto_table_meta = {
 --   __index = function(t, k)
