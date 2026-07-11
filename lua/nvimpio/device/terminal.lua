@@ -298,9 +298,11 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
 
+
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
+  -- 1. INTERCEPT PIPELINE: Take absolute control over manual command exits (:q and :q!)
   vim.api.nvim_create_autocmd('CmdlineLeave', {
     group = group_id,
     buffer = self.buf,
@@ -308,11 +310,17 @@ function Terminal:_register_viewport_bindings()
       if vim.v.event and not vim.v.event.abort and vim.v.event.cmdtype == ':' then
         local cmd = vim.fn.getcmdline()
         if cmd == 'q' or cmd == 'q!' then
+          -- STOP NEOCLOSE: Wipe the layout text execution string immediately to protect Neo-tree
+          vim.fn.setcmdline('')
+
           if cmd == 'q!' then
+            -- Cleanly terminate backend task PIDs and drop buffer registry tags
             self:on_close()
           end
+
+          -- Safely hide ONLY this specific terminal window layout slice split
           vim.schedule(function()
-            self:on_quit()
+            M.hide()
           end)
         end
       end
@@ -329,6 +337,7 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 
+  -- 2. HARD RECOVERY LIFECYCLE GUARD: Handles mouse closures, pane jumps, and layout resets
   vim.api.nvim_create_autocmd('WinClosed', {
     group = group_id,
     callback = function()
@@ -338,13 +347,17 @@ function Terminal:_register_viewport_bindings()
 
       local closed_win = tonumber(vim.fn.expand('<amatch>'))
       if closed_win == M.layout.container_win then
+        -- FORCE SHUTDOWN: If the visible layout frame split goes away, make sure the active node dies
+        if M.terminals[M.layout.active_type] then
+          M.terminals[M.layout.active_type]:on_close()
+        end
+
         M.layout.container_win = nil
         M.layout.active_type = nil
       end
     end,
   })
 end
-
 
 
 -- nvimpio/device/terminal.lua - Part 3
