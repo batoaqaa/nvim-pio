@@ -123,7 +123,7 @@ function M.init(clangd)
 
       local filename = vim.fs.basename(vim.api.nvim_buf_get_name(bufnr)) or "Unknown"
       -- print('Detaching ' .. client.name .. ' from buffer ' .. bufnr .. ' ' .. filename)
-      OS.notify(string.format('Attaching %s to buffer %d (%s)', client.name, bufnr, filename), 'info')
+      OS.notify(string.format('Detaching %s from buffer %d (%s)', client.name, bufnr, filename), 'info')
     end,
   })
 end
