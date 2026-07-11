@@ -57,6 +57,7 @@ function M.UpdateWinbarTitles()
     return (a._creation_index or 0) < (b._creation_index or 0)
   end)
 
+  -- local tab_string = ' '
   local tab_string = string.format("%%#%sDim# ", M.config.winbar_hl_group)
   local total_terminals = 0
 
@@ -73,6 +74,7 @@ function M.UpdateWinbarTitles()
   local hint = (total_terminals > 1) and string.format(' [ %s  Switch;  %s  Hide; :q! Quit ] ', maps.switch_pane, maps.hide_pane)
     or string.format(' [ %s  Hide; :q! Quit ] ', maps.hide_pane)
 
+  -- vim.api.nvim_set_option_value('winbar', tab_string .. '%=' .. hint, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('winbar', string.format("%s%%#%sDim#%%=%s", tab_string, M.config.winbar_hl_group, hint), { scope = 'local', win = M.layout.container_win })
 end
 
@@ -105,7 +107,6 @@ function M.RestoreWorkspaceFocus()
   end
 end
 
-
 -- nvimpio/device/terminal.lua - Part 2
 
 ----------------------------------------------------------------------------------------
@@ -137,7 +138,6 @@ function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   self:_register_viewport_mappings()
-  self:_register_viewport_bindings()
 end
 
 --- Rigid Focus-Locked Background Process Payload Dispatcher Matrix
@@ -216,16 +216,9 @@ function Terminal:on_exit()
 end
 
 function Terminal:on_close()
-  -- 1. Safely drop the active low-level process task
   if self.job and self.job > 0 then
     pcall(vim.fn.jobstop, self.job)
   end
-
-  -- 2. Clean up specific autocommand group attached to this unique buffer index
-  if self.buf then
-    pcall(vim.api.nvim_del_augroup_by_name, 'PioLocalEvents_' .. self.buf)
-  end
-
   self.job = nil
   self.buf = nil
 end
@@ -279,6 +272,10 @@ function Terminal:_register_viewport_mappings()
     M.SwitchTerminalPane()
   end, { buffer = self.buf, silent = true })
 
+  -- vim.keymap.set('t', maps.hide_pane, function()
+  --   vim.api.nvim_input([[<C-\><C-n>]])
+  --   M.toggle()
+  -- end, { buffer = self.buf, silent = true })
   vim.keymap.set('n', maps.hide_pane, function()
     M.toggle()
   end, { buffer = self.buf })
@@ -289,6 +286,8 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
+
+-- nvimpio/device/terminal.lua - Part 3
 
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
@@ -339,12 +338,6 @@ function Terminal:_register_viewport_bindings()
   })
 end
 
-
--- nvimpio/device/terminal.lua - Part 3
-
-----------------------------------------------------------------------------------------
--- CORE API ORCHESTRATION INTERFACE LAYER
-----------------------------------------------------------------------------------------
 function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   local final_filetype = nil
   local final_cb = nil
@@ -355,15 +348,6 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   else
     final_filetype = filetype_or_cb or ('terminal_' .. name)
     final_cb = custom_stdout
-  end
-
-  -- REUSE OPTIMIZATION: If the node already has a dedicated slot, keep its sorting index locked
-  if M.terminals[name] then
-    M.terminals[name].title = title
-    M.terminals[name].filetype = final_filetype
-    M.terminals[name]._custom_stdout = final_cb
-    M.terminals[name]:on_create()
-    return M.terminals[name]
   end
 
   local current_count = 0
@@ -390,7 +374,6 @@ function M.show(term_type)
     return
   end
 
-  -- AUTOMATIC RE-USE ALLOCATION GATEWAYS
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
   end
