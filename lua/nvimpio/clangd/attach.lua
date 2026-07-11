@@ -23,7 +23,7 @@ function M.init(clangd)
       -- Get the human-readable filename for clean logs
       local filename = vim.fs.basename(vim.api.nvim_buf_get_name(bufnr)) or "Unknown"
       -- print(string.format('Attaching %s to buffer %d (%s)', client.name, bufnr, filename))
-      OS.notify(string.format('Attaching %s to buffer %d (%s)', client.name, bufnr, filename), 'trace')
+      OS.notify(string.format('Attaching %s to buffer %d (%s)', client.name, bufnr, filename), 'debug')
 
       ------------------------------------------------------------------
       -- 1. Switch Source/Header Command
@@ -124,7 +124,7 @@ function M.init(clangd)
 
       local filename = vim.fs.basename(vim.api.nvim_buf_get_name(bufnr)) or "Unknown"
       -- print('Detaching ' .. client.name .. ' from buffer ' .. bufnr .. ' ' .. filename)
-      OS.notify(string.format('Detaching %s from buffer %d (%s)', client.name, bufnr, filename), 'trace')
+      OS.notify(string.format('Detaching %s from buffer %d (%s)', client.name, bufnr, filename), 'debug')
     end,
   })
 end
