@@ -12,6 +12,8 @@ local function getCli()
         return term.cli
       end
     end)
+  elseif term.terminals['cli'] then
+    return term.cli
   end
 end
 --- Handles and formats asynchronous vim.system errors cleanly
