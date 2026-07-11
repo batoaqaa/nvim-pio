@@ -145,26 +145,39 @@ function Terminal:send(command)
   local cmd_str = tostring(command or '')
   local original_work_win = vim.api.nvim_get_current_win()
 
+  -- EXTERNAL RESURRECTION DETECTOR: Auto-recreates structural handles if killed by a previous :q!
+  local was_dead = not self.buf or not vim.api.nvim_buf_is_valid(self.buf)
+  if was_dead then
+    self:on_create()
+  end
+
   if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.active_type ~= self.term_type then
     M.show(self.term_type)
   end
+
+  self:on_spawn()
 
   if not self.job or self.job <= 0 then
     return
   end
 
-  -- Prompt Separation Guard: Pad string with a leading space if necessary
   if cmd_str ~= '' and not cmd_str:match('^%s') then
     cmd_str = ' ' .. cmd_str
   end
 
-  -- Dispatch raw, clean command text downstream directly into process channel pipe
-  vim.fn.chansend(self.job, cmd_str .. self.newline)
+  -- ASYNC CONTEXT SCHEDULER GUARD: Throttles text feed on clean channel transformations
+  if was_dead then
+    vim.schedule(function()
+      if self.job and self.job > 0 then
+        vim.fn.chansend(self.job, cmd_str .. self.newline)
+      end
+    end)
+  else
+    vim.fn.chansend(self.job, cmd_str .. self.newline)
+  end
 
-  -- Clean low-level normal mode constraint injection
   vim.api.nvim_set_option_value('winbar', vim.api.nvim_get_option_value('winbar', { win = M.layout.container_win }), { win = M.layout.container_win })
 
-  -- Atomic Viewport Pinning: Snaps the text view instantly without changing active focus
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) and not self._is_scrolling then
     self._is_scrolling = true
     vim.schedule(function()
@@ -178,10 +191,8 @@ function Terminal:send(command)
     end)
   end
 
-  -- LUA PRIMITIVE: Force normal mode layout enforcement without string command evaluation overhead
   vim.api.nvim_input([[<C-\><C-n>]])
 
-  -- Hard focus lock: Reverts cursor to the original file buffer instantly
   if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
     pcall(vim.api.nvim_set_current_win, original_work_win)
   end
@@ -216,21 +227,19 @@ function Terminal:on_exit()
 end
 
 function Terminal:on_close()
-  -- 1. Safely drop the active low-level process task
   if self.job and self.job > 0 then
     pcall(vim.fn.jobstop, self.job)
   end
-
-  -- 2. Clean up specific autocommand group attached to this unique buffer index
+  if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
+    pcall(vim.api.nvim_buf_delete, self.buf, { force = true })
+  end
   if self.buf then
     pcall(vim.api.nvim_del_augroup_by_name, 'PioLocalEvents_' .. self.buf)
   end
-
   self.job = nil
   self.buf = nil
 end
 
--- Refactored references pointing cleanly to system endpoints
 function Terminal:on_quit() M.hide() end
 function Terminal:hide() M.hide() end
 
@@ -261,7 +270,6 @@ end
 function Terminal:enter_insert_mode()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
-    -- LUA PRIMITIVE: Trigger low-level insert injection
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('startinsert', true, false, true), 'n', false)
   end
 end
@@ -293,7 +301,6 @@ end
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
-  -- Intercept manual command exits (:q and :q!)
   vim.api.nvim_create_autocmd('CmdlineLeave', {
     group = group_id,
     buffer = self.buf,
@@ -322,7 +329,6 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 
-  -- FIXED WORKSPACE GUARD: Safely releases window parameters upon manual pane closure
   vim.api.nvim_create_autocmd('WinClosed', {
     group = group_id,
     callback = function()
@@ -338,6 +344,7 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 end
+
 
 
 -- nvimpio/device/terminal.lua - Part 3
@@ -357,7 +364,7 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
     final_cb = custom_stdout
   end
 
-  -- REUSE OPTIMIZATION: If the node already has a dedicated slot, keep its sorting index locked
+  -- REUSE GATEWAY: Safeguards index arrays from inflating and shifting tab sorting configurations
   if M.terminals[name] then
     M.terminals[name].title = title
     M.terminals[name].filetype = final_filetype
@@ -374,9 +381,7 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
   M.terminals[name]._creation_index = current_count + 1
 
-  -- Create explicit roots on the module so require('...').cli works instantly
   M[name] = M.terminals[name]
-
   M.terminals[name]:on_create()
   return M.terminals[name]
 end
@@ -390,7 +395,6 @@ function M.show(term_type)
     return
   end
 
-  -- AUTOMATIC RE-USE ALLOCATION GATEWAYS
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
   end
@@ -406,7 +410,6 @@ function M.show(term_type)
     target_instance:on_spawn()
     M.UpdateWinbarTitles()
 
-    -- LUA PRIMITIVE: Optimized normal-mode switch escape sequence
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
 
     if old_win ~= M.layout.container_win then
@@ -419,7 +422,6 @@ function M.show(term_type)
   target_instance:on_spawn()
   M.UpdateWinbarTitles()
 
-  -- LUA PRIMITIVE: Optimized normal-mode switch escape sequence
   vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes([[<C-\><C-n>]], true, true, true), 'n', false)
 end
 
@@ -476,7 +478,7 @@ function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
---- CRITICAL STATEFUL COMMAND DISPATCHER MATRIX
+--- CRITICAL STATEFUL COMMAND DISPATCHER MATRIX (Safely hooks onto :q! targets)
 function M.send_and_restore(cmd)
   local was_visible = M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
   local target_instance = M.terminals.cli
@@ -484,12 +486,14 @@ function M.send_and_restore(cmd)
     return
   end
 
-  if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
+  local was_dead = not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf)
+
+  if was_dead then
     target_instance:on_create()
   end
   target_instance:on_spawn()
 
-  if was_visible then
+  if was_visible and not was_dead then
     pcall(vim.api.nvim_win_set_buf, M.layout.container_win, target_instance.buf)
     M.layout.active_type = 'cli'
     M.UpdateWinbarTitles()
@@ -498,7 +502,6 @@ function M.send_and_restore(cmd)
       vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
     end
 
-    -- LUA PRIMITIVE: Dynamic input buffer escape execution
     vim.api.nvim_input([[<C-\><C-n>]])
     return
   end
@@ -523,15 +526,23 @@ function M.send_and_restore(cmd)
   end
 
   M.show('cli')
-  if target_instance.job and target_instance.job > 0 then
-    vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
+
+  if was_dead then
+    vim.schedule(function()
+      if target_instance.job and target_instance.job > 0 then
+        vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
+      end
+    end)
+  else
+    if target_instance.job and target_instance.job > 0 then
+      vim.fn.chansend(target_instance.job, cmd .. target_instance.newline)
+    end
   end
 
   if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
     pcall(vim.api.nvim_set_current_win, original_work_win)
   end
 
-  -- LUA PRIMITIVE: Dynamic input buffer escape execution
   vim.api.nvim_input([[<C-\><C-n>]])
 end
 

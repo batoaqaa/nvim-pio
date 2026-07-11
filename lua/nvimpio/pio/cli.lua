@@ -6,16 +6,17 @@ local M = {}
 local function getCli()
   local term = require('nvimpio.device.terminal')
   local cli_instance = term.terminals.cli
-  if not cli_instance or not cli_instance.buf or not vim.api.nvim_buf_is_valid(cli_instance.buf) then
-    term.create_terminal('cli', ' CLI ', function(j, d, e)
-      if type(term.stdout_callback) == 'function' then
-        term.stdout_callback(j, d, e)
-        return cli_instance
-      end
-    end)
-  else
-    return cli_instance
-  end
+  -- if not cli_instance or not cli_instance.buf or not vim.api.nvim_buf_is_valid(cli_instance.buf) then
+  --   term.create_terminal('cli', ' CLI ', function(j, d, e)
+  --     if type(term.stdout_callback) == 'function' then
+  --       term.stdout_callback(j, d, e)
+  --       return cli_instance
+  --     end
+  --   end)
+  -- else
+  --   return cli_instance
+  -- end
+  return cli_instance
 end
 --- Handles and formats asynchronous vim.system errors cleanly
 ---@param from string The notification origin tag
