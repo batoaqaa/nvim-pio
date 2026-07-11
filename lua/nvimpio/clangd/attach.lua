@@ -7,17 +7,14 @@ function M.init(clangd)
   vim.api.nvim_create_autocmd('LspAttach', {
     group = pio_group,
     callback = function(args)
-      local client = assert(vim.lsp.get_client_by_id(args.data.client_id))
+      local client = vim.lsp.get_client_by_id(args.data.client_id)
       local bufnr = args.buf
 
-      -- Fast exit: If this attached server isn't clangd, do absolutely nothing
       if not client or client.name ~= 'clangd' then return end
 
       -- Stop here for non-file buffers (like git:// or nvim://)
       local uri = vim.uri_from_bufnr(bufnr)
-      if not uri:match('^file://') then
-        return
-      end
+      if not uri:match('^file://') then return end
 
       ------------------------------------------------------------------
       vim.api.nvim_buf_create_user_command(bufnr, 'LspClangdSwitchSourceHeader', function()
@@ -34,13 +31,14 @@ function M.init(clangd)
           -- Use vim.schedule to ensure we aren't editing while the LSP is in a callback
           vim.schedule(function()
             local target = type(result) == 'string' and result or result.uri
+            -- FIXED: Removed the redundant double conversion function wrap
             local fname = vim.uri_to_fname(target)
-            vim.cmd.edit(vim.uri_to_fname(fname))
+            vim.cmd.edit(fname)
           end)
         end, bufnr)
       end, { desc = 'Switch between source/header' })
 
-      -- use lsp completion if no blink
+      -- Use lsp completion if blink.cmp is not loaded
       local ok, _ = pcall(require, 'blink.cmp')
       if not ok then
         if client:supports_method('textDocument/completion') then
@@ -48,9 +46,9 @@ function M.init(clangd)
 
           -- Enable native completion for this specific client and buffer
           vim.lsp.completion.enable(true, client.id, args.buf, { autotrigger = true })
-          vim.keymap.set('i', '<C-Space', function()
+          vim.keymap.set('i', '<C-Space>', function()
             vim.lsp.completion.get()
-          end)
+          end, { buffer = bufnr, desc = 'Trigger native LSP completion' })
         end
       end
 
@@ -59,17 +57,14 @@ function M.init(clangd)
         vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
       end
 
+      -- Document Colors using Neovim 0.11 syntax
       if vim.lsp.document_color and client:supports_method('textDocument/documentColor') then
-        -- vim.lsp.document_color.enable(true, args.buf, { style = 'background', -- 'background', 'foreground', or 'virtual' })
-        vim.lsp.document_color.enable(true, {
-          bufnr = args.buf,
-          style = 'inline', -- This is the modern 0.11 way to show color icons
-        })
+        vim.lsp.document_color.enable(true, { bufnr = args.buf, style = 'inline', })
       end
 
       ------------------------------------------------------------------
-      if client and client:supports_method('textDocument/documentHighlight') then
-        local highlight_augroup = vim.api.nvim_create_augroup('platformio-lsp-highlight', { clear = false })
+      if client:supports_method('textDocument/documentHighlight') then
+        local highlight_augroup = vim.api.nvim_create_augroup('platformio-lsp-highlight-' .. bufnr, { clear = true })
 
         vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
           group = highlight_augroup,
@@ -82,44 +77,42 @@ function M.init(clangd)
           buffer = bufnr,
           callback = vim.lsp.buf.clear_references,
         })
-        --
+
         vim.api.nvim_create_autocmd('LspDetach', {
           group = highlight_augroup,
-          -- group = vim.api.nvim_create_augroup('platformio-lsp-detach', { clear = true }),
+          buffer = bufnr, -- Restrict this cleanup strictly to this specific buffer number
           callback = function(event)
             vim.lsp.buf.clear_references()
-            vim.api.nvim_clear_autocmds({ group = 'platformio-lsp-highlight', buffer = event.buf })
+            pcall(vim.api.nvim_clear_autocmds, { group = highlight_augroup, buffer = event.buf })
           end,
         })
-        --
       end
 
       ------------------------------------------------------------------
+      -- if attach == "attach+", mount keymaps
       if clangd.attach == 'attach+' then
         local lspkeymaps = require('nvimpio.clangd.keymaps')
         lspkeymaps.lspKeymaps(client, bufnr)
       end
 
       ------------------------------------------------------------------
-      vim.cmd([[autocmd FileType * set formatoptions-=ro]])
-      --
+      -- Stop comments from auto-extending onto new lines
+      vim.bo[bufnr].formatoptions = vim.bo[bufnr].formatoptions:gsub('[ro]', '')
     end,
   })
 
+  -- Core system memory cleanup tracking
   vim.api.nvim_create_autocmd('LspDetach', {
     group = vim.api.nvim_create_augroup('LspCleanup', { clear = true }),
     callback = function(arg)
       local bufnr = arg.buf
       local client = vim.lsp.get_client_by_id(arg.data.client_id)
       if not client or client.name ~= 'clangd' then return end
+
       if client.attached_buffers then
         vim.api.nvim_echo({ { 'Detaching ' .. client.name .. ' from buffer ' .. bufnr, 'Info' } }, true, {})
-        local count = 0
-        for _ in pairs(client.attached_buffers) do
-          count = count + 1
-        end
-
-        if count == 1 then client:stop(true) end
+        local active_buffers = vim.tbl_count(client.attached_buffers)
+        if active_buffers <= 1 then client:stop(true) end
       end
     end,
   })
