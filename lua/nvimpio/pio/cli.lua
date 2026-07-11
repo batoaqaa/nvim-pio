@@ -4,7 +4,7 @@ local M = {}
 -- local term = require('nvimpio.device.terminal').terminals
 
 local function getCli()
-  local term = require('nvimpio.device.terminal').terminals
+  local term = require('nvimpio.device.terminal')
   if not term.terminals['cli'] then
     term.create_terminal('cli', ' CLI ', function(j, d, e)
       if type(term.stdout_callback) == 'function' then
