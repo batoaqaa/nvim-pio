@@ -5,7 +5,7 @@ local fidget_config = {
   version = '*',
   notification = {
     override_vim_notify = true, -- This redirect vim.notify to fidget
-    filter = vim.log.levels.DEBUG,
+    -- filter = vim.log.levels.DEBUG,
     -- How to configure notification groups when instantiated
     configs = { default = require('fidget.notification').default_config },
   },
