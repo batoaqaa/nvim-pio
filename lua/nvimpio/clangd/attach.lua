@@ -109,8 +109,8 @@ function M.init(clangd)
       local client = vim.lsp.get_client_by_id(arg.data.client_id)
       if not client or client.name ~= 'clangd' then return end
 
-      if client.attached_buffers then
         vim.api.nvim_echo({ { 'Detaching ' .. client.name .. ' from buffer ' .. bufnr, 'Info' } }, true, {})
+      if client.attached_buffers then
         local active_buffers = vim.tbl_count(client.attached_buffers)
         if active_buffers <= 1 then client:stop(true) end
       end
