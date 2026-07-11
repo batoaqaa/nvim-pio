@@ -22,7 +22,7 @@ function M.init(clangd)
 
       -- Get the human-readable filename for clean logs
       local filename = vim.fs.basename(vim.api.nvim_buf_get_name(bufnr)) or "Unknown"
-      print('Attaching to: ' .. client.name .. ' attached to buffer ' .. bufnr .. ' ' .. filename)
+      print(string.format('Attaching %s to buffer %d (%s)', client.name, bufnr, filename))
 
       ------------------------------------------------------------------
       -- 1. Switch Source/Header Command

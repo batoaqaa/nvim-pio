@@ -107,7 +107,7 @@ function M.activate()
   vim.notify('NVIM-PIO: Features Activated', vim.log.levels.INFO)
 
   -- -- Force PlatformIO to output full absolute paths for the toolchain binaries
-  -- vim.env.COMPILATIONDB_INCLUDE_TOOLCHAIN = "True"
+  vim.env.COMPILATIONDB_INCLUDE_TOOLCHAIN = "True"
   -- vim.env.CLANGD_TRACE = nil
 
   M.initialize_full_options()

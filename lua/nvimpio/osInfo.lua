@@ -109,10 +109,12 @@ local os_info = {
   notify = function(msg, level)
     -- vim.log = { levels = { TRACE = 0, DEBUG = 1, INFO = 2, WARN = 3, ERROR = 4, OFF = 5, }, }
     local string_to_level = {
+      trace = vim.log.levels.TRACE,
+      debug = vim.log.levels.DEBUG,
       info = vim.log.levels.INFO,
       warn = vim.log.levels.WARN,
       error = vim.log.levels.ERROR,
-      debug = vim.log.levels.DEBUG,
+      off = vim.log.levels.OFF,
     }
     if type(level) == 'string' then level = string_to_level[level:lower()] end
 
