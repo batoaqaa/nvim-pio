@@ -118,6 +118,7 @@ function M.init(clangd)
     callback = function(arg)
       local bufnr = arg.buf
       local client = vim.lsp.get_client_by_id(arg.data.client_id)
+      OS.notify('here', 'info')
       if client and client.attached_buffers then
         vim.api.nvim_echo({ { 'Detaching ' .. client.name .. ' from buffer ' .. bufnr, 'Info' } }, true, {})
         -- local count = 0
