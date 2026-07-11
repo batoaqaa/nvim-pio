@@ -44,6 +44,9 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
   end,
 }
 
+  -- "cmd_env": {
+  --   "CLANGD_TRACE": ""
+  -- },
 -- "--background-index-priority=low",
 -- INFO: .clangd_config
 ----------------------------------------------------------------------------------------
@@ -70,9 +73,6 @@ boilerplate['.clangdConfig.json'] = {
     "--compile-commands-dir=%s",
     "--query-driver=%s"
   ],
-  "cmd_env": {
-    "CLANGD_TRACE": ""
-  },
   "filetypes": [
     "c",
     "cpp",
