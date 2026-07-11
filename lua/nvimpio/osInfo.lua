@@ -132,15 +132,11 @@ local os_info = {
   ---@param local_pio_executable string The message to display
   ---@return boolean
   pioReady = function(local_pio_executable)
-    if _pioReady then return true end
-    -- local local_pio_executable = target_bin .. OS.folder_sep .. (OS.is_win and 'pio.exe' or 'pio')
-    if vim.fn.executable(local_pio_executable) ~= 1 then return false end
+    _pioReady = false
+    if vim.fn.executable(local_pio_executable) ~= 1 then _pioReady = false end
     local ok, obj = pcall(function() return vim.system({ local_pio_executable, '--version' }):wait() end)
-    if ok and obj and (obj.code == 0)  and obj.stdout:match("PlatformIO") then
-      _pioReady = true
-      return true
-    end
-    return false
+    if ok and obj and (obj.code == 0)  and obj.stdout:match("PlatformIO") then _pioReady = true end
+    return _pioReady
   end,
 } ---@as OS
 
