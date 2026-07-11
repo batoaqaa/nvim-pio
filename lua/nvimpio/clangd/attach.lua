@@ -31,7 +31,6 @@ function M.init(clangd)
           -- Use vim.schedule to ensure we aren't editing while the LSP is in a callback
           vim.schedule(function()
             local target = type(result) == 'string' and result or result.uri
-            -- FIXED: Removed the redundant double conversion function wrap
             local fname = vim.uri_to_fname(target)
             vim.cmd.edit(fname)
           end)
@@ -80,10 +79,13 @@ function M.init(clangd)
 
         vim.api.nvim_create_autocmd('LspDetach', {
           group = highlight_augroup,
-          buffer = bufnr, -- Restrict this cleanup strictly to this specific buffer number
+          buffer = bufnr,
           callback = function(event)
             vim.lsp.buf.clear_references()
-            pcall(vim.api.nvim_clear_autocmds, { group = highlight_augroup, buffer = event.buf })
+            -- Avoid mutating autocommand indices mid-flight by scheduling the clearing loop
+            vim.schedule(function()
+              pcall(vim.api.nvim_clear_autocmds, { group = highlight_augroup, buffer = event.buf })
+            end)
           end,
         })
       end
@@ -111,8 +113,9 @@ function M.init(clangd)
 
       -- Clean Neovim 0.11+ client name tracking
       local client_name = nil
-      if client then client_name = client.name
-      else -- Scan currently active servers to extract the name cache
+      if client then 
+        client_name = client.name
+      else -- Look up name across remaining servers
         for _, c in ipairs(vim.lsp.get_clients()) do
           if c.id == client_id then
             client_name = c.name
@@ -122,38 +125,29 @@ function M.init(clangd)
         end
       end
 
-      -- If we extracted a name and it is not clangd, exit early
+      -- If it's a valid client name but definitely not clangd, stop execution immediately
       if client_name and client_name ~= 'clangd' then return end
-
-      -- Fallback label if the structural data has already dissolved entirely
       client_name = client_name or "clangd"
 
-      -- Persistent notice display using the standard notifications interface
-      OS.notify('Detaching ' .. client_name .. ' from buffer ' .. bufnr, 'info')
+      -- FIX: Wrap the notification loop in a safe asynchronous schedule bubble.
+      -- This stops Neovim's synchronous buffer deletion sequence from wiping out the notify render!
+      vim.schedule(function()
+        if OS and OS.notify then
+          OS.notify('Detaching ' .. client_name .. ' from buffer ' .. bufnr, 'info')
+        else
+          vim.notify('Detaching ' .. client_name .. ' from buffer ' .. bufnr, vim.log.levels.INFO)
+        end
+      end)
 
       -- Safely process client garbage collection if still active
       if client and client.attached_buffers then
         local active_buffers = vim.tbl_count(client.attached_buffers)
-        if active_buffers <= 1 then client:stop(true) end
+        if active_buffers <= 1 then 
+          client:stop(true) 
+        end
       end
     end,
   })
-
-
-  -- vim.api.nvim_create_autocmd('LspDetach', {
-  --   group = vim.api.nvim_create_augroup('LspCleanup', { clear = true }),
-  --   callback = function(arg)
-  --     local bufnr = arg.buf
-  --     local client = vim.lsp.get_client_by_id(arg.data.client_id)
-  --     if not client or client.name ~= 'clangd' then return end
-  --
-  --       vim.api.nvim_echo({ { 'Detaching ' .. client.name .. ' from buffer ' .. bufnr, 'Info' } }, true, {})
-  --     if client.attached_buffers then
-  --       local active_buffers = vim.tbl_count(client.attached_buffers)
-  --       if active_buffers <= 1 then client:stop(true) end
-  --     end
-  --   end,
-  -- })
 end
 
 return M
