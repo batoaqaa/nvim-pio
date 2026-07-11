@@ -55,7 +55,7 @@ local pioConfigDir = vim.fs.joinpath(projectDir, '.pio')
 ---@field nvimpio_config_dir string
 ---@field pio_config_dir string
 ---@field notify fun(msg: string, level?: string|integer)
----@field pioReady fun(): boolean
+---@field pioReady fun(local_pio_executable: string): boolean
 
 ---@type OS
 _G.OS = _G.OS or {}
@@ -129,13 +129,14 @@ local os_info = {
   end,
 
   ---Checks if PlatformIO is installed and working (Cached after first success)
+  ---@param local_pio_executable string The message to display
   ---@return boolean
-  pioReady = function()
+  pioReady = function(local_pio_executable)
     if _pioReady then return true end
     -- local local_pio_executable = target_bin .. OS.folder_sep .. (OS.is_win and 'pio.exe' or 'pio')
-    if vim.fn.executable('pio') ~= 1 then return false end
-    local ok, obj = pcall(function() return vim.system({ 'pio', '--version' }):wait() end)
-    if ok and obj and obj.code == 0 then
+    if vim.fn.executable(local_pio_executable) ~= 1 then return false end
+    local ok, obj = pcall(function() return vim.system({ local_pio_executable, '--version' }):wait() end)
+    if ok and obj and (obj.code == 0)  and obj.stdout:match("PlatformIO") then
       _pioReady = true
       return true
     end
