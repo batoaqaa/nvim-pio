@@ -19,6 +19,7 @@ function M.init(clangd)
         return
       end
 
+      print('Attaching to: ' .. client.name .. ' attached to buffer ' .. bufnr)
       ------------------------------------------------------------------
       vim.api.nvim_buf_create_user_command(bufnr, 'LspClangdSwitchSourceHeader', function()
         local params = vim.lsp.util.make_text_document_params(bufnr)
