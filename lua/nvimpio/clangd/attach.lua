@@ -122,7 +122,8 @@ function M.init(clangd)
       if not client or client.name ~= 'clangd' then return end
 
       local filename = vim.fs.basename(vim.api.nvim_buf_get_name(bufnr)) or "Unknown"
-      print('Detaching ' .. client.name .. ' from buffer ' .. bufnr .. ' ' .. filename)
+      -- print('Detaching ' .. client.name .. ' from buffer ' .. bufnr .. ' ' .. filename)
+      OS.notify('Detaching ' .. client.name .. ' from buffer ' .. bufnr .. ' ' .. filename, 'debug')
     end,
   })
 end
