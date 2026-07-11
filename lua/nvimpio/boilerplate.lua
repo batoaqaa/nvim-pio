@@ -135,7 +135,11 @@ local function is_cpp_project()
   local is_cpp = false
   local line_count = 0
 
-  -- B.Streams lines sequentially. It drops out the moment a match resolves, 
+  -- Normalize your workspace project root path to match compiler formatting styles
+  -- (Converts backslashes to forward slashes or matches casing safely)
+  local local_root = OS.project_dir:gsub("\\", "/"):lower()
+
+  -- B. Streams lines sequentially. It drops out the moment a match resolves, 
   -- maximizing speed while preventing huge memory allocations.
   for line in f:lines() do
     line_count = line_count + 1
@@ -146,11 +150,17 @@ local function is_cpp_project()
 
     -- Check if the line maps to an explicit compilation file path property key
     if line:find('"file"') then
-      -- THE PLATFORMIO DUMMY MASK: Explicitly ignore synthetic compiler primer targets
-      if not (line:find("__dummy") or line:find("_bare_module")) then
-        if line:find("%.cpp") or line:find("%.hpp") or line:find("%.cc") or line:find("%.cxx") then
-          is_cpp = true
-          break
+      local normalized_line = line:gsub("\\", "/"):lower()
+
+      -- CORE: Only evaluate if the file path is inside your local project root.
+      -- This filters out global paths like C:/Users/.../.platformio/packages/...
+      if normalized_line:find(local_root, 1, true) then
+        -- THE PLATFORMIO DUMMY MASK: Explicitly ignore synthetic compiler primer targets
+        if not (normalized_line:find("__dummy") or normalized_line:find("_bare_module")) then
+          if normalized_line:find("%.cpp") or normalized_line:find("%.hpp") or normalized_line:find("%.cc") or normalized_line:find("%.cxx") then
+            is_cpp = true
+            break
+          end
         end
       end
     end

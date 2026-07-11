@@ -3,6 +3,17 @@ local M = {}
 -- local term = require('nvimpio.device.terminal')
 -- local term = require('nvimpio.device.terminal').terminals
 
+local function getCli()
+  local term = require('nvimpio.device.terminal')
+  if not term.terminals['cli'] then
+    term.create_terminal('cli', ' CLI ', function(j, d, e)
+      if type(term.stdout_callback) == 'function' then
+        term.stdout_callback(j, d, e)
+        return term.cli
+      end
+    end)
+  end
+end
 --- Handles and formats asynchronous vim.system errors cleanly
 ---@param from string The notification origin tag
 ---@param prefix_msg string The introductory text (e.g., "build compiledb failed: ")
@@ -80,12 +91,23 @@ end
 ------------------------------------------------------
 function M.piocli(cmd_table)
   -- local term = require('nvimpio.device.terminal').terminals
-  local term = require('nvimpio.device.terminal')
+  -- local term = require('nvimpio.device.terminal')
+  -- if not(term.terminals['cli']) then
+  --  term.create_terminal('cli', ' CLI ', function(j, d, e)
+  --    if type(M.stdout_callback) == 'function' then
+  --      term.stdout_callback(j, d, e)
+  --    end
+  --  end)
+  -- end
+  local cli = getCli()
+  if not cli then
+    return
+  end
   local cmd = (cmd_table[1] == '') and '' or ('pio ' .. table.concat(cmd_table, ' '))
   if cmd ~= '' then
-    term.cli:send(cmd)
+    cli:send(cmd)
   else
-    term.cli:show()
+    cli:show()
   end
 end
 
