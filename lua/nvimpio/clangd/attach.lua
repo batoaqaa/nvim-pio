@@ -119,33 +119,11 @@ function M.init(clangd)
       local client_id = arg.data.client_id
       local client = vim.lsp.get_client_by_id(client_id)
 
-      -- Clean Neovim 0.11+ client name tracking
-      local client_name = nil
-      if client then
-        client_name = client.name
-      else
-        -- Modern API only: Scan currently active servers to extract the name cache
-        for _, c in ipairs(vim.lsp.get_clients()) do
-          if c.id == client_id then
-            client_name = c.name
-            client = c
-            break
-          end
-        end
-      end
-
       -- If we extracted a name and it is not clangd, exit early
-      if client_name and client_name ~= 'clangd' then
-        return
-      end
-
-      -- Fallback label if the structural data has already dissolved entirely
-      client_name = client_name or "clangd"
+      if not client or client.name ~= 'clangd' then return end
 
       -- Persistent notice display using the standard notifications interface
-      vim.notify('Detaching ' .. client_name .. ' from buffer ' .. bufnr, vim.log.levels.INFO, {
-        title = "PlatformIO IDE"
-      })
+      print('Detaching ' .. client.name .. ' from buffer ' .. bufnr)
 
       -- Safely process client garbage collection if still active
       if client and client.attached_buffers then
