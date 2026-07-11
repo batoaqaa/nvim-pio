@@ -35,7 +35,6 @@ function M.init(clangd)
           -- Use vim.schedule to ensure we aren't editing while the LSP is in a callback
           vim.schedule(function()
             local target = type(result) == 'string' and result or result.uri
-            -- FIXED: Removed the redundant double conversion function wrap
             local fname = vim.uri_to_fname(target)
             vim.cmd.edit(fname)
           end)
@@ -50,7 +49,6 @@ function M.init(clangd)
 
           -- Enable native completion for this specific client and buffer
           vim.lsp.completion.enable(true, client.id, args.buf, { autotrigger = true })
-          -- FIXED: Added missing closing bracket to '<C-Space>'
           vim.keymap.set('i', '<C-Space>', function()
             vim.lsp.completion.get()
           end, { buffer = bufnr, desc = 'Trigger native LSP completion' })
@@ -66,7 +64,7 @@ function M.init(clangd)
       if vim.lsp.document_color and client:supports_method('textDocument/documentColor') then
         vim.lsp.document_color.enable(true, {
           bufnr = args.buf,
-          style = 'inline', -- This is the modern 0.11 way to show color icons
+          style = 'inline',
         })
       end
 
@@ -88,7 +86,7 @@ function M.init(clangd)
 
         vim.api.nvim_create_autocmd('LspDetach', {
           group = highlight_augroup,
-          buffer = bufnr, -- FIXED: Restrict this cleanup strictly to this specific buffer number
+          buffer = bufnr,
           callback = function(event)
             vim.lsp.buf.clear_references()
             pcall(vim.api.nvim_clear_autocmds, { group = highlight_augroup, buffer = event.buf })
@@ -97,7 +95,6 @@ function M.init(clangd)
       end
 
       ------------------------------------------------------------------
-      -- FIXED/IMPROVED: Verified that if attach == "attach+", keymaps mount cleanly
       if clangd.attach == 'attach+' then
         local lspkeymaps = require('nvimpio.clangd.keymaps')
         lspkeymaps.lspKeymaps(client, bufnr)
@@ -110,8 +107,6 @@ function M.init(clangd)
   })
 
   -- Core system memory cleanup tracking
-
-  -- Core system memory cleanup tracking
   vim.api.nvim_create_autocmd('LspDetach', {
     group = vim.api.nvim_create_augroup('LspCleanup', { clear = true }),
     callback = function(arg)
@@ -119,39 +114,35 @@ function M.init(clangd)
       local client_id = arg.data.client_id
       local client = vim.lsp.get_client_by_id(client_id)
 
-      -- If we extracted a name and it is not clangd, exit early
       if not client or client.name ~= 'clangd' then return end
 
       -- Persistent notice display using the standard notifications interface
       print('Detaching ' .. client.name .. ' from buffer ' .. bufnr)
 
-      -- Safely process client garbage collection if still active
-      if client and client.attached_buffers then
-        local active_buffers = vim.tbl_count(client.attached_buffers)
-        if active_buffers <= 1 then
-          client:stop(true)
+      -- FIXED: Parse dictionary keys cleanly while explicitly subtracting the 
+      -- active buffer from calculation metrics.
+      if client.attached_buffers then
+        local remaining_buffers_count = 0
+
+        -- Loop over dictionary elements safely
+        for active_buf_id, _ in pairs(client.attached_buffers) do
+          -- Count the buffer ONLY if it isn't the file we are currently closing right now!
+          if active_buf_id ~= bufnr and vim.api.nvim_buf_is_valid(active_buf_id) then
+            remaining_buffers_count = remaining_buffers_count + 1
+          end
+        end
+
+        -- ONLY kill the server process if no remaining files require it active!
+        if remaining_buffers_count == 0 then
+          vim.schedule(function()
+            if vim.lsp.get_client_by_id(client_id) then
+              client:stop() -- Graceful closure
+            end
+          end)
         end
       end
     end,
   })
-
-
-
-
-  -- vim.api.nvim_create_autocmd('LspDetach', {
-  --   group = vim.api.nvim_create_augroup('LspCleanup', { clear = true }),
-  --   callback = function(arg)
-  --     local bufnr = arg.buf
-  --     local client = vim.lsp.get_client_by_id(arg.data.client_id)
-  --     if not client or client.name ~= 'clangd' then return end
-  --
-  --     if client.attached_buffers then
-  --       vim.api.nvim_echo({ { 'Detaching ' .. client.name .. ' from buffer ' .. bufnr, 'Info' } }, true, {})
-  --       local active_buffers = vim.tbl_count(client.attached_buffers)
-  --       if active_buffers <= 1 then client:stop(true) end
-  --     end
-  --   end,
-  -- })
 end
 
 return M
