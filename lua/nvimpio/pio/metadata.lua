@@ -97,7 +97,6 @@ _G.metadata = setmetatable({}, {
     if key == 'active_env' then
       local from = 'Meta active_env change: '
 
-      OS.notify("in active_env change")
       -- local pio = require('nvimpio.pio.upkeep')
       local active_env, metadata = M.get_active_env(from)
       if active_env and active_env ~= '' then
@@ -131,13 +130,13 @@ _G.metadata = setmetatable({}, {
     --   M.removeFromPath(OS.project_dir)
     --   -- local end_time = vim.loop.hrtime()
     --   -- local duration = (end_time - start_time) / 1e6
-    --   -- OS.notify(string.format('%s %s removed from path in %.2fms', from, oldPath, duration), 'info')
-    --   OS.notify(string.format('%s %s removed from path', from, oldPath), 'info')
+    --   -- OS.notify(string.format('%s %s removed from path in %.2fms', from, oldPath, duration), OS.debug)
+    --   OS.notify(string.format('%s %s removed from path', from, oldPath), OS.debug)
     --
     --   vim.env.PATH = binPath .. OS.path_sep .. vim.env.PATH
     --   -- vim.env.PATH = OS.project_dir .. OS.path_sep .. vim.env.PATH
     --   -- vim.env.PLATFORMIO_BUILD_FLAGS="-std=gnu23 -std=gnu++23"
-    --   OS.notify(string.format('%s %s added to path',from, binPath), 'info')
+    --   OS.notify(string.format('%s %s added to path',from, binPath), OS.debug)
     --
     --   -- ----------------------------- Trace ----------------------------------------
     --   -- -- 1. Grab the current execution stack call trace
@@ -207,7 +206,7 @@ function M.save_project_config(from)
     local status, err = misc.writeFile(config_path, pretty_json, {})
     if status then
       last_saved_hash = current_hash
-      OS.notify(from .. 'config save success', 'info')
+      OS.notify(from .. 'config save success', OS.debug)
     else
       OS.notify(from .. 'config save failed==> ' .. (err or 'unknown error'), 'error')
     end
@@ -257,7 +256,7 @@ function M.updateProjectConfig()
   local misc = require('nvimpio.utils.misc')
   local active_env, metadata = M.get_active_env('meta update: ')
   if active_env and active_env ~= '' then
-    OS.notify("update project config for: " .. active_env)
+    OS.notify("update project config for: " .. active_env, OS.debug)
     metadata = metadata or {}
     _pio_metadata.core_dir = metadata.core_dir
     _pio_metadata.packages_dir = metadata.packages_dir

@@ -178,7 +178,7 @@ end
 --     boilerplate_gen([[platformio.ini]], OS.project_dir)
 --     cliTerm:send(pop(M.queue))
 --   elseif result == 'PASS1' then -- current_id
---     OS.notify('PIO init+db:  pass ' .. current_id, "info")
+--     OS.notify('PIO init+db:  pass ' .. current_id, OS.debug)
 --     local meta = require('nvimpio.pio.metadata')
 --     active_env, _ = meta.get_active_env('PIO init+db: ')
 --     -- if not active_env or (active_env == board) then
@@ -193,9 +193,9 @@ end
 --     -- end
 --   -- elseif result == 'PASS2' then
 --   elseif result == 'DONE' then -- result of the last command
---     OS.notify('PIO init+db: Done', "info")
+--     OS.notify('PIO init+db: Done', OS.debug)
 --     if not active_env or (active_env ~= board) then
---       OS.notify(string.format('PIO init+db active_env: %s', board), 'info')
+--       OS.notify(string.format('PIO init+db active_env: %s', board), OS.debug)
 --       _G.metadata.active_env = board
 --     end
 --     M.pio_refresh(function(success)
@@ -212,7 +212,7 @@ end
 
 function M.handlePioinit(result, framework, board, on_done)
   if result == 'INIT' then
-    -- OS.notify(string.format("active_env=%s board=%s", active_env, board), 'info')
+    -- OS.notify(string.format("active_env=%s board=%s", active_env, board), OS.debug)
     boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
     -- boilerplate_gen([[platformio.ini]], vim.g.platformioRootDir)
     boilerplate_gen([[platformio.ini]])
@@ -220,7 +220,7 @@ function M.handlePioinit(result, framework, board, on_done)
     cliTerm:send(pop(M.queue))
   -- elseif result == 'PASS1' then
   elseif result == 'DONE' then -- result of the last command
-    OS.notify(fromMsg .. 'project init Done', "info")
+    OS.notify(fromMsg .. 'project init Done', OS.debug)
     -- boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
     -- boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
     cliTerm:hide()
@@ -240,11 +240,11 @@ function M.handlePioInstall(result, on_done)
     end
     cliTerm:send(pop(M.queue))
   elseif result == 'PASS' .. current_id then
-      OS.notify('PIO install:  pass ' .. current_id, "info")
+      OS.notify('PIO install:  pass ' .. current_id, OS.debug)
       if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the only and the last command
-    OS.notify('PIO install: Done', "info")
+    OS.notify('PIO install: Done', OS.debug)
 
     -- 1. Always remove the script
     local script_path = vim.fs.joinpath(OS.cache_dir, 'get-platformio.py')
@@ -261,7 +261,7 @@ function M.handlePioInstall(result, on_done)
     if on_done and type(on_done) == "function" then on_done(true) end
     M.cleanSequencer()
   elseif result == 'FAIL' then
-     OS.notify('Installation failed! Check logs and press :q to close.', 'error')
+    OS.notify('Installation failed!', 'error')
     if on_done and type(on_done) == "function" then on_done(false) end
     M.cleanSequencer()
   end
@@ -271,10 +271,10 @@ function M.handlePioRepair(result, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
   elseif result == 'PASS' .. current_id then
-      OS.notify('PIO install:  pass ' .. current_id, "info")
+      OS.notify('PIO install:  pass ' .. current_id, OS.debug)
       if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   elseif result == 'DONE' then -- result of the only and the last command
-     OS.notify(string.format('%s:  Done', fromMsg), "info")
+     OS.notify(string.format('%s:  Done', fromMsg), OS.debug)
     if on_done and type(on_done) == "function" then on_done(true) end
     M.cleanSequencer()
   elseif result == 'FAIL' then
@@ -291,7 +291,7 @@ function M.clangFormat(result)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
   elseif result == 'DONE' then -- result of the only and the last command
-    OS.notify('Clang formatter: Done', "info")
+    OS.notify('Clang formatter: Done', OS.debug)
     if cliTerm then cliTerm:hide() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
@@ -306,15 +306,15 @@ function M.handleIdedata(result, active_env, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
   elseif result == 'PASS' .. current_id then
-    OS.notify(string.format('%sidedata handling  pass%s', fromMsg, current_id), "info")
+    OS.notify(string.format('%sidedata handling  pass%s', fromMsg, current_id), OS.debug)
     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   -- elseif result == 'PASS' .. current_id then
-  --   OS.notify(string.format('%sbuild handling  pass%s', fromMsg, current_id), "info")
+  --   OS.notify(string.format('%sbuild handling  pass%s', fromMsg, current_id), OS.debug)
   --   if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the only and the last command
-    -- OS.notify(string.format('%s compiledb handling success for %s.', fromMsg, active_env), "info")
-    OS.notify(string.format('%scompiledb handling success for %s.', fromMsg, active_env), "info")
+    -- OS.notify(string.format('%s compiledb handling success for %s.', fromMsg, active_env), OS.debug)
+    OS.notify(string.format('%scompiledb handling success for %s.', fromMsg, active_env), OS.debug)
     -- vim.defer_fn(function()
     --   require('nvimpio.clangd.control').getUnknownArgsCli(fromMsg)
     -- end, 50) -- 50ms delay, adjust as needed
@@ -334,7 +334,7 @@ end
 --   if result == 'INIT' then
 --     cliTerm:send(pop(M.queue))
 --   elseif result == 'PASS1' then -- .. current_id then                         -- compiledb PASS1
---     OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
+--     OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), OS.debug)
 --     pass1  = true
 --
 --     boilerplate.args = {}
@@ -353,7 +353,7 @@ end
 --         vim.defer_fn(function()
 --           boilerplate.args = clangd_extracted_args
 --           boilerplate_gen('.clangd', vim.g.platformioRootDir)
---           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
+--           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), OS.debug)
 --           require('nvimpio.clangd.control').restart()
 --         end, 500) -- 50ms delay, adjust as needed
 --       end
@@ -366,7 +366,7 @@ end
 --         vim.defer_fn(function()
 --           boilerplate.args = clangd_extracted_args
 --           boilerplate_gen('.clangd', vim.g.platformioRootDir)
---           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
+--           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), OS.debug)
 --           require('nvimpio.clangd.control').restart()
 --         end, 500) -- 50ms delay, adjust as needed
 --         on_done(true)
@@ -382,11 +382,11 @@ function M.handlePioDB(result, active_env, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
   elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
-    OS.notify(string.format('%sls  for %s', fromMsg, active_env), "info")
+    OS.notify(string.format('%sls  for %s', fromMsg, active_env), OS.debug)
     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   elseif result == 'DONE' then -- .. current_id then                         -- compiledb PASS1
     vim.schedule(function()
-      OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
+      OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), OS.debug)
       require('nvimpio.clangd.control').restart()
       if on_done and type(on_done) == 'function' then on_done(true) end
     end)
@@ -404,10 +404,10 @@ end
 --   if result == 'INIT' then
 --     cliTerm:send(pop(M.queue))
 --   elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
---     OS.notify(string.format('%sidedata  for %s', fromMsg, active_env), "info")
+--     OS.notify(string.format('%sidedata  for %s', fromMsg, active_env), OS.debug)
 --     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
 --   elseif result == 'PASS2' then -- .. current_id then                         -- compiledb PASS1
---     OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), "info")
+--     OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), OS.debug)
 --
 --     boilerplate.args = {}
 --     boilerplate_gen('.clangd', vim.g.platformioRootDir) -- read user '.clangd'
@@ -424,7 +424,7 @@ end
 --       vim.defer_fn(function()
 --         boilerplate.args = clangd_extracted_args
 --         boilerplate_gen('.clangd', vim.g.platformioRootDir)
---         OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
+--         OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), OS.debug)
 --         require('nvimpio.clangd.control').restart()
 --       end, 500) -- 50ms delay, adjust as needed
 --     end
@@ -436,7 +436,7 @@ end
 --         vim.defer_fn(function()
 --           boilerplate.args = clangd_extracted_args
 --           boilerplate_gen('.clangd', vim.g.platformioRootDir)
---           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), 'info')
+--           OS.notify(string.format('%s Clangd ✅Extracted %s flags', fromMsg, #clangd_extracted_args), OS.debug)
 --           require('nvimpio.clangd.control').restart()
 --         end, 500) -- 50ms delay, adjust as needed
 --         on_done(true)
@@ -454,7 +454,7 @@ function M.handleClangdCheck(result, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
   elseif result == 'DONE' then -- result of the only and the last command
-    OS.notify(string.format('%sclangd check  done', fromMsg), 'info')
+    OS.notify(string.format('%sclangd check  done', fromMsg), OS.debug)
     local final_args = clangd_extracted_args -- Hold the pointer reference for the scheduled function
     vim.schedule(function()
       if on_done and type(on_done) == 'function' then on_done(true, final_args) end
@@ -462,7 +462,7 @@ function M.handleClangdCheck(result, on_done)
     cliTerm:hide()
     M.cleanSequencer()
   elseif result == 'FAIL' then
-    OS.notify(string.format('%s clangd check  fail', fromMsg), 'info')
+    OS.notify(string.format('%s clangd check  fail', fromMsg), OS.debug)
     local final_args = clangd_extracted_args -- Hold the pointer reference for the scheduled function
     vim.schedule(function()
       if on_done and type(on_done) == 'function' then on_done(true, final_args) end
@@ -479,12 +479,12 @@ function M.handlePiolib(result)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
   elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
-    OS.notify('PIO lib+db:  pass ' .. current_id, "info")
+    OS.notify('PIO lib+db:  pass ' .. current_id, OS.debug)
     -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
-      OS.notify('PIO lib+db: Done', "info")
+      OS.notify('PIO lib+db: Done', OS.debug)
       -- M.pio_refresh(function(success)
       --   if success then
       --     do end

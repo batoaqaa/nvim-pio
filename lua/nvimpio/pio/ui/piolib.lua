@@ -147,7 +147,7 @@ end
 --         local pio = require('nvimpio.utils.pio')
 --         pio.run_sequence({
 --             cmnds = {'pio pkg install --library "' .. pkg_name .. '"'},
---             cb = function () OS.notify('Piolib: Done', "info") end
+--             cb = function () OS.notify('Piolib: Done', OS.debug) end
 --         })
 --       end)
 --       return true

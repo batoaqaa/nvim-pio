@@ -82,10 +82,10 @@ function M.get_sysroot_triplet(cc_compiler)
   vim.schedule(function ()
     local from = 'get_sysroot: '
     require('nvimpio.pio.metadata').removeFromPath(oldPath)
-    OS.notify(string.format('%s %s removed from path', from, oldPath), 'info')
+    OS.notify(string.format('%s %s removed from path', from, oldPath), OS.debug)
 
     vim.env.PATH = bin_path .. OS.path_sep .. vim.env.PATH
-    OS.notify(string.format('%s %s added to path',from, bin_path), 'info')
+    OS.notify(string.format('%s %s added to path',from, bin_path), OS.debug)
   end)
 
   -- sysroot folder is expected to have the same name as the triplet
@@ -343,7 +343,7 @@ function M.configure_hardware_parameters()
         p_state.upload_speed or 'Ini',
         p_state.monitor_filters or 'None'
       )
-      return _G.OS and type(_G.OS.notify) == 'function' and _G.OS.notify(msg, 'info') or vim.notify(msg, 2)
+      return OS.notify(msg, OS.debug)
     end
 
     vim.ui.select(steps[step_idx].c, { prompt = steps[step_idx].p }, function(sel)
@@ -522,7 +522,7 @@ function M.apply_metadata(data, active_env)
   local read_ok, fresh_checksum = misc.readFile(checksum_file)
   if read_ok and fresh_checksum ~= '' and fresh_checksum ~= meta.last_projectChecksum then
     meta.last_projectChecksum = fresh_checksum
-    OS.notify('checksum change ', 'info')
+    OS.notify('checksum change ', OS.debug)
   end
 
   vim.schedule(function()
@@ -704,7 +704,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   --   local read_ok, fresh_checksum = misc.readFile(checksum_file)
   --   if read_ok and fresh_checksum ~= '' and fresh_checksum ~= meta.last_projectChecksum then
   --     meta.last_projectChecksum = fresh_checksum
-  --     OS.notify('checksum change ', 'info')
+  --     OS.notify('checksum change ', OS.debug)
   --   end
   --
   --   vim.schedule(function()
@@ -736,7 +736,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     -- cli
     -- require('nvimpio.pio.cli').buildIdedata(from, active_env, function(is_successful)
     --   if is_successful then
-    --     -- OS.notify(from .. 'Idedata is ready. Proceeding with analysis...')
+    --     -- OS.notify(from .. 'Idedata is ready. Proceeding with analysis...',  OS.debug)
     --       -- Execute recursive check loop to accurately verify and load newly compiled files
     --     if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
     --     else fire_callback(false); return end
@@ -752,7 +752,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
     local cb = function(status)
       require('nvimpio.device.parser').handleIdedata(status, active_env, function(success)
         if success then
-          OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), 'info')
+          OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), OS.debug)
           -- Execute recursive check loop to accurately verify and load newly compiled files
           -- if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
           -- else fire_callback(false) end
@@ -769,7 +769,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
               local ok, pretty_json = pcall(misc.jsonFormat, decoded)
               if ok then misc.writeFile(idedata_file, pretty_json, {}) end
               require('nvimpio.pio.metadata').save_project_config(from)
-              OS.notify(from .. 'Metadata synced from download', 'info')
+              OS.notify(from .. 'Metadata synced from download', OS.debug)
               fire_callback(true)
               return true
             end
@@ -803,7 +803,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
       -- cli
         require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
           if is_successful then
-            -- OS.notify('Database is ready. Proceeding with analysis...')
+            -- OS.notify('Database is ready. Proceeding with analysis...', OS.debug)
             -- clangd.getUnknownArgsCli(from)
           else
             OS.notify('Skipping next steps due to compilation database failure.', 'error')
@@ -839,7 +839,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
         end
       end
 
-      OS.notify(from .. 'Metadata synced from cache', 'info')
+      OS.notify(from .. 'Metadata synced from cache', OS.debug)
       -- local ok, pretty_json = pcall(misc.jsonFormat, decoded)
       -- if ok then misc.writeFile(idedata_file, pretty_json, {}) end
       require('nvimpio.pio.metadata').save_project_config(from)
@@ -856,7 +856,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- -- cli
   -- -- require('nvimpio.pio.cli').buildIdedata(from, active_env, function(is_successful)
   -- --   if is_successful then
-  -- --     -- OS.notify(from .. 'Idedata is ready. Proceeding with analysis...')
+  -- --     -- OS.notify(from .. 'Idedata is ready. Proceeding with analysis...', OS.debug)
   -- --       -- Execute recursive check loop to accurately verify and load newly compiled files
   -- --     if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
   -- --     else fire_callback(false); return end
@@ -872,7 +872,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- local cb = function(status)
   --   require('nvimpio.device.parser').handleIdedata(status, active_env, function(success)
   --     if success then
-  --       OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), 'info')
+  --       OS.notify(string.format('%s Initializing project metadata success for %s.', from, active_env), OS.debug)
   --       -- Execute recursive check loop to accurately verify and load newly compiled files
   --       if attempts > 0 then fetch_metadata(callback, active_env, from, attempts - 1)
   --       else fire_callback(false) end
@@ -913,7 +913,7 @@ function M.pio_refresh(callback, from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
   if M.refreshBusy then
-    OS.notify(string.format('%s refresh busy ...', from), 'info')
+    OS.notify(string.format('%s refresh busy ...', from), OS.debug)
     if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
     return
   end
@@ -923,7 +923,7 @@ function M.pio_refresh(callback, from)
   local active_env = _G.metadata and _G.metadata.active_env
 
   if active_env and active_env ~= '' then
-    -- OS.notify(msg .. 'active_env= ' .. active_env, 'info')
+    -- OS.notify(msg .. 'active_env= ' .. active_env, OS.debug)
     fetch_metadata(callback, active_env, from, 1)
   else
     OS.notify(from ..' No active env', 'error')
@@ -1009,10 +1009,10 @@ vim.fs.dirname(_G.metadata.cxx_path)
 
     local end_time = vim.loop.hrtime()
     local duration = (end_time - start_time) / 1e6
-    OS.notify(string.format('compiledb: paths fixed in %.2fms', duration), "info")
+    OS.notify(string.format('compiledb: paths fixed in %.2fms', duration), OS.debug)
     -- clangd.restart()
   else
-    OS.notify("no need to fixPaths")
+    OS.notify("no need to fixPaths", OS.debug)
     -- -- move compile_commands.json to .nvimpio/env
     -- uv.fs_rename(filename, output, function(err)
     --   if err then print("Neovim failed to move file: " .. err)

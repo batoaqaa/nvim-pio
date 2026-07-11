@@ -27,6 +27,7 @@ local pioConfigDir = vim.fs.joinpath(projectDir, '.pio')
 ---@class OS
 ---@field name "windows"|"macos"|"linux"
 ---@field app_name string
+---@field debug string
 ---@field is_win boolean
 ---@field is_mac boolean
 ---@field is_linux boolean
@@ -66,6 +67,7 @@ local _pioReady = false
 local os_info = {
   name = is_win and 'windows' or (is_mac and 'macos' or 'linux'),
   app_name = 'nvim-pio',
+  debug = 'off',
   is_win = is_win,
   is_mac = is_mac,
   is_linux = is_linux,

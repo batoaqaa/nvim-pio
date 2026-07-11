@@ -132,7 +132,7 @@ function M.start_watchers()
       last_hash = '',
       path = vim.fs.joinpath(project_root, 'compile_commands.json'),
       cb = function(self)
-        OS.notify('PIO compiledb change: Change ...', 'info')
+        OS.notify('PIO compiledb change: Change ...', OS.debug)
         -- If no real change, unlock immediately and exit
         local new_hash = get_hash(self.path) or ''
         if new_hash == self.last_hash then
@@ -143,7 +143,7 @@ function M.start_watchers()
         self.last_hash = new_hash
         self.isBusy = true
         _G.isBusy = true
-        OS.notify('PIO compiledb change: clangdb update ...', 'info')
+        OS.notify('PIO compiledb change: clangdb update ...', OS.debug)
         vim.schedule(function()
           do end
           -- require('nvimpio.pio.upkeep').compile_commandsFix()
@@ -177,11 +177,11 @@ function M.start_watchers()
 
         self.isBusy = true
         _G.isBusy = true
-        OS.notify('PIO platformio.ini change: compiledb update ...', 'info')
+        OS.notify('PIO platformio.ini change: compiledb update ...', OS.debug)
         vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
           vim.schedule(function()
             if obj.code == 0 then
-              OS.notify('PIO platformio.ini change: compiledb update Success', 'info')
+              OS.notify('PIO platformio.ini change: compiledb update Success', OS.debug)
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function(success)
                 if success then
@@ -223,7 +223,7 @@ function M.start_watchers()
             local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
             pio_refresh(function(success)
               if success then
-                OS.notify('PIO checksum: Metadata synced', 'info')
+                OS.notify('PIO checksum: Metadata synced', OS.debug)
                 clangdRestart()
               end
               _G.isBusy = false
@@ -353,7 +353,7 @@ end
 --INFO: 6.  Exported setup function
 -------------------------------------------------------------------------------
 function M.init(clangd_config)
-  OS.notify('PIO Control: initialize', "info")
+  OS.notify('PIO Control: initialize', OS.debug)
   -- vim.env.PATH = OS.project_dir .. OS.path_sep .. vim.env.PATH
   -- vim.env.PLATFORMIO_BUILD_FLAGS="-std=gnu23 -std=gnu++23"
   require('nvimpio.pio.commands')

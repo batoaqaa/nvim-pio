@@ -31,7 +31,7 @@ local setPenvBinPath = function (target)
   end
   if not found_in_path then
     vim.env.PATH = penv_bin .. OS.path_sep .. current_path
-    OS.notify(string.format("penv-bin: %s  added to PATH", penv_bin))
+    OS.notify(string.format("penv-bin: %s  added to PATH", penv_bin), OS.debug )
   end
 end
 
@@ -115,7 +115,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
 
     -- CRITICAL LOGIC ROUTING: Only fire execution callback downstream if toolchain is active!
     if type(on_success_callback) == 'function' then
-      OS.notify('PlatformIO verified.')
+      OS.notify('PlatformIO verified.', 'info')
       on_success_callback(true)
     end
 

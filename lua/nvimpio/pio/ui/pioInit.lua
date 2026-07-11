@@ -12,7 +12,7 @@ local wizard_data = {}
 -- -- Visual Notifications
 -- local function notify(msg, level)
 --   local misc = require('nvimpio.utils.misc')
---   OS.notify('PIO init+db: ' .. msg, level or 'info')
+--   OS.notify('PIO init+db: ' .. msg, level or OS.debug)
 -- end
 
 -- Reusable Small Menu for Yes/No and Frameworks
@@ -57,7 +57,7 @@ local function finalize_setup()
     parser.handlePioinit(status, wizard_data.framework:lower(), wizard_data.board_id:lower(), wizard_data.on_done)
   end
 
-  OS.notify('Pioinit: Starting project setup for ' .. wizard_data.board_id .. '...')
+  OS.notify('Pioinit: Starting project setup for ' .. wizard_data.board_id .. '...', OS.debug)
   parser.run_sequence({ cmnds = commands, cb = final_cb, from = 'Pioinit: ' })
 end
 
@@ -198,7 +198,7 @@ local function launch_project_init(on_done)
   if on_done and type(on_done) == 'function' then
     wizard_data.on_done = on_done
   end
-  OS.notify('Fetching board database...')
+  OS.notify('Fetching board database...', OS.debug)
 
   local handle = io.popen('pio boards --json-output')
   if not handle then

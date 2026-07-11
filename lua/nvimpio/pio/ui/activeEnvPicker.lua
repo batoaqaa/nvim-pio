@@ -32,7 +32,7 @@ function M.select_env_picker()
     if choice then
       _G.metadata.active_env = choice
       vim.cmd('redrawstatus')
-      OS.notify(string.format('PlatformIO target swapped -> %s', choice), 'info')
+      OS.notify(string.format('PlatformIO target swapped -> %s', choice), OS.debug)
     end
   end)
 end

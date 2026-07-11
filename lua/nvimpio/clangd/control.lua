@@ -226,9 +226,9 @@ function M.setFormatStyle()
               file:write(obj.stdout)
               file:close()
 
-              OS.notify('Created .clang-format (' .. choice .. ')', 'info')
+              OS.notify('Created .clang-format (' .. choice .. ')', OS.debug)
               M.restart()
-              OS.notify('LSP Reloaded: Using ' .. choice .. ' style.')
+              OS.notify('LSP Reloaded: Using ' .. choice .. ' style.', OS.debug)
             else
               OS.notify('Failed to save .clang-format to disk (Permission error?)', 'error')
             end
@@ -280,7 +280,7 @@ function M.getUnknownArgsCli(from)
     --   end)
     -- end)
 
-    OS.notify('getting unknown arguments for file ' .. check_file)
+    OS.notify('getting unknown arguments for file ' .. check_file, OS.debug)
     --------------------------------------------------------------------------------
     local cmd = { clangdCmd, '--compile-commands-dir=.', '--check=' .. check_file, '--log=error' }
     vim.system(cmd, { text = true }, function(obj)
@@ -310,7 +310,7 @@ function M.getUnknownArgsCli(from)
         -- boilerplate_gen('.clangd', vim.g.platformioRootDir)
         require('nvimpio.clangd.diagnostic').unknownArgs()
 
-        OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
+        OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.', 'info')
         M.restart()
       end)
     end)
@@ -344,7 +344,7 @@ function M.getUnknownArgsGui(from)
 
   -- 3. SCAN: Run clangd (it will see all errors because .clangd is now empty)
   M.clangdIntall(function(clangdCmd)
-    OS.notify('getting unknown arguments for file ' .. check_file)
+    OS.notify('getting unknown arguments for file ' .. check_file, OS.debug)
     --------------------------------------------------------------------------------
     -- gui
     -- local cmd_str = string.format('%s -E -dM -xc++ %s', _G.metadata.cxx_path, table.concat(_G.metadata.cxx_flags, ' '))
@@ -364,7 +364,7 @@ function M.getUnknownArgsGui(from)
           -- boilerplate_gen('.clangd', vim.g.platformioRootDir)
           boilerplate_gen('.clangd')
 
-          OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.')
+          OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.', OS.debug)
           M.restart()
         end
       end)
@@ -377,7 +377,7 @@ end
 --stylua: ignore
 --=============================================================================
 function M.init(clangd)
-  OS.notify('Clangd Control: initialize', "info")
+  OS.notify('Clangd Control: initialize', OS.debug)
 
   if clangd.install then require('nvimpio.clangd.config') end
 
