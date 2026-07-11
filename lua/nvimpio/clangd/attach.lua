@@ -11,9 +11,7 @@ function M.init(clangd)
       local bufnr = args.buf
 
       -- Fast exit: If this attached server isn't clangd, do absolutely nothing
-      if not client or client.name ~= 'clangd' then
-        return
-      end
+      if not client or client.name ~= 'clangd' then return end
 
       -- Stop here for non-file buffers (like git:// or nvim://)
       local uri = vim.uri_from_bufnr(bufnr)
@@ -113,16 +111,15 @@ function M.init(clangd)
     callback = function(arg)
       local bufnr = arg.buf
       local client = vim.lsp.get_client_by_id(arg.data.client_id)
-      if client and client.attached_buffers then
+      if not client or client.name ~= 'clangd' then return end
+      if client.attached_buffers then
         vim.api.nvim_echo({ { 'Detaching ' .. client.name .. ' from buffer ' .. bufnr, 'Info' } }, true, {})
-        -- local count = 0
-        -- for _ in pairs(client.attached_buffers) do
-        --   count = count + 1
-        -- end
-        --
-        -- if count == 1 then
-        --   client:stop(true)
-        -- end
+        local count = 0
+        for _ in pairs(client.attached_buffers) do
+          count = count + 1
+        end
+
+        if count == 1 then client:stop(true) end
       end
     end,
   })
