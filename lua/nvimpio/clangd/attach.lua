@@ -19,7 +19,8 @@ function M.init(clangd)
         return
       end
 
-      print('Attaching to: ' .. client.name .. ' attached to buffer ' .. bufnr)
+      -- print('Attaching to: ' .. client.name .. ' attached to buffer ' .. bufnr)
+      OS.notify('Attaching to: ' .. client.name .. ' attached to buffer ' .. bufnr, 'info')
       ------------------------------------------------------------------
       vim.api.nvim_buf_create_user_command(bufnr, 'LspClangdSwitchSourceHeader', function()
         local params = vim.lsp.util.make_text_document_params(bufnr)
@@ -106,41 +107,15 @@ function M.init(clangd)
     end,
   })
 
-  -- Core system memory cleanup tracking
   vim.api.nvim_create_autocmd('LspDetach', {
     group = vim.api.nvim_create_augroup('LspCleanup', { clear = true }),
     callback = function(arg)
       local bufnr = arg.buf
       local client_id = arg.data.client_id
       local client = vim.lsp.get_client_by_id(client_id)
-
       if not client or client.name ~= 'clangd' then return end
-
-      -- Persistent notice display using the standard notifications interface
-      print('Detaching ' .. client.name .. ' from buffer ' .. bufnr)
-
-      -- FIXED: Parse dictionary keys cleanly while explicitly subtracting the 
-      -- active buffer from calculation metrics.
-      if client.attached_buffers then
-        local remaining_buffers_count = 0
-
-        -- Loop over dictionary elements safely
-        for active_buf_id, _ in pairs(client.attached_buffers) do
-          -- Count the buffer ONLY if it isn't the file we are currently closing right now!
-          if active_buf_id ~= bufnr and vim.api.nvim_buf_is_valid(active_buf_id) then
-            remaining_buffers_count = remaining_buffers_count + 1
-          end
-        end
-
-        -- ONLY kill the server process if no remaining files require it active!
-        if remaining_buffers_count == 0 then
-          vim.schedule(function()
-            if vim.lsp.get_client_by_id(client_id) then
-              client:stop() -- Graceful closure
-            end
-          end)
-        end
-      end
+      -- print('Detaching ' .. client.name .. ' from buffer ' .. bufnr)
+      OS.notify('Detaching ' .. client.name .. ' from buffer ' .. bufnr, 'info')
     end,
   })
 end
