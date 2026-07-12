@@ -103,34 +103,35 @@ function M.getClangdConfig()
   if not tok then return nil end
 
   clangd_config.root_dir = function(fname)
-    -- 1. DEFENSIVE CHECK: If fname is missing, is a number (Neo-tree buffer ID), 
-    -- or an empty scratch string, instantly fall back to the active directory.
+    local current_cwd = vim.uv.cwd() or ""
+
+    -- 1. Catch missing, blank, or numeric Neo-tree buffer handles instantly
     if type(fname) ~= "string" or fname == "" then
-      return vim.fn.getcwd()
+      return current_cwd
     end
 
-    -- 2. Check if the file is inside a standard project space containing root markers
-    -- Wrapped inside a pcall block to prevent runtime errors if fname is unusual
-    local ok, root_file = pcall(vim.fs.find,
-      { "platformio.ini", "compile_commands.json" },
-      { upward = true, path = fname }
-    )
+    -- 2. Traverse upward to detect a valid project root folder path string
+    local root_file = vim.fs.find({ "platformio.ini", "compile_commands.json" }, { upward = true, path = fname })
 
-    if ok and root_file and #root_file > 0 then
+    -- FIXED: Extract the first index element string out of the array list table
+    -- BEFORE passing it to vim.fs.dirname() to avoid internal type crashes!
+    if root_file and root_file[1] then
       return vim.fs.dirname(root_file[1])
     end
 
-    -- 3. DYNAMIC OVERRIDE: If the file lives inside PlatformIO's global package cache
-    -- (which happens when you jump to framework definitions outside your project root)
+    -- 3. If navigating external PlatformIO library sources via 'gtd'
     local normalized_fname = fname:gsub("\\", "/")
     if normalized_fname:match("%.platformio/packages") or normalized_fname:match("framework%-espidf") then
-      -- Anchor it directly to your running project directory so it reuses the server process instance
-      return vim.fn.getcwd()
+      return current_cwd
     end
 
-    -- 4. Fallback for true standalone/unrelated files elsewhere on your computer
+    -- 4. Fallback for standalone source files anywhere else on the computer
     local parent_dir = vim.fs.dirname(fname)
-    return (type(parent_dir) == "string" and parent_dir ~= "") and parent_dir or vim.fn.getcwd()
+    if type(parent_dir) == "string" and parent_dir ~= "" then
+      return parent_dir
+    end
+
+    return current_cwd
   end
     -- =================================================================
   clangd_config.reuse_client = function(client, current_config)
