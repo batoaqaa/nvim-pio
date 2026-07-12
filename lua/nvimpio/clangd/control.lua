@@ -110,22 +110,30 @@ function M.getClangdConfig()
       return current_cwd
     end
 
-    -- 2. Traverse upward to detect a valid project root folder path string
-    local root_file = vim.fs.find({ "platformio.ini", "compile_commands.json" }, { upward = true, path = fname })
+    -- 2. CRITICAL SANITIZATION: Skip virtual URIs (like zipfile://, neo-tree://, etc.)
+    -- These cannot be queried in the file system and will block auto-attachment.
+    if fname:match("^[a-z]+://") then
+      return current_cwd
+    end
 
-    -- FIXED: Extract the first index element string out of the array list table
-    -- BEFORE passing it to vim.fs.dirname() to avoid internal type crashes!
-    if root_file and root_file[1] then
+    -- 3. Traverse upward to detect a valid project root folder path string
+    -- Wrapped in a safe pcall to protect against unexpected string characters
+    local ok, root_file = pcall(vim.fs.find,
+      { "platformio.ini", "compile_commands.json" },
+      { upward = true, path = fname }
+    )
+
+    if ok and root_file and root_file[1] then
       return vim.fs.dirname(root_file[1])
     end
 
-    -- 3. If navigating external PlatformIO library sources via 'gtd'
+    -- 4. If navigating external PlatformIO library sources via 'gtd'
     local normalized_fname = fname:gsub("\\", "/")
     if normalized_fname:match("%.platformio/packages") or normalized_fname:match("framework%-espidf") then
       return current_cwd
     end
 
-    -- 4. Fallback for standalone source files anywhere else on the computer
+    -- 5. Fallback for standalone source files anywhere else on the computer
     local parent_dir = vim.fs.dirname(fname)
     if type(parent_dir) == "string" and parent_dir ~= "" then
       return parent_dir
