@@ -257,6 +257,12 @@ function Terminal:on_open()
   vim.w[M.layout.container_win].pio_managed = true
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
 
+  -- CORE TIMING: Explicitly strip the numbers on the window handle
+  -- the exact instant it is created, before any global layout events can leak in!
+  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+
   self:_register_viewport_mappings()
 end
 
