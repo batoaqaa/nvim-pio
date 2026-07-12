@@ -406,14 +406,14 @@ function M.show(term_type)
     M.UpdateWinbarTitles()
 
     if old_win == M.layout.container_win then
-      vim.cmd('startinsert')
+      -- vim.cmd('startinsert')
     end
     return
   end
 
   target_instance:on_open()
   M.UpdateWinbarTitles()
-  vim.cmd('startinsert')
+  -- vim.cmd('startinsert')
 end
 
 function M.hide()
@@ -501,7 +501,7 @@ end
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
-    vim.cmd('startinsert')
+    -- vim.cmd('startinsert')
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
   end
