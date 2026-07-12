@@ -102,6 +102,25 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
+  clangd_config.root_dir = function(fname)
+    -- A. Check if the file is inside a standard project space containing root markers
+    local root_file = vim.fs.find({ "platformio.ini", "compile_commands.json" }, { upward = true, path = fname })[1]
+    if root_file then
+      return vim.fs.dirname(root_file)
+    end
+
+    -- B. DYNAMIC OVERRIDE: If the file lives inside PlatformIO's global package cache
+    -- (which happens when you jump to framework definitions outside your project root)
+    local normalized_fname = fname:gsub("\\", "/")
+    if normalized_fname:match("%.platformio/packages") or normalized_fname:match("framework%-espidf") then
+      -- Anchor it directly to your running project directory so it reuses the server process instance
+      return vim.fn.getcwd()
+    end
+
+    -- C. Fallback for true standalone/unrelated files elsewhere on your computer
+    return vim.fs.dirname(fname)
+  end
+
   clangd_config.reuse_client = function(client, current_config)
     return client.name == current_config.name
   end
