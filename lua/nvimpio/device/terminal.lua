@@ -136,11 +136,8 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
 end
 
 function Terminal:on_create()
-  -- unlisted (false) scratch buffer (true) -> Completely blocks top tab bars from seeing it!
   self.buf = vim.api.nvim_create_buf(false, true)
 
-  -- VIRTUAL CONTEXT ENCAPSULATION LOOP: Force termopen to execute internally inside the buffer scope.
-  -- This makes the buffer a native terminal *before* foreign window hooks can taint it.
   vim.api.nvim_buf_call(self.buf, function()
     local channel_id = vim.fn.termopen(M.config.shell or OS.shell, {
       on_stdout = function(j, d, e)
@@ -156,7 +153,6 @@ function Terminal:on_create()
     self.job = (channel_id and channel_id > 0) and channel_id or nil
   end)
 
-  -- Lock tracking properties safely on the sealed terminal container
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
   pcall(function()
@@ -258,12 +254,7 @@ function Terminal:on_open()
   })
   M.layout.active_type = self.term_type
 
-  -- FENCE CONTEXT SIGNATURE: Hard lock this split pane window layout as plugin-managed
   vim.w[M.layout.container_win].pio_managed = true
-
-  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
 
   self:_register_viewport_mappings()
@@ -291,6 +282,20 @@ end
 
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
+
+  -- ANTI-NUMBER BLANKET SHIELD: Automatically intercept window initialization hooks to force
+  -- number and relativenumber parameters off, crushing global configuration leaks.
+  vim.api.nvim_create_autocmd({ 'BufWinEnter', 'BufEnter' }, {
+    group = group_id,
+    buffer = self.buf,
+    callback = function()
+      if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+        vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+        vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+        vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+      end
+    end,
+  })
 
   vim.api.nvim_create_autocmd('BufWipeout', {
     group = group_id,
@@ -385,7 +390,6 @@ function M.show(term_type)
     target_instance:on_create()
   end
 
-  -- INSTANT PANEL SWITCHING: Clean hotswapping with 0% flicker or layout crashes
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     local old_win = vim.api.nvim_get_current_win()
 
