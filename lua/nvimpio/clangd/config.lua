@@ -133,16 +133,6 @@ else
   OS.notify('mason-lspconfig is not installed on this system!', 'warn')
 end
 
--- local capabilities = vim.lsp.protocol.make_client_capabilities()
--- -- 1. Correct flat assignment for nvim-ufo folding support
--- capabilities.textDocument.foldingRange = {
---   dynamicRegistration = false,
---   lineFoldingOnly = true,
--- }
--- -- 2. Correct flat assignment for dynamic diagnostics capabilities
--- capabilities.textDocument.diagnostic = {
---   dynamicRegistration = true,
--- }
 local capabilities = vim.tbl_deep_extend('force', vim.lsp.protocol.make_client_capabilities(), {
   textDocument = {
     -- Injects folding capabilities seamlessly for nvim-ufo
