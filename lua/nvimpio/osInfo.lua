@@ -67,7 +67,7 @@ local _pioReady = false
 local os_info = {
   name = is_win and 'windows' or (is_mac and 'macos' or 'linux'),
   app_name = 'nvim-pio',
-  debug = 'debug',
+  debug = 'off',
   is_win = is_win,
   is_mac = is_mac,
   is_linux = is_linux,
@@ -109,6 +109,7 @@ local os_info = {
   ---@param msg string The message to display
   ---@param level string|integer|nil
   notify = function(msg, level)
+    if level == debug then return end
     -- vim.log = { levels = { TRACE = 0, DEBUG = 1, INFO = 2, WARN = 3, ERROR = 4, OFF = 5, }, }
     local string_to_level = {
       trace = vim.log.levels.TRACE,
