@@ -102,8 +102,12 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
+  clangd_config.reuse_client = function(client, current_config)
+    return client.name == current_config.name
+  end
 
   -- clangd_config.cmd_env = {
+  --   "CLANGD_TRACE": "",
   --   CPATH = "",
   --   C_INCLUDE_PATH = "",
   --   CPLUS_INCLUDE_PATH = "",
