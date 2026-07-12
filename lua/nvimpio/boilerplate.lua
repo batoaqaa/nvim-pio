@@ -91,9 +91,9 @@ boilerplate['.clangdConfig.json'] = {
     ".git"
   ],
   "init_options": {
-    "compilationDatabase": [
+    "compilationDatabase": {
         "directory":"%s"
-    ],
+    },
     "clangdFileStatus": true,
     "completeUnimported": true,
     "fallbackFlags": [
