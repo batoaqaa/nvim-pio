@@ -122,7 +122,7 @@ local Terminal = {
   newline = native_eol,
   filetype = 'pio_terminal',
   _custom_stdout = nil,
-  _on_next_exit = nil, -- TOKENIZED CLOSURE MATRIX: Isolated execution hook callback per terminal node
+  _on_next_exit = nil,
   _is_scrolling = false,
 }
 Terminal.__index = Terminal
@@ -137,13 +137,10 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
 end
 
 function Terminal:on_create()
-  -- 1. Create a raw unlisted scratch buffer channel
+  -- 1. Create a safe unlisted buffer architecture layer
   self.buf = vim.api.nvim_create_buf(false, true)
 
-  -- 2. IMMEDIATE SWAP SECURITY LOCK: Spawn the shell pipeline before any external config can touch it!
-  self:on_spawn()
-
-  -- 3. Now completely safe to map tracking metadata attributes and plugin block flags
+  -- 2. Configure standard metadata options cleanly without execution dependencies
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
   pcall(function()
@@ -168,6 +165,9 @@ function Terminal:send(command)
     M.show(self.term_type)
   end
 
+  -- Spawning occurs inside an active window framework target location scope context safely
+  self:on_spawn()
+
   if not self.job or self.job <= 0 then
     return
   end
@@ -176,10 +176,8 @@ function Terminal:send(command)
     cmd_str = ' ' .. cmd_str
   end
 
-  -- Dispatch command string directly downstream through process channel pipe
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
-  -- Viewport pinning loop logic
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) and not self._is_scrolling then
     self._is_scrolling = true
     vim.schedule(function()
@@ -203,7 +201,7 @@ function Terminal:on_spawn()
     return
   end
 
-  -- Clear the modification state memory arrays natively before instantiating terminal tasks
+  -- TIMING RESOLUTION HARD LOCK: Clear history tracking trees right before termopen
   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
     vim.api.nvim_set_option_value('modified', false, { buf = self.buf })
     vim.api.nvim_buf_set_lines(self.buf, 0, -1, false, {})
@@ -239,7 +237,6 @@ function Terminal:on_exit()
   local cb = self._on_next_exit
   self._on_next_exit = nil
 
-  -- CHECK NILS EXPLICITLY: Prevents linter tracking complaints
   if cb ~= nil and type(cb) == 'function' then
     cb()
   end
@@ -273,7 +270,6 @@ function Terminal:on_open()
   })
   M.layout.active_type = self.term_type
 
-  -- FENCE CONTEXT KEY: Flag layout frame split as strictly plugin-managed
   vim.w[M.layout.container_win].pio_managed = true
 
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
@@ -307,7 +303,6 @@ end
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
-  -- CLEAN DESTRUCTION ROUTER: Purges handles across all layout termination states safely
   vim.api.nvim_create_autocmd('BufWipeout', {
     group = group_id,
     buffer = self.buf,
@@ -365,7 +360,6 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
     final_cb = custom_stdout
   end
 
-  -- REUSE SAFEGUARD: Keeps creation metrics array keys locked to preserve layout order
   if M.terminals[name] then
     M.terminals[name].title = title
     M.terminals[name].filetype = final_filetype
@@ -385,6 +379,8 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   M.terminals[name]._creation_index = current_count + 1
 
   M[name] = M.terminals[name]
+
+  -- DECOUPLING ATTACHMENT LOCK: Create the tracking nodes cleanly without headless background processes!
   M.terminals[name]:on_create()
   return M.terminals[name]
 end
@@ -398,12 +394,11 @@ function M.show(term_type)
     return
   end
 
-  -- Automatic resurrection gate checks
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
   end
 
-  -- HOT BUF PANE SWAPPING LAYER: Mutates content structures smoothly inside existing window splits
+  -- VIRTUAL SWAP LAYER: Dynamic hot swapping inside active splits
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     local old_win = vim.api.nvim_get_current_win()
 
@@ -411,6 +406,7 @@ function M.show(term_type)
     M.layout.active_type = term_type
 
     target_instance:_register_viewport_mappings()
+    target_instance:on_spawn() -- Safe execution: triggered within active layout frames
     M.UpdateWinbarTitles()
 
     if old_win == M.layout.container_win then
@@ -420,6 +416,7 @@ function M.show(term_type)
   end
 
   target_instance:on_open()
+  target_instance:on_spawn() -- Safe execution: triggered within active layout frames
   M.UpdateWinbarTitles()
   vim.cmd('startinsert')
 end
@@ -479,7 +476,6 @@ function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
---- CRITICAL STATEFUL COMMAND DISPATCHER MATRIX (Production background compiler engine mapping)
 function M.send_and_restore(cmd)
   local target_instance = M.terminals.cli
   if not target_instance then
@@ -488,7 +484,6 @@ function M.send_and_restore(cmd)
 
   local original_work_win = vim.api.nvim_get_current_win()
 
-  -- CONTEXT TOKEN ISOLATION: Binds completion functions to this localized execution frame node
   target_instance._on_next_exit = function()
     vim.schedule(function()
       M.hide()
