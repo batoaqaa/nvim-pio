@@ -103,13 +103,24 @@ function M.getClangdConfig()
   if not tok then return nil end
 
   clangd_config.root_dir = function(fname)
-    -- A. Check if the file is inside a standard project space containing root markers
-    local root_file = vim.fs.find({ "platformio.ini", "compile_commands.json" }, { upward = true, path = fname })[1]
-    if root_file then
-      return vim.fs.dirname(root_file)
+    -- 1. DEFENSIVE CHECK: If fname is missing, is a number (Neo-tree buffer ID), 
+    -- or an empty scratch string, instantly fall back to the active directory.
+    if type(fname) ~= "string" or fname == "" then
+      return vim.fn.getcwd()
     end
 
-    -- B. DYNAMIC OVERRIDE: If the file lives inside PlatformIO's global package cache
+    -- 2. Check if the file is inside a standard project space containing root markers
+    -- Wrapped inside a pcall block to prevent runtime errors if fname is unusual
+    local ok, root_file = pcall(vim.fs.find,
+      { "platformio.ini", "compile_commands.json" },
+      { upward = true, path = fname }
+    )
+
+    if ok and root_file and #root_file > 0 then
+      return vim.fs.dirname(root_file[1])
+    end
+
+    -- 3. DYNAMIC OVERRIDE: If the file lives inside PlatformIO's global package cache
     -- (which happens when you jump to framework definitions outside your project root)
     local normalized_fname = fname:gsub("\\", "/")
     if normalized_fname:match("%.platformio/packages") or normalized_fname:match("framework%-espidf") then
@@ -117,10 +128,11 @@ function M.getClangdConfig()
       return vim.fn.getcwd()
     end
 
-    -- C. Fallback for true standalone/unrelated files elsewhere on your computer
-    return vim.fs.dirname(fname)
+    -- 4. Fallback for true standalone/unrelated files elsewhere on your computer
+    local parent_dir = vim.fs.dirname(fname)
+    return (type(parent_dir) == "string" and parent_dir ~= "") and parent_dir or vim.fn.getcwd()
   end
-
+    -- =================================================================
   clangd_config.reuse_client = function(client, current_config)
     return client.name == current_config.name
   end
