@@ -48,6 +48,14 @@ M.stdout_callback = nil
 ---@type table<string, Terminal> Global hash registry for tracking active terminal object definitions
 M.terminals = {}
 
+---@class TerminalStatusline Matrix for managing real-time build stream output widgets
+---@field msg string Explicit text string showing the active operation name or percentage complete
+---@field status "idle"|"building"|"success"|"failed" Structural enum tracking background thread compilation states
+M.status = {
+  msg = 'Idle',
+  status = 'idle',
+}
+
 ---@class TerminalLayout Matrix for managing terminal split window geometry positioning
 ---@field container_win integer|nil Explicit native Neovim window handle ID containing the active terminal split panel
 ---@field active_type string|nil String reference token representing the currently focused terminal pane
@@ -240,6 +248,13 @@ function Terminal:send(command)
     cmd_str = ' ' .. cmd_str
   end
 
+  -- -- Initialize progress states globally when a fresh build command is registered
+  -- if cmd_str:find('pio run') or cmd_str:find('pio device monitor') then
+  --   M.status.status = 'building'
+  --   M.status.msg = 'Building...'
+  --   vim.cmd('redrawstatus')
+  -- end
+
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) and not self._is_scrolling then
@@ -266,6 +281,29 @@ end
 ---@param e string String descriptor tracking stream execution types (e.g. 'stdout')
 ---@return nil
 function Terminal:on_stdout(j, d, e)
+  -- 1. ASYNC STATUSLINE STREAM FILTER: Parse raw terminal data matrices for active compilation states
+  if self.term_type == 'cli' and M.status.status == 'building' then
+    for _, raw_line in ipairs(d) do
+      local line = raw_line:gsub('%s+', ' ') -- Strip complex terminal spacer variables
+
+      -- Match explicit toolchain compilation milestones or errors
+      if line:find('Building in') or line:find('Compiling') then
+        local component = line:match('Compiling%s+([%w_%.%-]+)')
+        M.status.msg = component and ('Compiling ' .. component) or 'Building...'
+        vim.cmd('redrawstatus')
+      elseif line:find('FAILED') or line:find('Error') then
+        M.status.status = 'failed'
+        M.status.msg = 'Build Failed'
+        vim.cmd('redrawstatus')
+      elseif line:find('SUCCESS') and not line:find('Building') then
+        M.status.status = 'success'
+        M.status.msg = 'Build Success'
+        vim.cmd('redrawstatus')
+      end
+    end
+  end
+
+  -- 2. Execute local instance callbacks or route to the global capture pipeline hook
   if self._custom_stdout then
     self._custom_stdout(j, d, e)
   elseif self.term_type == 'cli' and type(M.stdout_callback) == 'function' then
@@ -273,7 +311,6 @@ function Terminal:on_stdout(j, d, e)
   end
 end
 
---- Internal redirect listener capturing downstream asynchronous standard error arrays from the system process channel
 ---@param j integer Asynchronous process tracking handler channel ID
 ---@param d string[] Sequential raw array list data sequence strings representing line entries
 ---@param e string String descriptor tracking stream execution types (e.g. 'stderr')
@@ -282,11 +319,17 @@ function Terminal:on_stderr(j, d, e)
   self:on_stdout(j, d, e)
 end
 
---- System framework listener hook executed instantly when the underlying platform process channel closes or terminates
 ---@return nil
 function Terminal:on_exit()
   local cb = self._on_next_exit
   self._on_next_exit = nil
+
+  -- Auto-reset compilation widgets to a safe fallback state on exit if text matching didn't resolve it
+  if M.status.status == 'building' then
+    M.status.status = 'idle'
+    M.status.msg = 'Idle'
+    vim.cmd('redrawstatus')
+  end
 
   if cb ~= nil and type(cb) == 'function' then
     cb()
@@ -294,7 +337,6 @@ function Terminal:on_exit()
   M.UpdateWinbarTitles()
 end
 
---- Turns down the active system process stream channel and wipes the tracking buffer cache cleanly from memory
 ---@return nil
 function Terminal:on_close()
   local tracking_buf = self.buf
@@ -307,14 +349,12 @@ function Terminal:on_close()
   end
 end
 
---- Wrapper orchestration function handling channel termination and layout visibility structures concurrently
 ---@return nil
 function Terminal:close()
   self:on_close()
   M.hide()
 end
 
---- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
@@ -337,7 +377,6 @@ function Terminal:on_open()
   self:_register_viewport_mappings()
 end
 
---- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
 function Terminal:_register_viewport_mappings()
   local maps = M.config.keymaps
@@ -359,7 +398,6 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
 
---- Binds isolated lifecycle tracking auto-commands to prevent layout leaks or geometry alignment crashes
 ---@return nil
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
@@ -421,11 +459,10 @@ end
 ----------------------------------------------------------------------------------------
 -- CORE API ORCHESTRATION INTERFACE LAYER
 ----------------------------------------------------------------------------------------
---- Orchestration factory registering a fresh terminal instance context table shell matrix
 ---@param name string Explicit namespace token code tracking name (e.g. 'cli', 'mon')
----@param title string Visual interface tab name assigned to the C-API winbar rendering split
----@param filetype_or_cb string|fun(j: integer, d: string[], e: string)|nil Workspace signature filetype override string or direct output stream callback hook
----@param custom_stdout fun(j: integer, d: string[], e: string)|nil Dedicated context callback function tracking async pipeline outputs
+---@param title string Visual interface tab name assigned to the winbar rendering split
+---@param filetype_or_cb string|fun(j: integer, d: string[], e: string)|nil Signature override or output callback hook
+---@param custom_stdout fun(j: integer, d: string[], e: string)|nil Dedicated stream callback function
 ---@return Terminal Finalized instance table mapped securely inside the tracking registries
 function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   local final_filetype = nil
@@ -463,7 +500,6 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   return M.terminals[name]
 end
 
---- Projects a targeted terminal buffer onto the screen view layout space
 ---@param term_type string|nil Target key name token representing the pane selection matrix context
 ---@return nil
 function M.show(term_type)
@@ -489,17 +525,16 @@ function M.show(term_type)
     M.UpdateWinbarTitles()
 
     if old_win == M.layout.container_win then
-      -- vim.cmd('startinsert')
+      vim.cmd('startinsert')
     end
     return
   end
 
   target_instance:on_open()
   M.UpdateWinbarTitles()
-  -- vim.cmd('startinsert')
+  vim.cmd('startinsert')
 end
 
---- Hides the active panel split view window layout frame cleanly from the viewport screen
 ---@return nil
 function M.hide()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
@@ -512,7 +547,6 @@ function M.hide()
   M.RestoreWorkspaceFocus()
 end
 
---- Public automation macro toggling layout panel split view visibilities dynamically
 ---@return nil
 function M.toggle()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
@@ -522,13 +556,11 @@ function M.toggle()
   end
 end
 
---- Class context shortcut routing instance show triggers back through the main module engine
 ---@return nil
 function Terminal:show()
   M.show(self.term_type)
 end
 
---- Rotates horizontally across the ordered set array list of available tab targets
 ---@return nil
 function M.SwitchTerminalPane()
   local ordered_keys = {}
@@ -558,13 +590,11 @@ function M.SwitchTerminalPane()
   M.show(ordered_keys[next_index])
 end
 
---- Evaluates whether the layout container split window framework is actively open on screen
----@return boolean Validation property flag output
+---@return boolean
 function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
---- Dispatches a command sequence task and binds a token callback to collapse visibility frames automatically on completion
 ---@param cmd string Macro command sequence sent downstream (e.g. 'pio run')
 ---@return nil
 function M.send_and_restore(cmd)
@@ -593,17 +623,24 @@ function M.send_and_restore(cmd)
   target_instance:send(cmd)
 end
 
+--- Public lookup function used by external statusline engines to fetch formatted indicators
+---@return string Custom icon-mapped text string showing the active compilation state
+function M.GetStatuslineWidget()
+  local icons = { idle = '💤 ', building = '🔨 ', success = '✅ ', failed = '❌ ' }
+  local prefix = icons[M.status.status] or ''
+  return string.format('%s[PIO: %s]', prefix, M.status.msg)
+end
+
 -- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
-    -- vim.cmd('startinsert')
+    vim.cmd('startinsert')
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
   end
 end, { silent = true })
 
---- Initializes configurations by executing a deep dictionary merge block over existing options
 ---@param opts TerminalConfig|nil Table configuration overrides dictionary mapping structure parameters
 ---@return nil
 function M.setup(opts)
@@ -612,7 +649,6 @@ end
 
 ----------------------------------------------------------------------------------------
 -- SYSTEM FACTORY CHANNELS INITIALIZATION
---- Wipes existing channel configurations and triggers pristine subsystem object instantiations
 ---@return nil
 function M.reopen()
   if M.terminals['logs'] then
