@@ -528,6 +528,12 @@ function Terminal:show()
   M.show(self.term_type)
 end
 
+--- Class instance method routing hide requests safely to the master layout manager
+---@return nil
+function Terminal:hide()
+  M.hide()
+end
+
 --- Rotates horizontally across the ordered set array list of available tab targets
 ---@return nil
 function M.SwitchTerminalPane()
