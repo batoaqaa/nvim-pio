@@ -137,16 +137,18 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
 end
 
 function Terminal:on_create()
-  -- Create a completely unlisted scratch buffer
+  -- 1. Create a raw unlisted scratch buffer channel
   self.buf = vim.api.nvim_create_buf(false, true)
 
-  -- FORCE WORKSPACE PROPERTIES: Turn off modifications and establish scratch state
-  vim.api.nvim_set_option_value('buftype', 'nofile', { buf = self.buf })
-  vim.api.nvim_set_option_value('modified', false, { buf = self.buf })
-  vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
+  -- 2. IMMEDIATE SWAP SECURITY LOCK: Spawn the shell pipeline before any external config can touch it!
+  self:on_spawn()
 
+  -- 3. Now completely safe to map tracking metadata attributes and plugin block flags
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
-  pcall(function() vim.b[self.buf].bufferline_deny = true end)
+  vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
+  pcall(function()
+    vim.b[self.buf].bufferline_deny = true
+  end)
 
   vim.b[self.buf].pio_term_type = self.term_type
 
@@ -166,8 +168,6 @@ function Terminal:send(command)
     M.show(self.term_type)
   end
 
-  self:on_spawn()
-
   if not self.job or self.job <= 0 then
     return
   end
@@ -176,10 +176,10 @@ function Terminal:send(command)
     cmd_str = ' ' .. cmd_str
   end
 
-  -- CONTEXT CLOSURE DISPATCH: Inject command string downstream safely into the allocated handle
+  -- Dispatch command string directly downstream through process channel pipe
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
-  -- NATIVE VIEWPORT SCROLL PINNING: Core API alignment loop
+  -- Viewport pinning loop logic
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) and not self._is_scrolling then
     self._is_scrolling = true
     vim.schedule(function()
@@ -199,19 +199,26 @@ function Terminal:send(command)
 end
 
 function Terminal:on_spawn()
-  if self.job and self.job > 0 then return end
+  if self.job and self.job > 0 then
+    return
+  end
 
-  -- HARD RESET: Erase any ghost content and force unmodified state 
-  -- so Neovim treats this buffer as a pristine canvas.
+  -- Clear the modification state memory arrays natively before instantiating terminal tasks
   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
     vim.api.nvim_set_option_value('modified', false, { buf = self.buf })
     vim.api.nvim_buf_set_lines(self.buf, 0, -1, false, {})
   end
 
   local channel_id = vim.fn.termopen(M.config.shell, {
-    on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
-    on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
-    on_exit = function() self:on_exit() end,
+    on_stdout = function(j, d, e)
+      self:on_stdout(j, d, e)
+    end,
+    on_stderr = function(j, d, e)
+      self:on_stderr(j, d, e)
+    end,
+    on_exit = function()
+      self:on_exit()
+    end,
   })
   self.job = (channel_id and channel_id > 0) and channel_id or nil
 end
@@ -231,9 +238,14 @@ end
 function Terminal:on_exit()
   local cb = self._on_next_exit
   self._on_next_exit = nil
-  if cb ~= nil and type(cb) == 'function' then cb() end
+
+  -- CHECK NILS EXPLICITLY: Prevents linter tracking complaints
+  if cb ~= nil and type(cb) == 'function' then
+    cb()
+  end
   M.UpdateWinbarTitles()
 end
+
 function Terminal:on_close()
   local tracking_buf = self.buf
   self.job = nil
@@ -261,7 +273,7 @@ function Terminal:on_open()
   })
   M.layout.active_type = self.term_type
 
-  -- WORKSPACE FENCE ATTRIBUTE: Stamp window node context metadata securely
+  -- FENCE CONTEXT KEY: Flag layout frame split as strictly plugin-managed
   vim.w[M.layout.container_win].pio_managed = true
 
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
@@ -295,6 +307,7 @@ end
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
+  -- CLEAN DESTRUCTION ROUTER: Purges handles across all layout termination states safely
   vim.api.nvim_create_autocmd('BufWipeout', {
     group = group_id,
     buffer = self.buf,
@@ -352,6 +365,7 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
     final_cb = custom_stdout
   end
 
+  -- REUSE SAFEGUARD: Keeps creation metrics array keys locked to preserve layout order
   if M.terminals[name] then
     M.terminals[name].title = title
     M.terminals[name].filetype = final_filetype
@@ -384,18 +398,18 @@ function M.show(term_type)
     return
   end
 
+  -- Automatic resurrection gate checks
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
   end
 
-  -- INSTANT VIEWPORT HOT-SWAPPING MATRIX: Modifies buffer contents cleanly without tearing down windows
+  -- HOT BUF PANE SWAPPING LAYER: Mutates content structures smoothly inside existing window splits
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     local old_win = vim.api.nvim_get_current_win()
 
     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
     M.layout.active_type = term_type
 
-    target_instance:on_spawn()
     target_instance:_register_viewport_mappings()
     M.UpdateWinbarTitles()
 
@@ -406,7 +420,6 @@ function M.show(term_type)
   end
 
   target_instance:on_open()
-  target_instance:on_spawn()
   M.UpdateWinbarTitles()
   vim.cmd('startinsert')
 end
@@ -466,7 +479,7 @@ function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
---- CRITICAL STATEFUL COMMAND DISPATCHER MATRIX (Production-Grade Background Task Pipeline)
+--- CRITICAL STATEFUL COMMAND DISPATCHER MATRIX (Production background compiler engine mapping)
 function M.send_and_restore(cmd)
   local target_instance = M.terminals.cli
   if not target_instance then
@@ -475,7 +488,7 @@ function M.send_and_restore(cmd)
 
   local original_work_win = vim.api.nvim_get_current_win()
 
-  -- ISOLATED BINDING CLOSURE: Lock completion workflow to this specific execution context
+  -- CONTEXT TOKEN ISOLATION: Binds completion functions to this localized execution frame node
   target_instance._on_next_exit = function()
     vim.schedule(function()
       M.hide()
