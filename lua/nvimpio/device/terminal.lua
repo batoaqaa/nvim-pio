@@ -137,9 +137,15 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
 end
 
 function Terminal:on_create()
-  -- KEEP UNLISTED: Always false to cleanly stay out of top tablines and buffer switches
+  -- unlisted (false) keeps them clean out of your top tab bars/bufferlines completely
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
+
+  -- NATIVE TABLINE BLANKET: Hard-force foreign tab layout plugins to ignore this specific buffer
+  vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
+  pcall(function()
+    vim.b[self.buf].bufferline_deny = true
+  end) -- Block bufferline explicit tracking layout
 
   -- STRUCTURAL METADATA STAMP: Inject an unerasable identification marker into the buffer space
   vim.b[self.buf].pio_term_type = self.term_type
@@ -196,7 +202,6 @@ function Terminal:on_spawn()
   end
 
   -- NATIVE EXECUTION LOCK: Let termopen create its standard native channel structure inside the buffer.
-  -- Removing the manual rename block entirely blocks Neovim from splitting into rogue duplicate buffers.
   local channel_id = vim.fn.termopen(M.config.shell, {
     on_stdout = function(j, d, e)
       self:on_stdout(j, d, e)
@@ -292,6 +297,7 @@ end
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
+  -- CLEANUP CORE ENGINE: Handle structural dropouts cleanly across all closure conditions
   vim.api.nvim_create_autocmd('BufWipeout', {
     group = group_id,
     buffer = self.buf,
@@ -408,7 +414,6 @@ end
 
 function M.hide()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    -- SYSTEM PROTECTION ATTACHMENT: Double-verify against window metadata flags
     if vim.w[M.layout.container_win].pio_managed then
       pcall(vim.api.nvim_win_close, M.layout.container_win, true)
     end
