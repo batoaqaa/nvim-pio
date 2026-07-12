@@ -248,12 +248,12 @@ function Terminal:send(command)
     cmd_str = ' ' .. cmd_str
   end
 
-  -- Initialize progress states globally when a fresh build command is registered
-  if cmd_str:find('pio run') or cmd_str:find('pio device monitor') then
-    M.status.status = 'building'
-    M.status.msg = 'Building...'
-    vim.cmd('redrawstatus')
-  end
+  -- -- Initialize progress states globally when a fresh build command is registered
+  -- if cmd_str:find('pio run') or cmd_str:find('pio device monitor') then
+  --   M.status.status = 'building'
+  --   M.status.msg = 'Building...'
+  --   vim.cmd('redrawstatus')
+  -- end
 
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
