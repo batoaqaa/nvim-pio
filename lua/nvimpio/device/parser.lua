@@ -202,7 +202,7 @@ end
 --       if on_done and type(on_done) == "function" then on_done(true) end
 --       if success then boilerplate.core_dir = _G.metadata.core_dir end
 --     end, 'PIO init+db: ')
---     cliTerm:hide()
+--     cliTerm.hide()
 --     M.cleanSequencer()
 --   elseif result == 'FAIL' then
 --     if on_done and type(on_done) == "function" then on_done(false) end
@@ -223,7 +223,7 @@ function M.handlePioinit(result, framework, board, on_done)
     OS.notify(fromMsg .. 'project init Done', OS.debug)
     -- boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
     -- boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-    cliTerm:hide()
+    cliTerm.hide()
     if on_done and type(on_done) == "function" then on_done(true) end
     -- _G.metadata.active_env = board
     M.cleanSequencer()
@@ -292,7 +292,7 @@ function M.clangFormat(result)
     cliTerm:send(pop(M.queue))
   elseif result == 'DONE' then -- result of the only and the last command
     OS.notify('Clang formatter: Done', OS.debug)
-    if cliTerm then cliTerm:hide() end
+    if cliTerm then cliTerm.hide() end
     M.cleanSequencer()
   elseif result == 'FAIL' then
     M.cleanSequencer()
@@ -320,7 +320,7 @@ function M.handleIdedata(result, active_env, on_done)
     -- end, 50) -- 50ms delay, adjust as needed
     require('nvimpio.clangd.control').restart()
     if on_done and type(on_done) == 'function' then on_done(true) end
-    cliTerm:hide()
+    cliTerm.hide()
     M.cleanSequencer()
   elseif result == 'FAIL' then
     if on_done and type(on_done) == 'function' then on_done(false) end
@@ -358,7 +358,7 @@ end
 --         end, 500) -- 50ms delay, adjust as needed
 --       end
 --     end
---     cliTerm:hide()
+--     cliTerm.hide()
 --     M.cleanSequencer()
 --   elseif result == 'FAIL' then
 --     if on_done and type(on_done) == 'function' then
@@ -372,7 +372,7 @@ end
 --         on_done(true)
 --       else on_done(false) end
 --     end
---     cliTerm:hide()
+--     cliTerm.hide()
 --     M.cleanSequencer()
 --   end
 -- end
@@ -459,7 +459,7 @@ function M.handleClangdCheck(result, on_done)
     vim.schedule(function()
       if on_done and type(on_done) == 'function' then on_done(true, final_args) end
     end)
-    cliTerm:hide()
+    cliTerm.hide()
     M.cleanSequencer()
   elseif result == 'FAIL' then
     OS.notify(string.format('%s clangd check  fail', fromMsg), OS.debug)
@@ -467,7 +467,7 @@ function M.handleClangdCheck(result, on_done)
     vim.schedule(function()
       if on_done and type(on_done) == 'function' then on_done(true, final_args) end
     end)
-    cliTerm:hide()
+    cliTerm.hide()
     M.cleanSequencer()
   end
 end
@@ -492,7 +492,7 @@ function M.handlePiolib(result)
       --   end
       -- end, 'PIO lib+db: ')
     end)
-    cliTerm:hide()
+    cliTerm.hide()
     M.cleanSequencer()
   elseif result == 'FAIL' then
     M.cleanSequencer()
