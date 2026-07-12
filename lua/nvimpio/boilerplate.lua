@@ -65,7 +65,7 @@ boilerplate['.clangdConfig.json'] = {
     "--completion-parse=always",
     "--completion-style=detailed",
     "--header-insertion=iwyu",
-    "--fallback-style=llvm",
+    "--fallback-style={BasedOnStyle: llvm, SortIncludes: false}", 
     "--log=error",
     "--pch-storage=memory",
     "--pretty",
