@@ -88,12 +88,12 @@ function M.getClangdConfig()
   -- local formatted_fallbackFlags = { '"-std=c++17"', '"-ferror-limit=0"' }  -- cxx std=c==17 + response file
   local _, count = json_config:gsub('%%s', '')
   -- Only use string.format if there is one or less %s
-  if count <= 3 then
+  if count <= 2 then
     -- merged_json = string.format(json_config or '', q_driver)
     -- merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ','))
     -- local dbPath = vim.fs.joinpath(OS.nvimpio_config_dir, _G.metadata.active_env)
     local dbPath = OS.project_dir
-    merged_json = string.format(json_config or '', dbPath, q_driver, dbPath)
+    merged_json = string.format(json_config or '', dbPath, q_driver)
     -- merged_json = string.format(json_config or '', OS.nvimpio_config_dir, q_driver)
   end
 
