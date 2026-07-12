@@ -67,7 +67,7 @@ boilerplate['.clangdConfig.json'] = {
     "--header-insertion=iwyu",
     "--fallback-style={BasedOnStyle: llvm, SortIncludes: false}", 
     "--clang-tidy-checks=-misc-include-cleaner",
-    "--header-insertion-decorators=false"
+    "--header-insertion-decorators=false",
     "--log=error",
     "--pch-storage=memory",
     "--pretty",
