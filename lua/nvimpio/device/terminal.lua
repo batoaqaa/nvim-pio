@@ -4,7 +4,7 @@
 local M = {}
 
 -- 1. Insulated Cross-Platform Environment Discovery Matrix
-local native_shell = M.config and M.config.shell or OS.shell
+local native_shell = OS.shell
 local native_eol = OS.eol
 
 -- 2. Enterprise Configuration Specification Matrix
@@ -107,7 +107,6 @@ function M.RestoreWorkspaceFocus()
     vim.api.nvim_set_current_win(target_win)
   end
 end
-
 -- nvimpio/device/terminal.lua - Part 2
 
 ----------------------------------------------------------------------------------------
@@ -137,22 +136,33 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
 end
 
 function Terminal:on_create()
-  -- THE NATIVE REVOLUTIONARY FIX: Completely abandon nvim_create_buf. Instead, allocate a native
-  -- terminal path via bufadd using Neovim's explicit term:// schema protocol.
-  -- This allocates an immutable, pre-verified terminal buffer layout state natively.
-  local pio_shell_cmd = M.config.shell or OS.shell
-  local term_url = string.format('term:////%d:nvimpio_%s_shell//%s', vim.uv.hrtime(), self.term_type, pio_shell_cmd)
+  -- unlisted (false) scratch buffer (true) -> Completely blocks top tab bars from seeing it!
+  self.buf = vim.api.nvim_create_buf(false, true)
 
-  self.buf = vim.fn.bufadd(term_url)
+  -- VIRTUAL CONTEXT ENCAPSULATION LOOP: Force termopen to execute internally inside the buffer scope.
+  -- This makes the buffer a native terminal *before* foreign window hooks can taint it.
+  vim.api.nvim_buf_call(self.buf, function()
+    local channel_id = vim.fn.termopen(M.config.shell or OS.shell, {
+      on_stdout = function(j, d, e)
+        self:on_stdout(j, d, e)
+      end,
+      on_stderr = function(j, d, e)
+        self:on_stderr(j, d, e)
+      end,
+      on_exit = function()
+        self:on_exit()
+      end,
+    })
+    self.job = (channel_id and channel_id > 0) and channel_id or nil
+  end)
 
-  -- Force unlisted properties immediately onto the native node
-  vim.api.nvim_set_option_value('buflisted', false, { buf = self.buf })
+  -- Lock tracking properties safely on the sealed terminal container
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
-
   pcall(function()
     vim.b[self.buf].bufferline_deny = true
   end)
+
   vim.b[self.buf].pio_term_type = self.term_type
 
   self:_register_viewport_mappings()
@@ -170,8 +180,6 @@ function Terminal:send(command)
   if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.active_type ~= self.term_type then
     M.show(self.term_type)
   end
-
-  self:on_spawn()
 
   if not self.job or self.job <= 0 then
     return
@@ -198,45 +206,6 @@ function Terminal:send(command)
 
   if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
     pcall(vim.api.nvim_set_current_win, original_work_win)
-  end
-end
-
-function Terminal:on_spawn()
-  if self.job and self.job > 0 then
-    return
-  end
-
-  -- Pull the job channel identifier from Neovim's native buffer dictionary metadata tables.
-  -- Since we created via a term:// protocol, Neovim instantiates the process automatically
-  -- the millisecond it gets loaded into a real layout split window!
-  local channel_id = vim.b[self.buf].terminal_job_id
-
-  -- If it's not loaded into a window yet but we need it immediately for a background command,
-  -- invoke a quick window load cycle to wake it up cleanly
-  if not channel_id or channel_id <= 0 then
-    local old_win = vim.api.nvim_get_current_win()
-    local temp_win = vim.api.nvim_open_win(self.buf, false, {
-      relative = 'editor',
-      width = 1,
-      height = 1,
-      row = 0,
-      col = 0,
-      hide = true,
-    })
-    channel_id = vim.b[self.buf].terminal_job_id
-    pcall(vim.api.nvim_win_close, temp_win, true)
-    pcall(vim.api.nvim_set_current_win, old_win)
-  end
-
-  self.job = (channel_id and channel_id > 0) and channel_id or nil
-
-  -- Attach standard framework async process event handlers cleanly to the channel
-  if self.job and self.job > 0 then
-    pcall(vim.api.nvim_buf_attach, self.buf, false, {
-      on_detach = function()
-        self:on_close()
-      end,
-    })
   end
 end
 
@@ -289,6 +258,7 @@ function Terminal:on_open()
   })
   M.layout.active_type = self.term_type
 
+  -- FENCE CONTEXT SIGNATURE: Hard lock this split pane window layout as plugin-managed
   vim.w[M.layout.container_win].pio_managed = true
 
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
@@ -361,7 +331,6 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 end
-
 -- nvimpio/device/terminal.lua - Part 3
 
 ----------------------------------------------------------------------------------------
@@ -416,6 +385,7 @@ function M.show(term_type)
     target_instance:on_create()
   end
 
+  -- INSTANT PANEL SWITCHING: Clean hotswapping with 0% flicker or layout crashes
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     local old_win = vim.api.nvim_get_current_win()
 
@@ -423,7 +393,6 @@ function M.show(term_type)
     M.layout.active_type = term_type
 
     target_instance:_register_viewport_mappings()
-    target_instance:on_spawn()
     M.UpdateWinbarTitles()
 
     if old_win == M.layout.container_win then
@@ -433,7 +402,6 @@ function M.show(term_type)
   end
 
   target_instance:on_open()
-  target_instance:on_spawn()
   M.UpdateWinbarTitles()
   vim.cmd('startinsert')
 end
