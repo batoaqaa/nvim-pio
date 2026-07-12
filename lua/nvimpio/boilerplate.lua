@@ -248,7 +248,8 @@ CompileFlags:
     ------------------ start .clangd remove section ------------------------------
     -- 1. SYNC (WITH DIRECT DISK FALLBACK GATING):
     -- local formatted_remove = {}
-    local formatted_remove = {'"-std=*"'}
+    -- local formatted_remove = {'"-std=*"'}
+    local formatted_remove = {}
     -- add diagnostic removed flags
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
     if success and pio_diag and pio_diag.removed_flags and next(pio_diag.removed_flags) then
@@ -328,21 +329,21 @@ CompileFlags:
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCxxAdd section  --------------------
-    -- local formattedCxxAdd = { }
-    local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
+    local formattedCxxAdd = { }
+    -- local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
     vim.list_extend(formattedCxxAdd, formattedIncAdd)
     --------------------- end .clangd formattedCxxAdd section --------------------
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedCcAdd section  ---------------------
-    -- local formattedCcAdd = { }
-    local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
+    local formattedCcAdd = { }
+    -- local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
     vim.list_extend(formattedCcAdd, formattedIncAdd)
     --------------------- end .clangd formattedCcAdd section ---------------------
 
     local is_cpp = is_cpp_project()
     ------------------------------------------------------------------------------
-    local formattedAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"'} or { '"-xc"', '"-std=gnu17"' }
+    local formattedAdd = {} --is_cpp and { '"-xc++"', '"-std=gnu++17"'} or { '"-xc"', '"-std=gnu17"' }
     vim.list_extend(formattedAdd, formattedIncAdd)
     ------------------------------------------------------------------------------
 
@@ -350,7 +351,7 @@ CompileFlags:
     ------------------ start .clangd formattedHAdd section  ----------------------
     -- local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
     -- local c_extensions   = is_cpp and "c" or "c|h"
-    local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
+    local formattedHAdd = {} --is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
     vim.list_extend(formattedHAdd, formattedIncAdd)
     --------------------- end .clangd formattedHAdd section ----------------------

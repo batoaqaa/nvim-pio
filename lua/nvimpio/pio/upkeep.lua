@@ -1009,7 +1009,7 @@ vim.fs.dirname(_G.metadata.cxx_path)
 
     local end_time = vim.loop.hrtime()
     local duration = (end_time - start_time) / 1e6
-    OS.notify(string.format('compiledb: paths fixed in %.2fms', duration), OS.debug)
+    OS.notify(string.format('compiledb: paths fixed in %.2fms', duration), 'info')
     -- clangd.restart()
   else
     OS.notify("no need to fixPaths", OS.debug)
