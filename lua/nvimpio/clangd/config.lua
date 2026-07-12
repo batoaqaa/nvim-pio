@@ -142,6 +142,9 @@ capabilities.textDocument.foldingRange = {
       dynamicRegistration = false,
       lineFoldingOnly = true,
     },
+    diagnostic = {
+      dynamicRegistration = true,
+    },
   },
 }
 local bok, blink = pcall(require, 'blink.cmp')
