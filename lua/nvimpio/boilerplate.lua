@@ -92,7 +92,7 @@ boilerplate['.clangdConfig.json'] = {
   ],
   "init_options": {
     "compilationDatabase": {
-        "directory":%s
+        "directory":%q
     },
     "clangdFileStatus": true,
     "completeUnimported": true,
