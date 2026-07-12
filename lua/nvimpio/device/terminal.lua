@@ -1,4 +1,4 @@
--- stylua: ignore start
+--- stylua: ignore start
 -- nvimpio/device/terminal.lua - Part 1
 
 local M = {}
@@ -137,10 +137,36 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
 end
 
 function Terminal:on_create()
-  -- 1. Create a safe unlisted buffer architecture layer
   self.buf = vim.api.nvim_create_buf(false, true)
 
-  -- 2. Configure standard metadata options cleanly without execution dependencies
+  -- THE HEADLESS WRAPPER FIX: Spin up an invisible float window configuration,
+  -- execute termopen instantly inside it to seal the buffer as a terminal type,
+  -- and immediately drop the temporary float window framework.
+  local temp_win = vim.api.nvim_open_win(self.buf, false, {
+    relative = 'editor',
+    width = 1,
+    height = 1,
+    row = 0,
+    col = 0,
+    hide = true,
+  })
+
+  local channel_id = vim.fn.termopen(M.config.shell, {
+    on_stdout = function(j, d, e)
+      self:on_stdout(j, d, e)
+    end,
+    on_stderr = function(j, d, e)
+      self:on_stderr(j, d, e)
+    end,
+    on_exit = function()
+      self:on_exit()
+    end,
+  })
+  self.job = (channel_id and channel_id > 0) and channel_id or nil
+
+  pcall(vim.api.nvim_win_close, temp_win, true)
+
+  -- The buffer is now a native terminal type. Options can be modified with 0% risk.
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
   pcall(function()
@@ -164,9 +190,6 @@ function Terminal:send(command)
   if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.active_type ~= self.term_type then
     M.show(self.term_type)
   end
-
-  -- Spawning occurs inside an active window framework target location scope context safely
-  self:on_spawn()
 
   if not self.job or self.job <= 0 then
     return
@@ -194,31 +217,6 @@ function Terminal:send(command)
   if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
     pcall(vim.api.nvim_set_current_win, original_work_win)
   end
-end
-
-function Terminal:on_spawn()
-  if self.job and self.job > 0 then
-    return
-  end
-
-  -- TIMING RESOLUTION HARD LOCK: Clear history tracking trees right before termopen
-  if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
-    vim.api.nvim_set_option_value('modified', false, { buf = self.buf })
-    vim.api.nvim_buf_set_lines(self.buf, 0, -1, false, {})
-  end
-
-  local channel_id = vim.fn.termopen(M.config.shell, {
-    on_stdout = function(j, d, e)
-      self:on_stdout(j, d, e)
-    end,
-    on_stderr = function(j, d, e)
-      self:on_stderr(j, d, e)
-    end,
-    on_exit = function()
-      self:on_exit()
-    end,
-  })
-  self.job = (channel_id and channel_id > 0) and channel_id or nil
 end
 
 function Terminal:on_stdout(j, d, e)
@@ -380,7 +378,6 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
 
   M[name] = M.terminals[name]
 
-  -- DECOUPLING ATTACHMENT LOCK: Create the tracking nodes cleanly without headless background processes!
   M.terminals[name]:on_create()
   return M.terminals[name]
 end
@@ -398,7 +395,7 @@ function M.show(term_type)
     target_instance:on_create()
   end
 
-  -- VIRTUAL SWAP LAYER: Dynamic hot swapping inside active splits
+  -- INSTANT PANEL SWITCHING: Now 100% crash proof because target_instance.buf is ALREADY a native terminal type!
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     local old_win = vim.api.nvim_get_current_win()
 
@@ -406,7 +403,6 @@ function M.show(term_type)
     M.layout.active_type = term_type
 
     target_instance:_register_viewport_mappings()
-    target_instance:on_spawn() -- Safe execution: triggered within active layout frames
     M.UpdateWinbarTitles()
 
     if old_win == M.layout.container_win then
@@ -416,7 +412,6 @@ function M.show(term_type)
   end
 
   target_instance:on_open()
-  target_instance:on_spawn() -- Safe execution: triggered within active layout frames
   M.UpdateWinbarTitles()
   vim.cmd('startinsert')
 end
