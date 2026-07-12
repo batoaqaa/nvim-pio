@@ -199,6 +199,13 @@ end
 function Terminal:on_spawn()
   if self.job and self.job > 0 then return end
 
+  -- CORE ENGINE: Clear the modification state and wipe text metrics 
+  -- so termopen treats this buffer as a pristine canvas.
+  if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
+    vim.api.nvim_set_option_value('modified', false, { buf = self.buf })
+    vim.api.nvim_buf_set_lines(self.buf, 0, -1, false, {})
+  end
+
   local channel_id = vim.fn.termopen(M.config.shell, {
     on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
     on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
