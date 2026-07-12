@@ -109,7 +109,6 @@ local os_info = {
   ---@param msg string The message to display
   ---@param level string|integer|nil
   notify = function(msg, level)
-    if level == debug then return end
     -- vim.log = { levels = { TRACE = 0, DEBUG = 1, INFO = 2, WARN = 3, ERROR = 4, OFF = 5, }, }
     local string_to_level = {
       trace = vim.log.levels.TRACE,
@@ -120,6 +119,7 @@ local os_info = {
       off = vim.log.levels.OFF,
     }
     if type(level) == 'string' then level = string_to_level[level:lower()] end
+    if level == vim.log.levels.OFF then return end
 
     ---@cast level integer
     level = level or vim.log.levels.INFO
