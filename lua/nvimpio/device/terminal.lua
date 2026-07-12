@@ -57,7 +57,7 @@ function M.UpdateWinbarTitles()
     return (a._creation_index or 0) < (b._creation_index or 0)
   end)
 
-  local tab_string = string.format("%%#%sDim# ", M.config.winbar_hl_group)
+  local tab_string = string.format('%%#%sDim# ', M.config.winbar_hl_group)
   local total_terminals = 0
 
   for _, term in ipairs(ordered_terminals) do
@@ -73,7 +73,11 @@ function M.UpdateWinbarTitles()
   local hint = (total_terminals > 1) and string.format(' [ %s  Switch;  %s  Hide; :q! Quit ] ', maps.switch_pane, maps.hide_pane)
     or string.format(' [ %s  Hide; :q! Quit ] ', maps.hide_pane)
 
-  vim.api.nvim_set_option_value('winbar', string.format("%s%%#%sDim#%%=%s", tab_string, M.config.winbar_hl_group, hint), { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value(
+    'winbar',
+    string.format('%s%%#%sDim#%%=%s', tab_string, M.config.winbar_hl_group, hint),
+    { scope = 'local', win = M.layout.container_win }
+  )
 end
 
 --- Dynamic Workspace Tree Focus Router Matrix
@@ -105,7 +109,6 @@ function M.RestoreWorkspaceFocus()
   end
 end
 
-
 -- nvimpio/device/terminal.lua - Part 2
 
 ----------------------------------------------------------------------------------------
@@ -134,9 +137,10 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
 end
 
 function Terminal:on_create()
-  -- NATIVE CONFIGURATION LOCK: Enforce standard buffer listing behavior natively
-  self.buf = vim.api.nvim_create_buf(true, true) -- Sets buflisted = true automatically
-  vim.api.nvim_buf_set_name(self.buf, "pio_terminal://" .. self.term_type)
+  -- FIXED GATEWAY: Keep scratch pads unlisted (false) so they hide from top tablines / bufferlines,
+  -- but assign a structured URI name so they remain fully trackable using raw :buffers! commands.
+  self.buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_name(self.buf, 'pio_terminal://' .. self.term_type)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
 
   self:_register_viewport_mappings()
@@ -157,13 +161,14 @@ function Terminal:send(command)
 
   self:on_spawn()
 
-  if not self.job or self.job <= 0 then return end
+  if not self.job or self.job <= 0 then
+    return
+  end
 
   if cmd_str ~= '' and not cmd_str:match('^%s') then
     cmd_str = ' ' .. cmd_str
   end
 
-  -- Stream output directly downstream via the active channel handle
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) and not self._is_scrolling then
@@ -185,13 +190,20 @@ function Terminal:send(command)
 end
 
 function Terminal:on_spawn()
-  if self.job and self.job > 0 then return end
+  if self.job and self.job > 0 then
+    return
+  end
 
-  -- Isolate process creation from window instantiation
   local channel_id = vim.fn.termopen(M.config.shell, {
-    on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
-    on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
-    on_exit = function() self:on_exit() end,
+    on_stdout = function(j, d, e)
+      self:on_stdout(j, d, e)
+    end,
+    on_stderr = function(j, d, e)
+      self:on_stderr(j, d, e)
+    end,
+    on_exit = function()
+      self:on_exit()
+    end,
   })
   self.job = (channel_id and channel_id > 0) and channel_id or nil
 end
@@ -204,15 +216,18 @@ function Terminal:on_stdout(j, d, e)
   end
 end
 
-function Terminal:on_stderr(j, d, e) self:on_stdout(j, d, e) end
+function Terminal:on_stderr(j, d, e)
+  self:on_stdout(j, d, e)
+end
 
 function Terminal:on_exit()
-  if type(M.exit_callback) == 'function' then M.exit_callback() end
+  if type(M.exit_callback) == 'function' then
+    M.exit_callback()
+  end
   M.UpdateWinbarTitles()
 end
 
 function Terminal:on_close()
-  -- Prevent cyclic execution feedback loops during active destruction paths
   local tracking_buf = self.buf
   self.job = nil
   self.buf = nil
@@ -238,7 +253,6 @@ function Terminal:on_open()
   })
   M.layout.active_type = self.term_type
 
-  -- WORKSPACE PARAMETERS ISOLATION LAYER: Explicitly flag this window as plugin-managed
   vim.w[M.layout.container_win].pio_managed = true
 
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
@@ -258,8 +272,12 @@ function Terminal:_register_viewport_mappings()
     M.SwitchTerminalPane()
   end, { buffer = self.buf, silent = true })
 
-  vim.keymap.set('n', maps.switch_pane, function() M.SwitchTerminalPane() end, { buffer = self.buf, silent = true })
-  vim.keymap.set('n', maps.hide_pane, function() M.toggle() end, { buffer = self.buf })
+  vim.keymap.set('n', maps.switch_pane, function()
+    M.SwitchTerminalPane()
+  end, { buffer = self.buf, silent = true })
+  vim.keymap.set('n', maps.hide_pane, function()
+    M.toggle()
+  end, { buffer = self.buf })
 
   vim.keymap.set('t', maps.move_up, [[<C-\><C-n><C-w>k]], { buffer = self.buf, silent = true })
   vim.keymap.set('n', maps.move_up, '<C-w>k', { buffer = self.buf, silent = true })
@@ -270,7 +288,6 @@ end
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
-  -- NATIVE CLEANUP HOOK: Catch buffer wipeouts via :q!, :bd!, or terminal exits cleanly
   vim.api.nvim_create_autocmd('BufWipeout', {
     group = group_id,
     buffer = self.buf,
@@ -281,7 +298,6 @@ function Terminal:_register_viewport_bindings()
       self.job = nil
       self.buf = nil
 
-      -- If the buffer died internally, ensure the global module layout variables drop instantly
       if M.layout.active_type == self.term_type then
         M.layout.active_type = nil
         M.hide()
@@ -293,11 +309,12 @@ function Terminal:_register_viewport_bindings()
     group = group_id,
     buffer = self.buf,
     callback = function()
-      vim.schedule(function() M.UpdateWinbarTitles() end)
+      vim.schedule(function()
+        M.UpdateWinbarTitles()
+      end)
     end,
   })
 
-  -- STABLE WINDOW FRAME LIFECYCLE ROUTER
   vim.api.nvim_create_autocmd('WinClosed', {
     group = group_id,
     callback = function()
@@ -309,7 +326,6 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 end
-
 
 -- nvimpio/device/terminal.lua - Part 3
 
@@ -339,7 +355,9 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   end
 
   local current_count = 0
-  for _ in pairs(M.terminals) do current_count = current_count + 1 end
+  for _ in pairs(M.terminals) do
+    current_count = current_count + 1
+  end
 
   M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
   M.terminals[name]._creation_index = current_count + 1
@@ -350,9 +368,13 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
 end
 
 function M.show(term_type)
-  if not term_type then term_type = next(M.terminals) end
+  if not term_type then
+    term_type = next(M.terminals)
+  end
   local target_instance = M.terminals[term_type]
-  if not target_instance then return end
+  if not target_instance then
+    return
+  end
 
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
@@ -382,7 +404,6 @@ end
 
 function M.hide()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    -- DETACHMENT ROUTER: Ensure we only touch explicit plugin-managed window targets
     if vim.w[M.layout.container_win].pio_managed then
       pcall(vim.api.nvim_win_close, M.layout.container_win, true)
     end
@@ -406,7 +427,9 @@ end
 
 function M.SwitchTerminalPane()
   local ordered_keys = {}
-  for k, _ in pairs(M.terminals) do table.insert(ordered_keys, k) end
+  for k, _ in pairs(M.terminals) do
+    table.insert(ordered_keys, k)
+  end
 
   table.sort(ordered_keys, function(a, b)
     local term_a = M.terminals[a]
@@ -414,7 +437,9 @@ function M.SwitchTerminalPane()
     return (term_a._creation_index or 0) < (term_b._creation_index or 0)
   end)
 
-  if #ordered_keys <= 1 then return end
+  if #ordered_keys <= 1 then
+    return
+  end
 
   local current_index = 1
   for i, k in ipairs(ordered_keys) do
@@ -432,16 +457,16 @@ function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
---- CRITICAL STATEFUL COMMAND DISPATCHER MATRIX (Flawless Async Channel Automation)
 function M.send_and_restore(cmd)
   local target_instance = M.terminals.cli
-  if not target_instance then return end
+  if not target_instance then
+    return
+  end
 
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
   end
 
-  -- Fire command downstream immediately using the object-oriented wrapper pipeline
   target_instance:send(cmd)
 end
 
@@ -462,9 +487,15 @@ end
 ----------------------------------------------------------------------------------------
 -- SYSTEM FACTORY CHANNELS INITIALIZATION
 function M.reopen()
-  if (M.terminals['logs']) then M.terminals['logs']:close() end
-  if (M.terminals['mon']) then M.terminals['mon']:close() end
-  if (M.terminals['cli']) then M.terminals['cli']:close() end
+  if M.terminals['logs'] then
+    M.terminals['logs']:close()
+  end
+  if M.terminals['mon'] then
+    M.terminals['mon']:close()
+  end
+  if M.terminals['cli'] then
+    M.terminals['cli']:close()
+  end
 
   M.create_terminal('cli', ' CLI ', function(j, d, e)
     if type(M.stdout_callback) == 'function' then
