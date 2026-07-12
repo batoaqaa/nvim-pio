@@ -1,4 +1,4 @@
---- stylua: ignore start
+-- stylua: ignore start
 -- nvimpio/device/terminal.lua - Part 1
 
 local M = {}
@@ -26,7 +26,6 @@ M.config = {
 }
 
 M.stdout_callback = nil
-M.exit_callback = nil
 M.terminals = {}
 
 -- Pinned Workspace Tree Sizing Metrics Matrix
@@ -123,6 +122,7 @@ local Terminal = {
   newline = native_eol,
   filetype = 'pio_terminal',
   _custom_stdout = nil,
+  _on_next_exit = nil, -- TOKENIZED CLOSURE MATRIX: Isolated execution hook callback per terminal node
   _is_scrolling = false,
 }
 Terminal.__index = Terminal
@@ -137,17 +137,15 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
 end
 
 function Terminal:on_create()
-  -- unlisted (false) keeps them clean out of your top tab bars/bufferlines completely
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
 
-  -- NATIVE TABLINE BLANKET: Hard-force foreign tab layout plugins to ignore this specific buffer
+  -- NATIVE TABLINE EXPULSION: Hard-force tab widgets globally to ignore this buffer frame
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
   pcall(function()
     vim.b[self.buf].bufferline_deny = true
-  end) -- Block bufferline explicit tracking layout
+  end)
 
-  -- STRUCTURAL METADATA STAMP: Inject an unerasable identification marker into the buffer space
   vim.b[self.buf].pio_term_type = self.term_type
 
   self:_register_viewport_mappings()
@@ -176,8 +174,10 @@ function Terminal:send(command)
     cmd_str = ' ' .. cmd_str
   end
 
+  -- CONTEXT CLOSURE DISPATCH: Inject command string downstream safely into the allocated handle
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
+  -- NATIVE VIEWPORT SCROLL PINNING: Core API alignment loop
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) and not self._is_scrolling then
     self._is_scrolling = true
     vim.schedule(function()
@@ -197,21 +197,12 @@ function Terminal:send(command)
 end
 
 function Terminal:on_spawn()
-  if self.job and self.job > 0 then
-    return
-  end
+  if self.job and self.job > 0 then return end
 
-  -- NATIVE EXECUTION LOCK: Let termopen create its standard native channel structure inside the buffer.
   local channel_id = vim.fn.termopen(M.config.shell, {
-    on_stdout = function(j, d, e)
-      self:on_stdout(j, d, e)
-    end,
-    on_stderr = function(j, d, e)
-      self:on_stderr(j, d, e)
-    end,
-    on_exit = function()
-      self:on_exit()
-    end,
+    on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
+    on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
+    on_exit = function() self:on_exit() end,
   })
   self.job = (channel_id and channel_id > 0) and channel_id or nil
 end
@@ -229,16 +220,16 @@ function Terminal:on_stderr(j, d, e)
 end
 
 function Terminal:on_exit()
-  if type(M.exit_callback) == 'function' then
-    M.exit_callback()
-  end
+  local cb = self._on_next_exit
+  self._on_next_exit = nil
+  if cb ~= nil and type(cb) == 'function' then cb() end
   M.UpdateWinbarTitles()
 end
-
 function Terminal:on_close()
   local tracking_buf = self.buf
   self.job = nil
   self.buf = nil
+  self._on_next_exit = nil
 
   if tracking_buf and vim.api.nvim_buf_is_valid(tracking_buf) then
     pcall(vim.api.nvim_buf_delete, tracking_buf, { force = true })
@@ -261,7 +252,7 @@ function Terminal:on_open()
   })
   M.layout.active_type = self.term_type
 
-  -- HARD LOCK ISOLATION FENCE: Lock this split layout window as strictly plugin-managed
+  -- WORKSPACE FENCE ATTRIBUTE: Stamp window node context metadata securely
   vim.w[M.layout.container_win].pio_managed = true
 
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
@@ -277,10 +268,8 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf, silent = true })
 
   vim.keymap.set('t', maps.switch_pane, function()
-    vim.api.nvim_input([[<C-\><C-n>]])
     M.SwitchTerminalPane()
   end, { buffer = self.buf, silent = true })
-
   vim.keymap.set('n', maps.switch_pane, function()
     M.SwitchTerminalPane()
   end, { buffer = self.buf, silent = true })
@@ -297,7 +286,6 @@ end
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
-  -- CLEANUP CORE ENGINE: Handle structural dropouts cleanly across all closure conditions
   vim.api.nvim_create_autocmd('BufWipeout', {
     group = group_id,
     buffer = self.buf,
@@ -307,6 +295,7 @@ function Terminal:_register_viewport_bindings()
       end
       self.job = nil
       self.buf = nil
+      self._on_next_exit = nil
 
       if M.layout.active_type == self.term_type then
         M.layout.active_type = nil
@@ -390,19 +379,19 @@ function M.show(term_type)
     target_instance:on_create()
   end
 
+  -- INSTANT VIEWPORT HOT-SWAPPING MATRIX: Modifies buffer contents cleanly without tearing down windows
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     local old_win = vim.api.nvim_get_current_win()
-    pcall(vim.api.nvim_set_current_win, M.layout.container_win)
 
-    target_instance:_register_viewport_mappings()
     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
     M.layout.active_type = term_type
 
     target_instance:on_spawn()
+    target_instance:_register_viewport_mappings()
     M.UpdateWinbarTitles()
 
-    if old_win ~= M.layout.container_win and vim.api.nvim_win_is_valid(old_win) then
-      pcall(vim.api.nvim_set_current_win, old_win)
+    if old_win == M.layout.container_win then
+      vim.cmd('startinsert')
     end
     return
   end
@@ -410,6 +399,7 @@ function M.show(term_type)
   target_instance:on_open()
   target_instance:on_spawn()
   M.UpdateWinbarTitles()
+  vim.cmd('startinsert')
 end
 
 function M.hide()
@@ -467,10 +457,25 @@ function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
+--- CRITICAL STATEFUL COMMAND DISPATCHER MATRIX (Production-Grade Background Task Pipeline)
 function M.send_and_restore(cmd)
   local target_instance = M.terminals.cli
   if not target_instance then
     return
+  end
+
+  local original_work_win = vim.api.nvim_get_current_win()
+
+  -- ISOLATED BINDING CLOSURE: Lock completion workflow to this specific execution context
+  target_instance._on_next_exit = function()
+    vim.schedule(function()
+      M.hide()
+      if original_work_win and vim.api.nvim_win_is_valid(original_work_win) then
+        pcall(vim.api.nvim_set_current_win, original_work_win)
+      else
+        M.RestoreWorkspaceFocus()
+      end
+    end)
   end
 
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
@@ -484,7 +489,7 @@ end
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
-    vim.api.nvim_input([[<C-\><C-n>]])
+    vim.cmd('startinsert')
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
   end
