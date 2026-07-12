@@ -137,9 +137,12 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
 end
 
 function Terminal:on_create()
-  -- unlisted (false) keeps them clean out of your top tab bars/bufferlines completely
+  -- KEEP UNLISTED: Always false to cleanly stay out of top tablines and buffer switches
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
+
+  -- STRUCTURAL METADATA STAMP: Inject an unerasable identification marker into the buffer space
+  vim.b[self.buf].pio_term_type = self.term_type
 
   self:_register_viewport_mappings()
   self:_register_viewport_bindings()
@@ -192,9 +195,8 @@ function Terminal:on_spawn()
     return
   end
 
-  -- Run the process creation chain inside the target buffer context scope
-  local current_win = vim.api.nvim_get_current_win()
-
+  -- NATIVE EXECUTION LOCK: Let termopen create its standard native channel structure inside the buffer.
+  -- Removing the manual rename block entirely blocks Neovim from splitting into rogue duplicate buffers.
   local channel_id = vim.fn.termopen(M.config.shell, {
     on_stdout = function(j, d, e)
       self:on_stdout(j, d, e)
@@ -207,12 +209,6 @@ function Terminal:on_spawn()
     end,
   })
   self.job = (channel_id and channel_id > 0) and channel_id or nil
-
-  -- IDENTITY LOCK: Explicitly rename the buffer immediately after termopen runs.
-  -- This strips out Neovim's default 'term://' override syntax and hardens our identifier.
-  if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
-    pcall(vim.api.nvim_buf_set_name, self.buf, 'pio_terminal://' .. self.term_type)
-  end
 end
 
 function Terminal:on_stdout(j, d, e)
@@ -260,7 +256,7 @@ function Terminal:on_open()
   })
   M.layout.active_type = self.term_type
 
-  -- FENCE LAYER: Explicitly stamp this window frame split as a plugin-managed zone
+  -- HARD LOCK ISOLATION FENCE: Lock this split layout window as strictly plugin-managed
   vim.w[M.layout.container_win].pio_managed = true
 
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
@@ -296,7 +292,6 @@ end
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
-  -- CLEANUP CORE ENGINE: Handle structural dropouts cleanly across all closure conditions
   vim.api.nvim_create_autocmd('BufWipeout', {
     group = group_id,
     buffer = self.buf,
@@ -413,6 +408,7 @@ end
 
 function M.hide()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    -- SYSTEM PROTECTION ATTACHMENT: Double-verify against window metadata flags
     if vim.w[M.layout.container_win].pio_managed then
       pcall(vim.api.nvim_win_close, M.layout.container_win, true)
     end
