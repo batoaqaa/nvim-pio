@@ -137,14 +137,16 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
 end
 
 function Terminal:on_create()
+  -- Create a completely unlisted scratch buffer
   self.buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
 
-  -- NATIVE TABLINE EXPULSION: Hard-force tab widgets globally to ignore this buffer frame
+  -- FORCE WORKSPACE PROPERTIES: Turn off modifications and establish scratch state
+  vim.api.nvim_set_option_value('buftype', 'nofile', { buf = self.buf })
+  vim.api.nvim_set_option_value('modified', false, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
-  pcall(function()
-    vim.b[self.buf].bufferline_deny = true
-  end)
+
+  vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
+  pcall(function() vim.b[self.buf].bufferline_deny = true end)
 
   vim.b[self.buf].pio_term_type = self.term_type
 
@@ -199,8 +201,8 @@ end
 function Terminal:on_spawn()
   if self.job and self.job > 0 then return end
 
-  -- CORE ENGINE: Clear the modification state and wipe text metrics 
-  -- so termopen treats this buffer as a pristine canvas.
+  -- HARD RESET: Erase any ghost content and force unmodified state 
+  -- so Neovim treats this buffer as a pristine canvas.
   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
     vim.api.nvim_set_option_value('modified', false, { buf = self.buf })
     vim.api.nvim_buf_set_lines(self.buf, 0, -1, false, {})
