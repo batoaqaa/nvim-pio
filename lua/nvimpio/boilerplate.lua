@@ -44,7 +44,6 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
   end,
 }
 
-    -- "--compile-commands-dir=%s",
   -- "cmd_env": {
   --   "CLANGD_TRACE": ""
   -- },
@@ -61,6 +60,8 @@ boilerplate['.clangdConfig.json'] = {
     "--enable-config",
     "--limit-results=100",
     "--background-index",
+    "-j=4",
+    "--pch-storage=memory",
     "--all-scopes-completion",
     "--clang-tidy",
     "--completion-parse=always",
@@ -68,9 +69,9 @@ boilerplate['.clangdConfig.json'] = {
     "--header-insertion=iwyu",
     "--fallback-style={BasedOnStyle: llvm, SortIncludes: false}", 
     "--log=error",
-    "--pch-storage=memory",
     "--pretty",
     "--ranking-model=decision_forest",
+    "--compile-commands-dir=%s",
     "--query-driver=%s"
   ],
   "filetypes": [
@@ -205,7 +206,6 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
-  CompilationDatabase: "%s"
   Remove: [%s]
 
 %s
@@ -217,7 +217,6 @@ CompileFlags:
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
-  CompilationDatabase: "%s"
   Remove: [%s]
   Add: [%s]
 %s
@@ -385,7 +384,6 @@ CompileFlags:
     -- Simply wrap your dynamic variables before feeding them to string.format
     -- local clean_framework = preparePathMatch(_G.metadata.framework_root)
     -- local clean_toolchain = preparePathMatch(_G.metadata.toolchain_root)
-    local clean_project_db   = preparePathMatch(vim.fs.joinpath(OS.project_dir, '.pio/build', _G.metadata.active_env, 'compile_commands.json'))
     -- local clean_project   = preparePathMatch(OS.project_dir)
     local clean_packages_dir   = preparePathMatch(_G.metadata.packages_dir)
 
@@ -398,7 +396,7 @@ CompileFlags:
         cache_id = string.sub(vim.fn.sha256(_G.metadata.packages_dir), 1, 16),
         block = function (ref)
           return string.format(self.Global, ref.start_marker,
-                            clean_packages_dir, clean_project_db, table.concat(formatted_remove_ASSEMBLY, ',\n    '),
+                            clean_packages_dir, table.concat(formatted_remove_ASSEMBLY, ',\n    '),
                             ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= false,
@@ -407,7 +405,7 @@ CompileFlags:
         cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),
         block = function (ref)
           return string.format(self.Project, ref.start_marker,
-                            OS.project_dir, clean_project_db, table.concat(formatted_remove, ',\n    '),
+                            OS.project_dir, table.concat(formatted_remove, ',\n    '),
                             table.concat(formattedAdd, ',\n    '), ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= true,
