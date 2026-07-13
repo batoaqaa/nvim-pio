@@ -195,7 +195,6 @@ function M.readContent(tbl)
   return content
 end
 
--- CompilationDatabase: "%s"
 -- Compiler: "%s"
 -- CompilationDatabase: "%s"
   -- PathMatch: ['%s/.*']
@@ -205,6 +204,7 @@ boilerplate['.clangd'] = {
 ---
 If:
   PathMatch: ['%s/.*']
+CompilationDatabase: "%s"
 CompileFlags:
   Remove: [%s]
 
@@ -384,7 +384,7 @@ CompileFlags:
     -- Simply wrap your dynamic variables before feeding them to string.format
     -- local clean_framework = preparePathMatch(_G.metadata.framework_root)
     -- local clean_toolchain = preparePathMatch(_G.metadata.toolchain_root)
-    -- local clean_project   = preparePathMatch(OS.project_dir)
+    local clean_project   = preparePathMatch(OS.project_dir)
     local clean_packages_dir   = preparePathMatch(_G.metadata.packages_dir)
 
     ------------------------------------------------------------------------------
@@ -396,7 +396,7 @@ CompileFlags:
         cache_id = string.sub(vim.fn.sha256(_G.metadata.packages_dir), 1, 16),
         block = function (ref)
           return string.format(self.Global, ref.start_marker,
-                            clean_packages_dir, table.concat(formatted_remove_ASSEMBLY, ',\n    '),
+                            clean_packages_dir, clean_project, table.concat(formatted_remove_ASSEMBLY, ',\n    '),
                             ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= false,
