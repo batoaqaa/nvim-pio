@@ -143,7 +143,8 @@ function M.start_watchers()
         self.last_hash = new_hash
         self.isBusy = true
         _G.isBusy = true
-        OS.notify('PIO compiledb change: clangdb update ...', OS.debug)
+        -- OS.notify('PIO compiledb change: clangdb update ...', OS.debug)
+        OS.notify('PIO compiledb change: clangdb update ...', 'warn')
         -- vim.schedule(function()
           -- do end
           require('nvimpio.pio.upkeep').compile_commandsFix()
