@@ -118,12 +118,11 @@ function M.getClangdConfig()
   --   XDG_CONFIG_HOME = vim.env.XDG_CONFIG_HOME or (vim.env.HOME .. "/.config")
   -- }
 
-  -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
-  clangd_config.before_init = function(params, config)
-    if params.rootUri then
-      params.rootUri = vim.uri_from_fname(vim.fn.resolve(vim.uri_to_fname(params.rootUri)))
-    end
-  -- clangd_config.before_init = function(_, _)
+  -- clangd_config.before_init = function(params, config)
+  --   if params.rootUri then
+  --     params.rootUri = vim.uri_from_fname(vim.fn.resolve(vim.uri_to_fname(params.rootUri)))
+  --   end
+  clangd_config.before_init = function(_, _)
     -- Step 1: Parse database into an isolated local table variable first
     if has_pio_diag and pio_diag then
       local filter_db_path = vim.fs.joinpath(OS.nvimpio_env_dir, OS.clangd_filter)
@@ -157,9 +156,6 @@ function M.getClangdConfig()
       end
 
       if has_pio_diag and pio_diag then
-        local client = vim.lsp.get_client_by_id(ctx.client_id)
-        local project_root_dir = client and client.config.root_dir or vim.uv.cwd()
-
         local target_path = vim.uri_to_fname(result.uri)
         local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
         -- if diagnostics for column 0 , row 0
@@ -261,9 +257,6 @@ function M.getUnknownArgsCli(from)
   end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
 
   if not check_file then
-    -- boilerplate_gen([[main.cpp]], vim.uv.cwd() .. '/src')
-    -- boilerplate_gen([[main.hpp]], vim.uv.cwd() .. '/include')
-    -- boilerplate_gen([[arduino]])
     boilerplate_gen(_G.metadata.envs[_G.metadata.active_env].framework)
     check_file = vim.uv.cwd() .. '/src/main.cpp'
   end
@@ -312,8 +305,6 @@ function M.getUnknownArgsCli(from)
           end
         end
         -- 4. UPDATE: Rebuild with the new discovered flags
-        -- boilerplate.args = args_table
-        -- boilerplate_gen('.clangd', vim.g.platformioRootDir)
         require('nvimpio.clangd.diagnostic').unknownArgs()
 
         OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.', 'info')

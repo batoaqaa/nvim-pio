@@ -143,15 +143,14 @@ function M.start_watchers()
         self.last_hash = new_hash
         self.isBusy = true
         _G.isBusy = true
-        OS.notify('PIO compiledb change: clangdb update ...', OS.debug)
-        -- vim.schedule(function()
-          -- do end
-          require('nvimpio.pio.upkeep').compile_commandsFix(function ()
-            self.last_hash = get_hash(self.path)
+        vim.schedule(function()
+          OS.notify('PIO compiledb change: clangdb update ...', OS.debug)
+          -- require('nvimpio.pio.upkeep').compile_commandsFix(function ()
+          --   self.last_hash = get_hash(self.path)
             _G.isBusy = false
             self.isBusy = false
-          end)
-        -- end)
+          -- end)
+        end)
       end,
     },
     { -- watcher for platformio.ini

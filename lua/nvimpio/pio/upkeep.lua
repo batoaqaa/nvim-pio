@@ -1011,16 +1011,17 @@ vim.fs.dirname(_G.metadata.cxx_path)
     local end_time = vim.loop.hrtime()
     local duration = (end_time - start_time) / 1e6
     OS.notify(string.format('compiledb: paths fixed in %.2fms', duration), 'info')
+    if type(callback) == 'function' then vim.schedule(function() callback(true) end) end
     -- clangd.restart()
   else
     OS.notify("no need to fixPaths", OS.debug)
+    if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
     -- -- move compile_commands.json to .nvimpio/env
     -- uv.fs_rename(filename, output, function(err)
     --   if err then print("Neovim failed to move file: " .. err)
     --   else print("Neovim moved file successfully!") end
     -- end)
   end
-  if type(callback) == 'function' then vim.schedule(function() callback() end) end
 end
 
 return M
