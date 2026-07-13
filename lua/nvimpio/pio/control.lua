@@ -144,10 +144,10 @@ function M.start_watchers()
         self.isBusy = true
         _G.isBusy = true
         OS.notify('PIO compiledb change: clangdb update ...', OS.debug)
-        vim.schedule(function()
+        -- vim.schedule(function()
           -- do end
           require('nvimpio.pio.upkeep').compile_commandsFix()
-        end)
+        -- end)
       end,
     },
     { -- watcher for platformio.ini
