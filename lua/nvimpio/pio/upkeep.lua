@@ -935,7 +935,7 @@ end
 -------------------------------------------------------------------------------
 -- INFO:
 -- Fix compile_commands.json file with absoulute paths
-function M.compile_commandsFix() --M.dbPathsFix()
+function M.compile_commandsFix(callback) --M.dbPathsFix()
   local filename = vim.fs.joinpath(uv.cwd(), 'compile_commands.json')
   local content = vim.fn.readfile(filename)
   if #content == 0 then return end
@@ -1020,7 +1020,7 @@ vim.fs.dirname(_G.metadata.cxx_path)
     --   else print("Neovim moved file successfully!") end
     -- end)
   end
-  _G.isBusy = false
+  if type(callback) == 'function' then vim.schedule(function() callback() end) end
 end
 
 return M
