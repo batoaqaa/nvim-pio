@@ -102,45 +102,20 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
-  -- clangd_config.root_dir = function(fname)
-  --   local current_cwd = vim.uv.cwd() or ""
-  --
-  --   -- 1. Catch missing, blank, or numeric Neo-tree buffer handles instantly
-  --   if type(fname) ~= "string" or fname == "" then
-  --     return current_cwd
-  --   end
-  --
-  --   -- 2. CRITICAL SANITIZATION: Skip virtual URIs (like zipfile://, neo-tree://, etc.)
-  --   -- These cannot be queried in the file system and will block auto-attachment.
-  --   if fname:match("^[a-z]+://") then
-  --     return current_cwd
-  --   end
-  --
-  --   -- 3. Traverse upward to detect a valid project root folder path string
-  --   -- Wrapped in a safe pcall to protect against unexpected string characters
-  --   local ok, root_file = pcall(vim.fs.find,
-  --     { "platformio.ini", "compile_commands.json" },
-  --     { upward = true, path = fname }
-  --   )
-  --
-  --   if ok and root_file and root_file[1] then
-  --     return vim.fs.dirname(root_file[1])
-  --   end
-  --
-  --   -- 4. If navigating external PlatformIO library sources via 'gtd'
-  --   local normalized_fname = fname:gsub("\\", "/")
-  --   if normalized_fname:match("%.platformio/packages") or normalized_fname:match("framework%-espidf") then
-  --     return current_cwd
-  --   end
-  --
-  --   -- 5. Fallback for standalone source files anywhere else on the computer
-  --   local parent_dir = vim.fs.dirname(fname)
-  --   if type(parent_dir) == "string" and parent_dir ~= "" then
-  --     return parent_dir
-  --   end
-  --
-  --   return current_cwd
-  -- end
+  -- Define custom client reuse logic
+  clangd_config.reuse_client = function(existing_client, candidate_config)
+    -- 1. Must be the same server name
+    if existing_client.name ~= candidate_config.name then return false end
+
+    -- 2. Standard reuse: exact same root directory project
+    if existing_client.config.root_dir == candidate_config.root_dir then return true end
+
+    -- 3. Fallback reuse: If neither has a root directory (single file mode),
+    -- reuse the same global clangd process instead of spawning dozens of them.
+    if existing_client.config.root_dir == nil and candidate_config.root_dir == nil then return true end
+
+    return false
+  end,
   --   -- =================================================================
   -- clangd_config.reuse_client = function(client, current_config)
   --   return client.name == current_config.name
