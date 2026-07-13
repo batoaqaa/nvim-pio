@@ -132,7 +132,8 @@ function M.start_watchers()
       last_hash = '',
       path = vim.fs.joinpath(project_root, 'compile_commands.json'),
       cb = function(self)
-        OS.notify('PIO compiledb change: Change ...', OS.debug)
+        OS.notify('PIO compiledb change: Change ...', 'warn')
+        -- OS.notify('PIO compiledb change: Change ...', OS.debug)
         -- If no real change, unlock immediately and exit
         local new_hash = get_hash(self.path) or ''
         if new_hash == self.last_hash then
