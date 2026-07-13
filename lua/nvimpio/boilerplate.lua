@@ -204,8 +204,8 @@ boilerplate['.clangd'] = {
 ---
 If:
   PathMatch: ['%s/.*']
-CompilationDatabase: "%s"
 CompileFlags:
+  CompilationDatabase: "%s"
   Remove: [%s]
 
 %s
