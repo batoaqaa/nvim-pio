@@ -207,6 +207,7 @@ If:
   PathMatch: ['%s/.*']
 CompileFlags:
   Remove: [%s]
+  Add: [%s]
 %s
 ]],
 
@@ -247,7 +248,7 @@ CompileFlags:
     ------------------ start .clangd remove section ------------------------------
     -- 1. SYNC (WITH DIRECT DISK FALLBACK GATING):
     -- local formatted_remove = {}
-    local formatted_remove = {'"-std=*"'}
+    local formatted_remove = {'"-std=*"', '"-x"'}
     -- add diagnostic removed flags
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
     if success and pio_diag and pio_diag.removed_flags and next(pio_diag.removed_flags) then
@@ -273,15 +274,15 @@ CompileFlags:
         end
       end
     end
+
     local formatted_remove_ASSEMBLY = {
-      '"-*"'
+      '"-x"',
+      '"-std=*"',
+      '"-D_ASMLANGUAGE"',
+      '"-D__ASSEMBLY__"',
+      '"-D__ASSEMBLER__"',
+      '"-D_ASSEMBLY_"'
     }
-    -- local formatted_remove_ASSEMBLY = {
-    --   '"-D_ASMLANGUAGE"',
-    --   '"-D__ASSEMBLY__"',
-    --   '"-D__ASSEMBLER__"',
-    --   '"-D_ASSEMBLY_"'
-    -- }
     -- vim.list_extend(formatted_remove, formatted_remove_ASSEMBLY)
     --------------------- end .clangd remove section -----------------------------
 
@@ -399,6 +400,7 @@ CompileFlags:
         block = function (ref)
           return string.format(self.Global, ref.start_marker,
                             clean_packages_dir, table.concat(formatted_remove_ASSEMBLY, ',\n    '),
+                            table.concat(formattedAdd, ',\n    '),
                             ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= false,
