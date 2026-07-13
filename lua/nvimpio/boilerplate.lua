@@ -207,6 +207,7 @@ If:
   PathMatch: ['%s/.*']
 CompileFlags:
   Remove: [%s]
+  Add: [-xc]
 
 %s
 ]],
