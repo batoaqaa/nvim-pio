@@ -102,24 +102,11 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
+  -- =================================================================
   -- Define custom client reuse logic
-  clangd_config.reuse_client = function(existing_client, candidate_config)
-    -- 1. Must be the same server name
-    if existing_client.name ~= candidate_config.name then return false end
-
-    -- 2. Standard reuse: exact same root directory project
-    if existing_client.config.root_dir == candidate_config.root_dir then return true end
-
-    -- 3. Fallback reuse: If neither has a root directory (single file mode),
-    -- reuse the same global clangd process instead of spawning dozens of them.
-    if existing_client.config.root_dir == nil and candidate_config.root_dir == nil then return true end
-
-    return false
+  clangd_config.reuse_client = function(client, current_config)
+    return client.name == current_config.name
   end
-  --   -- =================================================================
-  -- clangd_config.reuse_client = function(client, current_config)
-  --   return client.name == current_config.name
-  -- end
 
   -- clangd_config.cmd_env = {
   --   "CLANGD_TRACE": "",
@@ -132,11 +119,11 @@ function M.getClangdConfig()
   -- }
 
   -- 🥇 LEAN LIFECYCLE SEEDING LAYOUT
-  -- clangd_config.before_init = function(params, config)
-    -- if params.rootUri then
-    --   params.rootUri = vim.uri_from_fname(vim.fn.resolve(vim.uri_to_fname(params.rootUri)))
-    -- end
-  clangd_config.before_init = function(_, _)
+  clangd_config.before_init = function(params, config)
+    if params.rootUri then
+      params.rootUri = vim.uri_from_fname(vim.fn.resolve(vim.uri_to_fname(params.rootUri)))
+    end
+  -- clangd_config.before_init = function(_, _)
     -- Step 1: Parse database into an isolated local table variable first
     if has_pio_diag and pio_diag then
       local filter_db_path = vim.fs.joinpath(OS.nvimpio_env_dir, OS.clangd_filter)
