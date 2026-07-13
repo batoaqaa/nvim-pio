@@ -115,7 +115,7 @@ function M.getClangdConfig()
     if existing_client.config.root_dir == nil and candidate_config.root_dir == nil then return true end
 
     return false
-  end,
+  end
   --   -- =================================================================
   -- clangd_config.reuse_client = function(client, current_config)
   --   return client.name == current_config.name
