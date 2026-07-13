@@ -145,8 +145,8 @@ function M.start_watchers()
         _G.isBusy = true
         OS.notify('PIO compiledb change: clangdb update ...', OS.debug)
         vim.schedule(function()
-          do end
-          -- require('nvimpio.pio.upkeep').compile_commandsFix()
+          -- do end
+          require('nvimpio.pio.upkeep').compile_commandsFix()
         end)
       end,
     },

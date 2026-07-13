@@ -998,7 +998,8 @@ vim.fs.dirname(_G.metadata.cxx_path)
       return
     end
 
-    local wk, err = misc.writeFile(output, formatted, { overwrite = true, mkdir = true })
+    -- local wk, err = misc.writeFile(output, formatted, { overwrite = true, mkdir = true })
+    local wk, err = misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
     if not wk then OS.notify(err, 'error') end
 
     -- -- delete input compile_commands.json
