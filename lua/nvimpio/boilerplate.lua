@@ -217,6 +217,7 @@ CompileFlags:
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
+  CompilationDatabase: "%s"
   Remove: [%s]
   Add: [%s]
 %s
@@ -406,7 +407,7 @@ CompileFlags:
         cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),
         block = function (ref)
           return string.format(self.Project, ref.start_marker,
-                            OS.project_dir, table.concat(formatted_remove, ',\n    '),
+                            OS.project_dir, clean_project_db, table.concat(formatted_remove, ',\n    '),
                             table.concat(formattedAdd, ',\n    '), ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= true,
