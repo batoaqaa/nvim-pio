@@ -149,6 +149,7 @@ function M.start_watchers()
         -- vim.schedule(function()
           -- do end
           require('nvimpio.pio.upkeep').compile_commandsFix(function ()
+            self.last_hash = get_hash(self.path)
             _G.isBusy = false
             self.isBusy = false
           end)
