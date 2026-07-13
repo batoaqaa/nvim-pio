@@ -207,8 +207,6 @@ If:
   PathMatch: ['%s/.*']
 CompileFlags:
   Remove: [%s]
-  Add: [-xc]
-
 %s
 ]],
 
@@ -276,11 +274,14 @@ CompileFlags:
       end
     end
     local formatted_remove_ASSEMBLY = {
-      '"-D_ASMLANGUAGE"',
-      '"-D__ASSEMBLY__"',
-      '"-D__ASSEMBLER__"',
-      '"-D_ASSEMBLY_"'
+      '"-*"'
     }
+    -- local formatted_remove_ASSEMBLY = {
+    --   '"-D_ASMLANGUAGE"',
+    --   '"-D__ASSEMBLY__"',
+    --   '"-D__ASSEMBLER__"',
+    --   '"-D_ASSEMBLY_"'
+    -- }
     -- vim.list_extend(formatted_remove, formatted_remove_ASSEMBLY)
     --------------------- end .clangd remove section -----------------------------
 
