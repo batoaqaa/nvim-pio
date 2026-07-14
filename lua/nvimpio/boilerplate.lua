@@ -353,7 +353,8 @@ CompileFlags:
     ------------------ start .clangd formattedHAdd section  ----------------------
     -- local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
     -- local c_extensions   = is_cpp and "c" or "c|h"
-    local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
+    -- local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
+    local formattedHAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"' } or { '"-xc"', '"-std=gnu17"' }
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
     -- vim.list_extend(formattedHAdd, formattedIncAdd)
     vim.list_extend(formattedHAdd, {'"-IC:/Users/batoaqaa/AppData/Local/ahmed/test/include"', '"-IC:/Users/batoaqaa/AppData/Local/ahmed/test/.pio/build/esp32/config"'})
