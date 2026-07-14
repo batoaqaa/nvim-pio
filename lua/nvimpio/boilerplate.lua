@@ -194,7 +194,6 @@ end
 
 -- Compiler: "%s"
 -- CompilationDatabase: "%s"
-  -- PathMatch: ['%s/.*']
 boilerplate['.clangd'] = {
   Global = [[
 %s
@@ -202,6 +201,7 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
+  CompilationDatabase: "%s"
   BuiltinHeaders: QueryDriver
   Remove: [%s]
   Add: [%s]
@@ -214,6 +214,7 @@ CompileFlags:
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
+  CompilationDatabase: "%s"
   BuiltinHeaders: QueryDriver
   Remove: [%s]
   Add: [%s]
@@ -390,9 +391,7 @@ CompileFlags:
 
     ------------------------------------------------------------------------------
     --                config.yaml
-
-
-
+  
     ------------------------------------------------------------------------------
     local userClangd = OS.clangd_user_file
     local clangdFiles = {
@@ -402,6 +401,7 @@ CompileFlags:
           return string.format( self.Global,
                 ref.start_marker,
                 clean_packages_dir,                                -- If: PathMatch: ['%s/.*']
+                OS.project_dir,                                    -- CompilationDatabase: "%s"
                 table.concat(formatted_remove_ASSEMBLY, ',\n    '),--   Remove: [%s]
                 table.concat(formattedAdd, ',\n    '),             --   Add: [%s]
                 ref.end_marker)
@@ -412,11 +412,12 @@ CompileFlags:
         cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),
         block = function (ref)
           return string.format(self.Project,
-                 ref.start_marker,
-                 OS.project_dir,                            -- If: PathMatch: ['%s/.*']
-                 table.concat(formatted_remove, ',\n    '), --   Remove: [%s]
-                 table.concat(formattedAdd, ',\n    '),     --   Add: [%s]
-                 ref.end_marker)
+                ref.start_marker,
+                OS.project_dir,                            -- If: PathMatch: ['%s/.*']
+                OS.project_dir,                            -- CompilationDatabase: "%s"
+                table.concat(formatted_remove, ',\n    '), --   Remove: [%s]
+                table.concat(formattedAdd, ',\n    '),     --   Add: [%s]
+                ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= true,
       },
