@@ -274,13 +274,17 @@ CompileFlags:
       end
     end
 
+    -- local formatted_remove_ASSEMBLY = {
+    --   '"-x"',
+    --   '"-std=*"',
+    --   '"-D_ASMLANGUAGE"',
+    --   '"-D__ASSEMBLY__"',
+    --   '"-D__ASSEMBLER__"',
+    --   '"-D_ASSEMBLY_"'
+    -- }
     local formatted_remove_ASSEMBLY = {
       '"-x"',
-      '"-std=*"',
-      '"-D_ASMLANGUAGE"',
-      '"-D__ASSEMBLY__"',
-      '"-D__ASSEMBLER__"',
-      '"-D_ASSEMBLY_"'
+      '"-std=*"'
     }
     -- vim.list_extend(formatted_remove, formatted_remove_ASSEMBLY)
     --------------------- end .clangd remove section -----------------------------
