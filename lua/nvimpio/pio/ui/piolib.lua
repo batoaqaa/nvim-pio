@@ -86,7 +86,7 @@ local function pick_library(json_data)
         local json = misc.strsplit(vim.inspect(entry['value']['data']), '\n')
         local bufnr = self.state.bufnr
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, json)
-        vim.api.nvim_set_option_value('filetype', 'lua', { buf = bufnr }) --fix deprecated function
+        vim.api.nvim_set_option_value('filetype', 'json', { buf = bufnr }) --fix deprecated function
         vim.defer_fn(function()
           local win = self.state.winid
           vim.api.nvim_set_option_value('wrap', true, { scope = 'local', win = win })
@@ -162,7 +162,7 @@ end
 --         local win = self.state.winid
 --
 --         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, json)
---         vim.api.nvim_set_option_value('filetype', 'lua', { buf = bufnr })
+--         vim.api.nvim_set_option_value('filetype', 'json', { buf = bufnr })
 --
 --         -- Apply wrapping to make the wide preview readable
 --         vim.api.nvim_set_option_value('wrap', true, { win = win })

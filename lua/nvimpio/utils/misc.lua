@@ -301,22 +301,16 @@ function M.writeFile(path, data, opts)
 
   -- 2. Recursive directory creation
   if opts.mkdir ~= false then
+    -- 'p' flag makes it fully recursive like 'mkdir -p'
     local parent = vim.fs.dirname(path)
-    if vim.fn.isdirectory(parent) == 0 then
-      -- 'p' flag makes it fully recursive like 'mkdir -p'
-      vim.fn.mkdir(parent, 'p', '0o755')
-    end
-    -- -- local parent = vim.fn.fnamemodify(path, ':h')
-    -- if not stat or stat.type ~= 'directory' then
-    --   vim.fn.mkdir(parent, 'p', '0700')
-    -- end
+    if vim.fn.isdirectory(parent) == 0 then vim.fn.mkdir(parent, 'p', '0o755') end
   end
 
   --[[
-      Octal	Decimal	Permission
-      0700	  448	    Owner only (Full)
-      0755	  493	    Owner (Full), Others (Read/Execute)
-      0666	  438	    Everyone (Read/Write) - Not recommended for folders
+      Octal  Decimal  Permission
+      0700   448      Owner only (Full)
+      0755   493      Owner (Full), Others (Read/Execute)
+      0666   438      Everyone (Read/Write) - Not recommended for folders
      'w' truncates existing, 'wx' fails if exists (extra safety)
   ]]
   -- 3. Open for writing ('w' flag truncates automatically)

@@ -409,9 +409,6 @@ if tok then
       },
     },
     defaults = {
-      -- preview = {
-      --   treesitter = false,
-      -- },
       mappings = {
         i = {
           ['<C-d>'] = actions.delete_buffer, -- Delete buffer in insert mode
