@@ -304,7 +304,7 @@ function M.writeFile(path, data, opts)
     local parent = vim.fs.dirname(path)
     if vim.fn.isdirectory(parent) == 0 then
       -- 'p' flag makes it fully recursive like 'mkdir -p'
-      vim.fn.mkdir(parent, 'p', '700')
+      vim.fn.mkdir(parent, 'p', '0o755')
     end
     -- -- local parent = vim.fn.fnamemodify(path, ':h')
     -- if not stat or stat.type ~= 'directory' then
