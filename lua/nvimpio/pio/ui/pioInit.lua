@@ -178,7 +178,7 @@ local function pick_board(json_data)
 
             -- Setting the filetype to 'lua' or 'json' lets Neovim color the brackets,
             -- strings, and numbers perfectly using the user's active theme.
-            vim.api.nvim_set_option_value('filetype', 'lua', { buf = self.state.bufnr })
+            vim.api.nvim_set_option_value('filetype', 'json', { buf = self.state.bufnr })
           end
         end,
       }),
