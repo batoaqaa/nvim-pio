@@ -357,7 +357,9 @@ CompileFlags:
     local formattedHAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"' } or { '"-xc"', '"-std=gnu17"' }
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
     -- vim.list_extend(formattedHAdd, formattedIncAdd)
-    vim.list_extend(formattedHAdd, {'"--include=C:/Users/batoaqaa/AppData/Local/ahmed/test/src/main.c"'})
+    -- vim.list_extend(formattedHAdd, {'"--include=C:/Users/batoaqaa/AppData/Local/ahmed/test/src/main.c"'})
+
+    table.insert(formattedHAdd, string.format('"--include=%s/src/main.c"', OS.project_dir))
     --------------------- end .clangd formattedHAdd section ----------------------
 
     local function preparePathMatch(raw_path)
