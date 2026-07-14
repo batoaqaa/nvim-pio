@@ -42,12 +42,12 @@ opt.smartindent = true -- Insert indents automatically
 opt.expandtab = true -- Use spaces instead of tabs
 
 opt.smoothscroll = true
-opt.foldmethod = 'expr'
+opt.foldmethod = 'manual'
 opt.foldtext = ''
 opt.fillchars = ''
 opt.foldcolumn = '0'
 opt.foldenable = true
-opt.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+opt.foldexpr = ''
 opt.foldlevel = 99
 opt.foldlevelstart = 99
 opt.foldnestmax = 3
@@ -409,9 +409,9 @@ if tok then
       },
     },
     defaults = {
-      preview = {
-        treesitter = false, -- Temporarily set to false to stop the buffer 13 crash
-      },
+      -- preview = {
+      --   treesitter = false,
+      -- },
       mappings = {
         i = {
           ['<C-d>'] = actions.delete_buffer, -- Delete buffer in insert mode
