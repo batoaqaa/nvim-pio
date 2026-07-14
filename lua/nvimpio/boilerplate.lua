@@ -28,9 +28,6 @@ monitor_speed = 9600
 monitor_rts = 1   ; 1 combination to reset esp32c6 (Table 32.3-2. CDC-ACM Settings with RTS and DTR)
 monitor_dtr = 0   ; 0 // pio dev mon --rts=0 --dtr=0 then pio dev mon --rts=1 dtr=0
 
-lib_ldf_mode = chain   ;Library dependencies Finder ldf
-
-
 ]],
   boiler = function(self)
     local full_path = vim.fs.joinpath(projectDir, 'platformio.ini')
@@ -47,6 +44,7 @@ lib_ldf_mode = chain   ;Library dependencies Finder ldf
   --   "CLANGD_TRACE": ""
   -- },
 -- "--background-index-priority=low",
+    -- "--limit-results=100",
 -- INFO: .clangd_config
 ----------------------------------------------------------------------------------------
 boilerplate['.clangdConfig.json'] = {
@@ -57,12 +55,11 @@ boilerplate['.clangdConfig.json'] = {
   "cmd": [
     "clangd",
     "--enable-config",
-    "--limit-results=100",
     "--background-index",
     "-j=4",
     "--pch-storage=memory",
-    "--all-scopes-completion",
     "--clang-tidy",
+    "--all-scopes-completion",
     "--completion-parse=always",
     "--completion-style=detailed",
     "--header-insertion=iwyu",
