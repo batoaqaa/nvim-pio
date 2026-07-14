@@ -22,7 +22,6 @@ packages_dir = ${platformio.core_dir}/packages
 
 ;--------------------------------------------------------------------------
 [env]
-framework = arduino
 upload_speed = 115200
 monitor_speed = 9600
 
