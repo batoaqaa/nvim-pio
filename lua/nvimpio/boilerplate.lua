@@ -202,6 +202,7 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
+  CompilationDatabase: "%s"
   BuiltinHeaders: QueryDriver
   Remove: [%s]
   Add: [%s]
@@ -399,7 +400,7 @@ CompileFlags:
           return string.format( self.Global,
                 ref.start_marker,
                 clean_packages_dir,                                -- If: PathMatch: ['%s/.*']
-                -- OS.project_dir,                                    -- CompilationDatabase: "%s"
+                OS.project_dir,                                    -- CompilationDatabase: "%s"
                 table.concat(formatted_remove_ASSEMBLY, ',\n    '),--   Remove: [%s]
                 table.concat(formattedAdd, ',\n    '),             --   Add: [%s]
                 ref.end_marker)
