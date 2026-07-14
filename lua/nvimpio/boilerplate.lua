@@ -348,13 +348,15 @@ CompileFlags:
     vim.list_extend(formattedAdd, formattedIncAdd)
     ------------------------------------------------------------------------------
 
+    -- {'"-IC:/Users/batoaqaa/AppData/Local/ahmed/test/include"', '"-IC:/Users/batoaqaa/AppData/Local/ahmed/test/.pio/build/esp32/config"'}
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedHAdd section  ----------------------
     -- local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
     -- local c_extensions   = is_cpp and "c" or "c|h"
     local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
-    vim.list_extend(formattedHAdd, formattedIncAdd)
+    -- vim.list_extend(formattedHAdd, formattedIncAdd)
+    vim.list_extend(formattedHAdd, {'"-IC:/Users/batoaqaa/AppData/Local/ahmed/test/include"', '"-IC:/Users/batoaqaa/AppData/Local/ahmed/test/.pio/build/esp32/config"'})
     --------------------- end .clangd formattedHAdd section ----------------------
 
     local function preparePathMatch(raw_path)
@@ -402,7 +404,7 @@ CompileFlags:
                 clean_packages_dir,                                -- If: PathMatch: ['%s/.*']
                 OS.project_dir,                                    -- CompilationDatabase: "%s"
                 table.concat(formatted_remove_ASSEMBLY, ',\n    '),--   Remove: [%s]
-                table.concat(formattedAdd, ',\n    '),             --   Add: [%s]
+                table.concat(formattedHAdd, ',\n    '),             --   Add: [%s]
                 ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= false,
