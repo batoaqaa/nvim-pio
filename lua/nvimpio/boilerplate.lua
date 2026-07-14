@@ -332,24 +332,27 @@ CompileFlags:
     --------------------- end .clangd IncAdd section -----------------------------
 
 
-    ------------------------------------------------------------------------------
-    ------------------ start .clangd formattedCxxAdd section  --------------------
-    -- local formattedCxxAdd = { }
-    local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
-    vim.list_extend(formattedCxxAdd, formattedIncAdd)
-    --------------------- end .clangd formattedCxxAdd section --------------------
-
-    ------------------------------------------------------------------------------
-    ------------------ start .clangd formattedCcAdd section  ---------------------
-    -- local formattedCcAdd = { }
-    local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
-    vim.list_extend(formattedCcAdd, formattedIncAdd)
-    --------------------- end .clangd formattedCcAdd section ---------------------
+    -- ------------------------------------------------------------------------------
+    -- ------------------ start .clangd formattedCxxAdd section  --------------------
+    -- -- local formattedCxxAdd = { }
+    -- local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
+    -- vim.list_extend(formattedCxxAdd, formattedIncAdd)
+    -- --------------------- end .clangd formattedCxxAdd section --------------------
+    --
+    -- ------------------------------------------------------------------------------
+    -- ------------------ start .clangd formattedCcAdd section  ---------------------
+    -- -- local formattedCcAdd = { }
+    -- local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
+    -- vim.list_extend(formattedCcAdd, formattedIncAdd)
+    -- --------------------- end .clangd formattedCcAdd section ---------------------
 
     local is_cpp = is_cpp_project()
     ------------------------------------------------------------------------------
-    local formattedAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"'} or { '"-xc"', '"-std=gnu17"' }
-    vim.list_extend(formattedAdd, formattedIncAdd)
+    local formattedProjAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"'} or { '"-xc"', '"-std=gnu17"' }
+    vim.list_extend(formattedProjAdd, formattedIncAdd)
+    ------------------------------------------------------------------------------
+    ------------------------------------------------------------------------------
+    local formattedGlobAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"', string.format('"--include=%s/src/main.cpp"', OS.project_dir)} or { '"-xc"', '"-std=gnu17"',  string.format('"--include=%s/src/main.c"', OS.project_dir)}
     ------------------------------------------------------------------------------
 
     -- {'"-IC:/Users/batoaqaa/AppData/Local/ahmed/test/include"', '"-IC:/Users/batoaqaa/AppData/Local/ahmed/test/.pio/build/esp32/config"'}
@@ -360,10 +363,9 @@ CompileFlags:
     -- local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
     local formattedHAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"' } or { '"-xc"', '"-std=gnu17"' }
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
-    -- vim.list_extend(formattedHAdd, formattedIncAdd)
-    -- vim.list_extend(formattedHAdd, {'"--include=C:/Users/batoaqaa/AppData/Local/ahmed/test/src/main.c"'})
+    vim.list_extend(formattedHAdd, formattedIncAdd)
 
-    table.insert(formattedHAdd, string.format('"--include=%s/src/mainx.c"', OS.project_dir))
+    -- table.insert(formattedHAdd, string.format('"--include=%s/src/mainx.c"', OS.project_dir))
     -- table.insert(formattedHAdd, string.format('"-I%s/src"', OS.project_dir))
     --------------------- end .clangd formattedHAdd section ----------------------
 
@@ -412,7 +414,7 @@ CompileFlags:
                 clean_packages_dir,                                -- If: PathMatch: ['%s/.*']
                 OS.project_dir,                                    -- CompilationDatabase: "%s"
                 table.concat(formatted_remove_ASSEMBLY, ',\n    '),--   Remove: [%s]
-                table.concat(formattedHAdd, ',\n    '),             --   Add: [%s]
+                table.concat(formattedGlobAdd, ',\n    '),             --   Add: [%s]
                 ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= false,
@@ -425,7 +427,7 @@ CompileFlags:
                 OS.project_dir,                            -- If: PathMatch: ['%s/.*']
                 -- OS.project_dir,                            -- CompilationDatabase: "%s"
                 table.concat(formatted_remove, ',\n    '), --   Remove: [%s]
-                table.concat(formattedAdd, ',\n    '),     --   Add: [%s]
+                table.concat(formattedProjAdd, ',\n    '),     --   Add: [%s]
                 ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= true,
