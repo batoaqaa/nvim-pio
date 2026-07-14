@@ -67,6 +67,7 @@ boilerplate['.clangdConfig.json'] = {
     "--log=error",
     "--pretty",
     "--ranking-model=decision_forest",
+    "--parse-forwarding-functions", 
     "--compile-commands-dir=%s",
     "--query-driver=%s"
   ],
