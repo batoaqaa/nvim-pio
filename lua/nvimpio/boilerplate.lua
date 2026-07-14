@@ -202,6 +202,7 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
+  BuiltinHeaders: QueryDriver
   Remove: [%s]
   Add: [%s]
 %s
@@ -213,6 +214,7 @@ CompileFlags:
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
+  BuiltinHeaders: QueryDriver
   Remove: [%s]
   Add: [%s]
 %s
