@@ -15,6 +15,13 @@ local wizard_data = {}
 --   OS.notify('PIO init+db: ' .. msg, level or OS.debug)
 -- end
 
+          if selection then
+            wizard_data.board_id = vim.trim(selection.value.id)
+            pick_framework(selection.value)
+          else
+            wizard_data.on_done(false)
+            return false
+          end
 -- Reusable Small Menu for Yes/No and Frameworks
 local function small_menu(title, results, callback)
   pickers
@@ -33,6 +40,8 @@ local function small_menu(title, results, callback)
             actions.close(prompt_bufnr)
             if selection then
               callback(selection[1])
+            else
+              callback('')
             end
           end)
           return true
@@ -83,9 +92,14 @@ end
 -- Step 2: Framework
 local function pick_framework(board_details)
   small_menu('Select Framework', board_details.frameworks, function(choice)
-    wizard_data.framework = choice
-    -- pick_sample()
-    finalize_setup()
+    if choice ~= '' then
+      wizard_data.framework = choice
+      -- pick_sample()
+      finalize_setup()
+    else
+      wizard_data.on_done(false)
+      return false
+    end
   end)
 end
 
@@ -183,6 +197,9 @@ local function pick_board(json_data)
           if selection then
             wizard_data.board_id = vim.trim(selection.value.id)
             pick_framework(selection.value)
+          else
+            wizard_data.on_done(false)
+            return false
           end
         end)
         return true

@@ -392,25 +392,33 @@ CompileFlags:
 
     ------------------------------------------------------------------------------
     --                config.yaml
+
+
+
     ------------------------------------------------------------------------------
     local userClangd = OS.clangd_user_file
     local clangdFiles = {
       { key = 'userGlob', file = userClangd, content = function (ref) return M.readContent(ref) end,
         cache_id = string.sub(vim.fn.sha256(_G.metadata.packages_dir), 1, 16),
         block = function (ref)
-          return string.format(self.Global, ref.start_marker,
-                            clean_packages_dir, table.concat(formatted_remove_ASSEMBLY, ',\n    '),
-                            table.concat(formattedAdd, ',\n    '),
-                            ref.end_marker)
+          return string.format( self.Global,
+                ref.start_marker,
+                clean_packages_dir,                                -- If: PathMatch: ['%s/.*']
+                table.concat(formatted_remove_ASSEMBLY, ',\n    '),--   Remove: [%s]
+                table.concat(formattedAdd, ',\n    '),             --   Add: [%s]
+                ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= false,
       },
       { key = 'userProj', file = userClangd, content = function (ref) return M.readContent(ref) end,
         cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),
         block = function (ref)
-          return string.format(self.Project, ref.start_marker,
-                            OS.project_dir, table.concat(formatted_remove, ',\n    '),
-                            table.concat(formattedAdd, ',\n    '), ref.end_marker)
+          return string.format(self.Project,
+                 ref.start_marker,
+                 OS.project_dir,                            -- If: PathMatch: ['%s/.*']
+                 table.concat(formatted_remove, ',\n    '), --   Remove: [%s]
+                 table.concat(formattedAdd, ',\n    '),     --   Add: [%s]
+                 ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= true,
       },
