@@ -363,8 +363,8 @@ CompileFlags:
     -- vim.list_extend(formattedHAdd, formattedIncAdd)
     -- vim.list_extend(formattedHAdd, {'"--include=C:/Users/batoaqaa/AppData/Local/ahmed/test/src/main.c"'})
 
-    -- table.insert(formattedHAdd, string.format('"--include=%s/src/mainx.c"', OS.project_dir))
-    table.insert(formattedHAdd, string.format('"-I%s/src"', OS.project_dir))
+    table.insert(formattedHAdd, string.format('"--include=%s/src/main.c"', OS.project_dir))
+    -- table.insert(formattedHAdd, string.format('"-I%s/src"', OS.project_dir))
     --------------------- end .clangd formattedHAdd section ----------------------
 
     local function preparePathMatch(raw_path)
