@@ -15,13 +15,6 @@ local wizard_data = {}
 --   OS.notify('PIO init+db: ' .. msg, level or OS.debug)
 -- end
 
-          if selection then
-            wizard_data.board_id = vim.trim(selection.value.id)
-            pick_framework(selection.value)
-          else
-            wizard_data.on_done(false)
-            return false
-          end
 -- Reusable Small Menu for Yes/No and Frameworks
 local function small_menu(title, results, callback)
   pickers
