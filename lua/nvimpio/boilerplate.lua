@@ -351,7 +351,16 @@ CompileFlags:
     vim.list_extend(formattedProjAdd, formattedIncAdd)
     ------------------------------------------------------------------------------
     ------------------------------------------------------------------------------
-    local formattedGlobAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"', string.format('"--include=%s/src/main.cpp"', OS.project_dir)} or { '"-xc"', '"-std=gnu17"',  string.format('"--include=%s/src/main.c"', OS.project_dir)}
+    local formattedGlobAdd = is_cpp and { '"-xc++"',
+                                    '"-std=gnu++17"',
+                                    string.format('"-I%s/src"', OS.project_dir),
+                                    string.format('"--include=%s/src/main.cpp"', OS.project_dir)
+                                  }
+                                    or { '"-xc"',
+                                    '"-std=gnu17"',
+                                    string.format('"-I%s/src"', OS.project_dir),
+                                    string.format('"--include=%s/src/main.c"', OS.project_dir)
+                                  }
     ------------------------------------------------------------------------------
 
     -- {'"-IC:/Users/batoaqaa/AppData/Local/ahmed/test/include"', '"-IC:/Users/batoaqaa/AppData/Local/ahmed/test/.pio/build/esp32/config"'}
