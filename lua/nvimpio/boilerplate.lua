@@ -345,6 +345,22 @@ CompileFlags:
     -- vim.list_extend(formattedCcAdd, formattedIncAdd)
     -- --------------------- end .clangd formattedCcAdd section ---------------------
 
+    ----------------------------------------------------------------------------------
+    -- Create a fast lookup set of all valid extensions
+    local extensions = {
+        c = true, cpp = true, cc = true, cxx = true, C = true,
+        ixx = true, cppm = true, mxx = true, i = true, ii = true,
+        m = true, mm = true, cu = true, cuh = true
+    }
+
+    local check_file = vim.fs.find(function(name)
+        -- Extract the text after the very last dot
+        local ext = name:match("%.([^.]+)$")
+        -- Return true if the extension exists in our target lookup set
+        return extensions[ext] == true
+    end, { limit = 1, path = vim.uv.cwd() .. "/src" })[1]
+    ----------------------------------------------------------------------------------
+
     local is_cpp = is_cpp_project()
     ------------------------------------------------------------------------------
     local formattedProjAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"'} or { '"-xc"', '"-std=gnu17"' }
@@ -356,12 +372,13 @@ CompileFlags:
     local formattedGlobAdd = is_cpp and { '"-xc++"',
                                     '"-std=gnu++17"',
                                     -- string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"--include=%s/src/main.cpp"', OS.project_dir)
+                                    string.format('"--include=%s/src/%s"', OS.project_dir, check_file)
                                   }
                                     or { '"-xc"',
                                     '"-std=gnu17"',
                                     -- string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"--include=%s/src/main.c"', OS.project_dir)
+                                    -- string.format('"--include=%s/src/main.c"', OS.project_dir)
+                                    string.format('"--include=%s/src/%s"', OS.project_dir, check_file)
                                   }
     ------------------------------------------------------------------------------
 
