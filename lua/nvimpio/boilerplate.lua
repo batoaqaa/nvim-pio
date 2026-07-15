@@ -199,9 +199,8 @@ boilerplate['.clangd'] = {
   Global = [[
 %s
 ---
-# For C++ header files named *.h
 If:
-  PathMatch: ['%s/.*\.h']
+  PathMatch: ['%s/.*[.]h']
 CompileFlags:
   BuiltinHeaders: QueryDriver
   Add: [-xc++-header]
