@@ -202,6 +202,7 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
+  CompilationDatabase: "%s"
   BuiltinHeaders: QueryDriver
   Remove: [%s]
   Add: [%s]
@@ -356,7 +357,7 @@ CompileFlags:
     local formattedGlobAdd = is_cpp and { '"-xc++"',
                                     '"-std=gnu++17"',
                                     string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"--include=%s/src/main.cpp"', OS.project_dir)
+                                    -- string.format('"--include=%s/src/main.cpp"', OS.project_dir)
                                   }
                                     or { '"-xc"',
                                     '"-std=gnu17"',
@@ -422,7 +423,7 @@ CompileFlags:
           return string.format( self.Global,
                 ref.start_marker,
                 clean_packages_dir,                                -- If: PathMatch: ['%s/.*']
-                -- OS.project_dir,                                    -- CompilationDatabase: "%s"
+                OS.project_dir,                                    -- CompilationDatabase: "%s"
                 table.concat(formatted_remove_ASSEMBLY, ',\n    '),--   Remove: [%s]
                 table.concat(formattedGlobAdd, ',\n    '),             --   Add: [%s]
                 ref.end_marker)
