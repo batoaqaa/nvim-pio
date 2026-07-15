@@ -351,6 +351,7 @@ CompileFlags:
     vim.list_extend(formattedProjAdd, formattedIncAdd)
     ------------------------------------------------------------------------------
 -- -I.pio/build/seeed_xiao_esp32s3/config
+-- string.format('"-I%s/.pio/build/seeed_xiao_esp32s3/config"', OS.project_dir)
     ------------------------------------------------------------------------------
     local formattedGlobAdd = is_cpp and { '"-xc++"',
                                     '"-std=gnu++17"',
@@ -359,8 +360,7 @@ CompileFlags:
                                   }
                                     or { '"-xc"',
                                     '"-std=gnu17"',
-                                    string.format('"-I%s/.pio/build/seeed_xiao_esp32s3/config"', OS.project_dir)
-                                    -- string.format('"-I%s/src"', OS.project_dir),
+                                    string.format('"-I%s/src"', OS.project_dir),
                                     -- string.format('"--include=%s/src/main.c"', OS.project_dir)
                                   }
     ------------------------------------------------------------------------------
