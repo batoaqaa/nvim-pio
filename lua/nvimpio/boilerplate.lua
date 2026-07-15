@@ -406,9 +406,10 @@ CompileFlags:
     ------------------ start .clangd formattedHAdd section  ----------------------
     -- local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
     -- local c_extensions   = is_cpp and "c" or "c|h"
-    local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
+    -- local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
+    local formattedHAdd = is_cpp and { '"-xc++-header"' } or { '"-xc-header"' }
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
-    vim.list_extend(formattedHAdd, formattedIncAdd)
+    -- vim.list_extend(formattedHAdd, formattedIncAdd)
 
     -- table.insert(formattedHAdd, string.format('"--include=%s/src/mainx.c"', OS.project_dir))
     -- table.insert(formattedHAdd, string.format('"-I%s/src"', OS.project_dir))
