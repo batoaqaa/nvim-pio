@@ -203,14 +203,12 @@ If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
   BuiltinHeaders: QueryDriver
-  Remove: [%s]
   Add: [%s]
 ---
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
   BuiltinHeaders: QueryDriver
-  Remove: [%s]
   Add: [%s]
 %s
 ]],
@@ -477,11 +475,11 @@ CompileFlags:
                 ref.start_marker,
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 headerExtensions,                            -- header extensions
-                table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
+                -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
                 table.concat(formattedGlobHAdd, ',\n    '),  -- Remove: [%s]
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
-                table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
+                -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
                 table.concat(formattedGlobAdd, ',\n    '),   -- Add: [%s]
                 ref.end_marker)
         end,
