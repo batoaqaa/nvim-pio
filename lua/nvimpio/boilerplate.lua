@@ -412,10 +412,10 @@ CompileFlags:
     ------------------ start .clangd formattedHAdd section  ----------------------
     -- local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
     -- local c_extensions   = is_cpp and "c" or "c|h"
-    -- local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
-    local formattedHAdd = is_cpp and { '"-xc++-header"' } or { '"-xc-header"' }
+    local formattedGlobHAdd = is_cpp and { '"-xc++-header"' } or { '"-xc-header"' }
+    local formattedProjHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
+    vim.list_extend(formattedProjHAdd, formattedIncAdd)
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
-    -- vim.list_extend(formattedHAdd, formattedIncAdd)
 
     -- table.insert(formattedHAdd, string.format('"--include=%s/src/mainx.c"', OS.project_dir))
     -- table.insert(formattedHAdd, string.format('"-I%s/src"', OS.project_dir))
@@ -459,7 +459,7 @@ CompileFlags:
           return string.format( self.Global,
                 ref.start_marker,
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-                table.concat(formattedHAdd, ',\n    '),      -- Remove: [%s]
+                table.concat(formattedGlobHAdd, ',\n    '),      -- Remove: [%s]
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
                 table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
@@ -474,7 +474,7 @@ CompileFlags:
           return string.format(self.Project,
                 ref.start_marker,
                 clean_project,                                -- If: PathMatch: ['%s/.*']
-                table.concat(formattedHAdd, ',\n    '),       -- Remove: [%s]
+                table.concat(formattedProjHAdd, ',\n    '),       -- Remove: [%s]
                 clean_project,                                -- If: PathMatch: ['%s/.*']
                 fileExtensions,                               -- file extensions
                 table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
