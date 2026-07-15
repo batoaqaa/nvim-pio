@@ -218,7 +218,13 @@ CompileFlags:
 %s
 ---
 If:
-  PathMatch: ['%s/.*']
+  PathMatch: ['%s/.*[.]h$']
+CompileFlags:
+  BuiltinHeaders: QueryDriver
+  Add: [%s]
+---
+If:
+  PathMatch: ['%s/.*%s$']
 CompileFlags:
   BuiltinHeaders: QueryDriver
   Remove: [%s]
@@ -438,9 +444,10 @@ CompileFlags:
     -- Simply wrap your dynamic variables before feeding them to string.format
     -- local clean_framework = preparePathMatch(_G.metadata.framework_root)
     -- local clean_toolchain = preparePathMatch(_G.metadata.toolchain_root)
-    -- local clean_project   = preparePathMatch(OS.project_dir)
+    local clean_project   = preparePathMatch(OS.project_dir)
     local clean_packages_dir   = preparePathMatch(_G.metadata.packages_dir)
 
+    local fileExtensions = is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci'
     ------------------------------------------------------------------------------
     --                config.yaml
     ------------------------------------------------------------------------------
@@ -451,13 +458,12 @@ CompileFlags:
         block = function (ref)
           return string.format( self.Global,
                 ref.start_marker,
-                clean_packages_dir,                                -- If: PathMatch: ['%s/.*']
-                table.concat(formattedHAdd, ',\n    '),--   Remove: [%s]
-                clean_packages_dir,                                -- If: PathMatch: ['%s/.*']
-                is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci',
-                -- OS.project_dir,                                    -- CompilationDatabase: "%s"
-                table.concat(formattedGlobRemove, ',\n    '),--   Remove: [%s]
-                table.concat(formattedGlobAdd, ',\n    '),             --   Add: [%s]
+                clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
+                table.concat(formattedHAdd, ',\n    '),      -- Remove: [%s]
+                clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
+                fileExtensions,                              -- file extensions
+                table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
+                table.concat(formattedGlobAdd, ',\n    '),   -- Add: [%s]
                 ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= false,
@@ -467,10 +473,12 @@ CompileFlags:
         block = function (ref)
           return string.format(self.Project,
                 ref.start_marker,
-                OS.project_dir,                            -- If: PathMatch: ['%s/.*']
-                -- OS.project_dir,                            -- CompilationDatabase: "%s"
-                table.concat(formattedProjRemove, ',\n    '), --   Remove: [%s]
-                table.concat(formattedProjAdd, ',\n    '),     --   Add: [%s]
+                clean_project,                                -- If: PathMatch: ['%s/.*']
+                table.concat(formattedHAdd, ',\n    '),       -- Remove: [%s]
+                clean_project,                                -- If: PathMatch: ['%s/.*']
+                fileExtensions,                               -- file extensions
+                table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
+                table.concat(formattedProjAdd, ',\n    '),    -- Add: [%s]
                 ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= true,
