@@ -404,26 +404,26 @@ CompileFlags:
     local formattedGlobAdd = is_cpp and {
                                     -- '"-x"', '"c++-header"', '"-std=gnu++17"',
                                     '"-xc++"', '"-std=gnu++17"',
-                                    -- string.format('"--include=%s"', check_file)
-                                    string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"-I%s/include"', OS.project_dir)
+                                    string.format('"--include=%s"', check_file)
+                                    -- string.format('"-I%s/src"', OS.project_dir),
+                                    -- string.format('"-I%s/include"', OS.project_dir)
                                   } or {
                                     -- '"-x"', '"c-header"', '"-std=gnu17"',
                                     '"-xc"', '"-std=gnu17"',
-                                    -- string.format('"--include=%s"', check_file)
-                                    string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"-I%s/include"', OS.project_dir)
+                                    string.format('"--include=%s"', check_file)
+                                    -- string.format('"-I%s/src"', OS.project_dir),
+                                    -- string.format('"-I%s/include"', OS.project_dir)
                                   }
     local formattedGlobHAdd = is_cpp and {
                                     '"-xc++-header"',
-                                    -- string.format('"--include=%s"', check_file)
-                                    string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"-I%s/include"', OS.project_dir)
+                                    string.format('"--include=%s"', check_file)
+                                    -- string.format('"-I%s/src"', OS.project_dir),
+                                    -- string.format('"-I%s/include"', OS.project_dir)
                                   } or {
                                     '"-xc-header"',
-                                    -- string.format('"--include=%s"', check_file)
-                                    string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"-I%s/include"', OS.project_dir)
+                                    string.format('"--include=%s"', check_file)
+                                    -- string.format('"-I%s/src"', OS.project_dir),
+                                    -- string.format('"-I%s/include"', OS.project_dir)
                                   }
     ------------------------------------------------------------------------------
 
