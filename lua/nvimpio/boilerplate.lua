@@ -203,7 +203,7 @@ If:
   PathMatch: ['%s/.*[.]h']
 CompileFlags:
   BuiltinHeaders: QueryDriver
-  Add: [-xc++-header]
+  Add: [%s]
 ---
 If:
   PathMatch: ['%s/.*%s$']
@@ -457,6 +457,7 @@ CompileFlags:
           return string.format( self.Global,
                 ref.start_marker,
                 clean_packages_dir,                                -- If: PathMatch: ['%s/.*']
+                table.concat(formattedHAdd, ',\n    '),--   Remove: [%s]
                 clean_packages_dir,                                -- If: PathMatch: ['%s/.*']
                 is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci',
                 -- OS.project_dir,                                    -- CompilationDatabase: "%s"
