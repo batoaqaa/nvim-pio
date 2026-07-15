@@ -200,7 +200,7 @@ boilerplate['.clangd'] = {
 %s
 ---
 If:
-  PathMatch: ['%s/.*[.]h']
+  PathMatch: ['%s/.*[.]h$']
 CompileFlags:
   BuiltinHeaders: QueryDriver
   Add: [%s]
@@ -423,7 +423,7 @@ CompileFlags:
       -- 3. Extract the Windows drive letter if it exists
       local drive, main_path = path:match("^(%a:)(.*)$")
       if drive then
-        drive = drive:lower()
+        drive = '[' .. drive:lower() .. drive:uppeer() .. ']'
         path = main_path
       else drive = "" end -- Linux/macOS
       -- 4. Escape every literal dot inside the folders completely dynamically
