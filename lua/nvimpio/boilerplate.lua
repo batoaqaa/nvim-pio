@@ -200,7 +200,7 @@ boilerplate['.clangd'] = {
 %s
 ---
 If:
-  PathMatch: ['%s/.*[.]h$']
+  PathMatch: ['%s/.*%s$']
 CompileFlags:
   BuiltinHeaders: QueryDriver
   Add: [%s]
@@ -218,7 +218,7 @@ CompileFlags:
 %s
 ---
 If:
-  PathMatch: ['%s/.*[.]h$']
+  PathMatch: ['%s/.*%s$']
 CompileFlags:
   BuiltinHeaders: QueryDriver
   Remove: [%s]
@@ -463,6 +463,7 @@ CompileFlags:
     local clean_packages_dir   = preparePathMatch(_G.metadata.packages_dir)
 
     local fileExtensions = is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci'
+    local headerExtensions = is_cpp and '[.](h|hpp|hh|hxx)' or '[.]h'
     ------------------------------------------------------------------------------
     --                config.yaml
     ------------------------------------------------------------------------------
@@ -474,6 +475,7 @@ CompileFlags:
           return string.format( self.Global,
                 ref.start_marker,
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
+                headerExtensions,                            -- header extensions
                 table.concat(formattedGlobHAdd, ',\n    '),  -- Remove: [%s]
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
@@ -489,6 +491,7 @@ CompileFlags:
           return string.format(self.Project,
                 ref.start_marker,
                 clean_project,                                -- If: PathMatch: ['%s/.*']
+                headerExtensions,                             -- header extensions
                 table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
                 table.concat(formattedProjHAdd, ',\n    '),   -- Remove: [%s]
                 clean_project,                                -- If: PathMatch: ['%s/.*']
