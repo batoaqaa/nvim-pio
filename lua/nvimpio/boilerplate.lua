@@ -246,7 +246,9 @@ CompileFlags:
     ------------------ start .clangd remove section ------------------------------
     -- 1. SYNC (WITH DIRECT DISK FALLBACK GATING):
     -- local formattedProjRemove = {}
-    local formattedProjRemove = {'"-x"', '"-std=*"'}
+
+    -- local formattedProjRemove = {'"-x"', '"-std=*"'}
+    local formattedProjRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
     -- add diagnostic removed flags
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
     if success and pio_diag and pio_diag.removed_flags and next(pio_diag.removed_flags) then
@@ -281,10 +283,7 @@ CompileFlags:
     --   '"-D__ASSEMBLER__"',
     --   '"-D_ASSEMBLY_"'
     -- }
-    local formattedGlobRemove = {
-      '"-x"',
-      '"-std=*"'
-    }
+    local formattedGlobRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
     -- vim.list_extend(formattedProjRemove, formattedGlobRemove)
     --------------------- end .clangd remove section -----------------------------
 
@@ -373,11 +372,11 @@ CompileFlags:
     vim.list_extend(formattedProjAdd, formattedIncAdd)
     ------------------------------------------------------------------------------
     local formattedGlobAdd = is_cpp and {
-                                    '"-c++-header"', '"-std=gnu++17"',
+                                    '"-x"', '"c++-header"', '"-std=gnu++17"',
                                     -- '"-xc++"', '"-std=gnu++17"',
                                     -- string.format('"--include=%s"', check_file)
                                   } or {
-                                    '"-c-header"', '"-std=gnu17"',
+                                    '"-x"', '"c-header"', '"-std=gnu17"',
                                     -- '"-xc"', '"-std=gnu17"',
                                     -- string.format('"--include=%s"', check_file)
                                   }
