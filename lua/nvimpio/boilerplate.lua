@@ -195,7 +195,6 @@ end
 
 -- Compiler: "%s"
 -- CompilationDatabase: "%s"
-  -- BuiltinHeaders: QueryDriver
 boilerplate['.clangd'] = {
   Global = [[
 %s
@@ -203,6 +202,7 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
+  BuiltinHeaders: QueryDriver
   Remove: [%s]
   Add: [%s]
 %s
@@ -214,6 +214,7 @@ CompileFlags:
 If:
   PathMatch: ['%s/.*']
 CompileFlags:
+  BuiltinHeaders: QueryDriver
   Remove: [%s]
   Add: [%s]
 %s
@@ -244,14 +245,14 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd remove section ------------------------------
     -- 1. SYNC (WITH DIRECT DISK FALLBACK GATING):
-    local formatted_remove = {}
-    -- local formatted_remove = {'"-std=*"', '"-x"'}
+    -- local formattedProjRemove = {}
+    local formattedProjRemove = {'"-x"', '"-std=*"'}
     -- add diagnostic removed flags
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
     if success and pio_diag and pio_diag.removed_flags and next(pio_diag.removed_flags) then
       for flag, isblocked in pairs(pio_diag.removed_flags) do
         if isblocked then
-          table.insert(formatted_remove, string.format('%q', flag))
+          table.insert(formattedProjRemove, string.format('%q', flag))
         end
       end
     else
@@ -264,7 +265,7 @@ CompileFlags:
           if dok and data and type(data.flags) == 'table' then
             for flag, isblocked in pairs(data.flags) do
               if isblocked then
-                table.insert(formatted_remove, string.format('%q', flag))
+                table.insert(formattedProjRemove, string.format('%q', flag))
               end
             end
           end
@@ -272,7 +273,7 @@ CompileFlags:
       end
     end
 
-    -- local formatted_remove_ASSEMBLY = {
+    -- local formattedGlobRemove = {
     --   '"-x"',
     --   '"-std=*"',
     --   '"-D_ASMLANGUAGE"',
@@ -280,11 +281,11 @@ CompileFlags:
     --   '"-D__ASSEMBLER__"',
     --   '"-D_ASSEMBLY_"'
     -- }
-    local formatted_remove_ASSEMBLY = {
-      -- '"-x"',
-      -- '"-std=*"'
+    local formattedGlobRemove = {
+      '"-x"',
+      '"-std=*"'
     }
-    -- vim.list_extend(formatted_remove, formatted_remove_ASSEMBLY)
+    -- vim.list_extend(formattedProjRemove, formattedGlobRemove)
     --------------------- end .clangd remove section -----------------------------
 
     ------------------------------------------------------------------------------
@@ -365,18 +366,18 @@ CompileFlags:
     local is_cpp = is_cpp_project()
     ------------------------------------------------------------------------------
     local formattedProjAdd = is_cpp and {
-                                    -- '"-xc++"', '"-std=gnu++17"'
+                                    '"-xc++"', '"-std=gnu++17"'
                                   } or {
-                                    -- '"-xc"', '"-std=gnu17"'
+                                    '"-xc"', '"-std=gnu17"'
                                   }
     vim.list_extend(formattedProjAdd, formattedIncAdd)
     ------------------------------------------------------------------------------
     local formattedGlobAdd = is_cpp and {
-                                    -- '"-xc++"', '"-std=gnu++17"',
-                                    -- string.format('"--include=%s"', check_file)
+                                    '"-xc++"', '"-std=gnu++17"',
+                                    string.format('"--include=%s"', check_file)
                                   } or {
-                                    -- '"-xc"', '"-std=gnu17"',
-                                    -- string.format('"--include=%s"', check_file)
+                                    '"-xc"', '"-std=gnu17"',
+                                    string.format('"--include=%s"', check_file)
                                   }
     ------------------------------------------------------------------------------
 
@@ -436,7 +437,7 @@ CompileFlags:
                 ref.start_marker,
                 clean_packages_dir,                                -- If: PathMatch: ['%s/.*']
                 -- OS.project_dir,                                    -- CompilationDatabase: "%s"
-                table.concat(formatted_remove_ASSEMBLY, ',\n    '),--   Remove: [%s]
+                table.concat(formattedGlobRemove, ',\n    '),--   Remove: [%s]
                 table.concat(formattedGlobAdd, ',\n    '),             --   Add: [%s]
                 ref.end_marker)
         end,
@@ -449,7 +450,7 @@ CompileFlags:
                 ref.start_marker,
                 OS.project_dir,                            -- If: PathMatch: ['%s/.*']
                 -- OS.project_dir,                            -- CompilationDatabase: "%s"
-                table.concat(formatted_remove, ',\n    '), --   Remove: [%s]
+                table.concat(formattedProjRemove, ',\n    '), --   Remove: [%s]
                 table.concat(formattedProjAdd, ',\n    '),     --   Add: [%s]
                 ref.end_marker)
         end,
