@@ -221,6 +221,7 @@ If:
   PathMatch: ['%s/.*[.]h$']
 CompileFlags:
   BuiltinHeaders: QueryDriver
+  Remove: [%s]
   Add: [%s]
 ---
 If:
@@ -459,7 +460,7 @@ CompileFlags:
           return string.format( self.Global,
                 ref.start_marker,
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-                table.concat(formattedGlobHAdd, ',\n    '),      -- Remove: [%s]
+                table.concat(formattedGlobHAdd, ',\n    '),  -- Remove: [%s]
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
                 table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
@@ -474,7 +475,8 @@ CompileFlags:
           return string.format(self.Project,
                 ref.start_marker,
                 clean_project,                                -- If: PathMatch: ['%s/.*']
-                table.concat(formattedProjHAdd, ',\n    '),       -- Remove: [%s]
+                table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
+                table.concat(formattedProjHAdd, ',\n    '),   -- Remove: [%s]
                 clean_project,                                -- If: PathMatch: ['%s/.*']
                 fileExtensions,                               -- file extensions
                 table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
