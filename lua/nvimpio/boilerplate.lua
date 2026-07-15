@@ -407,13 +407,19 @@ CompileFlags:
                                     '"-xc"', '"-std=gnu17"',
                                     string.format('"--include=%s"', check_file)
                                   }
+    local formattedGlobHAdd = is_cpp and {
+                                    '"-xc++-header"',
+                                    string.format('"--include=%s"', check_file)
+                                  } or {
+                                    '"-xc-header"',
+                                    string.format('"--include=%s"', check_file)
+                                  }
     ------------------------------------------------------------------------------
 
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedHAdd section  ----------------------
     -- local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
     -- local c_extensions   = is_cpp and "c" or "c|h"
-    local formattedGlobHAdd = is_cpp and { '"-xc++-header"' } or { '"-xc-header"' }
     local formattedProjHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
     vim.list_extend(formattedProjHAdd, formattedIncAdd)
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
