@@ -352,13 +352,15 @@ CompileFlags:
         ixx = true, cppm = true, mxx = true, i = true, ii = true,
         m = true, mm = true, cu = true, cuh = true
     }
-
-    local check_file = vim.fs.find(function(name)
-        -- Extract the text after the very last dot
-        local ext = name:match("%.([^.]+)$")
-        -- Return true if the extension exists in our target lookup set
-        return extensions[ext] == true
-    end, { limit = 1, path = vim.uv.cwd() .. "/src" })[1]
+    local getMainfile = function ()
+      return vim.fs.find(function(name)
+          -- Extract the text after the very last dot
+          local ext = name:match("%.([^.]+)$")
+          -- Return true if the extension exists in our target lookup set
+          return extensions[ext] == true
+      end, { limit = 1, path = OS.project_dir .. "/src" })[1]
+    end
+    local check_file = getMainfile()
     ----------------------------------------------------------------------------------
 
     local is_cpp = is_cpp_project()
@@ -366,18 +368,9 @@ CompileFlags:
     local formattedProjAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"'} or { '"-xc"', '"-std=gnu17"' }
     vim.list_extend(formattedProjAdd, formattedIncAdd)
     ------------------------------------------------------------------------------
--- -I.pio/build/seeed_xiao_esp32s3/config
--- string.format('"-I%s/.pio/build/seeed_xiao_esp32s3/config"', OS.project_dir)
-    ------------------------------------------------------------------------------
-    local formattedGlobAdd = is_cpp and { '"-xc++"',
-                                    '"-std=gnu++17"',
-                                    -- string.format('"-I%s/src"', OS.project_dir),
+    local formattedGlobAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"',
                                     string.format('"--include=%s"', check_file)
-                                  }
-                                    or { '"-xc"',
-                                    '"-std=gnu17"',
-                                    -- string.format('"-I%s/src"', OS.project_dir),
-                                    -- string.format('"--include=%s/src/main.c"', OS.project_dir)
+                                  } or { '"-xc"', '"-std=gnu17"',
                                     string.format('"--include=%s"', check_file)
                                   }
     ------------------------------------------------------------------------------
@@ -387,8 +380,7 @@ CompileFlags:
     ------------------ start .clangd formattedHAdd section  ----------------------
     -- local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
     -- local c_extensions   = is_cpp and "c" or "c|h"
-    -- local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
-    local formattedHAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"' } or { '"-xc"', '"-std=gnu17"' }
+    local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
     -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
     vim.list_extend(formattedHAdd, formattedIncAdd)
 

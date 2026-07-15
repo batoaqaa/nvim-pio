@@ -251,14 +251,26 @@ end
 function M.getUnknownArgsCli(from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
 
+  -- Create a fast lookup set of all valid extensions
   -- 1. FIND: Grab the first .cpp or .c file in /src
-  local check_file = vim.fs.find(function(name)
-    return name:match('%.cpp$') or name:match('%.c$')
-  end, { limit = 1, path = vim.uv.cwd() .. '/src' })[1]
+  local extensions = {
+      c = true, cpp = true, cc = true, cxx = true, C = true,
+      ixx = true, cppm = true, mxx = true, i = true, ii = true,
+      m = true, mm = true, cu = true, cuh = true
+  }
+  local getMainfile = function ()
+    return vim.fs.find(function(name)
+        -- Extract the text after the very last dot
+        local ext = name:match("%.([^.]+)$")
+        -- Return true if the extension exists in our target lookup set
+        return extensions[ext] == true
+    end, { limit = 1, path = OS.project_dir .. "/src" })[1]
+  end
+  local check_file = getMainfile()
 
   if not check_file then
     boilerplate_gen(_G.metadata.envs[_G.metadata.active_env].framework)
-    check_file = vim.uv.cwd() .. '/src/main.cpp'
+    check_file = getMainfile()
   end
 
   -- 2. SCAN: Run clangd (it will see all errors because .clangd is now empty)
