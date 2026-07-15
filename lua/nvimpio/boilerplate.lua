@@ -369,13 +369,12 @@ CompileFlags:
     vim.list_extend(formattedProjAdd, formattedIncAdd)
     ------------------------------------------------------------------------------
     local formattedGlobAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"',
-                                    string.format('"--include=%s"', check_file)
+                                    -- string.format('"--include=%s"', check_file)
                                   } or { '"-xc"', '"-std=gnu17"',
-                                    string.format('"--include=%s"', check_file)
+                                    -- string.format('"--include=%s"', check_file)
                                   }
     ------------------------------------------------------------------------------
 
-    -- {'"-IC:/Users/batoaqaa/AppData/Local/ahmed/test/include"', '"-IC:/Users/batoaqaa/AppData/Local/ahmed/test/.pio/build/esp32/config"'}
     ------------------------------------------------------------------------------
     ------------------ start .clangd formattedHAdd section  ----------------------
     -- local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
