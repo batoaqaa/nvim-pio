@@ -409,10 +409,14 @@ CompileFlags:
                                   }
     local formattedGlobHAdd = is_cpp and {
                                     '"-xc++-header"',
-                                    string.format('"--include=%s"', check_file)
+                                    -- string.format('"--include=%s"', check_file)
+                                    string.format('"-I%s/src"', OS.project_dir),
+                                    string.format('"-I%s/include"', OS.project_dir)
                                   } or {
                                     '"-xc-header"',
-                                    string.format('"--include=%s"', check_file)
+                                    -- string.format('"--include=%s"', check_file)
+                                    string.format('"-I%s/src"', OS.project_dir),
+                                    string.format('"-I%s/include"', OS.project_dir)
                                   }
     ------------------------------------------------------------------------------
 
