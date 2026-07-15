@@ -401,11 +401,11 @@ CompileFlags:
     local formattedGlobAdd = is_cpp and {
                                     -- '"-x"', '"c++-header"', '"-std=gnu++17"',
                                     '"-xc++"', '"-std=gnu++17"',
-                                    -- string.format('"--include=%s"', check_file)
+                                    string.format('"--include=%s"', check_file)
                                   } or {
                                     -- '"-x"', '"c-header"', '"-std=gnu17"',
                                     '"-xc"', '"-std=gnu17"',
-                                    -- string.format('"--include=%s"', check_file)
+                                    string.format('"--include=%s"', check_file)
                                   }
     ------------------------------------------------------------------------------
 
