@@ -199,8 +199,15 @@ boilerplate['.clangd'] = {
   Global = [[
 %s
 ---
+# For C++ header files named *.h
 If:
-  PathMatch: ['%s/.*']
+  PathMatch: ['%s/.*\.h']
+CompileFlags:
+  BuiltinHeaders: QueryDriver
+  Add: [-xc++-header]
+---
+If:
+  PathMatch: ['%s/.*\.(cpp|cxx|cc|c\+\+|mxx|cppm|ixx|inl|tcc)$']
 CompileFlags:
   BuiltinHeaders: QueryDriver
   Remove: [%s]
@@ -347,9 +354,23 @@ CompileFlags:
     ----------------------------------------------------------------------------------
     -- Create a fast lookup set of all valid extensions
     local extensions = {
-        c = true, cpp = true, cc = true, cxx = true, C = true,
-        ixx = true, cppm = true, mxx = true, i = true, ii = true,
-        m = true, mm = true, cu = true, cuh = true
+        cc = true,
+        cxx = true,
+        ccm = true,
+        C = true,
+        ixx = true,
+        cppm = true,
+        mxx = true,
+        i = true,
+        ii = true,
+        m = true,
+        mm = true,
+        cuh = true,
+        cpp = true,
+        c = true,
+        cu = true,
+        inl = true,
+        tcc = true,
     }
     local getMainfile = function ()
       return vim.fs.find(function(name)
@@ -372,12 +393,12 @@ CompileFlags:
     vim.list_extend(formattedProjAdd, formattedIncAdd)
     ------------------------------------------------------------------------------
     local formattedGlobAdd = is_cpp and {
-                                    '"-x"', '"c++-header"', '"-std=gnu++17"',
-                                    -- '"-xc++"', '"-std=gnu++17"',
+                                    -- '"-x"', '"c++-header"', '"-std=gnu++17"',
+                                    '"-xc++"', '"-std=gnu++17"',
                                     -- string.format('"--include=%s"', check_file)
                                   } or {
-                                    '"-x"', '"c-header"', '"-std=gnu17"',
-                                    -- '"-xc"', '"-std=gnu17"',
+                                    -- '"-x"', '"c-header"', '"-std=gnu17"',
+                                    '"-xc"', '"-std=gnu17"',
                                     -- string.format('"--include=%s"', check_file)
                                   }
     ------------------------------------------------------------------------------
@@ -436,6 +457,7 @@ CompileFlags:
         block = function (ref)
           return string.format( self.Global,
                 ref.start_marker,
+                clean_packages_dir,                                -- If: PathMatch: ['%s/.*']
                 clean_packages_dir,                                -- If: PathMatch: ['%s/.*']
                 -- OS.project_dir,                                    -- CompilationDatabase: "%s"
                 table.concat(formattedGlobRemove, ',\n    '),--   Remove: [%s]
