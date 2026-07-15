@@ -282,8 +282,8 @@ CompileFlags:
     --   '"-D_ASSEMBLY_"'
     -- }
     local formatted_remove_ASSEMBLY = {
-      '"-x"',
-      '"-std=*"'
+      -- '"-x"',
+      -- '"-std=*"'
     }
     -- vim.list_extend(formatted_remove, formatted_remove_ASSEMBLY)
     --------------------- end .clangd remove section -----------------------------
