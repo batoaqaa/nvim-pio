@@ -203,6 +203,8 @@ If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
   BuiltinHeaders: QueryDriver
+  Preferences:
+    BlockAsHeader: IsValid
   Add: [%s]
 ---
 If:
@@ -220,6 +222,8 @@ If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
   BuiltinHeaders: QueryDriver
+  Preferences:
+    BlockAsHeader: IsValid
   Remove: [%s]
   Add: [%s]
 ---
