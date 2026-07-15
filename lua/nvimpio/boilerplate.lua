@@ -465,7 +465,7 @@ CompileFlags:
     local clean_project   = preparePathMatch(OS.project_dir)
     local clean_packages_dir   = preparePathMatch(_G.metadata.packages_dir)
 
-    local fileExtensions = is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci'
+    local fileExtensions = is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci)'
     local headerExtensions = is_cpp and '[.](h|hpp|hh|hxx)' or '[.]h'
     ------------------------------------------------------------------------------
     --                config.yaml
