@@ -356,12 +356,12 @@ CompileFlags:
     local formattedGlobAdd = is_cpp and { '"-xc++"',
                                     '"-std=gnu++17"',
                                     -- string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"--include=%s/src/mainx.cpp"', OS.project_dir)
+                                    string.format('"--include=%s/src/main.cpp"', OS.project_dir)
                                   }
                                     or { '"-xc"',
                                     '"-std=gnu17"',
                                     -- string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"--include=%s/src/mainx.c"', OS.project_dir)
+                                    string.format('"--include=%s/src/main.c"', OS.project_dir)
                                   }
     ------------------------------------------------------------------------------
 
