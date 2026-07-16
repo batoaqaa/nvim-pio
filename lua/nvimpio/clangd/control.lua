@@ -319,9 +319,9 @@ function M.getClangdConfig()
     -- forcefully REUSE the active client so it retains the project context
     if _G.metadata and _G.metadata.framework_root and _G.OS and _G.OS.prepareLuaEscapePattern then
       local current_file = vim.fs.normalize(vim.api.nvim_buf_get_name(0)):lower()
+      print(current_file)
 
       local raw_root = vim.fs.normalize(_G.metadata.framework_root):lower()
-      print(raw_root)
       local clean_framework = _G.OS.prepareLuaEscapePattern(raw_root)
       print(clean_framework)
 
