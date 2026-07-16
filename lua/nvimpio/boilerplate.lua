@@ -193,7 +193,6 @@ function M.readContent(tbl)
   return content
 end
 
-  -- BuiltinHeaders: QueryDriver
   -- Preferences:
   --   BlockAsHeader: IsValid
   -- Compiler: "%s"
@@ -205,11 +204,13 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
+  BuiltinHeaders: QueryDriver
   Add: [%s]
 ---
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
+  BuiltinHeaders: QueryDriver
   Add: [%s]
 %s
 ]],
@@ -220,12 +221,14 @@ CompileFlags:
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
+  BuiltinHeaders: QueryDriver
   Remove: [%s]
   Add: [%s]
 ---
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
+  BuiltinHeaders: QueryDriver
   Remove: [%s]
   Add: [%s]
 %s
@@ -375,13 +378,13 @@ CompileFlags:
     local formattedGlobHAdd = is_cpp and {
                                     '"-xc++-header"',
                                     -- string.format('"--include=%s"', check_file)
-                                    -- string.format('"-I%s/src"', OS.project_dir),
-                                    -- string.format('"-I%s/include"', OS.project_dir)
+                                    string.format('"-I%s/src"', OS.project_dir),
+                                    string.format('"-I%s/include"', OS.project_dir)
                                   } or {
                                     '"-xc-header"',
                                     -- string.format('"--include=%s"', check_file)
-                                    -- string.format('"-I%s/src"', OS.project_dir),
-                                    -- string.format('"-I%s/include"', OS.project_dir)
+                                    string.format('"-I%s/src"', OS.project_dir),
+                                    string.format('"-I%s/include"', OS.project_dir)
                                   }
     --------------------- end .clangd formattedGlobAdd section ----------------------
 

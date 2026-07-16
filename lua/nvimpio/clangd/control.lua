@@ -323,20 +323,13 @@ function M.getClangdConfig()
       local raw_root = vim.fs.normalize(_G.metadata.framework_root):lower()
       local clean_framework = _G.OS.prepareLuaEscapePattern(raw_root)
 
-      if string.match(current_file, clean_framework) then
-        print(current_file)
-        print(clean_framework)
-        return true
-      end
+      if string.match(current_file, clean_framework) then return true end
     end
 
     -- 3. Otherwise, only reuse the client if it belongs to the EXACT same project root folder.
     -- This prevents index pollution if the user opens a completely different project!
     return client.config.root_dir == current_config.root_dir
   end
-  -- clangd_config.reuse_client = function(client, current_config)
-  --   return client.name == current_config.name
-  -- end
 
   -- clangd_config.cmd_env = {
   --   "CLANGD_TRACE": "",
