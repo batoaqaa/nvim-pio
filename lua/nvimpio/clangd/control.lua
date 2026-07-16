@@ -318,6 +318,7 @@ function M.getClangdConfig()
     -- 2. If the user is jumping to a file inside the global .platformio packages folder,
     -- forcefully REUSE the active client so it retains the project context (_ASMLANGUAGE fix).
     local current_file = vim.api.nvim_buf_get_name(0)
+    print(current_file)
     local clean_framework = OS.preparePathMatch(_G.metadata.framework_root)
     print(clean_framework)
     -- if string.match(current_file:lower(), "[./]platformio/.*packages") then return true end
