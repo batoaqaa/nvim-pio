@@ -133,29 +133,23 @@ local os_info = {
   ---@param raw_path string
   ---@return string
   preparePathMatch = function(raw_path)
-    -- 1. Clean up slashes using Neovim's normalizer
-    local path = vim.fs.normalize(raw_path)
-    -- 2. Strip any trailing slash if it exists, so it fits your "%s/.*" template perfectly
-    path = path:gsub("/$", "")
-    -- 3. Extract the Windows drive letter if it exists
-    local drive, main_path = path:match("^(%a:)(.*)$")
-    if drive then
-      drive = drive:lower()
-      path = main_path
-    else drive = "" end -- Linux/macOS
-    -- 4. Escape every literal dot inside the folders completely dynamically
-    -- path = path:gsub("%.%w+", [[\%0]])  -- this only for passing string.format()
-    -- path = path:gsub("%.", ".")  -- this only for passing string.format()
-    -- path = path:gsub("/", "[/\\]")  -- this only for passing string.format()
-    local finalPath = drive .. path
-    -- finalPath = finalPath:gsub("%.", "."):gsub("/", ".")
-    finalPath = finalPath:gsub("%.", "[.]")
-    -- if finalPath:sub(1, 1) == "." then
-    --   finalPath = finalPath:sub(2)
-    -- end
-    -- path = path:gsub("(%%.)", "\\\\%%1") -- this for everything else
-    -- 5. Recombine them seamlessly without a trailing slash
-    return finalPath
+      -- 1. Clean up slashes using Neovim's normalizer
+      local path = vim.fs.normalize(raw_path)
+      -- 2. Strip any trailing slash if it exists, so it fits your "%s/.*" template perfectly
+      path = path:gsub("/$", "")
+      -- 3.Captures ONLY the letter (%a), leaving the colon outside the brackets
+      local drive_letter, main_path = path:match("^([a-zA-Z]):(.*)$")
+      local drive
+      if drive_letter then
+        -- Wraps just the letters into [cC] and appends the colon outside
+        drive = '[' .. drive_letter:lower() .. drive_letter:upper() .. ']:'
+        path = main_path
+      else drive = "" end -- Linux/macOS
+      local finalPath = drive .. path
+      -- 4. Escape every literal dot inside the folders completely dynamically
+      finalPath = finalPath:gsub("%.", "[.]")
+      -- 5. Recombine them seamlessly without a trailing slash
+      return finalPath
   end,
 
   ---Checks if PlatformIO is installed and working (Cached after first success)
