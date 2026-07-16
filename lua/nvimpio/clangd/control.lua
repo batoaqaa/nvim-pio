@@ -317,9 +317,14 @@ function M.getClangdConfig()
 
     -- 2. If the user is jumping to a file inside the global .platformio packages folder,
     -- forcefully REUSE the active client so it retains the project context
-    local current_file = vim.fs.normalize(vim.api.nvim_buf_get_name(0)):lower()
-    local clean_framework = OS.prepareLuaEscapePattern(vim.fs.normalize(_G.metadata.framework_root):lower())
-    if string.match(current_file, clean_framework) then return true end
+    if _G.metadata and _G.metadata.framework_root and _G.OS and _G.OS.prepareLuaEscapePattern then
+      local current_file = vim.fs.normalize(vim.api.nvim_buf_get_name(0)):lower()
+
+      local raw_root = vim.fs.normalize(_G.metadata.framework_root):lower()
+      local clean_framework = _G.OS.prepareLuaEscapePattern(raw_root)
+
+      if string.match(current_file, clean_framework) then return true end
+    end
 
     -- 3. Otherwise, only reuse the client if it belongs to the EXACT same project root folder.
     -- This prevents index pollution if the user opens a completely different project!
