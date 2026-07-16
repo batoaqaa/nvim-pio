@@ -419,10 +419,10 @@ CompileFlags:
     -- end
 
     -- Simply wrap your dynamic variables before feeding them to string.format
-    -- local clean_framework = OS.preparePathMatch(_G.metadata.framework_root)
-    -- local clean_toolchain = OS.preparePathMatch(_G.metadata.toolchain_root)
-    local clean_project_dir   = OS.preparePathMatch(OS.project_dir)
-    local clean_packages_dir   = OS.preparePathMatch(_G.metadata.packages_dir)
+    -- local clean_framework = OS.preparePOSIXPathPattern(_G.metadata.framework_root)
+    -- local clean_toolchain = OS.preparePOSIXPathPattern(_G.metadata.toolchain_root)
+    local clean_project_dir   = OS.preparePOSIXPathPattern(OS.project_dir)
+    local clean_packages_dir   = OS.preparePOSIXPathPattern(_G.metadata.packages_dir)
 
     local fileExtensions = is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci)'
     local headerExtensions = is_cpp and '[.](h|hpp|hh|hxx)' or '[.]h'

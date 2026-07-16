@@ -55,7 +55,8 @@ local pioConfigDir = vim.fs.joinpath(projectDir, '.pio')
 ---@field nvimpio_config_dir string
 ---@field pio_config_dir string
 ---@field notify fun(msg: string, level?: string|integer)
----@field preparePathMatch fun(raw_path: string)
+---@field preparePOSIXPathPattern fun(raw_path: string)
+---@field prepareLuaPattern fun(raw_path: string)
 ---@field pioReady fun(local_pio_executable: string): boolean
 
 ---@type OS
@@ -132,7 +133,29 @@ local os_info = {
 
   ---@param raw_path string
   ---@return string
-  preparePathMatch = function(raw_path)
+  prepareLuaPattern = function(raw_path)
+    -- 1. Standardize to lowercase and use forward slashes for Windows safety
+    local clean_path = vim.fs.normalize(raw_path:lower())
+
+    -- 2. List of all characters that Lua patterns treat as special magic wildcards
+    local magic_chars = { "%", ".", "-", "+", "*", "?", "^", "$", "(", ")", "[", "]" }
+
+    -- 3. Loop through and escape each magic character by prepending a '%'
+    for _, char in ipairs(magic_chars) do
+      -- Escape the magic character inside the search pattern by putting a '%' in front of it
+      local search_pattern = "%" .. char
+      -- We use "%%" in the replacement string because Lua requires '%' to be escaped as well
+      local replace_string = "%%" .. char
+
+      clean_path = clean_path:gsub(search_pattern, replace_string)
+    end
+
+    return clean_path
+  end,
+
+  ---@param raw_path string
+  ---@return string
+  preparePOSIXPathPattern = function(raw_path)
       -- 1. Clean up slashes using Neovim's normalizer
       local path = vim.fs.normalize(raw_path)
       -- 2. Strip any trailing slash if it exists, so it fits your "%s/.*" template perfectly
