@@ -196,7 +196,6 @@ end
   -- Preferences:
   --   BlockAsHeader: IsValid
   -- Compiler: "%s"
-  -- CompilationDatabase: "%s"
 boilerplate['.clangd'] = {
   Global = [[
 %s
@@ -204,12 +203,16 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
+  CompilationDatabase: "%s"
+  Compiler: "%s"
   BuiltinHeaders: QueryDriver
   Add: [%s]
 ---
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
+  CompilationDatabase: "%s"
+  Compiler: "%s"
   BuiltinHeaders: QueryDriver
   Add: [%s]
 %s
@@ -429,6 +432,7 @@ CompileFlags:
 
     local fileExtensions = is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci)'
     local headerExtensions = is_cpp and '[.](h|hpp|hh|hxx)' or '[.]h'
+    local compiler = is_cpp and _G.metadata.cxx_path or _G.metadata.cc_path
     ------------------------------------------------------------------------------
     --                config.yaml
     ------------------------------------------------------------------------------
@@ -441,10 +445,14 @@ CompileFlags:
                 ref.start_marker,
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 headerExtensions,                            -- header extensions
+                OS.project_dir,                              -- compilationDatabasePath
+                compiler,                                    -- compiler
                 -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
                 table.concat(formattedGlobHAdd, ',\n    '),  -- Remove: [%s]
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
+                OS.project_dir,                              -- compilationDatabasePath
+                compiler,                                    -- compiler
                 -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
                 table.concat(formattedGlobAdd, ',\n    '),   -- Add: [%s]
                 ref.end_marker)
