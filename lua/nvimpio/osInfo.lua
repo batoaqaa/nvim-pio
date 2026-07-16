@@ -56,7 +56,7 @@ local pioConfigDir = vim.fs.joinpath(projectDir, '.pio')
 ---@field pio_config_dir string
 ---@field notify fun(msg: string, level?: string|integer)
 ---@field preparePOSIXPathPattern fun(raw_path: string)
----@field prepareLuaPattern fun(raw_path: string)
+---@field prepareLuaEscapePattern fun(raw: string)
 ---@field pioReady fun(local_pio_executable: string): boolean
 
 ---@type OS
@@ -131,11 +131,11 @@ local os_info = {
     end)
   end,
 
-  ---@param raw_path string
+  ---@param raw string
   ---@return string
-  prepareLuaPattern = function(raw_path)
+  prepareLuaEscapePattern = function(raw)
     -- 1. Standardize to lowercase and use forward slashes for Windows safety
-    local clean_path = vim.fs.normalize(raw_path):lower()
+    local escaped_string = raw --vim.fs.normalize(raw_path):lower()
 
     -- 2. List of all characters that Lua patterns treat as special magic wildcards
     local magic_chars = { "%", ".", "-", "+", "*", "?", "^", "$", "(", ")", "[", "]" }
@@ -148,9 +148,9 @@ local os_info = {
       -- "%%%" translates to a single literal '%' in the output string plus the character
       local replace_string = "%%%" .. char
 
-      clean_path = clean_path:gsub(search_pattern, replace_string)
+      escaped_string = escaped_string:gsub(search_pattern, replace_string)
     end
-    return clean_path
+    return escaped_string
   end,
 
   ---@param raw_path string
