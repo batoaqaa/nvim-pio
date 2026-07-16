@@ -321,9 +321,9 @@ function M.getClangdConfig()
     print(current_file)
     local clean_framework = OS.preparePathMatch(_G.metadata.framework_root)
     print(clean_framework)
-    -- if string.match(current_file:lower(), "[./]platformio/.*packages") then return true end
+    if string.match(current_file:lower(), "[./]platformio/.*packages") then return true end
     -- if string.match(current_file:lower(), clean_framework) then return true end
-    if string.match(current_file, clean_framework) then return true end
+    -- if string.match(current_file, clean_framework) then return true end
 
     -- 3. Otherwise, only reuse the client if it belongs to the EXACT same project root folder.
     -- This prevents index pollution if the user opens a completely different project!
