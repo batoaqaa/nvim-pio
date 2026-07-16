@@ -360,18 +360,39 @@ end
 -- ''
 
 function M.extract_framework_path(raw_json_chunk, active_env)
-    -- 1. Unify all path separators to forward slashes first
-    local normalized = raw_json_chunk:gsub("\\\\", "/"):gsub("\\", "/")
+  -- 1. Safely decode the JSON string into a Lua table
+  local ok, data = pcall(vim.json.decode, raw_json_chunk)
+  if not ok or not data then return nil end
 
-    -- 2. Match from the quote up to the framework folder
-    local pattern = string.format('"([^"]-/packages/framework%%-%s[^"/]-)/',
-                                  _G.metadata.envs[active_env].framework)
-    -- 3. Match and capture the strict single element path
-    local match = normalized:match(pattern)
+  local build = data[active_env].includes.build
+  -- 2. Scan each include path in the build array
+  for _, path in ipairs(build) do
+    -- Normalize slashes right away for Windows/Linux consistency
+    local clean_path = vim.fs.normalize(path)
 
-    if match then return vim.fs.normalize(match) end
-    return nil
+    -- 3. THE CAPTURE: Match any path containing '.platformio/packages/'
+    -- and grab everything from the start up to the first directory inside packages/
+    -- e.g. "C:/Users/batoaqaa/.platformio/packages/framework-espidf"
+    local framework_root = clean_path:match('(.*[/\\]%.platformio[/\\]packages[/\\][^/\\]+)')
+
+    if framework_root then return framework_root end
+  end
+  return nil
 end
+
+-- function M.extract_framework_path(raw_json_chunk, active_env)
+--     -- 1. Unify all path separators to forward slashes first
+--     local normalized = raw_json_chunk:gsub("\\\\", "/"):gsub("\\", "/")
+--
+--     -- 2. Match from the quote up to the framework folder
+--     local pattern = string.format('"([^"]-/packages/framework%%-%s[^"/]-)/',
+--                                   _G.metadata.envs[active_env].framework)
+--     -- 3. Match and capture the strict single element path
+--     local match = normalized:match(pattern)
+--
+--     if match then return vim.fs.normalize(match) end
+--     return nil
+-- end
 
 
 
