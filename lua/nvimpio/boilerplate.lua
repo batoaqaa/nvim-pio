@@ -204,12 +204,22 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
+  CompilationDatabase: "%s"
+  Compiler: "%s"
+  QueryDriver: [
+    "%s"
+  ]
   BuiltinHeaders: QueryDriver
   Add: [%s]
 ---
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
+  CompilationDatabase: "%s"
+  Compiler: "%s"
+  QueryDriver: [
+    "%s"
+  ]
   BuiltinHeaders: QueryDriver
   Add: [%s]
 %s
@@ -431,9 +441,15 @@ CompileFlags:
     local fileExtensions = is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci)'
     local headerExtensions = is_cpp and '[.](h|hpp|hh|hxx)' or '[.]h'
     local compiler = is_cpp and _G.metadata.cxx_path or _G.metadata.cc_path
+    local QueryDriver = is_cpp and _G.metadata.cxx_path or _G.metadata.cc_path
     ------------------------------------------------------------------------------
     --                config.yaml
     ------------------------------------------------------------------------------
+  -- CompilationDatabase: "%s"
+  -- Compiler: "%s"
+  -- QueryDriver: [
+  --   "%s"
+  -- ]
     local userClangd = OS.clangd_user_file
     local clangdFiles = {
       { key = 'userGlob', file = userClangd, content = function (ref) return M.readContent(ref) end,
@@ -443,14 +459,16 @@ CompileFlags:
                 ref.start_marker,
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 headerExtensions,                            -- header extensions
-                -- OS.project_dir,                              -- compilationDatabasePath
-                -- compiler,                                    -- compiler
+                OS.project_dir,                              -- compilationDatabasePath
+                compiler,                                    -- compiler
+                QueryDriver,                                 -- query-driver
                 -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
                 table.concat(formattedGlobHAdd, ',\n    '),  -- Remove: [%s]
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
-                -- OS.project_dir,                              -- compilationDatabasePath
-                -- compiler,                                    -- compiler
+                OS.project_dir,                              -- compilationDatabasePath
+                compiler,                                    -- compiler
+                QueryDriver,                                 -- query-driver
                 -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
                 table.concat(formattedGlobAdd, ',\n    '),   -- Add: [%s]
                 ref.end_marker)
