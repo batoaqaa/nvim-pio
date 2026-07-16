@@ -195,6 +195,7 @@ end
 
   -- Preferences:
   --   BlockAsHeader: IsValid
+  -- CompilationDatabase: "%s"
   -- Compiler: "%s"
 boilerplate['.clangd'] = {
   Global = [[
@@ -203,16 +204,12 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
-  CompilationDatabase: "%s"
-  Compiler: "%s"
   BuiltinHeaders: QueryDriver
   Add: [%s]
 ---
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
-  CompilationDatabase: "%s"
-  Compiler: "%s"
   BuiltinHeaders: QueryDriver
   Add: [%s]
 %s
@@ -363,16 +360,17 @@ CompileFlags:
     ----------------------------------------------------------------------------------
 
     local is_cpp = is_cpp_project()
-
+-- C:/Users/batoaqaa/AppData/Local/ahmed/test/src/main.c
     ------------------ start .clangd formattedGlobAdd section  ----------------------
     local formattedGlobAdd = is_cpp and {
                                     '"-xc++"', '"-std=gnu++17"',
+                                    string.format('"--include=%s"', 'C:/Users/batoaqaa/AppData/Local/ahmed/test/src/xmain.c')
                                     -- string.format('"--include=%s"', check_file)
                                     -- string.format('"-I%s/src"', OS.project_dir),
                                     -- string.format('"-I%s/include"', OS.project_dir)
                                   } or {
-                                    -- '"-x"', '"c-header"', '"-std=gnu17"',
                                     '"-xc"', '"-std=gnu17"',
+                                    string.format('"--include=%s"', 'C:/Users/batoaqaa/AppData/Local/ahmed/test/src/xmain.c')
                                     -- string.format('"--include=%s"', check_file)
                                     -- string.format('"-I%s/src"', OS.project_dir),
                                     -- string.format('"-I%s/include"', OS.project_dir)
@@ -445,14 +443,14 @@ CompileFlags:
                 ref.start_marker,
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 headerExtensions,                            -- header extensions
-                OS.project_dir,                              -- compilationDatabasePath
-                compiler,                                    -- compiler
+                -- OS.project_dir,                              -- compilationDatabasePath
+                -- compiler,                                    -- compiler
                 -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
                 table.concat(formattedGlobHAdd, ',\n    '),  -- Remove: [%s]
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
-                OS.project_dir,                              -- compilationDatabasePath
-                compiler,                                    -- compiler
+                -- OS.project_dir,                              -- compilationDatabasePath
+                -- compiler,                                    -- compiler
                 -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
                 table.concat(formattedGlobAdd, ',\n    '),   -- Add: [%s]
                 ref.end_marker)
