@@ -193,8 +193,11 @@ function M.readContent(tbl)
   return content
 end
 
--- Compiler: "%s"
--- CompilationDatabase: "%s"
+  -- BuiltinHeaders: QueryDriver
+  -- Preferences:
+  --   BlockAsHeader: IsValid
+  -- Compiler: "%s"
+  -- CompilationDatabase: "%s"
 boilerplate['.clangd'] = {
   Global = [[
 %s
@@ -202,15 +205,11 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
-  BuiltinHeaders: QueryDriver
-  Preferences:
-    BlockAsHeader: IsValid
   Add: [%s]
 ---
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
-  BuiltinHeaders: QueryDriver
   Add: [%s]
 %s
 ]],
@@ -221,16 +220,12 @@ CompileFlags:
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
-  BuiltinHeaders: QueryDriver
-  Preferences:
-    BlockAsHeader: IsValid
   Remove: [%s]
   Add: [%s]
 ---
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
-  BuiltinHeaders: QueryDriver
   Remove: [%s]
   Add: [%s]
 %s
@@ -306,7 +301,6 @@ CompileFlags:
     ------------------------------------------------------------------------------
     -- 2. METADATA EXTRACTOR
     local target_meta = nil
-
     if _G.metadata then
       -- Target A: Check if properties sit directly on the flat root table
       if _G.metadata.includes_build or _G.metadata.cxx_defines then
@@ -339,47 +333,17 @@ CompileFlags:
         local raw_flag = pool[flag_idx]
         if type(raw_flag) == 'string' and raw_flag ~= '' then
           table.insert(formattedIncAdd, string.format('%q', vim.fs.normalize(raw_flag)))
-          -- table.insert(formattedIncAdd, vim.fs.normalize(raw_flag))
         end
       end
     end
     --------------------- end .clangd IncAdd section -----------------------------
 
-
-    -- ------------------------------------------------------------------------------
-    -- ------------------ start .clangd formattedCxxAdd section  --------------------
-    -- -- local formattedCxxAdd = { }
-    -- local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
-    -- vim.list_extend(formattedCxxAdd, formattedIncAdd)
-    -- --------------------- end .clangd formattedCxxAdd section --------------------
-    --
-    -- ------------------------------------------------------------------------------
-    -- ------------------ start .clangd formattedCcAdd section  ---------------------
-    -- -- local formattedCcAdd = { }
-    -- local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
-    -- vim.list_extend(formattedCcAdd, formattedIncAdd)
-    -- --------------------- end .clangd formattedCcAdd section ---------------------
-
     ----------------------------------------------------------------------------------
     -- Create a fast lookup set of all valid extensions
-    local extensions = {
-        cc = true,
-        cxx = true,
-        ccm = true,
-        C = true,
-        ixx = true,
-        cppm = true,
-        mxx = true,
-        i = true,
-        ii = true,
-        m = true,
-        mm = true,
-        cuh = true,
-        cpp = true,
-        c = true,
-        cu = true,
-        inl = true,
-        tcc = true,
+    local extensions = { cc = true, cxx = true, ccm = true, ixx = true, cppm = true, mxx = true,
+                          i = true, ii = true, m = true, mm = true, cuh = true, cpp = true,
+                          --
+                          c = true, cu = true, inl = true, tcc = true, C = true,
     }
     local getMainfile = function ()
       return vim.fs.find(function(name)
@@ -393,51 +357,46 @@ CompileFlags:
     ----------------------------------------------------------------------------------
 
     local is_cpp = is_cpp_project()
-    ------------------------------------------------------------------------------
+
+    ------------------ start .clangd formattedGlobAdd section  ----------------------
+    local formattedGlobAdd = is_cpp and {
+                                    '"-xc++"', '"-std=gnu++17"',
+                                    -- string.format('"--include=%s"', check_file)
+                                    -- string.format('"-I%s/src"', OS.project_dir),
+                                    -- string.format('"-I%s/include"', OS.project_dir)
+                                  } or {
+                                    -- '"-x"', '"c-header"', '"-std=gnu17"',
+                                    '"-xc"', '"-std=gnu17"',
+                                    -- string.format('"--include=%s"', check_file)
+                                    -- string.format('"-I%s/src"', OS.project_dir),
+                                    -- string.format('"-I%s/include"', OS.project_dir)
+                                  }
+
+    local formattedGlobHAdd = is_cpp and {
+                                    '"-xc++-header"',
+                                    -- string.format('"--include=%s"', check_file)
+                                    -- string.format('"-I%s/src"', OS.project_dir),
+                                    -- string.format('"-I%s/include"', OS.project_dir)
+                                  } or {
+                                    '"-xc-header"',
+                                    -- string.format('"--include=%s"', check_file)
+                                    -- string.format('"-I%s/src"', OS.project_dir),
+                                    -- string.format('"-I%s/include"', OS.project_dir)
+                                  }
+    --------------------- end .clangd formattedGlobAdd section ----------------------
+
+    ------------------ start .clangd formattedProjAdd section  ----------------------
     local formattedProjAdd = is_cpp and {
                                     '"-xc++"', '"-std=gnu++17"'
                                   } or {
                                     '"-xc"', '"-std=gnu17"'
                                   }
     vim.list_extend(formattedProjAdd, formattedIncAdd)
-    ------------------------------------------------------------------------------
-    local formattedGlobAdd = is_cpp and {
-                                    -- '"-x"', '"c++-header"', '"-std=gnu++17"',
-                                    '"-xc++"', '"-std=gnu++17"',
-                                    -- string.format('"--include=%s"', check_file)
-                                    string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"-I%s/include"', OS.project_dir)
-                                  } or {
-                                    -- '"-x"', '"c-header"', '"-std=gnu17"',
-                                    '"-xc"', '"-std=gnu17"',
-                                    -- string.format('"--include=%s"', check_file)
-                                    string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"-I%s/include"', OS.project_dir)
-                                  }
-    local formattedGlobHAdd = is_cpp and {
-                                    '"-xc++-header"',
-                                    -- string.format('"--include=%s"', check_file)
-                                    string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"-I%s/include"', OS.project_dir)
-                                  } or {
-                                    '"-xc-header"',
-                                    -- string.format('"--include=%s"', check_file)
-                                    string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"-I%s/include"', OS.project_dir)
-                                  }
-    ------------------------------------------------------------------------------
 
-    ------------------------------------------------------------------------------
-    ------------------ start .clangd formattedHAdd section  ----------------------
-    -- local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
-    -- local c_extensions   = is_cpp and "c" or "c|h"
     local formattedProjHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
     vim.list_extend(formattedProjHAdd, formattedIncAdd)
-    -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
-
-    -- table.insert(formattedHAdd, string.format('"--include=%s/src/mainx.c"', OS.project_dir))
-    -- table.insert(formattedHAdd, string.format('"-I%s/src"', OS.project_dir))
-    --------------------- end .clangd formattedHAdd section ----------------------
+    -- vim.list_extend(formattedProjHAdd, formatteLibdepsAdd)
+    --------------------- end .clangd formattedProjAdd section ----------------------
 
     local function preparePathMatch(raw_path)
       -- 1. Clean up slashes using Neovim's normalizer
@@ -462,7 +421,7 @@ CompileFlags:
     -- Simply wrap your dynamic variables before feeding them to string.format
     -- local clean_framework = preparePathMatch(_G.metadata.framework_root)
     -- local clean_toolchain = preparePathMatch(_G.metadata.toolchain_root)
-    local clean_project   = preparePathMatch(OS.project_dir)
+    local clean_project_dir   = preparePathMatch(OS.project_dir)
     local clean_packages_dir   = preparePathMatch(_G.metadata.packages_dir)
 
     local fileExtensions = is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci)'
@@ -494,11 +453,11 @@ CompileFlags:
         block = function (ref)
           return string.format(self.Project,
                 ref.start_marker,
-                clean_project,                                -- If: PathMatch: ['%s/.*']
+                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
                 headerExtensions,                             -- header extensions
                 table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
                 table.concat(formattedProjHAdd, ',\n    '),   -- Remove: [%s]
-                clean_project,                                -- If: PathMatch: ['%s/.*']
+                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
                 fileExtensions,                               -- file extensions
                 table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
                 table.concat(formattedProjAdd, ',\n    '),    -- Add: [%s]
