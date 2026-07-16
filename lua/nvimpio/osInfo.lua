@@ -203,3 +203,5 @@ setmetatable(OS, {
   end,
   __metatable = false,
 })
+
+return OS
