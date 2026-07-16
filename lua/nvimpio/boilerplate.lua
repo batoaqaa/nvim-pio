@@ -364,13 +364,11 @@ CompileFlags:
     ------------------ start .clangd formattedGlobAdd section  ----------------------
     local formattedGlobAdd = is_cpp and {
                                     '"-xc++"', '"-std=gnu++17"',
-                                    string.format('"--include=%s"', 'C:/Users/batoaqaa/AppData/Local/ahmed/test/src/xmain.c')
                                     -- string.format('"--include=%s"', check_file)
                                     -- string.format('"-I%s/src"', OS.project_dir),
                                     -- string.format('"-I%s/include"', OS.project_dir)
                                   } or {
                                     '"-xc"', '"-std=gnu17"',
-                                    string.format('"--include=%s"', 'C:/Users/batoaqaa/AppData/Local/ahmed/test/src/xmain.c')
                                     -- string.format('"--include=%s"', check_file)
                                     -- string.format('"-I%s/src"', OS.project_dir),
                                     -- string.format('"-I%s/include"', OS.project_dir)
@@ -378,14 +376,16 @@ CompileFlags:
 
     local formattedGlobHAdd = is_cpp and {
                                     '"-xc++-header"',
+                                    string.format('"--include=%s"', 'C:/Users/batoaqaa/AppData/Local/ahmed/test/src/xmain.c')
                                     -- string.format('"--include=%s"', check_file)
-                                    string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"-I%s/include"', OS.project_dir)
+                                    -- string.format('"-I%s/src"', OS.project_dir),
+                                    -- string.format('"-I%s/include"', OS.project_dir)
                                   } or {
                                     '"-xc-header"',
+                                    string.format('"--include=%s"', 'C:/Users/batoaqaa/AppData/Local/ahmed/test/src/xmain.c')
                                     -- string.format('"--include=%s"', check_file)
-                                    string.format('"-I%s/src"', OS.project_dir),
-                                    string.format('"-I%s/include"', OS.project_dir)
+                                    -- string.format('"-I%s/src"', OS.project_dir),
+                                    -- string.format('"-I%s/include"', OS.project_dir)
                                   }
     --------------------- end .clangd formattedGlobAdd section ----------------------
 
