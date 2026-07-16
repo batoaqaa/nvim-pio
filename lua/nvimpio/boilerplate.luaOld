@@ -22,11 +22,15 @@ packages_dir = ${platformio.core_dir}/packages
 
 ;--------------------------------------------------------------------------
 [env]
+framework = arduino
 upload_speed = 115200
 monitor_speed = 9600
 
 monitor_rts = 1   ; 1 combination to reset esp32c6 (Table 32.3-2. CDC-ACM Settings with RTS and DTR)
 monitor_dtr = 0   ; 0 // pio dev mon --rts=0 --dtr=0 then pio dev mon --rts=1 dtr=0
+
+lib_ldf_mode = chain   ;Library dependencies Finder ldf
+
 
 ]],
   boiler = function(self)
@@ -44,7 +48,6 @@ monitor_dtr = 0   ; 0 // pio dev mon --rts=0 --dtr=0 then pio dev mon --rts=1 dt
   --   "CLANGD_TRACE": ""
   -- },
 -- "--background-index-priority=low",
-    -- "--limit-results=100",
 -- INFO: .clangd_config
 ----------------------------------------------------------------------------------------
 boilerplate['.clangdConfig.json'] = {
@@ -55,19 +58,19 @@ boilerplate['.clangdConfig.json'] = {
   "cmd": [
     "clangd",
     "--enable-config",
+    "--limit-results=100",
     "--background-index",
-    "-j=4",
-    "--pch-storage=memory",
-    "--clang-tidy",
     "--all-scopes-completion",
+    "-j=4",
+    "--clang-tidy",
     "--completion-parse=always",
     "--completion-style=detailed",
     "--header-insertion=iwyu",
     "--fallback-style={BasedOnStyle: llvm, SortIncludes: false}", 
     "--log=error",
+    "--pch-storage=memory",
     "--pretty",
     "--ranking-model=decision_forest",
-    "--parse-forwarding-functions", 
     "--compile-commands-dir=%s",
     "--query-driver=%s"
   ],
@@ -193,24 +196,19 @@ function M.readContent(tbl)
   return content
 end
 
-  -- BuiltinHeaders: QueryDriver
-  -- Preferences:
-  --   BlockAsHeader: IsValid
-  -- Compiler: "%s"
-  -- CompilationDatabase: "%s"
+-- CompilationDatabase: "%s"
+-- Compiler: "%s"
+-- CompilationDatabase: "%s"
+  -- PathMatch: ['%s/.*']
 boilerplate['.clangd'] = {
   Global = [[
 %s
 ---
 If:
-  PathMatch: ['%s/.*%s$']
+  PathMatch: ['%s/.*']
 CompileFlags:
-  Add: [%s]
----
-If:
-  PathMatch: ['%s/.*%s$']
-CompileFlags:
-  Add: [%s]
+  Remove: [%s]
+
 %s
 ]],
 
@@ -218,13 +216,7 @@ CompileFlags:
 %s
 ---
 If:
-  PathMatch: ['%s/.*%s$']
-CompileFlags:
-  Remove: [%s]
-  Add: [%s]
----
-If:
-  PathMatch: ['%s/.*%s$']
+  PathMatch: ['%s/.*']
 CompileFlags:
   Remove: [%s]
   Add: [%s]
@@ -256,16 +248,14 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd remove section ------------------------------
     -- 1. SYNC (WITH DIRECT DISK FALLBACK GATING):
-    -- local formattedProjRemove = {}
-
-    -- local formattedProjRemove = {'"-x"', '"-std=*"'}
-    local formattedProjRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
+    -- local formatted_remove = {}
+    local formatted_remove = {'"-std=*"'}
     -- add diagnostic removed flags
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
     if success and pio_diag and pio_diag.removed_flags and next(pio_diag.removed_flags) then
       for flag, isblocked in pairs(pio_diag.removed_flags) do
         if isblocked then
-          table.insert(formattedProjRemove, string.format('%q', flag))
+          table.insert(formatted_remove, string.format('%q', flag))
         end
       end
     else
@@ -278,29 +268,26 @@ CompileFlags:
           if dok and data and type(data.flags) == 'table' then
             for flag, isblocked in pairs(data.flags) do
               if isblocked then
-                table.insert(formattedProjRemove, string.format('%q', flag))
+                table.insert(formatted_remove, string.format('%q', flag))
               end
             end
           end
         end
       end
     end
-
-    -- local formattedGlobRemove = {
-    --   '"-x"',
-    --   '"-std=*"',
-    --   '"-D_ASMLANGUAGE"',
-    --   '"-D__ASSEMBLY__"',
-    --   '"-D__ASSEMBLER__"',
-    --   '"-D_ASSEMBLY_"'
-    -- }
-    local formattedGlobRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
-    -- vim.list_extend(formattedProjRemove, formattedGlobRemove)
+    local formatted_remove_ASSEMBLY = {
+      -- '"-D_ASMLANGUAGE"',
+      -- '"-D__ASSEMBLY__"',
+      -- '"-D__ASSEMBLER__"',
+      -- '"-D_ASSEMBLY_"'
+    }
+    -- vim.list_extend(formatted_remove, formatted_remove_ASSEMBLY)
     --------------------- end .clangd remove section -----------------------------
 
     ------------------------------------------------------------------------------
     -- 2. METADATA EXTRACTOR
     local target_meta = nil
+
     if _G.metadata then
       -- Target A: Check if properties sit directly on the flat root table
       if _G.metadata.includes_build or _G.metadata.cxx_defines then
@@ -333,87 +320,64 @@ CompileFlags:
         local raw_flag = pool[flag_idx]
         if type(raw_flag) == 'string' and raw_flag ~= '' then
           table.insert(formattedIncAdd, string.format('%q', vim.fs.normalize(raw_flag)))
+          -- table.insert(formattedIncAdd, vim.fs.normalize(raw_flag))
         end
       end
     end
     --------------------- end .clangd IncAdd section -----------------------------
 
-    ----------------------------------------------------------------------------------
-    -- Create a fast lookup set of all valid extensions
-    local extensions = { cc = true, cxx = true, ccm = true, ixx = true, cppm = true, mxx = true,
-                          i = true, ii = true, m = true, mm = true, cuh = true, cpp = true,
-                          --
-                          c = true, cu = true, inl = true, tcc = true, C = true,
-    }
-    local getMainfile = function ()
-      return vim.fs.find(function(name)
-          -- Extract the text after the very last dot
-          local ext = name:match("%.([^.]+)$")
-          -- Return true if the extension exists in our target lookup set
-          return extensions[ext] == true
-      end, { limit = 1, path = OS.project_dir .. "/src" })[1]
-    end
-    local check_file = getMainfile()
-    ----------------------------------------------------------------------------------
+
+    ------------------------------------------------------------------------------
+    ------------------ start .clangd formattedCxxAdd section  --------------------
+    -- local formattedCxxAdd = { }
+    local formattedCxxAdd = { '"-xc++"', '"-std=gnu++17"'}
+    vim.list_extend(formattedCxxAdd, formattedIncAdd)
+    --------------------- end .clangd formattedCxxAdd section --------------------
+
+    ------------------------------------------------------------------------------
+    ------------------ start .clangd formattedCcAdd section  ---------------------
+    -- local formattedCcAdd = { }
+    local formattedCcAdd = { '"-xc"', '"-std=gnu17"' }
+    vim.list_extend(formattedCcAdd, formattedIncAdd)
+    --------------------- end .clangd formattedCcAdd section ---------------------
 
     local is_cpp = is_cpp_project()
+    ------------------------------------------------------------------------------
+    local formattedAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"'} or { '"-xc"', '"-std=gnu17"' }
+    vim.list_extend(formattedAdd, formattedIncAdd)
+    ------------------------------------------------------------------------------
 
-    ------------------ start .clangd formattedGlobAdd section  ----------------------
-    local formattedGlobAdd = is_cpp and {
-                                    '"-xc++"', '"-std=gnu++17"',
-                                    -- string.format('"--include=%s"', check_file)
-                                    -- string.format('"-I%s/src"', OS.project_dir),
-                                    -- string.format('"-I%s/include"', OS.project_dir)
-                                  } or {
-                                    -- '"-x"', '"c-header"', '"-std=gnu17"',
-                                    '"-xc"', '"-std=gnu17"',
-                                    -- string.format('"--include=%s"', check_file)
-                                    -- string.format('"-I%s/src"', OS.project_dir),
-                                    -- string.format('"-I%s/include"', OS.project_dir)
-                                  }
-
-    local formattedGlobHAdd = is_cpp and {
-                                    '"-xc++-header"',
-                                    -- string.format('"--include=%s"', check_file)
-                                    -- string.format('"-I%s/src"', OS.project_dir),
-                                    -- string.format('"-I%s/include"', OS.project_dir)
-                                  } or {
-                                    '"-xc-header"',
-                                    -- string.format('"--include=%s"', check_file)
-                                    -- string.format('"-I%s/src"', OS.project_dir),
-                                    -- string.format('"-I%s/include"', OS.project_dir)
-                                  }
-    --------------------- end .clangd formattedGlobAdd section ----------------------
-
-    ------------------ start .clangd formattedProjAdd section  ----------------------
-    local formattedProjAdd = is_cpp and {
-                                    '"-xc++"', '"-std=gnu++17"'
-                                  } or {
-                                    '"-xc"', '"-std=gnu17"'
-                                  }
-    vim.list_extend(formattedProjAdd, formattedIncAdd)
-
-    local formattedProjHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
-    vim.list_extend(formattedProjHAdd, formattedIncAdd)
-    -- vim.list_extend(formattedProjHAdd, formatteLibdepsAdd)
-    --------------------- end .clangd formattedProjAdd section ----------------------
+    ------------------------------------------------------------------------------
+    ------------------ start .clangd formattedHAdd section  ----------------------
+    -- local cpp_extensions = is_cpp and "hpp|cpp|cc|cu|cxx|h" or "hpp|cpp|cc|cxx"
+    -- local c_extensions   = is_cpp and "c" or "c|h"
+    local formattedHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
+    -- vim.list_extend(formattedHAdd, formatteLibdepsAdd)
+    vim.list_extend(formattedHAdd, formattedIncAdd)
+    --------------------- end .clangd formattedHAdd section ----------------------
 
     local function preparePathMatch(raw_path)
       -- 1. Clean up slashes using Neovim's normalizer
       local path = vim.fs.normalize(raw_path)
       -- 2. Strip any trailing slash if it exists, so it fits your "%s/.*" template perfectly
       path = path:gsub("/$", "")
-      -- 3.Captures ONLY the letter (%a), leaving the colon outside the brackets
-      local drive_letter, main_path = path:match("^([a-zA-Z]):(.*)$")
-      local drive
-      if drive_letter then
-        -- Wraps just the letters into [cC] and appends the colon outside
-        drive = '[' .. drive_letter:lower() .. drive_letter:upper() .. ']:'
+      -- 3. Extract the Windows drive letter if it exists
+      local drive, main_path = path:match("^(%a:)(.*)$")
+      if drive then
+        drive = drive:lower()
         path = main_path
       else drive = "" end -- Linux/macOS
-      local finalPath = drive .. path
       -- 4. Escape every literal dot inside the folders completely dynamically
+      -- path = path:gsub("%.%w+", [[\%0]])  -- this only for passing string.format()
+      -- path = path:gsub("%.", ".")  -- this only for passing string.format()
+      -- path = path:gsub("/", "[/\\]")  -- this only for passing string.format()
+      local finalPath = drive .. path
+      -- finalPath = finalPath:gsub("%.", "."):gsub("/", ".")
       finalPath = finalPath:gsub("%.", "[.]")
+      -- if finalPath:sub(1, 1) == "." then
+      --   finalPath = finalPath:sub(2)
+      -- end
+      -- path = path:gsub("(%%.)", "\\\\%%1") -- this for everything else
       -- 5. Recombine them seamlessly without a trailing slash
       return finalPath
     end
@@ -421,11 +385,9 @@ CompileFlags:
     -- Simply wrap your dynamic variables before feeding them to string.format
     -- local clean_framework = preparePathMatch(_G.metadata.framework_root)
     -- local clean_toolchain = preparePathMatch(_G.metadata.toolchain_root)
-    local clean_project_dir   = preparePathMatch(OS.project_dir)
+    -- local clean_project   = preparePathMatch(OS.project_dir)
     local clean_packages_dir   = preparePathMatch(_G.metadata.packages_dir)
 
-    local fileExtensions = is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci)'
-    local headerExtensions = is_cpp and '[.](h|hpp|hh|hxx)' or '[.]h'
     ------------------------------------------------------------------------------
     --                config.yaml
     ------------------------------------------------------------------------------
@@ -434,34 +396,18 @@ CompileFlags:
       { key = 'userGlob', file = userClangd, content = function (ref) return M.readContent(ref) end,
         cache_id = string.sub(vim.fn.sha256(_G.metadata.packages_dir), 1, 16),
         block = function (ref)
-          return string.format( self.Global,
-                ref.start_marker,
-                clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-                headerExtensions,                            -- header extensions
-                -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
-                table.concat(formattedGlobHAdd, ',\n    '),  -- Remove: [%s]
-                clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-                fileExtensions,                              -- file extensions
-                -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
-                table.concat(formattedGlobAdd, ',\n    '),   -- Add: [%s]
-                ref.end_marker)
+          return string.format(self.Global, ref.start_marker,
+                            clean_packages_dir, table.concat(formatted_remove_ASSEMBLY, ',\n    '),
+                            ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= false,
       },
       { key = 'userProj', file = userClangd, content = function (ref) return M.readContent(ref) end,
         cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),
         block = function (ref)
-          return string.format(self.Project,
-                ref.start_marker,
-                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
-                headerExtensions,                             -- header extensions
-                table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
-                table.concat(formattedProjHAdd, ',\n    '),   -- Remove: [%s]
-                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
-                fileExtensions,                               -- file extensions
-                table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
-                table.concat(formattedProjAdd, ',\n    '),    -- Add: [%s]
-                ref.end_marker)
+          return string.format(self.Project, ref.start_marker,
+                            OS.project_dir, table.concat(formatted_remove, ',\n    '),
+                            table.concat(formattedAdd, ',\n    '), ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= true,
       },
