@@ -321,7 +321,9 @@ function M.getClangdConfig()
       local current_file = vim.fs.normalize(vim.api.nvim_buf_get_name(0)):lower()
 
       local raw_root = vim.fs.normalize(_G.metadata.framework_root):lower()
+      print(raw_root)
       local clean_framework = _G.OS.prepareLuaEscapePattern(raw_root)
+      print(clean_framework)
 
       if string.match(current_file, clean_framework) then return true end
     end
