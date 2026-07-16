@@ -135,7 +135,7 @@ local os_info = {
   ---@return string
   prepareLuaPattern = function(raw_path)
     -- 1. Standardize to lowercase and use forward slashes for Windows safety
-    local clean_path = vim.fs.normalize(raw_path:lower())
+    local clean_path = vim.fs.normalize(raw_path):lower()
 
     -- 2. List of all characters that Lua patterns treat as special magic wildcards
     local magic_chars = { "%", ".", "-", "+", "*", "?", "^", "$", "(", ")", "[", "]" }
