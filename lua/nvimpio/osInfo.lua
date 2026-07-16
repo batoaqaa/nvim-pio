@@ -142,14 +142,14 @@ local os_info = {
 
     -- 3. Loop through and escape each magic character by prepending a '%'
     for _, char in ipairs(magic_chars) do
-      -- Escape the magic character inside the search pattern by putting a '%' in front of it
+      -- Force gsub to find the literal character (e.g. "%." for dot)
       local search_pattern = "%" .. char
-      -- We use "%%" in the replacement string because Lua requires '%' to be escaped as well
-      local replace_string = "%%" .. char
+
+      -- "%%%" translates to a single literal '%' in the output string plus the character
+      local replace_string = "%%%" .. char
 
       clean_path = clean_path:gsub(search_pattern, replace_string)
     end
-
     return clean_path
   end,
 
