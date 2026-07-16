@@ -319,6 +319,7 @@ function M.getClangdConfig()
     -- forcefully REUSE the active client so it retains the project context (_ASMLANGUAGE fix).
     local current_file = vim.api.nvim_buf_get_name(0)
     local clean_framework = OS.preparePathMatch(_G.metadata.framework_root)
+    print(clean_framework)
     -- if string.match(current_file:lower(), "[./]platformio/.*packages") then return true end
     if string.match(current_file:lower(), clean_framework) then return true end
 

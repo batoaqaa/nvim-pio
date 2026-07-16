@@ -398,25 +398,25 @@ CompileFlags:
     -- vim.list_extend(formattedProjHAdd, formatteLibdepsAdd)
     --------------------- end .clangd formattedProjAdd section ----------------------
 
-    local function preparePathMatch(raw_path)
-      -- 1. Clean up slashes using Neovim's normalizer
-      local path = vim.fs.normalize(raw_path)
-      -- 2. Strip any trailing slash if it exists, so it fits your "%s/.*" template perfectly
-      path = path:gsub("/$", "")
-      -- 3.Captures ONLY the letter (%a), leaving the colon outside the brackets
-      local drive_letter, main_path = path:match("^([a-zA-Z]):(.*)$")
-      local drive
-      if drive_letter then
-        -- Wraps just the letters into [cC] and appends the colon outside
-        drive = '[' .. drive_letter:lower() .. drive_letter:upper() .. ']:'
-        path = main_path
-      else drive = "" end -- Linux/macOS
-      local finalPath = drive .. path
-      -- 4. Escape every literal dot inside the folders completely dynamically
-      finalPath = finalPath:gsub("%.", "[.]")
-      -- 5. Recombine them seamlessly without a trailing slash
-      return finalPath
-    end
+    -- local function preparePathMatch(raw_path)
+    --   -- 1. Clean up slashes using Neovim's normalizer
+    --   local path = vim.fs.normalize(raw_path)
+    --   -- 2. Strip any trailing slash if it exists, so it fits your "%s/.*" template perfectly
+    --   path = path:gsub("/$", "")
+    --   -- 3.Captures ONLY the letter (%a), leaving the colon outside the brackets
+    --   local drive_letter, main_path = path:match("^([a-zA-Z]):(.*)$")
+    --   local drive
+    --   if drive_letter then
+    --     -- Wraps just the letters into [cC] and appends the colon outside
+    --     drive = '[' .. drive_letter:lower() .. drive_letter:upper() .. ']:'
+    --     path = main_path
+    --   else drive = "" end -- Linux/macOS
+    --   local finalPath = drive .. path
+    --   -- 4. Escape every literal dot inside the folders completely dynamically
+    --   finalPath = finalPath:gsub("%.", "[.]")
+    --   -- 5. Recombine them seamlessly without a trailing slash
+    --   return finalPath
+    -- end
 
     -- Simply wrap your dynamic variables before feeding them to string.format
     -- local clean_framework = OS.preparePathMatch(_G.metadata.framework_root)
