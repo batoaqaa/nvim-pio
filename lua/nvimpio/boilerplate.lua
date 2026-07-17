@@ -408,10 +408,10 @@ CompileFlags:
 
     local formattedProjHAdd = is_cpp and {
                                           '"-xc++-header"',
-                                          '"-std=gnu++17"'
+                                          -- '"-std=gnu++17"'
                                         } or {
                                           '"-xc-header"',
-                                          '"-std=gnu17"'
+                                          -- '"-std=gnu17"'
                                         }
     vim.list_extend(formattedProjHAdd, formattedIncAdd)
     -- vim.list_extend(formattedProjHAdd, formatteLibdepsAdd)
@@ -492,7 +492,8 @@ CompileFlags:
                 OS.project_dir,                              -- compilationDatabasePath
                 compiler,                                    -- compiler
                 table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
-                table.concat(formattedProjAdd, ',\n    '),    -- Add: [%s]
+                -- table.concat(formattedProjAdd, ',\n    '),    -- Add: [%s]
+                table.concat(formattedProjHAdd, ',\n    '),   -- Remove: [%s]
                 ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= true,
