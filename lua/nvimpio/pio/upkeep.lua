@@ -3,7 +3,7 @@ local M = {}
 local uv = vim.uv or vim.loop
 local misc = require('nvimpio.utils.misc')
 
--- stylua: ignore start
+--- stylua: ignore start
 -- INFO:
 -- =============================================================================
 -- UNIVERSAL TOOLCHAIN DETECTION
@@ -12,22 +12,25 @@ local misc = require('nvimpio.utils.misc')
 --final file name with its extension :t (Tail)
 --Get Directory Head/Parent :h (Head)
 function M.get_sysroot_triplet(cc_compiler)
-  local bin_path     = vim.fs.dirname(cc_compiler)
+  local bin_path = vim.fs.dirname(cc_compiler)
   -- local bin_path = vim.fs.normalize(vim.fn.fnamemodify(cc_compiler, ':h'))
   --local target_filename = vim.fs.basename(cc_compiler) -- get file name with extension
-  if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
-  if not bin_path or vim.fn.isdirectory(bin_path) == 0 then return nil end
+  if not bin_path or vim.fn.isdirectory(bin_path) == 0 then
+    return nil
+  end
+  if not bin_path or vim.fn.isdirectory(bin_path) == 0 then
+    return nil
+  end
 
   -- 1. toolchain_root is the parent of the 'bin' folder
   local toolchain_root = vim.fs.normalize(vim.fn.fnamemodify(bin_path, ':h'))
 
-
   -- Strategy A: Check if a folder named after the compiler target exists inside toolchain_root
   local fname = vim.fn.fnamemodify(cc_compiler, ':t:r') -- e.g., "xtensa-esp32s3-elf-g++"
-  local compiler_prefix = string.match(fname, "^([^-]+-[^-]+-[^-]+)") -- e.g., "xtensa-esp32s3-elf"
+  local compiler_prefix = string.match(fname, '^([^-]+-[^-]+-[^-]+)') -- e.g., "xtensa-esp32s3-elf"
 
   local triplet = nil
-  if compiler_prefix and vim.fn.isdirectory(toolchain_root .. "/" .. compiler_prefix) == 1 then
+  if compiler_prefix and vim.fn.isdirectory(toolchain_root .. '/' .. compiler_prefix) == 1 then
     triplet = compiler_prefix
   end
 
@@ -37,8 +40,8 @@ function M.get_sysroot_triplet(cc_compiler)
     for _, name in ipairs(files) do
       local match = vim.fn.fnamemodify(name, ':t:r') -- e.g., "xtensa-esp32-elf-gcc"
       if match then
-        local sibling_triplet = string.match(match, "^([^-]+-[^-]+-[^-]+)")
-        if sibling_triplet and vim.fn.isdirectory(toolchain_root .. "/" .. sibling_triplet) == 1 then
+        local sibling_triplet = string.match(match, '^([^-]+-[^-]+-[^-]+)')
+        if sibling_triplet and vim.fn.isdirectory(toolchain_root .. '/' .. sibling_triplet) == 1 then
           triplet = sibling_triplet
           break
         end
@@ -49,9 +52,9 @@ function M.get_sysroot_triplet(cc_compiler)
   -- Strategy C: Fallback to the layout where the folder mirrors the package name wrapper
   if not triplet then
     local folder_name = vim.fn.fnamemodify(toolchain_root, ':t') -- e.g., "toolchain-xtensa-esp-elf"
-    local package_prefix = string.match(folder_name, "^toolchain%-(.+)$")
+    local package_prefix = string.match(folder_name, '^toolchain%-(.+)$')
 
-    if package_prefix and vim.fn.isdirectory(toolchain_root .. "/" .. package_prefix) == 1 then
+    if package_prefix and vim.fn.isdirectory(toolchain_root .. '/' .. package_prefix) == 1 then
       triplet = package_prefix
     end
   end
@@ -61,7 +64,10 @@ function M.get_sysroot_triplet(cc_compiler)
     local include_dirs = vim.fs.find('include', { path = toolchain_root, type = 'directory', limit = 3 })
     for _, inc_path in ipairs(include_dirs) do
       local parent_folder = vim.fn.fnamemodify(vim.fs.normalize(inc_path), ':h:t')
-      if parent_folder:match('-elf$') then triplet = parent_folder; break; end
+      if parent_folder:match('-elf$') then
+        triplet = parent_folder
+        break
+      end
     end
   end
   -- if not triplet then return nil end
@@ -79,48 +85,55 @@ function M.get_sysroot_triplet(cc_compiler)
   _G.metadata.toolchain_root = toolchain_root
 
   -- Add toolchain binary to PATH
-  vim.schedule(function ()
+  vim.schedule(function()
     local from = 'get_sysroot: '
     require('nvimpio.pio.metadata').removeFromPath(oldPath)
     OS.notify(string.format('%s %s removed from path', from, oldPath), OS.debug)
 
     vim.env.PATH = bin_path .. OS.path_sep .. vim.env.PATH
-    OS.notify(string.format('%s %s added to path',from, bin_path), OS.debug)
+    OS.notify(string.format('%s %s added to path', from, bin_path), OS.debug)
   end)
 
   -- sysroot folder is expected to have the same name as the triplet
   local sysroot = vim.fs.joinpath(toolchain_root, triplet)
   -- Check if sysroot folder actually exists on disk (Optional fallback validation)
   -- If it doesn't exist, we fall back to toolchain_root so your metadata never breaks!
-  if vim.fn.isdirectory(sysroot) == 1 then _G.metadata.sysroot = sysroot
-  else _G.metadata.sysroot = toolchain_root end
-
+  if vim.fn.isdirectory(sysroot) == 1 then
+    _G.metadata.sysroot = sysroot
+  else
+    _G.metadata.sysroot = toolchain_root
+  end
 
   local function getDefines(command)
     local auto_defines = {}
-    -- A. Pass the arguments as an isolated Lua array table. 
+    -- A. Pass the arguments as an isolated Lua array table.
     -- This completely shields the flags from PowerShell's parser!
-    local obj = vim.system(command, {
-      stdin = "\n" -- Clean input stream data
-    }):wait()
+    local obj = vim
+      .system(command, {
+        stdin = '\n', -- Clean input stream data
+      })
+      :wait()
     -- B. Check if the direct process returned data
     if obj.code == 0 and obj.stdout then
       -- Convert the raw stdout block into an array of lines
-      local lines = vim.split(obj.stdout, "\n")
+      local lines = vim.split(obj.stdout, '\n')
       for _, line in ipairs(lines) do
-        local macro, value = line:match("^#define%s+([%w_]+)%s*(.*)")
+        local macro, value = line:match('^#define%s+([%w_]+)%s*(.*)')
         if macro then
           -- GENERIC INCLUSION RULES: Only capture clear target flags
           -- 1. Keeps short system targets like __ELF__ or __xtensa__
-          local is_short_target = macro:match("^__[a-zA-Z0-9]+__$")
+          local is_short_target = macro:match('^__[a-zA-Z0-9]+__$')
           -- 2. Keeps pure standard variables like __cplusplus
-          local is_language_std = macro:match("^__cplusplus$")
+          local is_language_std = macro:match('^__cplusplus$')
           -- 3. Keeps clear, readable configuration tokens that do not use internal prefixes
-          local is_clean_token  = not macro:match("^__")
+          local is_clean_token = not macro:match('^__')
           if is_short_target or is_language_std or is_clean_token then
-            value = value:gsub("%s*//.*$", ""):gsub("\r$", ""):gsub("%s*$", "")
-            if value == "" then table.insert(auto_defines, "-D" .. macro)
-            else table.insert(auto_defines, "-D" .. macro .. "=" .. value) end
+            value = value:gsub('%s*//.*$', ''):gsub('\r$', ''):gsub('%s*$', '')
+            if value == '' then
+              table.insert(auto_defines, '-D' .. macro)
+            else
+              table.insert(auto_defines, '-D' .. macro .. '=' .. value)
+            end
           end
         end
       end
@@ -130,12 +143,12 @@ function M.get_sysroot_triplet(cc_compiler)
 
   -- 1. get cxx defines
   local normalized_compiler = vim.fs.normalize(_G.metadata.cxx_path)
-  local command = { normalized_compiler, "-dM", "-E", "-x", "c++", "-" }
+  local command = { normalized_compiler, '-dM', '-E', '-x', 'c++', '-' }
   _G.metadata.cxx_defines = getDefines(command)
 
   -- 2. get cc defines
   normalized_compiler = vim.fs.normalize(_G.metadata.cc_path)
-  command = { normalized_compiler, "-dM", "-E", "-x", "c", "-" }
+  command = { normalized_compiler, '-dM', '-E', '-x', 'c', '-' }
   _G.metadata.cc_defines = getDefines(command)
 
   return {
@@ -153,17 +166,23 @@ end
 ---Scans the hardware bus for active microcontrollers and returns a sorted list array of strings
 ---@return string[] ports A sequential list of discovered port strings
 function M.get_connected_ports()
-  if vim.fn.executable('pio') ~= 1 then return {} end
+  if vim.fn.executable('pio') ~= 1 then
+    return {}
+  end
 
   -- Run the system command synchronously to fetch device mappings
   local ok, obj = pcall(function()
     return vim.system({ 'pio', 'device', 'list', '--json-output' }):wait()
   end)
 
-  if not ok or not obj or obj.code ~= 0 or not obj.stdout then return {} end
+  if not ok or not obj or obj.code ~= 0 or not obj.stdout then
+    return {}
+  end
 
   local parse_ok, devices = pcall(vim.json.decode, obj.stdout)
-  if not parse_ok or type(devices) ~= 'table' then return {} end
+  if not parse_ok or type(devices) ~= 'table' then
+    return {}
+  end
 
   -- Clean property extraction loop with robust hardware device fallbacks
   local unique_paths = {}
@@ -191,41 +210,63 @@ function M.configure_hardware_parameters()
 
   -- Gather ports dynamically using your unified scanner function helper
   local ports = M.get_connected_ports()
-  if #ports == 0 then ports = { 'Auto Detect' } end
+  if #ports == 0 then
+    ports = { 'Auto Detect' }
+  end
 
   -- Define the steps mapping sequence arrays (Expanded to 6 steps)
   local steps = {
     {
-      p = ' [1/6] Select Targeted Serial Port ', c = ports,
-      s = function(x) p_state.selected_port = x vim.g.platformio_selected_port = x end,
+      p = ' [1/6] Select Targeted Serial Port ',
+      c = ports,
+      s = function(x)
+        p_state.selected_port = x
+        vim.g.platformio_selected_port = x
+      end,
     },
     {
-      p = ' [2/6] Select Upload Speed (Baud) ', c = speeds,
-      s = function(x) p_state.upload_speed = x end,
+      p = ' [2/6] Select Upload Speed (Baud) ',
+      c = speeds,
+      s = function(x)
+        p_state.upload_speed = x
+      end,
     },
     {
-      p = ' [3/6] Select Serial Monitor Speed ', c = speeds,
-      s = function(x) p_state.monitor_speed = x end,
+      p = ' [3/6] Select Serial Monitor Speed ',
+      c = speeds,
+      s = function(x)
+        p_state.monitor_speed = x
+      end,
     },
     {
-      p = ' [4/6] Set Monitor RTS Pin State ', c = { '0', '1' },
-      s = function(x) p_state.monitor_rts = x end,
+      p = ' [4/6] Set Monitor RTS Pin State ',
+      c = { '0', '1' },
+      s = function(x)
+        p_state.monitor_rts = x
+      end,
     },
     {
-      p = ' [5/6] Set Monitor DTR Pin State ', c = { '0', '1' },
-      s = function(x) p_state.monitor_dtr = x end,
+      p = ' [5/6] Set Monitor DTR Pin State ',
+      c = { '0', '1' },
+      s = function(x)
+        p_state.monitor_dtr = x
+      end,
     },
     {
       p = ' [6/6] Select Serial Monitor Filter ',
       c = { 'default (none)', 'direct', 'send_on_enter', 'direct, send_on_enter' },
-      s = function(x) p_state.monitor_filters = x end,
+      s = function(x)
+        p_state.monitor_filters = x
+      end,
     },
   }
 
   -- Defensive, Context-Aware File System Injector Engine
   local function inject_into_ini()
     local path = vim.fs.joinpath(uv.cwd(), 'platformio.ini')
-    if vim.fn.filereadable(path) ~= 1 then return end
+    if vim.fn.filereadable(path) ~= 1 then
+      return
+    end
     local raw_lines = vim.fn.readfile(path)
     _G.isBusy = true
 
@@ -235,10 +276,18 @@ function M.configure_hardware_parameters()
       table.insert(patches, 'upload_port = ' .. p_state.selected_port)
       table.insert(patches, 'monitor_port = ' .. p_state.selected_port)
     end
-    if p_state.upload_speed  then table.insert(patches, 'upload_speed = ' .. p_state.upload_speed) end
-    if p_state.monitor_speed then table.insert(patches, 'monitor_speed = ' .. p_state.monitor_speed) end
-    if p_state.monitor_rts   then table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts) end
-    if p_state.monitor_dtr   then table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr) end
+    if p_state.upload_speed then
+      table.insert(patches, 'upload_speed = ' .. p_state.upload_speed)
+    end
+    if p_state.monitor_speed then
+      table.insert(patches, 'monitor_speed = ' .. p_state.monitor_speed)
+    end
+    if p_state.monitor_rts then
+      table.insert(patches, 'monitor_rts = ' .. p_state.monitor_rts)
+    end
+    if p_state.monitor_dtr then
+      table.insert(patches, 'monitor_dtr = ' .. p_state.monitor_dtr)
+    end
 
     -- HERE IS THE PLACE: Inserted dynamically right after your pin states
     if p_state.monitor_filters and p_state.monitor_filters ~= 'default (none)' then
@@ -246,33 +295,40 @@ function M.configure_hardware_parameters()
     end
 
     local hardware_keys = {
-      upload_port = true, monitor_port = true, upload_speed = true,
-      monitor_speed = true, monitor_filters = true, monitor_rts = true, monitor_dtr = true
+      upload_port = true,
+      monitor_port = true,
+      upload_speed = true,
+      monitor_speed = true,
+      monitor_filters = true,
+      monitor_rts = true,
+      monitor_dtr = true,
     }
 
     -- Categorize the file structure line-by-line
     local structured_lines = {}
-    local current_section = "pre_header"
+    local current_section = 'pre_header'
     local env_section_exists = false
 
     for _, line in ipairs(raw_lines) do
-      local trimmed = line:match("^%s*(.-)%s*$")
-      local section_match = trimmed:match("^%s*%[%s*([^%]]+)%s*%]%s*$")
+      local trimmed = line:match('^%s*(.-)%s*$')
+      local section_match = trimmed:match('^%s*%[%s*([^%]]+)%s*%]%s*$')
 
       if section_match then
-        current_section = section_match:gsub("%s", "")
-        if current_section == "env" then env_section_exists = true end
-        table.insert(structured_lines, { type = "header", name = current_section, text = line })
-      elseif trimmed:match("^[;#]") then
-        table.insert(structured_lines, { type = "comment", section = current_section, text = line })
-      elseif trimmed == "" then
-        table.insert(structured_lines, { type = "empty", section = current_section, text = line })
+        current_section = section_match:gsub('%s', '')
+        if current_section == 'env' then
+          env_section_exists = true
+        end
+        table.insert(structured_lines, { type = 'header', name = current_section, text = line })
+      elseif trimmed:match('^[;#]') then
+        table.insert(structured_lines, { type = 'comment', section = current_section, text = line })
+      elseif trimmed == '' then
+        table.insert(structured_lines, { type = 'empty', section = current_section, text = line })
       else
-        local key_name = trimmed:match("^%s*([%w_]+)%s*=")
-        if current_section == "env" and key_name and hardware_keys[key_name] then
+        local key_name = trimmed:match('^%s*([%w_]+)%s*=')
+        if current_section == 'env' and key_name and hardware_keys[key_name] then
           -- Skip historical port configurations to cleanly overwrite them
         else
-          table.insert(structured_lines, { type = "property", section = current_section, text = line })
+          table.insert(structured_lines, { type = 'property', section = current_section, text = line })
         end
       end
     end
@@ -281,22 +337,22 @@ function M.configure_hardware_parameters()
     if not env_section_exists then
       local insert_idx = #structured_lines + 1
       for idx, l in ipairs(structured_lines) do
-        if l.type == "header" and l.name == "platformio" then
+        if l.type == 'header' and l.name == 'platformio' then
           insert_idx = idx + 1
-          while structured_lines[insert_idx] and structured_lines[insert_idx].section == "platformio" do
+          while structured_lines[insert_idx] and structured_lines[insert_idx].section == 'platformio' do
             insert_idx = insert_idx + 1
           end
           break
         end
       end
-      table.insert(structured_lines, insert_idx, { type = "header", name = "env", text = "[env]" })
+      table.insert(structured_lines, insert_idx, { type = 'header', name = 'env', text = '[env]' })
     end
 
     -- Inject our new parameters directly underneath the [env] header entry row
     for idx, l in ipairs(structured_lines) do
-      if l.type == "header" and l.name == "env" then
+      if l.type == 'header' and l.name == 'env' then
         for i = #patches, 1, -1 do
-          table.insert(structured_lines, idx + 1, { type = "property", section = "env", text = patches[i] })
+          table.insert(structured_lines, idx + 1, { type = 'property', section = 'env', text = patches[i] })
         end
         break
       end
@@ -304,19 +360,19 @@ function M.configure_hardware_parameters()
 
     -- Final Assembly: Enforce clean formatting and spacing rules
     local final_lines = {}
-    local last_line_type = "empty"
+    local last_line_type = 'empty'
 
     for _, l in ipairs(structured_lines) do
-      if l.type == "header" and l.name ~= "platformio" and last_line_type ~= "empty" then
-        if #final_lines > 0 and final_lines[#final_lines] ~= "" then
-          table.insert(final_lines, "")
+      if l.type == 'header' and l.name ~= 'platformio' and last_line_type ~= 'empty' then
+        if #final_lines > 0 and final_lines[#final_lines] ~= '' then
+          table.insert(final_lines, '')
         end
       end
 
-      if l.type == "empty" then
-        if last_line_type ~= "empty" and last_line_type ~= "header" then
+      if l.type == 'empty' then
+        if last_line_type ~= 'empty' and last_line_type ~= 'header' then
           table.insert(final_lines, l.text)
-          last_line_type = "empty"
+          last_line_type = 'empty'
         end
       else
         table.insert(final_lines, l.text)
@@ -324,13 +380,17 @@ function M.configure_hardware_parameters()
       end
     end
 
-    while #final_lines > 0 and final_lines[#final_lines]:match("^%s*$") do
+    while #final_lines > 0 and final_lines[#final_lines]:match('^%s*$') do
       table.remove(final_lines)
     end
 
     vim.fn.writefile(final_lines, path)
-    vim.schedule(function() vim.cmd('checktime') end)
-    vim.defer_fn(function() _G.isBusy = false end, 500)
+    vim.schedule(function()
+      vim.cmd('checktime')
+    end)
+    vim.defer_fn(function()
+      _G.isBusy = false
+    end, 500)
   end
 
   -- Linear Execution Wizard Runner Loop
@@ -362,7 +422,9 @@ end
 function M.extract_framework_path(raw_json_chunk, active_env)
   -- 1. Safely decode the JSON string into a Lua table
   local ok, data = pcall(vim.json.decode, raw_json_chunk)
-  if not ok or not data then return nil end
+  if not ok or not data then
+    return nil
+  end
 
   local build = data[active_env].includes.build
   -- 2. Scan each include path in the build array
@@ -375,7 +437,9 @@ function M.extract_framework_path(raw_json_chunk, active_env)
     -- e.g. "C:/Users/batoaqaa/.platformio/packages/framework-espidf"
     local framework_root = clean_path:match('(.*[/\\]%.platformio[/\\]packages[/\\][^/\\]+)')
 
-    if framework_root then return framework_root end
+    if framework_root then
+      return framework_root
+    end
   end
   return nil
 end
@@ -394,17 +458,19 @@ end
 --     return nil
 -- end
 
-
-
 function M.apply_metadata(data, active_env)
   local meta = _G.metadata
-  if not data then return false end
+  if not data then
+    return false
+  end
 
   -- Cache the project workspace root path cleanly
   local project_root = OS.project_dir or uv.cwd() or '.'
   local norm_project_root = vim.fs.normalize(project_root) or ''
 
-  local norm = function(p) return vim.fs.normalize(p) or '' end
+  local norm = function(p)
+    return vim.fs.normalize(p) or ''
+  end
 
   -- 1. HIGH-PERFORMANCE LIST MAPPER: Optimized for raw strings (Flags & Defines)
   local map_list = function(list)
@@ -421,15 +487,15 @@ function M.apply_metadata(data, active_env)
     local res = {}
     for _, v in ipairs(list or {}) do
       local clean_path = norm(v)
-      if clean_path ~= "" then
+      if clean_path ~= '' then
         -- DETERMINISTIC RULE LAYER:
         -- Check if the include path physically initiates inside your active project directory tree
         local is_under_project = clean_path:sub(1, #norm_project_root) == norm_project_root
         -- Check if it belongs to the temporary downloaded vendor packages registry folder
-        local is_managed_lib = clean_path:match("%.pio/libdeps")
+        local is_managed_lib = clean_path:match('%.pio/libdeps')
         -- If it's outside your projecto repo, or inside the downloaded library cache, it's third-party!
         -- Unlike -I, the -isystem flag requires a separator (space or =) in clangd configuration files to parse correctly.
-        local prefix = (not is_under_project or is_managed_lib) and "-isystem" or "-I"
+        local prefix = (not is_under_project or is_managed_lib) and '-isystem' or '-I'
         -- local prefix = (not is_under_project or is_managed_lib) and "-I" or "-I"
         -- Direct concatenation optimization
         table.insert(res, prefix .. clean_path)
@@ -440,12 +506,16 @@ function M.apply_metadata(data, active_env)
 
   -- 3. Get PlatformIO project libdep includes paths
   local function get_libdeps_includes(root_path, board)
-    if not root_path or not board then return {}, {} end
+    if not root_path or not board then
+      return {}, {}
+    end
 
-    local base_dir = vim.fs.joinpath(root_path, ".pio", "libdeps", board)
-    if vim.fn.isdirectory(base_dir) == 0 then return {}, {} end
+    local base_dir = vim.fs.joinpath(root_path, '.pio', 'libdeps', board)
+    if vim.fn.isdirectory(base_dir) == 0 then
+      return {}, {}
+    end
 
-    local src_dirs = vim.fs.find("src", { path = base_dir, type = "directory", limit = math.huge })
+    local src_dirs = vim.fs.find('src', { path = base_dir, type = 'directory', limit = math.huge })
     local flat_libs = {}
     local nested_libs = {}
 
@@ -459,16 +529,24 @@ function M.apply_metadata(data, active_env)
       if handle then
         while true do
           local name, type_str = uv.fs_scandir_next(handle)
-          if not name then break end
+          if not name then
+            break
+          end
 
           -- If it contains even one sub-folder, treat it as a nested library path
-          if type_str == "directory" then is_nested = true break end
+          if type_str == 'directory' then
+            is_nested = true
+            break
+          end
         end
       end
 
       -- Sort the paths into their perfect configuration streams
-      if is_nested then table.insert(nested_libs, "-I" .. normalized_path)
-      else table.insert(flat_libs, "-isystem " .. normalized_path) end
+      if is_nested then
+        table.insert(nested_libs, '-I' .. normalized_path)
+      else
+        table.insert(flat_libs, '-isystem ' .. normalized_path)
+      end
     end
 
     -- return flat_libs, nested_libs
@@ -556,7 +634,6 @@ function M.apply_metadata(data, active_env)
   return true
 end
 
-
 --=============================================================================
 --INFO:get pio project metadata info
 local fetch_metadata -- Forward declare the variable shell
@@ -577,9 +654,16 @@ fetch_metadata = function(callback, active_env, from, attempts)
 
   local function fire_callback(status)
     M.refreshBusy = false
-    vim.schedule(function() if type(callback) == 'function' then callback(status) end end)
+    vim.schedule(function()
+      if type(callback) == 'function' then
+        callback(status)
+      end
+    end)
   end
-  if not active_env or active_env == '' then fire_callback(false) return end
+  if not active_env or active_env == '' then
+    fire_callback(false)
+    return
+  end
 
   --INFO:INTERNAL PROCESSOR: Applies parsed data to _G.metadata
   ---------------------------------------------------------
@@ -741,7 +825,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   local nvimpio_dir = vim.fs.dirname(idedata_file)
   if not uv.fs_stat(nvimpio_dir) then
     -- uv.fs_mkdir(nvimpio_dir, 493)
-    vim.fn.mkdir(nvimpio_dir, "p")
+    vim.fn.mkdir(nvimpio_dir, 'p')
   end
   -- ----------------------------------------------------------------
   -- -- STEP 1: Cache Path (idedata.json exists )
@@ -786,9 +870,11 @@ fetch_metadata = function(callback, active_env, from, attempts)
             -- _G.metadata.framework_root = content:match(pattern)
             local cok, decoded = pcall(vim.json.decode, content)
             if cok and M.apply_metadata(decoded[active_env], active_env) then
-            -- if cok and M.apply_metadata(decoded, active_env) then
+              -- if cok and M.apply_metadata(decoded, active_env) then
               local ok, pretty_json = pcall(misc.jsonFormat, decoded)
-              if ok then misc.writeFile(idedata_file, pretty_json, {}) end
+              if ok then
+                misc.writeFile(idedata_file, pretty_json, {})
+              end
               require('nvimpio.pio.metadata').save_project_config(from)
               OS.notify(from .. 'Metadata synced from download', OS.debug)
               fire_callback(true)
@@ -802,26 +888,26 @@ fetch_metadata = function(callback, active_env, from, attempts)
       end)
     end
 
-    -- python -c "import subprocess; res = subprocess.run(['pio', 'project', 'metadata', '-e', 'olimex_h407', '--json-output'], 
+    -- python -c "import subprocess; res = subprocess.run(['pio', 'project', 'metadata', '-e', 'olimex_h407', '--json-output'],
     --capture_output=True, text=True, encoding='utf-8'); open('C:/Users/batoaqaa/AppData/Local/ahmed/test3/.nvimpio/olimex_h407/idedata.json', 'w', encoding='utf-8').write(res.stdout)"
 
     -- local idecmd = string.format('pio run -t idedata -e %s -s', active_env)
-    local idecmd = string.format('pio project metadata -e %s --json-output > "%s"', active_env, idedata_file )
+    local idecmd = string.format('pio project metadata -e %s --json-output > "%s"', active_env, idedata_file)
     -- local idecmd = string.format('pio project metadata -e %s --json-output-path "%s"', active_env, idedata_file )
 
     -- local runcmd = string.format('pio run -e %s', active_env)
 
     local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-    require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+    require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ', from) })
     -- require('nvimpio.device.parser').run_sequence({ cmnds = { idecmd, runcmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
-  -- end
+    -- end
   elseif idok and content and content ~= '' then
     _G.metadata.framework_root = M.extract_framework_path(content, active_env)
     local cok, decoded = pcall(vim.json.decode, content)
     if cok and M.apply_metadata(decoded[active_env], active_env) then
-    -- if cok and M.apply_metadata(decoded, active_env) then
-      if (from == 'Meta active_env change: ')then
-      -- cli
+      -- if cok and M.apply_metadata(decoded, active_env) then
+      if from == 'Meta active_env change: ' then
+        -- cli
         require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
           if is_successful then
             -- OS.notify('Database is ready. Proceeding with analysis...', OS.debug)
@@ -831,17 +917,20 @@ fetch_metadata = function(callback, active_env, from, attempts)
           end
         end)
       else
-      -- gui
+        -- gui
         if attempts > 0 then
           local cb = function(status)
             require('nvimpio.device.parser').handlePioDB(status, active_env, function(success)
               -- if success then do end end
-              if success then do end end
+              if success then
+                do
+                end
+              end
             end)
           end
 
           local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-          require('nvimpio.device.parser').run_sequence({ cmnds = { dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+          require('nvimpio.device.parser').run_sequence({ cmnds = { dbcmd }, cb = cb, from = string.format('%s refresh ', from) })
           -- clangd.clangdIntall(function(clangdCmd)
           --   local check_file = vim.fs.find(function(name)
           --     return name:match('%.cpp$') or name:match('%.c$')
@@ -927,7 +1016,6 @@ fetch_metadata = function(callback, active_env, from, attempts)
   -- end, 'clangd')
 end
 
-
 -------------------------------------------------------------------------------
 --INFO:
 function M.pio_refresh(callback, from)
@@ -935,7 +1023,11 @@ function M.pio_refresh(callback, from)
 
   if M.refreshBusy then
     OS.notify(string.format('%s refresh busy ...', from), OS.debug)
-    if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
+    if type(callback) == 'function' then
+      vim.schedule(function()
+        callback(false)
+      end)
+    end
     return
   end
   M.refreshBusy = true
@@ -947,9 +1039,13 @@ function M.pio_refresh(callback, from)
     -- OS.notify(msg .. 'active_env= ' .. active_env, OS.debug)
     fetch_metadata(callback, active_env, from, 1)
   else
-    OS.notify(from ..' No active env', 'error')
+    OS.notify(from .. ' No active env', 'error')
     M.refreshBusy = false
-    if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
+    if type(callback) == 'function' then
+      vim.schedule(function()
+        callback(false)
+      end)
+    end
   end
 end
 
@@ -959,8 +1055,10 @@ end
 function M.compile_commandsFix(callback) --M.dbPathsFix()
   local filename = vim.fs.joinpath(uv.cwd(), 'compile_commands.json')
   local content = vim.fn.readfile(filename)
-  if #content == 0 then return end
-vim.fs.dirname(_G.metadata.cxx_path)
+  if #content == 0 then
+    return
+  end
+  vim.fs.dirname(_G.metadata.cxx_path)
   local start_time = vim.loop.hrtime()
 
   -- local pio_binaries = _G.metadata.query_driver or '/bin/*'
@@ -968,7 +1066,7 @@ vim.fs.dirname(_G.metadata.cxx_path)
   -- local pio_binaries = (_G.metadata.toolchain_root or "") .. '/bin/*'
   -- 1. Build Path Map (Scan toolchain)
   local path_map = {}
-  local pio_binaries = vim.fs.dirname(_G.metadata.cxx_path) .. '/*' or  '/bin/*'
+  local pio_binaries = vim.fs.dirname(_G.metadata.cxx_path) .. '/*' or '/bin/*'
   for _, full_path in ipairs(vim.fn.glob(pio_binaries, false, true)) do
     local name = full_path:match('([^/\\\\]+)$'):gsub('%.exe$', '')
     path_map[name] = full_path
@@ -977,17 +1075,27 @@ vim.fs.dirname(_G.metadata.cxx_path)
   -- 2. Update Entries
   local modified = false
   local ok, data = pcall(vim.json.decode, table.concat(content, '\n'))
-  if not ok or type(data) ~= 'table' then return end
+  if not ok or type(data) ~= 'table' then
+    return
+  end
   for _, entry in ipairs(data) do
     -- Standard normalization
-    if entry.directory then entry.directory = vim.fs.normalize(entry.directory) end
-    if entry.file then entry.file = vim.fs.normalize(entry.file) end
-    if entry.arguments then entry.arguments = misc.normalizeFlags(entry.arguments) end
-    if entry.output then entry.output = vim.fs.normalize(entry.output) end
+    if entry.directory then
+      entry.directory = vim.fs.normalize(entry.directory)
+    end
+    if entry.file then
+      entry.file = vim.fs.normalize(entry.file)
+    end
+    if entry.arguments then
+      entry.arguments = misc.normalizeFlags(entry.arguments)
+    end
+    if entry.output then
+      entry.output = vim.fs.normalize(entry.output)
+    end
 
     if entry.command then
       -- Extract compiler and everything after it
-      local compiler, args = entry.command:match("^%s*(%S+)(.*)")
+      local compiler, args = entry.command:match('^%s*(%S+)(.*)')
       if compiler then
         local is_absolute = compiler:sub(1, 1) == '/' or compiler:match('^%a:')
 
@@ -999,7 +1107,7 @@ vim.fs.dirname(_G.metadata.cxx_path)
             local full_compiler_path = vim.fs.normalize(path_map[short_name])
 
             -- Quote the path if it contains spaces
-            if full_compiler_path:find(" ") then
+            if full_compiler_path:find(' ') then
               full_compiler_path = '"' .. full_compiler_path .. '"'
             end
             entry.command = full_compiler_path .. args
@@ -1021,7 +1129,9 @@ vim.fs.dirname(_G.metadata.cxx_path)
 
     -- local wk, err = misc.writeFile(output, formatted, { overwrite = true, mkdir = true })
     local wk, err = misc.writeFile(filename, formatted, { overwrite = true, mkdir = true })
-    if not wk then OS.notify(err, 'error') end
+    if not wk then
+      OS.notify(err, 'error')
+    end
 
     -- -- delete input compile_commands.json
     -- uv.fs_unlink(filename, function(uerr)
@@ -1032,11 +1142,19 @@ vim.fs.dirname(_G.metadata.cxx_path)
     local end_time = vim.loop.hrtime()
     local duration = (end_time - start_time) / 1e6
     OS.notify(string.format('compiledb: paths fixed in %.2fms', duration), 'info')
-    if type(callback) == 'function' then vim.schedule(function() callback(true) end) end
+    if type(callback) == 'function' then
+      vim.schedule(function()
+        callback(true)
+      end)
+    end
     -- clangd.restart()
   else
-    OS.notify("no need to fixPaths", OS.debug)
-    if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
+    OS.notify('no need to fixPaths', OS.debug)
+    if type(callback) == 'function' then
+      vim.schedule(function()
+        callback(false)
+      end)
+    end
     -- -- move compile_commands.json to .nvimpio/env
     -- uv.fs_rename(filename, output, function(err)
     --   if err then print("Neovim failed to move file: " .. err)
@@ -1047,7 +1165,12 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
-
+-- ============================================================================
+-- 0. USER CONFIGURATION TOGGLE
+-- ============================================================================
+-- Set to true  -> Only indexes headers inside your local project (Recommended, fast)
+-- Set to false -> Indexes EVERYTHING (including massive toolchains and global SDKs)
+local INDEX_PROJECT_ONLY = true
 
 -- ============================================================================
 -- 1. STATE-MACHINE TOKENIZER (Handles Escapes & Quotes Safely)
@@ -1128,23 +1251,35 @@ local function get_headers_recursively(dir)
 end
 
 -- ============================================================================
--- 3. CORE RUNTIME ENGINE (Performance Optimized)
+-- 3. CORE RUNTIME ENGINE (Performance & Corruption Protected)
 -- ============================================================================
 function M.generate(callback)
   local project_root = vim.fs.normalize(vim.fn.getcwd())
   local db_path = project_root .. '/compile_commands.json'
 
   -- Dynamically trigger PlatformIO's base generator safely without shell injection vectors
-  vim.fn.system({ 'pio', 'run', '-t', 'compiledb' })
+  -- vim.fn.system({ 'pio', 'run', '-t', 'compiledb' })
 
   local f = io.open(db_path, 'r')
   if not f then
+    print('[Error] PlatformIO failed to generate compile_commands.json.')
     return
   end
   local content = f:read('*all')
   f:close()
 
-  local db = vim.json.decode(content)
+  -- Avoid parsing empty configurations to protect structural array limits
+  if content == nil or content == '' or content == '[]' then
+    print('[Error] Base compile_commands.json is empty. Build your project once first.')
+    return
+  end
+
+  local status_decode, db = pcall(vim.json.decode, content)
+  if not status_decode or type(db) ~= 'table' then
+    print('[Error] Failed to parse compile_commands.json. Base file is malformed.')
+    return
+  end
+
   local extended_db = {}
   local unique_includes = {}
   local unique_headers = {}
@@ -1171,18 +1306,23 @@ function M.generate(callback)
       if inc_dir then
         inc_dir = vim.fs.normalize(inc_dir)
 
-        -- Boundary isolation optimization: only scan project directories.
-        -- This avoids thousands of heavy global toolchain/framework headers.
-        if inc_dir:find(project_root, 1, true) then
-        if not unique_includes[inc_dir] then
-          unique_includes[inc_dir] = { dir = entry.directory, cmd = entry.command }
+        -- Check configuration boundary behavior
+        local should_include = true
+        if INDEX_PROJECT_ONLY then
+          should_include = inc_dir:find(project_root, 1, true) ~= nil
         end
+
+        if should_include then
+          if not unique_includes[inc_dir] then
+            unique_includes[inc_dir] = { dir = entry.directory, cmd = entry.command }
+          end
         end
       end
       idx = idx + 1
     end
   end
 
+  -- Process headers and assemble deep translation commands
   for inc_dir, context in pairs(unique_includes) do
     local headers = get_headers_recursively(inc_dir)
     for _, header_path in ipairs(headers) do
@@ -1197,21 +1337,63 @@ function M.generate(callback)
     end
   end
 
+  -- Safeguard block to stop corrupt array writing loops
+  if #extended_db == 0 then
+    print('[Error] Calculated database matrix is entirely empty. Aborting write sequence.')
+    return
+  end
+
   local out_f = io.open(db_path, 'w')
   if out_f then
-    out_f:write(vim.json.encode(extended_db))
-    out_f:close()
-    OS.notify('[Success] PlatformIO compilation database optimized instantly.', 'info')
-    if type(callback) == 'function' then vim.schedule(function() callback(true) end) end
+    local status_encode, json_str = pcall(vim.json.encode, extended_db)
+    if status_encode and json_str then
+      out_f:write(json_str)
+      out_f:flush() -- Force flush disk cache lines instantly
+      out_f:close()
+      print('[Success] PlatformIO compilation database updated cleanly.')
+    else
+      out_f:close()
+      print('[Fatal Error] Structural table conversion failed inside encoder runtime.')
+    end
+    if type(callback) == 'function' then
+      vim.schedule(function()
+        callback(true)
+      end)
+    end
     -- clangd.restart()
   else
-    OS.notify("not optimized", OS.debug)
-    if type(callback) == 'function' then vim.schedule(function() callback(false) end) end
+    if type(callback) == 'function' then
+      vim.schedule(function()
+        callback(false)
+      end)
+    end
+    print('[Error] System file lock permissions blocked disk write access.')
   end
 end
 
+-- ============================================================================
+-- 4. AUTOMATED LIFE-CYCLE HOOKS
+-- ============================================================================
+local pio_group = vim.api.nvim_create_augroup('PlatformIO_Compdb_Engine', { clear = true })
 
+vim.api.nvim_create_autocmd('BufWritePost', {
+  pattern = 'platformio.ini',
+  group = pio_group,
+  desc = 'Automatically recalculate compilation database matrices cleanly',
+  callback = function()
+    vim.schedule(function()
+      local success, err = pcall(M.generate)
+      if not success then
+        vim.notify('[PlatformIO Engine Error]: ' .. tostring(err), vim.log.levels.ERROR)
+      end
+    end)
+  end,
+})
 
+-- Register manual fallback shortcut
+vim.api.nvim_create_user_command('PioCompdb', function()
+  M.generate()
+end, {})
 
 ------------------------------------------------------------------------------------------------------------
 
