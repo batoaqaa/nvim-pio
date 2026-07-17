@@ -225,6 +225,8 @@ CompileFlags:
 If:
   PathMatch: '(?i)C:/.*'
 CompileFlags:
+  CompilationDatabase: "%s"
+  Compiler: "%s"
   BuiltinHeaders: QueryDriver
   Remove: [%s]
   Add: [%s]
@@ -396,16 +398,20 @@ CompileFlags:
 
     ------------------ start .clangd formattedProjAdd section  ----------------------
     local formattedProjAdd = is_cpp and {
-                                    '"-xc++"', '"-std=gnu++17"'
+                                    -- '"-xc++"',
+                                    '"-std=gnu++17"'
                                   } or {
-                                    '"-xc"', '"-std=gnu17"'
+                                    -- '"-xc"',
+                                    '"-std=gnu17"'
                                   }
     vim.list_extend(formattedProjAdd, formattedIncAdd)
 
     local formattedProjHAdd = is_cpp and {
-                                          '"-xc++-header"', '"-std=gnu++17"'
+                                          '"-xc++-header"',
+                                          '"-std=gnu++17"'
                                         } or {
-                                          '"-xc-header"', '"-std=gnu17"'
+                                          '"-xc-header"',
+                                          '"-std=gnu17"'
                                         }
     vim.list_extend(formattedProjHAdd, formattedIncAdd)
     -- vim.list_extend(formattedProjHAdd, formatteLibdepsAdd)
@@ -483,6 +489,8 @@ CompileFlags:
                 -- table.concat(formattedProjHAdd, ',\n    '),   -- Remove: [%s]
                 -- clean_project_dir,                            -- If: PathMatch: ['%s/.*']
                 -- fileExtensions,                               -- file extensions
+                OS.project_dir,                              -- compilationDatabasePath
+                compiler,                                    -- compiler
                 table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
                 table.concat(formattedProjAdd, ',\n    '),    -- Add: [%s]
                 ref.end_marker)
