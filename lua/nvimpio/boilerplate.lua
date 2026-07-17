@@ -373,25 +373,25 @@ CompileFlags:
 -- C:/Users/batoaqaa/AppData/Local/ahmed/test/src/main.c
     ------------------ start .clangd formattedGlobAdd section  ----------------------
     local formattedGlobAdd = is_cpp and {
-                                    '"-xc++"', '"-std=gnu++17"',
+                                    -- '"-xc++"', '"-std=gnu++17"',
                                     -- string.format('"--include=%s"', check_file)
                                     -- string.format('"-I%s/src"', OS.project_dir),
                                     -- string.format('"-I%s/include"', OS.project_dir)
                                   } or {
-                                    '"-xc"', '"-std=gnu17"',
+                                    -- '"-xc"', '"-std=gnu17"',
                                     -- string.format('"--include=%s"', check_file)
                                     -- string.format('"-I%s/src"', OS.project_dir),
                                     -- string.format('"-I%s/include"', OS.project_dir)
                                   }
 
     local formattedGlobHAdd = is_cpp and {
-                                    '"-xc++-header"',
+                                    -- '"-xc++-header"',
                                     -- string.format('"--include=%s"', 'C:/Users/batoaqaa/AppData/Local/ahmed/test/src/nvimpio_bridge.hpp'),
                                     -- string.format('"--include=%s"', check_file)
                                     -- string.format('"-I%s/src"', OS.project_dir),
                                     -- string.format('"-I%s/include"', OS.project_dir)
                                   } or {
-                                    '"-xc-header"',
+                                    -- '"-xc-header"',
                                     -- string.format('"--include=%s"', 'C:/Users/batoaqaa/AppData/Local/ahmed/test/src/nvimpio_bridge.h'),
                                     -- string.format('"--include=%s"', check_file)
                                     -- string.format('"-I%s/src"', OS.project_dir),
@@ -401,13 +401,17 @@ CompileFlags:
 
     ------------------ start .clangd formattedProjAdd section  ----------------------
     local formattedProjAdd = is_cpp and {
-                                    '"-xc++"', '"-std=gnu++17"'
+                                    -- '"-xc++"', '"-std=gnu++17"'
                                   } or {
-                                    '"-xc"', '"-std=gnu17"'
+                                    -- '"-xc"', '"-std=gnu17"'
                                   }
     vim.list_extend(formattedProjAdd, formattedIncAdd)
 
-    local formattedProjHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' } or { '"-xc-header"', '"-std=gnu17"' }
+    local formattedProjHAdd = is_cpp and {
+                                          -- '"-xc++-header"', '"-std=gnu++17"'
+                                        } or {
+                                          -- '"-xc-header"', '"-std=gnu17"'
+                                        }
     vim.list_extend(formattedProjHAdd, formattedIncAdd)
     -- vim.list_extend(formattedProjHAdd, formatteLibdepsAdd)
     --------------------- end .clangd formattedProjAdd section ----------------------
