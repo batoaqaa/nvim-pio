@@ -441,7 +441,7 @@ CompileFlags:
     local fileExtensions = is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci)'
     local headerExtensions = is_cpp and '[.](h|hpp|hh|hxx)' or '[.]h'
     local compiler = is_cpp and _G.metadata.cxx_path or _G.metadata.cc_path
-    local QueryDriver = is_cpp and _G.metadata.cxx_path or _G.metadata.cc_path
+    local QueryDriver = _G.metadata.query_driver
     ------------------------------------------------------------------------------
     --                config.yaml
     ------------------------------------------------------------------------------
