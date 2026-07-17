@@ -1170,7 +1170,7 @@ end
 -- ============================================================================
 -- Set to true  -> Only indexes headers inside your local project (Recommended, fast)
 -- Set to false -> Indexes EVERYTHING (including massive toolchains and global SDKs)
-local INDEX_PROJECT_ONLY = true
+local INDEX_PROJECT_ONLY = false
 
 -- ============================================================================
 -- 1. STATE-MACHINE TOKENIZER (Handles Escapes & Quotes Safely)
