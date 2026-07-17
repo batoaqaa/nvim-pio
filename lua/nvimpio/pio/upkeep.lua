@@ -1169,7 +1169,7 @@ end
 -- 0. USER CONFIGURATION TOGGLE
 -- ============================================================================
 -- Set to true  -> Only indexes headers inside your local project (Recommended, fast)
--- Set to false -> Indexes EVERYTHING (including massive toolchains and global SDKs)
+-- Set to false -> Indexes EVERYTHING (including massive global toolchains, SDKs, cores)
 local INDEX_PROJECT_ONLY = false
 
 -- ============================================================================
@@ -1251,7 +1251,7 @@ local function get_headers_recursively(dir)
 end
 
 -- ============================================================================
--- 3. CORE RUNTIME ENGINE (Performance & Corruption Protected)
+-- 3. CORE RUNTIME ENGINE (Absolute Path Normalization Engine)
 -- ============================================================================
 function M.generate(callback)
   local project_root = vim.fs.normalize(vim.fn.getcwd())
@@ -1268,7 +1268,6 @@ function M.generate(callback)
   local content = f:read('*all')
   f:close()
 
-  -- Avoid parsing empty configurations to protect structural array limits
   if content == nil or content == '' or content == '[]' then
     print('[Error] Base compile_commands.json is empty. Build your project once first.')
     return
@@ -1287,34 +1286,41 @@ function M.generate(callback)
   for _, entry in ipairs(db) do
     table.insert(extended_db, entry)
     local tokens = tokenize_command(entry.command or '')
+    local working_dir = entry.directory or project_root
 
     local idx = 1
     while idx <= #tokens do
       local token = tokens[idx]
-      local inc_dir = nil
+      local raw_inc_dir = nil
 
       if token:sub(1, 2) == '-I' then
-        inc_dir = #token > 2 and token:sub(3) or tokens[idx + 1]
+        raw_inc_dir = #token > 2 and token:sub(3) or tokens[idx + 1]
         if #token == 2 then
           idx = idx + 1
         end
       elseif token == '-isystem' then
-        inc_dir = tokens[idx + 1]
+        raw_inc_dir = tokens[idx + 1]
         idx = idx + 1
       end
 
-      if inc_dir then
-        inc_dir = vim.fs.normalize(inc_dir)
+      if raw_inc_dir then
+        -- CRITICAL FIX: Convert relative pathing arrays to strict absolute paths
+        local abs_inc_dir = raw_inc_dir
+        if not (raw_inc_dir:match('^/') or raw_inc_dir:match('^%a:')) then
+          abs_inc_dir = working_dir .. '/' .. raw_inc_dir
+        end
+
+        abs_inc_dir = vim.fs.normalize(abs_inc_dir)
 
         -- Check configuration boundary behavior
         local should_include = true
         if INDEX_PROJECT_ONLY then
-          should_include = inc_dir:find(project_root, 1, true) ~= nil
+          should_include = abs_inc_dir:find(project_root, 1, true) ~= nil
         end
 
         if should_include then
-          if not unique_includes[inc_dir] then
-            unique_includes[inc_dir] = { dir = entry.directory, cmd = entry.command }
+          if not unique_includes[abs_inc_dir] then
+            unique_includes[abs_inc_dir] = { dir = working_dir, cmd = entry.command }
           end
         end
       end
@@ -1331,9 +1337,9 @@ function M.generate(callback)
         unique_headers[header_path] = true
         total_headers = total_headers + 1
 
-        -- CRITICAL SAFETY THRESHOLD: Cap entries at 15,000 to prevent editor choking
-        if total_headers > 15000 then
-          print('[Warning] Header limit reached! Truncating to protect editor performance.')
+        -- SAFETY CAP: Standardized ceiling limit to protect against rendering crashes
+        if total_headers > 30000 then
+          print('[Warning] Global target limit exceeded. Truncated to prevent buffer overflows.')
           break
         end
 
@@ -1344,7 +1350,7 @@ function M.generate(callback)
         })
       end
     end
-    if total_headers > 15000 then
+    if total_headers > 30000 then
       break
     end
   end
@@ -1354,20 +1360,15 @@ function M.generate(callback)
     return
   end
 
-  -- ============================================================================
-  -- STREAMED PRETTY-PRINT WRITING TO PREVENT EDITOR FREEZING
-  -- ============================================================================
+  -- Streamed pretty-print block ensures file opens instantly without locking Neovim lines
   local out_f = io.open(db_path, 'w')
   if out_f then
     out_f:write('[\n')
-
     for i, entry in ipairs(extended_db) do
-      -- Escape paths and commands safely for manual JSON rendering
       local dir_esc = entry.directory:gsub('\\', '\\\\'):gsub('"', '\\"')
       local file_esc = entry.file:gsub('\\', '\\\\'):gsub('"', '\\"')
       local cmd_esc = entry.command:gsub('\\', '\\\\'):gsub('"', '\\"')
 
-      -- Write with explicitly separated lines and tabs so Neovim never parses a single giant line
       out_f:write('  {\n')
       out_f:write('    "directory": "' .. dir_esc .. '",\n')
       out_f:write('    "file": "' .. file_esc .. '",\n')
@@ -1379,7 +1380,6 @@ function M.generate(callback)
         out_f:write('  }\n')
       end
     end
-
     out_f:write(']\n')
     out_f:flush()
     out_f:close()
@@ -1389,7 +1389,6 @@ function M.generate(callback)
         callback(true)
       end)
     end
-    -- clangd.restart()
   else
     OS.notify('[Error] System file lock permissions blocked disk write access.', 'info')
     if type(callback) == 'function' then
@@ -1419,9 +1418,7 @@ vim.api.nvim_create_autocmd('BufWritePost', {
   end,
 })
 
--- Register manual fallback shortcut
 vim.api.nvim_create_user_command('PioCompdb', function()
   M.generate()
 end, {})
-
 return M
