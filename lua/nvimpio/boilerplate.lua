@@ -203,23 +203,23 @@ boilerplate['.clangd'] = {
 ---
 If:
   PathMatch: ['%s/.*%s$']
+QueryDriver: [
+  "%s"
+]
 CompileFlags:
   CompilationDatabase: "%s"
   Compiler: "%s"
-  QueryDriver: [
-    "%s"
-  ]
   BuiltinHeaders: QueryDriver
   Add: [%s]
 ---
 If:
   PathMatch: ['%s/.*%s$']
+QueryDriver: [
+  "%s"
+]
 CompileFlags:
   CompilationDatabase: "%s"
   Compiler: "%s"
-  QueryDriver: [
-    "%s"
-  ]
   BuiltinHeaders: QueryDriver
   Add: [%s]
 %s
@@ -463,17 +463,17 @@ CompileFlags:
                 ref.start_marker,
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 headerExtensions,                            -- header extensions
+                QueryDriver,                                 -- query-driver
                 OS.project_dir,                              -- compilationDatabasePath
                 compiler,                                    -- compiler
-                QueryDriver,                                 -- query-driver
                 -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
                 -- table.concat(formattedGlobAdd, ',\n    '),   -- Add: [%s]
                 table.concat(formattedGlobHAdd, ',\n    '),  -- Add: [%s]
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
+                QueryDriver,                                 -- query-driver
                 OS.project_dir,                              -- compilationDatabasePath
                 compiler,                                    -- compiler
-                QueryDriver,                                 -- query-driver
                 -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
                 table.concat(formattedGlobAdd, ',\n    '),   -- Add: [%s]
                 ref.end_marker)
