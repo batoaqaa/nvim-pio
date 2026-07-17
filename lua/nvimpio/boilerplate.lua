@@ -408,10 +408,10 @@ CompileFlags:
 
     local formattedProjHAdd = is_cpp and {
                                           '"-xc++-header"',
-                                          -- '"-std=gnu++17"'
+                                          '"-std=gnu++17"'
                                         } or {
                                           '"-xc-header"',
-                                          -- '"-std=gnu17"'
+                                          '"-std=gnu17"'
                                         }
     vim.list_extend(formattedProjHAdd, formattedIncAdd)
     -- vim.list_extend(formattedProjHAdd, formatteLibdepsAdd)
