@@ -490,8 +490,6 @@ CompileFlags:
                 table.concat(formattedProjHAdd, ',\n    '),   -- Remove: [%s]
                 clean_project_dir,                            -- If: PathMatch: ['%s/.*']
                 fileExtensions,                               -- file extensions
-                OS.project_dir,                              -- compilationDatabasePath
-                compiler,                                    -- compiler
                 table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
                 table.concat(formattedProjAdd, ',\n    '),    -- Add: [%s]
                 ref.end_marker)
