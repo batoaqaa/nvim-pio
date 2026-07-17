@@ -373,12 +373,12 @@ CompileFlags:
 -- C:/Users/batoaqaa/AppData/Local/ahmed/test/src/main.c
     ------------------ start .clangd formattedGlobAdd section  ----------------------
     local formattedGlobAdd = is_cpp and {
-                                    '"-xc++"', '"-std=gnu++11"',
+                                    '"-xc++"', '"-std=gnu++17"',
                                     -- string.format('"--include=%s"', check_file)
                                     -- string.format('"-I%s/src"', OS.project_dir),
                                     -- string.format('"-I%s/include"', OS.project_dir)
                                   } or {
-                                    '"-xc"', '"-std=gnu11"',
+                                    '"-xc"', '"-std=gnu17"',
                                     -- string.format('"--include=%s"', check_file)
                                     -- string.format('"-I%s/src"', OS.project_dir),
                                     -- string.format('"-I%s/include"', OS.project_dir)
@@ -463,7 +463,8 @@ CompileFlags:
                 compiler,                                    -- compiler
                 QueryDriver,                                 -- query-driver
                 -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
-                table.concat(formattedGlobHAdd, ',\n    '),  -- Remove: [%s]
+                table.concat(formattedGlobAdd, ',\n    '),   -- Add: [%s]
+                -- table.concat(formattedGlobHAdd, ',\n    '),  -- Add: [%s]
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
                 OS.project_dir,                              -- compilationDatabasePath
@@ -483,7 +484,8 @@ CompileFlags:
                 clean_project_dir,                            -- If: PathMatch: ['%s/.*']
                 headerExtensions,                             -- header extensions
                 table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
-                table.concat(formattedProjHAdd, ',\n    '),   -- Remove: [%s]
+                table.concat(formattedProjAdd, ',\n    '),    -- Add: [%s]
+                -- table.concat(formattedProjHAdd, ',\n    '),   -- Remove: [%s]
                 clean_project_dir,                            -- If: PathMatch: ['%s/.*']
                 fileExtensions,                               -- file extensions
                 table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
