@@ -1173,11 +1173,11 @@ function M.generate(callback)
 
         -- Boundary isolation optimization: only scan project directories.
         -- This avoids thousands of heavy global toolchain/framework headers.
-        -- if inc_dir:find(project_root, 1, true) then
+        if inc_dir:find(project_root, 1, true) then
         if not unique_includes[inc_dir] then
           unique_includes[inc_dir] = { dir = entry.directory, cmd = entry.command }
         end
-        -- end
+        end
       end
       idx = idx + 1
     end
