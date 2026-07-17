@@ -203,9 +203,6 @@ boilerplate['.clangd'] = {
 ---
 If:
   PathMatch: ['%s/.*%s$']
-QueryDriver: [
-  "%s"
-]
 CompileFlags:
   CompilationDatabase: "%s"
   Compiler: "%s"
@@ -214,9 +211,6 @@ CompileFlags:
 ---
 If:
   PathMatch: ['%s/.*%s$']
-QueryDriver: [
-  "%s"
-]
 CompileFlags:
   CompilationDatabase: "%s"
   Compiler: "%s"
@@ -445,7 +439,7 @@ CompileFlags:
     local fileExtensions = is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci)'
     local headerExtensions = is_cpp and '[.](h|hpp|hh|hxx)' or '[.]h'
     local compiler = is_cpp and _G.metadata.cxx_path or _G.metadata.cc_path
-    local QueryDriver = _G.metadata.query_driver
+    -- local QueryDriver = _G.metadata.query_driver
     ------------------------------------------------------------------------------
     --                config.yaml
     ------------------------------------------------------------------------------
@@ -463,7 +457,6 @@ CompileFlags:
                 ref.start_marker,
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 headerExtensions,                            -- header extensions
-                QueryDriver,                                 -- query-driver
                 OS.project_dir,                              -- compilationDatabasePath
                 compiler,                                    -- compiler
                 -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
@@ -471,7 +464,6 @@ CompileFlags:
                 table.concat(formattedGlobHAdd, ',\n    '),  -- Add: [%s]
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
-                QueryDriver,                                 -- query-driver
                 OS.project_dir,                              -- compilationDatabasePath
                 compiler,                                    -- compiler
                 -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
