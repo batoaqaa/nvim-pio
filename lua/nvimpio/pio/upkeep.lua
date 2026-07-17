@@ -1323,11 +1323,20 @@ function M.generate(callback)
   end
 
   -- Process headers and assemble deep translation commands
+  local total_headers = 0
   for inc_dir, context in pairs(unique_includes) do
     local headers = get_headers_recursively(inc_dir)
     for _, header_path in ipairs(headers) do
       if not unique_headers[header_path] then
         unique_headers[header_path] = true
+        total_headers = total_headers + 1
+
+        -- CRITICAL SAFETY THRESHOLD: Cap entries at 15,000 to prevent editor choking
+        if total_headers > 15000 then
+          print('[Warning] Header limit reached! Truncating to protect editor performance.')
+          break
+        end
+
         table.insert(extended_db, {
           directory = context.dir,
           file = header_path,
@@ -1335,26 +1344,46 @@ function M.generate(callback)
         })
       end
     end
+    if total_headers > 15000 then
+      break
+    end
   end
 
-  -- Safeguard block to stop corrupt array writing loops
   if #extended_db == 0 then
     print('[Error] Calculated database matrix is entirely empty. Aborting write sequence.')
     return
   end
 
+  -- ============================================================================
+  -- STREAMED PRETTY-PRINT WRITING TO PREVENT EDITOR FREEZING
+  -- ============================================================================
   local out_f = io.open(db_path, 'w')
   if out_f then
-    local status_encode, json_str = pcall(vim.json.encode, extended_db)
-    if status_encode and json_str then
-      out_f:write(json_str)
-      out_f:flush() -- Force flush disk cache lines instantly
-      out_f:close()
-      print('[Success] PlatformIO compilation database updated cleanly.')
-    else
-      out_f:close()
-      print('[Fatal Error] Structural table conversion failed inside encoder runtime.')
+    out_f:write('[\n')
+
+    for i, entry in ipairs(extended_db) do
+      -- Escape paths and commands safely for manual JSON rendering
+      local dir_esc = entry.directory:gsub('\\', '\\\\'):gsub('"', '\\"')
+      local file_esc = entry.file:gsub('\\', '\\\\'):gsub('"', '\\"')
+      local cmd_esc = entry.command:gsub('\\', '\\\\'):gsub('"', '\\"')
+
+      -- Write with explicitly separated lines and tabs so Neovim never parses a single giant line
+      out_f:write('  {\n')
+      out_f:write('    "directory": "' .. dir_esc .. '",\n')
+      out_f:write('    "file": "' .. file_esc .. '",\n')
+      out_f:write('    "command": "' .. cmd_esc .. '"\n')
+
+      if i < #extended_db then
+        out_f:write('  },\n')
+      else
+        out_f:write('  }\n')
+      end
     end
+
+    out_f:write(']\n')
+    out_f:flush()
+    out_f:close()
+    OS.notify('[Success] PlatformIO database generated with stream-safe line formatting.', 'info')
     if type(callback) == 'function' then
       vim.schedule(function()
         callback(true)
@@ -1362,12 +1391,12 @@ function M.generate(callback)
     end
     -- clangd.restart()
   else
+    OS.notify('[Error] System file lock permissions blocked disk write access.', 'info')
     if type(callback) == 'function' then
       vim.schedule(function()
         callback(false)
       end)
     end
-    print('[Error] System file lock permissions blocked disk write access.')
   end
 end
 
@@ -1394,7 +1423,5 @@ vim.api.nvim_create_autocmd('BufWritePost', {
 vim.api.nvim_create_user_command('PioCompdb', function()
   M.generate()
 end, {})
-
-------------------------------------------------------------------------------------------------------------
 
 return M
