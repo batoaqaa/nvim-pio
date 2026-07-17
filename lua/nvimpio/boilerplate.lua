@@ -204,16 +204,12 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
-  CompilationDatabase: "%s"
-  Compiler: "%s"
   BuiltinHeaders: QueryDriver
   Add: [%s]
 ---
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
-  CompilationDatabase: "%s"
-  Compiler: "%s"
   BuiltinHeaders: QueryDriver
   Add: [%s]
 %s
@@ -223,10 +219,15 @@ CompileFlags:
 %s
 ---
 If:
-  PathMatch: '(?i)C:/.*'
+  PathMatch: ['%s/.*%s$']
 CompileFlags:
-  CompilationDatabase: "%s"
-  Compiler: "%s"
+  BuiltinHeaders: QueryDriver
+  Remove: [%s]
+  Add: [%s]
+---
+If:
+  PathMatch: ['%s/.*%s$']
+CompileFlags:
   BuiltinHeaders: QueryDriver
   Remove: [%s]
   Add: [%s]
@@ -398,10 +399,10 @@ CompileFlags:
 
     ------------------ start .clangd formattedProjAdd section  ----------------------
     local formattedProjAdd = is_cpp and {
-                                    -- '"-xc++"',
+                                    '"-xc++"',
                                     '"-std=gnu++17"'
                                   } or {
-                                    -- '"-xc"',
+                                    '"-xc"',
                                     '"-std=gnu17"'
                                   }
     vim.list_extend(formattedProjAdd, formattedIncAdd)
@@ -457,43 +458,42 @@ CompileFlags:
   -- ]
     local userClangd = OS.clangd_user_file
     local clangdFiles = {
-      -- { key = 'userGlob', file = userClangd, content = function (ref) return M.readContent(ref) end,
-      --   cache_id = string.sub(vim.fn.sha256(_G.metadata.packages_dir), 1, 16),
-      --   block = function (ref)
-      --     return string.format( self.Global,
-      --           ref.start_marker,
-      --           clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-      --           headerExtensions,                            -- header extensions
-      --           OS.project_dir,                              -- compilationDatabasePath
-      --           compiler,                                    -- compiler
-      --           -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
-      --           table.concat(formattedGlobHAdd, ',\n    '),  -- Add: [%s]
-      --           clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-      --           fileExtensions,                              -- file extensions
-      --           OS.project_dir,                              -- compilationDatabasePath
-      --           compiler,                                    -- compiler
-      --           -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
-      --           table.concat(formattedGlobAdd, ',\n    '),   -- Add: [%s]
-      --           ref.end_marker)
-      --   end,
-      --   start_marker = '', end_marker   = '', delete= false,
-      -- },
+      { key = 'userGlob', file = userClangd, content = function (ref) return M.readContent(ref) end,
+        cache_id = string.sub(vim.fn.sha256(_G.metadata.packages_dir), 1, 16),
+        block = function (ref)
+          return string.format( self.Global,
+                ref.start_marker,
+                clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
+                headerExtensions,                            -- header extensions
+                -- OS.project_dir,                              -- compilationDatabasePath
+                -- compiler,                                    -- compiler
+                -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
+                table.concat(formattedGlobHAdd, ',\n    '),  -- Add: [%s]
+                clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
+                fileExtensions,                              -- file extensions
+                -- OS.project_dir,                              -- compilationDatabasePath
+                -- compiler,                                    -- compiler
+                -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
+                table.concat(formattedGlobAdd, ',\n    '),   -- Add: [%s]
+                ref.end_marker)
+        end,
+        start_marker = '', end_marker   = '', delete= false,
+      },
       { key = 'userProj', file = userClangd, content = function (ref) return M.readContent(ref) end,
         cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),
         block = function (ref)
           return string.format(self.Project,
                 ref.start_marker,
-                -- clean_project_dir,                            -- If: PathMatch: ['%s/.*']
-                -- headerExtensions,                             -- header extensions
-                -- table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
-                -- table.concat(formattedProjHAdd, ',\n    '),   -- Remove: [%s]
-                -- clean_project_dir,                            -- If: PathMatch: ['%s/.*']
-                -- fileExtensions,                               -- file extensions
+                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
+                headerExtensions,                             -- header extensions
+                table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
+                table.concat(formattedProjHAdd, ',\n    '),   -- Remove: [%s]
+                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
+                fileExtensions,                               -- file extensions
                 OS.project_dir,                              -- compilationDatabasePath
                 compiler,                                    -- compiler
                 table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
-                -- table.concat(formattedProjAdd, ',\n    '),    -- Add: [%s]
-                table.concat(formattedProjHAdd, ',\n    '),   -- Remove: [%s]
+                table.concat(formattedProjAdd, ',\n    '),    -- Add: [%s]
                 ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= true,
