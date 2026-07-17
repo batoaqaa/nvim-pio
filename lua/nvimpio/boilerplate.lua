@@ -373,12 +373,12 @@ CompileFlags:
 -- C:/Users/batoaqaa/AppData/Local/ahmed/test/src/main.c
     ------------------ start .clangd formattedGlobAdd section  ----------------------
     local formattedGlobAdd = is_cpp and {
-                                    '"-xc++"', '"-std=gnu++17"',
+                                    '"-xc++"', '"-std=gnu++11"',
                                     -- string.format('"--include=%s"', check_file)
                                     -- string.format('"-I%s/src"', OS.project_dir),
                                     -- string.format('"-I%s/include"', OS.project_dir)
                                   } or {
-                                    '"-xc"', '"-std=gnu17"',
+                                    '"-xc"', '"-std=gnu11"',
                                     -- string.format('"--include=%s"', check_file)
                                     -- string.format('"-I%s/src"', OS.project_dir),
                                     -- string.format('"-I%s/include"', OS.project_dir)
