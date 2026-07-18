@@ -156,59 +156,59 @@ function M.start_watchers()
         end)
       end,
     },
-    { -- watcher for platformio.ini
-      name = 'ini',
-      isBusy = false,
-      last_hash = '',
-      path = vim.fs.joinpath(project_root, 'platformio.ini'),
-      cb = function(self)
-        -- If no real change, unlock immediately and exit
-        local new_hash = get_hash(self.path) or ''
-        if new_hash == self.last_hash then
-          self.isBusy = false
-          _G.isBusy = false
-          return
-        end
-
-        self.last_hash = new_hash
-        local meta = require('nvimpio.pio.metadata')
-        local env, _ = meta.get_active_env('PIO platformio.ini change:')
-        -- local env = pio.get_active_env('PIO platformio.ini change:')
-
-        if not env then
-          self.isBusy = false
-          _G.isBusy = false
-          return
-        end
-
-        self.isBusy = true
-        _G.isBusy = true
-        OS.notify('PIO platformio.ini change: compiledb update ...', OS.debug)
-        vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
-          vim.schedule(function()
-            if obj.code == 0 then
-              OS.notify('PIO platformio.ini change: compiledb update Success', OS.debug)
-              local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-              pio_refresh(function(success)
-                if success then
-                  -- do end
-                  -- require('nvimpio.clangd.control').restart()
-                  -- clangd.getUnknownArgsCli('PIO platformio.ini  change: ')
-                else OS.notify("PIO platformio change: compiledb fail")
-                end
-                _G.isBusy = false
-                self.isBusy = false
-              end, 'PIO platformio.ini  change: ')
-            else
-              local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
-              OS.notify('PIO platformio.ini change: Build Failed: ' .. err, 'error')
-              self.isBusy = false
-              _G.isBusy = false
-            end
-          end)
-        end)
-      end,
-    },
+    -- { -- watcher for platformio.ini
+    --   name = 'ini',
+    --   isBusy = false,
+    --   last_hash = '',
+    --   path = vim.fs.joinpath(project_root, 'platformio.ini'),
+    --   cb = function(self)
+    --     -- If no real change, unlock immediately and exit
+    --     local new_hash = get_hash(self.path) or ''
+    --     if new_hash == self.last_hash then
+    --       self.isBusy = false
+    --       _G.isBusy = false
+    --       return
+    --     end
+    --
+    --     self.last_hash = new_hash
+    --     local meta = require('nvimpio.pio.metadata')
+    --     local env, _ = meta.get_active_env('PIO platformio.ini change:')
+    --     -- local env = pio.get_active_env('PIO platformio.ini change:')
+    --
+    --     if not env then
+    --       self.isBusy = false
+    --       _G.isBusy = false
+    --       return
+    --     end
+    --
+    --     self.isBusy = true
+    --     _G.isBusy = true
+    --     OS.notify('PIO platformio.ini change: compiledb update ...', OS.debug)
+    --     vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
+    --       vim.schedule(function()
+    --         if obj.code == 0 then
+    --           OS.notify('PIO platformio.ini change: compiledb update Success', OS.debug)
+    --           local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+    --           pio_refresh(function(success)
+    --             if success then
+    --               -- do end
+    --               -- require('nvimpio.clangd.control').restart()
+    --               -- clangd.getUnknownArgsCli('PIO platformio.ini  change: ')
+    --             else OS.notify("PIO platformio change: compiledb fail")
+    --             end
+    --             _G.isBusy = false
+    --             self.isBusy = false
+    --           end, 'PIO platformio.ini  change: ')
+    --         else
+    --           local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
+    --           OS.notify('PIO platformio.ini change: Build Failed: ' .. err, 'error')
+    --           self.isBusy = false
+    --           _G.isBusy = false
+    --         end
+    --       end)
+    --     end)
+    --   end,
+    -- },
     { -- watcher for ./.pio/build/projct.checksum
       name = 'checksum',
       isBusy = false,
@@ -222,19 +222,48 @@ function M.start_watchers()
             _G.isBusy = false
             return
           end
-          vim.schedule(function()
-            self.isBusy = true
-            _G.isBusy = true
-            local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-            pio_refresh(function(success)
-              if success then
-                OS.notify('PIO checksum: Metadata synced', OS.debug)
-                clangdRestart()
+          -----------
+          self.isBusy = true
+          _G.isBusy = true
+          OS.notify('PIO checksum:  compiledb update ...', OS.debug)
+          local env, _ = _G.metadata.get_active_env('PIO platformio.ini change:')
+          vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
+            vim.schedule(function()
+              if obj.code == 0 then
+                OS.notify('PIO checksum: compiledb update Success', OS.debug)
+                local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+                pio_refresh(function(success)
+                  if success then
+                    -- do end
+                    -- require('nvimpio.clangd.control').restart()
+                    -- clangd.getUnknownArgsCli('PIO platformio.ini  change: ')
+                  else OS.notify("PIO platformio change: compiledb fail")
+                  end
+                  _G.isBusy = false
+                  self.isBusy = false
+                end, 'PIO platformio.ini  change: ')
+              else
+                local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
+                OS.notify('PIO checksum: Build Failed: ' .. err, 'error')
+                self.isBusy = false
+                _G.isBusy = false
               end
-              _G.isBusy = false
-              self.isBusy = false
-            end, 'PIO checksum: ')
+            end)
           end)
+          -----------
+          -- vim.schedule(function()
+          --   self.isBusy = true
+          --   _G.isBusy = true
+          --   local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+          --   pio_refresh(function(success)
+          --     if success then
+          --       OS.notify('PIO checksum: Metadata synced', OS.debug)
+          --       clangdRestart()
+          --     end
+          --     _G.isBusy = false
+          --     self.isBusy = false
+          --   end, 'PIO checksum: ')
+          -- end)
         end
       end,
     },
