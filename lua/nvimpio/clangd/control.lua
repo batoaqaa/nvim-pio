@@ -539,31 +539,33 @@ end
 --   -- 4. PHASE C: Structural Client Broker Disconnection
 --   vim.lsp.stop_client(old_id, true)
 -- end
--- --stylua: ignore
--- --=============================================================================
--- function M.init(clangd)
---   OS.notify('Clangd Control: initialize', OS.debug)
---
---   if clangd.install then require('nvimpio.clangd.config') end
---
---   require('nvimpio.clangd.commands')
---   require('nvimpio.clangd.diagnostic')
---
---   if clangd.attach ~= "none" then
---     require('nvimpio.clangd.attach').init(clangd)
---   end
---
---   -- -- Apply and Enable
---   local clangConfig = M.getClangdConfig()
---   vim.lsp.config('clangd', clangConfig)
---   vim.lsp.enable('clangd')
---
---
---   vim.keymap.set('n', 'gll', function()
---     vim.cmd.edit(vim.lsp.log.get_filename())
---   end, { desc = 'open LSP [l]og' })
---
--- end
+
+
+--stylua: ignore
+--=============================================================================
+function M.init(clangd)
+  OS.notify('Clangd Control: initialize', OS.debug)
+
+  if clangd.install then require('nvimpio.clangd.config') end
+
+  require('nvimpio.clangd.commands')
+  require('nvimpio.clangd.diagnostic')
+
+  if clangd.attach ~= "none" then
+    require('nvimpio.clangd.attach').init(clangd)
+  end
+
+  -- -- Apply and Enable
+  local clangConfig = M.getClangdConfig()
+  vim.lsp.config('clangd', clangConfig)
+  vim.lsp.enable('clangd')
+
+
+  vim.keymap.set('n', 'gll', function()
+    vim.cmd.edit(vim.lsp.log.get_filename())
+  end, { desc = 'open LSP [l]og' })
+
+end
 
 return M
 -- stylua: ignore end
