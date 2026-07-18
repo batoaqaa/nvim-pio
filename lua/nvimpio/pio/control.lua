@@ -138,6 +138,7 @@ function M.start_watchers()
         if new_hash == self.last_hash then
           self.isBusy = false
           _G.isBusy = false
+          OS.notify('PIO compiledb change: Same hash ...', OS.debug)
           return
         end
         self.last_hash = new_hash
