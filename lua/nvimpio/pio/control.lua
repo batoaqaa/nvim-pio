@@ -189,11 +189,11 @@ function M.start_watchers()
 
         self.isBusy = true
         _G.isBusy = true
-        OS.notify('PIO platformio.ini change: compiledb update ...', OS.debug)
-        vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
-          vim.schedule(function()
-            if obj.code == 0 then
-              OS.notify('PIO platformio.ini change: compiledb update Success', OS.debug)
+        -- OS.notify('PIO platformio.ini change: compiledb update ...', OS.debug)
+        -- vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
+        --   vim.schedule(function()
+        --     if obj.code == 0 then
+              -- OS.notify('PIO platformio.ini change: compiledb update Success', OS.debug)
               local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
               pio_refresh(function(success)
                 if success then
@@ -205,14 +205,14 @@ function M.start_watchers()
                 _G.isBusy = false
                 self.isBusy = false
               end, 'PIO platformio.ini  change: ')
-            else
-              local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
-              OS.notify('PIO platformio.ini change: Build Failed: ' .. err, 'error')
-              self.isBusy = false
-              _G.isBusy = false
-            end
-          end)
-        end)
+        --     else
+        --       local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
+        --       OS.notify('PIO platformio.ini change: Build Failed: ' .. err, 'error')
+        --       self.isBusy = false
+        --       _G.isBusy = false
+        --     end
+        --   end)
+        -- end)
       end,
     },
     { -- watcher for ./.pio/build/projct.checksum
