@@ -188,7 +188,7 @@ function M.start_watchers()
         end
 
         self.isBusy = true
-        _G.isBusy = true
+        -- _G.isBusy = true
         -- OS.notify('PIO platformio.ini change: compiledb update ...', OS.debug)
         -- vim.system({ 'pio', 'run', '-t', 'compiledb', '-s', '-e', env }, { text = true }, function(obj)
         --   vim.schedule(function()
@@ -202,9 +202,9 @@ function M.start_watchers()
                   -- clangd.getUnknownArgsCli('PIO platformio.ini  change: ')
                 else OS.notify("PIO platformio change: compiledb fail")
                 end
-                _G.isBusy = false
+                -- _G.isBusy = false
                 self.isBusy = false
-              end, 'PIO platformio.ini  change: ')
+              end, 'PIO platformio.ini change: ')
         --     else
         --       local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
         --       OS.notify('PIO platformio.ini change: Build Failed: ' .. err, 'error')
