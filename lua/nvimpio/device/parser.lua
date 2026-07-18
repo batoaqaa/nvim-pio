@@ -210,7 +210,7 @@ end
 --   end
 -- end
 
-function M.handlePioinit(result, framework, board, on_done)
+function M.handlePioinit(result, framework, on_done)
   if result == 'INIT' then
     -- OS.notify(string.format("active_env=%s board=%s", active_env, board), OS.debug)
     boilerplate.core_dir = require('nvimpio').config.pio_storage_dir
@@ -473,24 +473,15 @@ end
 function M.handlePiolib(result, active_env, pkgName, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
-  elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
-    OS.notify(string.format('%s %s installed for %s', fromMsg, pkgName, active_env), OS.debug)
-    -- OS.notify('PIO lib:  pass ' .. current_id, OS.debug)
-    if on_done and type(on_done) == 'function' then on_done() end
-    if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
+      OS.notify(string.format('%s %s installed for %s', fromMsg, pkgName, active_env), OS.debug)
+      -- OS.notify('PIO lib:  pass ' .. current_id, OS.debug)
       if on_done and type(on_done) == 'function' then on_done() end
-      OS.notify(string.format('%s compiledb updated for %s', fromMsg, active_env), OS.debug)
-      -- M.pio_refresh(function(success)
-      --   if success then
-      --     do end
-      --     -- require('nvimpio.clangd.control').getUnknownArgsCli('PIO lib+db: ')
-      --   end
-      -- end, 'PIO lib+db: ')
+      -- if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
+      cliTerm:hide()
+      M.cleanSequencer()
     end)
-    cliTerm:hide()
-    M.cleanSequencer()
   elseif result == 'FAIL' then
     M.cleanSequencer()
   end
