@@ -222,6 +222,7 @@ function M.start_watchers()
             _G.isBusy = false
             return
           end
+          _G.metadata.last_projectChecksum = current_checksum
           -----------
           self.isBusy = true
           _G.isBusy = true
