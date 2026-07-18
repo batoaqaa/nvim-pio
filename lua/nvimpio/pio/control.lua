@@ -80,7 +80,6 @@ local function watch_file(target, callback)
     if err or (filename and filename ~= target_filename) then return end
     if events and not (events.change or events['rename']) then return end
 
-    -- if target.isBusy or _G.isBusy then return end
     -- if target.isBusy then return end
 
     -- 'r': Read access
@@ -123,8 +122,7 @@ function M.start_watchers()
     M.stop_watchers()
   end
 
-  -- local project_root = vim.uv.cwd() -- Use dynamic CWD instead of hardcoded path
-  local project_root = OS.project_dir
+  local project_root = OS.project_dir or vim.uv.cwd()
 
   local targets = {
     { -- watcher for compile_commands.json
@@ -138,7 +136,7 @@ function M.start_watchers()
         local new_hash = M.get_hash(self.path) or ''
         if new_hash == self.last_hash then
           self.isBusy = false
-          _G.isBusy = false
+          -- _G.isBusy = false
           return
         end
 
@@ -146,13 +144,13 @@ function M.start_watchers()
 
         OS.notify('PIO compiledb change: Change ...', OS.debug)
         self.isBusy = true
-        _G.isBusy = true
+        -- _G.isBusy = true
         vim.schedule(function()
           OS.notify('PIO compiledb change: clangdb update ...', OS.debug)
           -- require('nvimpio.pio.upkeep').compile_commandsFix(function ()
           -- require('nvimpio.pio.upkeep').generate(function ()
           --   self.last_hash = get_hash(self.path)
-            _G.isBusy = false
+            -- _G.isBusy = false
             self.isBusy = false
             require('nvimpio.clangd.control').restart()
           -- end)
@@ -171,7 +169,7 @@ function M.start_watchers()
         local new_hash = M.get_hash(self.path) or ''
         if new_hash == self.last_hash then
           self.isBusy = false
-          _G.isBusy = false
+          -- _G.isBusy = false
           return
         end
 
@@ -183,7 +181,7 @@ function M.start_watchers()
 
         if not env then
           self.isBusy = false
-          _G.isBusy = false
+          -- _G.isBusy = false
           return
         end
 
@@ -198,9 +196,10 @@ function M.start_watchers()
               pio_refresh(function(success)
                 if success then
                   -- do end
+                  OS.notify("PIO platformio change: success")
                   -- require('nvimpio.clangd.control').restart()
                   -- clangd.getUnknownArgsCli('PIO platformio.ini  change: ')
-                else OS.notify("PIO platformio change: compiledb fail")
+                else OS.notify("PIO platformio change: fail")
                 end
                 -- _G.isBusy = false
                 self.isBusy = false
@@ -228,7 +227,7 @@ function M.start_watchers()
         if ok and type(new_hash) == 'string' and new_hash ~= '' then
           if new_hash == self.last_hash then
             self.isBusy = false
-            _G.isBusy = false
+            -- _G.isBusy = false
             return
           end
 
@@ -264,14 +263,14 @@ function M.start_watchers()
           -----------
           vim.schedule(function()
             self.isBusy = true
-            _G.isBusy = true
+            -- _G.isBusy = true
             local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
             pio_refresh(function(success)
               if success then
                 OS.notify('PIO checksum: Metadata synced', OS.debug)
                 clangdRestart()
               end
-              _G.isBusy = false
+              -- _G.isBusy = false
               self.isBusy = false
             end, 'PIO checksum: ')
           end)
