@@ -470,13 +470,12 @@ end
 ------------------------------------------------------
 -- Handle after piolib execution
 -- =============================================================================
-function M.handlePiolib(result, active_env, pkgName, on_done)
+function M.handlePiolib(result, active_env, pkgName)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
   elseif result == 'DONE' then -- result of the last command
       OS.notify(string.format('%s %s installed for %s', fromMsg, pkgName, active_env), OS.debug)
       -- OS.notify('PIO lib:  pass ' .. current_id, OS.debug)
-      if on_done and type(on_done) == 'function' then on_done() end
       -- if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
       cliTerm:hide()
       M.cleanSequencer()

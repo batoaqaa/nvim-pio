@@ -75,9 +75,10 @@ local function pick_library(json_data)
           -- cmnds = {lib_cmd, db_cmd},
           cmnds = {lib_cmd},
           cb = function(status)
-            require('nvimpio.device.parser').handlePiolib(status, active_env, pkg_name, function(success)
-              if success then do end end
-            end)
+            require('nvimpio.device.parser').handlePiolib(status, active_env, pkg_name)
+            --, function(success)
+            --   if success then do end end
+            -- end)
           end,
           -- cb = parser.handlePiolib,
           from = 'Piolib:'
