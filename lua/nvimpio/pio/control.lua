@@ -135,8 +135,7 @@ function M.start_watchers()
         -- If no real change, unlock immediately and exit
         local new_hash = M.get_hash(self.path) or ''
         if new_hash == self.last_hash then
-          self.isBusy = false
-          -- _G.isBusy = false
+          OS.notify('PIO compiledb change: db no change', OS.debug)
           return
         end
 
@@ -156,37 +155,37 @@ function M.start_watchers()
         end)
       end,
     },
-    -- { -- watcher for platformio.ini
-    --   name = 'ini',
-    --   isBusy = false,
-    --   last_hash = M.get_hash(vim.fs.joinpath(project_root, 'platformio.ini')) or '',
-    --   path = vim.fs.joinpath(project_root, 'platformio.ini'),
-    --   cb = function(self)
-    --     if self.isBusy then return end
-    --     -- If no real change, unlock immediately and exit
-    --     local new_hash = M.get_hash(self.path) or ''
-    --     if new_hash == self.last_hash then return end
-    --
-    --     self.last_hash = new_hash
-    --
-    --     local meta = require('nvimpio.pio.metadata')
-    --     local env, _ = meta.get_active_env('PIO platformio.ini change:')
-    --     if not env then return end
-    --
-    --     vim.schedule(function()
-    --       self.isBusy = true
-    --       local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-    --       pio_refresh(function(success)
-    --         if success then
-    --           -- do end
-    --           -- OS.notify("PIO platformio change: success")
-    --         else OS.notify("PIO platformio change: fail")
-    --         end
-    --         self.isBusy = false
-    --       end, 'PIO platformio.ini change: ')
-    --     end)
-    --   end,
-    -- },
+    { -- watcher for platformio.ini
+      name = 'ini',
+      isBusy = false,
+      last_hash = M.get_hash(vim.fs.joinpath(project_root, 'platformio.ini')) or '',
+      path = vim.fs.joinpath(project_root, 'platformio.ini'),
+      cb = function(self)
+        if self.isBusy then return end
+        -- If no real change, unlock immediately and exit
+        local new_hash = M.get_hash(self.path) or ''
+        if new_hash == self.last_hash then return end
+
+        self.last_hash = new_hash
+
+        local meta = require('nvimpio.pio.metadata')
+        local env, _ = meta.get_active_env('PIO platformio.ini change:')
+        if not env then return end
+
+        vim.schedule(function()
+          self.isBusy = true
+          local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+          pio_refresh(function(success)
+            if success then
+              -- do end
+              -- OS.notify("PIO platformio change: success")
+            else OS.notify("PIO platformio change: fail")
+            end
+            self.isBusy = false
+          end, 'PIO platformio.ini change: ')
+        end)
+      end,
+    },
     { -- watcher for ./.pio/build/projct.checksum
       name = 'checksum',
       isBusy = false,
