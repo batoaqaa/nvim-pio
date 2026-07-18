@@ -159,7 +159,7 @@ function M.start_watchers()
       last_hash = M.get_hash(vim.fs.joinpath(project_root, 'platformio.ini')) or '',
       path = vim.fs.joinpath(project_root, 'platformio.ini'),
       cb = function(self)
-        if self.isBusy then return end
+        if _G.isBusy or self.isBusy then return end
         -- If no real change, unlock immediately and exit
         local new_hash = M.get_hash(self.path) or ''
         if new_hash == self.last_hash then return end
