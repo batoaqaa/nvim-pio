@@ -379,9 +379,6 @@ end
 function M.handlePioDB(result, active_env, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
-  elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
-    OS.notify(string.format('%sls  for %s', fromMsg, active_env), OS.debug)
-    if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   elseif result == 'DONE' then -- .. current_id then                         -- compiledb PASS1
     vim.schedule(function()
       OS.notify(string.format('%s compiledb success for %s.', fromMsg, active_env), OS.debug)
@@ -473,16 +470,18 @@ end
 ------------------------------------------------------
 -- Handle after piolib execution
 -- =============================================================================
-function M.handlePiolib(result)
+function M.handlePiolib(result, active_env, pkgName, on_done)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
   elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
-    OS.notify('PIO lib+db:  pass ' .. current_id, OS.debug)
-    -- if #M.queue > 0 then trm:send(table.remove(M.queue, 1), false) end
+    OS.notify(string.format('%s %s installed for %s', fromMsg, pkgName, active_env), OS.debug)
+    -- OS.notify('PIO lib:  pass ' .. current_id, OS.debug)
+    if on_done and type(on_done) == 'function' then on_done() end
     if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   elseif result == 'DONE' then -- result of the last command
     vim.schedule(function()
-      OS.notify('PIO lib+db: Done', OS.debug)
+      if on_done and type(on_done) == 'function' then on_done() end
+      OS.notify(string.format('%s compiledb updated for %s', fromMsg, active_env), OS.debug)
       -- M.pio_refresh(function(success)
       --   if success then
       --     do end

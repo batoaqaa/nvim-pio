@@ -69,11 +69,16 @@ local function pick_library(json_data)
         -- local pio = require('nvimpio.pio.upkeep')
         local parser = require('nvimpio.device.parser')
         local active_env = meta.get_active_env('PIO lib+db: ')
-        local lib_cmd = string.format('pio pkg install --library "%s"',  pkg_name)
+        local lib_cmd = string.format('pio pkg install -e %s --library "%s"', active_env,  pkg_name)
         local db_cmd = string.format('pio run -t compiledb -e %s', active_env)
         parser.run_sequence({
           cmnds = {lib_cmd, db_cmd},
-          cb = parser.handlePiolib,
+          cb = function(status)
+            require('nvimpio.device.parser').handlePiolib(status, active_env, pkg_name, function(success)
+              if success then do end end
+            end)
+          end,
+          -- cb = parser.handlePiolib,
           from = 'Piolib:'
         })
       end)
