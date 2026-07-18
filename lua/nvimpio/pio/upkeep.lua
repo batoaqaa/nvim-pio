@@ -613,16 +613,16 @@ function M.apply_metadata(data, active_env)
   --   end
   -- end
 
-  -- Set up file paths
-  local build_dir = vim.fs.joinpath(uv.cwd(), '.pio', 'build')
+  -- project_checsum
+  -- local build_dir = vim.fs.joinpath(uv.cwd(), '.pio', 'build')
   -- local build_env_dir = vim.fs.joinpath(build_dir, active_env)
-  local checksum_file = vim.fs.joinpath(build_dir, 'project.checksum')
+  -- local checksum_file = vim.fs.joinpath(build_dir, 'project.checksum')
   -- Secure the validation signature token right after creation succeeds
-  local read_ok, fresh_checksum = misc.readFile(checksum_file)
-  if read_ok and fresh_checksum ~= '' and fresh_checksum ~= meta.last_projectChecksum then
-    meta.last_projectChecksum = fresh_checksum
-    OS.notify('checksum change ', OS.debug)
-  end
+  -- local read_ok, fresh_checksum = misc.readFile(checksum_file)
+  -- if read_ok and fresh_checksum ~= '' and fresh_checksum ~= meta.last_projectChecksum then
+  --   meta.last_projectChecksum = fresh_checksum
+  --   OS.notify('checksum change ', OS.debug)
+  -- end
 
   vim.schedule(function()
     local boiler = require('nvimpio.boilerplate')

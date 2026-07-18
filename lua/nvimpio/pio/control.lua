@@ -141,8 +141,11 @@ function M.start_watchers()
           OS.notify('PIO compiledb change: Same hash ...', OS.debug)
           return
         end
+
+        -- store new_hash then check if busy
         self.last_hash = new_hash
         if self.isBusy then return end
+
         OS.notify('PIO compiledb change: Change ...', OS.debug)
         self.isBusy = true
         _G.isBusy = true
@@ -161,7 +164,7 @@ function M.start_watchers()
     { -- watcher for platformio.ini
       name = 'ini',
       isBusy = false,
-      last_hash = '',
+      last_hash = M.get_hash(vim.fs.joinpath(project_root, 'platformio.ini')) or '',
       path = vim.fs.joinpath(project_root, 'platformio.ini'),
       cb = function(self)
         -- If no real change, unlock immediately and exit
@@ -172,6 +175,7 @@ function M.start_watchers()
           return
         end
 
+        -- store new_hash then check if busy
         self.last_hash = new_hash
         if self.isBusy then return end
 
@@ -227,6 +231,8 @@ function M.start_watchers()
             _G.isBusy = false
             return
           end
+
+          -- store new_hash then check if busy
           self.last_hash = new_hash
           if self.isBusy then return end
           -----------
