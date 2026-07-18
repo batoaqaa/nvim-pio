@@ -78,7 +78,6 @@ local _pio_metadata = {
   sysroot = '',
   -- fallbackFlags = {},
   originalPath = vim.env.PATH,
-  iniHash = '',
   last_projectChecksum = '', -- Used to track changes
   port_parameters = {},
 }

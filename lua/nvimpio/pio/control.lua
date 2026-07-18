@@ -78,9 +78,10 @@ local function watch_file(target, callback)
   local debounce_timer = uv.new_timer()
   handle:start(folder_path, { recursive = false }, function(err, filename, events)
     if err or (filename and filename ~= target_filename) then return end
-    -- if target.isBusy or _G.isBusy then return end
-    if target.isBusy then return end
     if events and not (events.change or events['rename']) then return end
+
+    -- if target.isBusy or _G.isBusy then return end
+    -- if target.isBusy then return end
 
     -- 'r': Read access
     --'w': Write access
@@ -132,7 +133,6 @@ function M.start_watchers()
       last_hash = '',
       path = vim.fs.joinpath(project_root, 'compile_commands.json'),
       cb = function(self)
-        OS.notify('PIO compiledb change: Change ...', OS.debug)
         -- If no real change, unlock immediately and exit
         local new_hash = M.get_hash(self.path) or ''
         if new_hash == self.last_hash then
@@ -142,6 +142,8 @@ function M.start_watchers()
           return
         end
         self.last_hash = new_hash
+        if self.isBusy then return end
+        OS.notify('PIO compiledb change: Change ...', OS.debug)
         self.isBusy = true
         _G.isBusy = true
         vim.schedule(function()
@@ -159,7 +161,7 @@ function M.start_watchers()
     { -- watcher for platformio.ini
       name = 'ini',
       isBusy = false,
-      last_hash = _G.metadata.iniHash,
+      last_hash = '',
       path = vim.fs.joinpath(project_root, 'platformio.ini'),
       cb = function(self)
         -- If no real change, unlock immediately and exit
@@ -171,6 +173,8 @@ function M.start_watchers()
         end
 
         self.last_hash = new_hash
+        if self.isBusy then return end
+
         local meta = require('nvimpio.pio.metadata')
         local env, _ = meta.get_active_env('PIO platformio.ini change:')
         -- local env = pio.get_active_env('PIO platformio.ini change:')
@@ -224,6 +228,7 @@ function M.start_watchers()
             return
           end
           self.last_hash = new_hash
+          if self.isBusy then return end
           -----------
           -- self.isBusy = true
           -- _G.isBusy = true
