@@ -143,7 +143,7 @@ M.run_sequence = function(tasks)
   end
 
   if callBack then
-    print(M.queue[1])
+    print(M.queue[1][1])
     vim.schedule(function()
       content = ''
       pio_buffer = ''
