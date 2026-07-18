@@ -135,7 +135,7 @@ function M.start_watchers()
         local new_hash = M.get_hash(self.path) or ''
         if new_hash == self.last_hash then
           OS.notify('PIO compiledb no change', OS.debug)
-          return
+          -- return
         end
 
         self.last_hash = new_hash
