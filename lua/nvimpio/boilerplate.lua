@@ -35,6 +35,7 @@ monitor_dtr = 0   ; 0 // pio dev mon --rts=0 --dtr=0 then pio dev mon --rts=1 dt
     -- local core_dir = require('nvimpio').config.pio_storage_dir
 
     misc.writeFile(full_path, self.plate, {})
+    _G.metadata.iniHash = require('nvimpio.pio.control').get_hash(self.plate) or ''
     -- misc.writeFile(full_path, string.format(self.plate, core_dir), {})
     return true
   end,

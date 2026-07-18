@@ -17,7 +17,7 @@ M.watcher_handles = {}
 -- INFO:
 -- Unified hashing for change detection
 -------------------------------------------------------------------------------
-local function get_hash(path)
+function M.get_hash(path)
   if vim.fn.filereadable(path) == 0 then
     return nil
   end
@@ -134,7 +134,7 @@ function M.start_watchers()
       cb = function(self)
         OS.notify('PIO compiledb change: Change ...', OS.debug)
         -- If no real change, unlock immediately and exit
-        local new_hash = get_hash(self.path) or ''
+        local new_hash = M.get_hash(self.path) or ''
         if new_hash == self.last_hash then
           self.isBusy = false
           _G.isBusy = false
@@ -159,11 +159,11 @@ function M.start_watchers()
     { -- watcher for platformio.ini
       name = 'ini',
       isBusy = false,
-      last_hash = '',
+      last_hash = _G.metadata.iniHash,
       path = vim.fs.joinpath(project_root, 'platformio.ini'),
       cb = function(self)
         -- If no real change, unlock immediately and exit
-        local new_hash = get_hash(self.path) or ''
+        local new_hash = M.get_hash(self.path) or ''
         if new_hash == self.last_hash then
           self.isBusy = false
           _G.isBusy = false
