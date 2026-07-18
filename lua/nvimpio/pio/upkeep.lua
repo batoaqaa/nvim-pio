@@ -1339,36 +1339,48 @@ function M.generate(callback)
 
   -- Step B: Safe structural write sequence using validated JSON libraries
   if #extended_db > 0 then
-    local out_f = io.open(db_path, 'w')
-    if out_f then
-      local encode_status, json_str = pcall(vim.json.encode, extended_db)
-      if encode_status then
-        out_f:write(json_str)
-        out_f:flush()
-        out_f:close()
-        OS.notify('[Success] PlatformIO database generated with stream-safe line formatting.', 'info')
-        if type(callback) == 'function' then
-          vim.schedule(function()
-            callback(true)
-          end)
-        end
-        -- print('[Success] Replicated compdb accurately for ' .. #extended_db .. ' entries.')
-      else
-        out_f:close()
-        OS.notify('[Error] encoding.', 'info')
-        if type(callback) == 'function' then
-          vim.schedule(function()
-            callback(false)
-          end)
-        end
-      end
-    else
-      OS.notify('[Error] System file lock permissions blocked disk write access.', 'info')
-      if type(callback) == 'function' then
-        vim.schedule(function()
-          callback(false)
-        end)
-      end
+    local jok, formatted = pcall(misc.jsonFormat, extended_db)
+    -- local jok, formatted = pcall(M.pretty_print, data)
+    if not jok then
+      OS.notify('Formatting failed: ' .. formatted, 'error')
+      return
+    end
+
+    -- local wk, err = misc.writeFile(output, formatted, { overwrite = true, mkdir = true })
+    local wk, err = misc.writeFile(db_path, formatted, { overwrite = true, mkdir = true })
+    if not wk then
+      OS.notify(err, 'error')
+    end
+    if type(callback) == 'function' then
+      vim.schedule(function()
+        callback(true)
+      end)
+    end
+
+    -- local out_f = io.open(db_path, 'w')
+    -- if out_f then
+    --   local encode_status, json_str = pcall(vim.json.encode, extended_db)
+    --   if encode_status then
+    --     out_f:write(json_str)
+    --     out_f:flush()
+    --     out_f:close()
+    --     OS.notify('[Success] PlatformIO database generated with stream-safe line formatting.', 'info')
+    --     -- print('[Success] Replicated compdb accurately for ' .. #extended_db .. ' entries.')
+    --   else
+    --     out_f:close()
+    --     OS.notify('[Error] encoding.', 'info')
+    --     if type(callback) == 'function' then
+    --       vim.schedule(function()
+    --         callback(false)
+    --       end)
+    --     end
+    --   end
+  else
+    OS.notify('[Error] conversion failed', 'info')
+    if type(callback) == 'function' then
+      vim.schedule(function()
+        callback(false)
+      end)
     end
   end
 end
