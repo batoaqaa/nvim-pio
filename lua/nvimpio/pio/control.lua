@@ -133,6 +133,7 @@ function M.start_watchers()
       last_hash = '',
       path = vim.fs.joinpath(project_root, 'compile_commands.json'),
       cb = function(self)
+        if self.isBusy then return end
         -- If no real change, unlock immediately and exit
         local new_hash = M.get_hash(self.path) or ''
         if new_hash == self.last_hash then
@@ -141,9 +142,7 @@ function M.start_watchers()
           return
         end
 
-        -- store new_hash then check if busy
         self.last_hash = new_hash
-        if self.isBusy then return end
 
         OS.notify('PIO compiledb change: Change ...', OS.debug)
         self.isBusy = true
@@ -166,6 +165,8 @@ function M.start_watchers()
       last_hash = M.get_hash(vim.fs.joinpath(project_root, 'platformio.ini')) or '',
       path = vim.fs.joinpath(project_root, 'platformio.ini'),
       cb = function(self)
+        if self.isBusy then return end
+
         -- If no real change, unlock immediately and exit
         local new_hash = M.get_hash(self.path) or ''
         if new_hash == self.last_hash then
@@ -174,9 +175,7 @@ function M.start_watchers()
           return
         end
 
-        -- store new_hash then check if busy
         self.last_hash = new_hash
-        if self.isBusy then return end
 
         local meta = require('nvimpio.pio.metadata')
         local env, _ = meta.get_active_env('PIO platformio.ini change:')
@@ -222,6 +221,8 @@ function M.start_watchers()
       last_hash = '',
       path = vim.fs.joinpath(project_root, '.pio', 'build', 'project.checksum'), --checksum_path
       cb = function(self)
+        if self.isBusy then return end
+
         local ok, new_hash = misc.readFile(self.path)
         -- Check if we should exit early
         if ok and type(new_hash) == 'string' and new_hash ~= '' then
@@ -231,9 +232,7 @@ function M.start_watchers()
             return
           end
 
-          -- store new_hash then check if busy
           self.last_hash = new_hash
-          if self.isBusy then return end
           -----------
           -- self.isBusy = true
           -- _G.isBusy = true
