@@ -150,6 +150,7 @@ function M.start_watchers()
           --   self.last_hash = get_hash(self.path)
             _G.isBusy = false
             self.isBusy = false
+            require('nvimpio.clangd.control').restart()
           -- end)
         end)
       end,
@@ -190,13 +191,12 @@ function M.start_watchers()
               pio_refresh(function(success)
                 if success then
                   -- do end
-                  require('nvimpio.clangd.control').restart()
+                  -- require('nvimpio.clangd.control').restart()
                   -- clangd.getUnknownArgsCli('PIO platformio.ini  change: ')
                 else OS.notify("PIO platformio change: compiledb fail")
                 end
                 _G.isBusy = false
                 self.isBusy = false
-                -- clangdRestart()
               end, 'PIO platformio.ini  change: ')
             else
               local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or 'Check PIO logs'
