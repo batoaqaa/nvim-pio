@@ -461,7 +461,8 @@ function M.restart()
 
           -- Boot the perfectly clean, non-colliding background process daemon
           vim.lsp.enable(name, true)
-          print('[LSP Architecture] clangd cold-boot complete via native LspDetach hooks.')
+          -- print('[LSP Architecture] clangd cold-boot complete via native LspDetach hooks.')
+          OS.notify('LSP: Clangd restart.', 'warn')
         end)
       end
     end,
