@@ -143,7 +143,6 @@ M.run_sequence = function(tasks)
   end
 
   if callBack then
-    -- print(M.queue[1][1])
     vim.schedule(function()
       content = ''
       pio_buffer = ''
@@ -474,12 +473,22 @@ end
 function M.handlePiolib(result, active_env, pkgName)
   if result == 'INIT' then
     cliTerm:send(pop(M.queue))
+  elseif result == 'PASS1' then -- .. current_id then                         -- idedata PASS1
+    OS.notify(string.format('%s %s installed for %s', fromMsg, pkgName, active_env), OS.debug)
+    -- OS.notify('PIO lib:  pass ' .. current_id, OS.debug)
+    if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   elseif result == 'DONE' then -- result of the last command
-      OS.notify(string.format('%s %s installed for %s', fromMsg, pkgName, active_env), OS.debug)
-      -- OS.notify('PIO lib:  pass ' .. current_id, OS.debug)
-      -- if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
-      cliTerm:hide()
-      M.cleanSequencer()
+    vim.schedule(function()
+      OS.notify(string.format('%s compiledb updated for %s', fromMsg, active_env), OS.debug)
+      -- M.pio_refresh(function(success)
+      --   if success then
+      --     do end
+      --     -- require('nvimpio.clangd.control').getUnknownArgsCli('PIO lib+db: ')
+      --   end
+      -- end, 'PIO lib+db: ')
+    end)
+    cliTerm:hide()
+    M.cleanSequencer()
   elseif result == 'FAIL' then
     M.cleanSequencer()
   end
