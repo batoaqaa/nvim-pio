@@ -144,12 +144,12 @@ function M.start_watchers()
           OS.notify('PIO compiledb changed', OS.debug)
           self.isBusy = true
           -- require('nvimpio.pio.upkeep').compile_commandsFix(function ()
-          -- require('nvimpio.pio.upkeep').generate(function ()
-          --   self.last_hash = get_hash(self.path)
+          require('nvimpio.pio.upkeep').generate(function ()
+            self.last_hash = M.get_hash(self.path)
             -- _G.isBusy = false
             self.isBusy = false
             require('nvimpio.clangd.control').restart()
-          -- end)
+          end)
         end)
       end,
     },

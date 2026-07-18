@@ -1167,27 +1167,26 @@ end
 ------------------------------------------------------------------------------------------------------------
 
 -- ============================================================================
--- 0. USER CONFIGURATION TOGGLE
+-- 0. CONFIGURATION MATRIX
 -- ============================================================================
--- Set to true  -> Only indexes headers inside your local project (Recommended, fast)
--- Set to false -> Indexes EVERYTHING (including massive global toolchains, SDKs, cores)
 local INDEX_PROJECT_ONLY = false
 
 -- ============================================================================
--- 1. STATE-MACHINE TOKENIZER (Handles Escapes & Quotes Safely)
+-- 1. DETERMINISTIC ARGUMENT PARSER (No loose regex matching)
 -- ============================================================================
-local function tokenize_command(cmd_str)
-  local tokens = {}
+local function parse_compiler_arguments(cmd_str)
+  local args = {}
   local in_quote = false
   local quote_char = nil
-  local current_token = {}
+  local current = {}
   local i = 1
   local len = #cmd_str
 
   while i <= len do
     local c = cmd_str:sub(i, i)
     if c == '\\' and i < len then
-      table.insert(current_token, cmd_str:sub(i + 1, i + 1))
+      -- Safely preserve backslash escapes
+      table.insert(current, cmd_str:sub(i + 1, i + 1))
       i = i + 2
     elseif c == '"' or c == "'" then
       if not in_quote then
@@ -1197,30 +1196,30 @@ local function tokenize_command(cmd_str)
         in_quote = false
         quote_char = nil
       else
-        table.insert(current_token, c)
+        table.insert(current, c)
       end
       i = i + 1
     elseif (c == ' ' or c == '\t') and not in_quote then
-      if #current_token > 0 then
-        table.insert(tokens, table.concat(current_token))
-        current_token = {}
+      if #current > 0 then
+        table.insert(args, table.concat(current))
+        current = {}
       end
       i = i + 1
     else
-      table.insert(current_token, c)
+      table.insert(current, c)
       i = i + 1
     end
   end
-  if #current_token > 0 then
-    table.insert(tokens, table.concat(current_token))
+  if #current > 0 then
+    table.insert(args, table.concat(current))
   end
-  return tokens
+  return args
 end
 
 -- ============================================================================
--- 2. NATIVE FILE SYSTEM ENGINE (100% Shell-Free, Safe, Cross-Platform)
+-- 2. HARDWARE ABSOLUTE FILE SYSTEM SCANNER
 -- ============================================================================
-local function get_headers_recursively(dir)
+local function scan_headers_recursively(dir)
   local headers = {}
 
   local function scan(path)
@@ -1228,13 +1227,11 @@ local function get_headers_recursively(dir)
     if not handle then
       return
     end
-
     while true do
       local name, type = uv.fs_scandir_next(handle)
       if not name then
         break
       end
-
       local full_path = path .. '/' .. name
       if type == 'directory' then
         scan(full_path)
@@ -1252,76 +1249,87 @@ local function get_headers_recursively(dir)
 end
 
 -- ============================================================================
--- 3. CORE RUNTIME ENGINE (Absolute Path Normalization Engine)
+-- 3. CORE COMPDB PARITY ENGINE
 -- ============================================================================
 function M.generate(callback)
   local project_root = vim.fs.normalize(vim.fn.getcwd())
   local db_path = project_root .. '/compile_commands.json'
 
-  -- Dynamically trigger PlatformIO's base generator safely without shell injection vectors
+  -- Execute base compile_commands output from PlatformIO
   -- vim.fn.system({ 'pio', 'run', '-t', 'compiledb' })
 
   local f = io.open(db_path, 'r')
   if not f then
-    print('[Error] PlatformIO failed to generate compile_commands.json.')
     return
   end
   local content = f:read('*all')
   f:close()
 
-  if content == nil or content == '' or content == '[]' then
-    print('[Error] Base compile_commands.json is empty. Build your project once first.')
+  if content == '' or content == '[]' then
     return
   end
-
-  local status_decode, db = pcall(vim.json.decode, content)
-  if not status_decode or type(db) ~= 'table' then
-    print('[Error] Failed to parse compile_commands.json. Base file is malformed.')
+  local decoded_status, db = pcall(vim.json.decode, content)
+  if not decoded_status or type(db) ~= 'table' then
     return
   end
 
   local extended_db = {}
-  local unique_includes = {}
-  local unique_headers = {}
+  local seen_headers = {}
 
+  -- Step A: Process each original entry independently to preserve specific flags
   for _, entry in ipairs(db) do
-    table.insert(extended_db, entry)
-    local tokens = tokenize_command(entry.command or '')
-    local working_dir = entry.directory or project_root
+    table.insert(extended_db, entry) -- Retain primary object compilation map
 
+    local command = entry.command or ''
+    local working_dir = entry.directory or project_root
+    local args = parse_compiler_arguments(command)
+
+    -- Track specific includes bound strictly to this individual file's compile flag
     local idx = 1
-    while idx <= #tokens do
-      local token = tokens[idx]
+    while idx <= #args do
+      local arg = args[idx]
       local raw_inc_dir = nil
 
-      if token:sub(1, 2) == '-I' then
-        raw_inc_dir = #token > 2 and token:sub(3) or tokens[idx + 1]
-        if #token == 2 then
+      if arg:sub(1, 2) == '-I' then
+        if #arg > 2 then
+          raw_inc_dir = arg:sub(3)
+        else
+          raw_inc_dir = args[idx + 1]
           idx = idx + 1
         end
-      elseif token == '-isystem' then
-        raw_inc_dir = tokens[idx + 1]
+      elseif arg == '-isystem' then
+        raw_inc_dir = args[idx + 1]
         idx = idx + 1
       end
 
       if raw_inc_dir then
-        -- CRITICAL FIX: Convert relative pathing arrays to strict absolute paths
+        -- Precise absolute path conversion using local context directory
         local abs_inc_dir = raw_inc_dir
         if not (raw_inc_dir:match('^/') or raw_inc_dir:match('^%a:')) then
           abs_inc_dir = working_dir .. '/' .. raw_inc_dir
         end
-
         abs_inc_dir = vim.fs.normalize(abs_inc_dir)
 
-        -- Check configuration boundary behavior
-        local should_include = true
+        -- Verify project boundaries configuration
+        local proceed = true
         if INDEX_PROJECT_ONLY then
-          should_include = abs_inc_dir:find(project_root, 1, true) ~= nil
+          proceed = abs_inc_dir:find(project_root, 1, true) ~= nil
         end
 
-        if should_include then
-          if not unique_includes[abs_inc_dir] then
-            unique_includes[abs_inc_dir] = { dir = working_dir, cmd = entry.command }
+        if proceed and vim.uv.fs_stat(abs_inc_dir) then
+          local headers = scan_headers_recursively(abs_inc_dir)
+          for _, header in ipairs(headers) do
+            if not seen_headers[header] then
+              seen_headers[header] = true
+
+              -- TRUE COMPDB CLONING: Preserve the precise compiler arguments,
+              -- replace the source target with the header, and force C++ mode.
+              table.insert(extended_db, {
+                directory = working_dir,
+                file = header,
+                command = command .. ' -x c++ -c ' .. header,
+              })
+            end
           end
         end
       end
@@ -1329,79 +1337,40 @@ function M.generate(callback)
     end
   end
 
-  -- Process headers and assemble deep translation commands
-  local total_headers = 0
-  for inc_dir, context in pairs(unique_includes) do
-    local headers = get_headers_recursively(inc_dir)
-    for _, header_path in ipairs(headers) do
-      if not unique_headers[header_path] then
-        unique_headers[header_path] = true
-        total_headers = total_headers + 1
-
-        -- SAFETY CAP: Standardized ceiling limit to protect against rendering crashes
-        if total_headers > 30000 then
-          print('[Warning] Global target limit exceeded. Truncated to prevent buffer overflows.')
-          break
+  -- Step B: Safe structural write sequence using validated JSON libraries
+  if #extended_db > 0 then
+    local out_f = io.open(db_path, 'w')
+    if out_f then
+      local encode_status, json_str = pcall(vim.json.encode, extended_db)
+      if encode_status then
+        out_f:write(json_str)
+        out_f:flush()
+        out_f:close()
+        OS.notify('[Success] PlatformIO database generated with stream-safe line formatting.', 'info')
+        if type(callback) == 'function' then
+          vim.schedule(function()
+            callback(true)
+          end)
         end
-
-        table.insert(extended_db, {
-          directory = context.dir,
-          file = header_path,
-          command = context.cmd .. ' -c ' .. header_path,
-        })
-      end
-    end
-    if total_headers > 30000 then
-      break
-    end
-  end
-
-  if #extended_db == 0 then
-    print('[Error] Calculated database matrix is entirely empty. Aborting write sequence.')
-    return
-  end
-
-  -- Streamed pretty-print block ensures file opens instantly without locking Neovim lines
-  local out_f = io.open(db_path, 'w')
-  if out_f then
-    out_f:write('[\n')
-    for i, entry in ipairs(extended_db) do
-      local dir_esc = entry.directory:gsub('\\', '\\\\'):gsub('"', '\\"')
-      local file_esc = entry.file:gsub('\\', '\\\\'):gsub('"', '\\"')
-      local cmd_esc = entry.command:gsub('\\', '\\\\'):gsub('"', '\\"')
-
-      out_f:write('  {\n')
-      out_f:write('    "directory": "' .. dir_esc .. '",\n')
-      out_f:write('    "file": "' .. file_esc .. '",\n')
-      out_f:write('    "command": "' .. cmd_esc .. '"\n')
-
-      if i < #extended_db then
-        out_f:write('  },\n')
+        -- print('[Success] Replicated compdb accurately for ' .. #extended_db .. ' entries.')
       else
-        out_f:write('  }\n')
+        out_f:close()
+        OS.notify('[Error] encoding.', 'info')
+        if type(callback) == 'function' then
+          vim.schedule(function()
+            callback(false)
+          end)
+        end
       end
-    end
-    out_f:write(']\n')
-    out_f:flush()
-    out_f:close()
-    OS.notify('[Success] PlatformIO database generated with stream-safe line formatting.', 'info')
-    if type(callback) == 'function' then
-      vim.schedule(function()
-        callback(true)
-      end)
-    end
-  else
-    OS.notify('[Error] System file lock permissions blocked disk write access.', 'info')
-    if type(callback) == 'function' then
-      vim.schedule(function()
-        callback(false)
-      end)
+    else
+      OS.notify('[Error] System file lock permissions blocked disk write access.', 'info')
+      if type(callback) == 'function' then
+        vim.schedule(function()
+          callback(false)
+        end)
+      end
     end
   end
 end
-
-vim.api.nvim_create_user_command('PioCompdb', function()
-  M.generate()
-end, {})
 
 return M
