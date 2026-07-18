@@ -1399,26 +1399,8 @@ function M.generate(callback)
   end
 end
 
--- ============================================================================
--- 4. AUTOMATED LIFE-CYCLE HOOKS
--- ============================================================================
-local pio_group = vim.api.nvim_create_augroup('PlatformIO_Compdb_Engine', { clear = true })
-
-vim.api.nvim_create_autocmd('BufWritePost', {
-  pattern = 'platformio.ini',
-  group = pio_group,
-  desc = 'Automatically recalculate compilation database matrices cleanly',
-  callback = function()
-    vim.schedule(function()
-      local success, err = pcall(M.generate)
-      if not success then
-        vim.notify('[PlatformIO Engine Error]: ' .. tostring(err), vim.log.levels.ERROR)
-      end
-    end)
-  end,
-})
-
 vim.api.nvim_create_user_command('PioCompdb', function()
   M.generate()
 end, {})
+
 return M
