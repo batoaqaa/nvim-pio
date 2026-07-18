@@ -3,7 +3,6 @@ local M = {}
 --stylua: ignore start
 local clangd = require('nvimpio.clangd.control')
 local misc = require('nvimpio.utils.misc')
-local clangdRestart = clangd.restart
 
 --INFO:
 --=============================================================================
@@ -135,16 +134,15 @@ function M.start_watchers()
         -- If no real change, unlock immediately and exit
         local new_hash = M.get_hash(self.path) or ''
         if new_hash == self.last_hash then
-          OS.notify('PIO compiledb change: db no change', OS.debug)
+          OS.notify('PIO compiledb no change', OS.debug)
           return
         end
 
         self.last_hash = new_hash
 
         vim.schedule(function()
-          OS.notify('PIO compiledb change: Change ...', OS.debug)
+          OS.notify('PIO compiledb changed', OS.debug)
           self.isBusy = true
-          OS.notify('PIO compiledb change: clangdb update ...', OS.debug)
           -- require('nvimpio.pio.upkeep').compile_commandsFix(function ()
           -- require('nvimpio.pio.upkeep').generate(function ()
           --   self.last_hash = get_hash(self.path)

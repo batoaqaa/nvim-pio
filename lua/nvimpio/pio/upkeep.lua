@@ -11,7 +11,8 @@ local misc = require('nvimpio.utils.misc')
 --file name without its extension, you can use :t:r (Tail + Root).
 --final file name with its extension :t (Tail)
 --Get Directory Head/Parent :h (Head)
-function M.get_sysroot_triplet(cc_compiler)
+function M.get_sysroot_triplet(cc_compiler, from)
+  from = from or ''
   local bin_path = vim.fs.dirname(cc_compiler)
   -- local bin_path = vim.fs.normalize(vim.fn.fnamemodify(cc_compiler, ':h'))
   --local target_filename = vim.fs.basename(cc_compiler) -- get file name with extension
@@ -86,7 +87,6 @@ function M.get_sysroot_triplet(cc_compiler)
 
   -- Add toolchain binary to PATH
   vim.schedule(function()
-    local from = 'get_sysroot: '
     require('nvimpio.pio.metadata').removeFromPath(oldPath)
     OS.notify(string.format('%s %s removed from path', from, oldPath), OS.debug)
 
@@ -458,7 +458,8 @@ end
 --     return nil
 -- end
 
-function M.apply_metadata(data, active_env)
+function M.apply_metadata(data, active_env, from)
+  from = from or ''
   local meta = _G.metadata
   if not data then
     return false
@@ -869,7 +870,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
             -- _G.metadata.framework_root = content:match(pattern)
             -- _G.metadata.framework_root = content:match(pattern)
             local cok, decoded = pcall(vim.json.decode, content)
-            if cok and M.apply_metadata(decoded[active_env], active_env) then
+            if cok and M.apply_metadata(decoded[active_env], active_env, from) then
               -- if cok and M.apply_metadata(decoded, active_env) then
               local ok, pretty_json = pcall(misc.jsonFormat, decoded)
               if ok then
@@ -904,7 +905,7 @@ fetch_metadata = function(callback, active_env, from, attempts)
   elseif idok and content and content ~= '' then
     _G.metadata.framework_root = M.extract_framework_path(content, active_env)
     local cok, decoded = pcall(vim.json.decode, content)
-    if cok and M.apply_metadata(decoded[active_env], active_env) then
+    if cok and M.apply_metadata(decoded[active_env], active_env, from) then
       -- if cok and M.apply_metadata(decoded, active_env) then
       if from == 'Meta active_env change: ' then
         -- cli

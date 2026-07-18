@@ -275,7 +275,7 @@ function M.updateProjectConfig()
     _G.isBusy = true
     local cok, decoded = pcall(vim.json.decode, content)
     -- if cok and require('nvimpio.pio.upkeep').apply_metadata(decoded, active_env) then
-    if cok and require('nvimpio.pio.upkeep').apply_metadata(decoded[active_env], active_env) then
+    if cok and require('nvimpio.pio.upkeep').apply_metadata(decoded[active_env], active_env, 'meta update: ') then
       _G.isBusy = false
     end
   else
@@ -285,7 +285,7 @@ function M.updateProjectConfig()
       pio_refresh(function(suscess)
         if (suscess) then do end end
         _G.isBusy = false
-      end, 'meta update : ')
+      end, 'meta update: ')
       vim.cmd('redrawstatus')
     end)
   end
