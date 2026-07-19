@@ -419,58 +419,65 @@ function M.restart()
     return
   end
 
-  -- 2. Capture session state parameters before shutting anything down
+  -- 2. Capture session parameters cleanly
   local old_id = old_client.id
   local active_buffers = vim.lsp.get_buffers_by_client_id(old_id)
 
-  print('[LSP Engine] Requesting architectural shutdown for client ID: ' .. old_id)
+  print('[LSP Engine] Initiating clean architectural shutdown for client ID: ' .. old_id)
 
-  -- 3. Gracefully stop the client. Passing 'true' tells Neovim to force-kill
-  -- the backend process if it fails to respond to the RPC shutdown signal.
-  vim.lsp.stop_client(old_id, true)
+  -- 3. THE DEFINITIVE EVENT-DRIVEN REGISTRATION (No hacks, No extra parameters)
+  -- Create a temporary autocommand group to wait for the specific client to finish detaching
+  local reload_group = vim.api.nvim_create_augroup('Clangd_Cold_Reset_Engine', { clear = true })
 
-  -- 4. THE CORE ARCHITECTURAL PROTECTION MECHANISM
-  -- We use vim.wait to block execution until Neovim confirms the old client ID
-  -- is completely erased from its global memory registry. This prevents state collisions.
-  local wait_success, _ = vim.wait(3000, function()
-    return vim.lsp.get_client_by_id(old_id) == nil
-  end, 10) -- Check every 10 milliseconds, up to a maximum of 3 seconds
+  vim.api.nvim_create_autocmd('LspDetach', {
+    group = reload_group,
+    desc = 'Block execution until Neovim confirms absolute client unregistration',
+    callback = function(args)
+      -- Verify that the detaching client is exactly our target instance
+      if args.data.client_id == old_id then
+        -- Immediately delete this autocommand group to clean up memory footprints
+        vim.api.nvim_del_augroup_by_id(reload_group)
 
-  if not wait_success then
-    vim.notify('[LSP Engine Error] Timeout waiting for old client to unregister. Aborting boot.', vim.log.levels.ERROR)
-    return
-  end
+        -- Safe to yield execution to a schedule pass now that registries are empty
+        vim.schedule(function()
+          -- Declaratively clear stale attachment metadata spaces cleanly
+          vim.lsp.enable(name, false)
 
-  -- 5. Completely cycle the declarative configuration properties
-  vim.lsp.enable(name, false)
-  vim.lsp.config(name, M.getClangdConfig())
+          -- Apply fresh configuration profiles safely
+          vim.lsp.config(name, M.getClangdConfig())
 
-  -- 6. Boot the fresh background server instance safely
-  local success = pcall(vim.lsp.enable, name, true)
+          -- Boot the perfectly clean, non-colliding background process daemon
+          local success = pcall(vim.lsp.enable, name, true)
 
-  if success then
-    -- 7. Because vim.lsp.enable handles buffer attachments for *new* buffers,
-    -- we manually re-attach our collected open project file buffers immediately
-    vim.schedule(function()
-      -- Fetch the newly spawned client instance to link things up
-      local new_client = nil
-      for _, client in ipairs(vim.lsp.get_clients({ name = name })) do
-        new_client = client
-        break
-      end
+          if success then
+            -- Re-attach all collected open project file buffers immediately
+            vim.schedule(function()
+              local new_client = nil
+              for _, n_client in ipairs(vim.lsp.get_clients({ name = name })) do
+                new_client = n_client
+                break
+              end
 
-      if new_client then
-        for _, buf in ipairs(active_buffers) do
-          if vim.api.nvim_buf_is_valid(buf) then
-            vim.lsp.buf_attach_client(buf, new_client.id)
+              if new_client then
+                for _, buf in ipairs(active_buffers) do
+                  if vim.api.nvim_buf_is_valid(buf) then
+                    vim.lsp.buf_attach_client(buf, new_client.id)
+                  end
+                end
+                print('[LSP Engine] clangd successfully cold-booted from scratch (New ID: ' .. new_client.id .. ').')
+              end
+            end)
+          else
+            vim.notify('[LSP Engine Error] Failed to re-enable clangd engine configuration.', vim.log.levels.ERROR)
           end
-        end
-        print('[LSP Engine] clangd cold-boot complete from scratch. New Client ID: ' .. new_client.id)
+        end)
       end
-    end)
-  else
-    vim.notify('[LSP Engine Error] Failed to restart clangd engine channel.', vim.log.levels.ERROR)
-  end
+    end,
+  })
+
+  -- 4. Execute the modern object-oriented shutdown method cleanly
+  -- Passing 'false' sends a polite SIGTERM so clangd can exit with code 0.
+  old_client:stop(false)
 end
 
 
