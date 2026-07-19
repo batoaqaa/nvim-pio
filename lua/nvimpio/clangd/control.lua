@@ -69,22 +69,22 @@ end
 
 -- INFO: clangdRestart()
 --------------------------------------------------------------------------------
-function M.restart()
-  vim.schedule(function()
-    local name = 'clangd'
-    OS.notify('LSP: Clangd restart.', 'warn')
-    --
-    vim.lsp.enable(name, false)
-
-    local clangConfig = M.getClangdConfig()
-    vim.lsp.config(name, clangConfig)
-
-    -- if not vim.lsp.is_enabled('clangd') then vim.lsp.enable('clangd', true) end
-    vim.lsp.enable(name, true)
-
-    _G.isBusy = false
-  end)
-end
+-- function M.restart()
+--   vim.schedule(function()
+--     local name = 'clangd'
+--     OS.notify('LSP: Clangd restart.', 'warn')
+--     --
+--     vim.lsp.enable(name, false)
+--
+--     local clangConfig = M.getClangdConfig()
+--     vim.lsp.config(name, clangConfig)
+--
+--     -- if not vim.lsp.is_enabled('clangd') then vim.lsp.enable('clangd', true) end
+--     vim.lsp.enable(name, true)
+--
+--     _G.isBusy = false
+--   end)
+-- end
 
 -- INFO: set_clang_format_style()
 --------------------------------------------------------------------------------
@@ -401,145 +401,77 @@ end
 
 
 
--- function M.reload_clangd_from_scratch()
--- function M.restart()
---   local name = 'clangd'
---   local uv = vim.uv or vim.loop
---
---   -- 1. Locate the active runtime client via native 0.11+ queries
---   local old_client = nil
---   for _, client in ipairs(vim.lsp.get_clients({ name = name })) do
---     old_client = client
---     break
---   end
---
---   -- IF NO EXISTING RUNTIME CLIENT: Update configuration structures and boot instantly
---   if not old_client then
---     vim.lsp.config(name, M.getClangdConfig())
---     vim.lsp.enable(name, true)
---     print('[LSP Architecture] Fresh pristine clangd instance initialized.')
---     return
---   end
---
---   -- ============================================================================
---   -- Directly fetch root PID and safely silence the type analyzer
---   -- ============================================================================
---   ---@diagnostic disable-next-line: undefined-field
---   local old_pid = old_client.pid
---   local old_id = old_client.id
---
---   if not old_pid then
---     vim.notify('[LSP Architecture] Fatal: Operating system process ID handle missing.', vim.log.levels.ERROR)
---     return
---   end
---
---   print('[LSP Architecture] Evicting active instance handles for PID: ' .. old_pid)
---
---   -- 2. PHASE A: Native Kernel Signal Injection (Zero Shell Process Overhead)
---   local signal_target = (vim.fn.has('win32') == 1) and 9 or 'sigkill'
---   local kill_success, _ = pcall(uv.process_kill, { pid = old_pid, signal = signal_target })
---   if not kill_success then
---     pcall(uv.process_kill, { pid = old_pid, signal = 9 })
---   end
---
---   -- 3. PHASE B: EVENT-DRIVEN LIFECYCLE REGISTRATION (No timers, No race conditions)
---   local reload_group = vim.api.nvim_create_augroup('Clangd_Cold_Reset_Engine', { clear = true })
---
---   vim.api.nvim_create_autocmd('LspDetach', {
---     group = reload_group,
---     desc = 'Block execution until Neovim confirms absolute client unregistration',
---     callback = function(args)
---       if args.data.client_id == old_id then
---         vim.api.nvim_del_augroup_by_id(reload_group)
---
---         vim.schedule(function()
---           -- Declaratively clear stale attachment metadata spaces
---           vim.lsp.enable(name, false)
---
---           -- Apply fresh configuration profiles cleanly
---           vim.lsp.config(name, M.getClangdConfig())
---
---           -- Boot the perfectly clean, non-colliding background process daemon
---           vim.lsp.enable(name, true)
---           -- print('[LSP Architecture] clangd cold-boot complete via native LspDetach hooks.')
---           OS.notify('LSP: Clangd restart.', 'warn')
---         end)
---       end
---     end,
---   })
---
---   -- 4. PHASE C: Structural Client Broker Disconnection
---   vim.lsp.stop_client(old_id, true)
--- end
+function M.restart()
+  local name = 'clangd'
 
----------------------------------------------------------------------------
---   local name = 'clangd'
---   local uv = vim.uv or vim.loop
---
---   -- 1. Locate the active runtime client via native 0.11+ queries
---   local old_client = nil
---   for _, client in ipairs(vim.lsp.get_clients({ name = name })) do
---     old_client = client
---     break
---   end
---
---   -- IF NO EXISTING RUNTIME CLIENT: Update configuration structures and boot instantly
---   if not old_client then
---     vim.lsp.config(name, M.getClangdConfig())
---     vim.lsp.enable(name, true)
---     print('[LSP Architecture] Fresh pristine clangd instance initialized.')
---     return
---   end
---
---   -- ============================================================================
---   -- SILENCE: Use array key indexing to bypass strict type checker rules
---   -- ============================================================================
---   local old_rpc = old_client.rpc
---   if not old_rpc or not old_rpc['pid'] then
---     vim.notify('[LSP Architecture] Cannot locate a valid PID handler for eviction.', vim.log.levels.ERROR)
---     return
---   end
---
---   local old_pid = old_rpc['pid']
---   local old_id = old_client.id
---
---   print('[LSP Architecture] Evicting active instance handles for PID: ' .. old_pid)
---
---   -- 2. PHASE A: Native Kernel Signal Injection (Zero Shell Process Overhead)
---   local signal_target = (vim.fn.has('win32') == 1) and 9 or 'sigkill'
---   local kill_success, _ = pcall(uv.process_kill, { pid = old_pid, signal = signal_target })
---   if not kill_success then
---     pcall(uv.process_kill, { pid = old_pid, signal = 9 })
---   end
---
---   -- 3. PHASE B: EVENT-DRIVEN LIFECYCLE REGISTRATION (No timers, No race conditions)
---   local reload_group = vim.api.nvim_create_augroup('Clangd_Cold_Reset_Engine', { clear = true })
---
---   vim.api.nvim_create_autocmd('LspDetach', {
---     group = reload_group,
---     desc = 'Block execution until Neovim confirms absolute client unregistration',
---     callback = function(args)
---       if args.data.client_id == old_id then
---         vim.api.nvim_del_augroup_by_id(reload_group)
---
---         vim.schedule(function()
---           -- Declaratively clear stale attachment metadata spaces
---           vim.lsp.enable(name, false)
---
---           -- Apply fresh configuration profiles cleanly
---           vim.lsp.config(name, M.getClangdConfig())
---
---           -- Boot the perfectly clean, non-colliding background process daemon
---           vim.lsp.enable(name, true)
---           print('[LSP Architecture] clangd cold-boot complete via native LspDetach hooks.')
---         end)
---       end
---     end,
---   })
---
---   -- 4. PHASE C: Structural Client Broker Disconnection
---   vim.lsp.stop_client(old_id, true)
--- end
+  -- 1. Scan for the active runtime client using the modern 0.11+ API
+  local old_client = nil
+  for _, client in ipairs(vim.lsp.get_clients({ name = name })) do
+    old_client = client
+    break
+  end
+
+  -- If no server is currently active, apply the configuration and boot instantly
+  if not old_client then
+    vim.lsp.config(name, M.getClangdConfig())
+    vim.lsp.enable(name, true)
+    print('[LSP Engine] Pristine clangd instance initialized.')
+    return
+  end
+
+  -- 2. Capture session state parameters before shutting anything down
+  local old_id = old_client.id
+  local active_buffers = vim.lsp.get_buffers_by_client_id(old_id)
+
+  print('[LSP Engine] Requesting architectural shutdown for client ID: ' .. old_id)
+
+  -- 3. Gracefully stop the client. Passing 'true' tells Neovim to force-kill
+  -- the backend process if it fails to respond to the RPC shutdown signal.
+  vim.lsp.stop_client(old_id, true)
+
+  -- 4. THE CORE ARCHITECTURAL PROTECTION MECHANISM
+  -- We use vim.wait to block execution until Neovim confirms the old client ID
+  -- is completely erased from its global memory registry. This prevents state collisions.
+  local wait_success, _ = vim.wait(3000, function()
+    return vim.lsp.get_client_by_id(old_id) == nil
+  end, 10) -- Check every 10 milliseconds, up to a maximum of 3 seconds
+
+  if not wait_success then
+    vim.notify('[LSP Engine Error] Timeout waiting for old client to unregister. Aborting boot.', vim.log.levels.ERROR)
+    return
+  end
+
+  -- 5. Completely cycle the declarative configuration properties
+  vim.lsp.enable(name, false)
+  vim.lsp.config(name, M.getClangdConfig())
+
+  -- 6. Boot the fresh background server instance safely
+  local success = pcall(vim.lsp.enable, name, true)
+
+  if success then
+    -- 7. Because vim.lsp.enable handles buffer attachments for *new* buffers,
+    -- we manually re-attach our collected open project file buffers immediately
+    vim.schedule(function()
+      -- Fetch the newly spawned client instance to link things up
+      local new_client = nil
+      for _, client in ipairs(vim.lsp.get_clients({ name = name })) do
+        new_client = client
+        break
+      end
+
+      if new_client then
+        for _, buf in ipairs(active_buffers) do
+          if vim.api.nvim_buf_is_valid(buf) then
+            vim.lsp.buf_attach_client(buf, new_client.id)
+          end
+        end
+        print('[LSP Engine] clangd cold-boot complete from scratch. New Client ID: ' .. new_client.id)
+      end
+    end)
+  else
+    vim.notify('[LSP Engine Error] Failed to restart clangd engine channel.', vim.log.levels.ERROR)
+  end
+end
 
 
 --stylua: ignore
