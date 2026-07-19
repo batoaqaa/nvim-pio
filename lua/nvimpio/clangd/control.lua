@@ -67,25 +67,6 @@ function M.clangdIntall(callback, package_name)
   poll()
 end
 
--- INFO: clangdRestart()
---------------------------------------------------------------------------------
--- function M.restart()
---   vim.schedule(function()
---     local name = 'clangd'
---     OS.notify('LSP: Clangd restart.', 'warn')
---     --
---     vim.lsp.enable(name, false)
---
---     local clangConfig = M.getClangdConfig()
---     vim.lsp.config(name, clangConfig)
---
---     -- if not vim.lsp.is_enabled('clangd') then vim.lsp.enable('clangd', true) end
---     vim.lsp.enable(name, true)
---
---     _G.isBusy = false
---   end)
--- end
-
 -- INFO: set_clang_format_style()
 --------------------------------------------------------------------------------
 function M.setFormatStyle()
@@ -331,6 +312,42 @@ function M.getClangdConfig()
     return client.config.root_dir == current_config.root_dir
   end
 
+  clangd_config.root_dir = function(bufnr, on_dir)
+      -- Fetch the absolute physical path of the active buffer file
+      local buf_name = vim.api.nvim_buf_get_name(bufnr)
+
+      -- ARCHITECTURAL SAFEGUARD: If editing global packages directly, enforce project sandbox constraints
+      if buf_name:find(".platformio", 1, true) then
+          -- Force the server to map flags against the active working directory context
+          on_dir(vim.fn.getcwd())
+          return
+      end
+
+      -- 1. Look for precise local engineering files first
+      local project_root = vim.fs.root(bufnr, {
+            "compile_commands.json",
+            "platformio.ini",
+            ".clangd",
+            ".clang-tidy",
+            ".clang-format",
+            ".git",
+            "compile_flags.txt",
+            "configure.ac",
+      })
+
+      -- 2. Fallback to generic version control tracking layers if missing
+      if not project_root then
+          project_root = vim.fs.root(bufnr, { ".git" })
+      end
+
+      -- 3. Final Fallback: Prevent null pointers by falling back to active directory
+      local final_dir = project_root or vim.fn.getcwd()
+
+      if final_dir then
+          on_dir(final_dir)
+      end
+  end
+
   -- clangd_config.cmd_env = {
   --   "CLANGD_TRACE": "",
   --   CPATH = "",
@@ -400,6 +417,25 @@ function M.getClangdConfig()
 end
 
 
+
+-- INFO: clangdRestart()
+--------------------------------------------------------------------------------
+-- function M.restart()
+--   vim.schedule(function()
+--     local name = 'clangd'
+--     OS.notify('LSP: Clangd restart.', 'warn')
+--     --
+--     vim.lsp.enable(name, false)
+--
+--     local clangConfig = M.getClangdConfig()
+--     vim.lsp.config(name, clangConfig)
+--
+--     -- if not vim.lsp.is_enabled('clangd') then vim.lsp.enable('clangd', true) end
+--     vim.lsp.enable(name, true)
+--
+--     _G.isBusy = false
+--   end)
+-- end
 
 function M.restart()
   local name = 'clangd'
@@ -503,9 +539,10 @@ function M.init(clangd)
   end
 
   -- -- Apply and Enable
-  local clangConfig = M.getClangdConfig()
-  vim.lsp.config('clangd', clangConfig)
-  vim.lsp.enable('clangd')
+  -- local clangConfig = M.getClangdConfig()
+  -- vim.lsp.config('clangd', clangConfig)
+  -- vim.lsp.enable('clangd')
+  M.restart()
 
 
   vim.keymap.set('n', 'gll', function()
