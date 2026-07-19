@@ -1,4 +1,21 @@
 -- function M.restart()
+--   vim.schedule(function()
+--     local name = 'clangd'
+--     OS.notify('LSP: Clangd restart.', 'warn')
+--     --
+--     vim.lsp.enable(name, false)
+--
+--     local clangConfig = M.getClangdConfig()
+--     vim.lsp.config(name, clangConfig)
+--
+--     -- if not vim.lsp.is_enabled('clangd') then vim.lsp.enable('clangd', true) end
+--     vim.lsp.enable(name, true)
+--
+--     _G.isBusy = false
+--   end)
+-- end
+
+-- function M.restart()
 --   local name = 'clangd'
 --
 --   -- 1. Scan for the active runtime client using the modern 0.11+ API
