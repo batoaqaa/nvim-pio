@@ -262,26 +262,29 @@ end
 -- 0. NATIVE PATH EXPANDER (Fully Resolves Tildes, Drive Casing, and Slashes)
 -- ============================================================================
 local function normalize_absolute_path(path)
-  if not path or path == "" then return "" end
-  local expanded = vim.fn.fnamemodify(path, ":p")
+  if not path or path == '' then
+    return ''
+  end
+  local expanded = vim.fn.fnamemodify(path, ':p')
   return vim.fs.normalize(expanded):lower()
 end
 
 local function get_validated_project_root(bufnr)
   local buf_name = vim.api.nvim_buf_get_name(bufnr)
-  if not buf_name or buf_name == "" then
+  if not buf_name or buf_name == '' then
     return normalize_absolute_path(vim.fn.getcwd())
   end
 
   -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
-  if buf_name:find(".platformio", 1, true) then
+  if buf_name:find('.platformio', 1, true) then
     return normalize_absolute_path(vim.fn.getcwd())
   end
 
   -- Native C-speed upward path tracer looking for framework landmarks
-  local project_root = vim.fs.root(bufnr, { "platformio.ini", "CMakeLists.txt", ".git" })
+  local project_root = vim.fs.root(bufnr, { 'platformio.ini', 'CMakeLists.txt', '.git' })
   return normalize_absolute_path(project_root or vim.fn.getcwd())
 end
+
 -----------------------------------------------------------------------------------------
 function M.getClangdConfig()
   local server_name = 'clangd'
@@ -318,22 +321,25 @@ function M.getClangdConfig()
   ---------------------------------------------------------------------------------------
 
   -- 2. Modern Asynchronous Root Detector Callback
-  -- clangd_config.root_dir = function(bufnr, on_dir)
-  --   -- Stop evaluation completely if the buffer has no physical disk name
-  --   local buf_name = vim.api.nvim_buf_get_name(bufnr)
-  --   if not buf_name or buf_name == "" then return end
-  --   on_dir(get_validated_project_root(bufnr))
-  -- end
+  clangd_config.root_dir = function(bufnr, on_dir)
+    on_dir(get_validated_project_root(bufnr))
+  end
 
   -- 4. Native Strict String Path Client-Reuse Filter Matrix
-  -- clangd_config.reuse_client = function(client, config)
-  --   if client.name ~= server_name then return false end
-  --   local proposed_root = config.root_dir
-  --   local running_client_root = client.config.root_dir or client.root_dir
-  --   if not proposed_root or not running_client_root then return false end
-  --   -- Deep, absolute path expansion guarantees matching evaluations [1]
-  --   return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
-  -- end
+  clangd_config.reuse_client = function(client, config)
+    if client.name ~= server_name then
+      return false
+    end
+
+    local proposed_root = config.root_dir
+    local running_client_root = client.config.root_dir or client.root_dir
+
+    if not proposed_root or not running_client_root then
+      return false
+    end
+
+    return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
+  end
 
   -- =================================================================
   -- Define custom client reuse logic
@@ -467,57 +473,36 @@ end
 -- 2. NATIVE 0.11+ RESTART CONTROLLER (Zero Hacks, Microsecond Event-Driven)
 -- ============================================================================
 function M.restart()
-  local name = "clangd"
+  local name = 'clangd'
   local current_buf = vim.api.nvim_get_current_buf()
-  local buf_name = vim.api.nvim_buf_get_name(current_buf)
 
-  -- Abort instantly if called inside a nameless scratch buffer or worker context
-  if not buf_name or buf_name == "" then
-    if not vim.lsp.is_enabled(name) then
-      vim.lsp.enable(name, true)
-    end
-    return
-  end
-
-  -- Scan active clients specifically bound to this focused window
   local old_client = nil
   for _, client in ipairs(vim.lsp.get_clients({ name = name, bufnr = current_buf })) do
     old_client = client
     break
   end
 
-  -- FIXED FALLBACK: If config is enabled but no server is active for this file,
-  -- use core-approved client attachment pathways instead of calling macro reloads.
+  -- Fallback if no server is running yet: safely toggle the declarative state
   if not old_client then
     if not vim.lsp.is_enabled(name) then
       vim.lsp.enable(name, true)
     end
-
-    -- Force Neovim to recalculate the workspace and attach the buffer natively
-    vim.schedule(function()
-      local target_root = get_validated_project_root(current_buf)
-      for _, client in ipairs(vim.lsp.get_clients({ name = name })) do
-        if normalize_absolute_path(client.config.root_dir) == target_root then
-          vim.lsp.buf_attach_client(current_buf, client.id)
-          return
-        end
-      end
-    end)
     return
   end
 
   local old_id = old_client.id
-  local reload_group = vim.api.nvim_create_augroup("Clangd_Cold_Reset_Engine", { clear = true })
+  local reload_group = vim.api.nvim_create_augroup('Clangd_Cold_Reset_Engine', { clear = true })
 
-  vim.api.nvim_create_autocmd("LspDetach", {
+  vim.api.nvim_create_autocmd('LspDetach', {
     group = reload_group,
-    desc = "Re-spawn isolated clients the microsecond the old channel is deleted from memory",
     callback = function(args)
       if args.data.client_id == old_id then
         vim.api.nvim_del_augroup_by_id(reload_group)
 
         vim.schedule(function()
-          -- Cycling the global declarative state flushes registries cleanly
+          print('[LSP Engine] State flushed. Re-enabling pure declarative workspace structures...')
+          -- Cycling the declarative state forces Neovim's native supervisor to re-evaluate
+          -- every active file buffer, check the root string mutations, and spawn separate clients.
           vim.lsp.enable(name, false)
           vim.lsp.enable(name, true)
         end)
