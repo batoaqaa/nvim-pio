@@ -326,14 +326,14 @@ function M.getClangdConfig()
   end
 
   -- 4. Native Strict String Path Client-Reuse Filter Matrix
-  clangd_config.reuse_client = function(client, config)
-    if client.name ~= server_name then return false end
-    local proposed_root = config.root_dir
-    local running_client_root = client.config.root_dir or client.root_dir
-    if not proposed_root or not running_client_root then return false end
-    -- Deep, absolute path expansion guarantees matching evaluations [1]
-    return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
-  end
+  -- clangd_config.reuse_client = function(client, config)
+  --   if client.name ~= server_name then return false end
+  --   local proposed_root = config.root_dir
+  --   local running_client_root = client.config.root_dir or client.root_dir
+  --   if not proposed_root or not running_client_root then return false end
+  --   -- Deep, absolute path expansion guarantees matching evaluations [1]
+  --   return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
+  -- end
 
   -- =================================================================
   -- Define custom client reuse logic
