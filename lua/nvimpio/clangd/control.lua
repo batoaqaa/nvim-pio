@@ -280,7 +280,7 @@ local function get_validated_project_root(bufnr)
   local project_root = vim.fs.root(bufnr, {
     ".nvimpio", "compile_commands.json", "platformio.ini", "compile_flags.txt",
   })
-  local absPath = normalize_absolute_path(project_root or OS.project_dir)
+  local absPath = normalize_absolute_path(project_root)
   print(absPath)
   return normalize_absolute_path(project_root or OS.project_dir)
 end
