@@ -45,6 +45,12 @@ monitor_dtr = 0   ; 0 // pio dev mon --rts=0 --dtr=0 then pio dev mon --rts=1 dt
   -- },
 -- "--background-index-priority=low",
     -- "--limit-results=100",
+  -- "root_markers": [
+  --   "platformio.ini",
+  --   "compile_commands.json",
+  --   "compile_flags.txt",
+  --   ".git"
+  -- ],
 -- INFO: .clangd_config
 ----------------------------------------------------------------------------------------
 boilerplate['.clangdConfig.json'] = {
@@ -78,12 +84,6 @@ boilerplate['.clangdConfig.json'] = {
     "objc",
     "objcpp",
     "cuda"
-  ],
-  "root_markers": [
-    "platformio.ini",
-    "compile_commands.json",
-    "compile_flags.txt",
-    ".git"
   ],
   "init_options": {
     "clangdFileStatus": true,
