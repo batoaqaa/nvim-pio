@@ -411,7 +411,7 @@ function M.restart()
     break
   end
 
-  -- If no server is currently active, apply the configuration and boot instantly
+  -- If no server is currently active, apply the declarative config and boot instantly
   if not old_client then
     vim.lsp.config(name, M.getClangdConfig())
     vim.lsp.enable(name, true)
@@ -419,14 +419,20 @@ function M.restart()
     return
   end
 
-  -- 2. Capture session parameters cleanly
+  -- 2. Capture parameters cleanly using valid non-deprecated object paths
   local old_id = old_client.id
-  local active_buffers = vim.lsp.get_buffers_by_client_id(old_id)
+
+  -- Collect buffer indexes via the modern attached_buffers table keys
+  local active_buffers = {}
+  if old_client.attached_buffers then
+    for bufnr, _ in pairs(old_client.attached_buffers) do
+      table.insert(active_buffers, bufnr)
+    end
+  end
 
   print('[LSP Engine] Initiating clean architectural shutdown for client ID: ' .. old_id)
 
-  -- 3. THE DEFINITIVE EVENT-DRIVEN REGISTRATION (No hacks, No extra parameters)
-  -- Create a temporary autocommand group to wait for the specific client to finish detaching
+  -- 3. THE EVENT-DRIVEN EVENT LOOP LIFECYCLE (No hacks, No parameters)
   local reload_group = vim.api.nvim_create_augroup('Clangd_Cold_Reset_Engine', { clear = true })
 
   vim.api.nvim_create_autocmd('LspDetach', {
@@ -443,7 +449,7 @@ function M.restart()
           -- Declaratively clear stale attachment metadata spaces cleanly
           vim.lsp.enable(name, false)
 
-          -- Apply fresh configuration profiles safely
+          -- Apply fresh configuration profiles safely onto clean metadata space
           vim.lsp.config(name, M.getClangdConfig())
 
           -- Boot the perfectly clean, non-colliding background process daemon
@@ -459,9 +465,10 @@ function M.restart()
               end
 
               if new_client then
-                for _, buf in ipairs(active_buffers) do
-                  if vim.api.nvim_buf_is_valid(buf) then
-                    vim.lsp.buf_attach_client(buf, new_client.id)
+                for _, bufnr in ipairs(active_buffers) do
+                  if vim.api.nvim_buf_is_valid(bufnr) then
+                    -- CORRECT ATTACH API: Valid for all 0.11 and 0.12+ environments
+                    vim.lsp.buf_attach_client(bufnr, new_client.id)
                   end
                 end
                 print('[LSP Engine] clangd successfully cold-booted from scratch (New ID: ' .. new_client.id .. ').')
