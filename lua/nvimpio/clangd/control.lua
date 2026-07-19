@@ -291,103 +291,28 @@ function M.getClangdConfig()
   if not tok then return nil end
 
   ---------------------------------------------------------------------------------------
--- ============================================================================
--- 0. INTERNAL HELPERS (Safe, Synchronous Path Parsers)
--- ============================================================================
 
--- Safely resolve if a target file path lives inside the global PlatformIO cache folders
-local function is_platformio_system_file(path)
-    if not path or path == "" then return false end
-    local normalized_name = vim.fs.normalize(path):lower()
-
-    -- Check against the strict global package cache path marker
-    if normalized_name:find(".platformio", 1, true) then
-        return true
-    end
-
-    -- Check against your plugin's dynamic metadata framework memory layout
-    if _G.metadata and _G.metadata.framework_root and _G.OS and _G.OS.prepareLuaEscapePattern then
-        local raw_root = vim.fs.normalize(_G.metadata.framework_root):lower()
-        local clean_framework = _G.OS.prepareLuaEscapePattern(raw_root)
-        if string.match(normalized_name, clean_framework) then
-            return true
-        end
-    end
-
-    return false
-end
-
--- Synchronously calculates the strict project directory string for a raw file path
-local function calculate_path_root(file_path)
-    if not file_path or file_path == "" then return vim.fs.normalize(vim.fn.getcwd()) end
-
-    -- Force any global framework system file to map directly against the active project workspace
-    if is_platformio_system_file(file_path) then
-        return vim.fs.normalize(vim.fn.getcwd())
-    end
-
-    -- Properly nested fallbacks using native marker lookups directly on the target path string
-    local project_root = vim.fs.root(file_path, {
-            "compile_commands.json",
-            "platformio.ini",
-            ".clangd",
-            ".clang-tidy",
-            ".clang-format",
-            ".git",
-            "compile_flags.txt",
-            "configure.ac",
-    })
-    if not project_root then
-        project_root = vim.fs.root(file_path, { ".git" })
-    end
-
-    return vim.fs.normalize(project_root or vim.fn.getcwd())
-end
-  -- ============================================================================
-  -- 1. UNIFIED ROOT DIRECTORY DETECTOR (Neovim 0.11+ Validated)
-  -- ============================================================================
   clangd_config.root_dir = function(bufnr, on_dir)
     local buf_name = vim.api.nvim_buf_get_name(bufnr)
-    local resolved_root = calculate_path_root(buf_name)
-    on_dir(resolved_root)
-  end
 
-  -- ============================================================================
-  -- 2. UNIFIED CLIENT REUSE EVALUATOR (Neovim 0.11+ Validated)
-  -- ============================================================================
+    -- Boundary Safeguard: Enforce project workspace sandbox constraints
+    if buf_name:find(".platformio", 1, true) then
+        on_dir(vim.fs.normalize(vim.fn.getcwd()))
+        return
+    end
+
+    local root = vim.fs.root(bufnr, { "platformio.ini", "CMakeLists.txt", ".git" })
+    on_dir(vim.fs.normalize(root or vim.fn.getcwd()))
+  end
+  -- Core Evaluator prevents cross-folder client bleed cleanly
   clangd_config.reuse_client = function(client, current_config)
-    -- Rule A: If names do not match, this is a completely different LSP server
     if client.name ~= current_config.name then return false end
 
-    -- Fetch the exact, absolute path parameter mapped to the incoming launch config
-    local target_file = current_config.root_dir
-    if type(target_file) == "table" and target_file[1] then
-        target_file = target_file[1]
-    end
+    -- Compare the actual resolved workspace paths as lower-case strings
+    local active_root = client.root_dir or (client.workspace_folders and client.workspace_folders[1] and client.workspace_folders[1].name)
+    if not active_root or not current_config.root_dir then return false end
 
-    -- Extract the physical file path being evaluated by this configuration sequence
-    local file_path = (type(target_file) == "string") and target_file or vim.api.nvim_buf_get_name(0)
-
-    -- Rule B: If either file is an external system header, force client reuse to save memory
-    if is_platformio_system_file(file_path) or is_platformio_system_file(vim.api.nvim_buf_get_name(0)) then
-        return true
-    end
-
-    -- Rule C: Safely extract and normalize the active running client's root string
-    local active_client_root = client.root_dir
-    if not active_client_root and client.workspace_folders and client.workspace_folders[1] then
-        active_client_root = client.workspace_folders[1].name
-    end
-
-    if not active_client_root then return false end
-    local normalized_client_root = vim.fs.normalize(active_client_root):lower()
-
-    -- Rule D: Synchronously evaluate the target file's genuine project root folder
-    local target_root = calculate_path_root(file_path)
-    local normalized_target_root = target_root:lower()
-
-    -- Rule E: Strict string-to-string evaluation prevents cross-folder client bleed
-    return normalized_client_root == normalized_target_root
+    return vim.fs.normalize(active_root):lower() == vim.fs.normalize(current_config.root_dir):lower()
   end
 
   -- =================================================================
