@@ -323,6 +323,7 @@ function M.getClangdConfig()
 
   -- NATIVE ASYNC ROOT DETECTOR: Routes paths through our sandbox filter helper
   clangd_config.root_dir = function(bufnr, on_dir)
+    print(get_validated_project_root(bufnr))
     on_dir(get_validated_project_root(bufnr))
   end
 
@@ -334,13 +335,7 @@ function M.getClangdConfig()
     if not proposed_root or proposed_root == '' then return true end
 
     local check_file = vim.fs.normalize(vim.api.nvim_buf_get_name(config.bufnr or 0))
-    -- if check_file:find('.platformio', 1, true) then
-    if check_file:find(vim.fs.normalize(_G.metadata.framework_root), 1, true) then
-      print(check_file)
-      print(_G.metadata.framework_root)
-      print('found')
-      return true
-    end
+    if check_file:find(vim.fs.normalize(_G.metadata.framework_root), 1, true) then return true end
 
     local running_client_root = client.config.root_dir or client.root_dir
     if not running_client_root or running_client_root == '' then return false end
