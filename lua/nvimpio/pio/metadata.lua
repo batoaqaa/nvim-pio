@@ -115,7 +115,7 @@ _G.metadata = setmetatable({}, {
           if (suscess) then
             do end
             -- require('nvimpio.clangd.control').getUnknownArgsCli(from)
-            require('nvimpio.clangd.control').restart()
+            -- require('nvimpio.clangd.control').restart()
           end
           _G.isBusy = false
         end, from)
