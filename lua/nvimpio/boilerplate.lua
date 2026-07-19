@@ -80,6 +80,7 @@ boilerplate['.clangdConfig.json'] = {
     "cuda"
   ],
   "root_markers": [
+    ".nvimpio",
     "platformio.ini",
     "compile_commands.json",
     "compile_flags.txt"

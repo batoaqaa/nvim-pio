@@ -278,7 +278,7 @@ local function get_validated_project_root(bufnr)
 
   -- Native C-speed upward path tracer looking for framework landmarks
   local project_root = vim.fs.root(bufnr, {
-            "compile_commands.json", "platformio.ini", "compile_flags.txt", ".git",
+    ".nvimpio", "compile_commands.json", "platformio.ini", "compile_flags.txt",
   })
   return normalize_absolute_path(project_root or OS.project_dir)
 end
@@ -409,25 +409,26 @@ end
 --------------------------------------------------------------------------------
 function M.restart()
   local name = 'clangd'
-  local current_buf = vim.api.nvim_get_current_buf()
+  -- local current_buf = vim.api.nvim_get_current_buf()
 
   local old_client = nil
-  for _, client in ipairs(vim.lsp.get_clients({ name = name, bufnr = current_buf })) do
+  -- for _, client in ipairs(vim.lsp.get_clients({ name = name, bufnr = current_buf })) do
+  for _, client in ipairs(vim.lsp.get_clients({ name = name })) do
     old_client = client
     break
   end
 
   if not old_client then
     if not vim.lsp.is_enabled(name) then
-      local clangConfig = M.getClangdConfig()
-      vim.lsp.config(name, clangConfig)
+      vim.lsp.config(name, M.getClangdConfig())
       vim.lsp.enable(name, true)
+      OS.notify('[LSP Engine] Pristine clangd instance initialized.', OS.debug)
     end
     return
   end
 
   local old_id = old_client.id
-  print('[LSP Engine] Initiating 100% clean core reset for client ID: ' .. old_id)
+  OS.notify('[LSP Engine] Initiating 100% clean core reset for client ID: ' .. old_id, OS.debug)
 
   local reload_group = vim.api.nvim_create_augroup('Clangd_Cold_Reset_Engine', { clear = true })
 
@@ -439,12 +440,12 @@ function M.restart()
         vim.api.nvim_del_augroup_by_id(reload_group)
 
         vim.schedule(function()
-          print('[LSP Engine] Channels flushed. Re-enabling pure declarative workspace structures...')
+          OS.notify('[LSP Engine] Channels flushed. Re-enabling pure declarative workspace structures...', OS.debug)
           vim.lsp.enable(name, false)
           local clangConfig = M.getClangdConfig()
           vim.lsp.config(name, clangConfig)
           vim.lsp.enable(name, true)
-          print('[LSP Engine] Dynamic cold-boot complete.')
+          OS.notify('[LSP Engine] Dynamic cold-boot complete.', OS.debug)
         end)
       end
     end,

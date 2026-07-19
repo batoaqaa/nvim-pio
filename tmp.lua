@@ -1,151 +1,85 @@
--- local M = {}
---
--- -- ============================================================================
--- -- 0. NATIVE PATH EXPANDER (Fully Resolves Tildes, Drive Casing, and Slashes)
--- -- ============================================================================
--- local function normalize_absolute_path(path)
---   if not path or path == '' then
---     return ''
---   end
---   local expanded = vim.fn.fnamemodify(path, ':p')
---   return vim.fs.normalize(expanded):lower()
--- end
---
--- -- ============================================================================
--- -- 1. THE ENTERPRISE 0.11+ DECLARATIVE REGISTRATION (The Perfect Standard)
--- -- ============================================================================
--- function M.activate_workspace_engine()
---   local server_name = 'clangd'
---
---   -- Resolve the absolute user home path natively at plugin load time
---   local uv = vim.uv or vim.loop
---   local home_dir = uv.os_homedir() or os.getenv('USERPROFILE') or 'C:/Users/batoaqaa'
---   local normalized_home = vim.fs.normalize(home_dir)
---   local target_database_dir = 'C:/Users/batoaqaa/AppData/Local/ahmed/test'
---
---   vim.lsp.config(server_name, {
---     cmd = {
---       'clangd',
---       '--background-index',
---       '--clang-tidy',
---       '--completion-style=detailed',
---       '--pch-storage=memory',
---       '-j=4',
---       '--header-insertion=iwyu',
---       '--header-insertion-decorators',
---       -- Fixed Compilation Database Path: Establishes base FACT flags string targets
---       '--compile-commands-dir=' .. target_database_dir,
---       -- Fixed Toolchain Path: Authorizes cross-compiler macro lookups securely
---       '--query-driver=' .. normalized_home .. '/.platformio/packages/toolchain-**/*',
---     },
---     filetypes = { 'c', 'cpp', 'objc', 'objcpp' },
---     capabilities = vim.lsp.protocol.make_client_capabilities(),
---
---     -- ============================================================================
---     -- THE ARCHITECTURAL: Force Server-Wide Database Sharing Lookups
---     -- ============================================================================
---     init_options = {
---       ['clangdFileStatus'] = true,
---       ['completeUnimported'] = true,
---       ['usePlaceholders'] = true,
---
---       -- CRITICAL CONFIGURATION: This passes your project compile data straight to
---       -- external framework buffers. When you open task.h, clangd queries this path array,
---       -- maps the Espressif system variables, and silences the guard error immediately.
---       compilationDatabaseChanges = {},
---       compileCommandsDirs = { target_database_dir },
---     },
---
---     -- Native core file tracking criteria markers
---     root_markers = { 'platformio.ini', 'CMakeLists.txt', '.git' },
---
---     -- Native Strict String Path Client Reuse Filter Matrix
---     reuse_client = function(client, config)
---       if client.name ~= server_name then
---         return false
---       end
---       local proposed_root = config.root_dir
---       local running_client_root = client.config.root_dir or client.root_dir
---       if not proposed_root or proposed_root == '' then
---         return true
---       end
---
---       -- If the buffer is an external system header file, force client reuse instantly
---       local check_file = vim.api.nvim_buf_get_name(config.bufnr or 0)
---       if check_file:find('.platformio', 1, true) then
---         return true
---       end
---
---       if not running_client_root or running_client_root == '' then
---         return false
---       end
---       return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
---     end,
---   })
---
---   -- Natively activate the declaration matrix tracking tables
---   if not vim.lsp.is_enabled(server_name) then
---     vim.lsp.enable(server_name, true)
---   end
--- end
---
--- -- ============================================================================
--- -- 2. THE NATIVE 0.11+ RESET ENGINE (Pure State Cycling)
--- -- ============================================================================
 -- function M.restart()
 --   local name = 'clangd'
---   local current_buf = vim.api.nvim_get_current_buf()
 --
+--   -- 1. Scan for the active runtime client using the modern 0.11+ API
 --   local old_client = nil
---   for _, client in ipairs(vim.lsp.get_clients({ name = name, bufnr = current_buf })) do
+--   for _, client in ipairs(vim.lsp.get_clients({ name = name })) do
 --     old_client = client
 --     break
 --   end
 --
+--   -- If no server is currently active, apply the declarative config and boot instantly
 --   if not old_client then
---     M.activate_workspace_engine()
+--     vim.lsp.config(name, M.getClangdConfig())
+--     vim.lsp.enable(name, true)
+--     print('[LSP Engine] Pristine clangd instance initialized.')
 --     return
 --   end
 --
+--   -- 2. Capture parameters cleanly using valid non-deprecated object paths
 --   local old_id = old_client.id
---   print('[LSP Engine] Initiating 100% clean core reset for client ID: ' .. old_id)
 --
+--   -- Collect buffer indexes via the modern attached_buffers table keys
+--   local active_buffers = {}
+--   if old_client.attached_buffers then
+--     for bufnr, _ in pairs(old_client.attached_buffers) do
+--       table.insert(active_buffers, bufnr)
+--     end
+--   end
+--
+--   print('[LSP Engine] Initiating clean architectural shutdown for client ID: ' .. old_id)
+--
+--   -- 3. THE EVENT-DRIVEN EVENT LOOP LIFECYCLE (No hacks, No parameters)
 --   local reload_group = vim.api.nvim_create_augroup('Clangd_Cold_Reset_Engine', { clear = true })
 --
 --   vim.api.nvim_create_autocmd('LspDetach', {
 --     group = reload_group,
+--     desc = 'Block execution until Neovim confirms absolute client unregistration',
 --     callback = function(args)
+--       -- Verify that the detaching client is exactly our target instance
 --       if args.data.client_id == old_id then
+--         -- Immediately delete this autocommand group to clean up memory footprints
 --         vim.api.nvim_del_augroup_by_id(reload_group)
 --
+--         -- Safe to yield execution to a schedule pass now that registries are empty
 --         vim.schedule(function()
---           print('[LSP Engine] Channels flushed. Re-enabling pure declarative workspace structures...')
+--           -- Declaratively clear stale attachment metadata spaces cleanly
 --           vim.lsp.enable(name, false)
---           M.activate_workspace_engine()
---           print('[LSP Engine] Dynamic cold-boot complete.')
+--
+--           -- Apply fresh configuration profiles safely onto clean metadata space
+--           vim.lsp.config(name, M.getClangdConfig())
+--
+--           -- Boot the perfectly clean, non-colliding background process daemon
+--           local success = pcall(vim.lsp.enable, name, true)
+--
+--           if success then
+--             -- Re-attach all collected open project file buffers immediately
+--             vim.schedule(function()
+--               local new_client = nil
+--               for _, n_client in ipairs(vim.lsp.get_clients({ name = name })) do
+--                 new_client = n_client
+--                 break
+--               end
+--
+--               if new_client then
+--                 for _, bufnr in ipairs(active_buffers) do
+--                   if vim.api.nvim_buf_is_valid(bufnr) then
+--                     -- CORRECT ATTACH API: Valid for all 0.11 and 0.12+ environments
+--                     vim.lsp.buf_attach_client(bufnr, new_client.id)
+--                   end
+--                 end
+--                 print('[LSP Engine] clangd successfully cold-booted from scratch (New ID: ' .. new_client.id .. ').')
+--               end
+--             end)
+--           else
+--             vim.notify('[LSP Engine Error] Failed to re-enable clangd engine configuration.', vim.log.levels.ERROR)
+--           end
 --         end)
 --       end
 --     end,
 --   })
 --
+--   -- 4. Execute the modern object-oriented shutdown method cleanly
+--   -- Passing 'false' sends a polite SIGTERM so clangd can exit with code 0.
 --   old_client:stop(false)
 -- end
---
--- -- Expose entry points as clean runtime commands
--- vim.api.nvim_create_user_command('ClangdReloadScratch', M.restart, {})
---
--- -- ============================================================================
--- -- 3. AUTOMATED ENVIRONMENT WATCHER
--- -- ============================================================================
--- local pio_config_group = vim.api.nvim_create_augroup('PlatformIO_LSP_Config_Watcher', { clear = true })
--- vim.api.nvim_create_autocmd('BufWritePost', {
---   group = pio_config_group,
---   pattern = 'platformio.ini',
---   callback = function()
---     vim.schedule(function()
---       M.restart()
---     end)
---   end,
--- })
---
--- return M
