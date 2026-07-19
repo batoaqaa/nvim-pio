@@ -648,10 +648,10 @@ function M.init(clangd)
   end
 
   -- -- Apply and Enable
-  -- local clangConfig = M.getClangdConfig()
-  -- vim.lsp.config('clangd', clangConfig)
-  -- vim.lsp.enable('clangd')
-  M.restart()
+  local clangConfig = M.getClangdConfig()
+  vim.lsp.config('clangd', clangConfig)
+  vim.lsp.enable('clangd')
+  -- M.restart()
 
 
   vim.keymap.set('n', 'gll', function()
