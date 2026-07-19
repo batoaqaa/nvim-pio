@@ -318,12 +318,12 @@ function M.getClangdConfig()
   ---------------------------------------------------------------------------------------
 
   -- 2. Modern Asynchronous Root Detector Callback
-  clangd_config.root_dir = function(bufnr, on_dir)
-    -- Stop evaluation completely if the buffer has no physical disk name
-    local buf_name = vim.api.nvim_buf_get_name(bufnr)
-    if not buf_name or buf_name == "" then return end
-    on_dir(get_validated_project_root(bufnr))
-  end
+  -- clangd_config.root_dir = function(bufnr, on_dir)
+  --   -- Stop evaluation completely if the buffer has no physical disk name
+  --   local buf_name = vim.api.nvim_buf_get_name(bufnr)
+  --   if not buf_name or buf_name == "" then return end
+  --   on_dir(get_validated_project_root(bufnr))
+  -- end
 
   -- 4. Native Strict String Path Client-Reuse Filter Matrix
   -- clangd_config.reuse_client = function(client, config)
