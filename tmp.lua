@@ -1,185 +1,185 @@
--- local M = {}
---
--- -- ============================================================================
--- -- 0. NATIVE PATH EXPANDER (Fully Resolves Tildes, Drive Casing, and Slashes)
--- -- ============================================================================
--- local function normalize_absolute_path(path)
---   if not path or path == '' then
---     return ''
---   end
---   local expanded = vim.fn.fnamemodify(path, ':p')
---   return vim.fs.normalize(expanded):lower()
--- end
---
--- local function get_validated_project_root(bufnr)
---   local buf_name = vim.api.nvim_buf_get_name(bufnr)
---   if not buf_name or buf_name == '' then
---     return normalize_absolute_path(vim.fn.getcwd())
---   end
---
---   -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
---   if buf_name:find('.platformio', 1, true) then
---     return normalize_absolute_path(vim.fn.getcwd())
---   end
---
---   -- Native C-speed upward path tracer looking for framework landmarks
---   local project_root = vim.fs.root(bufnr, { 'platformio.ini', 'CMakeLists.txt', '.git' })
---   return normalize_absolute_path(project_root or vim.fn.getcwd())
--- end
---
--- -- ============================================================================
--- -- 1. THE ENTERPRISE 0.11+ DECLARATIVE REGISTRATION (The Correct Way)
--- -- ============================================================================
--- function M.activate_workspace_engine()
---   local server_name = 'clangd'
---
---   vim.lsp.config(server_name, {
---     cmd = {
---       'clangd',
---       '--background-index',
---       '--clang-tidy',
---       '--completion-style=detailed',
---       '--pch-storage=memory',
---       '-j=4',
---     },
---     filetypes = { 'c', 'cpp', 'objc', 'objcpp' },
---     capabilities = vim.lsp.protocol.make_client_capabilities(),
---     init_options = {
---       ['clangdFileStatus'] = true,
---       ['completeUnimported'] = true,
---       ['usePlaceholders'] = true,
---     },
---
---     -- NATIVE ASYNC ROOT DETECTOR: Routes paths through our sandbox filter helper
---     root_dir = function(bufnr, on_dir)
---       on_dir(get_validated_project_root(bufnr))
---     end,
---
---     -- NATIVE BEFORE_INIT: Intercepts the thread right before binary initialization
---     before_init = function(_, config)
---       if not config.cmd then
---         return
---       end
---
---       -- Deduplicate to prevent trailing command array string duplication errors
---       local has_dir_flag = false
---       for _, arg in ipairs(config.cmd) do
---         if type(arg) == 'string' and arg:find('--compile-commands-dir=', 1, true) then
---           has_dir_flag = true
---           break
---         end
---       end
---
---       if has_dir_flag then
---         return
---       end
---
---       local isolated_cmd = vim.deepcopy(config.cmd)
---       local resolved_root = config.root_dir or vim.fn.getcwd()
---
---       table.insert(isolated_cmd, '--compile-commands-dir=' .. normalize_absolute_path(resolved_root))
---       table.insert(isolated_cmd, '--query-driver=C:/Users/batoaqaa/.platformio/packages/toolchain-**/*')
---
---       config.cmd = isolated_cmd
---     end,
---
---     -- ============================================================================
---     -- CRITICAL FIX: Safe Nil-Route & Sandbox Guard Client Reuse Filter
---     -- ============================================================================
---     reuse_client = function(client, config)
---       if client.name ~= server_name then
---         return false
---       end
---
---       local proposed_root = config.root_dir
---       local running_client_root = client.config.root_dir or client.root_dir
---
---       -- BUG FIX: If the target file resolves to a nil root directory or belongs
---       -- to a global package header, force client reuse to absorb it into Client ID 1
---       if not proposed_root or proposed_root == '' then
---         return true
---       end
---
---       local check_file = vim.api.nvim_buf_get_name(config.bufnr or 0)
---       if check_file:find('.platformio', 1, true) then
---         return true
---       end
---
---       if not running_client_root or running_client_root == '' then
---         return false
---       end
---
---       -- Deep, absolute path expansion guarantees matching evaluations for projects
---       return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
---     end,
---   })
---
---   -- Natively activate the declaration matrix tracking tables
---   if not vim.lsp.is_enabled(server_name) then
---     vim.lsp.enable(server_name, true)
---   end
--- end
---
--- -- ============================================================================
--- -- 2. THE NATIVE 0.11+ COLD RESET CONTROLLER (Zero Global Collisions)
--- -- ============================================================================
--- function M.restart()
---   local name = 'clangd'
---   local current_buf = vim.api.nvim_get_current_buf()
---
---   local old_client = nil
---   for _, client in ipairs(vim.lsp.get_clients({ name = name, bufnr = current_buf })) do
---     old_client = client
---     break
---   end
---
---   if not old_client then
---     if not vim.lsp.is_enabled(name) then
---       vim.lsp.enable(name, true)
---     end
---     return
---   end
---
---   local old_id = old_client.id
---   print('[LSP Engine] Initiating 100% clean core reset for client ID: ' .. old_id)
---
---   local reload_group = vim.api.nvim_create_augroup('Clangd_Cold_Reset_Engine', { clear = true })
---
---   vim.api.nvim_create_autocmd('LspDetach', {
---     group = reload_group,
---     desc = 'Re-activate state schemas the microsecond the old channel is deleted from memory',
---     callback = function(args)
---       if args.data.client_id == old_id then
---         vim.api.nvim_del_augroup_by_id(reload_group)
---
---         vim.schedule(function()
---           print('[LSP Engine] Channels flushed. Re-enabling pure declarative workspace structures...')
---           vim.lsp.enable(name, false)
---           vim.lsp.enable(name, true)
---           print('[LSP Engine] Dynamic cold-boot complete.')
---         end)
---       end
---     end,
---   })
---
---   old_client:stop(false)
--- end
---
--- -- Expose entry points as clean runtime commands
--- vim.api.nvim_create_user_command('ClangdReloadScratch', M.restart, {})
---
--- -- ============================================================================
--- -- 3. AUTOMATED ENVIRONMENT WATCHER
--- -- ============================================================================
--- local pio_config_group = vim.api.nvim_create_augroup('PlatformIO_LSP_Config_Watcher', { clear = true })
--- vim.api.nvim_create_autocmd('BufWritePost', {
---   group = pio_config_group,
---   pattern = 'platformio.ini',
---   callback = function()
---     vim.schedule(function()
---       M.restart()
---     end)
---   end,
--- })
---
--- return M
+local M = {}
+
+-- ============================================================================
+-- 0. NATIVE PATH EXPANDER (Fully Resolves Tildes, Drive Casing, and Slashes)
+-- ============================================================================
+local function normalize_absolute_path(path)
+  if not path or path == '' then
+    return ''
+  end
+  local expanded = vim.fn.fnamemodify(path, ':p')
+  return vim.fs.normalize(expanded):lower()
+end
+
+local function get_validated_project_root(bufnr)
+  local buf_name = vim.api.nvim_buf_get_name(bufnr)
+  if not buf_name or buf_name == '' then
+    return normalize_absolute_path(vim.fn.getcwd())
+  end
+
+  -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
+  if buf_name:find('.platformio', 1, true) then
+    return normalize_absolute_path(vim.fn.getcwd())
+  end
+
+  -- Native C-speed upward path tracer looking for framework landmarks
+  local project_root = vim.fs.root(bufnr, { 'platformio.ini', 'CMakeLists.txt', '.git' })
+  return normalize_absolute_path(project_root or vim.fn.getcwd())
+end
+
+-- ============================================================================
+-- 1. THE ENTERPRISE 0.11+ DECLARATIVE REGISTRATION (The Correct Way)
+-- ============================================================================
+function M.activate_workspace_engine()
+  local server_name = 'clangd'
+
+  vim.lsp.config(server_name, {
+    cmd = {
+      'clangd',
+      '--background-index',
+      '--clang-tidy',
+      '--completion-style=detailed',
+      '--pch-storage=memory',
+      '-j=4',
+    },
+    filetypes = { 'c', 'cpp', 'objc', 'objcpp' },
+    capabilities = vim.lsp.protocol.make_client_capabilities(),
+    init_options = {
+      ['clangdFileStatus'] = true,
+      ['completeUnimported'] = true,
+      ['usePlaceholders'] = true,
+    },
+
+    -- NATIVE ASYNC ROOT DETECTOR: Routes paths through our sandbox filter helper
+    root_dir = function(bufnr, on_dir)
+      on_dir(get_validated_project_root(bufnr))
+    end,
+
+    -- NATIVE BEFORE_INIT: Intercepts the thread right before binary initialization
+    before_init = function(_, config)
+      if not config.cmd then
+        return
+      end
+
+      -- Deduplicate to prevent trailing command array string duplication errors
+      local has_dir_flag = false
+      for _, arg in ipairs(config.cmd) do
+        if type(arg) == 'string' and arg:find('--compile-commands-dir=', 1, true) then
+          has_dir_flag = true
+          break
+        end
+      end
+
+      if has_dir_flag then
+        return
+      end
+
+      local isolated_cmd = vim.deepcopy(config.cmd)
+      local resolved_root = config.root_dir or vim.fn.getcwd()
+
+      table.insert(isolated_cmd, '--compile-commands-dir=' .. normalize_absolute_path(resolved_root))
+      table.insert(isolated_cmd, '--query-driver=C:/Users/batoaqaa/.platformio/packages/toolchain-**/*')
+
+      config.cmd = isolated_cmd
+    end,
+
+    -- ============================================================================
+    -- CRITICAL FIX: Safe Nil-Route & Sandbox Guard Client Reuse Filter
+    -- ============================================================================
+    reuse_client = function(client, config)
+      if client.name ~= server_name then
+        return false
+      end
+
+      local proposed_root = config.root_dir
+      local running_client_root = client.config.root_dir or client.root_dir
+
+      -- BUG FIX: If the target file resolves to a nil root directory or belongs
+      -- to a global package header, force client reuse to absorb it into Client ID 1
+      if not proposed_root or proposed_root == '' then
+        return true
+      end
+
+      local check_file = vim.api.nvim_buf_get_name(config.bufnr or 0)
+      if check_file:find('.platformio', 1, true) then
+        return true
+      end
+
+      if not running_client_root or running_client_root == '' then
+        return false
+      end
+
+      -- Deep, absolute path expansion guarantees matching evaluations for projects
+      return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
+    end,
+  })
+
+  -- Natively activate the declaration matrix tracking tables
+  if not vim.lsp.is_enabled(server_name) then
+    vim.lsp.enable(server_name, true)
+  end
+end
+
+-- ============================================================================
+-- 2. THE NATIVE 0.11+ COLD RESET CONTROLLER (Zero Global Collisions)
+-- ============================================================================
+function M.restart()
+  local name = 'clangd'
+  local current_buf = vim.api.nvim_get_current_buf()
+
+  local old_client = nil
+  for _, client in ipairs(vim.lsp.get_clients({ name = name, bufnr = current_buf })) do
+    old_client = client
+    break
+  end
+
+  if not old_client then
+    if not vim.lsp.is_enabled(name) then
+      vim.lsp.enable(name, true)
+    end
+    return
+  end
+
+  local old_id = old_client.id
+  print('[LSP Engine] Initiating 100% clean core reset for client ID: ' .. old_id)
+
+  local reload_group = vim.api.nvim_create_augroup('Clangd_Cold_Reset_Engine', { clear = true })
+
+  vim.api.nvim_create_autocmd('LspDetach', {
+    group = reload_group,
+    desc = 'Re-activate state schemas the microsecond the old channel is deleted from memory',
+    callback = function(args)
+      if args.data.client_id == old_id then
+        vim.api.nvim_del_augroup_by_id(reload_group)
+
+        vim.schedule(function()
+          print('[LSP Engine] Channels flushed. Re-enabling pure declarative workspace structures...')
+          vim.lsp.enable(name, false)
+          vim.lsp.enable(name, true)
+          print('[LSP Engine] Dynamic cold-boot complete.')
+        end)
+      end
+    end,
+  })
+
+  old_client:stop(false)
+end
+
+-- Expose entry points as clean runtime commands
+vim.api.nvim_create_user_command('ClangdReloadScratch', M.restart, {})
+
+-- ============================================================================
+-- 3. AUTOMATED ENVIRONMENT WATCHER
+-- ============================================================================
+local pio_config_group = vim.api.nvim_create_augroup('PlatformIO_LSP_Config_Watcher', { clear = true })
+vim.api.nvim_create_autocmd('BufWritePost', {
+  group = pio_config_group,
+  pattern = 'platformio.ini',
+  callback = function()
+    vim.schedule(function()
+      M.restart()
+    end)
+  end,
+})
+
+return M

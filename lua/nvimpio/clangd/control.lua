@@ -300,6 +300,7 @@ function M.getClangdConfig()
     q_driver = _G.metadata.query_driver
   end
 
+  q_driver = '**/tools/**/bin/*gcc*,**/tools/**/bin/*g++*,**/.platformio/packages/toolchain-**/*'
   -- Format your template string
   -- local json_config = boilerplate_gen([[.clangdConfig.json]], OS.nvimpio_config_dir)
   local json_config = boilerplate_gen([[.clangdConfig.json]])
