@@ -411,7 +411,6 @@ function M.restart()
   local name = 'clangd'
   -- local current_buf = vim.api.nvim_get_current_buf()
 
-  OS.notify('[LSP Engine] ' .. name, OS.debug)
   local old_client = nil
   -- for _, client in ipairs(vim.lsp.get_clients({ name = name, bufnr = current_buf })) do
   for _, client in ipairs(vim.lsp.get_clients({ name = name })) do
@@ -419,12 +418,14 @@ function M.restart()
     break
   end
 
+  OS.notify('[LSP Engine] ' .. name, OS.debug)
   if not old_client then
-    if not vim.lsp.is_enabled(name) then
+    -- if not vim.lsp.is_enabled(name) then
+      vim.lsp.enable(name, false)
       vim.lsp.config(name, M.getClangdConfig())
       vim.lsp.enable(name, true)
       OS.notify('[LSP Engine] Pristine clangd instance initialized.', OS.debug)
-    end
+    -- end
     return
   end
 
