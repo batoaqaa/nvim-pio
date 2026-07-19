@@ -323,15 +323,12 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
-  ---------------------------------------------------------------------------------------
-    -- NATIVE ASYNC ROOT DETECTOR: Routes paths through our sandbox filter helper
+  -- NATIVE ASYNC ROOT DETECTOR: Routes paths through our sandbox filter helper
   clangd_config.root_dir = function(bufnr, on_dir)
     on_dir(get_validated_project_root(bufnr))
   end
 
-  -- ============================================================================
-  -- Safe Nil-Route & Sandbox Guard Client Reuse Filter
-  -- ============================================================================
+  -- NATIVE REUSE LAYER: Enforces explicit string path validation boundaries
   clangd_config.reuse_client = function(client, config)
     if client.name ~= server_name then
       return false
@@ -340,8 +337,6 @@ function M.getClangdConfig()
     local proposed_root = config.root_dir
     local running_client_root = client.config.root_dir or client.root_dir
 
-    -- If the target file resolves to a nil root directory or belongs
-    -- to a global package header, force client reuse to absorb it into Client ID 1
     if not proposed_root or proposed_root == '' then
       return true
     end
@@ -355,7 +350,6 @@ function M.getClangdConfig()
       return false
     end
 
-    -- Deep, absolute path expansion guarantees matching evaluations for projects
     return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
   end
 
@@ -487,9 +481,6 @@ end
 
 -- INFO: clangdRestart()
 --------------------------------------------------------------------------------
--- ============================================================================
--- 2. NATIVE 0.11+ RESTART CONTROLLER (Zero Hacks, Microsecond Event-Driven)
--- ============================================================================
 function M.restart()
   local name = 'clangd'
   local current_buf = vim.api.nvim_get_current_buf()
