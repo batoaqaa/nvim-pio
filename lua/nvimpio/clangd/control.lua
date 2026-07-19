@@ -338,12 +338,13 @@ function M.getClangdConfig()
     if not proposed_root or proposed_root == '' then return true end
 
     local check_file = vim.api.nvim_buf_get_name(config.bufnr or 0)
-    -- if check_file:find('.platformio', 1, true) then
-    if check_file:find(_G.metadata.framework_root, 1, true) then
+    if check_file:find('.platformio', 1, true) then
+    -- if check_file:find(_G.metadata.framework_root, 1, true) then
       print('found')
       return true
     end
 
+      print('not found')
     if not running_client_root or running_client_root == '' then return false end
 
     return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
