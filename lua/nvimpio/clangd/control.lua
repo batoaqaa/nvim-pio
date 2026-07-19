@@ -294,26 +294,26 @@ function M.getClangdConfig()
   ---------------------------------------------------------------------------------------
 
 
+
   -- ============================================================================
   -- 0. NATIVE PATH EXPANDER (Fully Resolves Tildes, Drive Casing, and Slashes)
   -- ============================================================================
   local function normalize_absolute_path(path)
     if not path or path == "" then return "" end
-    -- Force absolute expansion (resolves ~ to C:/Users/name cleanly)
     local expanded = vim.fn.fnamemodify(path, ":p")
-    -- Normalize slashes and lower-case to shield from Windows casing quirks
     return vim.fs.normalize(expanded):lower()
   end
 
   local function get_validated_project_root(bufnr)
     local buf_name = vim.api.nvim_buf_get_name(bufnr)
-    if not buf_name or buf_name == "" then return normalize_absolute_path(vim.fn.getcwd()) end
-
+    -- Defensive Gate: If the buffer is completely nameless, do not attempt file calculations
+    if not buf_name or buf_name == "" then
+      return normalize_absolute_path(vim.fn.getcwd())
+    end
     -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
     if buf_name:find(".platformio", 1, true) then
       return normalize_absolute_path(vim.fn.getcwd())
     end
-
     -- Native C-speed upward path tracer looking for framework landmarks
     local project_root = vim.fs.root(bufnr, { "platformio.ini", "CMakeLists.txt", ".git" })
     return normalize_absolute_path(project_root or vim.fn.getcwd())
@@ -321,6 +321,9 @@ function M.getClangdConfig()
 
   -- 2. Modern Asynchronous Root Detector Callback
   clangd_config.root_dir = function(bufnr, on_dir)
+    -- Stop evaluation completely if the buffer has no physical disk name
+    local buf_name = vim.api.nvim_buf_get_name(bufnr)
+    if not buf_name or buf_name == "" then return end
     on_dir(get_validated_project_root(bufnr))
   end
 
@@ -468,6 +471,16 @@ end
 function M.restart()
   local name = "clangd"
   local current_buf = vim.api.nvim_get_current_buf()
+  local buf_name = vim.api.nvim_buf_get_name(current_buf)
+
+  -- If called inside a nameless scratch pad or worker buffer,
+  -- abort instantly to prevent Vim(edit):E32 file-reloading exceptions.
+  if not buf_name or buf_name == "" then
+    if not vim.lsp.is_enabled(name) then
+      vim.lsp.enable(name, true)
+    end
+    return
+  end
 
   -- Scan active clients specifically bound to this focused window
   local old_client = nil
@@ -476,14 +489,12 @@ function M.restart()
     break
   end
 
-  -- FALLBACK: If no server is running for this file, force a programmatic reload
-  -- instead of slamming vim.lsp.enable(), killing the infinite loop completely.
+  -- If no server is active for this file, force a programmatic reload safely
   if not old_client then
     print("[LSP Engine] Synchronizing standalone workspace channel structures...")
     if not vim.lsp.is_enabled(name) then
       vim.lsp.enable(name, true)
     end
-    -- Safe native command forces Neovim to re-evaluate the buffer and attach cleanly
     vim.cmd("edit!")
     return
   end
@@ -500,15 +511,21 @@ function M.restart()
 
         vim.schedule(function()
           print("[LSP Engine] Channels flushed. Re-activating workspace layout...")
-          -- Safe sequence prevents recursive event cascade crashes [1]
           vim.lsp.enable(name, false)
           vim.lsp.enable(name, true)
-          vim.cmd("edit!")
+
+          -- Recheck name safety context during deferred event ticks
+          local check_buf = vim.api.nvim_get_current_buf()
+          local check_name = vim.api.nvim_buf_get_name(check_buf)
+          if check_name and check_name ~= "" then
+            vim.cmd("edit!")
+          end
           print("[LSP Engine] Multi-root restart completed successfully.")
         end)
       end
     end,
   })
+
   old_client:stop(false)
 end
 
