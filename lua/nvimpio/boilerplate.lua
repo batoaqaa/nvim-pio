@@ -82,7 +82,7 @@ boilerplate['.clangdConfig.json'] = {
   "root_markers": [
     "platformio.ini",
     "compile_commands.json",
-    "compile_flags.txt",
+    "compile_flags.txt"
   ],
   "init_options": {
     "clangdFileStatus": true,
