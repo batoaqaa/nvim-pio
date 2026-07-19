@@ -280,8 +280,8 @@ local function get_validated_project_root(bufnr)
   local project_root = vim.fs.root(bufnr, {
     ".nvimpio", "compile_commands.json", "platformio.ini", "compile_flags.txt",
   })
-  local absPath = normalize_absolute_path(project_root)
-  print(absPath)
+  -- local absPath = normalize_absolute_path(project_root)
+  -- print(absPath)
   return normalize_absolute_path(project_root or OS.project_dir)
 end
 -- ============================================================================
@@ -420,19 +420,18 @@ function M.restart()
     break
   end
 
-  OS.notify('[LSP Engine] ' .. name, OS.debug)
   if not old_client then
     -- if not vim.lsp.is_enabled(name) then
       vim.lsp.enable(name, false)
       vim.lsp.config(name, M.getClangdConfig())
       vim.lsp.enable(name, true)
-      OS.notify('[LSP Engine] Pristine clangd instance initialized.', OS.debug)
+      OS.notify('[Clangd] instance initialized.', OS.debug)
     -- end
     return
   end
 
   local old_id = old_client.id
-  OS.notify('[LSP Engine] Initiating 100% clean core reset for client ID: ' .. old_id, OS.debug)
+  OS.notify('[Clangd] reset for client ID: ' .. old_id, OS.debug)
 
   local reload_group = vim.api.nvim_create_augroup('Clangd_Cold_Reset_Engine', { clear = true })
 
@@ -444,12 +443,12 @@ function M.restart()
         vim.api.nvim_del_augroup_by_id(reload_group)
 
         vim.schedule(function()
-          OS.notify('[LSP Engine] Channels flushed. Re-enabling pure declarative workspace structures...', OS.debug)
+          OS.notify('[Clangd] Channels flushed. Re-enabling pure declarative workspace structures...', OS.debug)
           vim.lsp.enable(name, false)
           local clangConfig = M.getClangdConfig()
           vim.lsp.config(name, clangConfig)
           vim.lsp.enable(name, true)
-          OS.notify('[LSP Engine] Dynamic cold-boot complete.', OS.debug)
+          OS.notify('[Clangd] Dynamic cold-boot complete.', OS.debug)
         end)
       end
     end,
