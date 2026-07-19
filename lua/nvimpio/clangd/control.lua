@@ -290,63 +290,129 @@ function M.getClangdConfig()
 
   if not tok then return nil end
 
-  -- =================================================================
-  -- Define custom client reuse logic
-  clangd_config.reuse_client = function(client, current_config)
-    -- 1. Ensure we are only matching clangd clients
-    if client.name ~= current_config.name then return false end
-
-    -- 2. If the user is jumping to a file inside the global .platformio packages folder,
-    -- forcefully REUSE the active client so it retains the project context
-    if _G.metadata and _G.metadata.framework_root and _G.OS and _G.OS.prepareLuaEscapePattern then
-      local current_file = vim.fs.normalize(vim.api.nvim_buf_get_name(0)):lower()
-
-      local raw_root = vim.fs.normalize(_G.metadata.framework_root):lower()
-      local clean_framework = _G.OS.prepareLuaEscapePattern(raw_root)
-
-      if string.match(current_file, clean_framework) then return true end
-    end
-
-    -- 3. Otherwise, only reuse the client if it belongs to the EXACT same project root folder.
-    -- This prevents index pollution if the user opens a completely different project!
-    return client.config.root_dir == current_config.root_dir
+  ---------------------------------------------------------------------------------------
+  -- Helper helper function to verify if a file lives inside the PlatformIO system folders
+  local function is_platformio_system_file(buf_name)
+      local normalized_name = vim.fs.normalize(buf_name):lower()
+      -- 1. Check against the strict global package cache path marker
+      if normalized_name:find(".platformio", 1, true) then
+          return true
+      end
+      -- 2. Check against your plugin's dynamic metadata framework memory layout
+      if _G.metadata and _G.metadata.framework_root and _G.OS and _G.OS.prepareLuaEscapePattern then
+          local raw_root = vim.fs.normalize(_G.metadata.framework_root):lower()
+          local clean_framework = _G.OS.prepareLuaEscapePattern(raw_root)
+          if string.match(normalized_name, clean_framework) then
+              return true
+          end
+      end
+      return false
   end
-
+  -- ============================================================================
+  -- 1. UNIFIED ROOT DIRECTORY DETECTOR (Neovim 0.11+ Validated)
+  -- ============================================================================
   clangd_config.root_dir = function(bufnr, on_dir)
-      -- Fetch the absolute physical path of the active buffer file
       local buf_name = vim.api.nvim_buf_get_name(bufnr)
 
-      -- ARCHITECTURAL SAFEGUARD: If editing global packages directly, enforce project sandbox constraints
-      if buf_name:find(".platformio", 1, true) then
-          -- Force the server to map flags against the active working directory context
+      -- Force any global framework system file to map directly against the local project workspace
+      if is_platformio_system_file(buf_name) then
           on_dir(vim.fn.getcwd())
           return
       end
 
-      -- 1. Look for precise local engineering files first
+      -- FIXED SYNTAX: Properly nested fallbacks using native marker lookups
       local project_root = vim.fs.root(bufnr, {
-            "compile_commands.json",
-            "platformio.ini",
-            ".clangd",
-            ".clang-tidy",
-            ".clang-format",
-            ".git",
-            "compile_flags.txt",
-            "configure.ac",
+              "compile_commands.json",
+              "platformio.ini",
+              ".clangd",
+              ".clang-tidy",
+              ".clang-format",
+              ".git",
+              "compile_flags.txt",
+              "configure.ac",
       })
-
-      -- 2. Fallback to generic version control tracking layers if missing
       if not project_root then
           project_root = vim.fs.root(bufnr, { ".git" })
       end
 
-      -- 3. Final Fallback: Prevent null pointers by falling back to active directory
-      local final_dir = project_root or vim.fn.getcwd()
-
-      if final_dir then
-          on_dir(final_dir)
-      end
+      on_dir(project_root or vim.fn.getcwd())
   end
+
+  -- ============================================================================
+  -- 2. UNIFIED CLIENT REUSE EVALUATOR (Neovim 0.11+ Validated)
+  -- ============================================================================
+  clangd_config.reuse_client = function(client, current_config)
+      if client.name ~= current_config.name then return false end
+
+      -- Safe, target-buffer bounded file retrieval (Replaced 0 with explicit buffer context)
+      local current_file = vim.api.nvim_buf_get_name(0)
+
+      -- If the file we are evaluating is an external system header file, 
+      -- force client reuse instantly to stop secondary process spawns.
+      if is_platformio_system_file(current_file) then
+          return true
+      end
+
+      -- For standard source files, fallback to matching strict directory boundaries
+      return client.config.root_dir == current_config.root_dir
+  end
+  -- =================================================================
+  -- Define custom client reuse logic
+  -- clangd_config.reuse_client = function(client, current_config)
+  --   -- 1. Ensure we are only matching clangd clients
+  --   if client.name ~= current_config.name then return false end
+  --
+  --   -- 2. If the user is jumping to a file inside the global .platformio packages folder,
+  --   -- forcefully REUSE the active client so it retains the project context
+  --   if _G.metadata and _G.metadata.framework_root and _G.OS and _G.OS.prepareLuaEscapePattern then
+  --     local current_file = vim.fs.normalize(vim.api.nvim_buf_get_name(0)):lower()
+  --
+  --     local raw_root = vim.fs.normalize(_G.metadata.framework_root):lower()
+  --     local clean_framework = _G.OS.prepareLuaEscapePattern(raw_root)
+  --
+  --     if string.match(current_file, clean_framework) then return true end
+  --   end
+  --
+  --   -- 3. Otherwise, only reuse the client if it belongs to the EXACT same project root folder.
+  --   -- This prevents index pollution if the user opens a completely different project!
+  --   return client.config.root_dir == current_config.root_dir
+  -- end
+  --
+  -- clangd_config.root_dir = function(bufnr, on_dir)
+  --     -- Fetch the absolute physical path of the active buffer file
+  --     local buf_name = vim.api.nvim_buf_get_name(bufnr)
+  --
+  --     -- ARCHITECTURAL SAFEGUARD: If editing global packages directly, enforce project sandbox constraints
+  --     if buf_name:find(".platformio", 1, true) then
+  --         -- Force the server to map flags against the active working directory context
+  --         on_dir(vim.fn.getcwd())
+  --         return
+  --     end
+  --
+  --     -- 1. Look for precise local engineering files first
+  --     local project_root = vim.fs.root(bufnr, {
+  --           "compile_commands.json",
+  --           "platformio.ini",
+  --           ".clangd",
+  --           ".clang-tidy",
+  --           ".clang-format",
+  --           ".git",
+  --           "compile_flags.txt",
+  --           "configure.ac",
+  --     })
+  --
+  --     -- 2. Fallback to generic version control tracking layers if missing
+  --     if not project_root then
+  --         project_root = vim.fs.root(bufnr, { ".git" })
+  --     end
+  --
+  --     -- 3. Final Fallback: Prevent null pointers by falling back to active directory
+  --     local final_dir = project_root or vim.fn.getcwd()
+  --
+  --     if final_dir then
+  --         on_dir(final_dir)
+  --     end
+  -- end
 
   -- clangd_config.cmd_env = {
   --   "CLANGD_TRACE": "",
@@ -412,7 +478,6 @@ function M.getClangdConfig()
       if default_handler then default_handler(err, result, ctx, config) end
     end,
   }
-  require('nvimpio.utils.misc').writeFile(OS.clangd_config .. '.yaml', vim.yaml.encode(clangd_config), {})
 
   if clangd_config then return clangd_config end
 end
