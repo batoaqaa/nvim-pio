@@ -11,24 +11,8 @@
 --   return vim.fs.normalize(expanded):lower()
 -- end
 --
--- local function get_validated_project_root(bufnr)
---   local buf_name = vim.api.nvim_buf_get_name(bufnr)
---   if not buf_name or buf_name == '' then
---     return normalize_absolute_path(vim.fn.getcwd())
---   end
---
---   -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
---   if buf_name:find('.platformio', 1, true) then
---     return normalize_absolute_path(vim.fn.getcwd())
---   end
---
---   -- Native C-speed upward path tracer looking for framework landmarks
---   local project_root = vim.fs.root(bufnr, { 'platformio.ini', 'CMakeLists.txt', '.git' })
---   return normalize_absolute_path(project_root or vim.fn.getcwd())
--- end
---
 -- -- ============================================================================
--- -- 1. THE NATIVE 0.11+ DECLARATIVE REGISTRATION (The Core Promoted Way)
+-- -- 1. THE ENTERPRISE 0.11+ DECLARATIVE REGISTRATION (The Simplified Core Way)
 -- -- ============================================================================
 -- function M.activate_workspace_engine()
 --   local server_name = 'clangd'
@@ -41,6 +25,9 @@
 --       '--completion-style=detailed',
 --       '--pch-storage=memory',
 --       '-j=4',
+--       -- Fixed project data is declared statically right at the root layer
+--       '--compile-commands-dir=C:/Users/batoaqaa/AppData/Local/ahmed/test',
+--       '--query-driver=C:/Users/batoaqaa/.platformio/packages/toolchain-**/*',
 --     },
 --     filetypes = { 'c', 'cpp', 'objc', 'objcpp' },
 --     capabilities = vim.lsp.protocol.make_client_capabilities(),
@@ -50,40 +37,10 @@
 --       ['usePlaceholders'] = true,
 --     },
 --
---     -- Core Promoted Way: The asynchronous root director callback
---     root_dir = function(bufnr, on_dir)
---       on_dir(get_validated_project_root(bufnr))
---     end,
+--     -- NATIVE CRITERIA: Pass markers straight to the core engine.
+--     root_markers = { 'platformio.ini', 'CMakeLists.txt', '.git' },
 --
---     -- Core Promoted Way: Dynamically inject flags BEFORE the binary initializes
---     -- We verify if a flag exists to prevent object-identity array mutations
---     before_init = function(_, config)
---       if not config.cmd then
---         return
---       end
---
---       local has_dir_flag = false
---       for _, arg in ipairs(config.cmd) do
---         if type(arg) == 'string' and arg:find('--compile-commands-dir=', 1, true) then
---           has_dir_flag = true
---           break
---         end
---       end
---
---       if has_dir_flag then
---         return
---       end
---
---       local isolated_cmd = vim.deepcopy(config.cmd)
---       local resolved_root = config.root_dir or vim.fn.getcwd()
---
---       table.insert(isolated_cmd, '--compile-commands-dir=' .. normalize_absolute_path(resolved_root))
---       table.insert(isolated_cmd, '--query-driver=C:/Users/batoaqaa/.platformio/packages/toolchain-**/*')
---
---       config.cmd = isolated_cmd
---     end,
---
---     -- Core Promoted Way: The official (client, config) reuse tracking schema
+--     -- NATIVE REUSE: Strict string path validation prevents cross-folder client bleed
 --     reuse_client = function(client, config)
 --       if client.name ~= server_name then
 --         return false
@@ -100,19 +57,20 @@
 --     end,
 --   })
 --
---   -- Natively activate the global template tracker
+--   -- Natively activate the declaration matrix
 --   if not vim.lsp.is_enabled(server_name) then
 --     vim.lsp.enable(server_name, true)
 --   end
 -- end
 --
 -- -- ============================================================================
--- -- 2. THE NATIVE 0.11+ RESET ENGINE (Pure State Cycling)
+-- -- 2. THE NATIVE 0.11+ RESET ENGINE (Pure State Cycling, Zero Bloat)
 -- -- ============================================================================
 -- function M.restart()
 --   local name = 'clangd'
 --   local current_buf = vim.api.nvim_get_current_buf()
 --
+--   -- 1. Isolate the running client instance bound to this buffer space
 --   local old_client = nil
 --   for _, client in ipairs(vim.lsp.get_clients({ name = name, bufnr = current_buf })) do
 --     old_client = client
@@ -121,6 +79,7 @@
 --
 --   -- Fallback if no server is running yet: safely toggle the declarative state
 --   if not old_client then
+--     print('[LSP Engine] Initializing configuration engine blocks...')
 --     if not vim.lsp.is_enabled(name) then
 --       vim.lsp.enable(name, true)
 --     end
@@ -128,25 +87,34 @@
 --   end
 --
 --   local old_id = old_client.id
+--   print('[LSP Engine] Initiating 100% clean core reset for client ID: ' .. old_id)
+--
+--   -- 2. Create a clean one-shot listener group to await absolute client unregistration
 --   local reload_group = vim.api.nvim_create_augroup('Clangd_Cold_Reset_Engine', { clear = true })
 --
 --   vim.api.nvim_create_autocmd('LspDetach', {
 --     group = reload_group,
+--     desc = 'Re-activate state schemas the microsecond the old channel is deleted from memory',
 --     callback = function(args)
 --       if args.data.client_id == old_id then
 --         vim.api.nvim_del_augroup_by_id(reload_group)
 --
+--         -- 3. Yield securely to the next event loop tick to ensure registries are fully empty
 --         vim.schedule(function()
---           print('[LSP Engine] State flushed. Re-enabling pure declarative workspace structures...')
+--           print('[LSP Engine] Channels flushed. Re-enabling pure declarative workspace structures...')
+--
 --           -- Cycling the declarative state forces Neovim's native supervisor to re-evaluate
---           -- every active file buffer, check the root string mutations, and spawn separate clients.
+--           -- every active file buffer, check the root string mutations, and spawn a fresh client.
 --           vim.lsp.enable(name, false)
 --           vim.lsp.enable(name, true)
+--
+--           print('[LSP Engine] Dynamic cold-boot complete.')
 --         end)
 --       end
 --     end,
 --   })
 --
+--   -- 4. Polite object-oriented SIGTERM allows clangd to flush indexing logs and exit with code 0
 --   old_client:stop(false)
 -- end
 --
