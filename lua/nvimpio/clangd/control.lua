@@ -261,7 +261,7 @@ end
 
 
 -- ============================================================================
--- 0. NATIVE PATH EXPANDER (Fully Resolves Tildes, Drive Casing, and Slashes)
+-- NATIVE PATH EXPANDER (Fully Resolves Tildes, Drive Casing, and Slashes)
 -- ============================================================================
 local function normalize_absolute_path(path)
   if not path or path == '' then return '' end
@@ -271,22 +271,18 @@ end
 
 local function get_validated_project_root(bufnr)
   local buf_name = vim.api.nvim_buf_get_name(bufnr)
-  if not buf_name or buf_name == '' then
-    return normalize_absolute_path(vim.fn.getcwd())
-  end
+  if not buf_name or buf_name == '' then return normalize_absolute_path(OS.project_dir) end
 
   -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
-  if buf_name:find('.platformio', 1, true) then
-    return normalize_absolute_path(vim.fn.getcwd())
-  end
+  if buf_name:find('.platformio', 1, true) then return normalize_absolute_path(OS.project_dir) end
 
   -- Native C-speed upward path tracer looking for framework landmarks
-  local project_root = vim.fs.root(bufnr, { 'platformio.ini', 'CMakeLists.txt', '.git' })
-  return normalize_absolute_path(project_root or vim.fn.getcwd())
+  local project_root = vim.fs.root(bufnr, {
+            "compile_commands.json", "platformio.ini", "compile_flags.txt", ".git",
+  })
+  return normalize_absolute_path(project_root or OS.project_dir)
 end
-
 -- ============================================================================
--- 1. THE ENTERPRISE 0.11+ DECLARATIVE REGISTRATION (The Correct Way)
 -- ============================================================================
 function M.getClangdConfig()
   local server_name = 'clangd'
@@ -298,7 +294,8 @@ function M.getClangdConfig()
     q_driver = _G.metadata.query_driver
   end
 
-  q_driver = '**/tools/**/bin/*gcc*,**/tools/**/bin/*g++*,**/.platformio/packages/toolchain-**/*'
+  -- q_driver = '**/tools/**/bin/*gcc*,**/tools/**/bin/*g++*,**/.platformio/packages/toolchain-**/*'
+
   -- Format your template string
   -- local json_config = boilerplate_gen([[.clangdConfig.json]], OS.nvimpio_config_dir)
   local json_config = boilerplate_gen([[.clangdConfig.json]])
@@ -322,10 +319,7 @@ function M.getClangdConfig()
   if not tok then return nil end
 
   -- NATIVE ASYNC ROOT DETECTOR: Routes paths through our sandbox filter helper
-  clangd_config.root_dir = function(bufnr, on_dir)
-    print(get_validated_project_root(bufnr))
-    on_dir(get_validated_project_root(bufnr))
-  end
+  clangd_config.root_dir = function(bufnr, on_dir) on_dir(get_validated_project_root(bufnr)) end
 
   -- NATIVE REUSE LAYER: Enforces explicit string path validation boundaries
   clangd_config.reuse_client = function(client, config)
@@ -341,64 +335,7 @@ function M.getClangdConfig()
     if not running_client_root or running_client_root == '' then return false end
     return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
   end
-
   -- =================================================================
-  -- Define custom client reuse logic
-  -- clangd_config.reuse_client = function(client, current_config)
-  --   -- 1. Ensure we are only matching clangd clients
-  --   if client.name ~= current_config.name then return false end
-  --
-  --   -- 2. If the user is jumping to a file inside the global .platformio packages folder,
-  --   -- forcefully REUSE the active client so it retains the project context
-  --   if _G.metadata and _G.metadata.framework_root and _G.OS and _G.OS.prepareLuaEscapePattern then
-  --     local current_file = vim.fs.normalize(vim.api.nvim_buf_get_name(0)):lower()
-  --
-  --     local raw_root = vim.fs.normalize(_G.metadata.framework_root):lower()
-  --     local clean_framework = _G.OS.prepareLuaEscapePattern(raw_root)
-  --
-  --     if string.match(current_file, clean_framework) then return true end
-  --   end
-  --
-  --   -- 3. Otherwise, only reuse the client if it belongs to the EXACT same project root folder.
-  --   -- This prevents index pollution if the user opens a completely different project!
-  --   return client.config.root_dir == current_config.root_dir
-  -- end
-  --
-  -- clangd_config.root_dir = function(bufnr, on_dir)
-  --     -- Fetch the absolute physical path of the active buffer file
-  --     local buf_name = vim.api.nvim_buf_get_name(bufnr)
-  --
-  --     -- ARCHITECTURAL SAFEGUARD: If editing global packages directly, enforce project sandbox constraints
-  --     if buf_name:find(".platformio", 1, true) then
-  --         -- Force the server to map flags against the active working directory context
-  --         on_dir(vim.fn.getcwd())
-  --         return
-  --     end
-  --
-  --     -- 1. Look for precise local engineering files first
-  --     local project_root = vim.fs.root(bufnr, {
-  --           "compile_commands.json",
-  --           "platformio.ini",
-  --           ".clangd",
-  --           ".clang-tidy",
-  --           ".clang-format",
-  --           ".git",
-  --           "compile_flags.txt",
-  --           "configure.ac",
-  --     })
-  --
-  --     -- 2. Fallback to generic version control tracking layers if missing
-  --     if not project_root then
-  --         project_root = vim.fs.root(bufnr, { ".git" })
-  --     end
-  --
-  --     -- 3. Final Fallback: Prevent null pointers by falling back to active directory
-  --     local final_dir = project_root or vim.fn.getcwd()
-  --
-  --     if final_dir then
-  --         on_dir(final_dir)
-  --     end
-  -- end
 
   -- clangd_config.cmd_env = {
   --   "CLANGD_TRACE": "",
@@ -482,6 +419,8 @@ function M.restart()
 
   if not old_client then
     if not vim.lsp.is_enabled(name) then
+      local clangConfig = M.getClangdConfig()
+      vim.lsp.config(name, clangConfig)
       vim.lsp.enable(name, true)
     end
     return
@@ -502,6 +441,8 @@ function M.restart()
         vim.schedule(function()
           print('[LSP Engine] Channels flushed. Re-enabling pure declarative workspace structures...')
           vim.lsp.enable(name, false)
+          local clangConfig = M.getClangdConfig()
+          vim.lsp.config(name, clangConfig)
           vim.lsp.enable(name, true)
           print('[LSP Engine] Dynamic cold-boot complete.')
         end)
