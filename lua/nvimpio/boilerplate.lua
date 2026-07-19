@@ -91,8 +91,6 @@ boilerplate['.clangdConfig.json'] = {
   "init_options": {
     "clangdFileStatus": true,
     "completeUnimported": true,
-    "fallbackFlags": [
-    ],
     "usePlaceholders": true
   },
   "single_file_support": true,

@@ -412,6 +412,7 @@ function M.getClangdConfig()
       if default_handler then default_handler(err, result, ctx, config) end
     end,
   }
+  require('nvimpio.utils.misc').writeFile(OS.clangd_config .. '.yaml', vim.yaml.encode(clangd_config), {})
 
   if clangd_config then return clangd_config end
 end
