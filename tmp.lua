@@ -1,0 +1,162 @@
+-- local M = {}
+--
+-- -- ============================================================================
+-- -- 0. NATIVE PATH RESOLVER (Zero Dependencies, Safe Fallbacks, Windows Casing Guard)
+-- -- ============================================================================
+-- local function get_validated_project_root(bufnr)
+--   local buf_name = vim.api.nvim_buf_get_name(bufnr)
+--   if not buf_name or buf_name == '' then
+--     return vim.fs.normalize(vim.fn.getcwd())
+--   end
+--
+--   -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
+--   if buf_name:find('.platformio', 1, true) then
+--     return vim.fs.normalize(vim.fn.getcwd())
+--   end
+--
+--   -- Native C-speed upward path tracer looking for framework landmarks
+--   local project_root = vim.fs.root(bufnr, { 'platformio.ini', 'CMakeLists.txt', '.git' })
+--   return vim.fs.normalize(project_root or vim.fn.getcwd())
+-- end
+--
+-- -- ============================================================================
+-- -- 1. THE ENTERPRISE 0.11+ LSP REGISTRATION SCHEMA (No lspconfig Overrides)
+-- -- ============================================================================
+-- function M.activate_workspace_engine()
+--   local server_name = 'clangd'
+--
+--   vim.lsp.config(server_name, {
+--     -- 1. Base client template executable options
+--     cmd = {
+--       'clangd',
+--       '--background-index',
+--       '--clang-tidy',
+--       '--completion-style=detailed',
+--       '--pch-storage=memory',
+--       '-j=4',
+--     },
+--     filetypes = { 'c', 'cpp', 'objc', 'objcpp' },
+--     capabilities = vim.lsp.protocol.make_client_capabilities(),
+--     init_options = {
+--       ['clangdFileStatus'] = true,
+--       ['completeUnimported'] = true,
+--       ['usePlaceholders'] = true,
+--     },
+--
+--     -- 2. Modern Asynchronous Root Detector Callback
+--     root_dir = function(bufnr, on_dir)
+--       on_dir(get_validated_project_root(bufnr))
+--     end,
+--
+--     -- 3. CRITICAL IDEMPOTENT FIX: Dynamic validation prevents memory instance drift
+--     before_init = function(_, config)
+--       if not config.cmd then
+--         return
+--       end
+--
+--       -- Check if this specific configuration payload has already been decorated
+--       local has_dir_flag = false
+--       for _, arg in ipairs(config.cmd) do
+--         if type(arg) == 'string' and arg:find('--compile-commands-dir=', 1, true) then
+--           has_dir_flag = true
+--           break
+--         end
+--       end
+--
+--       -- If it's already configured, EXIT IMMEDIATELY to preserve object identity sanity
+--       if has_dir_flag then
+--         return
+--       end
+--
+--       -- Isolate the template parameters through a single clean memory deep-copy pass
+--       local isolated_cmd = vim.deepcopy(config.cmd)
+--       local resolved_root = config.root_dir or vim.fn.getcwd()
+--
+--       table.insert(isolated_cmd, '--compile-commands-dir=' .. resolved_root)
+--       table.insert(isolated_cmd, '--query-driver=C:/Users/batoaqaa/.platformio/packages/toolchain-**/*')
+--
+--       -- Assign back only once to configure this freshly initializing thread group
+--       config.cmd = isolated_cmd
+--     end,
+--
+--     -- 4. Native Strict String Path Client-Reuse Filter Matrix
+--     reuse_client = function(client, config)
+--       if client.name ~= server_name then
+--         return false
+--       end
+--
+--       local proposed_root = config.root_dir
+--       local running_client_root = client.config.root_dir or client.root_dir
+--
+--       if not proposed_root or not running_client_root then
+--         return false
+--       end
+--
+--       -- Lowercase normalization prevents Windows drive-letter casing mismatches
+--       return vim.fs.normalize(running_client_root):lower() == vim.fs.normalize(proposed_root):lower()
+--     end,
+--   })
+--
+--   -- Natively activate the declaration matrix. Neovim handles buffer attachments automatically.
+--   vim.lsp.enable(server_name, true)
+-- end
+--
+-- -- ============================================================================
+-- -- 2. NATIVE 0.11+ RESTART CONTROLLER (Zero Hacks, Microsecond Event-Driven)
+-- -- ============================================================================
+-- function M.restart()
+--   local name = 'clangd'
+--   local current_buf = vim.api.nvim_get_current_buf()
+--
+--   -- Isolate the specific client instance currently bound to this buffer space
+--   local old_client = nil
+--   for _, client in ipairs(vim.lsp.get_clients({ name = name, bufnr = current_buf })) do
+--     old_client = client
+--     break
+--   end
+--
+--   -- If no server is running yet, force-attach the buffer cleanly
+--   if not old_client then
+--     print('[LSP Engine] No active instance running for this buffer. Initializing configuration...')
+--     vim.lsp.enable(name, false)
+--     vim.lsp.enable(name, true)
+--     return
+--   end
+--
+--   local old_id = old_client.id
+--
+--   print('[LSP Engine] Initiating 100% clean core reset for client ID: ' .. old_id)
+--
+--   -- Create a clean one-shot listener group to await absolute client unregistration
+--   local reload_group = vim.api.nvim_create_augroup('Clangd_Cold_Reset_Engine', { clear = true })
+--
+--   vim.api.nvim_create_autocmd('LspDetach', {
+--     group = reload_group,
+--     desc = 'Re-spawn isolated clients the microsecond the old channel is deleted from memory',
+--     callback = function(args)
+--       if args.data.client_id == old_id then
+--         vim.api.nvim_del_augroup_by_id(reload_group)
+--
+--         -- Yield securely to the next event loop tick to ensure registries are fully empty
+--         vim.schedule(function()
+--           print('[LSP Engine] Channels flushed. Cycling native multi-root engines...')
+--
+--           -- Toggle the declarative engine state. Neovim automatically queries your root_dir,
+--           -- before_init, and reuse_client parameters to spawn cleanly isolated processes.
+--           vim.lsp.enable(name, false)
+--           vim.lsp.enable(name, true)
+--
+--           print('[LSP Engine] Multi-root cold-boot complete with absolute folder separation.')
+--         end)
+--       end
+--     end,
+--   })
+--
+--   -- Polite SIGTERM allows clangd to flush indexing logs and exit with code 0 instead of crashing
+--   old_client:stop(false)
+-- end
+--
+-- -- Expose entry points as clean runtime commands
+-- vim.api.nvim_create_user_command('ClangdReloadScratch', M.restart, {})
+--
+-- return M
