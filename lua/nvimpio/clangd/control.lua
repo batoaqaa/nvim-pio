@@ -330,25 +330,21 @@ function M.getClangdConfig()
 
   -- NATIVE REUSE LAYER: Enforces explicit string path validation boundaries
   clangd_config.reuse_client = function(client, config)
-    if client.name ~= server_name then
-      return false
-    end
+    if client.name ~= server_name then return false end
 
     local proposed_root = config.root_dir
     local running_client_root = client.config.root_dir or client.root_dir
 
-    if not proposed_root or proposed_root == '' then
-      return true
-    end
+    if not proposed_root or proposed_root == '' then return true end
 
     local check_file = vim.api.nvim_buf_get_name(config.bufnr or 0)
-    if check_file:find('.platformio', 1, true) then
+    -- if check_file:find('.platformio', 1, true) then
+    if check_file:find(_G.metadata.framework_root, 1, true) then
+      print('found')
       return true
     end
 
-    if not running_client_root or running_client_root == '' then
-      return false
-    end
+    if not running_client_root or running_client_root == '' then return false end
 
     return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
   end
