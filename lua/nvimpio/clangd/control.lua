@@ -264,9 +264,7 @@ end
 -- 0. NATIVE PATH EXPANDER (Fully Resolves Tildes, Drive Casing, and Slashes)
 -- ============================================================================
 local function normalize_absolute_path(path)
-  if not path or path == '' then
-    return ''
-  end
+  if not path or path == '' then return '' end
   local expanded = vim.fn.fnamemodify(path, ':p')
   return vim.fs.normalize(expanded):lower()
 end
@@ -333,21 +331,19 @@ function M.getClangdConfig()
     if client.name ~= server_name then return false end
 
     local proposed_root = config.root_dir
-    local running_client_root = client.config.root_dir or client.root_dir
-
     if not proposed_root or proposed_root == '' then return true end
 
-    local check_file = vim.api.nvim_buf_get_name(config.bufnr or 0)
-    if check_file:find('.platformio', 1, true) then
-    -- if check_file:find(_G.metadata.framework_root, 1, true) then
+    local check_file = vim.fs.normalize(vim.api.nvim_buf_get_name(config.bufnr or 0))
+    -- if check_file:find('.platformio', 1, true) then
+    if check_file:find(vim.fs.normalize(_G.metadata.framework_root), 1, true) then
       print(check_file)
       print(_G.metadata.framework_root)
       print('found')
       return true
     end
 
+    local running_client_root = client.config.root_dir or client.root_dir
     if not running_client_root or running_client_root == '' then return false end
-
     return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
   end
 
