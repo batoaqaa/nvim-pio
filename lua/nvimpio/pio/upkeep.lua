@@ -12,6 +12,7 @@ local misc = require('nvimpio.utils.misc')
 --final file name with its extension :t (Tail)
 --Get Directory Head/Parent :h (Head)
 function M.get_sysroot_triplet(cc_compiler, from)
+  cc_compiler = vim.fs.normalize(cc_compiler):lower()
   from = from or ''
   local bin_path = vim.fs.dirname(cc_compiler)
   -- local bin_path = vim.fs.normalize(vim.fn.fnamemodify(cc_compiler, ':h'))
@@ -19,12 +20,9 @@ function M.get_sysroot_triplet(cc_compiler, from)
   if not bin_path or vim.fn.isdirectory(bin_path) == 0 then
     return nil
   end
-  if not bin_path or vim.fn.isdirectory(bin_path) == 0 then
-    return nil
-  end
 
   -- 1. toolchain_root is the parent of the 'bin' folder
-  local toolchain_root = vim.fs.normalize(vim.fn.fnamemodify(bin_path, ':h'))
+  local toolchain_root = vim.fn.fnamemodify(bin_path, ':h')
 
   -- Strategy A: Check if a folder named after the compiler target exists inside toolchain_root
   local fname = vim.fn.fnamemodify(cc_compiler, ':t:r') -- e.g., "xtensa-esp32s3-elf-g++"
@@ -71,12 +69,13 @@ function M.get_sysroot_triplet(cc_compiler, from)
       end
     end
   end
+  triplet = triplet:lower()
   -- if not triplet then return nil end
 
   -- local query_driver = vim.fs.normalize('**')
   -- local query_driver = vim.fs.normalize(toolchain_root .. '/**/')
   -- local query_driver = vim.fs.normalize(bin_path .. '/' .. triplet .. '-*')
-  local query_driver = vim.fs.normalize(bin_path):lower() .. '/*'
+  local query_driver = bin_path .. '/*'
   -- local query_driver = vim.fs.normalize(toolchain_root .. '/**/' .. triplet .. '*')
 
   _G.metadata.triplet = triplet
