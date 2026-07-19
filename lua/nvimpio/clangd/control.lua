@@ -411,6 +411,7 @@ function M.restart()
   local name = 'clangd'
   -- local current_buf = vim.api.nvim_get_current_buf()
 
+  OS.notify('[LSP Engine] ' .. name, OS.debug)
   local old_client = nil
   -- for _, client in ipairs(vim.lsp.get_clients({ name = name, bufnr = current_buf })) do
   for _, client in ipairs(vim.lsp.get_clients({ name = name })) do
