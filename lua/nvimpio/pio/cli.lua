@@ -153,7 +153,7 @@ end
 ------------------------------------------------------
 function M.piobuild()
   local term = require('nvimpio.device.terminal')
-  local command = 'pio run'
+  local command = 'pio run -e ' .. _G.metadata.active_env
   term.cli:send(command)
 end
 

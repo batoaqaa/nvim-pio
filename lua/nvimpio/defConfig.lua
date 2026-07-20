@@ -72,7 +72,7 @@ local defConfig = {
       desc = '[G]eneral',
       shortcut = 'g',
       items = {
-        { node = 'item', desc = '[B]uild', shortcut = 'b', command = 'Piocli run' },
+        { node = 'item', desc = '[B]uild', shortcut = 'b', command = 'Piorun' },
         { node = 'item', desc = '[C]lean', shortcut = 'c', command = 'Piocli run -t clean' },
         { node = 'item', desc = '[D]evice list', shortcut = 'd', command = 'Piocli device list' },
         { node = 'item', desc = '[F]ull clean', shortcut = 'f', command = 'Piocli run -t fullclean' },
