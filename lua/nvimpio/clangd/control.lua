@@ -283,7 +283,7 @@ local function get_validated_project_root(bufnr)
   })
   local absPath = normalize_absolute_path(project_root)
   print(absPath)
-  return normalize_absolute_path(project_root or OS.project_dir)
+  return normalize_absolute_path(project_root) -- or OS.project_dir)
 end
 
 -- ============================================================================
