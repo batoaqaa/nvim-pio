@@ -316,9 +316,8 @@ function M.getClangdConfig()
     -- merged_json = string.format(json_config or '', OS.nvimpio_config_dir, q_driver)
   end
 
-  -- 'decode' converts JSON string -> Lua table
+  -- Decode JSON string -> Lua table
   local tok, clangd_config = pcall(vim.json.decode, merged_json)
-
   if not tok then return nil end
 
   -- NATIVE ASYNC ROOT DETECTOR: Routes paths through our sandbox filter helper
@@ -330,18 +329,14 @@ function M.getClangdConfig()
 
     -- 1. FRAMEWORK CHECK: If the target file lives inside the framework, 
     -- bypass all downstream logic and instantly force reuse.
-    local check_file = vim.fs.normalize(vim.api.nvim_buf_get_name(config.bufnr or 0))
+    local target_bufnr = config.bufnr or 0
+    local check_file = vim.fs.normalize(vim.api.nvim_buf_get_name(target_bufnr))
     if check_file:find(_G.metadata.framework_root, 1, true) then return true end
 
-    -- 2. TYPE-SAFE STRING EXTRACTION: Extract proposed_root correctly 
-    -- regardless of whether config.root_dir is a raw string or an async function wrapper.
-    local proposed_root = ""
-    if type(config.root_dir) == "function" then
-      config.root_dir(config.bufnr or 0, function(dir) proposed_root = dir end)
-    elseif type(config.root_dir) == "string" then proposed_root = config.root_dir end
+    -- 2. RELIABLE STRING EXTRACTION: Evaluate the path directly and synchronously
+    local proposed_root = get_validated_project_root(target_bufnr) or ""
 
-    -- 3. VALIDATION SAFEGUARDS: Evaluate resolved string properties defensively
-    -- Fallback: Reuse running client if target path evaluation is blank
+    -- 3. VALIDATION SAFEGUARDS: Check the active server variables defensively
     if proposed_root == "" then return true end
 
     local running_client_root = client.config.root_dir or client.root_dir
