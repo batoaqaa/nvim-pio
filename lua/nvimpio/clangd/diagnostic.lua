@@ -151,9 +151,14 @@ function M.clean_file_path_pipeline(diagnostics)
 
   for _, diag in ipairs(diagnostics) do
     local show_diagnostics = true
-    local code = diag.code
+
+    -- local code = diag.code
+    local code = diag.code and tostring(diag.code) or nil
+
     local msg = diag.message or ''
-    local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
+
+    -- local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
+    local is_drv = code and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
 
     if is_drv then
       show_diagnostics = false
