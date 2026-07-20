@@ -270,11 +270,12 @@ local function normalize_absolute_path(path)
 end
 
 local function get_validated_project_root(bufnr)
-  local buf_name = vim.api.nvim_buf_get_name(bufnr)
+  local buf_name = normalize_absolute_path(vim.api.nvim_buf_get_name(bufnr))
   if not buf_name or buf_name == '' then return normalize_absolute_path(OS.project_dir) end
 
   -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
-  if buf_name:find('.platformio', 1, true) then return normalize_absolute_path(OS.project_dir) end
+  -- if buf_name:find('.platformio', 1, true) then return normalize_absolute_path(OS.project_dir) end
+  if buf_name:find(_G.metadata.framework_root, 1, true) then return normalize_absolute_path(OS.project_dir) end
 
   -- Native C-speed upward path tracer looking for framework landmarks
   local project_root = vim.fs.root(bufnr, {
@@ -331,7 +332,7 @@ function M.getClangdConfig()
     if not proposed_root or proposed_root == '' then return true end
 
     local check_file = vim.fs.normalize(vim.api.nvim_buf_get_name(config.bufnr or 0))
-    if check_file:find(vim.fs.normalize(_G.metadata.framework_root), 1, true) then return true end
+    if check_file:find(_G.metadata.framework_root, 1, true) then return true end
 
     local running_client_root = client.config.root_dir or client.root_dir
     if not running_client_root or running_client_root == '' then return false end
@@ -411,9 +412,9 @@ end
 --------------------------------------------------------------------------------
 function M.restart()
   local name = 'clangd'
-  -- local current_buf = vim.api.nvim_get_current_buf()
-
   local old_client = nil
+
+  -- local current_buf = vim.api.nvim_get_current_buf()
   -- for _, client in ipairs(vim.lsp.get_clients({ name = name, bufnr = current_buf })) do
   for _, client in ipairs(vim.lsp.get_clients({ name = name })) do
     old_client = client
@@ -421,12 +422,10 @@ function M.restart()
   end
 
   if not old_client then
-    -- if not vim.lsp.is_enabled(name) then
-      vim.lsp.enable(name, false)
-      vim.lsp.config(name, M.getClangdConfig())
-      vim.lsp.enable(name, true)
-      OS.notify('[Clangd] instance initialized.', OS.debug)
-    -- end
+    vim.lsp.enable(name, false)
+    vim.lsp.config(name, M.getClangdConfig())
+    vim.lsp.enable(name, true)
+    OS.notify('[Clangd] instance initialized.', OS.debug)
     return
   end
 
@@ -457,7 +456,6 @@ function M.restart()
   old_client:stop(false)
 end
 
---stylua: ignore
 --=============================================================================
 function M.init(clangd)
   OS.notify('Clangd Control: initialize', OS.debug)

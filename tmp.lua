@@ -1,102 +1,60 @@
--- function M.restart()
---   vim.schedule(function()
---     local name = 'clangd'
---     OS.notify('LSP: Clangd restart.', 'warn')
---     --
---     vim.lsp.enable(name, false)
+-- local clangd_config = {}
+-- local server_name = 'clangd'
 --
---     local clangConfig = M.getClangdConfig()
---     vim.lsp.config(name, clangConfig)
---
---     -- if not vim.lsp.is_enabled('clangd') then vim.lsp.enable('clangd', true) end
---     vim.lsp.enable(name, true)
---
---     _G.isBusy = false
---   end)
+-- local function normalize_absolute_path(path)
+--   if not path or path == '' then
+--     return ''
+--   end
+--   local expanded = vim.fn.fnamemodify(path, ':p')
+--   return vim.fs.normalize(expanded):lower()
 -- end
-
--- function M.restart()
---   local name = 'clangd'
 --
---   -- 1. Scan for the active runtime client using the modern 0.11+ API
---   local old_client = nil
---   for _, client in ipairs(vim.lsp.get_clients({ name = name })) do
---     old_client = client
---     break
+-- local function get_validated_project_root(bufnr)
+--   local buf_name = normalize_absolute_path(vim.api.nvim_buf_get_name(bufnr))
+--   if not buf_name or buf_name == '' then
+--     return normalize_absolute_path(OS.project_dir)
 --   end
 --
---   -- If no server is currently active, apply the declarative config and boot instantly
---   if not old_client then
---     vim.lsp.config(name, M.getClangdConfig())
---     vim.lsp.enable(name, true)
---     print('[LSP Engine] Pristine clangd instance initialized.')
---     return
+--   -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
+--   if buf_name:find(normalize_absolute_path(_G.metadata.framework_root), 1, true) then
+--     return normalize_absolute_path(OS.project_dir)
 --   end
 --
---   -- 2. Capture parameters cleanly using valid non-deprecated object paths
---   local old_id = old_client.id
---
---   -- Collect buffer indexes via the modern attached_buffers table keys
---   local active_buffers = {}
---   if old_client.attached_buffers then
---     for bufnr, _ in pairs(old_client.attached_buffers) do
---       table.insert(active_buffers, bufnr)
---     end
---   end
---
---   print('[LSP Engine] Initiating clean architectural shutdown for client ID: ' .. old_id)
---
---   -- 3. THE EVENT-DRIVEN EVENT LOOP LIFECYCLE (No hacks, No parameters)
---   local reload_group = vim.api.nvim_create_augroup('Clangd_Cold_Reset_Engine', { clear = true })
---
---   vim.api.nvim_create_autocmd('LspDetach', {
---     group = reload_group,
---     desc = 'Block execution until Neovim confirms absolute client unregistration',
---     callback = function(args)
---       -- Verify that the detaching client is exactly our target instance
---       if args.data.client_id == old_id then
---         -- Immediately delete this autocommand group to clean up memory footprints
---         vim.api.nvim_del_augroup_by_id(reload_group)
---
---         -- Safe to yield execution to a schedule pass now that registries are empty
---         vim.schedule(function()
---           -- Declaratively clear stale attachment metadata spaces cleanly
---           vim.lsp.enable(name, false)
---
---           -- Apply fresh configuration profiles safely onto clean metadata space
---           vim.lsp.config(name, M.getClangdConfig())
---
---           -- Boot the perfectly clean, non-colliding background process daemon
---           local success = pcall(vim.lsp.enable, name, true)
---
---           if success then
---             -- Re-attach all collected open project file buffers immediately
---             vim.schedule(function()
---               local new_client = nil
---               for _, n_client in ipairs(vim.lsp.get_clients({ name = name })) do
---                 new_client = n_client
---                 break
---               end
---
---               if new_client then
---                 for _, bufnr in ipairs(active_buffers) do
---                   if vim.api.nvim_buf_is_valid(bufnr) then
---                     -- CORRECT ATTACH API: Valid for all 0.11 and 0.12+ environments
---                     vim.lsp.buf_attach_client(bufnr, new_client.id)
---                   end
---                 end
---                 print('[LSP Engine] clangd successfully cold-booted from scratch (New ID: ' .. new_client.id .. ').')
---               end
---             end)
---           else
---             vim.notify('[LSP Engine Error] Failed to re-enable clangd engine configuration.', vim.log.levels.ERROR)
---           end
---         end)
---       end
---     end,
+--   -- Native C-speed upward path tracer looking for framework landmarks
+--   local project_root = vim.fs.root(bufnr, {
+--     '.nvimpio',
+--     'compile_commands.json',
+--     'platformio.ini',
+--     'compile_flags.txt',
 --   })
---
---   -- 4. Execute the modern object-oriented shutdown method cleanly
---   -- Passing 'false' sends a polite SIGTERM so clangd can exit with code 0.
---   old_client:stop(false)
+--   -- local absPath = normalize_absolute_path(project_root)
+--   -- print(absPath)
+--   return normalize_absolute_path(project_root or OS.project_dir)
 -- end
+--
+-- clangd_config.root_dir = function(bufnr, on_dir)
+--   on_dir(get_validated_project_root(bufnr))
+-- end
+--
+-- clangd_config.reuse_client = function(client, config)
+--   if client.name ~= server_name then
+--     return false
+--   end
+--
+--   local proposed_root = config.root_dir
+--   if not proposed_root or proposed_root == '' then
+--     return true
+--   end
+--
+--   local check_file = vim.fs.normalize(vim.api.nvim_buf_get_name(config.bufnr or 0))
+--   if check_file:find(vim.fs.normalize(_G.metadata.framework_root), 1, true) then
+--     return true
+--   end
+--
+--   local running_client_root = client.config.root_dir or client.root_dir
+--   if not running_client_root or running_client_root == '' then
+--     return false
+--   end
+--   return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
+-- end
+-- print(vim.inspect(clangd_config))
