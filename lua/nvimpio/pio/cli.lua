@@ -44,7 +44,7 @@ local function notify_system_error(from, prefix_msg, obj)
   OS.notify(from .. prefix_msg .. error_text .. details, 'error')
 end
 
---- stylua: ignore start
+-- stylua: ignore start
 --INFO: Generate idedata.json
 ------------------------------------------------------------------------------------
 function M.buildIdedata(from, active_env, cb)
@@ -107,7 +107,12 @@ function M.piocli(cmd_table)
   if not cli then
     return
   end
-  local cmd = (cmd_table[1] == '') and '' or ('pio ' .. table.concat(cmd_table, ' '))
+  local cmd = (cmd_table[1] == '')
+        and   ''
+        or    ((cmd_table[1] == 'run')
+        and   ('pio ' .. table.concat(cmd_table, ' ') .. ' -e ' .. _G.metadata.active_env)
+        or    ('pio ' .. table.concat(cmd_table, ' '))
+        )
   if cmd ~= '' then
     cli:send(cmd)
   else
@@ -159,19 +164,19 @@ end
 
 function M.pioupload()
   local term = require('nvimpio.device.terminal')
-  local command = 'pio run --target upload'
+  local command = 'pio run --target upload -e ' .. _G.metadata.active_env
   term.cli:send(command)
 end
 
 function M.piouploadfs()
   local term = require('nvimpio.device.terminal')
-  local command = 'pio run --target uploadfs'
+  local command = 'pio run --target uploadfs -e ' .. _G.metadata.active_env
   term.cli:send(command)
 end
 
 function M.pioclean()
   local term = require('nvimpio.device.terminal')
-  local command = 'pio run --target clean'
+  local command = 'pio run --target clean -e ' .. _G.metadata.active_env
   term.cli:send(command)
 end
 
