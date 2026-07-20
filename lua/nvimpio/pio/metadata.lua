@@ -278,6 +278,7 @@ function M.updateProjectConfig()
     -- if cok and require('nvimpio.pio.upkeep').apply_metadata(decoded, active_env) then
     if cok and require('nvimpio.pio.upkeep').apply_metadata(decoded[active_env], active_env, 'meta update: ') then
       _G.isBusy = false
+      require('nvimpio.clangd.control').restart()
     end
   else
     vim.schedule(function()
