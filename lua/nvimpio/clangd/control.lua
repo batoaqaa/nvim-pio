@@ -285,7 +285,7 @@ local function get_validated_project_root(bufnr)
   -- print(absPath)
   return normalize_absolute_path(project_root or OS.project_dir)
 end
--- ============================================================================
+
 -- ============================================================================
 function M.getClangdConfig()
   local server_name = 'clangd'
@@ -328,14 +328,27 @@ function M.getClangdConfig()
   clangd_config.reuse_client = function(client, config)
     if client.name ~= server_name then return false end
 
-    local proposed_root = config.root_dir
-    if not proposed_root or proposed_root == '' then return true end
-
+    -- 1. FRAMEWORK CHECK: If the target file lives inside the framework, 
+    -- bypass all downstream logic and instantly force reuse.
     local check_file = vim.fs.normalize(vim.api.nvim_buf_get_name(config.bufnr or 0))
     if check_file:find(_G.metadata.framework_root, 1, true) then return true end
 
+    -- 2. TYPE-SAFE STRING EXTRACTION: Extract proposed_root correctly 
+    -- regardless of whether config.root_dir is a raw string or an async function wrapper.
+    local proposed_root = ""
+    if type(config.root_dir) == "function" then
+      config.root_dir(config.bufnr or 0, function(dir) proposed_root = dir end)
+    elseif type(config.root_dir) == "string" then proposed_root = config.root_dir end
+
+    -- 3. VALIDATION SAFEGUARDS: Evaluate resolved string properties defensively
+    -- Fallback: Reuse running client if target path evaluation is blank
+    if proposed_root == "" then return true end
+
     local running_client_root = client.config.root_dir or client.root_dir
-    if not running_client_root or running_client_root == '' then return false end
+     -- Safety: Spawn a fresh server instance if active client state is missing
+    if not running_client_root or running_client_root == "" then return false end
+
+    -- 4. WORKSPACE DIVISION MATCH: Separate distinct user workspace boundaries
     return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
   end
   -- =================================================================
@@ -372,7 +385,6 @@ function M.getClangdConfig()
         end
       end
     end
-
     -- Step 2: Refresh your physical configuration files natively last
     local boiler = require('nvimpio.boilerplate')
     if boiler and boiler.boilerplate_gen then pcall(boiler.boilerplate_gen, '.clangd') end
