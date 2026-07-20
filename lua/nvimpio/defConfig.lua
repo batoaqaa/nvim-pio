@@ -31,7 +31,7 @@ local defConfig = {
         { node = 'item', desc = '[T]est', shortcut = 't', command = 'Piocli test' },
         { node = 'item', desc = '[C]heck', shortcut = 'c', command = 'Piocli check' },
         { node = 'item', desc = '[D]ebug', shortcut = 'd', command = 'Piocli debug' },
-        { node = 'item', desc = 'Compilation Data[b]ase', shortcut = 'b', command = 'PioCompileDB' },
+        { node = 'item', desc = 'Compilation Data[b]ase', shortcut = 'b', command = 'Piocli run -t compiledb' },
         {
           node = 'menu',
           desc = '[V]erbose',
