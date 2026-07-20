@@ -1,89 +1,89 @@
-local function normalize_absolute_path(path)
-  if not path or path == '' then
-    return ''
-  end
-  local expanded = vim.fn.fnamemodify(path, ':p')
-  return vim.fs.normalize(expanded):lower()
-end
-
-local function get_validated_project_root(bufnr)
-  local buf_name = normalize_absolute_path(vim.api.nvim_buf_get_name(bufnr))
-  if not buf_name or buf_name == '' then
-    return normalize_absolute_path(OS.project_dir)
-  end
-
-  -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
-  -- if buf_name:find('.platformio', 1, true) then return normalize_absolute_path(OS.project_dir) end
-  if buf_name:find(_G.metadata.framework_root, 1, true) then
-    return normalize_absolute_path(OS.project_dir)
-  end
-
-  -- Native C-speed upward path tracer looking for framework landmarks
-  local project_root = vim.fs.root(bufnr, {
-    '.nvimpio',
-    'compile_commands.json',
-    'platformio.ini',
-    'compile_flags.txt',
-  })
-  -- local absPath = normalize_absolute_path(project_root)
-  -- print(absPath)
-  return normalize_absolute_path(project_root or OS.project_dir)
-end
-
-function M.getClangdConfig()
-  local server_name = 'clangd'
-  local q_driver, merged_json = '**', ''
-  if _G.metadata and _G.metadata.query_driver and _G.metadata.query_driver ~= '' then
-    q_driver = _G.metadata.query_driver
-  end
-
-  local json_config = boilerplate_gen([[.clangdConfig.json]])
-  if not json_config then
-    return nil
-  end
-
-  local _, count = json_config:gsub('%%s', '')
-  if count <= 2 then
-    local dbPath = OS.project_dir
-    merged_json = string.format(json_config or '', normalize_absolute_path(dbPath), q_driver)
-  end
-
-  -- 'decode' converts JSON string -> Lua table
-  local tok, clangd_config = pcall(vim.json.decode, merged_json)
-
-  if not tok then
-    return nil
-  end
-
-  -- NATIVE ASYNC ROOT DETECTOR: Routes paths through our sandbox filter helper
-  clangd_config.root_dir = function(bufnr, on_dir)
-    on_dir(get_validated_project_root(bufnr))
-  end
-
-  -- NATIVE REUSE LAYER: Enforces explicit string path validation boundaries
-  clangd_config.reuse_client = function(client, config)
-    if client.name ~= server_name then
-      return false
-    end
-
-    local proposed_root = config.root_dir
-    if not proposed_root or proposed_root == '' then
-      return true
-    end
-
-    local check_file = vim.fs.normalize(vim.api.nvim_buf_get_name(config.bufnr or 0))
-    if check_file:find(_G.metadata.framework_root, 1, true) then
-      return true
-    end
-
-    local running_client_root = client.config.root_dir or client.root_dir
-    if not running_client_root or running_client_root == '' then
-      return false
-    end
-    return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
-  end
-
-  if clangd_config then
-    return clangd_config
-  end
-end
+-- local function normalize_absolute_path(path)
+--   if not path or path == '' then
+--     return ''
+--   end
+--   local expanded = vim.fn.fnamemodify(path, ':p')
+--   return vim.fs.normalize(expanded):lower()
+-- end
+--
+-- local function get_validated_project_root(bufnr)
+--   local buf_name = normalize_absolute_path(vim.api.nvim_buf_get_name(bufnr))
+--   if not buf_name or buf_name == '' then
+--     return normalize_absolute_path(OS.project_dir)
+--   end
+--
+--   -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
+--   -- if buf_name:find('.platformio', 1, true) then return normalize_absolute_path(OS.project_dir) end
+--   if buf_name:find(_G.metadata.framework_root, 1, true) then
+--     return normalize_absolute_path(OS.project_dir)
+--   end
+--
+--   -- Native C-speed upward path tracer looking for framework landmarks
+--   local project_root = vim.fs.root(bufnr, {
+--     '.nvimpio',
+--     'compile_commands.json',
+--     'platformio.ini',
+--     'compile_flags.txt',
+--   })
+--   -- local absPath = normalize_absolute_path(project_root)
+--   -- print(absPath)
+--   return normalize_absolute_path(project_root or OS.project_dir)
+-- end
+--
+-- function M.getClangdConfig()
+--   local server_name = 'clangd'
+--   local q_driver, merged_json = '**', ''
+--   if _G.metadata and _G.metadata.query_driver and _G.metadata.query_driver ~= '' then
+--     q_driver = _G.metadata.query_driver
+--   end
+--
+--   local json_config = boilerplate_gen([[.clangdConfig.json]])
+--   if not json_config then
+--     return nil
+--   end
+--
+--   local _, count = json_config:gsub('%%s', '')
+--   if count <= 2 then
+--     local dbPath = OS.project_dir
+--     merged_json = string.format(json_config or '', normalize_absolute_path(dbPath), q_driver)
+--   end
+--
+--   -- 'decode' converts JSON string -> Lua table
+--   local tok, clangd_config = pcall(vim.json.decode, merged_json)
+--
+--   if not tok then
+--     return nil
+--   end
+--
+--   -- NATIVE ASYNC ROOT DETECTOR: Routes paths through our sandbox filter helper
+--   clangd_config.root_dir = function(bufnr, on_dir)
+--     on_dir(get_validated_project_root(bufnr))
+--   end
+--
+--   -- NATIVE REUSE LAYER: Enforces explicit string path validation boundaries
+--   clangd_config.reuse_client = function(client, config)
+--     if client.name ~= server_name then
+--       return false
+--     end
+--
+--     local proposed_root = config.root_dir
+--     if not proposed_root or proposed_root == '' then
+--       return true
+--     end
+--
+--     local check_file = vim.fs.normalize(vim.api.nvim_buf_get_name(config.bufnr or 0))
+--     if check_file:find(_G.metadata.framework_root, 1, true) then
+--       return true
+--     end
+--
+--     local running_client_root = client.config.root_dir or client.root_dir
+--     if not running_client_root or running_client_root == '' then
+--       return false
+--     end
+--     return normalize_absolute_path(running_client_root) == normalize_absolute_path(proposed_root)
+--   end
+--
+--   if clangd_config then
+--     return clangd_config
+--   end
+-- end
