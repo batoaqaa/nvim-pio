@@ -339,13 +339,20 @@ function M.manage_file_diagnostics_interactive(state_override)
     -- GATE 2: User clicked an automated read-only logger flag row item
     -- Do nothing, let user keep browsing
     if choice.action == 'none' then
-      if idx then
-        vim.schedule(function()
-          if vim.api.nvim_win_is_valid(picker_win) then
-            pcall(vim.api.nvim_win_set_cursor, picker_win, { idx, 0 })
-          end
-        end)
-      end
+      -- 🟢 DEFER Small 20ms timer locks cursor back onto row target_idx AFTER UI provider redraws
+      vim.defer_fn(function()
+        local win = vim.api.nvim_get_current_win()
+        if vim.api.nvim_win_is_valid(win) then
+          pcall(vim.api.nvim_win_set_cursor, win, { idx, 0 })
+        end
+      end, 20)
+      -- if idx then
+      --   vim.schedule(function()
+      --     if vim.api.nvim_win_is_valid(picker_win) then
+      --       pcall(vim.api.nvim_win_set_cursor, picker_win, { idx, 0 })
+      --     end
+      --   end)
+      -- end
       return
     end
 
@@ -376,13 +383,21 @@ function M.manage_file_diagnostics_interactive(state_override)
       choice.text = string.format('  %s %s Code: [%s]', mark, status, choice.id)
     end
     --------------------------------------------------------------------------------------------
-    if idx then
-      vim.schedule(function()
-        if vim.api.nvim_win_is_valid(picker_win) then
-          pcall(vim.api.nvim_win_set_cursor, picker_win, { idx, 0 })
-        end
-      end)
-    end
+
+    -- 🟢 DEFER Small 20ms timer locks cursor back onto row target_idx AFTER UI provider redraws
+    vim.defer_fn(function()
+      local win = vim.api.nvim_get_current_win()
+      if vim.api.nvim_win_is_valid(win) then
+        pcall(vim.api.nvim_win_set_cursor, win, { idx, 0 })
+      end
+    end, 20)
+    -- if idx then
+    --   vim.schedule(function()
+    --     if vim.api.nvim_win_is_valid(picker_win) then
+    --       pcall(vim.api.nvim_win_set_cursor, picker_win, { idx, 0 })
+    --     end
+    --   end)
+    -- end
     --------------------------------------------------------------------------------------------
   end)
 end
