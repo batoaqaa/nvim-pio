@@ -298,20 +298,23 @@ vim.ui.select = function(items, opts, on_choice)
           local is_checkbox_menu = type(clicked_item) == "table" and (clicked_item.action ~= nil or clicked_item.id ~= nil)
 
           if is_checkbox_menu then
-            -- 1. Trigger choice callback first
-            -- CASE A: Persistent Checkbox List -> KEEP WINDOW OPEN, REDRAW IN PLACE
+            -- 1. Trigger choice callback (modifies choice.text / item state in memory)
             on_choice(clicked_item, clicked_index)
 
             local current_picker = action_state.get_current_picker(prompt_bufnr)
             if current_picker then
-              -- 🟢 ZERO-FLICKER & NO EXTMARK DESTRUCTION:
-              -- Update the internal display string on Telescope's entry object
+              -- 🟢 ZERO-FLICKER & NO EXTMARK LOSS:
               local updated_text = format_single_item(clicked_item)
+
+              -- Update Telescope's internal memory entry object
               selection.display = updated_text
               selection.ordinal = updated_text
 
-              -- Redraw Telescope's results buffer directly without replacing lines or losing extmarks!
-              current_picker:redraw_first()
+              -- Re-render the active selection line natively (preserves Telescope's arrow extmark)
+              local status_updater = current_picker:get_status_updater(current_picker.results_bufnr)
+              if type(status_updater) == 'function' then
+                status_updater()
+              end
             end
           else
             -- CASE B: Standard Selection Menu -> CLOSE WINDOW INSTANTLY AND JUMP
