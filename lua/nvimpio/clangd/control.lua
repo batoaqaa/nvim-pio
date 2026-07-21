@@ -182,8 +182,8 @@ function M.getUnknownArgsCli(from)
             if not seen[clean_flag] then
               seen[clean_flag] = true
               table.insert(args_table, clean_flag)
-              if not diagnosticClangd.removed_flags[clean_flag] then
-                diagnosticClangd.removed_flags[clean_flag] = true
+              if not diagnosticClangd.auto_removed_flags[clean_flag] then
+                diagnosticClangd.auto_removed_flags[clean_flag] = true
               end
             end
           end
@@ -374,7 +374,7 @@ function M.getClangdConfig()
           local ok, data = pcall(vim.json.decode, raw)
           if ok and data and type(data.flags) == 'table' then
             for flag, blocked in pairs(data.flags) do
-              if blocked then pio_diag.removed_flags[flag] = true end
+              if blocked then pio_diag.auto_removed_flags[flag] = true end
             end
           end
         end

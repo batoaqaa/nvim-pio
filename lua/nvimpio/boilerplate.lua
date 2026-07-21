@@ -268,8 +268,8 @@ CompileFlags:
     local formattedProjRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
     -- add diagnostic removed flags
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-    if success and pio_diag and pio_diag.removed_flags and next(pio_diag.removed_flags) then
-      for flag, isblocked in pairs(pio_diag.removed_flags) do
+    if success and pio_diag and pio_diag.auto_removed_flags and next(pio_diag.auto_removed_flags) then
+      for flag, isblocked in pairs(pio_diag.auto_removed_flags) do
         if isblocked then
           table.insert(formattedProjRemove, string.format('%q', flag))
         end

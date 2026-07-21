@@ -3,12 +3,11 @@ local M = {}
 
 -- Module scopes track cross-file automated session states safely
 M.manual_blocked_codes = M.manual_blocked_codes or {}
-M.removed_flags = M.removed_flags or {}
+M.auto_removed_flags = M.auto_removed_flags or {}
 M.session_discovered_codes = M.session_discovered_codes or {}
 
 -- ⚡ DISK CACHE LAYER: Prevents synchronous file reads on hot diagnostic loops
 local cached_db_mtime = 0
-local cached_manual_blocked = {}
 
 local function get_db_path()
   return vim.fs.joinpath(OS.nvimpio_env_dir, OS.clangd_filter)
@@ -67,11 +66,11 @@ local function get_manual_blocked_cached(filter_db_path)
   local current_mtime = stat and stat.mtime.sec or 0
 
   if current_mtime == 0 or current_mtime ~= cached_db_mtime then
-    cached_manual_blocked = parse_db_file_pure(filter_db_path)
+    M.manual_blocked_codes = parse_db_file_pure(filter_db_path)
     cached_db_mtime = current_mtime
   end
 
-  return cached_manual_blocked
+  return M.manual_blocked_codes
 end
 
 -- -- ========================================================================================
@@ -99,8 +98,8 @@ end
 --       -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
 --       local flag = msg:match('(%-[fmWOgsx][%w%-%.%*]+)')
 --       -- 🟢 SINGLE SEED: Only modify your private master module dictionary map!
---       if flag and not M.removed_flags[flag] then
---         M.removed_flags[flag] = true
+--       if flag and not M.auto_removed_flags[flag] then
+--         M.auto_removed_flags[flag] = true
 --         flags_updated = true
 --       end
 --     end
@@ -112,7 +111,7 @@ end
 --
 --     local f = io.open(filter_db_path, 'wb')
 --     if f then
---       local payload = { codes = current_blocked, flags = M.removed_flags }
+--       local payload = { codes = current_blocked, flags = M.auto_removed_flags }
 --       f:write(require('nvimpio.utils.misc').jsonFormat(payload))
 --       f:close()
 --     end
@@ -132,7 +131,7 @@ function M.unknownArgs()
 
   local f = io.open(filter_db_path, 'wb')
   if f then
-    local payload = { codes = manual_blocked, flags = M.removed_flags }
+    local payload = { codes = manual_blocked, flags = M.auto_removed_flags }
     f:write(require('nvimpio.utils.misc').jsonFormat(payload))
     f:close()
   end
@@ -188,8 +187,8 @@ function M.clean_file_path_pipeline(diagnostics)
       local flag = msg:match('(%-[fmWOgsx][%w%-%.%*]+)')
 
       -- 🟢 SINGLE SOURCE SEED: Update only your master memory dictionary map!
-      if flag and not M.removed_flags[flag] then
-        M.removed_flags[flag] = true  -- then only place updates M.removed_flags
+      if flag and not M.auto_removed_flags[flag] then
+        M.auto_removed_flags[flag] = true  -- ** the only place updates M.auto_removed_flags
         flags_updated = true          -- if updated write it below to file
       end
     elseif code and manual_blocked[code] then show_diagnostics = false end
@@ -202,7 +201,7 @@ function M.clean_file_path_pipeline(diagnostics)
     -- 🟢 SINGLE-POINT FLUSH POINT: Trigger only if a brand-new unknown flag was caught mid-flight
       local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
       local raw_payload = misc_ok and misc.jsonFormat
-        and misc.jsonFormat({ codes = manual_blocked, flags = M.removed_flags })
+        and misc.jsonFormat({ codes = manual_blocked, flags = M.auto_removed_flags })
         or '{\n  "codes": {},\n  "flags": {}\n}'
 
       local f = io.open(filter_db_path, 'wb')
@@ -212,7 +211,7 @@ function M.clean_file_path_pipeline(diagnostics)
         cached_db_mtime = 0 -- Invalidate mtime cache
       end
 
-      -- Let the dynamic boilerplate loop read pio_diag.removed_flags directly on disk generation!
+      -- Let the dynamic boilerplate loop read pio_diag.auto_removed_flags directly on disk generation!
       local boiler_ok, boiler = pcall(require, 'nvimpio.boilerplate')
       if boiler_ok and boiler and boiler.boilerplate_gen then
         pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics clean_file_path_pipeline')
@@ -226,21 +225,21 @@ end
 -- ===================================================================
 -- 💻 THE INTERACTIVE DYNAMIC CHECKBOX PICKER PANEL (STATE MACHINE)
 -- ===================================================================
-function M.manage_file_diagnostics_interactive(state_override)
+function M.manage_file_diagnostics_interactive()
   local bufnr = vim.api.nvim_get_current_buf()
   local filter_db_path = get_db_path()
 
   -- 🟢 SELF-HEALING INTERCEPTION: Guarantee the database file is active before memory tracking maps populate
   ensure_default_db_exists(filter_db_path)
 
-  -- 🟢 THE NEOVIIM COMMAND PROTECTION SHIELD:
-  -- If state_override contains a 'name' field, it is a Neovim command metadata block object!
-  -- Discard it instantly and force it back to a clean disk load via parse_db_file_pure()
-  local is_command_object = type(state_override) == 'table' and state_override.name ~= nil
-  if is_command_object then state_override = nil end
+  -- -- 🟢 THE NEOVIIM COMMAND PROTECTION SHIELD:
+  -- -- If state_override contains a 'name' field, it is a Neovim command metadata block object!
+  -- -- Discard it instantly and force it back to a clean disk load via parse_db_file_pure()
+  -- local is_command_object = type(state_override) == 'table' and state_override.name ~= nil
+  -- if is_command_object then state_override = nil end
 
   -- Initialize memory state tracking layer from disk or incoming RAM state
-  local active_file_blocked = state_override or parse_db_file_pure(filter_db_path)
+  local active_file_blocked = get_manual_blocked_cached(filter_db_path)
 
   M.session_discovered_codes = M.session_discovered_codes or {}
 
@@ -289,7 +288,7 @@ function M.manage_file_diagnostics_interactive(state_override)
     })
   end
 
-  for f, _ in pairs(M.removed_flags) do
+  for f, _ in pairs(M.auto_removed_flags) do
     table.insert(items, { action = 'none', text = '  [-] ⚙️ [AUTOMATED]: ' .. f })
   end
 
@@ -310,9 +309,10 @@ function M.manage_file_diagnostics_interactive(state_override)
     if not choice then
       local f = io.open(filter_db_path, 'wb')
       if f then
-        local payload = { codes = active_file_blocked, flags = M.removed_flags }
+        local payload = { codes = active_file_blocked, flags = M.auto_removed_flags }
         f:write(require('nvimpio.utils.misc').jsonFormat(payload))
         f:close()
+        -- 🟢 Invalidate or refresh cache here so the getter reloads the new state
         cached_db_mtime = 0 -- Invalidate cache
       end
 
@@ -338,16 +338,13 @@ function M.manage_file_diagnostics_interactive(state_override)
     --------------------------------------------------------------------------------------------
     -- GATE 2: User clicked an automated read-only logger flag row item
     -- Do nothing, let user keep browsing
-    if choice.action == 'none' then
-      return
-    end
+    if choice.action == 'none' then return end
 
     -- GATE 3: User selected a valid row checkbox item to toggle.
     -- This modifies active_file_blocked in live parent RAM memory instantly!
     if choice.action == 'reset' then
       -- 1. Clear table in place (preserves table pointer)
       for k in pairs(active_file_blocked) do active_file_blocked[k] = nil end
-
       -- 2. Update every item's state and text in memory
       for _, item in ipairs(items) do
         if item.id then
@@ -355,17 +352,6 @@ function M.manage_file_diagnostics_interactive(state_override)
           item.text = string.format('  [ ] Suppress Code: [%s]', item.id)
         end
       end
-
-      -- 3. Flag that a full reset occurred
-      -- choice.is_reset_action = true
-      -- active_file_blocked = {}
-      -- -- Clear all checkbox marks globally for the live redraw engine
-      -- for _, item in ipairs(items) do
-      --   if item.id then
-      --     item.action = 'block'
-      --     item.text = string.format('  [ ] Suppress Code: [%s]', item.id)
-      --   end
-      -- end
     elseif choice.action == 'block' then
       active_file_blocked[choice.id] = true
       choice.action = 'unblock' -- Flip item state string
