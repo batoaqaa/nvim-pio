@@ -298,13 +298,21 @@ vim.ui.select = function(items, opts, on_choice)
           local is_checkbox_menu = type(clicked_item) == "table" and (clicked_item.action ~= nil or clicked_item.id ~= nil)
 
           if is_checkbox_menu then
+            -- 1. Trigger choice callback first
             -- CASE A: Persistent Checkbox List -> KEEP WINDOW OPEN, REDRAW IN PLACE
             on_choice(clicked_item, clicked_index)
 
             local current_picker = action_state.get_current_picker(prompt_bufnr)
             if current_picker then
+              -- 2. Trigger Telescope refresh
               current_picker:refresh(make_entry_list(), { reset_prompt = false })
-              vim.api.nvim_win_set_cursor(current_picker.results_win, { clicked_index, 0 })
+              -- 3. FIX: Defer selection move until AFTER Telescope finishes refreshing entries
+              vim.schedule(function()
+                if action_state.get_current_picker(prompt_bufnr) then
+                  current_picker:set_selection(clicked_index - 1) -- Telescope set_selection uses 0-based indexing!
+                end
+              end)
+              -- vim.api.nvim_win_set_cursor(current_picker.results_win, { clicked_index, 0 })
             end
           else
             -- CASE B: Standard Selection Menu -> CLOSE WINDOW INSTANTLY AND JUMP
