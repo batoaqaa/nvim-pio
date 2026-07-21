@@ -268,8 +268,10 @@ CompileFlags:
     local formattedProjRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
     -- add diagnostic removed flags
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-    if success and pio_diag and pio_diag.auto_removed_flags and next(pio_diag.auto_removed_flags) then
-      for flag, isblocked in pairs(pio_diag.auto_removed_flags) do
+    -- if success and pio_diag and pio_diag.auto_removed_flags and next(pio_diag.auto_removed_flags) then
+    if success and pio_diag and pio_diag.blocked.flags and next(pio_diag.blocked.flags) then
+      -- for flag, isblocked in pairs(pio_diag.auto_removed_flags) do
+      for flag, isblocked in pairs(pio_diag.blocked.flags) do
         if isblocked then
           table.insert(formattedProjRemove, string.format('%q', flag))
         end
@@ -292,7 +294,7 @@ CompileFlags:
       end
     end
 
-    -- local formattedGlobRemove = {
+    -- local formattedGlobSuppress = {
     --   '"-x"',
     --   '"-std=*"',
     --   '"-D_ASMLANGUAGE"',
@@ -300,8 +302,9 @@ CompileFlags:
     --   '"-D__ASSEMBLER__"',
     --   '"-D_ASSEMBLY_"'
     -- }
-    local formattedGlobRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
-    -- vim.list_extend(formattedProjRemove, formattedGlobRemove)
+    -- local formattedGlobRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
+    -- local formattedGlobSuppress = {'"-xc"', '"-xc++"', '"-std=*"'}
+    -- vim.list_extend(formattedProjRemove, formattedGlobSuppress)
     --------------------- end .clangd remove section -----------------------------
 
     ------------------------------------------------------------------------------
@@ -462,13 +465,13 @@ CompileFlags:
                 headerExtensions,                            -- header extensions
                 -- OS.project_dir,                              -- compilationDatabasePath
                 -- compiler,                                    -- compiler
-                -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
+                -- table.concat(formattedGlobSuppress, ',\n    '),-- Remove: [%s]
                 table.concat(formattedGlobHAdd, ',\n    '),  -- Add: [%s]
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
                 -- OS.project_dir,                              -- compilationDatabasePath
                 -- compiler,                                    -- compiler
-                -- table.concat(formattedGlobRemove, ',\n    '),-- Remove: [%s]
+                -- table.concat(formattedGlobSuppress, ',\n    '),-- Remove: [%s]
                 table.concat(formattedGlobAdd, ',\n    '),   -- Add: [%s]
                 ref.end_marker)
         end,

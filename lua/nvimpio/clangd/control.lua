@@ -365,25 +365,27 @@ function M.getClangdConfig()
   clangd_config.before_init = function(_, _)
     -- Step 1: Parse database into an isolated local table variable first
     if has_pio_diag and pio_diag then
+      pio_diag.cached_db_mtime = 0 -- Invalidate cache
       local filter_db_path = vim.fs.joinpath(OS.nvimpio_env_dir, OS.clangd_filter)
-      local f = io.open(filter_db_path, 'r')
-      if f then
-        local raw = f:read('*a')
-        f:close()
-        if raw and raw ~= '' then
-          local ok, data = pcall(vim.json.decode, raw)
-          if ok and data and type(data.flags) == 'table' then
-            for flag, blocked in pairs(data.flags) do
-              if blocked then pio_diag.auto_removed_flags[flag] = true end
-            end
-          end
-          if ok and data and type(data.codes) == 'table' then
-            for code, blocked in pairs(data.codes) do
-              if blocked then pio_diag.manual_blocked_codes[code] = true end
-            end
-          end
-        end
-      end
+      pio_diag.get_manual_blocked(filter_db_path)
+      -- local f = io.open(filter_db_path, 'r')
+      -- if f then
+      --   local raw = f:read('*a')
+      --   f:close()
+      --   if raw and raw ~= '' then
+      --     local ok, data = pcall(vim.json.decode, raw)
+      --     if ok and data and type(data.flags) == 'table' then
+      --       for flag, blocked in pairs(data.flags) do
+      --         if blocked then pio_diag.auto_removed_flags[flag] = true end
+      --       end
+      --     end
+      --     if ok and data and type(data.codes) == 'table' then
+      --       for code, blocked in pairs(data.codes) do
+      --         if blocked then pio_diag.manual_blocked_codes[code] = true end
+      --       end
+      --     end
+      --   end
+      -- end
     end
     -- Step 2: Refresh your physical configuration files natively last
     local boiler = require('nvimpio.boilerplate')

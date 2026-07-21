@@ -2,12 +2,13 @@
 local M = {}
 
 -- Module scopes track cross-file automated session states safely
-M.manual_blocked_codes = M.manual_blocked_codes or {}
-M.auto_removed_flags = M.auto_removed_flags or {}
+M.blocked = {  codes= {}, flags= {}}
+-- M.manual_blocked_codes = M.manual_blocked_codes or {}
+-- M.auto_removed_flags = M.auto_removed_flags or {}
 M.session_discovered_codes = M.session_discovered_codes or {}
 
 -- ⚡ DISK CACHE LAYER: Prevents synchronous file reads on hot diagnostic loops
-local cached_db_mtime = 0
+M.cached_db_mtime = 0
 
 local function get_db_path()
   return vim.fs.joinpath(OS.nvimpio_env_dir, OS.clangd_filter)
@@ -37,7 +38,8 @@ end
 local function parse_db_file_pure(db_path)
   ensure_default_db_exists(db_path)
 
-  local blocked_codes = {}
+  local blocked_codes = {  codes= {}, flags= {}}
+  -- local blocked_codes = {}
   local f = io.open(db_path, 'rb')
   if not f then return blocked_codes end
   local raw = f:read('*all')
@@ -45,6 +47,16 @@ local function parse_db_file_pure(db_path)
 
   if raw and raw ~= '' then
     local ok, data = pcall(vim.json.decode, raw)
+    if ok and data and type(data.flags) == 'table' then
+      for k, v in pairs(data.flags) do
+        local code_str = nil
+        if type(k) == 'string' and k ~= '' then code_str = k
+        elseif type(v) == 'string' and v ~= '' then code_str = v end
+
+        -- Ensure we only load it if it was explicitly marked as true inside the codes sub-section
+        if code_str and data.codes[k] == true then blocked_codes.flags[code_str] = true end
+      end
+    end
     if ok and data and type(data.codes) == 'table' then
       for k, v in pairs(data.codes) do
         local code_str = nil
@@ -52,26 +64,37 @@ local function parse_db_file_pure(db_path)
         elseif type(v) == 'string' and v ~= '' then code_str = v end
 
         -- Ensure we only load it if it was explicitly marked as true inside the codes sub-section
-        if code_str and data.codes[k] == true then blocked_codes[code_str] = true end
+        if code_str and data.codes[k] == true then blocked_codes.codes[code_str] = true end
       end
     end
   end
   return blocked_codes
 end
 
-
 -- ⚡ OPTIMIZED CACHE: Only reads disk if the JSON file's modified time (mtime) changes
-local function get_manual_blocked_cached(filter_db_path)
+function M.get_manual_blocked(filter_db_path)
   local stat = vim.uv.fs_stat(filter_db_path)
   local current_mtime = stat and stat.mtime.sec or 0
 
-  if current_mtime == 0 or current_mtime ~= cached_db_mtime then
-    M.manual_blocked_codes = parse_db_file_pure(filter_db_path)
-    cached_db_mtime = current_mtime
+  if current_mtime == 0 or current_mtime ~= M.cached_db_mtime then
+    M.blocked = parse_db_file_pure(filter_db_path)
+    M.cached_db_mtime = current_mtime
   end
 
-  return M.manual_blocked_codes
+  return M.blocked
 end
+-- ⚡ OPTIMIZED CACHE: Only reads disk if the JSON file's modified time (mtime) changes
+-- local function get_manual_blocked_cached(filter_db_path)
+--   local stat = vim.uv.fs_stat(filter_db_path)
+--   local current_mtime = stat and stat.mtime.sec or 0
+--
+--   if current_mtime == 0 or current_mtime ~= M.cached_db_mtime then
+--     M.manual_blocked_codes = parse_db_file_pure(filter_db_path)
+--     M.cached_db_mtime = current_mtime
+--   end
+--
+--   return M.manual_blocked_codes
+-- end
 
 -- -- ========================================================================================
 -- -- 🛠️ ENGINE PATH A: Auto Clean Project-Wide(col 0, raw 0) Toolchain Flags (The Extractor)
@@ -127,14 +150,15 @@ end
 
 function M.unknownArgs()
   local filter_db_path = get_db_path()
-  local manual_blocked = get_manual_blocked_cached(filter_db_path)
+  local caced_blocked = M.get_manual_blocked(filter_db_path)
 
   local f = io.open(filter_db_path, 'wb')
   if f then
-    local payload = { codes = manual_blocked, flags = M.auto_removed_flags }
-    f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+    -- local payload = { codes = manual_blocked, flags = M.auto_removed_flags }
+    f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
     f:close()
   end
+  M.cached_db_mtime = 0 -- Invalidate cache
 
   -- Trigger the boilerplate generation process
   local boiler = require('nvimpio.boilerplate')
@@ -186,12 +210,12 @@ function M.clean_file_path_pipeline(diagnostics)
       local flag = msg:match('(%-[fmWOgsx][%w%-%.%*]+)')
 
       -- 🟢 SINGLE SOURCE SEED: Update only your master memory dictionary map!
-      if flag and not M.auto_removed_flags[flag] then
-        M.auto_removed_flags[flag] = true  -- ** the only place updates M.auto_removed_flags
+      if flag and not M.blocked.flags[flag] then
+        M.blocked.flags[flag] = true  -- ** the only place updates M.auto_removed_flags
         flags_updated = true          -- if updated write it below to file
       end
     -- elseif code and manual_blocked[code] then show_diagnostics = false end
-    elseif code and M.manual_blocked_codes[code] then show_diagnostics = false end
+    elseif code and M.blocked.codes[code] then show_diagnostics = false end
 
     if show_diagnostics then table.insert(clean_diagnostics, diag) end
   end
@@ -202,14 +226,15 @@ function M.clean_file_path_pipeline(diagnostics)
       local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
       local raw_payload = misc_ok and misc.jsonFormat
         -- and misc.jsonFormat({ codes = manual_blocked, flags = M.auto_removed_flags })
-        and misc.jsonFormat({ codes = M.manual_blocked_codes, flags = M.auto_removed_flags })
+        -- and misc.jsonFormat({ codes = M.manual_blocked_codes, flags = M.auto_removed_flags })
+        and misc.jsonFormat(M.blocked)
         or '{\n  "codes": {},\n  "flags": {}\n}'
 
       local f = io.open(filter_db_path, 'wb')
       if f then
         f:write(raw_payload)
         f:close()
-        cached_db_mtime = 0 -- Invalidate mtime cache
+        M.cached_db_mtime = 0 -- Invalidate mtime cache
       end
 
       -- Let the dynamic boilerplate loop read pio_diag.auto_removed_flags directly on disk generation!
@@ -240,7 +265,9 @@ function M.manage_file_diagnostics_interactive()
   -- if is_command_object then state_override = nil end
 
   -- Initialize memory state tracking layer from disk or incoming RAM state
-  local active_file_blocked = get_manual_blocked_cached(filter_db_path)
+  -- local active_file_blocked = M.get_manual_blockedd(filter_db_path)
+  local caced_blocked = M.get_manual_blocked(filter_db_path)
+  local active_file_blocked = caced_blocked.codes
 
   M.session_discovered_codes = M.session_discovered_codes or {}
 
@@ -289,7 +316,7 @@ function M.manage_file_diagnostics_interactive()
     })
   end
 
-  for f, _ in pairs(M.auto_removed_flags) do
+  for f, _ in pairs(caced_blocked.flags) do
     table.insert(items, { action = 'none', text = '  [-] ⚙️ [AUTOMATED]: ' .. f })
   end
 
@@ -310,11 +337,12 @@ function M.manage_file_diagnostics_interactive()
     if not choice then
       local f = io.open(filter_db_path, 'wb')
       if f then
-        local payload = { codes = active_file_blocked, flags = M.auto_removed_flags }
-        f:write(require('nvimpio.utils.misc').jsonFormat(payload))
+        -- local payload = M.get_manual_blocked(filter_db_path)
+        -- local payload = { codes = active_file_blocked, flags = M.auto_removed_flags }
+        f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
         f:close()
         -- 🟢 Invalidate or refresh cache here so the getter reloads the new state
-        cached_db_mtime = 0 -- Invalidate cache
+        M.cached_db_mtime = 0 -- Invalidate cache
       end
 
       -- Flush session cache arrays entirely out of RAM memory on exit
