@@ -305,20 +305,21 @@ vim.ui.select = function(items, opts, on_choice)
             local current_picker = action_state.get_current_picker(prompt_bufnr)
             if current_picker then
               -- 2. Trigger Telescope refresh
-              current_picker:refresh(make_entry_list(), { reset_prompt = false })
-              -- 3. FIX: Defer selection move until AFTER Telescope finishes refreshing entries
-              vim.defer_fn(function()
-                local active_picker = action_state.get_current_picker(prompt_bufnr)
-                if active_picker then
-                  -- Set Telescope's internal row index (0-indexed)
-                  active_picker:set_selection(clicked_index - 1)
-                  -- Move cursor on the actual floating results window
-                  if vim.api.nvim_win_is_valid(active_picker.results_win) then
-                    pcall(vim.api.nvim_win_set_cursor, active_picker.results_win, { clicked_index, 0 })
-                  end
-                end
-              end, 15)
-              -- vim.api.nvim_win_set_cursor(current_picker.results_win, { clicked_index, 0 })
+              -- current_picker:refresh(make_entry_list(), { reset_prompt = false })
+              -- 🟢 ZERO-FLICKER IN-PLACE BUFFER MUTATION:
+              -- Recalculate display string after choice callback updated choice.text
+              local updated_text = format_single_item(clicked_item)
+
+              -- Update Telescope's internal selection memory object
+              selection.display = updated_text
+              selection.ordinal = updated_text
+
+              -- Directly rewrite the line in Telescope's results buffer
+              local results_buf = current_picker.results_bufnr
+              if vim.api.nvim_buf_is_valid(results_buf) then
+                -- Telescope rows are 1-based, nvim_buf_set_lines is 0-indexed (end index is exclusive)
+                vim.api.nvim_buf_set_lines(results_buf, clicked_index - 1, clicked_index, false, { updated_text })
+              end
             end
           else
             -- CASE B: Standard Selection Menu -> CLOSE WINDOW INSTANTLY AND JUMP
