@@ -271,6 +271,7 @@ function M.manage_file_diagnostics_interactive(state_override)
   table.sort(registered_keys)
 
   local items = {}
+  -- 🟢 1. Dynamic check: Prepend "Reset All" if any items are currently blocked
   if next(active_file_blocked) then
     table.insert(items, { action = 'reset', text = '💥 Reset All Filters' })
   end
@@ -305,7 +306,6 @@ function M.manage_file_diagnostics_interactive(state_override)
     prompt = string.format('📁 %s | Blocked: %d', vim.fs.basename(filter_db_path), block_count),
     format_item = function(item) return item.text end,
   }, function(choice)
-    -- local picker_win = vim.api.nvim_get_current_win()
     -- GATE 1: User pressed Escape or q. Save choices to disk exactly once!
     if not choice then
       local f = io.open(filter_db_path, 'wb')
@@ -357,7 +357,7 @@ function M.manage_file_diagnostics_interactive(state_override)
       end
 
       -- 3. Flag that a full reset occurred
-      choice.is_reset_action = true
+      -- choice.is_reset_action = true
       -- active_file_blocked = {}
       -- -- Clear all checkbox marks globally for the live redraw engine
       -- for _, item in ipairs(items) do
@@ -382,6 +382,19 @@ function M.manage_file_diagnostics_interactive(state_override)
       choice.text = string.format('  %s %s Code: [%s]', mark, status, choice.id)
     end
     --------------------------------------------------------------------------------------------
+    -- 🟢 2. DYNAMIC RESET ROW SYNC:
+    -- Ensure "Reset All Filters" dynamically appears when something is blocked, 
+    -- or disappears when all filters are cleared.
+    local has_blocked = next(active_file_blocked) ~= nil
+    local has_reset_row = items[1] and items[1].action == 'reset'
+
+    if has_blocked and not has_reset_row then
+      -- First item blocked: insert "Reset All" row at position 1
+      table.insert(items, 1, { action = 'reset', text = '💥 Reset All Filters' })
+    elseif not has_blocked and has_reset_row then
+      -- All items cleared: remove "Reset All" row from position 1
+      table.remove(items, 1)
+    end
     --------------------------------------------------------------------------------------------
   end)
 end
