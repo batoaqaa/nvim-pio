@@ -298,22 +298,28 @@ vim.ui.select = function(items, opts, on_choice)
           local is_checkbox_menu = type(clicked_item) == "table" and (clicked_item.action ~= nil or clicked_item.id ~= nil)
 
           if is_checkbox_menu then
-            -- 1. Trigger choice callback (modifies choice.text / item state in memory)
             on_choice(clicked_item, clicked_index)
 
             local current_picker = action_state.get_current_picker(prompt_bufnr)
             if current_picker then
-              -- 🟢 ZERO-FLICKER & NO EXTMARK LOSS:
               local updated_text = format_single_item(clicked_item)
-
-              -- Update Telescope's internal memory entry object
               selection.display = updated_text
               selection.ordinal = updated_text
 
-              -- Re-render the active selection line natively (preserves Telescope's arrow extmark)
-              local status_updater = current_picker:get_status_updater(current_picker.results_bufnr)
-              if type(status_updater) == 'function' then
-                status_updater()
+              local results_buf = current_picker.results_bufnr
+              if vim.api.nvim_buf_is_valid(results_buf) then
+                -- Format with Telescope's default selection prefix (2 spaces + text)
+                -- preserving exact line alignment
+                local formatted_line = "  " .. updated_text
+
+                vim.api.nvim_buf_set_lines(results_buf, clicked_index - 1, clicked_index, false, { formatted_line })
+
+                -- Re-attach selection highlight if selection_caret is configured
+                if current_picker.selection_caret then
+                  local caret = current_picker.selection_caret
+                  local caret_line = caret .. updated_text
+                  vim.api.nvim_buf_set_lines(results_buf, clicked_index - 1, clicked_index, false, { caret_line })
+                end
               end
             end
           else
