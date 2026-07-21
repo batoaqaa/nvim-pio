@@ -334,55 +334,57 @@ function M.manage_file_diagnostics_interactive(state_override)
       return -- Halts execution completely.
     end
 
-    -- GATE 2: Read-only row clicked; re-open UI instantly
-    if choice.action == 'none' then
-      M.manage_file_diagnostics_interactive(active_file_blocked)
-      return
-    end
-
-    -- GATE 3: Toggle state in memory
-    if choice.action == 'reset' then
-      active_file_blocked = {}
-    elseif choice.action == 'block' then
-      active_file_blocked[choice.id] = true
-    elseif choice.action == 'unblock' then
-      active_file_blocked[choice.id] = nil
-    end
-
-    --Re-invoke function recursively so the picker stays open for multi-selection!
-    M.manage_file_diagnostics_interactive(active_file_blocked)
-
-
-    -- -- GATE 2: User clicked an automated read-only logger flag row item
-    -- -- Do nothing, let user keep browsing
-    -- if choice.action == 'none' then return end
+    ----------------------------------------------------------
+    -- -- GATE 2: Read-only row clicked; re-open UI instantly
+    -- if choice.action == 'none' then
+    --   M.manage_file_diagnostics_interactive(active_file_blocked)
+    --   return
+    -- end
     --
-    -- -- GATE 3: User selected a valid row checkbox item to toggle.
-    -- -- This modifies active_file_blocked in live parent RAM memory instantly!
+    -- -- GATE 3: Toggle state in memory
     -- if choice.action == 'reset' then
     --   active_file_blocked = {}
-    --   -- Clear all checkbox marks globally for the live redraw engine
-    --   for _, item in ipairs(items) do
-    --     if item.id then
-    --       item.action = 'block'
-    --       item.text = string.format('  [ ] Suppress Code: [%s]', item.id)
-    --     end
-    --   end
     -- elseif choice.action == 'block' then
     --   active_file_blocked[choice.id] = true
-    --   choice.action = 'unblock' -- Flip item state string
     -- elseif choice.action == 'unblock' then
     --   active_file_blocked[choice.id] = nil
-    --   choice.action = 'block' -- Flip item state string
     -- end
     --
-    -- -- Dynamically recalculate choice.text so our live redraw engine can read it instantly
-    -- if choice.id and choice.action ~= 'reset' then
-    --   local is_blocked = active_file_blocked[choice.id] == true
-    --   local mark = is_blocked and '[*]' or '[ ]'
-    --   local status = is_blocked and 'Restore' or 'Suppress'
-    --   choice.text = string.format('  %s %s Code: [%s]', mark, status, choice.id)
-    -- end
+    -- --Re-invoke function recursively so the picker stays open for multi-selection!
+    -- M.manage_file_diagnostics_interactive(active_file_blocked)
+    ----------------------------------------------------------
+
+
+    -- GATE 2: User clicked an automated read-only logger flag row item
+    -- Do nothing, let user keep browsing
+    if choice.action == 'none' then return end
+
+    -- GATE 3: User selected a valid row checkbox item to toggle.
+    -- This modifies active_file_blocked in live parent RAM memory instantly!
+    if choice.action == 'reset' then
+      active_file_blocked = {}
+      -- Clear all checkbox marks globally for the live redraw engine
+      for _, item in ipairs(items) do
+        if item.id then
+          item.action = 'block'
+          item.text = string.format('  [ ] Suppress Code: [%s]', item.id)
+        end
+      end
+    elseif choice.action == 'block' then
+      active_file_blocked[choice.id] = true
+      choice.action = 'unblock' -- Flip item state string
+    elseif choice.action == 'unblock' then
+      active_file_blocked[choice.id] = nil
+      choice.action = 'block' -- Flip item state string
+    end
+
+    -- Dynamically recalculate choice.text so our live redraw engine can read it instantly
+    if choice.id and choice.action ~= 'reset' then
+      local is_blocked = active_file_blocked[choice.id] == true
+      local mark = is_blocked and '[*]' or '[ ]'
+      local status = is_blocked and 'Restore' or 'Suppress'
+      choice.text = string.format('  %s %s Code: [%s]', mark, status, choice.id)
+    end
   end)
     --------------------------------------------------------------------------------------------
   end
