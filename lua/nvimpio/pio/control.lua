@@ -317,8 +317,15 @@ vim.ui.select = function(items, opts, on_choice)
               -- Directly rewrite the line in Telescope's results buffer
               local results_buf = current_picker.results_bufnr
               if vim.api.nvim_buf_is_valid(results_buf) then
-                -- Telescope rows are 1-based, nvim_buf_set_lines is 0-indexed (end index is exclusive)
-                vim.api.nvim_buf_set_lines(results_buf, clicked_index - 1, clicked_index, false, { updated_text })
+                local line_idx = clicked_index - 1
+                local existing_lines = vim.api.nvim_buf_get_lines(results_buf, line_idx, clicked_index, false)
+                if existing_lines and #existing_lines > 0 then
+                  -- Extract Telescope's leading prefix (e.g. "> " or "  "), defaulting to 2 spaces if unmatched
+                  local prefix = existing_lines[1]:match("^(%s*>?)") or existing_lines[1]:match("^(%s+)") or "  "
+
+                  -- Write back the line with its original prefix padding intact
+                  vim.api.nvim_buf_set_lines(results_buf, line_idx, clicked_index, false, { prefix .. updated_text })
+                end
               end
             end
           else
