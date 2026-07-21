@@ -357,6 +357,11 @@ function M.manage_file_diagnostics_interactive(state_override)
           item.text = string.format('  [ ] Suppress Code: [%s]', item.id)
         end
       end
+      if idx then
+        vim.schedule(function()
+          pcall(vim.api.nvim_win_set_cursor, 0, { idx, 0 })
+        end)
+      end
     elseif choice.action == 'block' then
       active_file_blocked[choice.id] = true
       choice.action = 'unblock' -- Flip item state string
@@ -372,55 +377,7 @@ function M.manage_file_diagnostics_interactive(state_override)
       local status = is_blocked and 'Restore' or 'Suppress'
       choice.text = string.format('  %s %s Code: [%s]', mark, status, choice.id)
     end
-    if idx then
-      vim.schedule(function()
-        pcall(vim.api.nvim_win_set_cursor, 0, { idx, 0 })
-      end)
-    end
     --------------------------------------------------------------------------------------------
-
-    -- -- GATE 2: User clicked an automated read-only logger flag row item
-    -- if choice.action == 'none' then
-    --   M.manage_file_diagnostics_interactive(active_file_blocked)
-    --   if idx then
-    --     vim.schedule(function()
-    --       pcall(vim.api.nvim_win_set_cursor, 0, { idx, 0 })
-    --     end)
-    --   end
-    --   return
-    -- end
-    --
-    -- -- GATE 3: User selected a valid row checkbox item to toggle.
-    -- if choice.action == 'reset' then
-    --   active_file_blocked = {}
-    --   for _, item in ipairs(items) do
-    --     if item.id then
-    --       item.action = 'block'
-    --       item.text = string.format('  [ ] Suppress Code: [%s]', item.id)
-    --     end
-    --   end
-    -- elseif choice.action == 'block' then
-    --   active_file_blocked[choice.id] = true
-    --   choice.action = 'unblock'
-    -- elseif choice.action == 'unblock' then
-    --   active_file_blocked[choice.id] = nil
-    --   choice.action = 'block'
-    -- end
-    --
-    -- if choice.id and choice.action ~= 'reset' then
-    --   local is_blocked = active_file_blocked[choice.id] == true
-    --   local mark = is_blocked and '[*]' or '[ ]'
-    --   local status = is_blocked and 'Restore' or 'Suppress'
-    --   choice.text = string.format('  %s %s Code: [%s]', mark, status, choice.id)
-    -- end
-    --
-    -- -- RE-OPEN UI & RESTORE CURSOR: Keeps the menu active while restoring cursor position to 'idx'
-    -- M.manage_file_diagnostics_interactive(active_file_blocked)
-    -- if idx then
-    --   vim.schedule(function()
-    --     pcall(vim.api.nvim_win_set_cursor, 0, { idx, 0 })
-    --   end)
-    -- end
     --------------------------------------------------------------------------------------------
   end)
 end
