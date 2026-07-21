@@ -293,41 +293,78 @@ vim.ui.select = function(items, opts, on_choice)
           local clicked_item = selection.value
           local clicked_index = selection.index
 
-          -- AUTO-DETECTION RADAR: 
-          -- Check if the incoming items look like a checkbox toggle array (has choice.action or choice.id)
-          local is_checkbox_menu = type(clicked_item) == "table" and (clicked_item.action ~= nil or clicked_item.id ~= nil)
+          -- Capture state of all items before callback to detect bulk changes
+          local snapshot_before = {}
+          for i, itm in ipairs(items) do
+            snapshot_before[i] = format_single_item(itm)
+          end
 
-          if is_checkbox_menu then
-            on_choice(clicked_item, clicked_index)
+          -- Execute choice callback
+          on_choice(clicked_item, clicked_index)
 
-            local current_picker = action_state.get_current_picker(prompt_bufnr)
-            if current_picker then
+          local current_picker = action_state.get_current_picker(prompt_bufnr)
+          if current_picker then
+            -- Count how many items changed text representation during on_choice
+            local changed_count = 0
+            for i, itm in ipairs(items) do
+              if format_single_item(itm) ~= snapshot_before[i] then
+                changed_count = changed_count + 1
+              end
+            end
+
+            if changed_count > 1 then
+              -- BULK CHANGE DETECTED (e.g. Reset All): Full finder refresh
+              current_picker:refresh(make_entry_list(), { reset_prompt = false })
+            else
+              -- SINGLE OR NO LINE CHANGE: Fast in-place buffer mutation
               local updated_text = format_single_item(clicked_item)
-
-              -- Update Telescope's internal memory maps
               selection.display = updated_text
               selection.ordinal = updated_text
 
               local results_buf = current_picker.results_bufnr
               if vim.api.nvim_buf_is_valid(results_buf) then
-                -- Use selection caret prefix if configured, otherwise fall back to entry prefix padding
                 local prefix = current_picker.selection_caret or dropdown_settings.selection_caret or "  "
                 local final_line = prefix .. updated_text
 
-                -- Single atomic buffer line write (Zero flicker, zero cursor jump, zero alignment shift)
                 vim.api.nvim_buf_set_lines(results_buf, clicked_index - 1, clicked_index, false, { final_line })
               end
             end
-          else
-            -- CASE B: Standard Selection Menu -> CLOSE WINDOW INSTANTLY AND JUMP
-            actions.close(prompt_bufnr)
-            vim.schedule(function()
-              on_choice(clicked_item, clicked_index)
-            end)
           end
+          -- -- AUTO-DETECTION RADAR: 
+          -- -- Check if the incoming items look like a checkbox toggle array (has choice.action or choice.id)
+          -- local is_checkbox_menu = type(clicked_item) == "table" and (clicked_item.action ~= nil or clicked_item.id ~= nil)
+          --
+          -- if is_checkbox_menu then
+          --   on_choice(clicked_item, clicked_index)
+          --
+          --   local current_picker = action_state.get_current_picker(prompt_bufnr)
+          --   if current_picker then
+          --     local updated_text = format_single_item(clicked_item)
+          --
+          --     -- Update Telescope's internal memory maps
+          --     selection.display = updated_text
+          --     selection.ordinal = updated_text
+          --
+          --     local results_buf = current_picker.results_bufnr
+          --     if vim.api.nvim_buf_is_valid(results_buf) then
+          --       -- Use selection caret prefix if configured, otherwise fall back to entry prefix padding
+          --       local prefix = current_picker.selection_caret or dropdown_settings.selection_caret or "  "
+          --       local final_line = prefix .. updated_text
+          --
+          --       -- Single atomic buffer line write (Zero flicker, zero cursor jump, zero alignment shift)
+          --       vim.api.nvim_buf_set_lines(results_buf, clicked_index - 1, clicked_index, false, { final_line })
+          --     end
+          --   end
+          -- else
+          --   -- CASE B: Standard Selection Menu -> CLOSE WINDOW INSTANTLY AND JUMP
+          --   actions.close(prompt_bufnr)
+          --   vim.schedule(function()
+          --     on_choice(clicked_item, clicked_index)
+          --   end)
+          -- end
         end)
         return true
-      end,
+      end
     })
 
     local final_theme = require('telescope.themes').get_dropdown(picker_opts)
