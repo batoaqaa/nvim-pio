@@ -152,8 +152,7 @@ function M.clean_file_path_pipeline(diagnostics)
   local filter_db_path = get_db_path()
 
   -- Pure localized read ensures we only check blocks configured for THIS project folder
-  -- local manual_blocked = parse_db_file_pure(filter_db_path)
-  local manual_blocked = get_manual_blocked_cached(filter_db_path)
+  -- local manual_blocked = get_manual_blocked_cached(filter_db_path)
 
   local clean_diagnostics = {}
   local flags_updated = false
@@ -191,7 +190,8 @@ function M.clean_file_path_pipeline(diagnostics)
         M.auto_removed_flags[flag] = true  -- ** the only place updates M.auto_removed_flags
         flags_updated = true          -- if updated write it below to file
       end
-    elseif code and manual_blocked[code] then show_diagnostics = false end
+    -- elseif code and manual_blocked[code] then show_diagnostics = false end
+    elseif code and M.manual_blocked_codes[code] then show_diagnostics = false end
 
     if show_diagnostics then table.insert(clean_diagnostics, diag) end
   end
@@ -201,7 +201,8 @@ function M.clean_file_path_pipeline(diagnostics)
     -- 🟢 SINGLE-POINT FLUSH POINT: Trigger only if a brand-new unknown flag was caught mid-flight
       local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
       local raw_payload = misc_ok and misc.jsonFormat
-        and misc.jsonFormat({ codes = manual_blocked, flags = M.auto_removed_flags })
+        -- and misc.jsonFormat({ codes = manual_blocked, flags = M.auto_removed_flags })
+        and misc.jsonFormat({ codes = M.manual_blocked_codes, flags = M.auto_removed_flags })
         or '{\n  "codes": {},\n  "flags": {}\n}'
 
       local f = io.open(filter_db_path, 'wb')

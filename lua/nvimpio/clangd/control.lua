@@ -377,6 +377,11 @@ function M.getClangdConfig()
               if blocked then pio_diag.auto_removed_flags[flag] = true end
             end
           end
+          if ok and data and type(data.codes) == 'table' then
+            for code, blocked in pairs(data.codes) do
+              if blocked then pio_diag.manual_blocked_codes[code] = true end
+            end
+          end
         end
       end
     end
