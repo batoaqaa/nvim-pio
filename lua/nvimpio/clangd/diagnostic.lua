@@ -221,48 +221,49 @@ function M.clean_file_path_pipeline(diagnostics)
     if show_diagnostics then table.insert(clean_diagnostics, diag) end
   end
 
-  if flags_updated then
-    vim.schedule(function()
-    -- 🟢 SINGLE-POINT FLUSH POINT: Trigger only if a brand-new unknown flag was caught mid-flight
-      local f = io.open(filter_db_path, 'wb')
-      if f then
-        local payload = M.blocked
-        f:write(require('nvimpio.utils.misc').jsonFormat(payload))
-        f:close()
-      end
-
-      -- Let the dynamic boilerplate loop read pio_diag.removed_flags directly on disk generation!
-      local boiler = require('nvimpio.boilerplate')
-      if boiler and boiler.boilerplate_gen then
-        -- pcall(boiler.boilerplate_gen, '.clangd', project_root, 'diagnostics clean_file_path_pipeline')
-        pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics clean_file_path_pipeline')
-      end
-    end)
-  end
   -- if flags_updated then
   --   vim.schedule(function()
   --   -- 🟢 SINGLE-POINT FLUSH POINT: Trigger only if a brand-new unknown flag was caught mid-flight
-  --     local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
-  --     local raw_payload = misc_ok and misc.jsonFormat
-  --       -- and misc.jsonFormat({ codes = manual_blocked, flags = M.auto_removed_flags })
-  --       -- and misc.jsonFormat({ codes = M.manual_blocked_codes, flags = M.auto_removed_flags })
-  --       and misc.jsonFormat(M.blocked)
-  --       or '{\n  "codes": {},\n  "flags": {}\n}'
-  --
   --     local f = io.open(filter_db_path, 'wb')
   --     if f then
-  --       f:write(raw_payload)
+  --       local payload = M.blocked
+  --       f:write(require('nvimpio.utils.misc').jsonFormat(payload))
   --       f:close()
-  --       M.cached_db_mtime = 0 -- Invalidate mtime cache
   --     end
   --
-  --     -- Let the dynamic boilerplate loop read pio_diag.auto_removed_flags directly on disk generation!
-  --     local boiler_ok, boiler = pcall(require, 'nvimpio.boilerplate')
-  --     if boiler_ok and boiler and boiler.boilerplate_gen then
+  --     -- Let the dynamic boilerplate loop read pio_diag.removed_flags directly on disk generation!
+  --     local boiler = require('nvimpio.boilerplate')
+  --     if boiler and boiler.boilerplate_gen then
+  --       -- pcall(boiler.boilerplate_gen, '.clangd', project_root, 'diagnostics clean_file_path_pipeline')
   --       pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics clean_file_path_pipeline')
   --     end
   --   end)
   -- end
+
+  if flags_updated then
+    vim.schedule(function()
+    -- 🟢 SINGLE-POINT FLUSH POINT: Trigger only if a brand-new unknown flag was caught mid-flight
+      local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
+      local raw_payload = misc_ok and misc.jsonFormat
+        -- and misc.jsonFormat({ codes = manual_blocked, flags = M.auto_removed_flags })
+        -- and misc.jsonFormat({ codes = M.manual_blocked_codes, flags = M.auto_removed_flags })
+        and misc.jsonFormat(M.blocked)
+        or '{\n  "codes": {},\n  "flags": {}\n}'
+
+      local f = io.open(filter_db_path, 'wb')
+      if f then
+        f:write(raw_payload)
+        f:close()
+        M.cached_db_mtime = 0 -- Invalidate mtime cache
+      end
+
+      -- Let the dynamic boilerplate loop read pio_diag.auto_removed_flags directly on disk generation!
+      local boiler_ok, boiler = pcall(require, 'nvimpio.boilerplate')
+      if boiler_ok and boiler and boiler.boilerplate_gen then
+        pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics clean_file_path_pipeline')
+      end
+    end)
+  end
 
   return clean_diagnostics
 end
