@@ -172,6 +172,9 @@ function M.getUnknownArgsCli(from)
         local args_table = {}
         local seen = {} --  Look-up filter to prevent duplicate flags
 
+        local filter_db_path = pio_diag.get_db_path()
+        local caced_blocked = pio_diag.get_manual_blocked(filter_db_path)
+        local auto_removed_flags = caced_blocked.flags
         -- Extract anything clangd reports as an 'unknown argument'
         if not string.find(output, '%.clang%-format') then
           for arg in string.gmatch(output, "unknown argument[:%s]+'([^']+)'") do
@@ -182,14 +185,28 @@ function M.getUnknownArgsCli(from)
             if not seen[clean_flag] then
               seen[clean_flag] = true
               table.insert(args_table, clean_flag)
-              if not diagnosticClangd.auto_removed_flags[clean_flag] then
-                diagnosticClangd.auto_removed_flags[clean_flag] = true
+              if not auto_removed_flags[clean_flag] then
+                auto_removed_flags[clean_flag] = true
               end
             end
           end
         end
         -- 4. UPDATE: Rebuild with the new discovered flags
-        require('nvimpio.clangd.diagnostic').unknownArgs()
+        -- require('nvimpio.clangd.diagnostic').unknownArgs()
+        local f = io.open(filter_db_path, 'wb')
+        if f then
+          -- local payload = { codes = manual_blocked, flags = M.auto_removed_flags }
+          f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
+          f:close()
+        end
+        pio_diag.cached_db_mtime = 0 -- Invalidate cache
+
+        -- Trigger the boilerplate generation process
+        local boiler = require('nvimpio.boilerplate')
+        if boiler and boiler.boilerplate_gen then
+          -- pcall(boiler.boilerplate_gen, '.clangd', OS.project_dir, 'diagnostics wipe flags')
+          pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics wipe flags')
+        end
 
         OS.notify(from .. ' Clangd ✅Extracted ' .. #args_table .. ' flags.', 'info')
         M.restart()
