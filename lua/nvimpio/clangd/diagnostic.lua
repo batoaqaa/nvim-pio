@@ -320,15 +320,22 @@ function M.manage_file_diagnostics_interactive(state_override)
       --Clean memory table safely without destroying the reference table pointer
       for k in pairs(M.session_discovered_codes) do M.session_discovered_codes[k] = nil end
 
-      -- Refresh buffer lints viewport tracking maps
+      -- -- Refresh buffer lints viewport tracking maps
+      -- vim.schedule(function()
+      --   if vim.api.nvim_buf_is_valid(bufnr) then
+      --     vim.api.nvim_buf_call(bufnr, function()
+      --       local old = vim.o.shortmess
+      --       vim.o.shortmess = old .. 'F'
+      --       vim.cmd('silent! checktime | silent! edit!')
+      --       vim.o.shortmess = old
+      --     end)
+      --   end
+      -- end)
       vim.schedule(function()
         if vim.api.nvim_buf_is_valid(bufnr) then
-          vim.api.nvim_buf_call(bufnr, function()
-            local old = vim.o.shortmess
-            vim.o.shortmess = old .. 'F'
-            vim.cmd('silent! checktime | silent! edit!')
-            vim.o.shortmess = old
-          end)
+          local raw_diags = vim.diagnostic.get(bufnr)
+          local clean_diags = M.clean_file_path_pipeline(raw_diags)
+          vim.diagnostic.set(vim.api.nvim_create_namespace('clangd'), bufnr, clean_diags or {})
         end
       end)
       return -- Halts execution completely.
@@ -352,6 +359,7 @@ function M.manage_file_diagnostics_interactive(state_override)
     --   end
     -- elseif choice.action == 'block' then
     --   active_file_blocked[choice.id] = true
+    --------------------------------------------------------------------------------------------
     --   choice.action = 'unblock' -- Flip item state string
     -- elseif choice.action == 'unblock' then
     --   active_file_blocked[choice.id] = nil
