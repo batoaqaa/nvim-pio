@@ -305,6 +305,7 @@ function M.manage_file_diagnostics_interactive(state_override)
     prompt = string.format('📁 %s | Blocked: %d', vim.fs.basename(filter_db_path), block_count),
     format_item = function(item) return item.text end,
   }, function(choice, idx)
+    local picker_win = vim.api.nvim_get_current_win()
     -- GATE 1: User pressed Escape or q. Save choices to disk exactly once!
     if not choice then
       local f = io.open(filter_db_path, 'wb')
@@ -340,7 +341,9 @@ function M.manage_file_diagnostics_interactive(state_override)
     if choice.action == 'none' then
       if idx then
         vim.schedule(function()
-          pcall(vim.api.nvim_win_set_cursor, 0, { idx, 0 })
+          if vim.api.nvim_win_is_valid(picker_win) then
+            pcall(vim.api.nvim_win_set_cursor, picker_win, { idx, 0 })
+          end
         end)
       end
       return
@@ -356,11 +359,6 @@ function M.manage_file_diagnostics_interactive(state_override)
           item.action = 'block'
           item.text = string.format('  [ ] Suppress Code: [%s]', item.id)
         end
-      end
-      if idx then
-        vim.schedule(function()
-          pcall(vim.api.nvim_win_set_cursor, 0, { idx, 0 })
-        end)
       end
     elseif choice.action == 'block' then
       active_file_blocked[choice.id] = true
@@ -378,6 +376,13 @@ function M.manage_file_diagnostics_interactive(state_override)
       choice.text = string.format('  %s %s Code: [%s]', mark, status, choice.id)
     end
     --------------------------------------------------------------------------------------------
+    if idx then
+      vim.schedule(function()
+        if vim.api.nvim_win_is_valid(picker_win) then
+          pcall(vim.api.nvim_win_set_cursor, picker_win, { idx, 0 })
+        end
+      end)
+    end
     --------------------------------------------------------------------------------------------
   end)
 end
