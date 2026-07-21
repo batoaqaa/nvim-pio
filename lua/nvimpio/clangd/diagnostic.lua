@@ -304,7 +304,7 @@ function M.manage_file_diagnostics_interactive(state_override)
   vim.ui.select(items, {
     prompt = string.format('📁 %s | Blocked: %d', vim.fs.basename(filter_db_path), block_count),
     format_item = function(item) return item.text end,
-  }, function(choice)
+  }, function(choice, idx)
     -- GATE 1: User pressed Escape or q. Save choices to disk exactly once!
     if not choice then
       local f = io.open(filter_db_path, 'wb')
@@ -317,7 +317,7 @@ function M.manage_file_diagnostics_interactive(state_override)
 
       -- Flush session cache arrays entirely out of RAM memory on exit
       -- M.session_discovered_codes = nil
-      -- FIX: Clean memory table safely without destroying the reference table pointer
+      --Clean memory table safely without destroying the reference table pointer
       for k in pairs(M.session_discovered_codes) do M.session_discovered_codes[k] = nil end
 
       -- Refresh buffer lints viewport tracking maps
@@ -334,36 +334,53 @@ function M.manage_file_diagnostics_interactive(state_override)
       return -- Halts execution completely.
     end
 
-    ----------------------------------------------------------
-    -- -- GATE 2: Read-only row clicked; re-open UI instantly
-    -- if choice.action == 'none' then
-    --   M.manage_file_diagnostics_interactive(active_file_blocked)
-    --   return
-    -- end
+    --------------------------------------------------------------------------------------------
+    -- -- GATE 2: User clicked an automated read-only logger flag row item
+    -- -- Do nothing, let user keep browsing
+    -- if choice.action == 'none' then return end
     --
-    -- -- GATE 3: Toggle state in memory
+    -- -- GATE 3: User selected a valid row checkbox item to toggle.
+    -- -- This modifies active_file_blocked in live parent RAM memory instantly!
     -- if choice.action == 'reset' then
     --   active_file_blocked = {}
+    --   -- Clear all checkbox marks globally for the live redraw engine
+    --   for _, item in ipairs(items) do
+    --     if item.id then
+    --       item.action = 'block'
+    --       item.text = string.format('  [ ] Suppress Code: [%s]', item.id)
+    --     end
+    --   end
     -- elseif choice.action == 'block' then
     --   active_file_blocked[choice.id] = true
+    --   choice.action = 'unblock' -- Flip item state string
     -- elseif choice.action == 'unblock' then
     --   active_file_blocked[choice.id] = nil
+    --   choice.action = 'block' -- Flip item state string
     -- end
     --
-    -- --Re-invoke function recursively so the picker stays open for multi-selection!
-    -- M.manage_file_diagnostics_interactive(active_file_blocked)
-    ----------------------------------------------------------
-
+    -- -- Dynamically recalculate choice.text so our live redraw engine can read it instantly
+    -- if choice.id and choice.action ~= 'reset' then
+    --   local is_blocked = active_file_blocked[choice.id] == true
+    --   local mark = is_blocked and '[*]' or '[ ]'
+    --   local status = is_blocked and 'Restore' or 'Suppress'
+    --   choice.text = string.format('  %s %s Code: [%s]', mark, status, choice.id)
+    -- end
+    --------------------------------------------------------------------------------------------
 
     -- GATE 2: User clicked an automated read-only logger flag row item
-    -- Do nothing, let user keep browsing
-    if choice.action == 'none' then return end
+    if choice.action == 'none' then
+      M.manage_file_diagnostics_interactive(active_file_blocked)
+      if idx then
+        vim.schedule(function()
+          pcall(vim.api.nvim_win_set_cursor, 0, { idx, 0 })
+        end)
+      end
+      return
+    end
 
     -- GATE 3: User selected a valid row checkbox item to toggle.
-    -- This modifies active_file_blocked in live parent RAM memory instantly!
     if choice.action == 'reset' then
       active_file_blocked = {}
-      -- Clear all checkbox marks globally for the live redraw engine
       for _, item in ipairs(items) do
         if item.id then
           item.action = 'block'
@@ -372,21 +389,28 @@ function M.manage_file_diagnostics_interactive(state_override)
       end
     elseif choice.action == 'block' then
       active_file_blocked[choice.id] = true
-      choice.action = 'unblock' -- Flip item state string
+      choice.action = 'unblock'
     elseif choice.action == 'unblock' then
       active_file_blocked[choice.id] = nil
-      choice.action = 'block' -- Flip item state string
+      choice.action = 'block'
     end
 
-    -- Dynamically recalculate choice.text so our live redraw engine can read it instantly
     if choice.id and choice.action ~= 'reset' then
       local is_blocked = active_file_blocked[choice.id] == true
       local mark = is_blocked and '[*]' or '[ ]'
       local status = is_blocked and 'Restore' or 'Suppress'
       choice.text = string.format('  %s %s Code: [%s]', mark, status, choice.id)
     end
-  end)
+
+    -- RE-OPEN UI & RESTORE CURSOR: Keeps the menu active while restoring cursor position to 'idx'
+    M.manage_file_diagnostics_interactive(active_file_blocked)
+    if idx then
+      vim.schedule(function()
+        pcall(vim.api.nvim_win_set_cursor, 0, { idx, 0 })
+      end)
+    end
     --------------------------------------------------------------------------------------------
-  end
+  end)
+end
 -- stylua: ignore end
 return M
