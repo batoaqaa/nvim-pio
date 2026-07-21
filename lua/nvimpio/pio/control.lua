@@ -304,29 +304,14 @@ vim.ui.select = function(items, opts, on_choice)
 
             local current_picker = action_state.get_current_picker(prompt_bufnr)
             if current_picker then
-              -- 2. Trigger Telescope refresh
-              -- current_picker:refresh(make_entry_list(), { reset_prompt = false })
-              -- 🟢 ZERO-FLICKER IN-PLACE BUFFER MUTATION:
-              -- Recalculate display string after choice callback updated choice.text
+              -- 🟢 ZERO-FLICKER & NO EXTMARK DESTRUCTION:
+              -- Update the internal display string on Telescope's entry object
               local updated_text = format_single_item(clicked_item)
-
-              -- Update Telescope's internal selection memory object
               selection.display = updated_text
               selection.ordinal = updated_text
 
-              -- Directly rewrite the line in Telescope's results buffer
-              local results_buf = current_picker.results_bufnr
-              if vim.api.nvim_buf_is_valid(results_buf) then
-                local line_idx = clicked_index - 1
-                local existing_lines = vim.api.nvim_buf_get_lines(results_buf, line_idx, clicked_index, false)
-                if existing_lines and #existing_lines > 0 then
-                  -- Extract Telescope's leading prefix (e.g. "> " or "  "), defaulting to 2 spaces if unmatched
-                  local prefix = existing_lines[1]:match("^(%s*>?)") or existing_lines[1]:match("^(%s+)") or "  "
-
-                  -- Write back the line with its original prefix padding intact
-                  vim.api.nvim_buf_set_lines(results_buf, line_idx, clicked_index, false, { prefix .. updated_text })
-                end
-              end
+              -- Redraw Telescope's results buffer directly without replacing lines or losing extmarks!
+              current_picker:redraw_first()
             end
           else
             -- CASE B: Standard Selection Menu -> CLOSE WINDOW INSTANTLY AND JUMP
