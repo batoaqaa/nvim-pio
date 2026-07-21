@@ -307,11 +307,17 @@ vim.ui.select = function(items, opts, on_choice)
               -- 2. Trigger Telescope refresh
               current_picker:refresh(make_entry_list(), { reset_prompt = false })
               -- 3. FIX: Defer selection move until AFTER Telescope finishes refreshing entries
-              vim.schedule(function()
-                if action_state.get_current_picker(prompt_bufnr) then
-                  current_picker:set_selection(clicked_index - 1) -- Telescope set_selection uses 0-based indexing!
+              vim.defer_fn(function()
+                local active_picker = action_state.get_current_picker(prompt_bufnr)
+                if active_picker then
+                  -- Set Telescope's internal row index (0-indexed)
+                  active_picker:set_selection(clicked_index - 1)
+                  -- Move cursor on the actual floating results window
+                  if vim.api.nvim_win_is_valid(active_picker.results_win) then
+                    pcall(vim.api.nvim_win_set_cursor, active_picker.results_win, { clicked_index, 0 })
+                  end
                 end
-              end)
+              end, 15)
               -- vim.api.nvim_win_set_cursor(current_picker.results_win, { clicked_index, 0 })
             end
           else
