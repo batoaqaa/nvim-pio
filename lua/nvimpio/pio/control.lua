@@ -303,23 +303,19 @@ vim.ui.select = function(items, opts, on_choice)
             local current_picker = action_state.get_current_picker(prompt_bufnr)
             if current_picker then
               local updated_text = format_single_item(clicked_item)
+
+              -- Update Telescope's internal memory maps
               selection.display = updated_text
               selection.ordinal = updated_text
 
               local results_buf = current_picker.results_bufnr
               if vim.api.nvim_buf_is_valid(results_buf) then
-                -- Format with Telescope's default selection prefix (2 spaces + text)
-                -- preserving exact line alignment
-                local formatted_line = "  " .. updated_text
+                -- Use selection caret prefix if configured, otherwise fall back to entry prefix padding
+                local prefix = current_picker.selection_caret or dropdown_settings.selection_caret or "  "
+                local final_line = prefix .. updated_text
 
-                vim.api.nvim_buf_set_lines(results_buf, clicked_index - 1, clicked_index, false, { formatted_line })
-
-                -- Re-attach selection highlight if selection_caret is configured
-                if current_picker.selection_caret then
-                  local caret = current_picker.selection_caret
-                  local caret_line = caret .. updated_text
-                  vim.api.nvim_buf_set_lines(results_buf, clicked_index - 1, clicked_index, false, { caret_line })
-                end
+                -- Single atomic buffer line write (Zero flicker, zero cursor jump, zero alignment shift)
+                vim.api.nvim_buf_set_lines(results_buf, clicked_index - 1, clicked_index, false, { final_line })
               end
             end
           else
