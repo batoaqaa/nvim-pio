@@ -304,8 +304,8 @@ function M.manage_file_diagnostics_interactive(state_override)
   vim.ui.select(items, {
     prompt = string.format('📁 %s | Blocked: %d', vim.fs.basename(filter_db_path), block_count),
     format_item = function(item) return item.text end,
-  }, function(choice, idx)
-    local picker_win = vim.api.nvim_get_current_win()
+  }, function(choice)
+    -- local picker_win = vim.api.nvim_get_current_win()
     -- GATE 1: User pressed Escape or q. Save choices to disk exactly once!
     if not choice then
       local f = io.open(filter_db_path, 'wb')
@@ -340,12 +340,12 @@ function M.manage_file_diagnostics_interactive(state_override)
     -- Do nothing, let user keep browsing
     if choice.action == 'none' then
       -- 🟢 DEFER Small 20ms timer locks cursor back onto row target_idx AFTER UI provider redraws
-      vim.defer_fn(function()
-        local win = vim.api.nvim_get_current_win()
-        if vim.api.nvim_win_is_valid(win) then
-          pcall(vim.api.nvim_win_set_cursor, win, { idx, 0 })
-        end
-      end, 20)
+      -- vim.defer_fn(function()
+      --   local win = vim.api.nvim_get_current_win()
+      --   if vim.api.nvim_win_is_valid(win) then
+      --     pcall(vim.api.nvim_win_set_cursor, win, { idx, 0 })
+      --   end
+      -- end, 20)
       -- if idx then
       --   vim.schedule(function()
       --     if vim.api.nvim_win_is_valid(picker_win) then
@@ -385,12 +385,12 @@ function M.manage_file_diagnostics_interactive(state_override)
     --------------------------------------------------------------------------------------------
 
     -- 🟢 DEFER Small 20ms timer locks cursor back onto row target_idx AFTER UI provider redraws
-    vim.defer_fn(function()
-      local win = vim.api.nvim_get_current_win()
-      if vim.api.nvim_win_is_valid(win) then
-        pcall(vim.api.nvim_win_set_cursor, win, { idx, 0 })
-      end
-    end, 20)
+    -- vim.defer_fn(function()
+    --   local win = vim.api.nvim_get_current_win()
+    --   if vim.api.nvim_win_is_valid(win) then
+    --     pcall(vim.api.nvim_win_set_cursor, win, { idx, 0 })
+    --   end
+    -- end, 20)
     -- if idx then
     --   vim.schedule(function()
     --     if vim.api.nvim_win_is_valid(picker_win) then
