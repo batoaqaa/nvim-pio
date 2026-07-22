@@ -89,7 +89,7 @@ function M.get_sysroot_triplet(cc_compiler, from)
     require('nvimpio.pio.metadata').removeFromPath(oldPath)
     OS.notify(string.format('%s %s removed from path', from, oldPath), OS.debug)
 
-    vim.env.PATH = bin_path .. OS.path_sep .. vim.env.PATH
+    -- vim.env.PATH = bin_path .. OS.path_sep .. vim.env.PATH
     OS.notify(string.format('%s %s added to path', from, bin_path), OS.debug)
   end)
 
