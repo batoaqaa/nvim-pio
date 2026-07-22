@@ -3,16 +3,12 @@ local M = {}
 
 -- Module scopes track cross-file automated session states safely
 M.blocked = {  codes= {}, flags= {}}
--- M.manual_blocked_codes = M.manual_blocked_codes or {}
--- M.auto_removed_flags = M.auto_removed_flags or {}
 M.session_discovered_codes = M.session_discovered_codes or {}
 
 -- ⚡ DISK CACHE LAYER: Prevents synchronous file reads on hot diagnostic loops
 M.cached_db_mtime = 0
 
-function M.get_db_path()
-  return vim.fs.joinpath(OS.nvimpio_env_dir, OS.clangd_filter)
-end
+function M.get_db_path() return vim.fs.joinpath(OS.nvimpio_env_dir, OS.clangd_filter) end
 
 -- ===================================================================
 -- 📁  1. SELF-HEALING ENGINE: Seeds a default configuration template if missing
@@ -39,7 +35,7 @@ local function parse_db_file_pure(db_path)
   ensure_default_db_exists(db_path)
 
   local blocked_codes = {  codes= {}, flags= {}}
-  -- local blocked_codes = {}
+
   local f = io.open(db_path, 'rb')
   if not f then return blocked_codes end
   local raw = f:read('*all')
@@ -47,26 +43,8 @@ local function parse_db_file_pure(db_path)
 
   if raw and raw ~= '' then
     local ok, data = pcall(vim.json.decode, raw)
-    if ok and data and type(data.flags) == 'table' then
+    if ok and data and type(data) == 'table' then
       blocked_codes = data
-    --   for k, v in pairs(data.flags) do
-    --     local code_str = nil
-    --     if type(k) == 'string' and k ~= '' then code_str = k
-    --     elseif type(v) == 'string' and v ~= '' then code_str = v end
-    --
-    --     -- Ensure we only load it if it was explicitly marked as true inside the codes sub-section
-    --     if code_str and data.codes[k] == true then blocked_codes.flags[code_str] = true end
-    --   end
-    -- end
-    -- if ok and data and type(data.codes) == 'table' then
-    --   for k, v in pairs(data.codes) do
-    --     local code_str = nil
-    --     if type(k) == 'string' and k ~= '' then code_str = k
-    --     elseif type(v) == 'string' and v ~= '' then code_str = v end
-    --
-    --     -- Ensure we only load it if it was explicitly marked as true inside the codes sub-section
-    --     if code_str and data.codes[k] == true then blocked_codes.codes[code_str] = true end
-    --   end
     end
   end
   return blocked_codes
@@ -84,70 +62,7 @@ function M.get_manual_blocked(filter_db_path)
 
   return M.blocked
 end
--- ⚡ OPTIMIZED CACHE: Only reads disk if the JSON file's modified time (mtime) changes
--- local function get_manual_blocked_cached(filter_db_path)
---   local stat = vim.uv.fs_stat(filter_db_path)
---   local current_mtime = stat and stat.mtime.sec or 0
---
---   if current_mtime == 0 or current_mtime ~= M.cached_db_mtime then
---     M.manual_blocked_codes = parse_db_file_pure(filter_db_path)
---     M.cached_db_mtime = current_mtime
---   end
---
---   return M.manual_blocked_codes
--- end
 
--- -- ========================================================================================
--- -- 🛠️ ENGINE PATH A: Auto Clean Project-Wide(col 0, raw 0) Toolchain Flags (The Extractor)
--- -- ========================================================================================
--- function M.clean_project_wide_flags(diagnostics)
---   if not diagnostics or #diagnostics == 0 then
---     return
---   end
---   local flags_updated = false
---
---   for _, diag in ipairs(diagnostics) do
---     local code = diag.code
---     local msg = diag.message or ''
---     local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
---
---     if is_drv then
---       -- [fmWOgsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
---       -- f: Compiler Features / Optimizations (e.g., -fexceptions, -fno-rtti)
---       -- m: Machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
---       -- W: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
---       -- O: Optimization Levels (e.g., -Os, -O2)
---       -- g / s / x: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
---       -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
---       -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
---       local flag = msg:match('(%-[fmWOgsx][%w%-%.%*]+)')
---       -- 🟢 SINGLE SEED: Only modify your private master module dictionary map!
---       if flag and not M.auto_removed_flags[flag] then
---         M.auto_removed_flags[flag] = true
---         flags_updated = true
---       end
---     end
---   end
---
---   if flags_updated then
---     local filter_db_path = M.get_db_path()
---     local current_blocked = parse_db_file_pure(filter_db_path)
---
---     local f = io.open(filter_db_path, 'wb')
---     if f then
---       local payload = { codes = current_blocked, flags = M.auto_removed_flags }
---       f:write(require('nvimpio.utils.misc').jsonFormat(payload))
---       f:close()
---     end
---
---     -- Trigger the boilerplate generation process
---     local boiler = require('nvimpio.boilerplate')
---     if boiler and boiler.boilerplate_gen then
---       -- pcall(boiler.boilerplate_gen, '.clangd', project_root, 'diagnostics wipe flags')
---       pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics wipe flags')
---     end
---   end
--- end
 
 -- function M.unknownArgs()
 --   local filter_db_path = M.get_db_path()
@@ -172,12 +87,9 @@ end
 -- ========================================================================
 -- 🛠️ ENGINE PATH B: manual Clean Source Code File Diagnostics (Pure Files)
 -- ========================================================================
-function M.clean_file_path_pipeline(diagnostics)
+function M.clean_file_path_pipeline(diagnostics)  -- change flags  --> write
   if not diagnostics or #diagnostics == 0 then return diagnostics end
   local filter_db_path = M.get_db_path()
-
-  -- Pure localized read ensures we only check blocks configured for THIS project folder
-  -- local manual_blocked = get_manual_blocked_cached(filter_db_path)
 
   local clean_diagnostics = {}
   local flags_updated = false
@@ -189,8 +101,6 @@ function M.clean_file_path_pipeline(diagnostics)
     local code = diag.code and tostring(diag.code) or nil
     local msg = diag.message or ''
 
-    -- local is_drv = type(code) == 'string' and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
-    -- local is_drv = code and (code:match('^drv_') or code:match('^fatal_') or msg:lower():match('argument'))
     -- ⚡ OPTIMIZED: Case-insensitive match without allocating new strings via msg:lower()
     local is_drv = code and (
       code:match('^drv_')
@@ -212,52 +122,31 @@ function M.clean_file_path_pipeline(diagnostics)
 
       -- 🟢 SINGLE SOURCE SEED: Update only your master memory dictionary map!
       if flag and not M.blocked.flags[flag] then
-        M.blocked.flags[flag] = true  -- ** the only place updates M.auto_removed_flags
+        M.blocked.flags[flag] = true  -- ** the only place updates M.blocked.flags
         flags_updated = true          -- if updated write it below to file
       end
-    -- elseif code and manual_blocked[code] then show_diagnostics = false end
     elseif code and M.blocked.codes[code] then show_diagnostics = false end
 
     if show_diagnostics then table.insert(clean_diagnostics, diag) end
   end
 
-  -- if flags_updated then
-  --   vim.schedule(function()
-  --   -- 🟢 SINGLE-POINT FLUSH POINT: Trigger only if a brand-new unknown flag was caught mid-flight
-  --     local f = io.open(filter_db_path, 'wb')
-  --     if f then
-  --       local payload = M.blocked
-  --       f:write(require('nvimpio.utils.misc').jsonFormat(payload))
-  --       f:close()
-  --     end
-  --
-  --     -- Let the dynamic boilerplate loop read pio_diag.removed_flags directly on disk generation!
-  --     local boiler = require('nvimpio.boilerplate')
-  --     if boiler and boiler.boilerplate_gen then
-  --       -- pcall(boiler.boilerplate_gen, '.clangd', project_root, 'diagnostics clean_file_path_pipeline')
-  --       pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics clean_file_path_pipeline')
-  --     end
-  --   end)
-  -- end
-
-  if flags_updated then
+  if flags_updated then  -- write
     vim.schedule(function()
     -- 🟢 SINGLE-POINT FLUSH POINT: Trigger only if a brand-new unknown flag was caught mid-flight
-      local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
-      local raw_payload = misc_ok and misc.jsonFormat
-        -- and misc.jsonFormat({ codes = manual_blocked, flags = M.auto_removed_flags })
-        -- and misc.jsonFormat({ codes = M.manual_blocked_codes, flags = M.auto_removed_flags })
-        and misc.jsonFormat(M.blocked)
-        or '{\n  "codes": {},\n  "flags": {}\n}'
+      -- local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
+      -- local raw_payload = misc_ok and misc.jsonFormat
+      --   and misc.jsonFormat(M.blocked)
+      --   or vim.json.encode(M.blocked { indent = "  " }) .. "\n"
 
       local f = io.open(filter_db_path, 'wb')
       if f then
-        f:write(raw_payload)
+        -- f:write(raw_payload)
+        f:write(vim.json.encode(M.blocked { indent = "  " }) .. "\n")
         f:close()
         M.cached_db_mtime = 0 -- Invalidate mtime cache
       end
 
-      -- Let the dynamic boilerplate loop read pio_diag.auto_removed_flags directly on disk generation!
+      -- Let the dynamic boilerplate loop read pio_diag.M.blocked
       local boiler_ok, boiler = pcall(require, 'nvimpio.boilerplate')
       if boiler_ok and boiler and boiler.boilerplate_gen then
         pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics clean_file_path_pipeline')
@@ -271,21 +160,14 @@ end
 -- ===================================================================
 -- 💻 THE INTERACTIVE DYNAMIC CHECKBOX PICKER PANEL (STATE MACHINE)
 -- ===================================================================
-function M.manage_file_diagnostics_interactive()
+function M.manage_file_diagnostics_interactive()   -- change codes  --> write
   local bufnr = vim.api.nvim_get_current_buf()
   local filter_db_path = M.get_db_path()
 
   -- 🟢 SELF-HEALING INTERCEPTION: Guarantee the database file is active before memory tracking maps populate
   ensure_default_db_exists(filter_db_path)
 
-  -- -- 🟢 THE NEOVIIM COMMAND PROTECTION SHIELD:
-  -- -- If state_override contains a 'name' field, it is a Neovim command metadata block object!
-  -- -- Discard it instantly and force it back to a clean disk load via parse_db_file_pure()
-  -- local is_command_object = type(state_override) == 'table' and state_override.name ~= nil
-  -- if is_command_object then state_override = nil end
-
   -- Initialize memory state tracking layer from disk or incoming RAM state
-  -- local active_file_blocked = M.get_manual_blockedd(filter_db_path)
   local caced_blocked = M.get_manual_blocked(filter_db_path)
   local active_file_blocked = caced_blocked.codes
 
@@ -357,16 +239,13 @@ function M.manage_file_diagnostics_interactive()
     if not choice then
       local f = io.open(filter_db_path, 'wb')
       if f then
-        -- local payload = M.get_manual_blocked(filter_db_path)
-        -- local payload = { codes = active_file_blocked, flags = M.auto_removed_flags }
-        f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
+        -- f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
+        f:write(vim.json.encode(caced_blocked { indent = "  " }) .. "\n")
         f:close()
         -- 🟢 Invalidate or refresh cache here so the getter reloads the new state
         M.cached_db_mtime = 0 -- Invalidate cache
       end
 
-      -- Flush session cache arrays entirely out of RAM memory on exit
-      -- M.session_discovered_codes = nil
       --Clean memory table safely without destroying the reference table pointer
       for k in pairs(M.session_discovered_codes) do M.session_discovered_codes[k] = nil end
 

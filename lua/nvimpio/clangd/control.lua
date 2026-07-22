@@ -195,8 +195,8 @@ function M.getUnknownArgsCli(from)
         -- require('nvimpio.clangd.diagnostic').unknownArgs()
         local f = io.open(filter_db_path, 'wb')
         if f then
-          -- local payload = { codes = manual_blocked, flags = M.auto_removed_flags }
-          f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
+          -- f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
+          f:write(vim.json.encode(caced_blocked { indent = "  " }) .. "\n")
           f:close()
         end
         pio_diag.cached_db_mtime = 0 -- Invalidate cache
