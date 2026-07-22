@@ -141,7 +141,7 @@ function M.clean_file_path_pipeline(diagnostics)  -- change flags  --> write
       local f = io.open(filter_db_path, 'wb')
       if f then
         -- f:write(raw_payload)
-        f:write(vim.json.encode(M.blocked, { indent = "  " }) .. "\n")
+        f:write(vim.fn.json_encode(M.blocked))
         f:close()
         M.cached_db_mtime = 0 -- Invalidate mtime cache
       end
@@ -240,7 +240,7 @@ function M.manage_file_diagnostics_interactive()   -- change codes  --> write
       local f = io.open(filter_db_path, 'wb')
       if f then
         -- f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
-        f:write(vim.json.encode(caced_blocked, { indent = "  " }) .. "\n")
+        f:write(vim.fn.json_encode(caced_blocked))
         f:close()
         -- 🟢 Invalidate or refresh cache here so the getter reloads the new state
         M.cached_db_mtime = 0 -- Invalidate cache
