@@ -12,7 +12,7 @@ function M.removeFromPath(path_to_remove)
 
   -- 1. Standardize the path we want to delete using Neovim's built-in normalizer
   local target_clean = vim.fs.normalize(path_to_remove)
-  if OS.is_win then target_clean = target_clean:lower() end
+  -- if OS.is_win then target_clean = target_clean:lower() end
 
   -- 2. Split the active system PATH string into a clean list array
   local active_paths = vim.split(vim.env.PATH or '', OS.path_sep, { trimempty = true })
@@ -24,7 +24,7 @@ function M.removeFromPath(path_to_remove)
 
     -- Windows paths are completely case-insensitive; force lowercase to prevent
     -- 'C:\' vs 'c:\' drive letter mismatch bugs from bypassing the filter!
-    if OS.is_win then segment_clean = segment_clean:lower() end
+    -- if OS.is_win then segment_clean = segment_clean:lower() end
 
     -- Return true ONLY if this system path does NOT match our target path
     return segment_clean ~= target_clean

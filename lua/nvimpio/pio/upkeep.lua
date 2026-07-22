@@ -12,7 +12,7 @@ local misc = require('nvimpio.utils.misc')
 --final file name with its extension :t (Tail)
 --Get Directory Head/Parent :h (Head)
 function M.get_sysroot_triplet(cc_compiler, from)
-  cc_compiler = vim.fs.normalize(cc_compiler):lower()
+  cc_compiler = vim.fs.normalize(cc_compiler)
   from = from or ''
   local bin_path = vim.fs.dirname(cc_compiler)
   -- local bin_path = vim.fs.normalize(vim.fn.fnamemodify(cc_compiler, ':h'))
@@ -69,7 +69,7 @@ function M.get_sysroot_triplet(cc_compiler, from)
       end
     end
   end
-  triplet = triplet:lower()
+  triplet = triplet
   -- if not triplet then return nil end
 
   -- local query_driver = vim.fs.normalize('**')
@@ -424,7 +424,7 @@ function M.extract_framework_path(raw_json_chunk, active_env)
   if not ok or not data then
     return nil
   end
-  local core_dir = vim.fs.normalize(_G.metadata.core_dir):lower()
+  local core_dir = vim.fs.normalize(_G.metadata.core_dir)
   -- Escape any special Lua pattern characters (like the dot in .platformio)
   -- This turns '.platformio' into '%.platformio' safely
   local escaped_core_dir = core_dir:gsub('([^%w])', '%%%1')
@@ -433,7 +433,7 @@ function M.extract_framework_path(raw_json_chunk, active_env)
   -- 2. Scan each include path in the build array
   for _, path in ipairs(build) do
     -- Normalize slashes right away for Windows/Linux consistency
-    local clean_path = vim.fs.normalize(path):lower()
+    local clean_path = vim.fs.normalize(path)
 
     -- 3. THE CAPTURE: Match any path containing '.platformio/packages/'
     -- and grab everything from the start up to the first directory inside packages/

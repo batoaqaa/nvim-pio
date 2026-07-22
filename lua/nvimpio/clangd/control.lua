@@ -287,7 +287,7 @@ end
 local function normalize_absolute_path(path)
   if not path or path == '' then return '' end
   local expanded = vim.fn.fnamemodify(path, ':p')
-  return vim.fs.normalize(expanded):lower()
+  return vim.fs.normalize(expanded) --:lower()
 end
 
 local function get_validated_project_root(bufnr)

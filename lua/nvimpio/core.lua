@@ -14,17 +14,18 @@ local function clear_subdirectories(target_dir)
 end
 
 local setPenvBinPath = function (target)
-  local penv_bin = vim.fs.normalize(vim.fs.joinpath(target, (OS.is_win and 'penv/Scripts' or 'penv/bin'))):lower()
+  local penv_bin = vim.fs.normalize(vim.fs.joinpath(target, (OS.is_win and 'penv/Scripts' or 'penv/bin')))
   local current_path = vim.env.PATH or ''
 
-  local check_target = OS.is_win and penv_bin:lower() or penv_bin
+  -- local check_target = OS.is_linux and penv_bin or penv_bin:lower()
   local active_paths = vim.split(current_path, OS.path_sep, { trimempty = true })
   local found_in_path = false
 
   for _, segment in ipairs(active_paths) do
     local seg_clean = vim.fs.normalize(segment)
-    if OS.is_win then seg_clean = seg_clean:lower() end
-    if seg_clean == check_target then
+    -- if not OS.is_linux then seg_clean = seg_clean:lower() end
+    -- if seg_clean == check_target then
+    if seg_clean == penv_bin then
       found_in_path = true
       break
     end

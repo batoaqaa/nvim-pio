@@ -135,7 +135,7 @@ local os_info = {
   ---@return string
   prepareLuaEscapePattern = function(raw)
     -- 1. Standardize to lowercase and use forward slashes for Windows safety
-    local escaped_string = raw --vim.fs.normalize(raw_path):lower()
+    local escaped_string = raw
 
     -- 2. List of all characters that Lua patterns treat as special magic wildcards
     local magic_chars = { "%", ".", "-", "+", "*", "?", "^", "$", "(", ")", "[", "]" }

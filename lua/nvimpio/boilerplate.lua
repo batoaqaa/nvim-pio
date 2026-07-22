@@ -130,7 +130,7 @@ local function is_cpp_project()
 
   -- Normalize your workspace project root path to match compiler formatting styles
   -- (Converts backslashes to forward slashes or matches casing safely)
-  local local_root = OS.project_dir:gsub("\\", "/"):lower()
+  local local_root = OS.project_dir:gsub("\\", "/")
 
   -- B. Streams lines sequentially. It drops out the moment a match resolves, 
   -- maximizing speed while preventing huge memory allocations.
@@ -143,7 +143,7 @@ local function is_cpp_project()
 
     -- Check if the line maps to an explicit compilation file path property key
     if line:find('"file"') then
-      local normalized_line = line:gsub("\\", "/"):lower()
+      local normalized_line = line:gsub("\\", "/")
 
       -- CORE: Only evaluate if the file path is inside your local project root.
       -- This filters out global paths like C:/Users/.../.platformio/packages/...
