@@ -149,129 +149,24 @@ end
 -- iterrative loop 48ms
 -- stylua: ignore
 ------------------------------------------------------
---- Iterative, cross-platform, deterministic JSON encoder
----@param root_data table|any
----@return string
-function M.jsonFormat(root_data)
-  if type(root_data) == 'table' then
-    local mt = getmetatable(root_data)
-    if mt and mt.__index and type(mt.__index) == 'table' then
-      root_data = mt.__index
-    end
-  end
-
-  local buffer = {}
-  local stack = { { val = root_data, lvl = 0, stage = 'start' } }
-
-  local function get_indent(lvl)
-    return string.rep('  ', lvl)
-  end
-
-  local escapes = {
-    ['\\'] = '\\\\',
-    ['"']  = '\\"',
-    ['\b'] = '\\b',
-    ['\f'] = '\\f',
-    ['\n'] = '\\n',
-    ['\r'] = '\\r',
-    ['\t'] = '\\t',
-  }
-
-  local function escape_string(str)
-    -- Normalize Windows path separators to Unix BEFORE JSON escaping
-    local s = str:gsub('\\', '/')
-    -- Escape standard JSON control chars
-    s = s:gsub('[\\"\b\f\n\r\t]', escapes)
-    -- Escape control characters (U+0000 to U+001F)
-    s = s:gsub('[%z\1-\31]', function(c)
-      return string.format('\\u%04x', string.byte(c))
-    end)
-    return '"' .. s .. '"'
-  end
-
-  while #stack > 0 do
-    local curr = stack[#stack]
-    local val, lvl = curr.val, curr.lvl
-    local indent = get_indent(lvl)
-
-    if type(val) == 'table' and val ~= vim.empty_dict and val ~= vim.NIL then
-      local is_array = false
-      local mt = getmetatable(val)
-
-      if mt and mt.__jsontype == 'array' then
-        is_array = true
-      elseif #val > 0 then
-        is_array = true
-      end
-
-      if curr.stage == 'start' then
-        table.insert(buffer, (is_array and '[' or '{') .. '\n')
-        curr.stage = 'items'
-        curr.keys = {}
-
-        if is_array then
-          for i = 1, #val do table.insert(curr.keys, i) end
-        else
-          for k in pairs(val) do table.insert(curr.keys, k) end
-          table.sort(curr.keys, function(a, b) return tostring(a) < tostring(b) end)
-        end
-        curr.total = #curr.keys
-        curr.cursor = 1
-      elseif curr.stage == 'items' then
-        if curr.cursor <= curr.total then
-          local key = curr.keys[curr.cursor]
-          local item = val[key]
-
-          if curr.cursor > 1 then table.insert(buffer, ',\n') end
-
-          table.insert(buffer, get_indent(lvl + 1))
-          if not is_array then
-            table.insert(buffer, escape_string(tostring(key)) .. ': ')
-          end
-
-          curr.cursor = curr.cursor + 1
-          table.insert(stack, { val = item, lvl = lvl + 1, stage = 'start' })
-        else
-          table.insert(buffer, '\n' .. indent .. (is_array and ']' or '}'))
-          table.remove(stack)
-        end
-      end
-    else
-      local output = ''
-      if val == nil or val == vim.NIL then
-        output = 'null'
-      elseif val == vim.empty_dict then
-        output = '{}'
-      elseif type(val) == 'boolean' then
-        output = tostring(val)
-      elseif type(val) == 'string' then
-        output = escape_string(val)
-      else
-        output = tostring(val)
-      end
-      table.insert(buffer, output)
-      table.remove(stack)
-    end
-  end
-
-  return table.concat(buffer)
-end
+-- --- Iterative, cross-platform, deterministic JSON encoder
+-- ---@param root_data table|any
+-- ---@return string
 -- function M.jsonFormat(root_data)
 --   if type(root_data) == 'table' then
 --     local mt = getmetatable(root_data)
---     -- If your proxy metatable exposes the true source or can be bypassed:
 --     if mt and mt.__index and type(mt.__index) == 'table' then
---       root_data = mt.__index -- Automatically unpacks _pio_metadata from the proxy shell!
+--       root_data = mt.__index
 --     end
 --   end
 --
 --   local buffer = {}
---   -- Stack stores: { val = item, lvl = depth, stage = "start"|"items", keys = {}, index = 0 }
 --   local stack = { { val = root_data, lvl = 0, stage = 'start' } }
 --
---   local function get_indent(lvl) return string.rep('  ', lvl) end
+--   local function get_indent(lvl)
+--     return string.rep('  ', lvl)
+--   end
 --
---   -- Full JSON Escape Table
 --   local escapes = {
 --     ['\\'] = '\\\\',
 --     ['"']  = '\\"',
@@ -282,21 +177,30 @@ end
 --     ['\t'] = '\\t',
 --   }
 --
+--   local function escape_string(str)
+--     -- Normalize Windows path separators to Unix BEFORE JSON escaping
+--     local s = str:gsub('\\', '/')
+--     -- Escape standard JSON control chars
+--     s = s:gsub('[\\"\b\f\n\r\t]', escapes)
+--     -- Escape control characters (U+0000 to U+001F)
+--     s = s:gsub('[%z\1-\31]', function(c)
+--       return string.format('\\u%04x', string.byte(c))
+--     end)
+--     return '"' .. s .. '"'
+--   end
+--
 --   while #stack > 0 do
 --     local curr = stack[#stack]
 --     local val, lvl = curr.val, curr.lvl
 --     local indent = get_indent(lvl)
 --
---     if type(val) == 'table' then
---       -- 1. Determine if Array or Object
+--     if type(val) == 'table' and val ~= vim.empty_dict and val ~= vim.NIL then
 --       local is_array = false
---
---       -- Check if it's explicitly marked as an array by the Neovim parser
 --       local mt = getmetatable(val)
+--
 --       if mt and mt.__jsontype == 'array' then
 --         is_array = true
---       -- If not marked, check if it has indexed items or is literally an empty table
---       elseif #val > 0 or next(val) == nil then
+--       elseif #val > 0 then
 --         is_array = true
 --       end
 --
@@ -305,61 +209,158 @@ end
 --         curr.stage = 'items'
 --         curr.keys = {}
 --
---         -- 2. Collect and Sort Keys (CRITICAL for SHA256 stability)
---         if is_array then for i = 1, #val do table.insert(curr.keys, i) end
+--         if is_array then
+--           for i = 1, #val do table.insert(curr.keys, i) end
 --         else
 --           for k in pairs(val) do table.insert(curr.keys, k) end
 --           table.sort(curr.keys, function(a, b) return tostring(a) < tostring(b) end)
 --         end
 --         curr.total = #curr.keys
---         curr.cursor = 1 -- Point to the first key
+--         curr.cursor = 1
 --       elseif curr.stage == 'items' then
 --         if curr.cursor <= curr.total then
 --           local key = curr.keys[curr.cursor]
 --           local item = val[key]
 --
---           -- Add comma for all but the first item
 --           if curr.cursor > 1 then table.insert(buffer, ',\n') end
 --
 --           table.insert(buffer, get_indent(lvl + 1))
---           if not is_array then table.insert(buffer, '"' .. tostring(key) .. '": ') end
+--           if not is_array then
+--             table.insert(buffer, escape_string(tostring(key)) .. ': ')
+--           end
 --
 --           curr.cursor = curr.cursor + 1
---           -- Push next item to process
 --           table.insert(stack, { val = item, lvl = lvl + 1, stage = 'start' })
 --         else
---           -- 3. Close the block
 --           table.insert(buffer, '\n' .. indent .. (is_array and ']' or '}'))
 --           table.remove(stack)
 --         end
 --       end
 --     else
---       -- 4. Primitives (String, Number, Bool, Nil)
 --       local output = ''
---       if val == nil or val == vim.NIL then output = 'null'
---       elseif val == vim.empty_dict then output = '{}'
---       elseif type(val) == 'boolean' then output = tostring(val)
+--       if val == nil or val == vim.NIL then
+--         output = 'null'
+--       elseif val == vim.empty_dict then
+--         output = '{}'
+--       elseif type(val) == 'boolean' then
+--         output = tostring(val)
 --       elseif type(val) == 'string' then
---         -- A. Handle standard escapes (\n, \t, etc.)
---         local s = val:gsub('[\\"\b\f\n\r\t]', escapes)
---
---         -- B. Handle unprintable control characters (U+0000 to U+001F)
---         s = s:gsub('[%z\1-\31]', function(c)
---           return string.format('\\u%04x', string.byte(c))
---         end)
---
---         -- C. Normalize Windows paths to Unix for cross-platform SHA256 stability
---         -- We flip double-backslashes (\\) resulting from the escape to (/)
---         s = s:gsub('\\\\', '/')
---
---         output = '"' .. s .. '"'
---       else output = tostring(val) end
+--         output = escape_string(val)
+--       else
+--         output = tostring(val)
+--       end
 --       table.insert(buffer, output)
 --       table.remove(stack)
 --     end
 --   end
+--
 --   return table.concat(buffer)
 -- end
+
+function M.jsonFormat(root_data)
+  if type(root_data) == 'table' then
+    local mt = getmetatable(root_data)
+    -- If your proxy metatable exposes the true source or can be bypassed:
+    if mt and mt.__index and type(mt.__index) == 'table' then
+      root_data = mt.__index -- Automatically unpacks _pio_metadata from the proxy shell!
+    end
+  end
+
+  local buffer = {}
+  -- Stack stores: { val = item, lvl = depth, stage = "start"|"items", keys = {}, index = 0 }
+  local stack = { { val = root_data, lvl = 0, stage = 'start' } }
+
+  local function get_indent(lvl) return string.rep('  ', lvl) end
+
+  -- Full JSON Escape Table
+  local escapes = {
+    ['\\'] = '\\\\',
+    ['"']  = '\\"',
+    ['\b'] = '\\b',
+    ['\f'] = '\\f',
+    ['\n'] = '\\n',
+    ['\r'] = '\\r',
+    ['\t'] = '\\t',
+  }
+
+  while #stack > 0 do
+    local curr = stack[#stack]
+    local val, lvl = curr.val, curr.lvl
+    local indent = get_indent(lvl)
+
+    if type(val) == 'table' then
+      -- 1. Determine if Array or Object
+      local is_array = false
+
+      -- Check if it's explicitly marked as an array by the Neovim parser
+      local mt = getmetatable(val)
+      if mt and mt.__jsontype == 'array' then
+        is_array = true
+      -- If not marked, check if it has indexed items or is literally an empty table
+      elseif #val > 0 or next(val) == nil then
+        is_array = true
+      end
+
+      if curr.stage == 'start' then
+        table.insert(buffer, (is_array and '[' or '{') .. '\n')
+        curr.stage = 'items'
+        curr.keys = {}
+
+        -- 2. Collect and Sort Keys (CRITICAL for SHA256 stability)
+        if is_array then for i = 1, #val do table.insert(curr.keys, i) end
+        else
+          for k in pairs(val) do table.insert(curr.keys, k) end
+          table.sort(curr.keys, function(a, b) return tostring(a) < tostring(b) end)
+        end
+        curr.total = #curr.keys
+        curr.cursor = 1 -- Point to the first key
+      elseif curr.stage == 'items' then
+        if curr.cursor <= curr.total then
+          local key = curr.keys[curr.cursor]
+          local item = val[key]
+
+          -- Add comma for all but the first item
+          if curr.cursor > 1 then table.insert(buffer, ',\n') end
+
+          table.insert(buffer, get_indent(lvl + 1))
+          if not is_array then table.insert(buffer, '"' .. tostring(key) .. '": ') end
+
+          curr.cursor = curr.cursor + 1
+          -- Push next item to process
+          table.insert(stack, { val = item, lvl = lvl + 1, stage = 'start' })
+        else
+          -- 3. Close the block
+          table.insert(buffer, '\n' .. indent .. (is_array and ']' or '}'))
+          table.remove(stack)
+        end
+      end
+    else
+      -- 4. Primitives (String, Number, Bool, Nil)
+      local output = ''
+      if val == nil or val == vim.NIL then output = 'null'
+      elseif val == vim.empty_dict then output = '{}'
+      elseif type(val) == 'boolean' then output = tostring(val)
+      elseif type(val) == 'string' then
+        -- A. Handle standard escapes (\n, \t, etc.)
+        local s = val:gsub('[\\"\b\f\n\r\t]', escapes)
+
+        -- B. Handle unprintable control characters (U+0000 to U+001F)
+        s = s:gsub('[%z\1-\31]', function(c)
+          return string.format('\\u%04x', string.byte(c))
+        end)
+
+        -- C. Normalize Windows paths to Unix for cross-platform SHA256 stability
+        -- We flip double-backslashes (\\) resulting from the escape to (/)
+        s = s:gsub('\\\\', '/')
+
+        output = '"' .. s .. '"'
+      else output = tostring(val) end
+      table.insert(buffer, output)
+      table.remove(stack)
+    end
+  end
+  return table.concat(buffer)
+end
 
 --INFO:
 -- Example Usage
