@@ -129,96 +129,244 @@ end
 --INFO:
 -- iterrative loop 48ms
 -- stylua: ignore
-------------------------------------------------------
---- Iterative, cross-platform, deterministic JSON encoder
+--- Pretty-prints and canonicalizes a table into deterministic JSON.
 ---@param root_data table|any
+---@param indent_str? string Default "  " (ASCII 0x20 0x20)
 ---@return string
-function M.jsonFormat(root_data)
-  if type(root_data) == 'table' then
-    local mt = getmetatable(root_data)
-    if mt and mt.__index and type(mt.__index) == 'table' then root_data = mt.__index end
-  end
-
-  local buffer = {}
-  local stack = { { val = root_data, lvl = 0, stage = 'start' } }
-
-  local function get_indent(lvl) return string.rep('  ', lvl) end
+function M.jsonFormat(root_data, indent_str)
+  -- Standard ASCII double spaces (\x20\x20) safely guarded against web paste artifacts
+  indent_str = (type(indent_str) == "string" and indent_str ~= "") and indent_str or "\x20\x20"
 
   local escapes = {
-    ['\\'] = '\\\\',
+    ["\\"] = "\\\\",
     ['"']  = '\\"',
-    ['\b'] = '\\b',
-    ['\f'] = '\\f',
-    ['\n'] = '\\n',
-    ['\r'] = '\\r',
-    ['\t'] = '\\t',
+    ["\b"] = "\\b",
+    ["\f"] = "\\f",
+    ["\n"] = "\\n",
+    ["\r"] = "\\r",
+    ["\t"] = "\\t",
   }
 
   local function escape_string(str)
-    -- Normalize Windows path separators to Unix BEFORE JSON escaping
-    local s = str:gsub('\\', '/')
-    -- Escape standard JSON control chars
-    s = s:gsub('[\\"\b\f\n\r\t]', escapes)
-    -- Escape control characters (U+0000 to U+001F)
-    s = s:gsub('[%z\1-\31]', function(c) return string.format('\\u%04x', string.byte(c)) end)
+    str = tostring(str)
+    -- Escape standard control chars
+    local s = str:gsub('[\\"\b\f\n\r\t]', escapes)
+    -- Escape ASCII control characters (U+0000 to U+001F)
+    s = s:gsub("[%z\1-\31]", function(c)
+      return string.format("\\u%04x", string.byte(c))
+    end)
     return '"' .. s .. '"'
   end
 
-  while #stack > 0 do
-    local curr = stack[#stack]
-    local val, lvl = curr.val, curr.lvl
-    local indent = get_indent(lvl)
+  local function is_list_table(tbl)
+    if tbl == vim.empty_dict then return false end
 
-    if type(val) == 'table' and val ~= vim.empty_dict and val ~= vim.NIL then
-      local is_array = false
-      local mt = getmetatable(val)
-
-      if mt and mt.__jsontype == 'array' then is_array = true
-      elseif #val > 0 then is_array = true end
-
-      if curr.stage == 'start' then
-        table.insert(buffer, (is_array and '[' or '{') .. '\n')
-        curr.stage = 'items'
-        curr.keys = {}
-
-        if is_array then for i = 1, #val do table.insert(curr.keys, i) end
-        else
-          for k in pairs(val) do table.insert(curr.keys, k) end
-          table.sort(curr.keys, function(a, b) return tostring(a) < tostring(b) end)
-        end
-        curr.total = #curr.keys
-        curr.cursor = 1
-      elseif curr.stage == 'items' then
-        if curr.cursor <= curr.total then
-          local key = curr.keys[curr.cursor]
-          local item = val[key]
-
-          if curr.cursor > 1 then table.insert(buffer, ',\n') end
-
-          table.insert(buffer, get_indent(lvl + 1))
-          if not is_array then table.insert(buffer, escape_string(tostring(key)) .. ': ') end
-
-          curr.cursor = curr.cursor + 1
-          table.insert(stack, { val = item, lvl = lvl + 1, stage = 'start' })
-        else
-          table.insert(buffer, '\n' .. indent .. (is_array and ']' or '}'))
-          table.remove(stack)
-        end
-      end
-    else
-      local output = ''
-      if val == nil or val == vim.NIL then output = 'null'
-      elseif val == vim.empty_dict then output = '{}'
-      elseif type(val) == 'boolean' then output = tostring(val)
-      elseif type(val) == 'string' then output = escape_string(val)
-      else output = tostring(val) end
-      table.insert(buffer, output)
-      table.remove(stack)
+    -- 1. Modern Neovim (>= 0.10)
+    if vim.islist then
+      return vim.islist(tbl)
     end
+
+    -- 2. Pure Lua fallback: check sequential integer keys 1..N
+    -- (Bypasses deprecated vim.tbl_islist entirely to prevent deprecation warnings)
+    local count = 0
+    for _ in pairs(tbl) do
+      count = count + 1
+      if rawget(tbl, count) == nil and tbl[count] == nil then
+        return false
+      end
+    end
+    return count > 0
   end
 
-  return table.concat(buffer)
+  local visited = {}
+
+  local function serialize(val, depth)
+    if val == nil or val == vim.NIL then
+      return "null"
+    elseif val == vim.empty_dict then
+      return "{}"
+    end
+
+    local forced_jsontype = nil
+
+    -- Unpack proxy metatables FIRST while capturing explicit json types
+    if type(val) == "table" then
+      local mt = getmetatable(val)
+      if mt then
+        forced_jsontype = mt.__jsontype
+        if mt.__index and type(mt.__index) == "table" then
+          val = mt.__index
+        end
+      end
+    end
+
+    local t = type(val)
+    if t == "boolean" then
+      return tostring(val)
+    elseif t == "number" then
+      -- JSON specification forbids NaN and Infinity
+      if val ~= val or val == math.huge or val == -math.huge then
+        return "null"
+      end
+      return tostring(val)
+    elseif t == "string" then
+      return escape_string(val)
+    elseif t == "table" then
+      -- Cycle protection guard
+      if visited[val] then
+        return "null"
+      end
+      visited[val] = true
+
+      local mt = getmetatable(val)
+      local is_array = false
+
+      -- 1. Explicit array marking via captured/direct metatable
+      if forced_jsontype == "array" or (mt and mt.__jsontype == "array") then
+        is_array = true
+      -- 2. Strict sequential list check
+      elseif is_list_table(val) then
+        is_array = true
+      end
+
+      -- Collect keys
+      local keys = {}
+      if is_array then
+        for i = 1, #val do table.insert(keys, i) end
+      else
+        for k in pairs(val) do table.insert(keys, k) end
+        table.sort(keys, function(a, b)
+          local ta, tb = type(a), type(b)
+          if ta == tb then
+            if ta == "number" or ta == "string" then
+              return a < b
+            end
+            return tostring(a) < tostring(b)
+          end
+          return ta < tb
+        end)
+      end
+
+      -- Handle empty structures
+      if #keys == 0 then
+        visited[val] = nil
+        return is_array and "[]" or "{}"
+      end
+
+      local cur_indent = string.rep(indent_str, depth)
+      local next_indent = string.rep(indent_str, depth + 1)
+      local lines = {}
+
+      for _, k in ipairs(keys) do
+        local item_val = serialize(val[k], depth + 1)
+        if is_array then
+          table.insert(lines, next_indent .. item_val)
+        else
+          table.insert(lines, next_indent .. escape_string(k) .. ": " .. item_val)
+        end
+      end
+
+      visited[val] = nil
+      local open_bracket = is_array and "[" or "{"
+      local close_bracket = is_array and "]" or "}"
+      return open_bracket .. "\n" .. table.concat(lines, ",\n") .. "\n" .. cur_indent .. close_bracket
+    end
+
+    return "null"
+  end
+
+  return serialize(root_data, 0)
 end
+------------------------------------------------------
+-- --- Iterative, cross-platform, deterministic JSON encoder
+-- ---@param root_data table|any
+-- ---@return string
+-- function M.jsonFormat(root_data)
+--   if type(root_data) == 'table' then
+--     local mt = getmetatable(root_data)
+--     if mt and mt.__index and type(mt.__index) == 'table' then root_data = mt.__index end
+--   end
+--
+--   local buffer = {}
+--   local stack = { { val = root_data, lvl = 0, stage = 'start' } }
+--
+--   local function get_indent(lvl) return string.rep('  ', lvl) end
+--
+--   local escapes = {
+--     ['\\'] = '\\\\',
+--     ['"']  = '\\"',
+--     ['\b'] = '\\b',
+--     ['\f'] = '\\f',
+--     ['\n'] = '\\n',
+--     ['\r'] = '\\r',
+--     ['\t'] = '\\t',
+--   }
+--
+--   local function escape_string(str)
+--     -- Normalize Windows path separators to Unix BEFORE JSON escaping
+--     local s = str:gsub('\\', '/')
+--     -- Escape standard JSON control chars
+--     s = s:gsub('[\\"\b\f\n\r\t]', escapes)
+--     -- Escape control characters (U+0000 to U+001F)
+--     s = s:gsub('[%z\1-\31]', function(c) return string.format('\\u%04x', string.byte(c)) end)
+--     return '"' .. s .. '"'
+--   end
+--
+--   while #stack > 0 do
+--     local curr = stack[#stack]
+--     local val, lvl = curr.val, curr.lvl
+--     local indent = get_indent(lvl)
+--
+--     if type(val) == 'table' and val ~= vim.empty_dict and val ~= vim.NIL then
+--       local is_array = false
+--       local mt = getmetatable(val)
+--
+--       if mt and mt.__jsontype == 'array' then is_array = true
+--       elseif #val > 0 then is_array = true end
+--
+--       if curr.stage == 'start' then
+--         table.insert(buffer, (is_array and '[' or '{') .. '\n')
+--         curr.stage = 'items'
+--         curr.keys = {}
+--
+--         if is_array then for i = 1, #val do table.insert(curr.keys, i) end
+--         else
+--           for k in pairs(val) do table.insert(curr.keys, k) end
+--           table.sort(curr.keys, function(a, b) return tostring(a) < tostring(b) end)
+--         end
+--         curr.total = #curr.keys
+--         curr.cursor = 1
+--       elseif curr.stage == 'items' then
+--         if curr.cursor <= curr.total then
+--           local key = curr.keys[curr.cursor]
+--           local item = val[key]
+--
+--           if curr.cursor > 1 then table.insert(buffer, ',\n') end
+--
+--           table.insert(buffer, get_indent(lvl + 1))
+--           if not is_array then table.insert(buffer, escape_string(tostring(key)) .. ': ') end
+--
+--           curr.cursor = curr.cursor + 1
+--           table.insert(stack, { val = item, lvl = lvl + 1, stage = 'start' })
+--         else
+--           table.insert(buffer, '\n' .. indent .. (is_array and ']' or '}'))
+--           table.remove(stack)
+--         end
+--       end
+--     else
+--       local output = ''
+--       if val == nil or val == vim.NIL then output = 'null'
+--       elseif val == vim.empty_dict then output = '{}'
+--       elseif type(val) == 'boolean' then output = tostring(val)
+--       elseif type(val) == 'string' then output = escape_string(val)
+--       else output = tostring(val) end
+--       table.insert(buffer, output)
+--       table.remove(stack)
+--     end
+--   end
+--
+--   return table.concat(buffer)
+-- end
 
 -- function M.jsonFormat(root_data)
 --   if type(root_data) == 'table' then
