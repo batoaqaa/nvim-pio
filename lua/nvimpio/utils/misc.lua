@@ -130,124 +130,113 @@ end
 -- iterrative loop 48ms
 -- stylua: ignore
 --- Pretty-prints and canonicalizes a table into deterministic JSON.
----@param root_data table|any
+--- Handles Neovim primitives (vim.NIL, vim.empty_dict), cyclic references, 
+--- metatable proxies, and cross-type key sorting safely.
+---@param root_data table|any The Lua value or table to serialize.
 ---@param indent_str? string Default "  " (ASCII 0x20 0x20)
 ---@return string
 function M.jsonFormat(root_data, indent_str)
-  -- Standard ASCII double spaces (\x20\x20) safely guarded against web paste artifacts
-  indent_str = (type(indent_str) == "string" and indent_str ~= "") and indent_str or "\x20\x20"
+  -- Clean up potential non-breaking space paste artifacts (\xc2\xa0)
+  if type(indent_str) == "string" and indent_str ~= "" then
+    indent_str = indent_str:gsub("\xc2\xa0", " ")
+  else indent_str = "\x20\x20" end
 
+  -- Hex escape constants for maximum Lua engine compatibility (\x08 = \b, \x0c = \f)
+  local escape_pattern = '[\\"\x08\x0c\n\r\t]'
   local escapes = {
-    ["\\"] = "\\\\",
-    ['"']  = '\\"',
-    ["\b"] = "\\b",
-    ["\f"] = "\\f",
-    ["\n"] = "\\n",
-    ["\r"] = "\\r",
-    ["\t"] = "\\t",
+    ["\\"]   = "\\\\",
+    ['"']    = '\\"',
+    ["\x08"] = "\\b",
+    ["\x0c"] = "\\f",
+    ["\n"]   = "\\n",
+    ["\r"]   = "\\r",
+    ["\t"]   = "\\t",
   }
 
   local function escape_string(str)
     str = tostring(str)
-    -- Escape standard control chars
-    local s = str:gsub('[\\"\b\f\n\r\t]', escapes)
-    -- Escape ASCII control characters (U+0000 to U+001F)
-    s = s:gsub("[%z\1-\31]", function(c)
+    -- 1. Escape specific JSON control characters
+    local s = str:gsub(escape_pattern, escapes)
+    -- 2. Safely escape remaining ASCII control chars (U+0000 to U+001F)
+    s = s:gsub("[%z\001-\031]", function(c)
       return string.format("\\u%04x", string.byte(c))
     end)
     return '"' .. s .. '"'
   end
 
   local function is_list_table(tbl)
-    if tbl == vim.empty_dict then return false end
+    if tbl == vim.empty_dict or type(tbl) ~= "table" then return false end
 
-    -- 1. Modern Neovim (>= 0.10)
-    if vim.islist then
-      return vim.islist(tbl)
-    end
+    -- Modern Neovim (>= 0.10)
+    if vim.islist then return vim.islist(tbl) end
 
-    -- 2. Pure Lua fallback: check sequential integer keys 1..N
-    -- (Bypasses deprecated vim.tbl_islist entirely to prevent deprecation warnings)
+    -- Pure Lua fallback with complete pcall safety against userdata/proxies
     local count = 0
     for _ in pairs(tbl) do
       count = count + 1
-      if rawget(tbl, count) == nil and tbl[count] == nil then
-        return false
-      end
+      local ok, raw_val = pcall(rawget, tbl, count)
+      if (not ok or raw_val == nil) and tbl[count] == nil then return false end
     end
     return count > 0
   end
 
   local visited = {}
+  local MAX_DEPTH = 128 -- Prevents C-stack overflow on deeply nested trees
 
   local function serialize(val, depth)
-    if val == nil or val == vim.NIL then
-      return "null"
-    elseif val == vim.empty_dict then
-      return "{}"
-    end
+    if depth > MAX_DEPTH then return "null" end
+
+    if val == nil or val == vim.NIL then return "null"
+    elseif val == vim.empty_dict then return "{}" end
 
     local forced_jsontype = nil
 
-    -- Unpack proxy metatables FIRST while capturing explicit json types
     if type(val) == "table" then
       local mt = getmetatable(val)
-      if mt then
-        forced_jsontype = mt.__jsontype
-        if mt.__index and type(mt.__index) == "table" then
-          val = mt.__index
-        end
-      end
+      if type(mt) == "table" then forced_jsontype = rawget(mt, "__jsontype") end
     end
 
     local t = type(val)
-    if t == "boolean" then
-      return tostring(val)
+    if t == "boolean" then return tostring(val)
     elseif t == "number" then
       -- JSON specification forbids NaN and Infinity
-      if val ~= val or val == math.huge or val == -math.huge then
-        return "null"
-      end
+      if val ~= val or val == math.huge or val == -math.huge then return "null" end
       return tostring(val)
-    elseif t == "string" then
-      return escape_string(val)
+    elseif t == "string" then return escape_string(val)
     elseif t == "table" then
-      -- Cycle protection guard
-      if visited[val] then
-        return "null"
-      end
+      if visited[val] then return "null" end
       visited[val] = true
 
       local mt = getmetatable(val)
       local is_array = false
 
-      -- 1. Explicit array marking via captured/direct metatable
-      if forced_jsontype == "array" or (mt and mt.__jsontype == "array") then
+      if forced_jsontype == "array" or (type(mt) == "table" and rawget(mt, "__jsontype") == "array") then
         is_array = true
-      -- 2. Strict sequential list check
-      elseif is_list_table(val) then
-        is_array = true
-      end
+      elseif is_list_table(val) then is_array = true end
 
-      -- Collect keys
       local keys = {}
       if is_array then
-        for i = 1, #val do table.insert(keys, i) end
+        -- Strictly target positive integer array bounds
+        local max_idx = #val
+        for k in pairs(val) do
+          if type(k) == "number" and k > max_idx and k == math.floor(k) and k > 0 then
+            max_idx = k
+          end
+        end
+        for i = 1, max_idx do table.insert(keys, i) end
       else
         for k in pairs(val) do table.insert(keys, k) end
+        -- Strict, deterministic canonical key sorting (GC optimized)
         table.sort(keys, function(a, b)
           local ta, tb = type(a), type(b)
           if ta == tb then
-            if ta == "number" or ta == "string" then
-              return a < b
-            end
+            if ta == "number" then return a < b end
             return tostring(a) < tostring(b)
           end
           return ta < tb
         end)
       end
 
-      -- Handle empty structures
       if #keys == 0 then
         visited[val] = nil
         return is_array and "[]" or "{}"
@@ -256,27 +245,31 @@ function M.jsonFormat(root_data, indent_str)
       local cur_indent = string.rep(indent_str, depth)
       local next_indent = string.rep(indent_str, depth + 1)
       local lines = {}
+      local seen_keys = {}
 
       for _, k in ipairs(keys) do
         local item_val = serialize(val[k], depth + 1)
-        if is_array then
-          table.insert(lines, next_indent .. item_val)
+        if is_array then table.insert(lines, next_indent .. item_val)
         else
-          table.insert(lines, next_indent .. escape_string(k) .. ": " .. item_val)
+          local formatted_key = escape_string(tostring(k))
+          -- Deduplicate keys if string/number collisions occur
+          if not seen_keys[formatted_key] then
+            seen_keys[formatted_key] = true
+            table.insert(lines, next_indent .. formatted_key .. ": " .. item_val)
+          end
         end
       end
-
       visited[val] = nil
       local open_bracket = is_array and "[" or "{"
       local close_bracket = is_array and "]" or "}"
       return open_bracket .. "\n" .. table.concat(lines, ",\n") .. "\n" .. cur_indent .. close_bracket
     end
-
+    -- Functions, userdata, and threads default to null
     return "null"
   end
-
   return serialize(root_data, 0)
 end
+
 ------------------------------------------------------
 -- --- Iterative, cross-platform, deterministic JSON encoder
 -- ---@param root_data table|any
