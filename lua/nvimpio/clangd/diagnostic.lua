@@ -138,13 +138,17 @@ function M.clean_file_path_pipeline(diagnostics)  -- change flags  --> write
       --   and misc.jsonFormat(M.blocked)
       --   or vim.json.encode(M.blocked, { indent = "  " }) .. "\n"
 
-      local f = io.open(filter_db_path, 'wb')
-      if f then
-        -- f:write(raw_payload)
-        f:write(vim.fn.json_encode(M.blocked))
-        f:close()
+      local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
+      if (misc_ok and misc) then
+        misc.writeFile(filter_db_path, misc.jsonFormat(M.blocked), {})
         M.cached_db_mtime = 0 -- Invalidate mtime cache
       end
+      -- local f = io.open(filter_db_path, 'wb')
+      -- if f then
+      --   f:write(raw_payload)
+      --   f:close()
+      --   M.cached_db_mtime = 0 -- Invalidate mtime cache
+      -- end
 
       -- Let the dynamic boilerplate loop read pio_diag.M.blocked
       local boiler_ok, boiler = pcall(require, 'nvimpio.boilerplate')
@@ -237,14 +241,18 @@ function M.manage_file_diagnostics_interactive()   -- change codes  --> write
   }, function(choice)
     -- GATE 1: User pressed Escape or q. Save choices to disk exactly once!
     if not choice then
-      local f = io.open(filter_db_path, 'wb')
-      if f then
-        -- f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
-        f:write(vim.fn.json_encode(caced_blocked))
-        f:close()
-        -- 🟢 Invalidate or refresh cache here so the getter reloads the new state
-        M.cached_db_mtime = 0 -- Invalidate cache
+      local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
+      if (misc_ok and misc) then
+        misc.writeFile(filter_db_path, misc.jsonFormat(caced_blocked), {})
+        M.cached_db_mtime = 0 -- Invalidate mtime cache
       end
+      -- local f = io.open(filter_db_path, 'wb')
+      -- if f then
+      --   f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
+      --   f:close()
+      --   -- 🟢 Invalidate or refresh cache here so the getter reloads the new state
+      --   M.cached_db_mtime = 0 -- Invalidate cache
+      -- end
 
       --Clean memory table safely without destroying the reference table pointer
       for k in pairs(M.session_discovered_codes) do M.session_discovered_codes[k] = nil end

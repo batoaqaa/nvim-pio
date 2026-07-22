@@ -193,13 +193,17 @@ function M.getUnknownArgsCli(from)
         end
         -- 4. UPDATE: Rebuild with the new discovered flags
         -- require('nvimpio.clangd.diagnostic').unknownArgs()
-        local f = io.open(filter_db_path, 'wb')
-        if f then
-          -- f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
-          f:write(vim.json.encode(caced_blocked { indent = "  " }) .. "\n")
-          f:close()
+        local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
+        if (misc_ok and misc) then
+          misc.writeFile(filter_db_path, misc.jsonFormat(caced_blocked), {})
+          M.cached_db_mtime = 0 -- Invalidate mtime cache
         end
-        pio_diag.cached_db_mtime = 0 -- Invalidate cache
+        -- local f = io.open(filter_db_path, 'wb')
+        -- if f then
+        --   f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
+        --   f:close()
+        -- end
+        -- pio_diag.cached_db_mtime = 0 -- Invalidate cache
 
         -- Trigger the boilerplate generation process
         local boiler = require('nvimpio.boilerplate')
