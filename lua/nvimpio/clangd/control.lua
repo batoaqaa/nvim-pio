@@ -291,7 +291,8 @@ local function normalize_absolute_path(path)
 end
 
 local function get_validated_project_root(bufnr)
-  local buf_name = normalize_absolute_path(vim.api.nvim_buf_get_name(bufnr))
+  -- local buf_name = normalize_absolute_path(vim.api.nvim_buf_get_name(bufnr))
+  local buf_name = normalize_absolute_path(OS.getBufFilename(bufnr))
   if not buf_name or buf_name == '' then return normalize_absolute_path(OS.project_dir) end
 
   -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
@@ -351,7 +352,8 @@ function M.getClangdConfig()
     -- 1. FRAMEWORK CHECK: If the target file lives inside the framework, 
     -- bypass all downstream logic and instantly force reuse.
     local target_bufnr = config.bufnr or 0
-    local check_file = vim.fs.normalize(vim.api.nvim_buf_get_name(target_bufnr))
+    -- local check_file = vim.fs.normalize(vim.api.nvim_buf_get_name(target_bufnr))
+    local check_file = vim.fs.normalize(OS.getBufFilename(target_bufnr))
     if check_file:find(_G.metadata.framework_root, 1, true) then return true end
 
     -- 2. RELIABLE STRING EXTRACTION: Evaluate the path directly and synchronously

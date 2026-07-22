@@ -55,10 +55,10 @@ local pioConfigDir = vim.fs.joinpath(projectDir, '.pio')
 ---@field nvimpio_config_dir string
 ---@field pio_config_dir string
 ---@field notify fun(msg: string, level?: string|integer)
----@field preparePOSIXPathPattern fun(raw_path: string)
----@field prepareLuaEscapePattern fun(raw: string)
+---@field preparePOSIXPathPattern fun(raw_path: string): string
+---@field prepareLuaEscapePattern fun(raw: string): string
 ---@field pioReady fun(local_pio_executable: string): boolean
-
+---@field getBufFilename fun(bufnr: integer): string
 ---@type OS
 _G.OS = _G.OS or {}
 local OS = _G.OS ---@cast OS +OS
@@ -184,6 +184,16 @@ local os_info = {
     local ok, obj = pcall(function() return vim.system({ local_pio_executable, '--version' }):wait() end)
     if ok and obj and (obj.code == 0)  and obj.stdout:match("PlatformIO") then _pioReady = true end
     return _pioReady
+  end,
+
+  ---@param bufnr integer
+  ---@return string
+  getBufFilename = function(bufnr)
+    if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+      return "Unknown"
+    end
+    local name = vim.api.nvim_buf_get_name(bufnr)
+    return (name ~= "") and (vim.fs.basename(name) or "Unknown") or "[No Name]"
   end,
 } ---@as OS
 
