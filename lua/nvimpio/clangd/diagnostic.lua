@@ -160,6 +160,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
         -- Update master dictionary if a new flag was caught
         if flag then
           if not blocked_flags[flag] then
+            -- print('Captured new flag:', flag)
             blocked_flags[flag] = true  -- ** the only place updates M.blocked.flags
             flags_updated = true          -- if updated write it below to file
           end
@@ -168,6 +169,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
           -- If it's a Row 0 / Col 0 setup issue with NO flag in the msg (like fatal_too_many_errors),
           -- capture its error code into blocked_codes!
           if not blocked_codes[code] then
+            -- print('Captured new code:', code)
             blocked_codes[code] = true
             flags_updated = true
           end

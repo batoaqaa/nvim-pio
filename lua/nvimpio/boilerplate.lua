@@ -480,55 +480,92 @@ CompileFlags:
   -- QueryDriver: [
   --   "%s"
   -- ]
+
+  local glo = [[
+%s
+CompileFlags:
+  Remove:
+    - "-fno-shrink-wrap"
+    - "-fno-tree-switch-conversion"
+    - "-fstrict-volatile-bitfields"
+    - "-mlongcalls"
+
+Diagnostics:
+  Suppress:
+    - "drv_unknown_argument"
+    - "drv_unknown_argument_with_suggestion"
+    - "fatal_too_many_errors"
+%s
+  ]]
+  local loc = [[
+%s
+---
+# Scope-specific overrides (for headers / sources)
+If:
+  PathMatch: '.*\.h$'
+CompileFlags:
+  Remove: ["-xc", "-xc++", "-std=*"]
+  Add: ["-xc-header", "-std=gnu17"]
+
+---
+If:
+  PathMatch: '.*\.(c|C|cl|ci)$'
+CompileFlags:
+  Remove: ["-xc", "-xc++", "-std=*"]
+  Add: ["-xc", "-std=gnu17"]
+%s
+  ]]
     local userClangd = OS.clangd_user_file
     local clangdFiles = {
       { key = 'userGlob', file = userClangd, content = function (ref) return M.readContent(ref) end,
         cache_id = string.sub(vim.fn.sha256(_G.metadata.packages_dir), 1, 16),
         block = function (ref)
-          return string.format( self.Global,
-                ref.start_marker,
-                clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-                table.concat(flagsBlocked, ',\n    '),  -- Suppress: [%s]
-                table.concat(globCodesSuppress, ',\n    '),  -- Suppress: [%s]
-
-                clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-                headerExtensions,                            -- header extensions
-                -- OS.project_dir,                              -- compilationDatabasePath
-                -- compiler,                                    -- compiler
-                table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
-                table.concat(compileFlagsHAdd, ',\n    '),  -- Add: [%s]
-
-                clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-                fileExtensions,                              -- file extensions
-                -- OS.project_dir,                              -- compilationDatabasePath
-                -- compiler,                                    -- compiler
-                -- table.concat(formattedGlobSuppress, ',\n    '),-- Remove: [%s]
-                table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
-                table.concat(compileFlagsAdd, ',\n    '),  -- Add: [%s]
-
-                ref.end_marker)
+          return string.format( glo, ref.start_marker, ref.end_marker)
+          -- return string.format( self.Global,
+          --       ref.start_marker,
+          --       clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
+          --       table.concat(flagsBlocked, ',\n    '),  -- Suppress: [%s]
+          --       table.concat(globCodesSuppress, ',\n    '),  -- Suppress: [%s]
+          --
+          --       clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
+          --       headerExtensions,                            -- header extensions
+          --       -- OS.project_dir,                              -- compilationDatabasePath
+          --       -- compiler,                                    -- compiler
+          --       table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
+          --       table.concat(compileFlagsHAdd, ',\n    '),  -- Add: [%s]
+          --
+          --       clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
+          --       fileExtensions,                              -- file extensions
+          --       -- OS.project_dir,                              -- compilationDatabasePath
+          --       -- compiler,                                    -- compiler
+          --       -- table.concat(formattedGlobSuppress, ',\n    '),-- Remove: [%s]
+          --       table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
+          --       table.concat(compileFlagsAdd, ',\n    '),  -- Add: [%s]
+          --
+          --       ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= false,
       },
       { key = 'userProj', file = userClangd, content = function (ref) return M.readContent(ref) end,
         cache_id = string.sub(vim.fn.sha256(OS.project_dir), 1, 16),
         block = function (ref)
-          return string.format(self.Project,
-                ref.start_marker,
-                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
-                table.concat(flagsBlocked, ',\n    '),  -- Suppress: [%s]
-                table.concat(projCodesSuppress, ',\n    '),  -- Suppress: [%s]
-
-                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
-                headerExtensions,                             -- header extensions
-                table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
-                table.concat(compileFlagsHAdd, ',\n    '),  -- Add: [%s]
-
-                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
-                fileExtensions,                               -- file extensions
-                table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
-                table.concat(compileFlagsAdd, ',\n    '),  -- Add: [%s]
-                ref.end_marker)
+          return string.format( loc, ref.start_marker, ref.end_marker)
+          -- return string.format(self.Project,
+          --       ref.start_marker,
+          --       clean_project_dir,                            -- If: PathMatch: ['%s/.*']
+          --       table.concat(flagsBlocked, ',\n    '),  -- Suppress: [%s]
+          --       table.concat(projCodesSuppress, ',\n    '),  -- Suppress: [%s]
+          --
+          --       clean_project_dir,                            -- If: PathMatch: ['%s/.*']
+          --       headerExtensions,                             -- header extensions
+          --       table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
+          --       table.concat(compileFlagsHAdd, ',\n    '),  -- Add: [%s]
+          --
+          --       clean_project_dir,                            -- If: PathMatch: ['%s/.*']
+          --       fileExtensions,                               -- file extensions
+          --       table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
+          --       table.concat(compileFlagsAdd, ',\n    '),  -- Add: [%s]
+          --       ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= true,
       },
