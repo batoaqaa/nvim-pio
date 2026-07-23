@@ -132,7 +132,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
     if (code and blocked_codes[code]) then show_diagnostics = false
     -- if diagnostics for [column 0 , row 0]
     elseif is_row0_col0 then
-      print('row0col0')
+      print(code)
       -- Evaluate match on either code OR message (code can be nil!)
       local is_setup_issue =
         str_match(msg,'%.clangd')
