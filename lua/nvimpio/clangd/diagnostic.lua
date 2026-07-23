@@ -87,12 +87,19 @@ end
 -- ========================================================================
 -- 🛠️ ENGINE PATH B: manual Clean Source Code File Diagnostics (Pure Files)
 -- ========================================================================
-function M.clean_file_path_pipeline(diagnostics)  -- change flags  --> write
+function M.clean_file_path_pipeline(result)  -- change flags  --> write
+  local diagnostics = result.diagnostics
   if not diagnostics or #diagnostics == 0 then return diagnostics end
-  local filter_db_path = M.get_db_path()
 
+  local filter_db_path = M.get_db_path()
   local clean_diagnostics = {}
   local flags_updated = false
+
+  local target_path = vim.uri_to_fname(result.uri)
+  local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
+  local is_pio = target_path:find(_G.metadata.framework_root, 1, true)
+
+  -- if diagnostics for column 0 , row 0
 
   for _, diag in ipairs(diagnostics) do
     local show_diagnostics = true
@@ -108,7 +115,7 @@ function M.clean_file_path_pipeline(diagnostics)  -- change flags  --> write
       or msg:match('[Aa][Rr][Gg][Uu][Mm][Ee][Nn][Tt]')
     )
 
-    if is_drv then
+    if is_drv and is_config then
       show_diagnostics = false
       -- [fmWOgsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
       -- f*: Compiler Features / Optimizations , codegen, and system prefix maps (e.g., -fexceptions, -fno-rtti)
@@ -123,6 +130,12 @@ function M.clean_file_path_pipeline(diagnostics)  -- change flags  --> write
       -- 🟢 SINGLE SOURCE SEED: Update only your master memory dictionary map!
       if flag and not M.blocked.flags[flag] then
         M.blocked.flags[flag] = true  -- ** the only place updates M.blocked.flags
+        flags_updated = true          -- if updated write it below to file
+      end
+    elseif is_pio then
+      show_diagnostics = false
+      if code and not M.blocked.codes[code] then
+        M.blocked.codes[code] = true  -- ** the only place updates M.blocked.codes
         flags_updated = true          -- if updated write it below to file
       end
     elseif code and M.blocked.codes[code] then show_diagnostics = false end
