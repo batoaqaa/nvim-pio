@@ -200,16 +200,20 @@ If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
   BuiltinHeaders: QueryDriver
+  Remove: [%s]
   Add: [%s]
 ---
 If:
   PathMatch: ['%s/.*%s$']
 CompileFlags:
   BuiltinHeaders: QueryDriver
+  Remove: [%s]
   Add: [%s]
 ---
 If:
   PathMatch: ['%s/.*']
+CompileFlags:
+  Remove: [%s]
 Diagnostics:
   Suppress:[%s]
 %s
@@ -231,6 +235,13 @@ CompileFlags:
   BuiltinHeaders: QueryDriver
   Remove: [%s]
   Add: [%s]
+---
+If:
+  PathMatch: ['%s/.*']
+CompileFlags:
+  Remove: [%s]
+Diagnostics:
+  Suppress:[%s]
 %s
 ]],
   -- PathMatch: ['%s/.*%s$']
@@ -267,14 +278,14 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd remove section ------------------------------
     -- 1. SYNC (WITH DIRECT DISK FALLBACK GATING):
-    -- local formattedProjRemove = {}
+    -- local compileFlagsRemove = {}
 
-    local projFlagRemove = {}
+    local flagsBlocked = {}
     local globCodesSuppress = {}
-    -- local projCodesSuppress = {}
+    local projCodesSuppress = {}
 
-    -- local formattedProjRemove = {'"-x"', '"-std=*"'}
-    local formattedProjRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
+    -- local compileFlagsRemove = {'"-x"', '"-std=*"'}
+    local compileFlagsRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
     -- add diagnostic removed flags
 
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
@@ -283,14 +294,15 @@ CompileFlags:
       pio_diag.get_manual_blocked(filter_db_path)
       for flag, isblocked in pairs(pio_diag.blocked.flags) do
         if isblocked then
-          table.insert(projFlagRemove, string.format('%q', flag))
+          table.insert(flagsBlocked, string.format('%q', flag))
         end
       end
-      vim.list_extend(formattedProjRemove, projFlagRemove)
+      vim.list_extend(compileFlagsRemove, flagsBlocked)
 
       for code, isblocked in pairs(pio_diag.blocked.codes) do
         if isblocked then
           table.insert(globCodesSuppress, string.format('%q', code))
+          table.insert(projCodesSuppress, string.format('%q', code))
         end
       end
     end
@@ -300,7 +312,7 @@ CompileFlags:
     --   -- for flag, isblocked in pairs(pio_diag.auto_removed_flags) do
     --   for flag, isblocked in pairs(pio_diag.blocked.flags) do
     --     if isblocked then
-    --       table.insert(formattedProjRemove, string.format('%q', flag))
+    --       table.insert(compileFlagsRemove, string.format('%q', flag))
     --     end
     --   end
     -- else
@@ -313,7 +325,7 @@ CompileFlags:
     --       if dok and data and type(data.flags) == 'table' then
     --         for flag, isblocked in pairs(data.flags) do
     --           if isblocked then
-    --             table.insert(formattedProjRemove, string.format('%q', flag))
+    --             table.insert(compileFlagsRemove, string.format('%q', flag))
     --           end
     --         end
     --       end
@@ -331,7 +343,7 @@ CompileFlags:
     -- }
     -- local formattedGlobRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
     -- local formattedGlobSuppress = {'"-xc"', '"-xc++"', '"-std=*"'}
-    -- vim.list_extend(formattedProjRemove, formattedGlobSuppress)
+    -- vim.list_extend(compileFlagsRemove, formattedGlobSuppress)
     --------------------- end .clangd remove section -----------------------------
 
     ------------------------------------------------------------------------------
@@ -394,54 +406,44 @@ CompileFlags:
 
     local is_cpp = is_cpp_project()
 -- C:/Users/batoaqaa/AppData/Local/ahmed/test/src/main.c
-    ------------------ start .clangd formattedGlobAdd section  ----------------------
-    local formattedGlobAdd = is_cpp and {
-                                    '"-xc++"', '"-std=gnu++17"',
-                                    -- string.format('"--include=%s"', check_file)
-                                    -- string.format('"-I%s/src"', OS.project_dir),
-                                    -- string.format('"-I%s/include"', OS.project_dir)
-                                  } or {
-                                    '"-xc"', '"-std=gnu17"',
-                                    -- string.format('"--include=%s"', check_file)
-                                    -- string.format('"-I%s/src"', OS.project_dir),
-                                    -- string.format('"-I%s/include"', OS.project_dir)
-                                  }
+    -- ------------------ start .clangd formattedGlobAdd section  ----------------------
+    -- local formattedGlobAdd = is_cpp and {
+    --                                 '"-xc++"', '"-std=gnu++17"',
+    --                                 -- string.format('"--include=%s"', check_file)
+    --                                 -- string.format('"-I%s/src"', OS.project_dir),
+    --                                 -- string.format('"-I%s/include"', OS.project_dir)
+    --                               } or {
+    --                                 '"-xc"', '"-std=gnu17"',
+    --                                 -- string.format('"--include=%s"', check_file)
+    --                                 -- string.format('"-I%s/src"', OS.project_dir),
+    --                                 -- string.format('"-I%s/include"', OS.project_dir)
+    --                               }
+    --
+    -- local formattedGlobHAdd = is_cpp and {
+    --                                 '"-xc++-header"',
+    --                                 -- string.format('"--include=%s"', 'C:/Users/batoaqaa/AppData/Local/ahmed/test/src/nvimpio_bridge.hpp'),
+    --                                 -- string.format('"--include=%s"', check_file)
+    --                                 -- string.format('"-I%s/src"', OS.project_dir),
+    --                                 -- string.format('"-I%s/include"', OS.project_dir)
+    --                               } or {
+    --                                 '"-xc-header"',
+    --                                 -- string.format('"--include=%s"', 'C:/Users/batoaqaa/AppData/Local/ahmed/test/src/nvimpio_bridge.h'),
+    --                                 -- string.format('"--include=%s"', check_file)
+    --                                 -- string.format('"-I%s/src"', OS.project_dir),
+    --                                 -- string.format('"-I%s/include"', OS.project_dir)
+    --                               }
+    -- --------------------- end .clangd formattedGlobAdd section ----------------------
 
-    local formattedGlobHAdd = is_cpp and {
-                                    '"-xc++-header"',
-                                    -- string.format('"--include=%s"', 'C:/Users/batoaqaa/AppData/Local/ahmed/test/src/nvimpio_bridge.hpp'),
-                                    -- string.format('"--include=%s"', check_file)
-                                    -- string.format('"-I%s/src"', OS.project_dir),
-                                    -- string.format('"-I%s/include"', OS.project_dir)
-                                  } or {
-                                    '"-xc-header"',
-                                    -- string.format('"--include=%s"', 'C:/Users/batoaqaa/AppData/Local/ahmed/test/src/nvimpio_bridge.h'),
-                                    -- string.format('"--include=%s"', check_file)
-                                    -- string.format('"-I%s/src"', OS.project_dir),
-                                    -- string.format('"-I%s/include"', OS.project_dir)
-                                  }
-    --------------------- end .clangd formattedGlobAdd section ----------------------
+    ------------------ start .clangd compileFlagsAdd section  ----------------------
+    local compileFlagsAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"' }
+                                    or { '"-xc"', '"-std=gnu17"' }
+    -- vim.list_extend(compileFlagsAdd, formattedIncAdd)
 
-    ------------------ start .clangd formattedProjAdd section  ----------------------
-    local formattedProjAdd = is_cpp and {
-                                    '"-xc++"',
-                                    '"-std=gnu++17"'
-                                  } or {
-                                    '"-xc"',
-                                    '"-std=gnu17"'
-                                  }
-    vim.list_extend(formattedProjAdd, formattedIncAdd)
-
-    local formattedProjHAdd = is_cpp and {
-                                          '"-xc++-header"',
-                                          '"-std=gnu++17"'
-                                        } or {
-                                          '"-xc-header"',
-                                          '"-std=gnu17"'
-                                        }
-    vim.list_extend(formattedProjHAdd, formattedIncAdd)
-    -- vim.list_extend(formattedProjHAdd, formatteLibdepsAdd)
-    --------------------- end .clangd formattedProjAdd section ----------------------
+    local compileFlagsHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' }
+                                     or { '"-xc-header"', '"-std=gnu17"' }
+    -- vim.list_extend(compileFlagsHAdd, formattedIncAdd)
+    -- vim.list_extend(compileFlagsHAdd, formatteLibdepsAdd)
+    --------------------- end .clangd compileFlagsAdd section ----------------------
 
     -- local function preparePathMatch(raw_path)
     --   -- 1. Clean up slashes using Neovim's normalizer
@@ -492,16 +494,18 @@ CompileFlags:
                 headerExtensions,                            -- header extensions
                 -- OS.project_dir,                              -- compilationDatabasePath
                 -- compiler,                                    -- compiler
-                -- table.concat(formattedGlobSuppress, ',\n    '),-- Remove: [%s]
-                table.concat(formattedGlobHAdd, ',\n    '),  -- Add: [%s]
+                table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
+                table.concat(compileFlagsHAdd, ',\n    '),  -- Add: [%s]
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
                 -- OS.project_dir,                              -- compilationDatabasePath
                 -- compiler,                                    -- compiler
                 -- table.concat(formattedGlobSuppress, ',\n    '),-- Remove: [%s]
-                table.concat(formattedGlobAdd, ',\n    '),   -- Add: [%s]
+                table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
+                table.concat(compileFlagsAdd, ',\n    '),  -- Add: [%s]
 
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
+                table.concat(flagsBlocked, ',\n    '),  -- Suppress: [%s]
                 table.concat(globCodesSuppress, ',\n    '),  -- Suppress: [%s]
                 ref.end_marker)
         end,
@@ -514,12 +518,15 @@ CompileFlags:
                 ref.start_marker,
                 clean_project_dir,                            -- If: PathMatch: ['%s/.*']
                 headerExtensions,                             -- header extensions
-                table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
-                table.concat(formattedProjHAdd, ',\n    '),   -- Remove: [%s]
+                table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
+                table.concat(compileFlagsHAdd, ',\n    '),  -- Add: [%s]
                 clean_project_dir,                            -- If: PathMatch: ['%s/.*']
                 fileExtensions,                               -- file extensions
-                table.concat(formattedProjRemove, ',\n    '), -- Remove: [%s]
-                table.concat(formattedProjAdd, ',\n    '),    -- Add: [%s]
+                table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
+                table.concat(compileFlagsAdd, ',\n    '),  -- Add: [%s]
+                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
+                table.concat(flagsBlocked, ',\n    '),  -- Suppress: [%s]
+                table.concat(projCodesSuppress, ',\n    '),  -- Suppress: [%s]
                 ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= true,
