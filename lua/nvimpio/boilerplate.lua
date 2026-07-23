@@ -207,6 +207,11 @@ If:
 CompileFlags:
   BuiltinHeaders: QueryDriver
   Add: [%s]
+---
+If:
+  PathMatch: ['%s/.*']
+Diagnostics:
+  Suppress:[%s]
 %s
 ]],
 
@@ -264,35 +269,57 @@ CompileFlags:
     -- 1. SYNC (WITH DIRECT DISK FALLBACK GATING):
     -- local formattedProjRemove = {}
 
+    local projFlagRemove = {}
+    local globCodesSuppress = {}
+    -- local projCodesSuppress = {}
+
     -- local formattedProjRemove = {'"-x"', '"-std=*"'}
     local formattedProjRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
     -- add diagnostic removed flags
+
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
-    -- if success and pio_diag and pio_diag.auto_removed_flags and next(pio_diag.auto_removed_flags) then
-    if success and pio_diag and pio_diag.blocked.flags and next(pio_diag.blocked.flags) then
-      -- for flag, isblocked in pairs(pio_diag.auto_removed_flags) do
+    if success and pio_diag then
+      local filter_db_path = vim.fs.joinpath(OS.nvimpio_env_dir, OS.clangd_filter)
+      pio_diag.get_manual_blocked(filter_db_path)
       for flag, isblocked in pairs(pio_diag.blocked.flags) do
         if isblocked then
-          table.insert(formattedProjRemove, string.format('%q', flag))
+          table.insert(projFlagRemove, string.format('%q', flag))
         end
       end
-    else
-      local f = io.open(filter_db_file, 'r')
-      if f then
-        local raw = f:read('*a')
-        f:close()
-        if raw and raw ~= '' then
-          local dok, data = pcall(vim.json.decode, raw)
-          if dok and data and type(data.flags) == 'table' then
-            for flag, isblocked in pairs(data.flags) do
-              if isblocked then
-                table.insert(formattedProjRemove, string.format('%q', flag))
-              end
-            end
-          end
+      vim.list_extend(formattedProjRemove, projFlagRemove)
+
+      for code, isblocked in pairs(pio_diag.blocked.codes) do
+        if isblocked then
+          table.insert(globCodesSuppress, string.format('%q', code))
         end
       end
     end
+
+    -- -- if success and pio_diag and pio_diag.auto_removed_flags and next(pio_diag.auto_removed_flags) then
+    -- if success and pio_diag and pio_diag.blocked.flags and next(pio_diag.blocked.flags) then
+    --   -- for flag, isblocked in pairs(pio_diag.auto_removed_flags) do
+    --   for flag, isblocked in pairs(pio_diag.blocked.flags) do
+    --     if isblocked then
+    --       table.insert(formattedProjRemove, string.format('%q', flag))
+    --     end
+    --   end
+    -- else
+    --   local f = io.open(filter_db_file, 'r')
+    --   if f then
+    --     local raw = f:read('*a')
+    --     f:close()
+    --     if raw and raw ~= '' then
+    --       local dok, data = pcall(vim.json.decode, raw)
+    --       if dok and data and type(data.flags) == 'table' then
+    --         for flag, isblocked in pairs(data.flags) do
+    --           if isblocked then
+    --             table.insert(formattedProjRemove, string.format('%q', flag))
+    --           end
+    --         end
+    --       end
+    --     end
+    --   end
+    -- end
 
     -- local formattedGlobSuppress = {
     --   '"-x"',
@@ -473,6 +500,9 @@ CompileFlags:
                 -- compiler,                                    -- compiler
                 -- table.concat(formattedGlobSuppress, ',\n    '),-- Remove: [%s]
                 table.concat(formattedGlobAdd, ',\n    '),   -- Add: [%s]
+
+                clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
+                table.concat(globCodesSuppress, ',\n    '),  -- Suppress: [%s]
                 ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= false,

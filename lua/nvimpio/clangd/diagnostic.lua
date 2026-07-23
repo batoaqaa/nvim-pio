@@ -128,8 +128,10 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
     local range = diag.range and diag.range['start']
     local is_row0_col0 = range and (range.line == 0 and range.character == 0)
 
+    -- ⚡ FASTEST PATH: If already blocked by code, drop immediately!
+    if (code and blocked_codes[code]) then show_diagnostics = false
     -- if diagnostics for [column 0 , row 0]
-    if is_row0_col0 then
+    elseif is_row0_col0 then
       -- Evaluate match on either code OR message (code can be nil!)
       local is_setup_issue =
         str_match(msg,'%.clangd')
@@ -162,7 +164,8 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
         blocked_codes[code] = true  -- ** the only place updates M.blocked.codes
         flags_updated = true          -- if updated write it below to file
       end
-    elseif code and blocked_codes[code] then show_diagnostics = false end
+    end
+    -- elseif code and blocked_codes[code] then show_diagnostics = false end
 
     if show_diagnostics then tbl_insert(clean_diagnostics, diag) end
   end
