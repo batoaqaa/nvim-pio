@@ -156,6 +156,13 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
         if flag and not blocked_flags[flag] then
           blocked_flags[flag] = true  -- ** the only place updates M.blocked.flags
           flags_updated = true          -- if updated write it below to file
+        elseif code then
+          -- If it's a Row 0 / Col 0 setup issue with NO flag in the msg (like fatal_too_many_errors),
+          -- capture its error code into blocked_codes!
+          if not blocked_codes[code] then
+            blocked_codes[code] = true
+            flags_updated = true
+          end
         end
       end
     elseif is_pio then
