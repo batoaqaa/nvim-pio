@@ -485,78 +485,78 @@ CompileFlags:
 [[%s
 ---
 If:
-  PathMatch: 'c:/Users/batoaqaa/\.platformio/packages/.*'
+  PathMatch: [ 'C:/Users/batoaqaa/\.platformio/packages/.*' ]
 CompileFlags:
-  Remove: ["-fstrict-volatile-bitfields",
+  Remove: [ "-fstrict-volatile-bitfields",
     "-mlongcalls",
     "-fno-shrink-wrap",
-    "-fno-tree-switch-conversion"]
+    "-fno-tree-switch-conversion" ]
 Diagnostics:
-  Suppress: ["undeclared_var_use",
+  Suppress: [ "undeclared_var_use",
     "field_declared_as_function",
     "expected_fn_body",
     "-Wimplicit-int",
     "func_returning_array_function",
     "fatal_too_many_errors",
     "pp_hash_error",
-    "unknown_typename"]
+    "unknown_typename" ]
 ---
 If:
-  PathMatch: 'C:/Users/batoaqaa/\.platformio/packages/.*\.h$'
+  PathMatch: [ 'C:/Users/batoaqaa/\.platformio/packages/.*\.h$' ]
 CompileFlags:
-  Remove: ["-xc",
+  Remove: [ "-xc",
     "-xc++",
-    "-std=*"]
-  Add: ["-xc-header",
-    "-std=gnu17"]
+    "-std=*" ]
+  Add: [ "-xc-header",
+    "-std=gnu17" ]
 ---
 If:
-  PathMatch: 'C:/Users/batoaqaa/\.platformio/packages/.*\.(c|C|cl|ci)$'
+  PathMatch: [ 'C:/Users/batoaqaa/\.platformio/packages/.*\.(c|C|cl|ci)$' ]
 CompileFlags:
-  Remove: ["-xc",
+  Remove: [ "-xc",
     "-xc++",
-    "-std=*"]
-  Add: ["-xc",
-    "-std=gnu17"]
+    "-std=*" ]
+  Add: [ "-xc",
+    "-std=gnu17" ]
 %s
 ]]
   local loc =
 [[%s
 ---
 If:
-  PathMatch: 'c:/Users/batoaqaa/AppData/Local/ahmed/test/.*'
+  PathMatch: [ 'C:/Users/batoaqaa/AppData/Local/ahmed/test/.*' ]
 CompileFlags:
-  Remove: ["-fstrict-volatile-bitfields",
+  Remove: [ "-fstrict-volatile-bitfields",
     "-mlongcalls",
     "-fno-shrink-wrap",
-    "-fno-tree-switch-conversion"]
+    "-fno-tree-switch-conversion" ]
 Diagnostics:
-  Suppress: ["undeclared_var_use",
+  Suppress: [ "undeclared_var_use",
     "field_declared_as_function",
     "expected_fn_body",
     "-Wimplicit-int",
     "func_returning_array_function",
     "fatal_too_many_errors",
     "pp_hash_error",
-    "unknown_typename"]
+    "unknown_typename" ]
 ---
 If:
-  PathMatch: 'C:/Users/batoaqaa/AppData/Local/ahmed/test/.*\.h$'
+  PathMatch: [ 'C:/Users/batoaqaa/AppData/Local/ahmed/test/.*\.h$' ]
 CompileFlags:
-  Remove: ["-xc",
+  Remove: [ "-xc",
     "-xc++",
-    "-std=*"]
-  Add: ["-xc-header",
-    "-std=gnu17"]
+    "-std=*" ]
+  Add: [ "-xc-header",
+    "-std=gnu17" ]
 ---
 If:
-  PathMatch: 'C:/Users/batoaqaa/AppData/Local/ahmed/test/.*\.(c|C|cl|ci)$'
+  PathMatch: [ 'C:/Users/batoaqaa/AppData/Local/ahmed/test/.*\.(c|C|cl|ci)$' ]
 CompileFlags:
-  Remove: ["-xc",
+  Remove: [ "-xc",
     "-xc++",
-    "-std=*"]
-  Add: ["-xc",
-    "-std=gnu17"]
+    "-std=*" ]
+  Add: [ "-xc",
+    "-std=gnu17" ]
 %s]]
 
     local userClangd = OS.clangd_user_file
