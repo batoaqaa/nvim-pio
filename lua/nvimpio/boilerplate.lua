@@ -297,7 +297,7 @@ Diagnostics:
           table.insert(flagsBlocked, string.format('%q', flag))
         end
       end
-      vim.list_extend(compileFlagsRemove, flagsBlocked)
+      -- vim.list_extend(compileFlagsRemove, flagsBlocked)
 
       for code, isblocked in pairs(pio_diag.blocked.codes) do
         if isblocked then
