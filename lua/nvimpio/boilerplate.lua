@@ -483,36 +483,80 @@ CompileFlags:
 
   local glo = [[
 %s
+---
+If:
+  PathMatch: ['[cC]:/Users/batoaqaa/[.]platformio/packages/.*']
 CompileFlags:
-  Remove:
-    - "-fno-shrink-wrap"
-    - "-fno-tree-switch-conversion"
-    - "-fstrict-volatile-bitfields"
-    - "-mlongcalls"
-
+  Remove: ["-fstrict-volatile-bitfields",
+    "-mlongcalls",
+    "-fno-shrink-wrap",
+    "-fno-tree-switch-conversion"]
 Diagnostics:
-  Suppress:
-    - "drv_unknown_argument"
-    - "drv_unknown_argument_with_suggestion"
-    - "fatal_too_many_errors"
+  Suppress:["undeclared_var_use",
+    "field_declared_as_function",
+    "expected_fn_body",
+    "-Wimplicit-int",
+    "func_returning_array_function",
+    "fatal_too_many_errors",
+    "pp_hash_error",
+    "unknown_typename"]
+---
+If:
+  PathMatch: ['[cC]:/Users/batoaqaa/[.]platformio/packages/.*[.]h$']
+CompileFlags:
+  Remove: ["-xc",
+    "-xc++",
+    "-std=*"]
+  Add: ["-xc-header",
+    "-std=gnu17"]
+---
+If:
+  PathMatch: ['[cC]:/Users/batoaqaa/[.]platformio/packages/.*[.](c|C|cl|ci)$']
+CompileFlags:
+  Remove: ["-xc",
+    "-xc++",
+    "-std=*"]
+  Add: ["-xc",
+    "-std=gnu17"]
 %s
   ]]
   local loc = [[
 %s
 ---
-# Scope-specific overrides (for headers / sources)
 If:
-  PathMatch: '.*\.h$'
+  PathMatch: ['[cC]:/Users/batoaqaa/AppData/Local/ahmed/test/.*']
 CompileFlags:
-  Remove: ["-xc", "-xc++", "-std=*"]
-  Add: ["-xc-header", "-std=gnu17"]
-
+  Remove: ["-fstrict-volatile-bitfields",
+    "-mlongcalls",
+    "-fno-shrink-wrap",
+    "-fno-tree-switch-conversion"]
+Diagnostics:
+  Suppress:["undeclared_var_use",
+    "field_declared_as_function",
+    "expected_fn_body",
+    "-Wimplicit-int",
+    "func_returning_array_function",
+    "fatal_too_many_errors",
+    "pp_hash_error",
+    "unknown_typename"]
 ---
 If:
-  PathMatch: '.*\.(c|C|cl|ci)$'
+  PathMatch: ['[cC]:/Users/batoaqaa/AppData/Local/ahmed/test/.*[.]h$']
 CompileFlags:
-  Remove: ["-xc", "-xc++", "-std=*"]
-  Add: ["-xc", "-std=gnu17"]
+  Remove: ["-xc",
+    "-xc++",
+    "-std=*"]
+  Add: ["-xc-header",
+    "-std=gnu17"]
+---
+If:
+  PathMatch: ['[cC]:/Users/batoaqaa/AppData/Local/ahmed/test/.*[.](c|C|cl|ci)$']
+CompileFlags:
+  Remove: ["-xc",
+    "-xc++",
+    "-std=*"]
+  Add: ["-xc",
+    "-std=gnu17"]
 %s
   ]]
     local userClangd = OS.clangd_user_file
