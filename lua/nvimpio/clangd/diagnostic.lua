@@ -96,6 +96,7 @@ function M.clean_file_path_pipeline(result)  -- change flags  --> write
   local flags_updated = false
 
   local target_path = vim.uri_to_fname(result.uri)
+  print(target_path)
   local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
   local is_pio = target_path:find(_G.metadata.framework_root, 1, true)
 
