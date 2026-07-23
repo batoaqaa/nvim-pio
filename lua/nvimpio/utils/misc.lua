@@ -129,6 +129,7 @@ end
 --INFO:
 -- iterrative loop 48ms
 -- stylua: ignore
+-- Hand-Rolled Recursive Function
 --- Pretty-prints and canonicalizes a table into deterministic JSON.
 --- Handles Neovim primitives (vim.NIL, vim.empty_dict), cyclic references, 
 --- metatable proxies, and cross-type key sorting safely.
@@ -158,9 +159,7 @@ function M.jsonFormat(root_data, indent_str)
     -- 1. Escape specific JSON control characters
     local s = str:gsub(escape_pattern, escapes)
     -- 2. Safely escape remaining ASCII control chars (U+0000 to U+001F)
-    s = s:gsub("[%z\001-\031]", function(c)
-      return string.format("\\u%04x", string.byte(c))
-    end)
+    s = s:gsub("[%z\001-\031]", function(c) return string.format("\\u%04x", string.byte(c)) end)
     return '"' .. s .. '"'
   end
 
