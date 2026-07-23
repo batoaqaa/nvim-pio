@@ -492,7 +492,7 @@ CompileFlags:
     "-fno-shrink-wrap",
     "-fno-tree-switch-conversion"]
 Diagnostics:
-  Suppress:["undeclared_var_use",
+  Suppress: ["undeclared_var_use",
     "field_declared_as_function",
     "expected_fn_body",
     "-Wimplicit-int",
@@ -531,7 +531,7 @@ CompileFlags:
     "-fno-shrink-wrap",
     "-fno-tree-switch-conversion"]
 Diagnostics:
-  Suppress:["undeclared_var_use",
+  Suppress: ["undeclared_var_use",
     "field_declared_as_function",
     "expected_fn_body",
     "-Wimplicit-int",
