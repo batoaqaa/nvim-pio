@@ -132,7 +132,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
     if (code and blocked_codes[code]) then show_diagnostics = false
     -- if diagnostics for [column 0 , row 0]
     elseif is_row0_col0 then
-      print(code)
+      print('code= ' .. code)
       -- Evaluate match on either code OR message (code can be nil!)
       local is_setup_issue =
         str_match(msg,'%.clangd')
@@ -161,7 +161,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
             flags_updated = true          -- if updated write it below to file
           end
         elseif code then
-          -- print(msg)
+          print('msg= ' .. msg)
           -- If it's a Row 0 / Col 0 setup issue with NO flag in the msg (like fatal_too_many_errors),
           -- capture its error code into blocked_codes!
           if not blocked_codes[code] then
@@ -171,7 +171,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
         end
       end
     elseif is_pio then
-      print('is_pio')
+      -- print('is_pio')
       -- Suppress diagnostics inside the pio framework root
       show_diagnostics = false
       if code and not blocked_codes[code] then
