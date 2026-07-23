@@ -481,8 +481,8 @@ CompileFlags:
   --   "%s"
   -- ]
 
-  local glo = [[
-%s
+  local glo =
+[[%s
 ---
 If:
   PathMatch: 'C:/Users/batoaqaa/\.platformio/packages/.*'
@@ -518,10 +518,8 @@ CompileFlags:
     "-std=*"]
   Add: ["-xc",
     "-std=gnu17"]
-%s
-  ]]
-  local loc = [[
-%s
+%s]]
+  local loc = [[%s
 ---
 If:
   PathMatch: 'C:/Users/batoaqaa/AppData/Local/ahmed/test/.*'
@@ -557,8 +555,7 @@ CompileFlags:
     "-std=*"]
   Add: ["-xc",
     "-std=gnu17"]
-%s
-  ]]
+%s]]
     local userClangd = OS.clangd_user_file
     local clangdFiles = {
       { key = 'userGlob', file = userClangd, content = function (ref) return M.readContent(ref) end,
