@@ -96,7 +96,6 @@ function M.clean_file_path_pipeline(result)  -- change flags  --> write
   local flags_updated = false
 
   local target_path = vim.uri_to_fname(result.uri)
-  print(target_path)
   local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
   local is_pio = target_path:find(_G.metadata.framework_root, 1, true)
 
@@ -134,6 +133,7 @@ function M.clean_file_path_pipeline(result)  -- change flags  --> write
         flags_updated = true          -- if updated write it below to file
       end
     elseif is_pio then
+      print(target_path)
       show_diagnostics = false
       if code and not M.blocked.codes[code] then
         M.blocked.codes[code] = true  -- ** the only place updates M.blocked.codes
