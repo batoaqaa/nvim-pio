@@ -485,7 +485,7 @@ CompileFlags:
 [[%s
 ---
 If:
-  PathMatch: 'C:/Users/batoaqaa/\.platformio/packages/.*'
+  PathMatch: C:/Users/batoaqaa/\.platformio/packages/.*
 CompileFlags:
   Remove: ["-fstrict-volatile-bitfields",
     "-mlongcalls",
@@ -522,7 +522,7 @@ CompileFlags:
   local loc = [[%s
 ---
 If:
-  PathMatch: 'C:/Users/batoaqaa/AppData/Local/ahmed/test/.*'
+  PathMatch: C:/Users/batoaqaa/AppData/Local/ahmed/test/.*
 CompileFlags:
   Remove: ["-fstrict-volatile-bitfields",
     "-mlongcalls",
