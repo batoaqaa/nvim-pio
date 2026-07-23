@@ -133,6 +133,9 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
     -- if diagnostics for [column 0 , row 0]
     elseif is_row0_col0 then
       print('code= ' .. code)
+      if code == "drv_unknown_argument" then
+        print("STILL DRV MSG:", msg)
+      end
       -- Evaluate match on either code OR message (code can be nil!)
       local is_setup_issue =
         str_match(msg,'%.clangd')
