@@ -425,16 +425,7 @@ function M.getClangdConfig()
       end
 
       if has_pio_diag and pio_diag then
-        -- local target_path = vim.uri_to_fname(result.uri)
-        -- local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
-        -- -- if diagnostics for column 0 , row 0
-        -- if is_config then
-        --   if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result.diagnostics) end
-        --   -- if pio_diag.clean_project_wide_flags then pio_diag.clean_project_wide_flags(result.diagnostics) end
-        --   -- return -- Block configuration diagnostics from polluting user view
-        -- else
-          if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result) end
-        -- end
+        if pio_diag.clean_file_path_pipeline then result.diagnostics = pio_diag.clean_file_path_pipeline(result) end
       end
 
       local default_handler = vim.lsp.handlers['textDocument/publishDiagnostics']

@@ -87,88 +87,94 @@ end
 -- ========================================================================
 -- 🛠️ ENGINE PATH B: manual Clean Source Code File Diagnostics (Pure Files)
 -- ========================================================================
-function M.clean_file_path_pipeline(result)  -- change flags  --> write
-  local diagnostics = result.diagnostics
+function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> write
+  local diagnostics = result and result.diagnostics
   if not diagnostics or #diagnostics == 0 then return diagnostics end
 
-  local filter_db_path = M.get_db_path()
+  -- Safe path resolution
+  local raw_uri = result.uri
+  local target_path = raw_uri and raw_uri ~= "" and vim.fs.normalize(vim.uri_to_fname(raw_uri)) or ""
+
+  -- Safe framework_root matching
+  local framework_root = _G.metadata and _G.metadata.framework_root
+  local is_pio = (framework_root and framework_root ~= "")
+    and (target_path:find(framework_root, 1, true) ~= nil)
+    or false
+
+  -- Localized shortcuts for hot-loop execution speed
+  local tbl_insert = table.insert
+  local str_match = string.match
   local clean_diagnostics = {}
   local flags_updated = false
 
-  local target_path = vim.fs.normalize(vim.uri_to_fname(result.uri))
-  local is_pio = target_path:find(_G.metadata.framework_root, 1, true)
 
-  print(target_path)
-  print(_G.metadata.framework_root)
-  -- if diagnostics for column 0 , row 0
+  -- Pre-verify storage tables exist
+  M.blocked = M.blocked or {}
+  M.blocked.flags = M.blocked.flags or {}
+  M.blocked.codes = M.blocked.codes or {}
 
-  for _, diag in ipairs(diagnostics) do
+  local blocked_flags = M.blocked.flags
+  local blocked_codes = M.blocked.codes
+
+  for i = 1, #diagnostics do
+    local diag = diagnostics[i]
     local show_diagnostics = true
 
     -- local code = diag.code
     local code = diag.code and tostring(diag.code) or nil
     local msg = diag.message or ''
 
-    -- 1. Check if the error is positioned at Row 0, Column 0
+    -- Check if the error is positioned at Row 0, Column 0
     local range = diag.range and diag.range['start']
     local is_row0_col0 = range and (range.line == 0 and range.character == 0)
+
+    -- if diagnostics for [column 0 , row 0]
     if is_row0_col0 then
-      -- ⚡ OPTIMIZED: Case-insensitive match without allocating new strings via msg:lower()
-      local is_setup_issue = code and (
-        code:match('^drv_')
-        or code:match('^fatal_')
-        or msg:match('[Aa][Rr][Gg][Uu][Mm][Ee][Nn][Tt]')
-        or msg:match('%.clangd')
-        or msg:match('compile_commands')
-      )
-      if is_setup_issue and is_row0_col0 then
+      -- Evaluate match on either code OR message (code can be nil!)
+      local is_setup_issue =
+        str_match(msg,'%.clangd')
+        or str_match(msg,'compile_commands')
+        or (code and (str_match(code,'^drv_') or str_match(code,'^fatal_')))
+        or str_match(msg,'[Aa][Rr][Gg][Uu][Mm][Ee][Nn][Tt]')
+      if is_setup_issue then -- if they are compiler/config/setup errors
         show_diagnostics = false
         -- [fmWOgsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
         -- f*: Compiler Features / Optimizations , codegen, and system prefix maps (e.g., -fexceptions, -fno-rtti)
         -- m*: Target machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
         -- W*: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
         -- O*: Optimization Levels (e.g., -Os, -O2)
+        -- dM or dD (used to dump macro definitions)
         -- g* / s* / x*: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
         -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
         -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
-        local flag = msg:match('(%-[fmWOgsx][%w%-%.%*]+)')
+        local flag = str_match(msg,'(%-[fmWOdgsx][%w%-%.%*]+)')
 
-        -- 🟢 SINGLE SOURCE SEED: Update only your master memory dictionary map!
-        if flag and not M.blocked.flags[flag] then
-          M.blocked.flags[flag] = true  -- ** the only place updates M.blocked.flags
+        -- Update master dictionary if a new flag was caught
+        if flag and not blocked_flags[flag] then
+          blocked_flags[flag] = true  -- ** the only place updates M.blocked.flags
           flags_updated = true          -- if updated write it below to file
         end
       end
     elseif is_pio then
+      -- Suppress diagnostics inside the pio framework root
       show_diagnostics = false
-      if code and not M.blocked.codes[code] then
-        M.blocked.codes[code] = true  -- ** the only place updates M.blocked.codes
+      if code and not blocked_codes[code] then
+        blocked_codes[code] = true  -- ** the only place updates M.blocked.codes
         flags_updated = true          -- if updated write it below to file
       end
-    elseif code and M.blocked.codes[code] then show_diagnostics = false end
+    elseif code and blocked_codes[code] then show_diagnostics = false end
 
-    if show_diagnostics then table.insert(clean_diagnostics, diag) end
+    if show_diagnostics then tbl_insert(clean_diagnostics, diag) end
   end
 
   if flags_updated then  -- write
     vim.schedule(function()
-    -- 🟢 SINGLE-POINT FLUSH POINT: Trigger only if a brand-new unknown flag was caught mid-flight
-      -- local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
-      -- local raw_payload = misc_ok and misc.jsonFormat
-      --   and misc.jsonFormat(M.blocked)
-      --   or vim.json.encode(M.blocked, { indent = "  " }) .. "\n"
-
+      local filter_db_path = M.get_db_path()
       local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
       if (misc_ok and misc) then
         misc.writeFile(filter_db_path, misc.jsonFormat(M.blocked), {})
         M.cached_db_mtime = 0 -- Invalidate mtime cache
       end
-      -- local f = io.open(filter_db_path, 'wb')
-      -- if f then
-      --   f:write(raw_payload)
-      --   f:close()
-      --   M.cached_db_mtime = 0 -- Invalidate mtime cache
-      -- end
 
       -- Let the dynamic boilerplate loop read pio_diag.M.blocked
       local boiler_ok, boiler = pcall(require, 'nvimpio.boilerplate')
