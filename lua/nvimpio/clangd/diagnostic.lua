@@ -155,9 +155,11 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
         local flag = str_match(msg, "'?(%-[fmWOdgsx][%w%-%.%*]+)'?")
 
         -- Update master dictionary if a new flag was caught
-        if flag and not blocked_flags[flag] then
-          blocked_flags[flag] = true  -- ** the only place updates M.blocked.flags
-          flags_updated = true          -- if updated write it below to file
+        if flag then
+          if not blocked_flags[flag] then
+            blocked_flags[flag] = true  -- ** the only place updates M.blocked.flags
+            flags_updated = true          -- if updated write it below to file
+          end
         elseif code then
           print(msg)
           -- If it's a Row 0 / Col 0 setup issue with NO flag in the msg (like fatal_too_many_errors),
