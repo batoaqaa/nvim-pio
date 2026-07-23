@@ -95,7 +95,7 @@ function M.clean_file_path_pipeline(result)  -- change flags  --> write
   local clean_diagnostics = {}
   local flags_updated = false
 
-  local target_path = vim.uri_to_fname(result.uri)
+  local target_path = vim.fs.normalize(vim.uri_to_fname(result.uri))
   local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
   local is_pio = target_path:find(_G.metadata.framework_root, 1, true)
 
