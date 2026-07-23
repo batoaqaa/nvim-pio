@@ -96,7 +96,6 @@ function M.clean_file_path_pipeline(result)  -- change flags  --> write
   local flags_updated = false
 
   local target_path = vim.fs.normalize(vim.uri_to_fname(result.uri))
-  local is_config = target_path:match('%.clangd$') or target_path:match('%.json$')
   local is_pio = target_path:find(_G.metadata.framework_root, 1, true)
 
   print(target_path)
@@ -110,29 +109,35 @@ function M.clean_file_path_pipeline(result)  -- change flags  --> write
     local code = diag.code and tostring(diag.code) or nil
     local msg = diag.message or ''
 
-    -- ⚡ OPTIMIZED: Case-insensitive match without allocating new strings via msg:lower()
-    local is_drv = code and (
-      code:match('^drv_')
-      or code:match('^fatal_')
-      or msg:match('[Aa][Rr][Gg][Uu][Mm][Ee][Nn][Tt]')
-    )
+    -- 1. Check if the error is positioned at Row 0, Column 0
+    local range = diag.range and diag.range['start']
+    local is_row0_col0 = range and (range.line == 0 and range.character == 0)
+    if is_row0_col0 then
+      -- ⚡ OPTIMIZED: Case-insensitive match without allocating new strings via msg:lower()
+      local is_setup_issue = code and (
+        code:match('^drv_')
+        or code:match('^fatal_')
+        or msg:match('[Aa][Rr][Gg][Uu][Mm][Ee][Nn][Tt]')
+        or msg:match('%.clangd')
+        or msg:match('compile_commands')
+      )
+      if is_setup_issue and is_row0_col0 then
+        show_diagnostics = false
+        -- [fmWOgsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
+        -- f*: Compiler Features / Optimizations , codegen, and system prefix maps (e.g., -fexceptions, -fno-rtti)
+        -- m*: Target machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
+        -- W*: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
+        -- O*: Optimization Levels (e.g., -Os, -O2)
+        -- g* / s* / x*: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
+        -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
+        -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
+        local flag = msg:match('(%-[fmWOgsx][%w%-%.%*]+)')
 
-    if is_drv and is_config then
-      show_diagnostics = false
-      -- [fmWOgsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
-      -- f*: Compiler Features / Optimizations , codegen, and system prefix maps (e.g., -fexceptions, -fno-rtti)
-      -- m*: Target machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
-      -- W*: Warning parameters (e.g., -Wno-deprecated, -Wsign-compare)
-      -- O*: Optimization Levels (e.g., -Os, -O2)
-      -- g* / s* / x*: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
-      -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
-      -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
-      local flag = msg:match('(%-[fmWOgsx][%w%-%.%*]+)')
-
-      -- 🟢 SINGLE SOURCE SEED: Update only your master memory dictionary map!
-      if flag and not M.blocked.flags[flag] then
-        M.blocked.flags[flag] = true  -- ** the only place updates M.blocked.flags
-        flags_updated = true          -- if updated write it below to file
+        -- 🟢 SINGLE SOURCE SEED: Update only your master memory dictionary map!
+        if flag and not M.blocked.flags[flag] then
+          M.blocked.flags[flag] = true  -- ** the only place updates M.blocked.flags
+          flags_updated = true          -- if updated write it below to file
+        end
       end
     elseif is_pio then
       show_diagnostics = false
