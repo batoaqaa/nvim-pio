@@ -556,6 +556,7 @@ CompileFlags:
   Add: ["-xc",
     "-std=gnu17"]
 %s]]
+
     local userClangd = OS.clangd_user_file
     local clangdFiles = {
       { key = 'userGlob', file = userClangd, content = function (ref) return M.readContent(ref) end,
