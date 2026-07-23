@@ -150,7 +150,9 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
         -- g* / s* / x*: Internal Debugging, Standards, and Language flags (e.g., -ggdb, -std=c++17, -xc++)
         -- Starts strictly with a hyphen followed by a valid single-letter flag category indicator (f, m, W, O, d, s, x)
         -- Generic character class limits flags to true compiler options (-m, -f, -W, etc.), dropping English text words
-        local flag = str_match(msg,'(%-[fmWOdgsx][%w%-%.%*]+)')
+        -- local flag = str_match(msg,'(%-[fmWOdgsx][%w%-%.%*]+)')
+        -- Matches flags like -fno-shrink-wrap, -mlongcalls, -Wno-unused even inside single quotes '...'
+        local flag = str_match(msg, "'?(%-[fmWOdgsx][%w%-%.%*]+)'?")
 
         -- Update master dictionary if a new flag was caught
         if flag and not blocked_flags[flag] then
