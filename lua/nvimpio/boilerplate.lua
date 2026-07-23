@@ -485,7 +485,7 @@ CompileFlags:
 %s
 ---
 If:
-  PathMatch: ['[cC]:/Users/batoaqaa/[.]platformio/packages/.*']
+  PathMatch: ['C:/Users/batoaqaa/\.platformio/packages/.*']
 CompileFlags:
   Remove: ["-fstrict-volatile-bitfields",
     "-mlongcalls",
@@ -502,7 +502,7 @@ Diagnostics:
     "unknown_typename"]
 ---
 If:
-  PathMatch: ['[cC]:/Users/batoaqaa/[.]platformio/packages/.*[.]h$']
+  PathMatch: ['C:/Users/batoaqaa/\.platformio/packages/.*\.h$']
 CompileFlags:
   Remove: ["-xc",
     "-xc++",
@@ -511,7 +511,7 @@ CompileFlags:
     "-std=gnu17"]
 ---
 If:
-  PathMatch: ['[cC]:/Users/batoaqaa/[.]platformio/packages/.*[.](c|C|cl|ci)$']
+  PathMatch: ['C:/Users/batoaqaa/\.platformio/packages/.*\.(c|C|cl|ci)$']
 CompileFlags:
   Remove: ["-xc",
     "-xc++",
@@ -524,7 +524,7 @@ CompileFlags:
 %s
 ---
 If:
-  PathMatch: ['[cC]:/Users/batoaqaa/AppData/Local/ahmed/test/.*']
+  PathMatch: ['C:/Users/batoaqaa/AppData/Local/ahmed/test/.*']
 CompileFlags:
   Remove: ["-fstrict-volatile-bitfields",
     "-mlongcalls",
@@ -541,7 +541,7 @@ Diagnostics:
     "unknown_typename"]
 ---
 If:
-  PathMatch: ['[cC]:/Users/batoaqaa/AppData/Local/ahmed/test/.*[.]h$']
+  PathMatch: ['C:/Users/batoaqaa/AppData/Local/ahmed/test/.*\.h$']
 CompileFlags:
   Remove: ["-xc",
     "-xc++",
@@ -550,7 +550,7 @@ CompileFlags:
     "-std=gnu17"]
 ---
 If:
-  PathMatch: ['[cC]:/Users/batoaqaa/AppData/Local/ahmed/test/.*[.](c|C|cl|ci)$']
+  PathMatch: ['C:/Users/batoaqaa/AppData/Local/ahmed/test/.*\.(c|C|cl|ci)$']
 CompileFlags:
   Remove: ["-xc",
     "-xc++",
