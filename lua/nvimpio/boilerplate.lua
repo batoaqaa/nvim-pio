@@ -518,8 +518,10 @@ CompileFlags:
     "-std=*"]
   Add: ["-xc",
     "-std=gnu17"]
-%s]]
-  local loc = [[%s
+%s
+]]
+  local loc =
+[[%s
 ---
 If:
   PathMatch: 'c:/Users/batoaqaa/AppData/Local/ahmed/test/.*'
