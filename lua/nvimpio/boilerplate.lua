@@ -197,25 +197,23 @@ boilerplate['.clangd'] = {
 %s
 ---
 If:
-  PathMatch: ['%s/.*%s$']
-CompileFlags:
-  BuiltinHeaders: QueryDriver
-  Remove: [%s]
-  Add: [%s]
----
-If:
-  PathMatch: ['%s/.*%s$']
-CompileFlags:
-  BuiltinHeaders: QueryDriver
-  Remove: [%s]
-  Add: [%s]
----
-If:
   PathMatch: ['%s/.*']
 CompileFlags:
   Remove: [%s]
 Diagnostics:
   Suppress:[%s]
+---
+If:
+  PathMatch: ['%s/.*%s$']
+CompileFlags:
+  Remove: [%s]
+  Add: [%s]
+---
+If:
+  PathMatch: ['%s/.*%s$']
+CompileFlags:
+  Remove: [%s]
+  Add: [%s]
 %s
 ]],
 
@@ -223,27 +221,26 @@ Diagnostics:
 %s
 ---
 If:
-  PathMatch: ['%s/.*%s$']
-CompileFlags:
-  BuiltinHeaders: QueryDriver
-  Remove: [%s]
-  Add: [%s]
----
-If:
-  PathMatch: ['%s/.*%s$']
-CompileFlags:
-  BuiltinHeaders: QueryDriver
-  Remove: [%s]
-  Add: [%s]
----
-If:
   PathMatch: ['%s/.*']
 CompileFlags:
   Remove: [%s]
 Diagnostics:
   Suppress:[%s]
+---
+If:
+  PathMatch: ['%s/.*%s$']
+CompileFlags:
+  Remove: [%s]
+  Add: [%s]
+---
+If:
+  PathMatch: ['%s/.*%s$']
+CompileFlags:
+  Remove: [%s]
+  Add: [%s]
 %s
 ]],
+  -- BuiltinHeaders: QueryDriver
   -- PathMatch: ['%s/.*%s$']
 -- ---
 -- If:
@@ -491,11 +488,16 @@ Diagnostics:
           return string.format( self.Global,
                 ref.start_marker,
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
+                table.concat(flagsBlocked, ',\n    '),  -- Suppress: [%s]
+                table.concat(globCodesSuppress, ',\n    '),  -- Suppress: [%s]
+
+                clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 headerExtensions,                            -- header extensions
                 -- OS.project_dir,                              -- compilationDatabasePath
                 -- compiler,                                    -- compiler
                 table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
                 table.concat(compileFlagsHAdd, ',\n    '),  -- Add: [%s]
+
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
                 -- OS.project_dir,                              -- compilationDatabasePath
@@ -504,9 +506,6 @@ Diagnostics:
                 table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
                 table.concat(compileFlagsAdd, ',\n    '),  -- Add: [%s]
 
-                clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-                table.concat(flagsBlocked, ',\n    '),  -- Suppress: [%s]
-                table.concat(globCodesSuppress, ',\n    '),  -- Suppress: [%s]
                 ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= false,
@@ -517,16 +516,18 @@ Diagnostics:
           return string.format(self.Project,
                 ref.start_marker,
                 clean_project_dir,                            -- If: PathMatch: ['%s/.*']
+                table.concat(flagsBlocked, ',\n    '),  -- Suppress: [%s]
+                table.concat(projCodesSuppress, ',\n    '),  -- Suppress: [%s]
+
+                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
                 headerExtensions,                             -- header extensions
                 table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
                 table.concat(compileFlagsHAdd, ',\n    '),  -- Add: [%s]
+
                 clean_project_dir,                            -- If: PathMatch: ['%s/.*']
                 fileExtensions,                               -- file extensions
                 table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
                 table.concat(compileFlagsAdd, ',\n    '),  -- Add: [%s]
-                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
-                table.concat(flagsBlocked, ',\n    '),  -- Suppress: [%s]
-                table.concat(projCodesSuppress, ',\n    '),  -- Suppress: [%s]
                 ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= true,
