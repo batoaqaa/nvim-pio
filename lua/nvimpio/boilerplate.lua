@@ -485,6 +485,15 @@ CompileFlags:
 %s
 ---
 If:
+  PathMatch: ['C:/Users/batoaqaa/\.platformio/packages/.*\.(c|C|cl|ci)$']
+CompileFlags:
+  Remove: ["-xc",
+    "-xc++",
+    "-std=*"]
+  Add: ["-xc",
+    "-std=gnu17"]
+---
+If:
   PathMatch: ['C:/Users/batoaqaa/\.platformio/packages/.*']
 CompileFlags:
   Remove: ["-fstrict-volatile-bitfields",
@@ -509,19 +518,19 @@ CompileFlags:
     "-std=*"]
   Add: ["-xc-header",
     "-std=gnu17"]
+%s
+  ]]
+  local loc = [[
+%s
 ---
 If:
-  PathMatch: ['C:/Users/batoaqaa/\.platformio/packages/.*\.(c|C|cl|ci)$']
+  PathMatch: ['C:/Users/batoaqaa/AppData/Local/ahmed/test/.*\.(c|C|cl|ci)$']
 CompileFlags:
   Remove: ["-xc",
     "-xc++",
     "-std=*"]
   Add: ["-xc",
     "-std=gnu17"]
-%s
-  ]]
-  local loc = [[
-%s
 ---
 If:
   PathMatch: ['C:/Users/batoaqaa/AppData/Local/ahmed/test/.*']
@@ -547,15 +556,6 @@ CompileFlags:
     "-xc++",
     "-std=*"]
   Add: ["-xc-header",
-    "-std=gnu17"]
----
-If:
-  PathMatch: ['C:/Users/batoaqaa/AppData/Local/ahmed/test/.*\.(c|C|cl|ci)$']
-CompileFlags:
-  Remove: ["-xc",
-    "-xc++",
-    "-std=*"]
-  Add: ["-xc",
     "-std=gnu17"]
 %s
   ]]
