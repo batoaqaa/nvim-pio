@@ -521,28 +521,53 @@ CompileFlags:
         cache_id = string.sub(vim.fn.sha256(_G.metadata.packages_dir), 1, 16),
         block = function (ref)
           -- return string.format( glo, ref.start_marker, ref.end_marker)
+
           return string.format( self.Global,
                 ref.start_marker,
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-                table.concat(flagsBlocked, ',\n    '),  -- Suppress: [%s]
-                table.concat(globCodesSuppress, ',\n    '),  -- Suppress: [%s]
+                table.concat(flagsBlocked, ', '),  -- Suppress: [%s]
+                table.concat(globCodesSuppress, ', '),  -- Suppress: [%s]
 
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 headerExtensions,                            -- header extensions
                 -- OS.project_dir,                              -- compilationDatabasePath
                 -- compiler,                                    -- compiler
-                table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
-                table.concat(compileFlagsHAdd, ',\n    '),  -- Add: [%s]
+                table.concat(compileFlagsRemove, ', '),-- Remove: [%s]
+                table.concat(compileFlagsHAdd, ', '),  -- Add: [%s]
 
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
                 -- OS.project_dir,                              -- compilationDatabasePath
                 -- compiler,                                    -- compiler
                 -- table.concat(formattedGlobSuppress, ',\n    '),-- Remove: [%s]
-                table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
-                table.concat(compileFlagsAdd, ',\n    '),  -- Add: [%s]
+                table.concat(compileFlagsRemove, ', '),-- Remove: [%s]
+                table.concat(compileFlagsAdd, ', '),  -- Add: [%s]
 
-                ref.end_marker)
+                ref.end_marker
+          )
+          -- return string.format( self.Global,
+          --       ref.start_marker,
+          --       clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
+          --       table.concat(flagsBlocked, ',\n    '),  -- Suppress: [%s]
+          --       table.concat(globCodesSuppress, ',\n    '),  -- Suppress: [%s]
+          --
+          --       clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
+          --       headerExtensions,                            -- header extensions
+          --       -- OS.project_dir,                              -- compilationDatabasePath
+          --       -- compiler,                                    -- compiler
+          --       table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
+          --       table.concat(compileFlagsHAdd, ',\n    '),  -- Add: [%s]
+          --
+          --       clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
+          --       fileExtensions,                              -- file extensions
+          --       -- OS.project_dir,                              -- compilationDatabasePath
+          --       -- compiler,                                    -- compiler
+          --       -- table.concat(formattedGlobSuppress, ',\n    '),-- Remove: [%s]
+          --       table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
+          --       table.concat(compileFlagsAdd, ',\n    '),  -- Add: [%s]
+          --
+          --       ref.end_marker
+          -- )
         end,
         start_marker = '', end_marker   = '', delete= false,
       },
@@ -565,7 +590,8 @@ CompileFlags:
                 fileExtensions,                               -- file extensions
                 table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
                 table.concat(projAdd, ',\n    '),  -- Add: [%s]
-                ref.end_marker)
+                ref.end_marker
+          )
         end,
         start_marker = '', end_marker   = '', delete= true,
       },
