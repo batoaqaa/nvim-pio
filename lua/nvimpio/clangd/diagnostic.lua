@@ -2,9 +2,10 @@
 local M = {}
 
 -- Module scopes track cross-file automated session states safely
-M.blocked = {  codes= {}, flags= {}}
+M.blocked = { proj_codes= {}, pckg_codes= {}, flags= {} }
 M.session_discovered_codes = M.session_discovered_codes or {}
 
+local autoProj, autoPckg = false, false
 -- ⚡ DISK CACHE LAYER: Prevents synchronous file reads on hot diagnostic loops
 M.cached_db_mtime = 0
 
@@ -19,7 +20,7 @@ local function ensure_default_db_exists(db_path)
   -- File exists, do not overwrite it!
   if stat then return true end
 
-  local raw_json = '{\n  "codes": {},\n  "flags": {}\n}'
+  local raw_json = '{\n  "proj_codes": {},\n  "pckg_codes": {},\n  "flags": {}\n}'
   -- Perform a safe, single-point background disk write operation
   local f = io.open(db_path, 'wb')
   if f then
@@ -34,7 +35,7 @@ end
 local function parse_db_file_pure(db_path)
   ensure_default_db_exists(db_path)
 
-  local blocked_codes = {  codes= {}, flags= {}}
+  local blocked_codes = {  proj_codes= {}, pckg_codes= {}, flags= {}}
 
   local f = io.open(db_path, 'rb')
   if not f then return blocked_codes end
@@ -100,6 +101,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
   local is_pio = (framework_root and framework_root ~= "")
     and (target_path:find(framework_root, 1, true) ~= nil)
     or false
+  local is_proj = target_path:find(OS.project_dir, 1, true) ~= nil
 
   -- Localized shortcuts for hot-loop execution speed
   local tbl_insert = table.insert
@@ -111,10 +113,12 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
   -- Pre-verify storage tables exist
   M.blocked = M.blocked or {}
   M.blocked.flags = M.blocked.flags or {}
-  M.blocked.codes = M.blocked.codes or {}
+  M.blocked.pckg_codes = M.blocked.pckg_codes or {}
+  M.blocked.proj_codes = M.blocked.proj_codes or {}
 
   local blocked_flags = M.blocked.flags
-  local blocked_codes = M.blocked.codes
+  local blocked_pckg_codes = M.blocked.pckg_codes
+  local blocked_proj_codes = M.blocked.proj_codes
 
   for i = 1, #diagnostics do
     local diag = diagnostics[i]
@@ -128,10 +132,8 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
     local range = diag.range and diag.range['start']
     local is_row0_col0 = range and (range.line == 0 and range.character == 0)
 
-    -- ⚡ FASTEST PATH: If already blocked by code, drop immediately!
-    if (code and blocked_codes[code]) then show_diagnostics = false
     -- if diagnostics for [column 0 , row 0]
-    elseif is_row0_col0 then
+    if is_row0_col0 then
       -- Evaluate match on either code OR message (code can be nil!)
       local is_setup_issue =
         str_match(msg,'%.clangd')
@@ -161,22 +163,36 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
           end
         elseif code then
           -- If it's a Row 0 / Col 0 setup issue with NO flag in the msg (like fatal_too_many_errors),
-          -- capture its error code into blocked_codes!
-          if not blocked_codes[code] then
-            blocked_codes[code] = true
+          -- capture its error code into blocked_pckg_codes!
+          if not blocked_pckg_codes[code] then
+            blocked_pckg_codes[code] = true
             flags_updated = true
           end
         end
       end
+    -- ⚡ FASTEST PATH: If already blocked by code, drop immediately!
     elseif is_pio then
-      -- Suppress diagnostics inside the pio framework root
-      show_diagnostics = false
-      if code and not blocked_codes[code] then
-        blocked_codes[code] = true  -- ** the only place updates M.blocked.codes
-        flags_updated = true          -- if updated write it below to file
+      if (code and blocked_pckg_codes[code]) then show_diagnostics = false
+      elseif autoPckg then
+        -- Suppress diagnostics inside the pio framework root
+        show_diagnostics = false
+        if code and not blocked_pckg_codes[code] then
+          blocked_pckg_codes[code] = true  -- ** the only place updates M.blocked.pckg_codes
+          flags_updated = true          -- if updated write it below to file
+        end
+      end
+    elseif is_proj then
+      if (code and blocked_proj_codes[code]) then show_diagnostics = false
+      elseif autoProj then
+        -- Suppress diagnostics inside the pio framework root
+        show_diagnostics = false
+        if code and not blocked_proj_codes[code] then
+          blocked_proj_codes[code] = true  -- ** the only place updates M.blocked.pckg_codes
+          flags_updated = true          -- if updated write it below to file
+        end
       end
     end
-    -- elseif code and blocked_codes[code] then show_diagnostics = false end
+    -- elseif code and blocked_pckg_codes[code] then show_diagnostics = false end
 
     if show_diagnostics then tbl_insert(clean_diagnostics, diag) end
   end
@@ -204,7 +220,7 @@ end
 -- ===================================================================
 -- 💻 THE INTERACTIVE DYNAMIC CHECKBOX PICKER PANEL (STATE MACHINE)
 -- ===================================================================
-function M.manage_file_diagnostics_interactive()   -- change codes  --> write
+function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> write
   local bufnr = vim.api.nvim_get_current_buf()
   local filter_db_path = M.get_db_path()
 
@@ -213,11 +229,19 @@ function M.manage_file_diagnostics_interactive()   -- change codes  --> write
 
   -- Initialize memory state tracking layer from disk or incoming RAM state
   local caced_blocked = M.get_manual_blocked(filter_db_path)
-  local active_file_blocked = caced_blocked.codes
+  local active_file_blocked
+
+  local check_file = vim.fs.normalize(OS.getBufFilename(bufnr))
+  if check_file:find(_G.metadata.framework_root, 1, true) then
+    active_file_blocked = caced_blocked.pckg_codes
+  elseif check_file:find(OS.project_dir, 1, true) then
+    active_file_blocked = caced_blocked.proj_codes
+  end
+
 
   M.session_discovered_codes = M.session_discovered_codes or {}
 
-  -- Seed tracking lists with keys currently active in memory
+  -- Seed tracking lists with pckg keys currently active in memory
   for code_key, is_true in pairs(active_file_blocked) do
     if is_true then
       M.session_discovered_codes[code_key] = true
@@ -229,18 +253,19 @@ function M.manage_file_diagnostics_interactive()   -- change codes  --> write
   for _, d in ipairs(raw_diagnostics) do
     local c = d.code and tostring(d.code) or ''
     local msg = d.message or ''
+
     local is_automated_arg = c:match('^drv_') or c:match('^fatal_')
     local is_flag_err = msg:match('[Aa][Rr][Gg][Uu][Mm][Ee][Nn][Tt]') or msg:lower():match('unknown flag')
     -- local is_flag_err = msg:lower():match('argument') or msg:lower():match('unknown flag')
 
     if c ~= '' and not is_automated_arg and not is_flag_err then
-      M.session_discovered_codes[c] = true
+      M.session_discovered_pckg_codes[c] = true
     end
   end
 
   -- Sort keys alphabetically
   local registered_keys = {}
-  for k, _ in pairs(M.session_discovered_codes) do table.insert(registered_keys, k) end
+  for k, _ in pairs(M.session_discovered_pckg_codes) do table.insert(registered_keys, k) end
   table.sort(registered_keys)
 
   local items = {}
@@ -295,7 +320,7 @@ function M.manage_file_diagnostics_interactive()   -- change codes  --> write
       -- end
 
       --Clean memory table safely without destroying the reference table pointer
-      for k in pairs(M.session_discovered_codes) do M.session_discovered_codes[k] = nil end
+      for k in pairs(M.session_discovered_pckg_codes) do M.session_discovered_pckg_codes[k] = nil end
 
       -- Refresh buffer lints viewport tracking maps
       vim.schedule(function()

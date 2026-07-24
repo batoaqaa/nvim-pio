@@ -141,10 +141,16 @@ boilerplate['.clangdConfig.json'] = {
 
  -- Define the extensions lookup set outside the function (allocated once)
 local CPP_EXTENSIONS = {
-  cpp = true, hpp = true, cc = true, cxx = true, ccm = true,
-  ixx = true, cppm = true, mxx = true, cuh = true, mm = true
+  -- Standard C++ Source & Headers
+  cpp = true, cc = true, cxx = true,
+  -- Template & Inline Implementations
+  tcc = true, inl = true, ipp = true,
+  -- C++20 Modules
+  cppm = true, ccm = true, mxx = true, ixx = true,
+  -- Objective-C / Objective-C++
+  mm = true
 }
-local C_EXTENSIONS = { c = true, cu = true, m = true, inl = true, tcc = true, C = true }
+local C_EXTENSIONS = { c = true, m = true, i = true, cu = true, C = true }
 -- INFO: .clangd
 ----------------------------------------------------------------------------------------
 -- DIALECT DISCOVERY (<0.1ms Structural Verification)
@@ -304,6 +310,7 @@ CompileFlags:
     local flagsBlocked = {}
     local globCodesSuppress = {}
     local projCodesSuppress = {}
+
     local compileFlagsRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
 
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
@@ -317,9 +324,13 @@ CompileFlags:
       end
       -- vim.list_extend(compileFlagsRemove, flagsBlocked)
 
-      for code, isblocked in pairs(pio_diag.blocked.codes) do
+      for code, isblocked in pairs(pio_diag.blocked.pckg_codes) do
         if isblocked then
           table.insert(globCodesSuppress, string.format('%q', code))
+        end
+      end
+      for code, isblocked in pairs(pio_diag.blocked.proj_codes) do
+        if isblocked then
           table.insert(projCodesSuppress, string.format('%q', code))
         end
       end
@@ -399,7 +410,7 @@ CompileFlags:
     -- local clean_framework = OS.preparePOSIXPathPattern(_G.metadata.framework_root)
     -- local clean_toolchain = OS.preparePOSIXPathPattern(_G.metadata.toolchain_root)
 
-    local fileExtensions = is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci)'
+    local fileExtensions = is_cpp and '[.](cpp|cxx|cc|cuh|ccm|mxx|cppm|ixx|inl|ipp|mm|tcc)' or '[.](c|C|cl|ci)'
     local headerExtensions = is_cpp and '[.](h|hpp|hh|hxx)' or '[.]h'
     -- local compiler = is_cpp and _G.metadata.cxx_path or _G.metadata.cc_path
     -- local QueryDriver = _G.metadata.query_driver
