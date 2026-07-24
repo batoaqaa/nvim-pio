@@ -425,11 +425,11 @@ function M.extract_framework_path(raw_json_chunk, active_env)
     return nil
   end
 
-  local framework_parent = vim.fs.dirname(_G.metadata.packages_dir)
+  local packages_dir = vim.fs.dirname(_G.metadata.packages_dir)
   -- local core_dir = vim.fs.normalize(_G.metadata.core_dir)
   -- Escape any special Lua pattern characters (like the dot in .platformio)
   -- This turns '.platformio' into '%.platformio' safely
-  local escaped_core_dir = framework_parent:gsub('([^%w])', '%%%1')
+  local escaped_core_dir = packages_dir:gsub('([^%w])', '%%%1')
   -- Now execute the match cleanly
   local build = data[active_env].includes.build
   -- 2. Scan each include path in the build array
@@ -440,7 +440,7 @@ function M.extract_framework_path(raw_json_chunk, active_env)
     -- 3. THE CAPTURE: Match any path containing '.platformio/packages/'
     -- and grab everything from the start up to the first directory inside packages/
     -- e.g. "C:/Users/batoaqaa/.platformio/packages/framework-espidf"
-    local framework_root = clean_path:match('(' .. escaped_core_dir .. '/packages/[^/]+)')
+    local framework_root = clean_path:match('(' .. escaped_core_dir .. '/[^/]+)')
     if framework_root then
       return framework_root
     end
