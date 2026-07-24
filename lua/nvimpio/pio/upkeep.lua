@@ -426,7 +426,7 @@ function M.extract_framework_path(raw_json_chunk, active_env)
   end
 
   local packages_dir = vim.fs.dirname(_G.metadata.packages_dir)
-  -- local core_dir = vim.fs.normalize(_G.metadata.core_dir)
+
   -- Escape any special Lua pattern characters (like the dot in .platformio)
   -- This turns '.platformio' into '%.platformio' safely
   local escaped_core_dir = packages_dir:gsub('([^%w])', '%%%1')
