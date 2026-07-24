@@ -133,7 +133,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
     -- if diagnostics for [column 0 , row 0]
     elseif is_row0_col0 then
       print('code= ' .. code)
-      if code == "drv_unknown_argument" then
+      if code == "drv_unknown_argument" or code == "drv_unknown_argument_with_suggestion" then
         print("STILL DRV MSG:", msg)
       end
       -- Evaluate match on either code OR message (code can be nil!)

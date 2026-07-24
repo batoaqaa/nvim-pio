@@ -1,8 +1,36 @@
-  -- stylua: ignore start
+-- stylua: ignore start
+
 local misc = require('nvimpio.utils.misc')
 local projectDir = OS.project_dir
 
 local M = {}
+
+function M.concat_arrays(...)
+  local new_array = {}
+  for _, arr in ipairs({ ... }) do
+    for _, val in ipairs(arr) do
+      table.insert(new_array, val)
+    end
+  end
+  return new_array
+end
+
+function M.merge_tables(...)
+  local result = {}
+  for _, tbl in ipairs({ ... }) do
+    for k, v in pairs(tbl) do
+      if type(k) == 'number' then
+        -- For numeric array indices, append to preserve all items
+        table.insert(result, v)
+      else
+        -- For string keys, set/overwrite key
+        result[k] = v
+      end
+    end
+  end
+  return result
+end
+
 
 local boilerplate = {}
 
@@ -286,9 +314,7 @@ CompileFlags:
     local globCodesSuppress = {}
     local projCodesSuppress = {}
 
-    -- local compileFlagsRemove = {'"-x"', '"-std=*"'}
     local compileFlagsRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
-    -- add diagnostic removed flags
 
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
     if success and pio_diag then
@@ -486,6 +512,8 @@ CompileFlags:
     --   "%s"
     -- ]
 
+    local projAdd = M.concat_arrays(compileFlagsAdd, formattedIncAdd)
+    local projHAdd = M.concat_arrays(compileFlagsHAdd, formattedIncAdd)
 
     local userClangd = OS.clangd_user_file
     local clangdFiles = {
@@ -531,12 +559,12 @@ CompileFlags:
                 clean_project_dir,                            -- If: PathMatch: ['%s/.*']
                 headerExtensions,                             -- header extensions
                 table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
-                table.concat(compileFlagsHAdd, ',\n    '),  -- Add: [%s]
+                table.concat(projHAdd, ',\n    '),  -- Add: [%s]
 
                 clean_project_dir,                            -- If: PathMatch: ['%s/.*']
                 fileExtensions,                               -- file extensions
                 table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
-                table.concat(compileFlagsAdd, ',\n    '),  -- Add: [%s]
+                table.concat(projAdd, ',\n    '),  -- Add: [%s]
                 ref.end_marker)
         end,
         start_marker = '', end_marker   = '', delete= true,
