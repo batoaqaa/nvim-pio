@@ -193,7 +193,8 @@ local os_info = {
       return "Unknown"
     end
     local name = vim.api.nvim_buf_get_name(bufnr)
-    return (name ~= "") and (vim.fs.basename(name) or "Unknown") or "[No Name]"
+    -- return (name ~= "") and (vim.fs.basename(name) or "Unknown") or "[No Name]"
+    return (name ~= "") and (name or "Unknown") or "[No Name]"
   end,
 } ---@as OS
 
