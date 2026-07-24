@@ -237,7 +237,6 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
   local active_file_blocked
 
   local check_file = vim.fs.normalize(OS.getBufFilename(bufnr))
-  print(check_file)
   if check_file:find(_G.metadata.framework_root, 1, true) then
     active_file_blocked = caced_blocked.pckg_codes
   elseif check_file:find(OS.project_dir, 1, true) then
