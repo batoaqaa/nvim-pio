@@ -260,13 +260,13 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
     -- local is_flag_err = msg:lower():match('argument') or msg:lower():match('unknown flag')
 
     if c ~= '' and not is_automated_arg and not is_flag_err then
-      M.session_discovered_pckg_codes[c] = true
+      M.session_discovered_codes[c] = true
     end
   end
 
   -- Sort keys alphabetically
   local registered_keys = {}
-  for k, _ in pairs(M.session_discovered_pckg_codes) do table.insert(registered_keys, k) end
+  for k, _ in pairs(M.session_discovered_codes) do table.insert(registered_keys, k) end
   table.sort(registered_keys)
 
   local items = {}
@@ -321,7 +321,7 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
       -- end
 
       --Clean memory table safely without destroying the reference table pointer
-      for k in pairs(M.session_discovered_pckg_codes) do M.session_discovered_pckg_codes[k] = nil end
+      for k in pairs(M.session_discovered_codes) do M.session_discovered_codes[k] = nil end
 
       -- Refresh buffer lints viewport tracking maps
       vim.schedule(function()
