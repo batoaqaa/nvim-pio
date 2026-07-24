@@ -141,7 +141,6 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
         or (code and (str_match(code,'^drv_') or str_match(code,'^fatal_')))
         or str_match(msg,'[Aa][Rr][Gg][Uu][Mm][Ee][Nn][Tt]')
       if is_setup_issue then -- if they are compiler/config/setup errors
-        show_diagnostics = false
         -- [fmWOgsx] represents the universal language categories used by the entire GCC and Clang compiler family globally
         -- f*: Compiler Features / Optimizations , codegen, and system prefix maps (e.g., -fexceptions, -fno-rtti)
         -- m*: Target machine / Architecture Directives (e.g., -mlongcalls, -mthumb)
@@ -157,16 +156,22 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
 
         -- Update master dictionary if a new flag was caught
         if flag then
+          show_diagnostics = false
           if not blocked_flags[flag] then
             blocked_flags[flag] = true  -- ** the only place updates M.blocked.flags
             flags_updated = true          -- if updated write it below to file
           end
         elseif code then
-          -- If it's a Row 0 / Col 0 setup issue with NO flag in the msg (like fatal_too_many_errors),
-          -- capture its error code into blocked_pckg_codes!
-          if not blocked_pckg_codes[code] then
-            blocked_pckg_codes[code] = true
-            flags_updated = true
+          if (code and blocked_pckg_codes[code]) then show_diagnostics = false
+          elseif autoPckg then
+            -- Suppress diagnostics inside the pio framework root
+            show_diagnostics = false
+            -- If it's a Row 0 / Col 0 setup issue with NO flag in the msg (like fatal_too_many_errors),
+            -- capture its error code into blocked_pckg_codes!
+            if not blocked_pckg_codes[code] then
+              blocked_pckg_codes[code] = true
+              flags_updated = true
+            end
           end
         end
       end
