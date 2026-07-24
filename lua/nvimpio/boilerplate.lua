@@ -139,6 +139,12 @@ boilerplate['.clangdConfig.json'] = {
   end,
 }
 
+ -- Define the extensions lookup set outside the function (allocated once)
+local CPP_EXTENSIONS = {
+  cc = true, cxx = true, ccm = true, ixx = true, cppm = true, mxx = true,
+  i = true, ii = true, m = true, mm = true, cuh = true, cpp = true, hpp = true
+}
+local C_EXTENSIONS = { c = true, cu = true, inl = true, tcc = true, C = true }
 -- INFO: .clangd
 ----------------------------------------------------------------------------------------
 -- DIALECT DISCOVERY (<0.1ms Structural Verification)
@@ -178,7 +184,10 @@ local function is_cpp_project()
       if normalized_line:find(local_root, 1, true) then
         -- THE PLATFORMIO DUMMY MASK: Explicitly ignore synthetic compiler primer targets
         if not (normalized_line:find("__dummy") or normalized_line:find("_bare_module")) then
-          if normalized_line:find("%.cpp") or normalized_line:find("%.hpp") or normalized_line:find("%.cc") or normalized_line:find("%.cxx") then
+          -- Extract the file extension from the end of the JSON string path
+          -- E.g., matches "cpp" from: "file": "src/main.cpp"
+          local ext = normalized_line:match('%.(%w+)"%s*$')
+          if ext and CPP_EXTENSIONS[ext:lower()] then
             is_cpp = true
             break
           end
@@ -216,8 +225,6 @@ function M.readContent(tbl)
   return content
 end
 
-  -- Preferences:
-  --   BlockAsHeader: IsValid
   -- CompilationDatabase: "%s"
   -- Compiler: "%s"
 boilerplate['.clangd'] = {
@@ -274,14 +281,6 @@ CompileFlags:
   Add: [ %s]
 %s
 ]],
-  -- PathMatch: ['%s/.*%s$']
--- ---
--- If:
---   PathMatch: ['%s/.*%s$']
--- CompileFlags:
---   BuiltinHeaders: QueryDriver
---   Remove: [%s]
---   Add: [%s]
   boiler = function(self, project_root_param)
     local project_root = project_root_param or OS.project_dir or vim.uv.cwd() or '.'
     project_root = vim.fs.normalize(project_root)
@@ -332,14 +331,8 @@ CompileFlags:
       end
     end
 
-    -- local formattedGlobSuppress = {
-    --   '"-x"',
-    --   '"-std=*"',
-    --   '"-D_ASMLANGUAGE"',
-    --   '"-D__ASSEMBLY__"',
-    --   '"-D__ASSEMBLER__"',
-    --   '"-D_ASSEMBLY_"'
-    -- }
+    -- local formattedGlobSuppress = { '"-x"', '"-std=*"',
+    --   '"-D_ASMLANGUAGE"', '"-D__ASSEMBLY__"', '"-D__ASSEMBLER__"', '"-D_ASSEMBLY_"' }
     --------------------- end .clangd remove section -----------------------------
 
     ------------------------------------------------------------------------------
@@ -383,12 +376,8 @@ CompileFlags:
     --------------------- end .clangd IncAdd section -----------------------------
 
     ----------------------------------------------------------------------------------
+    local extensions = M.merge_tables(CPP_EXTENSIONS, C_EXTENSIONS)
     -- Create a fast lookup set of all valid extensions
-    local extensions = { cc = true, cxx = true, ccm = true, ixx = true, cppm = true, mxx = true,
-                          i = true, ii = true, m = true, mm = true, cuh = true, cpp = true,
-                          --
-                          c = true, cu = true, inl = true, tcc = true, C = true,
-    }
     local getMainfile = function ()
       return vim.fs.find(function(name)
           -- Extract the text after the very last dot
@@ -439,12 +428,12 @@ CompileFlags:
                 table.concat(globCodesSuppress, ', '),       -- Diagnostics: Suppress: [ %s ]
 
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-                headerExtensions,                            -- header extensions
+                headerExtensions,                            -- header_extensions
                 table.concat(compileFlagsRemove, ', '),      -- CompileFlags: Remove: [ %s ]
                 table.concat(compileFlagsHAdd, ', '),        -- CompileFlags: Add: [%s]
 
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-                fileExtensions,                              -- file extensions
+                fileExtensions,                              -- file_extensions
                 table.concat(compileFlagsRemove, ', '),      -- CompileFlags: Remove: [ %s ]
                 table.concat(compileFlagsAdd, ', '),         -- CompileFlags: Add: [%s]
 
@@ -464,12 +453,12 @@ CompileFlags:
                 table.concat(projCodesSuppress, ', '),       -- Diagnostics: Suppress: [ %s ]
 
                 clean_project_dir,                           -- If: PathMatch: ['%s/.*']
-                headerExtensions,                            -- header extensions
+                headerExtensions,                            -- header_extensions
                 table.concat(compileFlagsRemove, ', '),      -- CompileFlags: Remove: [ %s ]
                 table.concat(projHAdd, ', '),                -- CompileFlags: Add: [%s]
 
                 clean_project_dir,                           -- If: PathMatch: ['%s/.*']
-                fileExtensions,                              -- file extensions
+                fileExtensions,                              -- file_extensions
                 table.concat(compileFlagsRemove, ', '),      -- CompileFlags: Remove: [ %s ]
                 table.concat(projAdd, ', '),                 -- CompileFlags: Add: [%s]
                 ref.end_marker
@@ -493,6 +482,7 @@ CompileFlags:
   end,
 }
 
+------------------------------------------------------------------------------
 local boiler = function(self)
   for filepath, _ in pairs(self.plates) do
     local full_path = vim.fs.joinpath(projectDir, filepath)
