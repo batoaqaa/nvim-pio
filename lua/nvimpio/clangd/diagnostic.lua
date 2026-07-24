@@ -35,7 +35,7 @@ end
 local function parse_db_file_pure(db_path)
   ensure_default_db_exists(db_path)
 
-  local blocked_codes = {  proj_codes= {}, pckg_codes= {}, flags= {}}
+  local blocked_codes = { proj_codes= {}, pckg_codes= {}, flags= {}}
 
   local f = io.open(db_path, 'rb')
   if not f then return blocked_codes end
