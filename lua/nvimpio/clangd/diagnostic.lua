@@ -54,7 +54,9 @@ end
 -- ⚡ OPTIMIZED CACHE: Only reads disk if the JSON file's modified time (mtime) changes
 function M.get_manual_blocked(filter_db_path)
   local stat = vim.uv.fs_stat(filter_db_path)
-  local current_mtime = stat and stat.mtime.sec or 0
+  -- Combine sec and nsec to catch fast same-second file updates
+  local current_mtime = stat and (stat.mtime.sec + (stat.mtime.nsec or 0) / 1e9) or 0
+  -- local current_mtime = stat and stat.mtime.sec or 0
 
   if current_mtime == 0 or current_mtime ~= M.cached_db_mtime then
     M.blocked = parse_db_file_pure(filter_db_path)
@@ -314,7 +316,10 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
       local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
       if (misc_ok and misc) then
         misc.writeFile(filter_db_path, misc.jsonFormat(caced_blocked), {})
-        M.cached_db_mtime = 0 -- Invalidate mtime cache
+        -- 🟢 FIX: Read precise mtime (sec + nsec) or lock in the current stat immediately!
+        local stat = vim.uv.fs_stat(filter_db_path)
+        M.cached_db_mtime = stat and (stat.mtime.sec + (stat.mtime.nsec or 0) / 1e9) or 0
+        -- M.cached_db_mtime = 0 -- Invalidate mtime cache
       end
       -- local f = io.open(filter_db_path, 'wb')
       -- if f then
