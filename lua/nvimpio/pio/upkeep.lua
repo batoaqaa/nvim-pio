@@ -424,10 +424,12 @@ function M.extract_framework_path(raw_json_chunk, active_env)
   if not ok or not data then
     return nil
   end
-  local core_dir = vim.fs.normalize(_G.metadata.core_dir)
+
+  local framework_parent = vim.fs.dirname(_G.metadata.packages_dir)
+  -- local core_dir = vim.fs.normalize(_G.metadata.core_dir)
   -- Escape any special Lua pattern characters (like the dot in .platformio)
   -- This turns '.platformio' into '%.platformio' safely
-  local escaped_core_dir = core_dir:gsub('([^%w])', '%%%1')
+  local escaped_core_dir = framework_parent:gsub('([^%w])', '%%%1')
   -- Now execute the match cleanly
   local build = data[active_env].includes.build
   -- 2. Scan each include path in the build array
