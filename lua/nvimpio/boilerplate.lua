@@ -308,12 +308,9 @@ CompileFlags:
     ------------------------------------------------------------------------------
     ------------------ start .clangd remove section ------------------------------
     -- 1. SYNC (WITH DIRECT DISK FALLBACK GATING):
-    -- local compileFlagsRemove = {}
-
     local flagsBlocked = {}
     local globCodesSuppress = {}
     local projCodesSuppress = {}
-
     local compileFlagsRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
 
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
@@ -335,32 +332,6 @@ CompileFlags:
       end
     end
 
-    -- -- if success and pio_diag and pio_diag.auto_removed_flags and next(pio_diag.auto_removed_flags) then
-    -- if success and pio_diag and pio_diag.blocked.flags and next(pio_diag.blocked.flags) then
-    --   -- for flag, isblocked in pairs(pio_diag.auto_removed_flags) do
-    --   for flag, isblocked in pairs(pio_diag.blocked.flags) do
-    --     if isblocked then
-    --       table.insert(compileFlagsRemove, string.format('%q', flag))
-    --     end
-    --   end
-    -- else
-    --   local f = io.open(filter_db_file, 'r')
-    --   if f then
-    --     local raw = f:read('*a')
-    --     f:close()
-    --     if raw and raw ~= '' then
-    --       local dok, data = pcall(vim.json.decode, raw)
-    --       if dok and data and type(data.flags) == 'table' then
-    --         for flag, isblocked in pairs(data.flags) do
-    --           if isblocked then
-    --             table.insert(compileFlagsRemove, string.format('%q', flag))
-    --           end
-    --         end
-    --       end
-    --     end
-    --   end
-    -- end
-
     -- local formattedGlobSuppress = {
     --   '"-x"',
     --   '"-std=*"',
@@ -369,9 +340,6 @@ CompileFlags:
     --   '"-D__ASSEMBLER__"',
     --   '"-D_ASSEMBLY_"'
     -- }
-    -- local formattedGlobRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
-    -- local formattedGlobSuppress = {'"-xc"', '"-xc++"', '"-std=*"'}
-    -- vim.list_extend(compileFlagsRemove, formattedGlobSuppress)
     --------------------- end .clangd remove section -----------------------------
 
     ------------------------------------------------------------------------------
@@ -430,87 +398,31 @@ CompileFlags:
       end, { limit = 1, path = OS.project_dir .. "/src" })[1]
     end
     local check_file = getMainfile()
+    local incSrcFile = string.format('"--include=%s"', check_file)
     ----------------------------------------------------------------------------------
 
     local is_cpp = is_cpp_project()
--- C:/Users/batoaqaa/AppData/Local/ahmed/test/src/main.c
-    -- ------------------ start .clangd formattedGlobAdd section  ----------------------
-    -- local formattedGlobAdd = is_cpp and {
-    --                                 '"-xc++"', '"-std=gnu++17"',
-    --                                 -- string.format('"--include=%s"', check_file)
-    --                                 -- string.format('"-I%s/src"', OS.project_dir),
-    --                                 -- string.format('"-I%s/include"', OS.project_dir)
-    --                               } or {
-    --                                 '"-xc"', '"-std=gnu17"',
-    --                                 -- string.format('"--include=%s"', check_file)
-    --                                 -- string.format('"-I%s/src"', OS.project_dir),
-    --                                 -- string.format('"-I%s/include"', OS.project_dir)
-    --                               }
-    --
-    -- local formattedGlobHAdd = is_cpp and {
-    --                                 '"-xc++-header"',
-    --                                 -- string.format('"--include=%s"', 'C:/Users/batoaqaa/AppData/Local/ahmed/test/src/nvimpio_bridge.hpp'),
-    --                                 -- string.format('"--include=%s"', check_file)
-    --                                 -- string.format('"-I%s/src"', OS.project_dir),
-    --                                 -- string.format('"-I%s/include"', OS.project_dir)
-    --                               } or {
-    --                                 '"-xc-header"',
-    --                                 -- string.format('"--include=%s"', 'C:/Users/batoaqaa/AppData/Local/ahmed/test/src/nvimpio_bridge.h'),
-    --                                 -- string.format('"--include=%s"', check_file)
-    --                                 -- string.format('"-I%s/src"', OS.project_dir),
-    --                                 -- string.format('"-I%s/include"', OS.project_dir)
-    --                               }
-    -- --------------------- end .clangd formattedGlobAdd section ----------------------
-
     ------------------ start .clangd compileFlagsAdd section  ----------------------
     local compileFlagsAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"' }
                                     or { '"-xc"', '"-std=gnu17"' }
-    -- vim.list_extend(compileFlagsAdd, formattedIncAdd)
 
     local compileFlagsHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' }
                                      or { '"-xc-header"', '"-std=gnu17"' }
-    -- vim.list_extend(compileFlagsHAdd, formattedIncAdd)
-    -- vim.list_extend(compileFlagsHAdd, formatteLibdepsAdd)
     --------------------- end .clangd compileFlagsAdd section ----------------------
 
-    -- local function preparePathMatch(raw_path)
-    --   -- 1. Clean up slashes using Neovim's normalizer
-    --   local path = vim.fs.normalize(raw_path)
-    --   -- 2. Strip any trailing slash if it exists, so it fits your "%s/.*" template perfectly
-    --   path = path:gsub("/$", "")
-    --   -- 3.Captures ONLY the letter (%a), leaving the colon outside the brackets
-    --   local drive_letter, main_path = path:match("^([a-zA-Z]):(.*)$")
-    --   local drive
-    --   if drive_letter then
-    --     -- Wraps just the letters into [cC] and appends the colon outside
-    --     drive = '[' .. drive_letter:lower() .. drive_letter:upper() .. ']:'
-    --     path = main_path
-    --   else drive = "" end -- Linux/macOS
-    --   local finalPath = drive .. path
-    --   -- 4. Escape every literal dot inside the folders completely dynamically
-    --   finalPath = finalPath:gsub("%.", "[.]")
-    --   -- 5. Recombine them seamlessly without a trailing slash
-    --   return finalPath
-    -- end
-
     -- Simply wrap your dynamic variables before feeding them to string.format
-    -- local clean_framework = OS.preparePOSIXPathPattern(_G.metadata.framework_root)
-    -- local clean_toolchain = OS.preparePOSIXPathPattern(_G.metadata.toolchain_root)
     local clean_project_dir   = OS.preparePOSIXPathPattern(OS.project_dir)
     local clean_packages_dir   = OS.preparePOSIXPathPattern(_G.metadata.packages_dir)
+    -- local clean_framework = OS.preparePOSIXPathPattern(_G.metadata.framework_root)
+    -- local clean_toolchain = OS.preparePOSIXPathPattern(_G.metadata.toolchain_root)
 
     local fileExtensions = is_cpp and '[.](cpp|cxx|cc|c[+][+]|mxx|cppm|ixx|inl|tcc)' or '[.](c|C|cl|ci)'
     local headerExtensions = is_cpp and '[.](h|hpp|hh|hxx)' or '[.]h'
-    local compiler = is_cpp and _G.metadata.cxx_path or _G.metadata.cc_path
+    -- local compiler = is_cpp and _G.metadata.cxx_path or _G.metadata.cc_path
     -- local QueryDriver = _G.metadata.query_driver
     ------------------------------------------------------------------------------
-    --                config.yaml
-    ------------------------------------------------------------------------------
-    -- CompilationDatabase: "%s"
-    -- Compiler: "%s"
-    -- QueryDriver: [
-    --   "%s"
-    -- ]
+
+
 
     local projAdd = M.concat_arrays(compileFlagsAdd, formattedIncAdd)
     local projHAdd = M.concat_arrays(compileFlagsHAdd, formattedIncAdd)
@@ -520,54 +432,24 @@ CompileFlags:
       { key = 'userGlob', file = userClangd, content = function (ref) return M.readContent(ref) end,
         cache_id = string.sub(vim.fn.sha256(_G.metadata.packages_dir), 1, 16),
         block = function (ref)
-          -- return string.format( glo, ref.start_marker, ref.end_marker)
-
           return string.format( self.Global,
                 ref.start_marker,
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-                table.concat(flagsBlocked, ', '),  -- Suppress: [%s]
-                table.concat(globCodesSuppress, ', '),  -- Suppress: [%s]
+                table.concat(flagsBlocked, ', '),            -- CompileFlags: Remove: [ %s ]
+                table.concat(globCodesSuppress, ', '),       -- Diagnostics: Suppress: [ %s ]
 
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 headerExtensions,                            -- header extensions
-                -- OS.project_dir,                              -- compilationDatabasePath
-                -- compiler,                                    -- compiler
-                table.concat(compileFlagsRemove, ', '),-- Remove: [%s]
-                table.concat(compileFlagsHAdd, ', '),  -- Add: [%s]
+                table.concat(compileFlagsRemove, ', '),      -- CompileFlags: Remove: [ %s ]
+                table.concat(compileFlagsHAdd, ', '),        -- CompileFlags: Add: [%s]
 
                 clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
                 fileExtensions,                              -- file extensions
-                -- OS.project_dir,                              -- compilationDatabasePath
-                -- compiler,                                    -- compiler
-                -- table.concat(formattedGlobSuppress, ',\n    '),-- Remove: [%s]
-                table.concat(compileFlagsRemove, ', '),-- Remove: [%s]
-                table.concat(compileFlagsAdd, ', '),  -- Add: [%s]
+                table.concat(compileFlagsRemove, ', '),      -- CompileFlags: Remove: [ %s ]
+                table.concat(compileFlagsAdd, ', '),         -- CompileFlags: Add: [%s]
 
                 ref.end_marker
           )
-          -- return string.format( self.Global,
-          --       ref.start_marker,
-          --       clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-          --       table.concat(flagsBlocked, ',\n    '),  -- Suppress: [%s]
-          --       table.concat(globCodesSuppress, ',\n    '),  -- Suppress: [%s]
-          --
-          --       clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-          --       headerExtensions,                            -- header extensions
-          --       -- OS.project_dir,                              -- compilationDatabasePath
-          --       -- compiler,                                    -- compiler
-          --       table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
-          --       table.concat(compileFlagsHAdd, ',\n    '),  -- Add: [%s]
-          --
-          --       clean_packages_dir,                          -- If: PathMatch: ['%s/.*']
-          --       fileExtensions,                              -- file extensions
-          --       -- OS.project_dir,                              -- compilationDatabasePath
-          --       -- compiler,                                    -- compiler
-          --       -- table.concat(formattedGlobSuppress, ',\n    '),-- Remove: [%s]
-          --       table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
-          --       table.concat(compileFlagsAdd, ',\n    '),  -- Add: [%s]
-          --
-          --       ref.end_marker
-          -- )
         end,
         start_marker = '', end_marker   = '', delete= false,
       },
@@ -577,19 +459,19 @@ CompileFlags:
           -- return string.format( loc, ref.start_marker, ref.end_marker)
           return string.format(self.Project,
                 ref.start_marker,
-                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
-                table.concat(flagsBlocked, ',\n    '),  -- Suppress: [%s]
-                table.concat(projCodesSuppress, ',\n    '),  -- Suppress: [%s]
+                clean_project_dir,                           -- If: PathMatch: ['%s/.*']
+                table.concat(flagsBlocked, ', '),            -- CompileFlags: Remove: [ %s ]
+                table.concat(projCodesSuppress, ', '),       -- Diagnostics: Suppress: [ %s ]
 
-                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
-                headerExtensions,                             -- header extensions
-                table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
-                table.concat(projHAdd, ',\n    '),  -- Add: [%s]
+                clean_project_dir,                           -- If: PathMatch: ['%s/.*']
+                headerExtensions,                            -- header extensions
+                table.concat(compileFlagsRemove, ', '),      -- CompileFlags: Remove: [ %s ]
+                table.concat(projHAdd, ', '),                -- CompileFlags: Add: [%s]
 
-                clean_project_dir,                            -- If: PathMatch: ['%s/.*']
-                fileExtensions,                               -- file extensions
-                table.concat(compileFlagsRemove, ',\n    '),-- Remove: [%s]
-                table.concat(projAdd, ',\n    '),  -- Add: [%s]
+                clean_project_dir,                           -- If: PathMatch: ['%s/.*']
+                fileExtensions,                              -- file extensions
+                table.concat(compileFlagsRemove, ', '),      -- CompileFlags: Remove: [ %s ]
+                table.concat(projAdd, ', '),                 -- CompileFlags: Add: [%s]
                 ref.end_marker
           )
         end,
