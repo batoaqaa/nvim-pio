@@ -316,10 +316,16 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
       local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
       if (misc_ok and misc) then
         misc.writeFile(filter_db_path, misc.jsonFormat(caced_blocked), {})
-        -- 🟢 FIX: Read precise mtime (sec + nsec) or lock in the current stat immediately!
+        -- Read precise mtime (sec + nsec) or lock in the current stat immediately!
         local stat = vim.uv.fs_stat(filter_db_path)
         M.cached_db_mtime = stat and (stat.mtime.sec + (stat.mtime.nsec or 0) / 1e9) or 0
         -- M.cached_db_mtime = 0 -- Invalidate mtime cache
+
+        -- Let the dynamic boilerplate loop read pio_diag.M.blocked
+        local boiler_ok, boiler = pcall(require, 'nvimpio.boilerplate')
+        if boiler_ok and boiler and boiler.boilerplate_gen then
+          pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics clean_file_path_pipeline')
+        end
       end
       -- local f = io.open(filter_db_path, 'wb')
       -- if f then
