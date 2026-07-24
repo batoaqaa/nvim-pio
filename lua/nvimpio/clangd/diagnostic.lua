@@ -54,6 +54,7 @@ end
 -- ⚡ OPTIMIZED CACHE: Only reads disk if the JSON file's modified time (mtime) changes
 function M.get_manual_blocked(filter_db_path)
   local stat = vim.uv.fs_stat(filter_db_path)
+
   -- Combine sec and nsec to catch fast same-second file updates
   -- local current_mtime = stat and (stat.mtime.sec + (stat.mtime.nsec or 0) / 1e9) or 0
   local current_mtime = stat and stat.mtime.sec or 0
@@ -206,17 +207,17 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
 
   if flags_updated then  -- write
     vim.schedule(function()
+      -- Let the dynamic boilerplate loop read pio_diag.M.blocked
+      local boiler_ok, boiler = pcall(require, 'nvimpio.boilerplate')
+      if boiler_ok and boiler and boiler.boilerplate_gen then
+        pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics clean_file_path_pipeline')
+      end
+
       local filter_db_path = M.get_db_path()
       local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
       if (misc_ok and misc) then
         misc.writeFile(filter_db_path, misc.jsonFormat(M.blocked), {})
         M.cached_db_mtime = 0 -- Invalidate mtime cache
-      end
-
-      -- Let the dynamic boilerplate loop read pio_diag.M.blocked
-      local boiler_ok, boiler = pcall(require, 'nvimpio.boilerplate')
-      if boiler_ok and boiler and boiler.boilerplate_gen then
-        pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics clean_file_path_pipeline')
       end
     end)
   end
@@ -313,37 +314,35 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
   }, function(choice)
     -- GATE 1: User pressed Escape or q. Save choices to disk exactly once!
     if not choice then
-      local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
-      if (misc_ok and misc) then
-        -- Let the dynamic boilerplate loop read pio_diag.M.blocked
-        local boiler_ok, boiler = pcall(require, 'nvimpio.boilerplate')
-        if boiler_ok and boiler and boiler.boilerplate_gen then
-          pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics clean_file_path_pipeline')
-        end
-
-
-
-
-        misc.writeFile(filter_db_path, misc.jsonFormat(caced_blocked), {})
-        -- Read precise mtime (sec + nsec) or lock in the current stat immediately!
-        -- local stat = vim.uv.fs_stat(filter_db_path)
-        -- M.cached_db_mtime = stat and (stat.mtime.sec + (stat.mtime.nsec or 0) / 1e9) or 0
-        M.cached_db_mtime = 0 -- Invalidate mtime cache
-
-      end
-      -- local f = io.open(filter_db_path, 'wb')
-      -- if f then
-      --   f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
-      --   f:close()
-      --   -- 🟢 Invalidate or refresh cache here so the getter reloads the new state
-      --   M.cached_db_mtime = 0 -- Invalidate cache
-      -- end
-
-      --Clean memory table safely without destroying the reference table pointer
-      for k in pairs(M.session_discovered_codes) do M.session_discovered_codes[k] = nil end
-
-      -- Refresh buffer lints viewport tracking maps
       vim.schedule(function()
+        local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
+        if (misc_ok and misc) then
+          -- Let the dynamic boilerplate loop read pio_diag.M.blocked
+          local boiler_ok, boiler = pcall(require, 'nvimpio.boilerplate')
+          if boiler_ok and boiler and boiler.boilerplate_gen then
+            pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics clean_file_path_pipeline')
+          end
+
+          misc.writeFile(filter_db_path, misc.jsonFormat(caced_blocked), {})
+
+          -- Read precise mtime (sec + nsec) or lock in the current stat immediately!
+          -- local stat = vim.uv.fs_stat(filter_db_path)
+          -- M.cached_db_mtime = stat and (stat.mtime.sec + (stat.mtime.nsec or 0) / 1e9) or 0
+          M.cached_db_mtime = 0 -- Invalidate mtime cache
+
+        end
+        -- local f = io.open(filter_db_path, 'wb')
+        -- if f then
+        --   f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
+        --   f:close()
+        --   -- 🟢 Invalidate or refresh cache here so the getter reloads the new state
+        --   M.cached_db_mtime = 0 -- Invalidate cache
+        -- end
+
+        --Clean memory table safely without destroying the reference table pointer
+        for k in pairs(M.session_discovered_codes) do M.session_discovered_codes[k] = nil end
+
+        -- Refresh buffer lints viewport tracking maps
         if vim.api.nvim_buf_is_valid(bufnr) then
           vim.api.nvim_buf_call(bufnr, function()
             local old = vim.o.shortmess
