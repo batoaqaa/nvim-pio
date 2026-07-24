@@ -141,62 +141,56 @@ boilerplate['.clangdConfig.json'] = {
 
  -- Define the extensions lookup set outside the function (allocated once)
 local CPP_EXTENSIONS = {
-  cc = true, cxx = true, ccm = true, ixx = true, cppm = true, mxx = true,
-  i = true, ii = true, m = true, mm = true, cuh = true, cpp = true, hpp = true
+  cpp = true, hpp = true, cc = true, cxx = true, ccm = true,
+  ixx = true, cppm = true, mxx = true, cuh = true, mm = true
 }
-local C_EXTENSIONS = { c = true, cu = true, inl = true, tcc = true, C = true }
+local C_EXTENSIONS = { c = true, cu = true, m = true, inl = true, tcc = true, C = true }
 -- INFO: .clangd
 ----------------------------------------------------------------------------------------
 -- DIALECT DISCOVERY (<0.1ms Structural Verification)
 local function is_cpp_project()
-  -- A. Check explicit framework metadata states first
-  if _G.metadata and _G.metadata.envs then
-    local fw = _G.metadata.envs[_G.metadata.active_env].framework:lower()
-    if fw:find("arduino", 1, true) or fw:find("mbed", 1, true) then return true end
+-- 1. Check framework metadata
+  local active_env = _G.metadata and _G.metadata.envs and _G.metadata.envs[_G.metadata.active_env]
+  if active_env and active_env.framework then
+    local fw = active_env.framework:lower()
+    if fw:find("arduino", 1, true) or fw:find("mbed", 1, true) then
+      return true
+    end
   end
 
+  -- 2. Fast filesystem check: Look for any C++ file inside project `src/` or root
+  -- vim.fs.find uses fast C-level directory scanning and returns immediately on first match!
+  local cpp_files = vim.fs.find(function(name)
+    local ext = name:match("%.(%w+)$")
+    return ext and CPP_EXTENSIONS[ext:lower()] and not name:find("__dummy")
+  end, { path = OS.project_dir, limit = 1 })
+
+  if #cpp_files > 0 then
+    return true
+  end
+
+  -- 3. Fallback: Parse compile_commands.json safely if directory scan yields nothing
   local db_path = OS.project_dir .. "/compile_commands.json"
   local f = io.open(db_path, "r")
-  if not f then return false end
+  if f then
+    local content = f:read("*a")
+    f:close()
 
-  local is_cpp = false
-  local line_count = 0
-
-  -- Normalize your workspace project root path to match compiler formatting styles
-  -- (Converts backslashes to forward slashes or matches casing safely)
-  local local_root = OS.project_dir:gsub("\\", "/")
-
-  -- B. Streams lines sequentially. It drops out the moment a match resolves, 
-  -- maximizing speed while preventing huge memory allocations.
-  for line in f:lines() do
-    line_count = line_count + 1
-
-    -- Safety throttle boundary check: If we read 300 lines and find zero real C++ entries,
-    -- this is green-lit as a pure C workspace. Break out to maintain 0ms lag!
-    if line_count > 300 then break end
-
-    -- Check if the line maps to an explicit compilation file path property key
-    if line:find('"file"') then
-      local normalized_line = line:gsub("\\", "/")
-
-      -- CORE: Only evaluate if the file path is inside your local project root.
-      -- This filters out global paths like C:/Users/.../.platformio/packages/...
-      if normalized_line:find(local_root, 1, true) then
-        -- THE PLATFORMIO DUMMY MASK: Explicitly ignore synthetic compiler primer targets
-        if not (normalized_line:find("__dummy") or normalized_line:find("_bare_module")) then
-          -- Extract the file extension from the end of the JSON string path
-          -- E.g., matches "cpp" from: "file": "src/main.cpp"
-          local ext = normalized_line:match('%.(%w+)"%s*$')
-          if ext and CPP_EXTENSIONS[ext:lower()] then
-            is_cpp = true
-            break
+    local ok, parsed = pcall(vim.json.decode, content)
+    if ok and type(parsed) == "table" then
+      for i = 1, math.min(#parsed, 100) do
+        local entry = parsed[i]
+        if entry and entry.file then
+          local ext = entry.file:match("%.(%w+)$")
+          if ext and CPP_EXTENSIONS[ext:lower()] and not entry.file:find("__dummy") then
+            return true
           end
         end
       end
     end
   end
-  f:close()
-  return is_cpp
+
+  return false
 end
 
 function M.readContent(tbl)
