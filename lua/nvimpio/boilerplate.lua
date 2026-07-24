@@ -199,6 +199,7 @@ boilerplate['.clangd'] = {
 If:
   PathMatch: [ '%s/.*' ]
 CompileFlags:
+  BuiltinHeaders: QueryDriver
   Remove: [ %s ]
 Diagnostics:
   Suppress: [ %s ]
@@ -206,12 +207,14 @@ Diagnostics:
 If:
   PathMatch: [ '%s/.*%s$' ]
 CompileFlags:
+  BuiltinHeaders: QueryDriver
   Remove: [ %s ]
   Add: [ %s ]
 ---
 If:
   PathMatch: [ '%s/.*%s$' ]
 CompileFlags:
+  BuiltinHeaders: QueryDriver
   Remove: [ %s ]
   Add: [ %s ]
 %s
@@ -223,6 +226,7 @@ CompileFlags:
 If:
   PathMatch: [ '%s/.*' ]
 CompileFlags:
+  BuiltinHeaders: QueryDriver
   Remove: [ %s ]
 Diagnostics:
   Suppress: [ %s ]
@@ -230,17 +234,18 @@ Diagnostics:
 If:
   PathMatch: [ '%s/.*%s$' ]
 CompileFlags:
+  BuiltinHeaders: QueryDriver
   Remove: [ %s ]
   Add: [ %s ]
 ---
 If:
   PathMatch: [ '%s/.*%s$' ]
 CompileFlags:
+  BuiltinHeaders: QueryDriver
   Remove: [ %s ]
   Add: [ %s]
 %s
 ]],
-  -- BuiltinHeaders: QueryDriver
   -- PathMatch: ['%s/.*%s$']
 -- ---
 -- If:
@@ -475,89 +480,12 @@ CompileFlags:
     ------------------------------------------------------------------------------
     --                config.yaml
     ------------------------------------------------------------------------------
-  -- CompilationDatabase: "%s"
-  -- Compiler: "%s"
-  -- QueryDriver: [
-  --   "%s"
-  -- ]
+    -- CompilationDatabase: "%s"
+    -- Compiler: "%s"
+    -- QueryDriver: [
+    --   "%s"
+    -- ]
 
-  local glo =
-[[%s
----
-If:
-  PathMatch: [ 'C:/Users/batoaqaa/\.platformio/packages/.*' ]
-CompileFlags:
-  Remove: [ "-fstrict-volatile-bitfields",
-    "-mlongcalls",
-    "-fno-shrink-wrap",
-    "-fno-tree-switch-conversion" ]
-Diagnostics:
-  Suppress: [ "undeclared_var_use",
-    "field_declared_as_function",
-    "expected_fn_body",
-    "-Wimplicit-int",
-    "func_returning_array_function",
-    "fatal_too_many_errors",
-    "pp_hash_error",
-    "unknown_typename" ]
----
-If:
-  PathMatch: [ 'C:/Users/batoaqaa/\.platformio/packages/.*\.h$' ]
-CompileFlags:
-  Remove: [ "-xc",
-    "-xc++",
-    "-std=*" ]
-  Add: [ "-xc-header",
-    "-std=gnu17" ]
----
-If:
-  PathMatch: [ 'C:/Users/batoaqaa/\.platformio/packages/.*\.(c|C|cl|ci)$' ]
-CompileFlags:
-  Remove: [ "-xc",
-    "-xc++",
-    "-std=*" ]
-  Add: [ "-xc",
-    "-std=gnu17" ]
-%s
-]]
-  local loc =
-[[%s
----
-If:
-  PathMatch: [ 'C:/Users/batoaqaa/AppData/Local/ahmed/test/.*' ]
-CompileFlags:
-  Remove: [ "-fstrict-volatile-bitfields",
-    "-mlongcalls",
-    "-fno-shrink-wrap",
-    "-fno-tree-switch-conversion" ]
-Diagnostics:
-  Suppress: [ "undeclared_var_use",
-    "field_declared_as_function",
-    "expected_fn_body",
-    "-Wimplicit-int",
-    "func_returning_array_function",
-    "fatal_too_many_errors",
-    "pp_hash_error",
-    "unknown_typename" ]
----
-If:
-  PathMatch: [ 'C:/Users/batoaqaa/AppData/Local/ahmed/test/.*\.h$' ]
-CompileFlags:
-  Remove: [ "-xc",
-    "-xc++",
-    "-std=*" ]
-  Add: [ "-xc-header",
-    "-std=gnu17" ]
----
-If:
-  PathMatch: [ 'C:/Users/batoaqaa/AppData/Local/ahmed/test/.*\.(c|C|cl|ci)$' ]
-CompileFlags:
-  Remove: [ "-xc",
-    "-xc++",
-    "-std=*" ]
-  Add: [ "-xc",
-    "-std=gnu17" ]
-%s]]
 
     local userClangd = OS.clangd_user_file
     local clangdFiles = {
