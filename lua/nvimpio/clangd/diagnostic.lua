@@ -179,7 +179,6 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
           -- end
         end
       end
-    -- ⚡ FASTEST PATH: If already blocked by code, drop immediately!
     elseif is_pio then
       -- print('2: ' .. code)
       if (code and blocked_pckg_codes[code]) then show_diagnostics = false
@@ -333,13 +332,8 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
 
           misc.writeFile(filter_db_path, misc.jsonFormat(caced_blocked), {})
 
-          -- Read precise mtime (sec + nsec) or lock in the current stat immediately!
-          -- local stat = vim.uv.fs_stat(filter_db_path)
-          -- M.cached_db_mtime = stat and (stat.mtime.sec + (stat.mtime.nsec or 0) / 1e9) or 0
-
           -- Invalidate or refresh cache here so the getter reloads the new state
           M.cached_db_mtime = 0 -- Invalidate mtime cache
-
         end
 
         -- 1. Tell all running clangd clients that configuration changed

@@ -3,7 +3,6 @@ local M = {}
 
 local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
-local diagnosticClangd = require('nvimpio.clangd.diagnostic')
 local has_pio_diag, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
 
 ----------------------------------------------------------------------------------------
