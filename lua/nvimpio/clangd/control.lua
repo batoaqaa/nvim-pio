@@ -293,11 +293,19 @@ end
 local function get_validated_project_root(bufnr)
   -- local buf_name = normalize_absolute_path(vim.api.nvim_buf_get_name(bufnr))
   local buf_name = normalize_absolute_path(OS.getBufFilename(bufnr))
-  if not buf_name or buf_name == '' then return normalize_absolute_path(OS.project_dir) end
+  if buf_name == '' or buf_name == '[No Name]' or buf_name == 'Unknown' then
+    return normalize_absolute_path(OS.project_dir)
+  end
 
-  -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
   -- if buf_name:find('.platformio', 1, true) then return normalize_absolute_path(OS.project_dir) end
-  if buf_name:find(_G.metadata.framework_root, 1, true) then return normalize_absolute_path(OS.project_dir) end
+  -- if buf_name:find(_G.metadata.framework_root, 1, true) then return normalize_absolute_path(OS.project_dir) end
+  -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
+  local framework_root = _G.metadata and _G.metadata.framework_root
+  if type(framework_root) == 'string' and framework_root ~= '' then
+    if buf_name:find(normalize_absolute_path(framework_root), 1, true) then
+      return normalize_absolute_path(OS.project_dir)
+    end
+  end
 
   -- Native C-speed upward path tracer looking for framework landmarks
   local project_root = vim.fs.root(bufnr, {
