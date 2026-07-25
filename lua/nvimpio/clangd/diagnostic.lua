@@ -137,7 +137,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
 
     -- if diagnostics for [column 0 , row 0]
     if is_row0_col0 then
-      print('1: ' .. code)
+      -- print('1: ' .. code)
       -- Evaluate match on either code OR message (code can be nil!)
       local is_setup_issue =
         str_match(msg,'%.clangd')
@@ -181,7 +181,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
       end
     -- ⚡ FASTEST PATH: If already blocked by code, drop immediately!
     elseif is_pio then
-      print('2: ' .. code)
+      -- print('2: ' .. code)
       if (code and blocked_pckg_codes[code]) then show_diagnostics = false
       elseif autoPckg then
         -- Suppress diagnostics inside the pio framework root
@@ -192,7 +192,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
         end
       end
     elseif is_proj then
-      print('3: ' .. code)
+      -- print('3: ' .. code)
       if (code and blocked_proj_codes[code]) then show_diagnostics = false
       elseif autoProj then
         -- Suppress diagnostics inside the pio framework root
