@@ -353,27 +353,27 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
         end
 
         -- 2. Touch active buffers so clangd re-checks their diagnostics
-        local bufs = vim.api.nvim_list_bufs()
-        for _, b in ipairs(bufs) do
-          if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_is_loaded(b) and vim.bo[b].buflisted then
-            vim.api.nvim_buf_call(b, function()
-              local old = vim.o.shortmess
-              vim.o.shortmess = old .. 'F'
-              vim.cmd('silent! checktime | silent! edit!')
-              vim.o.shortmess = old
-            end)
-          end
-        end
-
-        -- -- Refresh buffer lints viewport tracking maps
-        -- if vim.api.nvim_buf_is_valid(bufnr) then
-        --   vim.api.nvim_buf_call(bufnr, function()
-        --     local old = vim.o.shortmess
-        --     vim.o.shortmess = old .. 'F'
-        --     vim.cmd('silent! checktime | silent! edit!')
-        --     vim.o.shortmess = old
-        --   end)
+        -- local bufs = vim.api.nvim_list_bufs()
+        -- for _, b in ipairs(bufs) do
+        --   if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_is_loaded(b) and vim.bo[b].buflisted then
+        --     vim.api.nvim_buf_call(b, function()
+        --       local old = vim.o.shortmess
+        --       vim.o.shortmess = old .. 'F'
+        --       vim.cmd('silent! checktime | silent! edit!')
+        --       vim.o.shortmess = old
+        --     end)
+        --   end
         -- end
+
+        -- Refresh buffer lints viewport tracking maps
+        if vim.api.nvim_buf_is_valid(bufnr) then
+          vim.api.nvim_buf_call(bufnr, function()
+            local old = vim.o.shortmess
+            vim.o.shortmess = old .. 'F'
+            vim.cmd('silent! checktime | silent! edit!')
+            vim.o.shortmess = old
+          end)
+        end
 
       end)
       return -- Halts execution completely.
