@@ -247,6 +247,8 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
     active_file_blocked = caced_blocked.pckg_codes
   elseif check_file:find(OS.project_dir, 1, true) then
     active_file_blocked = caced_blocked.proj_codes
+  else
+    active_file_blocked = caced_blocked.proj_codes
   end
 
 
@@ -280,7 +282,7 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
   table.sort(registered_keys)
 
   local items = {}
-  -- 🟢 1. Dynamic check: Prepend "Reset All" if any items are currently blocked
+  -- Dynamic check: Prepend "Reset All" if any items are currently blocked
   if next(active_file_blocked) then
     table.insert(items, { action = 'reset', text = '💥 Reset All Filters' })
   end
@@ -317,6 +319,9 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
   }, function(choice)
     -- GATE 1: User pressed Escape or q. Save choices to disk exactly once!
     if not choice then
+      --Clean memory table safely without destroying the reference table pointer
+      for k in pairs(M.session_discovered_codes) do M.session_discovered_codes[k] = nil end
+
       vim.schedule(function()
         local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
         if (misc_ok and misc) then
@@ -331,19 +336,11 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
           -- Read precise mtime (sec + nsec) or lock in the current stat immediately!
           -- local stat = vim.uv.fs_stat(filter_db_path)
           -- M.cached_db_mtime = stat and (stat.mtime.sec + (stat.mtime.nsec or 0) / 1e9) or 0
+
+          -- Invalidate or refresh cache here so the getter reloads the new state
           M.cached_db_mtime = 0 -- Invalidate mtime cache
 
         end
-        -- local f = io.open(filter_db_path, 'wb')
-        -- if f then
-        --   f:write(require('nvimpio.utils.misc').jsonFormat(caced_blocked))
-        --   f:close()
-        --   -- 🟢 Invalidate or refresh cache here so the getter reloads the new state
-        --   M.cached_db_mtime = 0 -- Invalidate cache
-        -- end
-
-        --Clean memory table safely without destroying the reference table pointer
-        for k in pairs(M.session_discovered_codes) do M.session_discovered_codes[k] = nil end
 
         -- 1. Tell all running clangd clients that configuration changed
         for _, client in ipairs(vim.lsp.get_clients({ name = 'clangd' })) do
@@ -351,30 +348,18 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
             client.rpc.notify('workspace/didChangeConfiguration', { settings = {} })
           end
         end
-
         -- 2. Touch active buffers so clangd re-checks their diagnostics
-        -- local bufs = vim.api.nvim_list_bufs()
-        -- for _, b in ipairs(bufs) do
-        --   if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_is_loaded(b) and vim.bo[b].buflisted then
-        --     vim.api.nvim_buf_call(b, function()
-        --       local old = vim.o.shortmess
-        --       vim.o.shortmess = old .. 'F'
-        --       vim.cmd('silent! checktime | silent! edit!')
-        --       vim.o.shortmess = old
-        --     end)
-        --   end
-        -- end
-
-        -- Refresh buffer lints viewport tracking maps
-        if vim.api.nvim_buf_is_valid(bufnr) then
-          vim.api.nvim_buf_call(bufnr, function()
-            local old = vim.o.shortmess
-            vim.o.shortmess = old .. 'F'
-            vim.cmd('silent! checktime | silent! edit!')
-            vim.o.shortmess = old
-          end)
+        local bufs = vim.api.nvim_list_bufs()
+        for _, b in ipairs(bufs) do
+          if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_is_loaded(b) and vim.bo[b].buflisted then
+            vim.api.nvim_buf_call(b, function()
+              local old = vim.o.shortmess
+              vim.o.shortmess = old .. 'F'
+              vim.cmd('silent! checktime | silent! edit!')
+              vim.o.shortmess = old
+            end)
+          end
         end
-
       end)
       return -- Halts execution completely.
     end
@@ -404,7 +389,7 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
       choice.action = 'block' -- Flip item state string
     end
 
-    -- Dynamically recalculate choice.text so our live redraw engine can read it instantly
+    -- Format updated text string so Telescope's selection.display updates live in buffer
     if choice.id and choice.action ~= 'reset' then
       local is_blocked = active_file_blocked[choice.id] == true
       local mark = is_blocked and '[*]' or '[ ]'
@@ -412,7 +397,7 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
       choice.text = string.format('  %s %s Code: [%s]', mark, status, choice.id)
     end
     --------------------------------------------------------------------------------------------
-    -- 🟢 2. DYNAMIC RESET ROW SYNC:
+    -- 2. DYNAMIC RESET ROW SYNC:
     -- Ensure "Reset All Filters" dynamically appears when something is blocked, 
     -- or disappears when all filters are cleared.
     local has_blocked = next(active_file_blocked) ~= nil
