@@ -345,24 +345,17 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
         --Clean memory table safely without destroying the reference table pointer
         for k in pairs(M.session_discovered_codes) do M.session_discovered_codes[k] = nil end
 
-        -- Refresh buffer lints viewport tracking maps
-        -- if vim.api.nvim_buf_is_valid(bufnr) then
-        --   vim.api.nvim_buf_call(bufnr, function()
-        --     local old = vim.o.shortmess
-        --     vim.o.shortmess = old .. 'F'
-        --     vim.cmd('silent! checktime | silent! edit!')
-        --     vim.o.shortmess = old
-        --   end)
-        -- end
+        -- 1. Tell all running clangd clients that configuration changed
+        for _, client in ipairs(vim.lsp.get_clients({ name = 'clangd' })) do
+          if client.rpc and client.rpc.notify then
+            client.rpc.notify('workspace/didChangeConfiguration', { settings = {} })
+          end
+        end
 
+        -- 2. Touch active buffers so clangd re-checks their diagnostics
         local bufs = vim.api.nvim_list_bufs()
         for _, b in ipairs(bufs) do
-          -- Only target valid, currently loaded, listed file buffers
-          if vim.api.nvim_buf_is_valid(b)
-             and vim.api.nvim_buf_is_loaded(b)
-             and vim.bo[b].buflisted
-             and vim.bo[b].buftype == '' then
-
+          if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_is_loaded(b) and vim.bo[b].buflisted then
             vim.api.nvim_buf_call(b, function()
               local old = vim.o.shortmess
               vim.o.shortmess = old .. 'F'
@@ -372,6 +365,15 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
           end
         end
 
+        -- -- Refresh buffer lints viewport tracking maps
+        -- if vim.api.nvim_buf_is_valid(bufnr) then
+        --   vim.api.nvim_buf_call(bufnr, function()
+        --     local old = vim.o.shortmess
+        --     vim.o.shortmess = old .. 'F'
+        --     vim.cmd('silent! checktime | silent! edit!')
+        --     vim.o.shortmess = old
+        --   end)
+        -- end
 
       end)
       return -- Halts execution completely.
