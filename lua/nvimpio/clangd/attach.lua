@@ -22,7 +22,7 @@ function M.init(clangd)
 
       -- Get the human-readable filename for clean logs
       -- local filename = vim.fs.basename(vim.api.nvim_buf_get_name(bufnr)) or "Unknown"
-      local filename = OS.getBufFilename(bufnr)
+      local filename = vim.fs.basename(OS.getBufFilename(bufnr))
 
       -- print(string.format('Attaching %s to buffer %d (%s)', client.name, bufnr, filename))
       OS.notify(string.format('Attaching %s to buffer %d (%s)', client.name, bufnr, filename), OS.debug)
@@ -125,7 +125,8 @@ function M.init(clangd)
       if not client or client.name ~= 'clangd' then return end
 
       -- local filename = vim.fs.basename(vim.api.nvim_buf_get_name(bufnr)) or "Unknown"
-      local filename = OS.getBufFilename(bufnr)
+      local filename = vim.fs.basename(OS.getBufFilename(bufnr))
+
       -- print('Detaching ' .. client.name .. ' from buffer ' .. bufnr .. ' ' .. filename)
       OS.notify(string.format('Detaching %s from buffer %d (%s)', client.name, bufnr, filename), OS.debug)
     end,
