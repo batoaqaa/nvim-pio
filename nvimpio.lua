@@ -458,10 +458,10 @@ if tok then
 end
 
 local pioConfig = {
-  -- pio = {
-  --   pio_runtime_dir = '~/.platformio',
-  --   pio_storage_dir = '~/.platformio',
-  -- },
+  pio = {
+    pio_runtime_dir = '~/.platformio',
+    pio_storage_dir = '~/.platformio',
+  },
   clangd = {
     support = true, -- Master switch for PlatformIO LSP logic
     -- Configures attach integration behavior.
