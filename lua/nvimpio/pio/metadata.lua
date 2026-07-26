@@ -291,10 +291,8 @@ function M.updateProjectConfig()
       vim.cmd('redrawstatus')
     end)
   end
-
   -- If no file, initialize hash with defaults
   last_saved_hash = vim.fn.sha256(misc.jsonFormat(_pio_metadata))
-
 end
 
 -- ///////////////////// get_active_env /////////////////////
