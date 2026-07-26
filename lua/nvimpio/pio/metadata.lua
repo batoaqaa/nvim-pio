@@ -302,7 +302,7 @@ end
 -- 1. Helper: Converts raw string properties to numbers, string arrays, or defaults
 local function normalize_value(key, value)
   if not value or value == "" then
-    -- FIX 1: Enforce clean matching on 'envs$' without the rigid leading underscore crash blocker
+    -- Enforce clean matching on 'envs$' without the rigid leading underscore crash blocker
     if key:match("envs$") or key:match("_deps$") or key:match("_scripts$") or key:match("_filters$") or key:match("flags$") then
       return {}
     end
@@ -366,7 +366,35 @@ local function normalize_value(key, value)
   return tonumber(value) or value
 end
 
--- 2. Helper: Recursively interpolates ${platformio.core_dir} or ${this.board} tokens
+--2. Quote-safe and URL-safe inline comment stripper
+local function strip_inline_comment(str)
+  local in_quotes = false
+  local quote_char = nil
+
+  for i = 1, #str do
+    local char = str:sub(i, i)
+    if (char == '"' or char == "'") then
+      if not in_quotes then
+        in_quotes = true
+        quote_char = char
+      elseif char == quote_char then
+        in_quotes = false
+        quote_char = nil
+      end
+    elseif not in_quotes and (char == ';' or char == '#') then
+      -- Check if preceding character is whitespace or at boundary (standard INI comment)
+      local prev_char = i > 1 and str:sub(i - 1, i - 1) or ' '
+      if prev_char:match('%s') then
+        -- return vim.trim(str:sub(1, i - 1))
+        -- Strip ONLY trailing comments/whitespace, preserving leading indentation!
+        return (str:sub(1, i - 1):gsub("%s+$", ""))
+      end
+    end
+  end
+  return str
+end
+
+-- 3. Helper: Recursively interpolates ${platformio.core_dir} or ${this.board} tokens
 local function interpolate(text, current_env, pio_vars, base_env, raw_envs)
   if type(text) ~= "string" or not text:match("%$%{.-%}") then return text end
 
@@ -374,17 +402,23 @@ local function interpolate(text, current_env, pio_vars, base_env, raw_envs)
     if token:match("^platformio%.") then
       return pio_vars[token:gsub("^platformio%.", "")] or ""
     end
-    if token:match("^this%.") and current_env and raw_envs[current_env] then
-      local key = token:gsub("^this%.", "")
+
+    -- Support both ${this.key} and ${env.key} syntax
+    if (token:match("^this%.") or token:match("^env%.")) and current_env and raw_envs[current_env] then
+      local key = token:gsub("^this%.", ""):gsub("^env%.", "")
       return raw_envs[current_env][key] or base_env[key] or ""
     end
+    -- if token:match("^this%.") and current_env and raw_envs[current_env] then
+    --   local key = token:gsub("^this%.", "")
+    --   return raw_envs[current_env][key] or base_env[key] or ""
+    -- end
     return "${" .. token .. "}"
   end))
 
   return (resolved ~= text) and interpolate(resolved, current_env, pio_vars, base_env, raw_envs) or resolved
 end
 
--- 3. Pure Data Pipeline (Multiline & Indentation Aware)
+-- 4. Pure Data Pipeline (Multiline & Indentation Aware)
 function M.get_active_env(from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
   local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
@@ -412,16 +446,27 @@ function M.get_active_env(from)
     line = line:gsub('\r$', '') -- Strip carriage returns
 
     -- 1. Check if the line is purely a comment line BEFORE doing anything else
+    -- local is_pure_comment = line:match("^%s*[;#]") ~= nil
+    -- Preserve indentation check BEFORE stripping line whitespace!
+    local is_indented = line:match("^[ \t]+") ~= nil
     local is_pure_comment = line:match("^%s*[;#]") ~= nil
 
-    -- Filter out trailing inline comments safely
-    local comment_start = line:find('%s*[;#]')
-    if comment_start then
-      line = line:sub(1, comment_start - 1)
+    -- Quote-safe inline comment filter
+    if not is_pure_comment then
+      -- Strips comments only if NOT inside quotes
+      -- line = line:gsub("%s+[;#].*$", "")
+      line = strip_inline_comment(line)
     end
+    -- -- Filter out trailing inline comments safely
+    -- local comment_start = line:find('%s*[;#]')
+    -- if comment_start then
+    --   line = line:sub(1, comment_start - 1)
+    -- end
 
-    local trimmed = line:match('^%s*(.-)%s*$') or ""
-    local sec = trimmed:match('^%[(.+)%]$')
+    local trimmed = vim.trim(line)
+    -- local trimmed = line:match('^%s*(.-)%s*$') or ""
+    -- local sec = trimmed:match('^%[(.+)%]$')
+    local sec = trimmed:match('^%[([^%]]+)%]') -- Strict match section up to closing ']'
 
     if sec then
       current_sec = sec:gsub("%s", "") -- Normalize section name spaces
@@ -439,8 +484,12 @@ function M.get_active_env(from)
     -- 2. If it's a pure comment line, skip it completely but DO NOT clear last_key!
     -- This keeps the multiline bridge open for the build flags beneath it.
     elseif not is_pure_comment and current_sec and trimmed ~= '' then
-
-      local k, v = trimmed:match('^([%w_%-%.]+)%s*=%s*(.*)$')
+      -- CRITICAL MULTILINE CHECK: Key-value matching ONLY if line is NOT indented
+      -- local k, v = trimmed:match('^([%w_%-%.]+)%s*=%s*(.*)$')
+      local k, v
+      if not is_indented then
+        k, v = trimmed:match('^([%w_%-%.]+)%s*=%s*(.*)$')
+      end
 
       -- Enforce key rules: Keys cannot start with minus signs or numbers
       if k and k:match('^%a[%w_%-%.]*$') then
@@ -450,7 +499,7 @@ function M.get_active_env(from)
         elseif current_sec == 'env' then base_env[k] = v
         elseif current_sec:match('^env:') then
           local env_name = current_sec:match('^env:(.+)$')
-          if env_name then raw_envs[env_name][k] = v end
+          if env_name and raw_envs[env_name]  then raw_envs[env_name][k] = v end
         end
 
       -- 3. If it's a value block with no key match, map it to the active multi-line stack
@@ -470,7 +519,7 @@ function M.get_active_env(from)
         elseif current_sec == 'env' then base_env[last_key] = updated_val
         elseif current_sec:match('^env:') then
           local env_name = current_sec:match('^env:(.+)$')
-          if env_name then raw_envs[env_name][last_key] = updated_val end
+          if env_name and raw_envs[env_name]  then raw_envs[env_name][last_key] = updated_val end
         end
       end
     end
