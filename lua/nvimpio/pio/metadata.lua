@@ -173,6 +173,18 @@ _G.metadata = setmetatable({}, {
   end,
 })
 
+--- Safely get a nested value from an environment table
+--- @param meta table Parsed metadata from get_active_env
+--- @param env_name string Environment name (e.g. "esp32dev")
+--- @param key string Configuration key (e.g. "board")
+--- @param default any Fallback if env or key is missing
+function M.get_env_key(meta, env_name, key, default)
+  if not meta or not meta.envs or not env_name or not key then return default end
+  local env = meta.envs[env_name]
+  if not env or env[key] == nil then return default end
+  return env[key]
+end
+
 local project_root = OS.project_dir or vim.uv.cwd() or '.'
 project_root = vim.fs.normalize(project_root)
 local config_path = OS.project_config  --vim.fs.joinpath(project_root, '.nvimpio', '.project_config.json')
@@ -394,7 +406,9 @@ end
 
 -- 3. Helper: Recursively interpolates ${platformio.core_dir} or ${this.board} tokens
 local function interpolate(text, current_env, pio_vars, base_env, raw_envs)
-  if type(text) ~= "string" or not text:match("%$%{.-%}") then return text end
+  -- if type(text) ~= "string" or not text:match("%$%{.-%}") then return text end
+  -- Slightly more efficient alternative:
+  if type(text) ~= "string" or not text:find("%$%b{}") then return text end
 
   local resolved = (text:gsub("%$%{([^}]+)%}", function(token)
     if token:match("^platformio%.") then
@@ -416,7 +430,9 @@ local function interpolate(text, current_env, pio_vars, base_env, raw_envs)
   return (resolved ~= text) and interpolate(resolved, current_env, pio_vars, base_env, raw_envs) or resolved
 end
 
--- 4. Pure Data Pipeline (Multiline & Indentation Aware)
+--- 4. Get active environment from platformio.ini
+--- @param from string? Source identifier for logging
+--- @return string? target_env, table metadata
 function M.get_active_env(from)
   from = (type(from) == 'string' and from ~= '') and from or 'PIO: '
   local path = vim.fs.joinpath(vim.uv.cwd(), 'platformio.ini')
@@ -533,13 +549,15 @@ function M.get_active_env(from)
   -- =========================================================================
   local storage_fallback = require('nvimpio').config.pio_storage_dir or "~/.platformio"
 
-  pio_vars.core_dir = pcall(function()
-    return interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs)
-  end) and interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs) or storage_fallback
+  -- pio_vars.core_dir = pcall(function()
+  --   return interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs)
+  -- end) and interpolate(pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs) or storage_fallback
+  local pok, result = pcall(interpolate, pio_vars.core_dir or storage_fallback, nil, pio_vars, base_env, raw_envs)
+  pio_vars.core_dir = (pok and type(result) == "string" and result ~= "") and result or storage_fallback
 
   require('nvimpio').config.pio_storage_dir = pio_vars.core_dir
 
-  local metadata = {
+  local meta = {
     core_dir = pio_vars.core_dir,
     packages_dir = interpolate(pio_vars.packages_dir or "${platformio.core_dir}/packages", nil, pio_vars, base_env, raw_envs),
     platforms_dir = interpolate(pio_vars.platforms_dir or "${platformio.core_dir}/platforms", nil, pio_vars, base_env, raw_envs),
@@ -550,23 +568,23 @@ function M.get_active_env(from)
 
   -- Merge [env] defaults down into each specific profile block
   for env, locals in pairs(raw_envs) do
-    metadata.envs[env] = vim.tbl_deep_extend("force", base_env, locals)
-    for k, v in pairs(metadata.envs[env]) do
-      metadata.envs[env][k] = normalize_value(k, interpolate(v, env, pio_vars, base_env, raw_envs))
+    meta.envs[env] = vim.tbl_deep_extend("force", base_env, locals)
+    for k, v in pairs(meta.envs[env]) do
+      meta.envs[env][k] = normalize_value(k, interpolate(v, env, pio_vars, base_env, raw_envs))
     end
-    metadata.envs[env].extra_scripts = metadata.envs[env].extra_scripts or {}
+    meta.envs[env].extra_scripts = meta.envs[env].extra_scripts or {}
   end
 
   -- =========================================================================
   -- DETERMINISTIC TARGET RESOLUTION ENGINE
   -- =========================================================================
   local target = nil
-  local def_envs = metadata.default_envs
+  local def_envs = meta.default_envs
 
   -- RULE 1: Check live User Preference FIRST for LSP context consistency
   if _G.metadata and _G.metadata.active_env and _G.metadata.active_env ~= "" then
     local clean_active = vim.trim(tostring(_G.metadata.active_env)):gsub('\r$', '')
-    if metadata.envs[clean_active] then
+    if meta.envs[clean_active] then
       target = clean_active
     end
   end
@@ -577,7 +595,7 @@ function M.get_active_env(from)
     if type(def_envs) == 'table' then
       for _, name in ipairs(def_envs) do
         local clean_name = vim.trim(tostring(name)):gsub('\r$', '')
-        if metadata.envs[clean_name] then
+        if meta.envs[clean_name] then
           target = clean_name
           break
         end
@@ -585,7 +603,7 @@ function M.get_active_env(from)
     -- 2. If default_envs broke out as a raw single string, check it directly
     elseif type(def_envs) == 'string' then
       local clean_name = vim.trim(def_envs):gsub('\r$', '')
-      if metadata.envs[clean_name] then
+      if meta.envs[clean_name] then
         target = clean_name
       end
     end
@@ -597,7 +615,7 @@ function M.get_active_env(from)
   end
   -- =========================================================================
 
-  return target, metadata
+  return target, meta
 end
 -- ///////////////////// get_active_env /////////////////////
 
