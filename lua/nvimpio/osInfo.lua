@@ -207,14 +207,14 @@ local os_info = {
     -- return (name ~= "") and (vim.fs.basename(name) or "Unknown") or "[No Name]"
     return (name ~= "") and name or "[No Name]"
   end,
-} ---@as OS
+} --@as OS
 
 -- 3. If OS already exists (e.g. re-requiring), update and return it
-if _G.OS then
-  return _G.OS
-end
--- 4. Lock it down
-_G.OS = setmetatable(OS, {
+if _G.OS then return _G.OS end
+
+-- 4. Lock down global OS singleton
+local OS_target = {}
+_G.OS = setmetatable(OS_target, {
   __index = os_info,
   __newindex = function(_, key, value)
     if os_info[key] ~= nil then
