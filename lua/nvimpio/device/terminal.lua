@@ -187,15 +187,15 @@ function Terminal:on_create()
   -- 1. Create a pristine unlisted scratch buffer
   self.buf = vim.api.nvim_create_buf(false, true)
 
-  -- 2. Force the buffer to report unmodified status
-  vim.api.nvim_buf_set_option_value('modified', false, { buf = self.buf })
+  -- 2. Force the buffer to report unmodified status before jobstart
+  vim.api.nvim_set_option_value('modified', false, { buf = self.buf })
 
   local target_shell = M.config.shell or native_shell
   if type(target_shell) == 'table' then
     target_shell = target_shell.program or target_shell
   end
 
-  -- 3. Launch terminal BEFORE attaching custom buffer flags
+  -- 3. Launch terminal channel
   local channel_id = vim.fn.jobstart(target_shell, {
     term = true,
     term_buffer = self.buf,
@@ -212,7 +212,7 @@ function Terminal:on_create()
 
   self.job = (channel_id and channel_id > 0) and channel_id or nil
 
-  -- 4. Apply metadata, filetype, and settings AFTER jobstart succeeds
+  -- 4. Apply metadata, filetype, and settings AFTER jobstart attaches
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
 
