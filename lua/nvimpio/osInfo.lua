@@ -60,8 +60,8 @@ local pioConfigDir = vim.fs.joinpath(projectDir, '.pio')
 ---@field pioReady fun(local_pio_executable: string): boolean
 ---@field getBufFilename fun(bufnr: integer): string
 ---@type OS
-_G.OS = _G.OS or {}
-local OS = _G.OS ---@cast OS +OS
+-- _G.OS = _G.OS or {}
+-- local OS = _G.OS ---@cast OS +OS
 
 local _pioReady = false
 
@@ -95,7 +95,7 @@ local os_info = {
   nvimpio_config_dir = vim.fs.normalize(nvimpioConfigDir),
   pio_config_dir = vim.fs.normalize(pioConfigDir),
   nvimpio_env_dir = '',
-  shell = OS.is_win and {
+  shell = is_win and {
     'pwsh.exe',
     '-NoExit',
     '-NoLogo',
@@ -179,10 +179,21 @@ local os_info = {
   ---@param local_pio_executable string
   ---@return boolean
   pioReady = function(local_pio_executable)
-    _pioReady = false
-    if vim.fn.executable(local_pio_executable) ~= 1 then _pioReady = false end
-    local ok, obj = pcall(function() return vim.system({ local_pio_executable, '--version' }):wait() end)
-    if ok and obj and (obj.code == 0)  and obj.stdout:match("PlatformIO") then _pioReady = true end
+    if _pioReady then return true end
+    if vim.fn.executable(local_pio_executable) ~= 1 then return false end
+
+    local ok, obj
+    if vim.system then
+      ok, obj = pcall(function() return vim.system({ local_pio_executable, '--version' }):wait() end)
+      if ok and obj and (obj.code == 0) and obj.stdout:match("PlatformIO") then
+        _pioReady = true
+      end
+    else
+      local out = vim.fn.system({ local_pio_executable, '--version' })
+      if vim.v.shell_error == 0 and out:match("PlatformIO") then
+        _pioReady = true
+      end
+    end
     return _pioReady
   end,
 
@@ -198,8 +209,12 @@ local os_info = {
   end,
 } ---@as OS
 
--- 3. Lock it down
-setmetatable(OS, {
+-- 3. If OS already exists (e.g. re-requiring), update and return it
+if _G.OS then
+  return _G.OS
+end
+-- 4. Lock it down
+_G.OS = setmetatable(OS, {
   __index = os_info,
   __newindex = function(_, key, value)
     if os_info[key] ~= nil then
@@ -215,4 +230,5 @@ setmetatable(OS, {
   __metatable = false,
 })
 
-return OS
+return _G.OS
+-- stylua: ignore end
