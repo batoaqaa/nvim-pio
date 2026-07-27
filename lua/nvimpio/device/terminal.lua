@@ -192,13 +192,9 @@ function Terminal:on_create()
     target_shell = target_shell.program or target_shell
   end
 
-  -- 2. Execute jobstart inside the buffer context directly
+  -- 2. Use termopen inside nvim_buf_call to avoid "modified buffer" checks
   vim.api.nvim_buf_call(self.buf, function()
-    -- Ensure modified status is explicitly reset in buffer options
-    vim.bo[self.buf].modified = false
-
-    local channel_id = vim.fn.jobstart(target_shell, {
-      term = true,
+    local channel_id = vim.fn.termopen(target_shell, {
       on_stdout = function(j, d, e)
         self:on_stdout(j, d, e)
       end,
@@ -213,7 +209,7 @@ function Terminal:on_create()
     self.job = (channel_id and channel_id > 0) and channel_id or nil
   end)
 
-  -- 3. Set filetype & options AFTER terminal is attached
+  -- 3. Set filetype & options AFTER terminal channel attaches
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
 
