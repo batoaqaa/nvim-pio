@@ -1,11 +1,9 @@
---- stylua: ignore start
+-- stylua: ignore start
 -- nvimpio/device/terminal.lua - Part 1
 
 local M = {}
 
 -- 1. INSULATED TYPE ALIGNMENT MATCH MATRIX
--- local native_shell = OS.shell
--- local native_eol = OS.eol
 local OS = _G.OS or (pcall(require, 'nvimpio.osInfo') and _G.OS or {})
 local native_shell = OS.shell or (vim.fn.has('win32') == 1 and 'pwsh' or 'sh')
 local native_eol = OS.eol or '\n'
@@ -124,16 +122,12 @@ function M.RestoreWorkspaceFocus()
         and ft ~= 'aerial'
         and ft ~= 'pio_workspace'
         and not ft:match('^terminal_')
-      then
-        target_win = win
-        break
+      then target_win = win break
       end
     end
   end
 
-  if target_win then
-    vim.api.nvim_set_current_win(target_win)
-  end
+  if target_win then vim.api.nvim_set_current_win(target_win) end
 end
 
 -- nvimpio/device/terminal.lua - Part 2
@@ -195,15 +189,9 @@ function Terminal:on_create()
   -- 2. Use termopen inside nvim_buf_call to avoid "modified buffer" checks
   vim.api.nvim_buf_call(self.buf, function()
     local channel_id = vim.fn.termopen(target_shell, {
-      on_stdout = function(j, d, e)
-        self:on_stdout(j, d, e)
-      end,
-      on_stderr = function(j, d, e)
-        self:on_stderr(j, d, e)
-      end,
-      on_exit = function()
-        self:on_exit()
-      end,
+      on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
+      on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
+      on_exit = function() self:on_exit() end,
     })
 
     self.job = (channel_id and channel_id > 0) and channel_id or nil
@@ -213,49 +201,13 @@ function Terminal:on_create()
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
 
-  pcall(function()
-    vim.b[self.buf].bufferline_deny = true
-  end)
+  pcall(function() vim.b[self.buf].bufferline_deny = true end)
 
   vim.b[self.buf].pio_term_type = self.term_type
 
   self:_register_viewport_mappings()
   self:_register_viewport_bindings()
 end
--- function Terminal:on_create()
---   self.buf = vim.api.nvim_create_buf(false, true)
---
---   vim.api.nvim_buf_call(self.buf, function()
---     local target_shell = M.config.shell or native_shell
---     if type(target_shell) == 'table' then
---       target_shell = target_shell.program or (OS.is_win and 'pwsh' or 'sh')
---     end
---
---     local channel_id = vim.fn.termopen(target_shell, {
---       on_stdout = function(j, d, e)
---         self:on_stdout(j, d, e)
---       end,
---       on_stderr = function(j, d, e)
---         self:on_stderr(j, d, e)
---       end,
---       on_exit = function()
---         self:on_exit()
---       end,
---     })
---     self.job = (channel_id and channel_id > 0) and channel_id or nil
---   end)
---
---   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
---   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
---   pcall(function()
---     vim.b[self.buf].bufferline_deny = true
---   end)
---
---   vim.b[self.buf].pio_term_type = self.term_type
---
---   self:_register_viewport_mappings()
---   self:_register_viewport_bindings()
--- end
 
 -- nvimpio/device/terminal.lua - Part 3
 
@@ -266,21 +218,14 @@ function Terminal:send(command)
   local cmd_str = tostring(command or '')
   local original_work_win = vim.api.nvim_get_current_win()
 
-  if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then
-    self:on_create()
-  end
+  if not self.buf or not vim.api.nvim_buf_is_valid(self.buf) then self:on_create() end
 
   if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) or M.layout.active_type ~= self.term_type then
     M.show(self.term_type)
   end
 
-  if not self.job or self.job <= 0 then
-    return
-  end
-
-  if cmd_str ~= '' and not cmd_str:match('^%s') then
-    cmd_str = ' ' .. cmd_str
-  end
+  if not self.job or self.job <= 0 then return end
+  if cmd_str ~= '' and not cmd_str:match('^%s') then cmd_str = ' ' .. cmd_str end
 
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
@@ -320,9 +265,7 @@ end
 ---@param d string[] Sequential raw array list data sequence strings representing line entries
 ---@param e string String descriptor tracking stream execution types (e.g. 'stderr')
 ---@return nil
-function Terminal:on_stderr(j, d, e)
-  self:on_stdout(j, d, e)
-end
+function Terminal:on_stderr(j, d, e) self:on_stdout(j, d, e) end
 
 --- System framework listener hook executed instantly when the underlying platform process channel closes or terminates
 ---@return nil
@@ -330,9 +273,7 @@ function Terminal:on_exit()
   local cb = self._on_next_exit
   self._on_next_exit = nil
 
-  if cb ~= nil and type(cb) == 'function' then
-    cb()
-  end
+  if cb ~= nil and type(cb) == 'function' then cb() end
   M.UpdateWinbarTitles()
 end
 
@@ -502,9 +443,7 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   end
 
   local current_count = 0
-  for _ in pairs(M.terminals) do
-    current_count = current_count + 1
-  end
+  for _ in pairs(M.terminals) do current_count = current_count + 1 end
 
   M.terminals[name] = Terminal.new(name, title, final_filetype, final_cb)
   M.terminals[name]._creation_index = current_count + 1
@@ -523,9 +462,7 @@ function M.show(term_type)
     term_type = next(M.terminals)
   end
   local target_instance = M.terminals[term_type]
-  if not target_instance then
-    return
-  end
+  if not target_instance then return end
 
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
