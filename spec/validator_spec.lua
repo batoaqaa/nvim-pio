@@ -2,14 +2,14 @@
 -- Save this file as: spec/validator_spec.lua
 
 -- Initialize global environment natively by importing OS module layout
-require('nvimpio.osInfo')
-local OS = _G.OS ---@cast OS +OS
+-- require('nvimpio.osInfo')
+-- local OS = _G.OS ---@cast OS +OS
 
--- Require modules under test
+-- Require modules under test (Adjust paths if files are in subfolders)
 local M = require('nvimpio')
-local defConfig = require('nvimpio.config.defConfig') -- Path to your defConfig.lua
-local validator = require('nvimpio.config.validator') -- Path to your validator.lua
-local menu = require('nvimpio.config.menu') -- Path to your menu.lua
+local defConfig = require('nvimpio.defConfig')
+local validator = require('nvimpio.validator')
+local menu = require('nvimpio.menu')
 
 describe('PlatformIO Configuration & Validation System', function()
   before_each(function()
