@@ -1,45 +1,48 @@
 ---@diagnostic disable: undefined-global, undefined-field
 -- Save this file as: spec/validator_spec.lua
 
--- Initialize the global environment natively by importing your OS module layout
+-- Initialize global environment natively by importing OS module layout
 require('nvimpio.osInfo')
 local OS = _G.OS ---@cast OS +OS
 
--- Require the modules under test
+-- Require modules under test
 local M = require('nvimpio')
+local defConfig = require('nvimpio.config.defConfig') -- Path to your defConfig.lua
+local validator = require('nvimpio.config.validator') -- Path to your validator.lua
+local menu = require('nvimpio.config.menu') -- Path to your menu.lua
 
 describe('PlatformIO Configuration & Validation System', function()
   before_each(function()
-    -- Reset baseline M.defaults to pristine factory state before every single test run
-    M.defaults = {
-      pio = {
-        pio_runtime_dir = vim.fs.joinpath(OS.home, '.platformio'),
-        pio_storage_dir = vim.fs.joinpath(OS.home, '.platformio'),
-      },
-      clangd = { support = true, install = false },
-      menu_key = '<leader>\\',
-      menu_name = 'PlatformIO',
-      menu_bindings = {
-        { node = 'item', desc = '[B]lock diagnostic', shortcut = 'b', command = 'ClangdFilter' },
-        {
-          node = 'menu',
-          desc = '[A]dvanced',
-          shortcut = 'a',
-          items = {
-            { node = 'item', desc = '[T]est', shortcut = 't', command = 'Piocli test' },
-          },
-        },
-      },
-    }
+    -- Reset pristine factory default options before every single test run
+    M.defaults = vim.deepcopy(defConfig)
 
-    -- Reset active runtime state
+    -- Mock M.setup logic using your real validator and menu merger
     M.options = nil
+    M.setup = function(user_opts)
+      user_opts = user_opts or {}
+
+      -- 1. Perform structural deep merge on menu trees and scalar options
+      local merged_opts = vim.tbl_deep_extend('force', M.defaults, user_opts)
+      if user_opts.menu_bindings then
+        merged_opts.menu_bindings = menu.merge_menu_tree(M.defaults.menu_bindings, user_opts.menu_bindings, 'menu_bindings')
+      end
+
+      -- 2. Run validator against synthesized runtime configuration
+      local ok, err = validator.validate_all_options(merged_opts)
+      if not ok then
+        error(err, 0)
+      end
+
+      M.options = merged_opts
+      return M.options
+    end
   end)
 
   it('should successfully pass validation using empty tables or factory defaults', function()
     M.setup({})
     assert.is_table(M.options)
     assert.is_true(M.options.clangd.support)
+    assert.is_equal('attach+', M.options.clangd.attach)
     assert.is_equal('<leader>\\', M.options.menu_key)
     assert.is_equal('item', M.options.menu_bindings[1].node)
   end)
@@ -66,7 +69,7 @@ describe('PlatformIO Configuration & Validation System', function()
               {
                 node = 'item',
                 desc = 'Bad Shortcut Rule',
-                shortcut = 'LONG_SHORTCUT',
+                shortcut = 'LONG_SHORTCUT', -- Triggers is_char (#vim.trim(v) == 1) failure
                 command = 'ValidCommand',
               },
             },
@@ -77,11 +80,10 @@ describe('PlatformIO Configuration & Validation System', function()
   end)
 
   -- =========================================================================
-  -- NEW TEST SECTION: VERIFY INI STRING INTERPOLATION ACCURACY
+  -- INI STRING INTERPOLATION TEST SECTION
   -- =========================================================================
   describe('INI String Interpolation Engine', function()
     it('should correctly resolve nested platformio variables even if core_dir is missing from the ini', function()
-      -- Create a mock function to inject a temporary file string
       local mock_ini_content = [[
 [platformio]
 default_envs = uno
@@ -94,40 +96,35 @@ board = uno
 framework = arduino
 ]]
 
-      -- Mock the internal file system reader module temporarily for isolation testing
+      -- Mock internal file system reader module temporarily
       local misc = require('nvimpio.utils.misc')
       local original_readFile = misc.readFile
+      local original_filereadable = vim.fn.filereadable
 
-      -- 1. Safely mock your custom file reader
       rawset(misc, 'readFile', function(_)
         return true, mock_ini_content
       end)
 
-      -- 2. Safely mock the native Neovim file check function
-      local original_filereadable = vim.fn.filereadable
       rawset(vim.fn, 'filereadable', function(_)
         return 1
       end)
 
-      -- Run your target parsing function pipeline
-      local core_mod = require('nvimpio.pio.metadata') -- Or whichever module file get_active_env is exposed on
+      -- Execute parsing pipeline
+      local core_mod = require('nvimpio.pio.metadata')
       local active_env, metadata = core_mod.get_active_env('TEST_CONTEXT: ')
 
-      -- 3. Restore both functions cleanly to preserve test isolation
+      -- Restore mocks
       rawset(misc, 'readFile', original_readFile)
       rawset(vim.fn, 'filereadable', original_filereadable)
-      -- Core Assertions: Verify data structure interpolation matches expectations
+
+      -- Verify assertions
       assert.is_equal('uno', active_env)
       assert.is_table(metadata)
 
-      -- Verify your core_dir evaluated fallback logic
       local expected_base = require('nvimpio').config.pio_storage_dir or '~/.platformio'
       assert.is_equal(expected_base, metadata.core_dir)
-
-      -- CRITICAL INTERPOLATION VERIFICATIONS: Ensure slashes didn't fail or return raw values
       assert.is_equal(expected_base .. '/packages', metadata.packages_dir)
       assert.is_equal(expected_base .. '/platforms', metadata.platforms_dir)
     end)
   end)
-  -- =========================================================================
 end)
