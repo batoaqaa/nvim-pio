@@ -6,7 +6,7 @@ local function is_str(v)
 end
 
 local function is_char(v)
-  return is_str(v) and #vim.trim(v) == 1
+  return type(v) == 'string' and vim.fn.strchars(v) == 1
 end
 
 -- Validates structural item elements recursively
@@ -65,7 +65,7 @@ function M.validate_all_options(opt)
 
     -- Lock validation exactly down to your three string strategies
     local allowed_modes = { ['attach+'] = true, ['attach'] = true, ['none'] = true }
-    if not allowed_modes[clangd.attach] then
+    if not clangd.attach or not allowed_modes[clangd.attach] then
       error(
         '\n[NVIM-PIO] Configuration Error:\n'
           .. "'clangd.attach' must be exactly 'attach+', 'attach', or 'none'.\n"

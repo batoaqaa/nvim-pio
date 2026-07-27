@@ -59,22 +59,21 @@ function M.buildUserMenu(config)
     return
   end
 
+  -- Safely require which-key without crashing Neovim profiles lacking it
+  local ok, wk = pcall(require, 'which-key')
+  if not ok then
+    return
+  end
+
   local icon = { icon = '  ', color = 'orange' } -- Assign platformio orange icon
   local wk_table = {}
-
-  -- =========================================================================
-  -- LEADER EXPANSION LAYER: Resolves string compilation conflicts
-  -- =========================================================================
   local base_key = config.menu_key
-  if base_key:sub(1, 8):lower() == '<leader>' then
-    local map_leader = vim.g.mapleader or ' '
-    base_key = map_leader .. base_key:sub(9)
-  end
 
   -- Flat traversal parser building clean, static absolute paths
   local function traverseMenu(menu, wkey)
     for _, child_node in ipairs(menu or {}) do
-      local current_key = wkey .. child_node.shortcut
+      local shortcut = child_node.shortcut or ''
+      local current_key = wkey .. shortcut
       if child_node.node == 'menu' then
         table.insert(wk_table, { current_key, group = child_node.desc, icon = icon })
         traverseMenu(child_node.items, current_key)
@@ -87,12 +86,6 @@ function M.buildUserMenu(config)
         })
       end
     end
-  end
-
-  -- Safely require which-key without crashing Neovim profiles lacking it
-  local ok, wk = pcall(require, 'which-key')
-  if not ok then
-    return
   end
 
   -- 1. Register the parent group banner mapping definition
