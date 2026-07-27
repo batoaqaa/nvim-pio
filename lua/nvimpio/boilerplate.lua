@@ -84,7 +84,7 @@ boilerplate['.clangdConfig.json'] = {
     "clangd",
     "--enable-config",
     "--background-index",
-    "-j=4",
+    "-j=%s",
     "--pch-storage=memory",
     "--clang-tidy",
     "--all-scopes-completion",

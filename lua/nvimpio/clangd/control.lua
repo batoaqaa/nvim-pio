@@ -5,6 +5,35 @@ local boilerplate = require('nvimpio.boilerplate')
 local boilerplate_gen = boilerplate.boilerplate_gen
 local has_pio_diag, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
 
+--- Calculates the ideal clangd worker thread count (-j flag)
+--- Cross-platform (Linux, macOS, Windows) with defensive fallback handling.
+--- @param mode? "balanced"|"aggressive"|"light" (Defaults to "balanced")
+--- @return number j_flag
+local function get_ideal_clangd_j(mode)
+  mode = mode or "balanced"
+  -- 1. Safely query system threads without risking C-level exceptions
+  local total_threads = 8 -- Safe fallback default
+  local uv = vim.uv or vim.loop
+  if uv then
+    local get_threads = uv.available_parallelism or function()
+      local cpus = uv.cpu_info and uv.cpu_info()
+      return (cpus and #cpus > 0) and #cpus or nil
+    end
+    local ok, result = pcall(get_threads)
+    if ok and type(result) == "number" and result > 0 then total_threads = result end
+  end
+  -- 2. On single/dual-core machines, never over-subscribe
+  if total_threads <= 2 then return 1 end
+  -- 3. Calculate target scaling
+  local target_threads
+  if mode == "aggressive" then target_threads = math.floor(total_threads * 0.75)
+  elseif mode == "light" then target_threads = math.floor(total_threads * 0.33)
+  -- "balanced" (default): ~50% logical cores ≈ physical core target
+  else target_threads = math.floor(total_threads * 0.5) end
+  -- 4. Clamp between min (2) and max (12) for multi-core systems
+  return math.max(2, math.min(12, target_threads))
+end
+local j_threads = get_ideal_clangd_j("balanced")
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
@@ -336,12 +365,12 @@ function M.getClangdConfig()
   -- local formatted_fallbackFlags = { '"-std=c++17"', '"-ferror-limit=0"' }  -- cxx std=c==17 + response file
   local _, count = json_config:gsub('%%s', '')
   -- Only use string.format if there is one or less %s
-  if count <= 2 then
+  if count <= 3 then
     -- merged_json = string.format(json_config or '', q_driver)
     -- merged_json = string.format(json_config or '', OS.project_dir, q_driver, table.concat(formatted_fallbackFlags, ','))
     -- local dbPath = vim.fs.joinpath(OS.nvimpio_config_dir, _G.metadata.active_env)
     local dbPath = OS.project_dir
-    merged_json = string.format(json_config or '', normalize_absolute_path(dbPath), q_driver)
+    merged_json = string.format(json_config or '', j_threads, normalize_absolute_path(dbPath), q_driver)
     -- merged_json = string.format(json_config or '', OS.nvimpio_config_dir, q_driver)
   end
 
