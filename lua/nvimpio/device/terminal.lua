@@ -187,32 +187,33 @@ function Terminal:on_create()
   -- 1. Create a pristine unlisted scratch buffer
   self.buf = vim.api.nvim_create_buf(false, true)
 
-  -- 2. Force the buffer to report unmodified status before jobstart
-  vim.api.nvim_set_option_value('modified', false, { buf = self.buf })
-
   local target_shell = M.config.shell or native_shell
   if type(target_shell) == 'table' then
     target_shell = target_shell.program or target_shell
   end
 
-  -- 3. Launch terminal channel
-  local channel_id = vim.fn.jobstart(target_shell, {
-    term = true,
-    term_buffer = self.buf,
-    on_stdout = function(j, d, e)
-      self:on_stdout(j, d, e)
-    end,
-    on_stderr = function(j, d, e)
-      self:on_stderr(j, d, e)
-    end,
-    on_exit = function()
-      self:on_exit()
-    end,
-  })
+  -- 2. Execute jobstart inside the buffer context directly
+  vim.api.nvim_buf_call(self.buf, function()
+    -- Ensure modified status is explicitly reset in buffer options
+    vim.bo[self.buf].modified = false
 
-  self.job = (channel_id and channel_id > 0) and channel_id or nil
+    local channel_id = vim.fn.jobstart(target_shell, {
+      term = true,
+      on_stdout = function(j, d, e)
+        self:on_stdout(j, d, e)
+      end,
+      on_stderr = function(j, d, e)
+        self:on_stderr(j, d, e)
+      end,
+      on_exit = function()
+        self:on_exit()
+      end,
+    })
 
-  -- 4. Apply metadata, filetype, and settings AFTER jobstart attaches
+    self.job = (channel_id and channel_id > 0) and channel_id or nil
+  end)
+
+  -- 3. Set filetype & options AFTER terminal is attached
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
 
