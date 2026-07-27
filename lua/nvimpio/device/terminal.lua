@@ -4,8 +4,11 @@
 local M = {}
 
 -- 1. INSULATED TYPE ALIGNMENT MATCH MATRIX
-local native_shell = OS.shell
-local native_eol = OS.eol
+-- local native_shell = OS.shell
+-- local native_eol = OS.eol
+local OS = _G.OS or (pcall(require, 'nvimpio.osInfo') and _G.OS or {})
+local native_shell = OS.shell or (vim.fn.has('win32') == 1 and 'pwsh' or 'sh')
+local native_eol = OS.eol or '\n'
 
 ---@class TerminalKeymaps Specification mapping for all interface operations
 ---@field hide_pane string Action shortcut to hide the window panel split layout frame
@@ -183,25 +186,27 @@ end
 function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
 
-  vim.api.nvim_buf_call(self.buf, function()
-    local target_shell = M.config.shell or native_shell
-    if type(target_shell) == 'table' then
-      target_shell = target_shell.program or (OS.is_win and 'pwsh' or 'sh')
-    end
+  local target_shell = M.config.shell or native_shell
+  if type(target_shell) == 'table' then
+    target_shell = target_shell.program or target_shell
+  end
 
-    local channel_id = vim.fn.termopen(target_shell, {
-      on_stdout = function(j, d, e)
-        self:on_stdout(j, d, e)
-      end,
-      on_stderr = function(j, d, e)
-        self:on_stderr(j, d, e)
-      end,
-      on_exit = function()
-        self:on_exit()
-      end,
-    })
-    self.job = (channel_id and channel_id > 0) and channel_id or nil
-  end)
+  -- Modern jobstart execution in terminal mode
+  local channel_id = vim.fn.jobstart(target_shell, {
+    term = true,
+    term_buffer = self.buf,
+    on_stdout = function(j, d, e)
+      self:on_stdout(j, d, e)
+    end,
+    on_stderr = function(j, d, e)
+      self:on_stderr(j, d, e)
+    end,
+    on_exit = function()
+      self:on_exit()
+    end,
+  })
+
+  self.job = (channel_id and channel_id > 0) and channel_id or nil
 
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
@@ -214,6 +219,40 @@ function Terminal:on_create()
   self:_register_viewport_mappings()
   self:_register_viewport_bindings()
 end
+-- function Terminal:on_create()
+--   self.buf = vim.api.nvim_create_buf(false, true)
+--
+--   vim.api.nvim_buf_call(self.buf, function()
+--     local target_shell = M.config.shell or native_shell
+--     if type(target_shell) == 'table' then
+--       target_shell = target_shell.program or (OS.is_win and 'pwsh' or 'sh')
+--     end
+--
+--     local channel_id = vim.fn.termopen(target_shell, {
+--       on_stdout = function(j, d, e)
+--         self:on_stdout(j, d, e)
+--       end,
+--       on_stderr = function(j, d, e)
+--         self:on_stderr(j, d, e)
+--       end,
+--       on_exit = function()
+--         self:on_exit()
+--       end,
+--     })
+--     self.job = (channel_id and channel_id > 0) and channel_id or nil
+--   end)
+--
+--   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
+--   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
+--   pcall(function()
+--     vim.b[self.buf].bufferline_deny = true
+--   end)
+--
+--   vim.b[self.buf].pio_term_type = self.term_type
+--
+--   self:_register_viewport_mappings()
+--   self:_register_viewport_bindings()
+-- end
 
 -- nvimpio/device/terminal.lua - Part 3
 
@@ -404,10 +443,20 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 
+  -- vim.api.nvim_create_autocmd('WinClosed', {
+  --   group = group_id,
+  --   callback = function()
+  --     local closed_win = tonumber(vim.fn.expand('<amatch>'))
+  --     if closed_win == M.layout.container_win then
+  --       M.layout.container_win = nil
+  --       M.layout.active_type = nil
+  --     end
+  --   end,
+  -- })
   vim.api.nvim_create_autocmd('WinClosed', {
     group = group_id,
-    callback = function()
-      local closed_win = tonumber(vim.fn.expand('<amatch>'))
+    callback = function(args)
+      local closed_win = tonumber(args.match)
       if closed_win == M.layout.container_win then
         M.layout.container_win = nil
         M.layout.active_type = nil
@@ -639,7 +688,7 @@ function M.reopen()
   M.create_terminal('mon', ' Monitor ', nil)
   M.create_terminal('logs', ' OS ', nil)
 end
-M.reopen()
+-- M.reopen()
 ----------------------------------------------------------------------------------------
 
 setmetatable(M, {

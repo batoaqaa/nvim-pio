@@ -103,9 +103,14 @@ local os_info = {
     '-ExecutionPolicy', 'Bypass',
     '-Command', '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;'
   } or (function()
-    local default_shell = vim.api.nvim_get_option_value('shell', {})
-    if default_shell:find('zsh') then return { default_shell, '-f' } end
-    return default_shell
+    local default_shell = vim.o.shell
+    if default_shell and default_shell ~= '' then
+      return default_shell
+    end
+    return is_mac and '/bin/zsh' or '/bin/bash'
+    -- local default_shell = vim.api.nvim_get_option_value('shell', {})
+    -- if default_shell:find('zsh') then return { default_shell, '-f' } end
+    -- return default_shell
   end)(),
 
   ---@param msg string The message to display
