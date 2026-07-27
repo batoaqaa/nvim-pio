@@ -34,6 +34,7 @@ local function get_ideal_clangd_j(mode)
   return math.max(2, math.min(12, target_threads))
 end
 local j_threads = get_ideal_clangd_j("balanced")
+
 ----------------------------------------------------------------------------------------
 -- INFO: configure clangd lsp server
 -----------------------------------------------------------------------------------------
