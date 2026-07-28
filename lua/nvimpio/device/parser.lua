@@ -152,13 +152,23 @@ M.run_sequence = function(tasks)
       ------------------------------------------------------
 
       require('nvimpio.device.terminal').stdout_callback = M.stdoutcallback
-      cliTerm = require('nvimpio.device.terminal').cli
-      -- cliTerm = require('nvimpio.device.terminal').terminals.cli
-      -- cliTerm = require('nvimpio.device.terminal').PioTerminal("", "cli")
+      if not cliTerm then
+        local terminal = require('nvimpio.device.terminal')
+        -- cliTerm = terminal.terminals['cli'] or terminal.cli
+        terminal.reopen()
+      end
+      if cliTerm then
         _G.isBusy = true
-        -- if require('nvimpio').is_active then _G.isBusy = true end
         cliTerm:show()
         callBack('INIT')
+      end
+      -- cliTerm = require('nvimpio.device.terminal').cli
+      -- -- cliTerm = require('nvimpio.device.terminal').terminals.cli
+      -- -- cliTerm = require('nvimpio.device.terminal').PioTerminal("", "cli")
+      --   _G.isBusy = true
+      --   -- if require('nvimpio').is_active then _G.isBusy = true end
+      --   cliTerm:show()
+      --   callBack('INIT')
     end)
   end
 end
