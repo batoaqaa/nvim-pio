@@ -154,8 +154,8 @@ M.run_sequence = function(tasks)
       require('nvimpio.device.terminal').stdout_callback = M.stdoutcallback
       if not cliTerm then
         local terminal = require('nvimpio.device.terminal')
-        -- cliTerm = terminal.terminals['cli'] or terminal.cli
-        cliTerm = terminal.terminals['cli'] or terminal.cli or terminal.create_terminal('cli', ' CLI ', nil)
+        cliTerm = terminal.terminals['cli'] or terminal.cli
+        -- cliTerm = terminal.terminals['cli'] or terminal.cli or terminal.create_terminal('cli', ' CLI ', nil)
         -- terminal.reopen()
       end
       if cliTerm then

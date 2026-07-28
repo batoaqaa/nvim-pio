@@ -628,7 +628,7 @@ function M.reopen()
   M.create_terminal('mon', ' Monitor ', nil)
   M.create_terminal('logs', ' OS ', nil)
 end
--- M.reopen()
+M.reopen()
 ----------------------------------------------------------------------------------------
 
 setmetatable(M, {
