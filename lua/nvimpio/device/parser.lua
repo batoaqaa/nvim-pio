@@ -155,7 +155,8 @@ M.run_sequence = function(tasks)
       if not cliTerm then
         local terminal = require('nvimpio.device.terminal')
         -- cliTerm = terminal.terminals['cli'] or terminal.cli
-        terminal.reopen()
+        cliTerm = terminal.terminals['cli'] or terminal.cli or terminal.create_terminal('cli', ' CLI ', nil)
+        -- terminal.reopen()
       end
       if cliTerm then
         _G.isBusy = true
