@@ -27,6 +27,7 @@ local pioConfigDir = vim.fs.joinpath(projectDir, '.pio')
 
 local _pioReady = false
 local _pioVersion = ''
+local _pioCmd = ''
 
 ---@class OS
 ---@field name "windows"|"macos"|"linux"
@@ -63,6 +64,7 @@ local _pioVersion = ''
 ---@field preparePOSIXPathPattern fun(raw_path: string): string
 ---@field prepareLuaEscapePattern fun(raw: string): string
 ---@field pioReady fun(local_pio_executable: string): boolean
+---@field pioCmd fun(): string
 ---@field getBufFilename fun(bufnr: integer): string
 ---@type OS
 
@@ -85,7 +87,7 @@ local os_info = {
   cache_dir = vim.fn.stdpath('cache'),
   bin_dir = is_win and "Scripts" or "bin",
   pio_version = function () return(_pioVersion) end,
-  pio_cmd = "",
+  pioCmd = function () return(_pioCmd) end,
   project_dir = vim.fs.normalize(projectDir),
   clangd_filter = '.clangdFilter.json',
   clangd_config = vim.fs.joinpath(nvimpioConfigDir, '.clangdConfig.json'),
@@ -194,17 +196,19 @@ pioReady = function(local_pio_executable, force_check)
   if not local_pio_executable or local_pio_executable == '' then
     _pioReady = false
     _pioVersion = ''
+    _pioCmd = ''
     return false
   end
 
   if vim.fn.executable(local_pio_executable) ~= 1 then
     _pioReady = false
     _pioVersion = ''
+    _pioCmd = ''
     return false
   end
 
   local is_ready = false
-  local version = nil
+  local version = ''
 
   if vim.system then
     local ok, obj = pcall(function()
@@ -229,6 +233,7 @@ pioReady = function(local_pio_executable, force_check)
   end
 
   _pioReady = is_ready
+  _pioCmd = is_ready and local_pio_executable or ''
   _pioVersion = version  -- Cache the version too
   return is_ready
 end,
@@ -278,8 +283,6 @@ _G.OS = setmetatable(OS_target, {
     if os_info[key] ~= nil then
       if os_info[key] == value then return end -- Performance check
       if key == 'nvimpio_env_dir' then
-        os_info[key] = value
-      elseif key == 'pio_cmd' then
         os_info[key] = value
       end
     else

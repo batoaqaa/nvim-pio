@@ -113,7 +113,6 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   if verified then
     main.config.pio_runtime_dir = resolved_runtime_dir
     main.config.pio_storage_dir = resolved_storage_dir
-    OS.pio_cmd = local_pio_executable
 
     if resolved_storage_dir and vim.fn.isdirectory(resolved_storage_dir) == 0 then vim.fn.mkdir(resolved_storage_dir, "p") end
     setPenvBinPath(resolved_runtime_dir)

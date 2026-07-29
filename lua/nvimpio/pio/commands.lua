@@ -116,7 +116,6 @@ cmd('PioInstall', function()
   local function install()
     require('nvimpio.pio.ui.pioInstall').pioInstall(base_runtime, function (status)
       if(status) then
-        -- OS.notify('PIO install: ' .. (OS.pioReady(local_pio_executable, true) and 'success' or 'failed'))
         OS.notify('PIO install: ' .. (OS.pioReady('pio', true) and 'success' or 'failed'))
         -- OS.notify("PIO installed successfully")
       end
