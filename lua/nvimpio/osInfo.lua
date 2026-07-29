@@ -214,8 +214,7 @@ pioReady = function(local_pio_executable, force_check)
       local output = ((obj.stdout or '') .. (obj.stderr or '')):gsub('^%s+', '')
       if output:find('PlatformIO') and output:find('%d+%.%d+') then
         is_ready = true
-        version = output:match('[^\n]+') or 'unknown'
-        print(version)
+        version = vim.trim(output:match('[^\n]+') or 'unknown')
       end
     end
   else
