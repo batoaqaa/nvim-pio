@@ -111,16 +111,16 @@ cmd('PioInstall', function()
   local base_runtime = raw_runtime_dir
   local bin_subfolder = OS.is_win and 'Scripts' or 'bin'
   local target_bin = vim.fs.joinpath(base_runtime, 'penv', bin_subfolder)
+  local local_pio_executable = vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio'))
 
   local function install()
     require('nvimpio.pio.ui.pioInstall').pioInstall(base_runtime, function (status)
       if(status) then
-        OS.notify('PIO install: ' .. (OS.pioReady('pio', true) and ' success' or ' failed'), OS.debug)
+        OS.notify('PIO install: ' .. (OS.pioReady(local_pio_executable, true) and ' success' or ' failed'), OS.debug)
         -- OS.notify("PIO installed successfully")
       end
     end)
   end
-  local local_pio_executable = vim.fs.joinpath(target_bin, (OS.is_win and 'pio.exe' or 'pio'))
   if vim.fn.executable(local_pio_executable) == 1 then
     if vim.fn.confirm('PlatformIO already Installed, reinstall?', '&Yes\n&No', 1) == 1 then install() end
   else install() end
