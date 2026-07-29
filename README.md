@@ -1,3 +1,4 @@
+```
 # 🚀 nvim-pio
 
 [![Dotfyle Shield](https://dotfyle.com/plugins/batoaqaa/nvim-pio/shield)](https://dotfyle.com/plugins/batoaqaa/nvim-pio)
@@ -21,13 +22,12 @@ A high-performance, asynchronous embedded development framework for Neovim. It b
 
 ### Prerequisites
 
-- **Neovim** $\ge$ 0.11.0
-- **Python** $\ge$ 3.9
+- **Neovim** >= 0.11.0
+- **Python** >= 3.9
 - **PlatformIO Core CLI** (`pio`) installed and available in system PATH variable.
 
 ### 📦 Package Integration (`lazy.nvim`)
 
-```lua
 return {
   'batoaqaa/nvim-pio',
   lazy = false,
@@ -66,4 +66,171 @@ return {
     })
   end,
 }
+
+---
+
+## ⌨️ Workspace Menu Configuration Specification
+
+The interactive PlatformIO dashboard mapping parameters can be fully configured using the structured `menu_bindings` node array layer inside your setup invocation block:
+
+<details>
+  <summary>🔍 Click to view complete declaration snippet specifications</summary>
+
+require('nvimpio').setup({
+  pio = {
+    pio_runtime_dir = '~/.platformio',
+    pio_storage_dir = '~/.platformio',
+  },
+  clangd = {
+    support = true, -- Master switch for PlatformIO LSP logic
+    attach = 'attach+',
+    install = false,
+  },
+  menu_key = '<leader>\\',
+  menu_name = 'PlatformIO',
+  menu_bindings = {
+    { node = 'item', desc = '[B]lock diagnostic', shortcut = 'b', command = 'ClangdFilter' },
+    { node = 'item', desc = '[C]li terminal',      shortcut = 'c', command = 'Piocli' },
+    { node = 'item', desc = 'Switch [E]nv',        shortcut = 'e', command = 'PioPickEnv' },
+    { node = 'item', desc = '[I]nitiate project',  shortcut = 'i', command = 'Pioinit' },
+    { node = 'item', desc = '[M]onitor terminal',  shortcut = 'm', command = 'Piomon' },
+    { node = 'item', desc = 're[S]tart clangd',   shortcut = 's', command = 'Clangdrestart' },
+    {
+      node = 'menu',
+      desc = '[A]dvanced',
+      shortcut = 'a',
+      items = {
+        { node = 'item', desc = '[T]est', shortcut = 't', command = 'Piocli test' },
+        { node = 'item', desc = '[C]heck', shortcut = 'c', command = 'Piocli check' },
+        { node = 'item', desc = '[D]ebug', shortcut = 'd', command = 'Piocli debug' },
+        { node = 'item', desc = 'Compilation Data[b]ase', shortcut = 'b', command = 'Piocli run -t compiledb' },
+        {
+          node = 'menu',
+          desc = '[V]erbose',
+          shortcut = 'v',
+          items = {
+            { node = 'item', desc = 'Verbose [B]uild',   shortcut = 'b', command = 'Piocli run -v' },
+            { node = 'item', desc = 'Verbose [U]pload',  shortcut = 'u', command = 'Piocli run -v -t upload' },
+            { node = 'item', desc = 'Verbose [T]est',    shortcut = 't', command = 'Piocli test -v' },
+            { node = 'item', desc = 'Verbose [C]heck',   shortcut = 'c', command = 'Piocli check -v' },
+            { node = 'item', desc = 'Verbose [D]ebug',   shortcut = 'd', command = 'Piocli debug -v' },
+          },
+        },
+      },
+    },
+    {
+      node = 'menu',
+      desc = '[D]ependencies',
+      shortcut = 'd',
+      items = {
+        { node = 'item', desc = '[L]ist packages',     shortcut = 'l', command = 'Piocli pkg list' },
+        { node = 'item', desc = '[O]utdated packages', shortcut = 'o', command = 'Piocli pkg outdated' },
+        { node = 'item', desc = '[U]pdate packages',   shortcut = 'u', command = 'Piocli pkg update' },
+      },
+    },
+    {
+      node = 'menu',
+      desc = '[F]lash',
+      shortcut = 'f',
+      items = {
+        { node = 'item', desc = '[B]uild file system',  shortcut = 'b', command = 'Piocli run -t buildfs' },
+        { node = 'item', desc = 'Program [S]ize',       shortcut = 's', command = 'Piocli run -t size' },
+        { node = 'item', desc = '[U]pload file system', shortcut = 'u', command = 'Piocli run -t uploadfs' },
+        { node = 'item', desc = '[E]rase Flash',        shortcut = 'e', command = 'Piocli run -t erase' },
+      },
+    },
+    {
+      node = 'menu',
+      desc = '[G]eneral',
+      shortcut = 'g',
+      items = {
+        { node = 'item', desc = '[B]uild',                     shortcut = 'b', command = 'Piocli run' },
+        { node = 'item', desc = '[C]lean',                     shortcut = 'c', command = 'Piocli run -t clean' },
+        { node = 'item', desc = '[D]evice list',               shortcut = 'd', command = 'Piocli device list' },
+        { node = 'item', desc = '[F]ull clean',                shortcut = 'f', command = 'Piocli run -t fullclean' },
+        { node = 'item', desc = '[P]arameters hardware setup', shortcut = 'p', command = 'PioSelectPort' },
+        { node = 'item', desc = '[U]pload',                    shortcut = 'u', command = 'Piocli run -t upload' },
+      },
+    },
+    {
+      node = 'menu',
+      desc = '[P]latformIO',
+      shortcut = 'p',
+      items = {
+        { node = 'item', desc = 're[F]resh PlatformIO project data', shortcut = 'f', command = 'PioRefreshData' },
+        { node = 'item', desc = '[G]it ignore',                      shortcut = 'g', command = 'PioGitIgnore' },
+        { node = 'item', desc = '[I]nstall PlatformIO Core',         shortcut = 'i', command = 'PioInstall' },
+        { node = 'item', desc = '[R]epair PlatformIO Core',          shortcut = 'r', command = 'PioRepair' },
+        { node = 'item', desc = '[U]pgrade PlatformIO Core',         shortcut = 'u', command = 'Piocli upgrade' },
+      },
+    },
+    {
+      node = 'menu',
+      desc = '[R]emote',
+      shortcut = 'r',
+      items = {
+        { node = 'item', desc = 'Remote [U]pload',  shortcut = 'u', command = 'Piocli remote run -t upload' },
+        { node = 'item', desc = 'Remote [T]est',    shortcut = 't', command = 'Piocli remote test' },
+        { node = 'item', desc = 'Remote [M]onitor', shortcut = 'm', command = 'Piomon remote run -t monitor' },
+        { node = 'item', desc = 'Remote [D]evices', shortcut = 'd', command = 'Piocli remote device list' },
+      },
+    },
+  },
+})
+
+</details>
+
+---
+
+## ⚡ Isolated Evaluation Environment (Zero-Risk Sandbox)
+
+Test the complete capabilities of this extension inside an insulated runtime sandbox without modifying your production editor configurations. Execute this sequence from a standard terminal prompt:
+
+wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/nvimpio.lua
+nvim -u nvimpio.lua .
+
+Inside Neovim, kickstart your environment using:
+:Pioinit
+
+---
+
+> [!TIP]
+> You can run `:checkhealth nvimpio` to ensure you have all the required dependencies. It will also verify that your configuration table is correctly formatted.
+>
+> Type `:h nvimpio` inside Neovim for detailed documentation.
+
+---
+
+<details>
+  <summary>📊 <b>Statusline Integrations (lualine & native)</b></summary>
+
+<br>
+
+### lualine.nvim Integration
+
+Utilizes a safe `pcall` structural check to ensure your statusline never crashes if the plugin hasn't finished loading yet during the `lazy.nvim` startup cycle:
+
+require('lualine').setup({
+  sections = {
+    lualine_x = {
+      function()
+        local ok, statusline = pcall(require, 'nvimpio.statusline')
+        if ok and type(statusline.get_status_string) == 'function' then
+          return statusline.get_status_string()
+        end
+        return ""
+      end,
+      'filetype'
+    }
+  }
+})
+
+### Native Statusline Integration
+
+If you aren't using `lualine.nvim`, append this to your native statusline:
+
+vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_string()}")
+
+</details>
+
 ```
