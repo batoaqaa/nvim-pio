@@ -27,6 +27,7 @@ local pioConfigDir = vim.fs.joinpath(projectDir, '.pio')
 
 local _pioReady = false
 local _pioVersion = nil
+
 ---@class OS
 ---@field name "windows"|"macos"|"linux"
 ---@field app_name string
@@ -214,6 +215,7 @@ pioReady = function(local_pio_executable, force_check)
       if output:find('PlatformIO') and output:find('%d+%.%d+') then
         is_ready = true
         version = output:match('[^\n]+') or 'unknown'
+        print(version)
       end
     end
   else
