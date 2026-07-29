@@ -242,7 +242,7 @@ function M.handlePioInstall(result, on_done)
       if #M.queue > 0 then cliTerm:send(pop(M.queue)) end
   -- elseif result == 'PASS2' then
   elseif result == 'DONE' then -- result of the only and the last command
-    OS.notify('PIO install: ' .. OS.pioReady('pio', true) and ' success' or ' failed', OS.debug)
+    OS.notify('PIO install: ' .. (OS.pioReady('pio', true) and ' success' or ' failed'), OS.debug)
     -- 1. Always remove the script
     local script_path = vim.fs.joinpath(OS.cache_dir, 'get-platformio.py')
     os.remove(script_path)
