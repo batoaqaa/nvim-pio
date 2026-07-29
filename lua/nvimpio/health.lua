@@ -27,7 +27,7 @@ function M.check()
   ----------------------------------------------------------------------------------------
   local is_ready = OS.pioReady('pio', true) -- force check for health report
   if is_ready then
-    vim.health.ok('PlatformIO is ready and working: ' .. (OS.pio_version or ''))
+    vim.health.ok('PlatformIO is ready and working: ' .. (OS.pio_version() or ''))
   else
     if vim.fn.executable('pio') ~= 1 then
       vim.health.error("PlatformIO 'pio' command not found in PATH.", {
