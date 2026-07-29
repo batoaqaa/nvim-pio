@@ -26,7 +26,7 @@ function M.check()
 
   -- 3. Check Executable and Version
   ----------------------------------------------------------------------------------------
-  local is_ready = OS.pioReady('pio', true) -- force check for health report
+  local is_ready = OS.pioReady('pio', false) -- force check for health report
   if is_ready then
     vim.health.ok('PlatformIO is ready and working: ' .. (OS.pio_version() or ''))
   else
