@@ -1,4 +1,3 @@
-```
 # 🚀 nvim-pio
 
 [![Dotfyle Shield](https://dotfyle.com/plugins/batoaqaa/nvim-pio/shield)](https://dotfyle.com/plugins/batoaqaa/nvim-pio)
@@ -28,6 +27,7 @@ A high-performance, asynchronous embedded development framework for Neovim. It b
 
 ### 📦 Package Integration (`lazy.nvim`)
 
+```lua
 return {
   'batoaqaa/nvim-pio',
   lazy = false,
@@ -66,6 +66,7 @@ return {
     })
   end,
 }
+```
 
 ---
 
@@ -76,6 +77,7 @@ The interactive PlatformIO dashboard mapping parameters can be fully configured 
 <details>
   <summary>🔍 Click to view complete declaration snippet specifications</summary>
 
+```lua
 require('nvimpio').setup({
   pio = {
     pio_runtime_dir = '~/.platformio',
@@ -177,6 +179,7 @@ require('nvimpio').setup({
     },
   },
 })
+```
 
 </details>
 
@@ -186,11 +189,16 @@ require('nvimpio').setup({
 
 Test the complete capabilities of this extension inside an insulated runtime sandbox without modifying your production editor configurations. Execute this sequence from a standard terminal prompt:
 
-wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/nvimpio.lua
+```sh
+# Fetch the automated sandbox bootstrapper script
+wget [https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/nvimpio.lua](https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/nvimpio.lua)
+
+# Execute the isolated evaluation environment
 nvim -u nvimpio.lua .
 
-Inside Neovim, kickstart your environment using:
+# Inside Neovim, kickstart your environment using:
 :Pioinit
+```
 
 ---
 
@@ -210,6 +218,7 @@ Inside Neovim, kickstart your environment using:
 
 Utilizes a safe `pcall` structural check to ensure your statusline never crashes if the plugin hasn't finished loading yet during the `lazy.nvim` startup cycle:
 
+```lua
 require('lualine').setup({
   sections = {
     lualine_x = {
@@ -224,13 +233,14 @@ require('lualine').setup({
     }
   }
 })
+```
 
 ### Native Statusline Integration
 
 If you aren't using `lualine.nvim`, append this to your native statusline:
 
+```lua
 vim.opt.statusline:append("%{v:lua.require('nvimpio.statusline').get_status_string()}")
+```
 
 </details>
-
-```
