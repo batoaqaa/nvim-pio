@@ -18,6 +18,7 @@ A high-performance, asynchronous embedded development framework for Neovim. It b
 ### Prerequisites
 
 - **Neovim** $\ge$ 0.11.0
+- **Python** $\ge$ 3.9
 - **PlatformIO Core CLI** (`pio`) installed and available in system PATH variable.
 
 ### 📦 Package Integration (`lazy.nvim`)

@@ -610,20 +610,12 @@ end
 --- Wipes existing channel configurations and triggers pristine subsystem object instantiations
 ---@return nil
 function M.reopen()
-  if M.terminals['logs'] then
-    M.terminals['logs']:close()
-  end
-  if M.terminals['mon'] then
-    M.terminals['mon']:close()
-  end
-  if M.terminals['cli'] then
-    M.terminals['cli']:close()
-  end
+  if M.terminals['logs'] then M.terminals['logs']:close() end
+  if M.terminals['mon'] then M.terminals['mon']:close() end
+  if M.terminals['cli'] then M.terminals['cli']:close() end
 
   M.create_terminal('cli', ' CLI ', function(j, d, e)
-    if type(M.stdout_callback) == 'function' then
-      M.stdout_callback(j, d, e)
-    end
+    if type(M.stdout_callback) == 'function' then M.stdout_callback(j, d, e) end
   end)
   M.create_terminal('mon', ' Monitor ', nil)
   M.create_terminal('logs', ' OS ', nil)

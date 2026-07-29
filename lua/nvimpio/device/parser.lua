@@ -159,13 +159,6 @@ M.run_sequence = function(tasks)
         cliTerm:show()
         callBack('INIT')
       end
-      -- cliTerm = require('nvimpio.device.terminal').cli
-      -- -- cliTerm = require('nvimpio.device.terminal').terminals.cli
-      -- -- cliTerm = require('nvimpio.device.terminal').PioTerminal("", "cli")
-      --   _G.isBusy = true
-      --   -- if require('nvimpio').is_active then _G.isBusy = true end
-      --   cliTerm:show()
-      --   callBack('INIT')
     end)
   end
 end
