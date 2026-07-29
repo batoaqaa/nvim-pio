@@ -2,6 +2,7 @@
 
 [![Dotfyle](https://img.shields.io/badge/Dotfyle-nvim--pio-black?style=flat&logo=platformio&logoColor=white)](https://dotfyle.com/plugins/batoaqaa/nvim-pio)
 [![Neovim](https://img.shields.io/badge/Neovim-0.11.0%2B-57A143?style=flat&logo=neovim&logoColor=white)](https://neovim.io)
+[![PlatformIO](https://img.shields.io/badge/PlatformIO-Core-f6821f?style=flat-square&logo=platformio&logoColor=white)](https://platformio.org)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/LICENSE-2.0)
 
 A high-performance, asynchronous embedded development framework for Neovim. It bridges **PlatformIO** project structures with **`clangd`** language servers, managing include file mappings and cross-compiler parameter translations on Windows, Linux, and macOS.
