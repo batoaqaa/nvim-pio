@@ -100,7 +100,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   local verified = false
 
   local local_pio_executable = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, (OS.is_win and 'penv/Scripts/pio.exe' or 'penv/bin/pio')))
-  verified = OS.pioReady(local_pio_executable)
+  verified = OS.pioReady(local_pio_executable, true)
   -- -- Step 1: Static Lookup (Does it exist and have execute flags?)
   -- if vim.fn.executable(local_pio_executable) == 1 then
   --   -- Step 2: Runtime verification (Does it actually execute without crashing?)
@@ -113,6 +113,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
   if verified then
     main.config.pio_runtime_dir = resolved_runtime_dir
     main.config.pio_storage_dir = resolved_storage_dir
+    OS.pio_cmd = local_pio_executable
 
     if resolved_storage_dir and vim.fn.isdirectory(resolved_storage_dir) == 0 then vim.fn.mkdir(resolved_storage_dir, "p") end
     setPenvBinPath(resolved_runtime_dir)
@@ -170,7 +171,7 @@ function M.ensure_toolchain_active(on_success_callback, retry_counter)
           local_pio_executable = vim.fs.normalize(vim.fs.joinpath(resolved_runtime_dir, (OS.is_win and 'penv/Scripts/pio.exe' or 'penv/bin/pio')))
           local stat = vim.uv.fs_stat(resolved_runtime_dir)
           -- Check if the directory exists using libuv and pio executable
-          local exists = stat and (stat.type == "directory") and OS.pioReady(local_pio_executable)
+          local exists = stat and (stat.type == "directory") and OS.pioReady(local_pio_executable, true)
           if exists then
             if vim.fn.confirm('Directory already exists!, Use it?', '&Yes\n&No', 1) == 1 then
               vim.ui.input({ prompt = 'Set pio_storage_dir path: ', default = (main.options.pio and main.options.pio.pio_storage_dir) or '', completion = 'dir' }, function(storage_dir)

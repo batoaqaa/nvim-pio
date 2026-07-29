@@ -25,20 +25,36 @@ function M.check()
 
   -- 3. Check Executable and Version
   ----------------------------------------------------------------------------------------
-  if vim.fn.executable('pio') == 1 then
-    -- Run pio --version synchronously for the health report
-    local obj = vim.system({ 'pio', '--version' }, { text = true }):wait()
-    if obj.code == 0 then
-      vim.health.ok('PlatformIO executable found: ' .. vim.trim(obj.stdout))
-    else
-      vim.health.error('PlatformIO found but failed to execute: ' .. (obj.stderr or 'Unknown error'))
-    end
+  local is_ready = OS.pioReady('pio', true) -- force check for health report
+  if is_ready then
+    vim.health.ok('PlatformIO is ready and working: ' .. (OS.pio_version or ''))
   else
-    vim.health.error("PlatformIO 'pio' command not found in PATH.", {
-      'Try running :PioInstall',
-      "Ensure your config calls require('pio').setup()",
-    })
+    if vim.fn.executable('pio') ~= 1 then
+      vim.health.error("PlatformIO 'pio' command not found in PATH.", {
+        'Try running :PioInstall',
+        'Or install PlatformIO Core: https://docs.platformio.org/en/latest/core/installation.html',
+      })
+    else
+      vim.health.error('PlatformIO executable found but not working properly.', {
+        'Try running :PioInstall to reinstall',
+        'Check if PlatformIO core is corrupted',
+      })
+    end
   end
+
+  -- if vim.fn.executable('pio') == 1 then
+  --   -- Run pio --version synchronously for the health report
+  --   local obj = vim.system({ 'pio', '--version' }, { text = true }):wait()
+  --   if obj.code == 0 then
+  --     vim.health.ok('PlatformIO executable found: ' .. vim.trim(obj.stdout))
+  --   else
+  --     vim.health.error('PlatformIO found but failed to execute: ' .. (obj.stderr or 'Unknown error'))
+  --   end
+  -- else
+  --   vim.health.error("PlatformIO 'pio' command not found in PATH.", {
+  --     'Try running :PioInstall',
+  --   })
+  -- end
 
   -- 4. Check clangd installation
   ----------------------------------------------------------------------------------------

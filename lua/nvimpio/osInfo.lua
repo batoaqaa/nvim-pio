@@ -24,6 +24,9 @@ local xdg_config_home = vim.env.XDG_CONFIG_HOME or (
 local clangd_user_dir = vim.fs.joinpath(xdg_config_home, 'clangd')
 local nvimpioConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
 local pioConfigDir = vim.fs.joinpath(projectDir, '.pio')
+
+local _pioReady = false
+local _pioVersion = nil
 ---@class OS
 ---@field name "windows"|"macos"|"linux"
 ---@field app_name string
@@ -42,6 +45,7 @@ local pioConfigDir = vim.fs.joinpath(projectDir, '.pio')
 ---@field data_dir string
 ---@field cache_dir string
 ---@field bin_dir string
+---@field pio_cmd string
 ---@field project_dir string
 ---@field clangd_filter string
 ---@field nvimpio_env_dir string
@@ -60,10 +64,6 @@ local pioConfigDir = vim.fs.joinpath(projectDir, '.pio')
 ---@field pioReady fun(local_pio_executable: string): boolean
 ---@field getBufFilename fun(bufnr: integer): string
 ---@type OS
--- _G.OS = _G.OS or {}
--- local OS = _G.OS ---@cast OS +OS
-
-local _pioReady = false
 
 -- 2. Build the data table
 local os_info = {
@@ -83,6 +83,8 @@ local os_info = {
   data_dir = vim.fn.stdpath('data'),
   cache_dir = vim.fn.stdpath('cache'),
   bin_dir = is_win and "Scripts" or "bin",
+  pio_version = _pioVersion,
+  pio_cmd = "",
   project_dir = vim.fs.normalize(projectDir),
   clangd_filter = '.clangdFilter.json',
   clangd_config = vim.fs.joinpath(nvimpioConfigDir, '.clangdConfig.json'),
@@ -180,27 +182,77 @@ local os_info = {
       return finalPath
   end,
 
-  ---Checks if PlatformIO is installed and working (Cached after first success)
-  ---@param local_pio_executable string
-  ---@return boolean
-  pioReady = function(local_pio_executable)
-    if _pioReady then return true end
-    if vim.fn.executable(local_pio_executable) ~= 1 then return false end
+---Checks if PlatformIO is installed and working (Cached after first success)
+---@param local_pio_executable string
+---@param force_check boolean? Force check even if cached
+---@return boolean -- returns (is_readyg)
+pioReady = function(local_pio_executable, force_check)
+  force_check = force_check or true
+  if not force_check and _pioReady then return true end
 
-    local ok, obj
-    if vim.system then
-      ok, obj = pcall(function() return vim.system({ local_pio_executable, '--version' }):wait() end)
-      if ok and obj and (obj.code == 0) and obj.stdout:match("PlatformIO") then
-        _pioReady = true
-      end
-    else
-      local out = vim.fn.system({ local_pio_executable, '--version' })
-      if vim.v.shell_error == 0 and out:match("PlatformIO") then
-        _pioReady = true
+  if not local_pio_executable or local_pio_executable == '' then
+    _pioReady = false
+    _pioVersion = nil
+    return false
+  end
+
+  if vim.fn.executable(local_pio_executable) ~= 1 then
+    _pioReady = false
+    _pioVersion = nil
+    return false
+  end
+
+  local is_ready = false
+  local version = nil
+
+  if vim.system then
+    local ok, obj = pcall(function()
+      return vim.system({ local_pio_executable, '--version' }, { timeout = 5000 }):wait()
+    end)
+    if ok and obj and obj.code == 0 then
+      local output = ((obj.stdout or '') .. (obj.stderr or '')):gsub('^%s+', '')
+      if output:find('PlatformIO') and output:find('%d+%.%d+') then
+        is_ready = true
+        version = output:match('[^\n]+') or 'unknown'
       end
     end
-    return _pioReady
-  end,
+  else
+    local out = vim.fn.system({ local_pio_executable, '--version' })
+    if vim.v.shell_error == 0 and type(out) == 'string' then
+      local clean_out = out:gsub('^%s+', '')
+      if clean_out:find('PlatformIO') and clean_out:find('%d+%.%d+') then
+        is_ready = true
+        version = clean_out:match('[^\n]+') or 'unknown'
+      end
+    end
+  end
+
+  _pioReady = is_ready
+  _pioVersion = version  -- Cache the version too
+  return is_ready
+end,
+
+  -- ---Checks if PlatformIO is installed and working (Cached after first success)
+  -- ---@param local_pio_executable string
+  -- ---@return boolean
+  -- pioReady = function(local_pio_executable)
+  --   if _pioReady then return true end
+  --   if vim.fn.executable(local_pio_executable) ~= 1 then return false end
+  --
+  --   local ok, obj
+  --   if vim.system then
+  --     ok, obj = pcall(function() return vim.system({ local_pio_executable, '--version' }):wait() end)
+  --     if ok and obj and (obj.code == 0) and obj.stdout:match("PlatformIO") then
+  --       _pioReady = true
+  --     end
+  --   else
+  --     local out = vim.fn.system({ local_pio_executable, '--version' })
+  --     if vim.v.shell_error == 0 and out:match("PlatformIO") then
+  --       _pioReady = true
+  --     end
+  --   end
+  --   return _pioReady
+  -- end,
 
   ---@param bufnr integer
   ---@return string
@@ -225,6 +277,8 @@ _G.OS = setmetatable(OS_target, {
     if os_info[key] ~= nil then
       if os_info[key] == value then return end -- Performance check
       if key == 'nvimpio_env_dir' then
+        os_info[key] = value
+      elseif key == 'pio_cmd' then
         os_info[key] = value
       end
     else
