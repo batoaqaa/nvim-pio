@@ -26,7 +26,7 @@ local nvimpioConfigDir = vim.fs.joinpath(projectDir, '.nvimpio')
 local pioConfigDir = vim.fs.joinpath(projectDir, '.pio')
 
 local _pioReady = false
-local _pioVersion = nil
+local _pioVersion = ''
 
 ---@class OS
 ---@field name "windows"|"macos"|"linux"
@@ -193,13 +193,13 @@ pioReady = function(local_pio_executable, force_check)
 
   if not local_pio_executable or local_pio_executable == '' then
     _pioReady = false
-    _pioVersion = nil
+    _pioVersion = ''
     return false
   end
 
   if vim.fn.executable(local_pio_executable) ~= 1 then
     _pioReady = false
-    _pioVersion = nil
+    _pioVersion = ''
     return false
   end
 
