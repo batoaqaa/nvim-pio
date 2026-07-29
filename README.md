@@ -3,10 +3,7 @@
 [![Dotfyle](https://img.shields.io/badge/Dotfyle-nvim--pio-black?style=flat&logo=platformio&logoColor=white)](https://dotfyle.com/plugins/batoaqaa/nvim-pio)
 [![Neovim](https://img.shields.io/badge/Neovim-0.11.0%2B-57A143?style=flat&logo=neovim&logoColor=white)](https://neovim.io)
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-Core-f6821f?style=flat&logo=platformio&logoColor=white)](https://platformio.org)
-[![clangd](https://img.shields.io/badge/LSP-clangd-185b9d?style=flat&logo=llvm&logoColor=white)](https://clangd.llvm.org)
-[![clangd](https://img.shields.io/badge/LSP-clangd-185b9d?style=flat&logo=llvm&logoColor=white)](https://clangd.llvm.org)
 [![clangd](https://img.shields.io/badge/LSP-clangd-00599C?style=flat&logo=cplusplus&logoColor=white)](https://clangd.llvm.org)
-[![clangd](https://img.shields.io/badge/LSP-clangd-121011?style=flat&logo=gnubash&logoColor=white)](https://clangd.llvm.org)
 [![Lua](https://img.shields.io/badge/Lua-5.1%20%2F%20JIT-2C2D72?style=flat&logo=lua&logoColor=white)](https://www.lua.org)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat)](https://opensource.org/licenses/LICENSE-2.0)
 
