@@ -17,10 +17,11 @@ function M.check()
   -- 2. Check PIO Binary Path
   ----------------------------------------------------------------------------------------
   local pio_bin = require('nvimpio').config.pio_runtime_dir
-  if vim.fn.isdirectory(pio_bin) == 1 then
-    vim.health.ok('PlatformIO core directory exists: ' .. pio_bin)
+  local target_penv = vim.fs.normalize(vim.fs.joinpath(pio_bin, 'penv'))
+  if vim.fn.isdirectory(target_penv) == 1 then
+    vim.health.ok('PlatformIO PENV directory exists: ' .. target_penv)
   else
-    vim.health.warn('PlatformIO core directory not found. Have you run :PioInstall?')
+    vim.health.warn('PlatformIO PENV directory not found. Have you run :PioInstall?')
   end
 
   -- 3. Check Executable and Version
