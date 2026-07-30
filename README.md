@@ -9,6 +9,8 @@
 
 A high-performance, asynchronous embedded development framework for Neovim. It bridges **PlatformIO** project structures with **`clangd`** language servers, managing include file mappings and cross-compiler parameter translations on Windows, Linux, and macOS.
 
+![nvim-pio Demo](https://raw.githubusercontent.com/batoaqaa/nvim-pio/main/assets/demo.gif)
+
 ---
 
 ## ✨ Features
@@ -231,7 +233,8 @@ Test the complete capabilities of this extension inside an insulated runtime san
 
 ```sh
 # Fetch the automated sandbox bootstrapper script
-wget [https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/nvimpio.lua](https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/nvimpio.lua)
+
+wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/main/nvimpio.lua
 
 # Execute the isolated evaluation environment
 nvim -u nvimpio.lua .
