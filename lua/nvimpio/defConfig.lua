@@ -11,7 +11,7 @@ local defConfig = {
     --   "attach"  -> Attach the LSP client only (no custom hotkeys).
     --   "none"    -> Do not attach to files at all.
     attach = 'attach+',
-    install = false, -- Flags whether to auto-install missing clangd
+    install = true, -- Flags whether to auto-install missing clangd
   },
   menu_key = '<leader>\\', -- replace this menu key  to your convenience
   menu_name = 'PlatformIO', -- replace this menu name to your convenience

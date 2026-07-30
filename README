@@ -13,47 +13,10 @@ A high-performance, asynchronous embedded development framework for Neovim. It b
 
 ## ✨ Features
 
-- **Zero-Friction Project Scaffolding:** Interactively selects boards and frameworks, auto-installs PlatformIO CLI if missing, fetches board metadata, and generates `src/` and `include/` template files.
-- **Automated Code Insights Mapping:** Discovers and binds toolchain include vectors, firmware library locations, and environment frameworks to `clangd` via `compile_commands.json`.
+- **Automated Code Insights Mapping:** Discovers and binds toolchain include vectors, firmware library locations, and environment frameworks to your language server.
 - **Compiler Flags Neutralization:** Intercepts and strips non-standard bare-metal toolchain argument options (such as `-mlongcalls`) that destabilize desktop language servers.
 - **Diagnostic Filtration Interface:** Provides a dynamic selecting utility via `:ClangdFilter` to instantly toggle specific syntax warnings or static alerts.
 - **Self-Healing Persistent Configuration:** Workspace options are bound to local context directories, ensuring layout rules persist across cold reboots.
-
----
-
-## ⚡ Quickstart: Zero to First Build
-
-Create, configure, and code a brand-new microcontroller project (e.g., ESP32, STM32, Arduino) inside an empty folder without ever touching the terminal CLI:
-
-```sh
-mkdir my-esp32-project
-cd my-esp32-project
-nvim .
-```
-
-### 1. Initialize Project (`:Pioinit`)
-
-Inside Neovim, run:
-
-```vim
-:Pioinit
-```
-
-- **Auto-Dependency Check:** If PlatformIO CLI is not installed, it will prompt you to install it (`Y/N`).
-- **Interactive Board Selection:** Type or select your target board (e.g., `seeed_xiao_esp32s3`).
-- **Framework Selection:** Choose your framework (e.g., `arduino`).
-- **Automated Setup:** A terminal buffer will open, download required board packages, collect metadata, auto-generate `compile_commands.json`, and scaffold template `./src` and `./include` files.
-- Press `q` to close the terminal once complete and start coding!
-
-### 2. Daily Workflow & Keybindings
-
-| Key Sequence / Command | Action                | Description                                                                                                  |
-| ---------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `<leader>\` **g b**    | **Build Code**        | Runs `:Piocli run` to compile firmware                                                                       |
-| `<leader>\` **g u**    | **Upload Code**       | Runs `:Piocli run -t upload` to flash target board                                                           |
-| `<leader>\` **a b**    | **Generate LSP Data** | Re-generates `compile_commands.json`                                                                         |
-| `<leader>\` **m**      | **Serial Monitor**    | Opens asynchronous terminal monitor                                                                          |
-| `:Piolib <query>`      | **Install Library**   | Interactively search/install libraries (e.g., `:Piolib json` for `ArduinoJson`) and auto-refresh LSP headers |
 
 ---
 
@@ -63,7 +26,7 @@ Inside Neovim, run:
 
 - **Neovim** >= 0.11.0
 - **Python** >= 3.9
-- **PlatformIO Core CLI** (`pio`) installed (or let `:Pioinit` prompt and install it for you).
+- **PlatformIO Core CLI** (`pio`) installed and available in system PATH variable.
 
 ### 📦 Package Integration (`lazy.nvim`)
 
