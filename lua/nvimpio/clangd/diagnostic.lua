@@ -98,6 +98,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
   -- Safe path resolution
   local raw_uri = result.uri
   local target_path = raw_uri and raw_uri ~= "" and vim.fs.normalize(vim.uri_to_fname(raw_uri)) or ""
+  local project_dir    = OS.project_dir
 
   print(raw_uri)
   print(vim.uri_to_fname(raw_uri))
@@ -107,6 +108,16 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
       print(framework_root)
   local toolchain_root = _G.metadata and _G.metadata.toolchain_root
       print(toolchain_root)
+
+
+  -- Lowercase ONLY on Windows to handle clangd's drive-letter/user casing quirks
+  if OS.is_win then
+    target_path    = target_path:lower()
+    framework_root = framework_root and framework_root:lower()
+    toolchain_root = toolchain_root and toolchain_root:lower()
+    project_dir    = project_dir and project_dir:lower()
+  end
+
   local is_pio = (
     (framework_root and framework_root ~= "" and target_path:find(framework_root, 1, true) ~= nil)
     or (toolchain_root and toolchain_root ~= "" and target_path:find(toolchain_root, 1, true) ~= nil)
@@ -114,7 +125,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
   -- local is_pio = (framework_root and framework_root ~= "")
   --   and (target_path:find(framework_root, 1, true) ~= nil)
   --   or false
-  local is_proj = target_path:find(OS.project_dir, 1, true) ~= nil
+  local is_proj = target_path:find(project_dir, 1, true) ~= nil
 
   -- Localized shortcuts for hot-loop execution speed
   local tbl_insert = table.insert
