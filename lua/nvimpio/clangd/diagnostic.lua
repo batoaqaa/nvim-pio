@@ -195,7 +195,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
         end
       end
     elseif is_pio then
-      -- print('2: ' .. code)
+      print('2: ' .. code)
       if (code and blocked_pckg_codes[code]) then show_diagnostics = false
       elseif autoPckg then
         -- Suppress diagnostics inside the pio framework root
