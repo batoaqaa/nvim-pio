@@ -99,9 +99,12 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
   local raw_uri = result.uri
   local target_path = raw_uri and raw_uri ~= "" and vim.fs.normalize(vim.uri_to_fname(raw_uri)) or ""
 
+  print(target_path)
   -- Safe framework_root matching
   local framework_root = _G.metadata and _G.metadata.framework_root
+      print(framework_root)
   local toolchain_root = _G.metadata and _G.metadata.toolchain_root
+      print(toolchain_root)
   local is_pio = (
     (framework_root and framework_root ~= "" and target_path:find(framework_root, 1, true) ~= nil)
     or (toolchain_root and toolchain_root ~= "" and target_path:find(toolchain_root, 1, true) ~= nil)
