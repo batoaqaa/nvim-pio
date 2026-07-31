@@ -390,7 +390,7 @@ function M.getClangdConfig()
     -- 1. FRAMEWORK CHECK: If the target file lives inside the framework, 
     -- bypass all downstream logic and instantly force reuse.
     local target_bufnr = config.bufnr or 0
-    local check_file = vim.fs.normalize(OS.getBufFilename(target_bufnr))
+    local check_file = normalize_absolute_path(OS.getBufFilename(target_bufnr))
     local framework_root = _G.metadata and _G.metadata.framework_root
     local toolchain_root = _G.metadata and _G.metadata.toolchain_root
 
