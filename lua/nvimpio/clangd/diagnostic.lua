@@ -100,15 +100,9 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
   local target_path = raw_uri and raw_uri ~= "" and vim.fs.normalize(vim.uri_to_fname(raw_uri)) or ""
   local project_dir    = OS.project_dir
 
-  print(raw_uri)
-  print(vim.uri_to_fname(raw_uri))
-  print(vim.fs.normalize(vim.uri_to_fname(raw_uri)))
   -- Safe framework_root matching
   local framework_root = _G.metadata and _G.metadata.framework_root
-      print(framework_root)
   local toolchain_root = _G.metadata and _G.metadata.toolchain_root
-      print(toolchain_root)
-
 
   -- Lowercase ONLY on Windows to handle clangd's drive-letter/user casing quirks
   if OS.is_win then
@@ -201,7 +195,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
         end
       end
     elseif is_pio then
-      print('2: ' .. code)
+      -- print('2: ' .. code)
       if (code and blocked_pckg_codes[code]) then show_diagnostics = false
       elseif autoPckg then
         -- Suppress diagnostics inside the pio framework root
