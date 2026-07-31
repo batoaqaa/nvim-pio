@@ -442,6 +442,7 @@ function M.extract_framework_path(raw_json_chunk, active_env)
     -- e.g. "C:/Users/batoaqaa/.platformio/packages/framework-espidf"
     local framework_root = clean_path:match('(' .. escaped_core_dir .. '/[^/]+)')
     if framework_root then
+      print(framework_root)
       return framework_root
     end
   end
