@@ -224,17 +224,17 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
 
   if flags_updated then  -- write
     vim.schedule(function()
-      -- Let the dynamic boilerplate loop read pio_diag.M.blocked
-      local boiler_ok, boiler = pcall(require, 'nvimpio.boilerplate')
-      if boiler_ok and boiler and boiler.boilerplate_gen then
-        pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics clean_file_path_pipeline')
-      end
-
       local filter_db_path = M.get_db_path()
       local misc_ok, misc = pcall(require, 'nvimpio.utils.misc')
       if (misc_ok and misc) then
         misc.writeFile(filter_db_path, misc.jsonFormat(M.blocked), {})
         M.cached_db_mtime = 0 -- Invalidate mtime cache
+      end
+
+      -- Let the dynamic boilerplate loop read pio_diag.M.blocked
+      local boiler_ok, boiler = pcall(require, 'nvimpio.boilerplate')
+      if boiler_ok and boiler and boiler.boilerplate_gen then
+        pcall(boiler.boilerplate_gen, '.clangd', 'diagnostics clean_file_path_pipeline')
       end
     end)
   end
