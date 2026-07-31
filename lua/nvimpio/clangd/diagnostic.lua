@@ -101,9 +101,14 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
 
   -- Safe framework_root matching
   local framework_root = _G.metadata and _G.metadata.framework_root
-  local is_pio = (framework_root and framework_root ~= "")
-    and (target_path:find(framework_root, 1, true) ~= nil)
-    or false
+  local toolchain_root = _G.metadata and _G.metadata.toolchain_root
+  local is_pio = (
+    (framework_root and framework_root ~= "" and target_path:find(framework_root, 1, true) ~= nil)
+    or (toolchain_root and toolchain_root ~= "" and target_path:find(toolchain_root, 1, true) ~= nil)
+  ) or false
+  -- local is_pio = (framework_root and framework_root ~= "")
+  --   and (target_path:find(framework_root, 1, true) ~= nil)
+  --   or false
   local is_proj = target_path:find(OS.project_dir, 1, true) ~= nil
 
   -- Localized shortcuts for hot-loop execution speed
