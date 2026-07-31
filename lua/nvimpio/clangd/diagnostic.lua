@@ -99,7 +99,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
   local raw_uri = result.uri
   local target_path = raw_uri and raw_uri ~= "" and vim.fs.normalize(vim.uri_to_fname(raw_uri)) or ""
 
-  print(raw_uri)
+  print(vim.uri_to_fname(raw_uri))
   -- Safe framework_root matching
   local framework_root = _G.metadata and _G.metadata.framework_root
       print(framework_root)
