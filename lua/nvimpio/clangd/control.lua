@@ -316,24 +316,25 @@ end
 local function normalize_absolute_path(path)
   if not path or path == '' then return '' end
   local expanded = vim.fn.fnamemodify(path, ':p')
-  return vim.fs.normalize(expanded) --:lower()
+  local normalized = vim.fs.normalize(expanded)
+  -- Guarantee 100% reliable string matching on Windows
+  return OS.is_win and normalized:lower() or normalized
 end
 
 local function get_validated_project_root(bufnr)
-  -- local buf_name = normalize_absolute_path(vim.api.nvim_buf_get_name(bufnr))
   local buf_name = normalize_absolute_path(OS.getBufFilename(bufnr))
   if buf_name == '' or buf_name == '[No Name]' or buf_name == 'Unknown' then
     return normalize_absolute_path(OS.project_dir)
   end
 
-  -- if buf_name:find('.platformio', 1, true) then return normalize_absolute_path(OS.project_dir) end
-  -- if buf_name:find(_G.metadata.framework_root, 1, true) then return normalize_absolute_path(OS.project_dir) end
   -- Sandbox Guard: Prevent indexing inside global platformio package cache folders
   local framework_root = _G.metadata and _G.metadata.framework_root
-  if type(framework_root) == 'string' and framework_root ~= '' then
-    if buf_name:find(normalize_absolute_path(framework_root), 1, true) then
-      return normalize_absolute_path(OS.project_dir)
-    end
+  local toolchain_root = _G.metadata and _G.metadata.toolchain_root
+  local has_framework = type(framework_root) == 'string' and framework_root ~= ''
+  local has_toolchain = type(toolchain_root) == 'string' and toolchain_root ~= ''
+  if (has_framework and buf_name:find(normalize_absolute_path(framework_root), 1, true))
+     or (has_toolchain and buf_name:find(normalize_absolute_path(toolchain_root), 1, true)) then
+    return normalize_absolute_path(OS.project_dir)
   end
 
   -- Native C-speed upward path tracer looking for framework landmarks
@@ -342,7 +343,7 @@ local function get_validated_project_root(bufnr)
   })
   -- local absPath = normalize_absolute_path(project_root)
   -- print(absPath)
-  return normalize_absolute_path(project_root) -- or OS.project_dir)
+  return normalize_absolute_path(project_root)
 end
 
 -- ============================================================================
@@ -389,9 +390,15 @@ function M.getClangdConfig()
     -- 1. FRAMEWORK CHECK: If the target file lives inside the framework, 
     -- bypass all downstream logic and instantly force reuse.
     local target_bufnr = config.bufnr or 0
-    -- local check_file = vim.fs.normalize(vim.api.nvim_buf_get_name(target_bufnr))
     local check_file = vim.fs.normalize(OS.getBufFilename(target_bufnr))
-    if check_file:find(_G.metadata.framework_root, 1, true) then return true end
+    local framework_root = _G.metadata and _G.metadata.framework_root
+    local toolchain_root = _G.metadata and _G.metadata.toolchain_root
+
+    local in_framework = framework_root and framework_root ~= '' and check_file:find(normalize_absolute_path(framework_root), 1, true)
+    local in_toolchain = toolchain_root and toolchain_root ~= '' and check_file:find(normalize_absolute_path(toolchain_root), 1, true)
+
+    if in_framework or in_toolchain then return true end
+    -- if check_file:find(_G.metadata.framework_root, 1, true) then return true end
 
     -- 2. RELIABLE STRING EXTRACTION: Evaluate the path directly and synchronously
     local proposed_root = get_validated_project_root(target_bufnr) or ""

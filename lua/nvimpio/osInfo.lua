@@ -263,12 +263,15 @@ end,
   ---@param bufnr integer
   ---@return string
   getBufFilename = function(bufnr)
-    if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
-      return "Unknown"
-    end
+    if not bufnr or bufnr == 0 then bufnr = vim.api.nvim_get_current_buf() end
+
+    if not vim.api.nvim_buf_is_valid(bufnr) then return "Unknown" end
+
     local name = vim.api.nvim_buf_get_name(bufnr)
-    -- return (name ~= "") and (vim.fs.basename(name) or "Unknown") or "[No Name]"
-    return (name ~= "") and name or "[No Name]"
+    if not name or name == "" then return "[No Name]" end
+
+    -- Normalize backslashes to forward slashes right away
+    return vim.fs.normalize(name)
   end,
 } --@as OS
 
