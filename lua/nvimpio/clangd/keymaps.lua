@@ -1,28 +1,31 @@
 local K = {}
---Lua functions in combination with the option expr = true handles keycodes automatically
+
 function K.lspKeymaps(client, bufnr)
   local bufkeymap = function(mode, lhs, rhs, desc)
-    vim.keymap.set(mode, lhs, rhs, { buffer = bufnr, silent = true, desc = desc }) -- noremap by default
+    vim.keymap.set(mode, lhs, rhs, { buffer = bufnr, silent = true, desc = desc })
   end
-  -- Disable defaults
-  pcall(vim.keymap.del, 'n', 'gra')
-  pcall(vim.keymap.del, 'n', 'gri')
-  pcall(vim.keymap.del, 'n', 'grn')
-  pcall(vim.keymap.del, 'n', 'grr')
-  pcall(vim.keymap.del, 'n', 'gO')
-  pcall(vim.keymap.del, 'n', 'K')
-  --
-  -- Quickfix list
+
+  -- Disable Neovim 0.10 default LSP keymaps to avoid conflicts
+  for _, key in ipairs({ 'gra', 'gri', 'grn', 'grr', 'gO', 'K' }) do
+    pcall(vim.keymap.del, 'n', key, { buffer = bufnr })
+  end
+
+  -- Quickfix navigation
   bufkeymap('n', '[q', vim.cmd.cprev, 'Previous quickfix item')
   bufkeymap('n', ']q', vim.cmd.cnext, 'Next quickfix item')
 
   -- Diagnostic keymaps
-  bufkeymap('n', '[d', '<cmd>vim.diagnostic.goto_prev()<CR>', 'Go to previous [d]iagnostic message')
-  bufkeymap('n', ']d', '<cmd>vim.diagnostic.goto_next()<CR>', 'Go to next [d]iagnostic message')
-  bufkeymap('n', 'gle', vim.diagnostic.open_float, 'Show diagnostic [e]rror messages')
-  -- bufkeymap('n', 'gle', '<Cmd>Telescope diagnostics<CR>', 'Show diagnostic [e]rror messages')
-  bufkeymap('n', 'glq', vim.diagnostic.setloclist, 'Open diagnostic [q]uickfix list')
-  --
+  bufkeymap('n', '[d', function()
+    vim.diagnostic.jump({ count = -1, float = true })
+  end, 'Go to previous diagnostic')
+  bufkeymap('n', ']d', function()
+    vim.diagnostic.jump({ count = 1, float = true })
+  end, 'Go to next diagnostic')
+
+  bufkeymap('n', 'gle', vim.diagnostic.open_float, 'Show diagnostic error messages')
+  bufkeymap('n', 'glq', vim.diagnostic.setloclist, 'Open diagnostic quickfix list')
+
+  -- LSP Capabilities
   if client.server_capabilities.hoverProvider then
     bufkeymap('n', 'glk', vim.lsp.buf.hover, 'Hover Documentation')
   end
@@ -30,128 +33,103 @@ function K.lspKeymaps(client, bufnr)
     bufkeymap({ 'i', 'n' }, 'gls', vim.lsp.buf.signature_help, 'Show signature')
   end
   if client.server_capabilities.declarationProvider then
-    bufkeymap('n', 'glD', vim.lsp.buf.declaration, 'Goto [D]eclaration')
+    bufkeymap('n', 'glD', vim.lsp.buf.declaration, 'Goto Declaration')
   end
   if client.server_capabilities.definitionProvider then
-    bufkeymap('n', 'gld', vim.lsp.buf.definition, 'Go to [d]efinition')
-    -- bufkeymap('n', 'gld', '<Cmd>Telescope lsp_definitions<CR>', '[G]oto [D]efinition')
+    bufkeymap('n', 'gld', vim.lsp.buf.definition, 'Go to definition')
   end
   if client.server_capabilities.typeDefinitionProvider then
-    bufkeymap('n', 'glt', vim.lsp.buf.type_definition, 'Goto [t]ype definition')
-    -- bufkeymap('n', 'glt', '<Cmd>Telescope lsp_type_definitions<CR>', 'Goto [t]ype definition')
+    bufkeymap('n', 'glt', vim.lsp.buf.type_definition, 'Goto type definition')
   end
   if client.server_capabilities.implementationProvider then
-    bufkeymap('n', 'gli', vim.lsp.buf.implementation, 'Goto [i]mplementation')
-    -- bufkeymap('n', 'gli', '<Cmd>Telescope lsp_implementations<CR>', 'Goto [i]mplementation')
+    bufkeymap('n', 'gli', vim.lsp.buf.implementation, 'Goto implementation')
   end
-
-  -- bufkeymap('n', 'glr', '<Plug>(CodeAction, implementation, rename, references)', 'CodeAction, implementation, rename, references')
   if client.server_capabilities.referencesProvider then
-    -- bufkeymap('n', 'gr', vim.lsp.buf.references, 'List references')
-    bufkeymap('n', 'glr', '<cmd>Telescope lsp_references<CR>', 'Goto [r]eferences')
-    -- bufkeymap('n', 'glr', '<Cmd>Telescope lsp_references<CR>', '[G]oto [R]eferences')
+    bufkeymap('n', 'glr', '<cmd>Telescope lsp_references<CR>', 'Goto references')
   end
   if client.server_capabilities.renameProvider then
-    -- bufkeymap('n', '<F2>', vim.lsp.buf.rename, 'Rename symbol')
-    bufkeymap('n', 'glR', vim.lsp.buf.rename, '[R]ename')
+    bufkeymap('n', 'glR', vim.lsp.buf.rename, 'Rename symbol')
   end
   if client.server_capabilities.codeActionProvider then
-    bufkeymap('n', 'gla', vim.lsp.buf.code_action, 'Code [a]ction')
+    bufkeymap('n', 'gla', vim.lsp.buf.code_action, 'Code action')
+  end
+
+  -- Telescope Base Theme Config
+  local get_symbol_theme = function(custom_opts)
+    return require('telescope.themes').get_dropdown(vim.tbl_extend('force', {
+      symbols = { 'function', 'method' },
+      initial_mode = 'normal',
+      prompt_prefix = '🔍  ',
+      selection_caret = '❯ ',
+      layout_config = { height = 25 },
+    }, custom_opts or {}))
   end
 
   if client.server_capabilities.documentSymbolProvider then
-    -- bufkeymap('n', 'glwd', <Cmd>Telescope lsp_document_symbols<CR>, '[D]ocument [S]ymbols')
     bufkeymap('n', 'glwd', function()
-      -- Call the built-in picker natively
-      require('telescope.builtin').lsp_document_symbols(
-        -- Merge your custom layout preferences directly into this specific call!
-        require('telescope.themes').get_dropdown({
-          symbols = { 'function', 'method' },
-          query = ' ', -- Triggers clangd instantly
-          initial_mode = 'normal', -- Enforces normal mode navigation right away
-          -- INCREASE THIS NUMBER TO SHOW MORE LINES IN THE LIST:
-          prompt_prefix = '🔍  ',
-          selection_caret = '❯ ',
-          layout_config = {
-            height = 25,
-          },
-        })
-      )
-    end, 'Find [W]orkspace Symbols (Functions)')
-  end
-  if client:supports_method('workspace/symbol') then
-    bufkeymap('n', 'glww', function()
-      -- Call the built-in picker natively
-      require('telescope.builtin').lsp_dynamic_workspace_symbols(
-        -- Merge your custom layout preferences directly into this specific call!
-        require('telescope.themes').get_dropdown({
-          symbols = { 'function', 'method' },
-          query = ' ', -- Triggers clangd instantly
-          initial_mode = 'normal', -- Enforces normal mode navigation right away
-          -- INCREASE THIS NUMBER TO SHOW MORE LINES IN THE LIST:
-          prompt_prefix = '🔍  ',
-          selection_caret = '❯ ',
-          layout_config = {
-            height = 25,
-          },
-        })
-      )
-    end, 'Find [W]orkspace Symbols (Functions)')
+      require('telescope.builtin').lsp_document_symbols(get_symbol_theme())
+    end, 'Find Document Symbols')
   end
 
+  if client.server_capabilities.workspaceSymbolProvider or client:supports_method('workspace/symbol') then
+    bufkeymap('n', 'glww', function()
+      -- Query = ' ' forces clangd workspace symbol lookup immediately
+      require('telescope.builtin').lsp_dynamic_workspace_symbols(get_symbol_theme({ query = ' ' }))
+    end, 'Find Workspace Symbols')
+  end
+
+  -- Workspace management
   if client.server_capabilities.workspace then
-    bufkeymap('n', 'glwa', vim.lsp.buf.add_workspace_folder, 'Workspace [a]dd folder')
-    bufkeymap('n', 'glwr', vim.lsp.buf.remove_workspace_folder, 'Workspace [r]emove folder')
+    bufkeymap('n', 'glwa', vim.lsp.buf.add_workspace_folder, 'Workspace add folder')
+    bufkeymap('n', 'glwr', vim.lsp.buf.remove_workspace_folder, 'Workspace remove folder')
     bufkeymap('n', 'glwl', function()
       print(vim.inspect(vim.lsp.buf.list_workspace_folders()))
-    end, '[W]orkspace [L]ist folders')
-  end
-  --
-  if client:supports_method('textDocument/switchSourceHeader') then
-    bufkeymap('n', 'glws', '<cmd>LspClangdSwitchSourceHeader<cr>', '[S]witch Source/Header (C/C++)')
+    end, 'Workspace list folders')
   end
 
+  -- Clangd specific
+  if client:supports_method('textDocument/switchSourceHeader') then
+    -- bufkeymap('n', 'glws', '<cmd>ClangdSwitchSourceHeader<cr>', 'Switch Source/Header (C/C++)')
+    bufkeymap('n', 'glws', function()
+      client:request('textDocument/switchSourceHeader', { uri = vim.uri_from_bufnr(bufnr) }, function(err, result)
+        if err or not result then
+          vim.notify('Corresponding source/header file not found', vim.log.levels.WARN)
+          return
+        end
+        vim.api.nvim_command('edit ' .. vim.uri_to_fname(result))
+      end, bufnr)
+    end, 'Switch Source/Header (C/C++)')
+  end
+
+  -- Formatting
   if client:supports_method('textDocument/formatting') then
-    -- if client.server_capabilities.documentFormattingProvider then
     bufkeymap({ 'n', 'x' }, 'glf', function()
       vim.lsp.buf.format({ bufnr = bufnr, async = true })
-      -- require('conform').format({ bufnr = bufnr, async = true })
-    end, '[f]ormat buffer')
+    end, 'Format buffer')
 
-    -- LSP format the current buffer on save
-    local fmt_group = vim.api.nvim_create_augroup('autoformat_cmds', { clear = true })
+    -- Buffer-isolated auto-format on save
+    local fmt_group = vim.api.nvim_create_augroup('autoformat_' .. bufnr, { clear = true })
     vim.api.nvim_create_autocmd('BufWritePre', {
       buffer = bufnr,
       group = fmt_group,
-      desc = 'Fromat current buffer',
+      desc = 'Format current buffer on save',
       callback = function(args)
-        -- if (client.name == 'lua_ls') and (vim.fn.executable('stylua') == 1) then
-        --   -- if (client.name == 'stylua') and (vim.fn.executable('stylua') == 1) then
-        --   -- vim.fn.system({ 'stylua', vim.api.nvim_buf_get_name(bufnr) })
-        --   vim.fn.system({ 'stylua', vim.api.nvim_buf_get_name(args.buf) })
-        --   vim.cmd('checktime')
-        --   print('stylua formatting')
-        -- else
         vim.lsp.buf.format({
-          bufnr = bufnr,
+          bufnr = args.buf,
           async = false,
-          timeout_ms = 10000,
+          timeout_ms = 3000,
           id = client.id,
-          filter = function(c)
-            return c.id == client.id
-          end,
         })
-        print('LSP: clangd formatting')
-        -- end
       end,
     })
   end
-  --
+
+  -- Inlay Hints
   if client.server_capabilities.inlayHintProvider and vim.lsp.inlay_hint then
     bufkeymap('n', 'glh', function()
-      vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled({ bufnr = bufnr }), { bufnr = bufnr })
-    end, '[h]ints toggle')
-    ------------------------------------------------------------------------------
+      local enable = not vim.lsp.inlay_hint.is_enabled({ bufnr = bufnr })
+      vim.lsp.inlay_hint.enable(enable, { bufnr = bufnr })
+    end, 'Toggle Inlay Hints')
   end
 end
 
