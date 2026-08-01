@@ -199,7 +199,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
         end
       end
     elseif is_pio then
-      print('2: ' .. code)
+      -- print('2: ' .. code)
       if (code and blocked_pckg_codes[code]) then show_diagnostics = false
       elseif autoPckg then
         -- Suppress diagnostics inside the pio framework root
@@ -261,14 +261,28 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
   local active_file_blocked
 
   local check_file = vim.fs.normalize(OS.getBufFilename(bufnr))
-  if check_file:find(_G.metadata.framework_root, 1, true) then
+
+  -- local framework_root = _G.metadata and _G.metadata.framework_root
+  -- local toolchain_root = _G.metadata and _G.metadata.toolchain_root
+  local packages_dir = _G.metadata and _G.metadata.packages_dir
+  local project_dir    = OS.project_dir
+
+  -- Lowercase ONLY on Windows to handle clangd's drive-letter/user casing quirks
+  if OS.is_win then
+    check_file    = check_file:lower()
+    -- framework_root = framework_root and framework_root:lower()
+    -- toolchain_root = toolchain_root and toolchain_root:lower()
+    packages_dir = packages_dir and packages_dir:lower()
+    project_dir    = project_dir and project_dir:lower()
+  end
+
+  if check_file:find(packages_dir, 1, true) then
     active_file_blocked = caced_blocked.pckg_codes
-  elseif check_file:find(OS.project_dir, 1, true) then
+  elseif check_file:find(packages_dir, 1, true) then
     active_file_blocked = caced_blocked.proj_codes
   else
     active_file_blocked = caced_blocked.proj_codes
   end
-
 
   M.session_discovered_codes = M.session_discovered_codes or {}
 
