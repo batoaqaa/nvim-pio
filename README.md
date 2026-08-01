@@ -49,13 +49,14 @@ Inside Neovim, run:
 
 ### 2. Daily Workflow & Keybindings
 
-| Key Sequence / Command | Action                | Description                                                                                                  |
-| ---------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `<leader>\` **g b**    | **Build Code**        | Runs `:Piocli run` to compile firmware                                                                       |
-| `<leader>\` **g u**    | **Upload Code**       | Runs `:Piocli run -t upload` to flash target board                                                           |
-| `<leader>\` **a b**    | **Generate LSP Data** | Re-generates `compile_commands.json`                                                                         |
-| `<leader>\` **m**      | **Serial Monitor**    | Opens asynchronous terminal monitor                                                                          |
-| `:Piolib <query>`      | **Install Library**   | Interactively search/install libraries (e.g., `:Piolib json` for `ArduinoJson`) and auto-refresh LSP headers |
+<!-- prettier-ignore -->
+| Key Sequence / Command | Action | Description |
+|---|---|---|
+| `<leader>\` **g b** | **Build Code** | Runs `:Piocli run` to compile firmware |
+| `<leader>\` **g u** | **Upload Code** | Runs `:Piocli run -t upload` to flash target board |
+| `<leader>\` **a b** | **Generate LSP Data** | Re-generates `compile_commands.json` |
+| `<leader>\` **m** | **Serial Monitor** | Opens asynchronous terminal monitor |
+| `:Piolib <query>` | **Install Library** | Interactively search/install libraries and refresh LSP |
 
 ---
 

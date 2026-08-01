@@ -152,6 +152,46 @@ Commands:
     Mapped to: |<leader>\s|
 
 ==============================================================================
+LSP KEYMAPS SUMMARY                                        *custom-lsp-keymaps*
+
+Quickfix & Diagnostics ~
+  [q        Previous quickfix list item
+  ]q        Next quickfix list item
+  [d        Jump to previous diagnostic (opens floating window)
+  ]d        Jump to next diagnostic (opens floating window)
+  gle       Show hover floating diagnostic error message
+  glq       Open diagnostic location list (quickfix style)
+
+Code Navigation & Information ~
+  glk       Show documentation hover window
+  gls       Show signature help (Normal & Insert mode)
+  glD       Jump to Declaration
+  gld       Jump to Definition
+  glt       Jump to Type definition
+  gli       Jump to Implementation
+  glr       List references via Telescope (`lsp_references`)
+
+Code Actions & Formatting ~
+  gla       Open LSP Code Actions
+  glR       Rename symbol under cursor
+  glf       Format buffer / visual selection (Async)
+  glh       Toggle Inlay Hints on/off for buffer
+
+Telescope Symbol Pickers ~
+  glwd      Find Document Symbols (Functions/Methods in current file)
+  glww      Find Dynamic Workspace Symbols (Functions/Methods across project)
+
+Workspace & C/C++ Helpers ~
+  glwa      Add folder to LSP workspace
+  glwr      Remove folder from LSP workspace
+  glwl      List active workspace folders
+  glws      Switch between Source and Header file (Native clangd handler)
+
+Disabled Defaults & Auto-Events ~
+  Disabled: `gra`, `gri`, `grn`, `grr`, `gO`, `K` (Removed to avoid `gl` clashes)
+  Autocmd:  Buffer-isolated auto-format on save (`BufWritePre`, 3000ms timeout)
+
+==============================================================================
 INTERACTIVE VIEW CONTROL                                   *nvimpio-interface*
 
 When you open the `:ClangdFilter` menu checklist row view panel, items will display
