@@ -101,24 +101,28 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
   local project_dir    = OS.project_dir
 
   -- Safe framework_root matching
-  local framework_root = _G.metadata and _G.metadata.framework_root
-  local toolchain_root = _G.metadata and _G.metadata.toolchain_root
+  -- local framework_root = _G.metadata and _G.metadata.framework_root
+  -- local toolchain_root = _G.metadata and _G.metadata.toolchain_root
+  local packages_dir = _G.metadata and _G.metadata.packages_dir
 
   -- Lowercase ONLY on Windows to handle clangd's drive-letter/user casing quirks
   if OS.is_win then
     target_path    = target_path:lower()
-    framework_root = framework_root and framework_root:lower()
-    toolchain_root = toolchain_root and toolchain_root:lower()
+    -- framework_root = framework_root and framework_root:lower()
+    -- toolchain_root = toolchain_root and toolchain_root:lower()
+    packages_dir = packages_dir and packages_dir:lower()
     project_dir    = project_dir and project_dir:lower()
   end
 
+  -- local is_pio = (
+  --   (framework_root and framework_root ~= "" and target_path:find(framework_root, 1, true) ~= nil)
+  --   or (toolchain_root and toolchain_root ~= "" and target_path:find(toolchain_root, 1, true) ~= nil)
+  -- ) or false
   local is_pio = (
-    (framework_root and framework_root ~= "" and target_path:find(framework_root, 1, true) ~= nil)
-    or (toolchain_root and toolchain_root ~= "" and target_path:find(toolchain_root, 1, true) ~= nil)
+    (packages_dir and packages_dir ~= "")
+    and target_path:find(packages_dir, 1, true) ~= nil
   ) or false
-  -- local is_pio = (framework_root and framework_root ~= "")
-  --   and (target_path:find(framework_root, 1, true) ~= nil)
-  --   or false
+
   local is_proj = target_path:find(project_dir, 1, true) ~= nil
 
   -- Localized shortcuts for hot-loop execution speed
@@ -195,7 +199,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
         end
       end
     elseif is_pio then
-      -- print('2: ' .. code)
+      print('2: ' .. code)
       if (code and blocked_pckg_codes[code]) then show_diagnostics = false
       elseif autoPckg then
         -- Suppress diagnostics inside the pio framework root

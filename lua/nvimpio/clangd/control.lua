@@ -391,14 +391,19 @@ function M.getClangdConfig()
     -- bypass all downstream logic and instantly force reuse.
     local target_bufnr = config.bufnr or 0
     local check_file = normalize_absolute_path(OS.getBufFilename(target_bufnr))
-    local framework_root = _G.metadata and _G.metadata.framework_root
-    local toolchain_root = _G.metadata and _G.metadata.toolchain_root
 
-    local in_framework = framework_root and framework_root ~= '' and check_file:find(normalize_absolute_path(framework_root), 1, true)
-    local in_toolchain = toolchain_root and toolchain_root ~= '' and check_file:find(normalize_absolute_path(toolchain_root), 1, true)
+    -- either detailed 
+    -- local framework_root = _G.metadata and _G.metadata.framework_root
+    -- local toolchain_root = _G.metadata and _G.metadata.toolchain_root
+    -- local in_framework = framework_root and framework_root ~= '' and check_file:find(normalize_absolute_path(framework_root), 1, true)
+    -- local in_toolchain = toolchain_root and toolchain_root ~= '' and check_file:find(normalize_absolute_path(toolchain_root), 1, true)
+    -- if in_framework or in_toolchain then return true end
 
-    if in_framework or in_toolchain then return true end
-    -- if check_file:find(_G.metadata.framework_root, 1, true) then return true end
+    -- or summarized
+    local packages_dir = _G.metadata and _G.metadata.packages_dir
+    if type(packages_dir) == 'string' and packages_dir ~= '' then
+      if check_file:find(normalize_absolute_path(packages_dir), 1, true) then return true end
+    end
 
     -- 2. RELIABLE STRING EXTRACTION: Evaluate the path directly and synchronously
     local proposed_root = get_validated_project_root(target_bufnr) or ""
