@@ -15,8 +15,6 @@ diagnostics.
 PlatformIO. It ensures that the `pio` executable is available in your 
 Neovim session's PATH regardless of your system's global configuration.
 
-                                 🚀 NVIM-PIO 🚀
-
 ==============================================================================
 CONFIGURATION                                                 *nvimpio-config*
 
@@ -40,108 +38,77 @@ Minimal Initialization Example:
 <
 
 ==============================================================================
-USAGE                                                        *nvimpio-commands*
-
-Commands:
+USAGE & COMMANDS                                            *nvimpio-commands*
 
 :Pioinit                                                            *:Pioinit*
     Open Neovim in a fresh directory, run `:Pioinit`, and follow the prompt to
     initialize a project. A telescope picker will appear for selecting
     the board, and then another for choosing the framework.
     Press enter to complete the initialization.
-    Mapped to: |<leader>\i|
 
 :PioInstall                                                      *:PioInstall*
     Downloads the official PlatformIO installer and sets up a virtual 
     environment in `~/.platformio/penv` asynchronously. 
-    Mapped to: |<leader>\pi|
 
 :PioUpgrade                                                      *:PioUpgrade*
     Upgrades the official PlatformIO to the latest release.
-    Mapped to: |<leader>\pu|
 
 :PioRepair                                                        *:PioRepair*
-    Repair/reinstall PlatformIO      Mapped to: |<leader>\pr|
+    Repair/reinstall PlatformIO Core installation.
 
 :PioRefreshData                                              *:PioRefreshData*
-    Repair PlatformIO project metadata  Mapped to: |<leader>\pf|
+    Repair and refresh PlatformIO project metadata.
 
 :Piorun [arg]                                                        *:Piorun*
     Builds, cleans, or uploads your code. If no argument is provided, 
-    it defaults to building the active environment. Piorun = 'pio run '
+    it defaults to building the active environment.
     Examples:
-        `:Piorun`           Mapped to: |<leader>\gb|
-        `:Piorun build`     Mapped to: |<leader>\gb|
-        `:Piorun clean`     Mapped to: |<leader>\gc|
-        `:Piorun upload`    Mapped to: |<leader>\gu|
-        `:Piorun buildfs`   Mapped to: |<leader>\fb|
-        `:Piorun uploadfs`  Mapped to: |<leader>\fu|
+        `:Piorun`          Builds active environment
+        `:Piorun clean`    Cleans build cache
+        `:Piorun upload`   Flashes target hardware
 
 :Piocli [cmd]                                                        *:Piocli*
     Run arbitrary PlatformIO commands inside a floating terminal window.
-    If no command argument is provided, it opens an interactive terminal prompt
-    at your project root folder. Note: the `pio` prefix word is omitted.
-    Piocli = 'pio '
-    Examples:
-       `:Piocli`                     Mapped to: |<leader>\c|
-       `:Piocli run -e uno -t upload`
-       `:Piocli device list`         Mapped to: |<leader>\gd|
+    If no command argument is provided, it opens an interactive terminal prompt.
 
 :Piolib [libname]                                                    *:Piolib*
-    Search and install libraries interactively. A telescope picker
-    displays matches; pick one and press enter to install.
-    Examples:
-       `:Piolib arduino json`
-       `:Piolib keyboard`
+    Search and install libraries interactively using Telescope.
 
-:Piomon [baud_rate][port]                                               *:Piomon*
-    Open the serial monitor communications shell. Specify a baud rate
-    as an optional argument. If omitted, it falls back to 9600 or the
-    rate defined inside your local `platformio.ini` file.
+:Piomon [baud_rate] [port]                                           *:Piomon*
+    Open the serial monitor communications shell.
     Examples:
-       `:Piomon`                     Mapped to: |<leader>\m|
-       `:Piomon 9600 COM40
-    Mapped to: |<leader>\m|
+        `:Piomon`
+        `:Piomon 9600 COM40`
 
-:PioCompileDB                                                  *:PioCompileDB*
+:PioCompileDB                                                *:PioCompileDB*
     Generates a localized compilation database (`compile_commands.json`).
-    Mapped to: |<leader>\ab|
 
-:PioDbFixPaths                                                *:PioDbFixPaths*
+:PioDbFixPaths                                              *:PioDbFixPaths*
     Forcefully rewrites target references inside `compile_commands.json` to
     resolve cross-platform host mapping path shifts.
 
-:PioGitIgnore                                                  *:PioGitIgnore*
+:PioGitIgnore                                                *:PioGitIgnore*
     Launches an interactive menu framework to easily toggle files or 
     folders inside your repository's `.gitignore` file. 
-    Mapped to: |<leader>\pg|
 
-:PioDeviceList                                                *:PioDeviceList*
-    Scans and lists all active microcontroller hardware serial devices
-    connected to your machine along with descriptions.
-    Mapped to: |<leader>\gd|
+:PioDeviceList                                              *:PioDeviceList*
+    Scans and lists all active microcontroller hardware serial devices.
 
-:PioSelectPort                                                *:PioSelectPort*
-    Launches an interface selection picker to map specific serial ports 
-    and customize configuration flags for upload and monitor routines.
+:PioSelectPort                                              *:PioSelectPort*
+    Launches an interface selection picker to map specific serial ports.
 
-:PioPickEnv                                                      *:PioPickEnv*
-    Launches a telescope option selection panel to change your active 
-    PlatformIO environment target framework. 
-    Mapped to: |<leader>\e|
+:PioPickEnv                                                    *:PioPickEnv*
+    Launches a telescope option selection panel to change active environment.
 
-:PioDebug                                                           *:PioDebug*
+:PioDebug                                                        *:PioDebug*
     Launches the default integrated PlatformIO hardware debugger using GDB.
-    Mapped to: |<leader>\ad|
 
-:ClangdFilter                                                  *:ClangdFilter*
-    Launches an interactive dropdown checklist selection menu to mask or block
-    unwanted diagnostic errors or warnings emitted by clangd.
-    Mapped to: |<leader>\b|
+:ClangdFilter                                                *:ClangdFilter*
+    Launches an interactive dropdown checklist to mask or block diagnostic
+    errors or warnings emitted by clangd.
 
-:ClangdFormatterPick                                    *:ClangdFormatterPick*
-    Launches an interactive dropdown configuration picker to generate standard
-    code style rules (like LLVM, Google, or Mozilla) to a `.clang-format` file.
+:ClangdFormatterPick                                  *:ClangdFormatterPick*
+    Generates standard code style rules to a `.clang-format` file.
 
 :ClangdCheckArgs                                            *:ClangdCheckArgs*
     Validates flags and handles real-time stripping of incompatible cross-compiler 
@@ -149,10 +116,9 @@ Commands:
 
 :Clangdrestart                                                *:Clangdrestart*
     Forcefully restarts the active `clangd` LSP language server client instance.
-    Mapped to: |<leader>\s|
 
 ==============================================================================
-LSP KEYMAPS SUMMARY                                        *custom-lsp-keymaps*
+LSP KEYMAPS SUMMARY                                         *custom-lsp-keymaps*
 
 Quickfix & Diagnostics ~
   [q        Previous quickfix list item
@@ -188,31 +154,28 @@ Workspace & C/C++ Helpers ~
   glws      Switch between Source and Header file (Native clangd handler)
 
 Disabled Defaults & Auto-Events ~
-  Disabled: `gra`, `gri`, `grn`, `grr`, `gO`, `K` (Removed to avoid `gl` clashes)
-  Autocmd:  Buffer-isolated auto-format on save (`BufWritePre`, 3000ms timeout)
+  Disabled: gra, gri, grn, grr, gO, K (Removed to avoid `gl` clashes)
+  Autocmd:  Buffer-isolated auto-format on save (BufWritePre, 3000ms timeout)
 
 ==============================================================================
-INTERACTIVE VIEW CONTROL                                   *nvimpio-interface*
+INTERACTIVE VIEW CONTROL                                    *nvimpio-interface*
 
 When you open the `:ClangdFilter` menu checklist row view panel, items will display
 with their live status markers:
 
-  `[*] Restore Code:  [no_member]`   ➔ Suppressed warning code (Blocked from view)
-  `[ ] Suppress Code: [unused-includes]` ➔ Active diagnostic code (Visible on screen)
+  [*] Restore Code:  [no_member]       -> Suppressed warning code (Blocked)
+  [ ] Suppress Code: [unused-includes] -> Active diagnostic code (Visible)
 
 - Select any row item to toggle its binary state cleanly in RAM.
-- Select `💥 Reset All Filters` to purge all local workspace rules instantly.
-- Press `<Esc>` to commit choices, flush variables to disk, and re-lint.
+- Select "Reset All Filters" to purge all local workspace rules instantly.
+- Press <Esc> to commit choices, flush variables to disk, and re-lint.
 
 ==============================================================================
-STATUSLINE COMPONENTS                                     *nvimpio-statusline*
+STATUSLINE COMPONENTS                                      *nvimpio-statusline*
 
 Integrate the status string tracking hook safely within your configuration.
 
 lualine.nvim configuration snippet:
-The implementation utilizes a safe execution proxy wrapper block to guarantee
-the editor UI never crashes if the statusline redraws before `lazy.nvim` completes
-its initialization loops:
 >lua
   sections = {
     lualine_x = {
@@ -229,11 +192,11 @@ its initialization loops:
 <
 
 ==============================================================================
-AUTHORS                                                      *nvimpio-authors*
+AUTHORS                                                     *nvimpio-authors*
 
 Created by Ahmed A. Batoaq.
 Repo:    https://github.com/batoaqaa/nvim-pio
 
-Distributed under the MIT license.
+Distributed under the Apache 2.0 license.
 ==============================================================================
  vim:tw=78:ts=8:ft=help:norl:

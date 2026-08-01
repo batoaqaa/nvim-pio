@@ -333,8 +333,10 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
     })
   end
 
-  for p, _ in pairs(caced_blocked.pckg_codes) do
-    table.insert(items, { action = 'none', text = '  [-] ⚙️ [AUTOMATED]: ' .. p })
+  if autoPckg then
+    for p, _ in pairs(caced_blocked.pckg_codes) do
+      table.insert(items, { action = 'none', text = '  [-] ⚙️ [AUTOMATED]: ' .. p })
+    end
   end
 
   for f, _ in pairs(caced_blocked.flags) do
