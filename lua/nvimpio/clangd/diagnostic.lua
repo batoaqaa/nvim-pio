@@ -185,8 +185,8 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
             flags_updated = true          -- if updated write it below to file
           end
         elseif code then
-          -- if (code and blocked_pckg_codes[code]) then show_diagnostics = false
-          -- elseif autoPckg then
+          if (code and blocked_pckg_codes[code]) then show_diagnostics = false
+          elseif autoPckg then
             -- Suppress diagnostics inside the pio framework root
             show_diagnostics = false
             -- If it's a Row 0 / Col 0 setup issue with NO flag in the msg (like fatal_too_many_errors),
@@ -195,7 +195,7 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
               blocked_pckg_codes[code] = true
               flags_updated = true
             end
-          -- end
+          end
         end
       end
     elseif is_pio then
@@ -277,8 +277,9 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
   end
 
   if check_file:find(packages_dir, 1, true) then
-    active_file_blocked = caced_blocked.pckg_codes
-  elseif check_file:find(packages_dir, 1, true) then
+    if autoPckg then active_file_blocked = {}
+    else active_file_blocked = caced_blocked.pckg_codes end
+  elseif check_file:find(project_dir, 1, true) then
     active_file_blocked = caced_blocked.proj_codes
   else
     active_file_blocked = caced_blocked.proj_codes
@@ -330,6 +331,10 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
       id = c,
       text = string.format('  %s %s Code: [%s]', mark, status, c),
     })
+  end
+
+  for p, _ in pairs(caced_blocked.pckg_codes) do
+    table.insert(items, { action = 'none', text = '  [-] ⚙️ [AUTOMATED]: ' .. p })
   end
 
   for f, _ in pairs(caced_blocked.flags) do
