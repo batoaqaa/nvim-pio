@@ -253,6 +253,71 @@ nvim -u nvimpio.lua .
 ---
 
 <details>
+  <summary>📊 <b>nvim-pio default LSP key mappings</b></summary>
+
+<br>
+
+## LSP key mappings
+
+if you opted for attach = 'attach+', then nvim-pio will inject these LPS keymaps:
+
+All keybindings use a consistent `gl` prefix (**G**oto **L**SP / **G**lobal **L**SP) to avoid conflicting with Neovim default shortcuts.
+
+### 🧭 Navigation & Inspection
+
+| Keymap | Mode     | Action                            | Description                             |
+| :----- | :------- | :-------------------------------- | :-------------------------------------- |
+| `gld`  | `n`      | `vim.lsp.buf.definition`          | Go to definition                        |
+| `glD`  | `n`      | `vim.lsp.buf.declaration`         | Go to declaration                       |
+| `glt`  | `n`      | `vim.lsp.buf.type_definition`     | Go to type definition                   |
+| `gli`  | `n`      | `vim.lsp.buf.implementation`      | Go to implementation                    |
+| `glr`  | `n`      | `Telescope lsp_references`        | Search references in Telescope          |
+| `glk`  | `n`      | `vim.lsp.buf.hover`               | Show hover documentation                |
+| `gls`  | `n`, `i` | `vim.lsp.buf.signature_help`      | Show function signature                 |
+| `glws` | `n`      | `textDocument/switchSourceHeader` | Switch between Source/Header (`clangd`) |
+
+### 🔍 Telescope Symbol Search
+
+| Keymap | Mode | Action                                    | Description                              |
+| :----- | :--- | :---------------------------------------- | :--------------------------------------- |
+| `glwd` | `n`  | `Telescope lsp_document_symbols`          | Find functions & methods in current file |
+| `glww` | `n`  | `Telescope lsp_dynamic_workspace_symbols` | Search symbols across entire workspace   |
+
+### 🛠️ Code Actions & Formatting
+
+| Keymap | Mode     | Action                    | Description                               |
+| :----- | :------- | :------------------------ | :---------------------------------------- |
+| `gla`  | `n`      | `vim.lsp.buf.code_action` | Trigger code actions                      |
+| `glR`  | `n`      | `vim.lsp.buf.rename`      | Rename symbol under cursor                |
+| `glf`  | `n`, `x` | `vim.lsp.buf.format`      | Format current buffer or visual selection |
+| `glh`  | `n`      | `vim.lsp.inlay_hint`      | Toggle inline hints                       |
+
+### 🚨 Diagnostics & Quickfix
+
+| Keymap | Mode | Action                                | Description                              |
+| :----- | :--- | :------------------------------------ | :--------------------------------------- |
+| `[d`   | `n`  | `vim.diagnostic.jump({ count = -1 })` | Jump to previous diagnostic              |
+| `]d`   | `n`  | `vim.diagnostic.jump({ count = 1 })`  | Jump to next diagnostic                  |
+| `gle`  | `n`  | `vim.diagnostic.open_float`           | Show diagnostic popup window             |
+| `glq`  | `n`  | `vim.diagnostic.setloclist`           | Send buffer diagnostics to location list |
+| `[q`   | `n`  | `vim.cmd.cprev`                       | Previous quickfix item                   |
+| `]q`   | `n`  | `vim.cmd.cnext`                       | Next quickfix item                       |
+
+### 📁 Workspace Management
+
+| Keymap | Mode | Action                                | Description                        |
+| :----- | :--- | :------------------------------------ | :--------------------------------- |
+| `glwa` | `n`  | `vim.lsp.buf.add_workspace_folder`    | Add folder to LSP workspace        |
+| `glwr` | `n`  | `vim.lsp.buf.remove_workspace_folder` | Remove folder from LSP workspace   |
+| `glwl` | `n`  | `vim.lsp.buf.list_workspace_folders`  | Print active LSP workspace folders |
+
+> **Note:** Default Neovim 0.10+ keymaps (`gra`, `gri`, `grn`, `grr`, `gO`, `K`) are automatically disabled for LSP buffers to eliminate keymap overlap. Auto-formatting is triggered synchronously on buffer save (`BufWritePre`, 3000ms timeout).
+
+</details>
+
+---
+
+<details>
   <summary>📊 <b>Statusline Integrations (lualine & native)</b></summary>
 
 <br>
