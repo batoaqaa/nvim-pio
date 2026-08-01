@@ -259,7 +259,7 @@ nvim -u nvimpio.lua .
 
 ## LSP key mappings
 
-if you opted for attach = 'attach+', then nvim-pio will inject these LPS keymaps:
+if you opted for attach = 'attach+' in config, then nvim-pio will inject these LSP keymaps:
 
 All keybindings use a consistent `gl` prefix (**G**oto **L**SP / **G**lobal **L**SP) to avoid conflicting with Neovim default shortcuts.
 
