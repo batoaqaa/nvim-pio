@@ -5,13 +5,13 @@ local defConfig = {
   },
   clangd = {
     support = true, -- Master switch for PlatformIO LSP logic
+    install = true, -- Flags whether to auto-install missing clangd
     -- Configures attach integration behavior.
     -- Options:
     --   "attach+" -> Attach the LSP client AND inject default hotkeys.
     --   "attach"  -> Attach the LSP client only (no custom hotkeys).
     --   "none"    -> Do not attach to files at all.
     attach = 'attach+',
-    install = true, -- Flags whether to auto-install missing clangd
   },
   menu_key = '<leader>\\', -- replace this menu key  to your convenience
   menu_name = 'PlatformIO', -- replace this menu name to your convenience

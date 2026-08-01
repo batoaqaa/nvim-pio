@@ -96,13 +96,13 @@ return {
       },
       clangd = {
         support = true, -- Master switch for PlatformIO LSP logic
+        install = false, -- Flags whether to auto-install missing clangd
         -- Configures attach integration behavior.
         -- Options:
         --   "attach+" -> Attach the LSP client AND inject default hotkeys.
         --   "attach"  -> Attach the LSP client only (no custom hotkeys).
         --   "none"    -> Do not attach to files at all.
         attach = 'attach+',
-        install = false, -- Flags whether to auto-install missing clangd
       },
       menu_key = '<leader>\\',  -- Local workspace menu activation mapping
       menu_name = 'PlatformIO', -- Interactive dashboard selection label
