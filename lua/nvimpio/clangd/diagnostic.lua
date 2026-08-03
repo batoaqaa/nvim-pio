@@ -1,11 +1,29 @@
 -- stylua: ignore start
 local M = {}
 
+function M.merge_tables(...)
+  local result = {}
+  for _, tbl in ipairs({ ... }) do
+    for k, v in pairs(tbl) do
+      if type(k) == 'number' then
+        -- For numeric array indices, append to preserve all items
+        table.insert(result, v)
+      else
+        -- For string keys, set/overwrite key
+        result[k] = v
+      end
+    end
+  end
+  return result
+end
+
+
 -- Module scopes track cross-file automated session states safely
-M.blocked = { proj_codes= {}, pckg_codes= {}, flags= {} }
+M.blocked = { proj_codes= {}, pckg_codes= {}, glob_codes= {}, flags= {} }
+-- M.blocked = { proj_codes= {}, pckg_codes= {}, flags= {} }
 M.session_discovered_codes = M.session_discovered_codes or {}
 
-local autoProj, autoPckg = false, false
+local autoProj, autoPckg, autoGlob = false, false, true
 -- ⚡ DISK CACHE LAYER: Prevents synchronous file reads on hot diagnostic loops
 M.cached_db_mtime = 0
 
@@ -19,8 +37,8 @@ local function ensure_default_db_exists(db_path)
   local stat = vim.uv.fs_stat(db_path)
   -- File exists, do not overwrite it!
   if stat then return true end
-
-  local raw_json = '{\n  "proj_codes": {},\n  "pckg_codes": {},\n  "flags": {}\n}'
+  local raw_json = '{\n  "proj_codes": {},\n  "pckg_codes": {},\n  "glob_codes": {},\n  "flags": {}\n}'
+  -- local raw_json = '{\n  "proj_codes": {},\n  "pckg_codes": {},\n  "flags": {}\n}'
   -- Perform a safe, single-point background disk write operation
   local f = io.open(db_path, 'wb')
   if f then
@@ -35,7 +53,7 @@ end
 local function parse_db_file_pure(db_path)
   ensure_default_db_exists(db_path)
 
-  local blocked_codes = { proj_codes= {}, pckg_codes= {}, flags= {}}
+  local blocked_codes = { proj_codes= {}, pckg_codes= {}, glob_codes= {}, flags= {} }
 
   local f = io.open(db_path, 'rb')
   if not f then return blocked_codes end
@@ -135,10 +153,12 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
   -- Pre-verify storage tables exist
   M.blocked = M.blocked or {}
   M.blocked.flags = M.blocked.flags or {}
+  M.blocked.glob_codes = M.blocked.blob_codes or {}
   M.blocked.pckg_codes = M.blocked.pckg_codes or {}
   M.blocked.proj_codes = M.blocked.proj_codes or {}
 
   local blocked_flags = M.blocked.flags
+  local blocked_glob_codes = M.blocked.glob_codes
   local blocked_pckg_codes = M.blocked.pckg_codes
   local blocked_proj_codes = M.blocked.proj_codes
 
@@ -185,15 +205,14 @@ function M.clean_file_path_pipeline(result)  -- change pio flags/codes  --> writ
             flags_updated = true          -- if updated write it below to file
           end
         elseif code then
-          if (code and blocked_pckg_codes[code]) then show_diagnostics = false
-          -- elseif autoPckg then
-          else
+          if (code and blocked_glob_codes[code]) then show_diagnostics = false
+          elseif autoGlob then
             -- Suppress diagnostics inside the pio framework root
             show_diagnostics = false
             -- If it's a Row 0 / Col 0 setup issue with NO flag in the msg (like fatal_too_many_errors),
             -- capture its error code into blocked_pckg_codes!
-            if not blocked_pckg_codes[code] then
-              blocked_pckg_codes[code] = true
+            if not blocked_glob_codes[code] then
+              blocked_glob_codes[code] = true
               flags_updated = true
             end
           end
@@ -276,9 +295,11 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
     packages_dir = packages_dir and packages_dir:lower()
     project_dir    = project_dir and project_dir:lower()
   end
-
+-- M.merge_tables(caced_blocked.glob_codes, caced_blocked.pckg_codes)
   if check_file:find(packages_dir, 1, true) then
-    if autoPckg then active_file_blocked = {}
+    if autoPckg and autoGlob then active_file_blocked = {}
+    elseif not autoPckg and not autoGlob then active_file_blocked = M.merge_tables(caced_blocked.glob_codes, caced_blocked.pckg_codes)
+    elseif not autoGlob then active_file_blocked = caced_blocked.glob_codes
     else active_file_blocked = caced_blocked.pckg_codes end
   elseif check_file:find(project_dir, 1, true) then
     active_file_blocked = caced_blocked.proj_codes
@@ -337,6 +358,12 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
   if autoPckg then
     for p, _ in pairs(caced_blocked.pckg_codes) do
       table.insert(items, { action = 'none', text = '  [-] ⚙️ [AUTOMATED]: ' .. p })
+    end
+  end
+
+  if autoGlob then
+    for g, _ in pairs(caced_blocked.glob_codes) do
+      table.insert(items, { action = 'none', text = '  [-] ⚙️ [AUTOMATED]: ' .. g })
     end
   end
 

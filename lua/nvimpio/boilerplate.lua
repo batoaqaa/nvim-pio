@@ -295,10 +295,10 @@ CompileFlags:
     local filter_db_file = vim.fs.joinpath(OS.nvimpio_env_dir,OS.clangd_filter)
     local db_exist = vim.uv.fs_stat(filter_db_file)
     if not db_exist then
-      local default_db = { proj_codes= {}, pckg_codes= {}, flags= {} }
+      local default_db = { proj_codes= {}, pckg_codes= {}, glob_codes= {}, flags= {} }
       local f_init = io.open(filter_db_file, 'wb')
       if f_init then
-        f_init:write(misc.jsonFormat and misc.jsonFormat(default_db) or '{\n  "proj_codes": {},\n  "pckg_codes": {},\n  "flags": {}\n}')
+        f_init:write(misc.jsonFormat and misc.jsonFormat(default_db) or '{\n  "proj_codes": {},\n  "pckg_codes": {},\n  "glob_codes": {},\n  "flags": {}\n}')
         f_init:close()
       end
     end
@@ -324,7 +324,12 @@ CompileFlags:
       end
       -- vim.list_extend(compileFlagsRemove, flagsBlocked)
 
-      for code, isblocked in pairs(pio_diag.blocked.pckg_codes) do
+      for code, isblocked in pairs(pio_diag.blocked.glob_codes) do -- glob
+        if isblocked then
+          table.insert(globCodesSuppress, string.format('%q', code))
+        end
+      end
+      for code, isblocked in pairs(pio_diag.blocked.pckg_codes) do -- pckg
         if isblocked then
           table.insert(globCodesSuppress, string.format('%q', code))
         end
