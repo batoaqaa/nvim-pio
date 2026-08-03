@@ -5,7 +5,7 @@ local M = {}
 M.blocked = { proj_codes= {}, pckg_codes= {}, flags= {} }
 M.session_discovered_codes = M.session_discovered_codes or {}
 
-local autoProj, autoPckg = false, true
+local autoProj, autoPckg = false, false
 -- ⚡ DISK CACHE LAYER: Prevents synchronous file reads on hot diagnostic loops
 M.cached_db_mtime = 0
 
