@@ -5,13 +5,8 @@ function M.merge_tables(...)
   local result = {}
   for _, tbl in ipairs({ ... }) do
     for k, v in pairs(tbl) do
-      if type(k) == 'number' then
-        -- For numeric array indices, append to preserve all items
-        table.insert(result, v)
-      else
-        -- For string keys, set/overwrite key
-        result[k] = v
-      end
+      if type(k) == 'number' then table.insert(result, v)
+      else result[k] = v end
     end
   end
   return result
@@ -20,7 +15,6 @@ end
 
 -- Module scopes track cross-file automated session states safely
 M.blocked = { proj_codes= {}, pckg_codes= {}, glob_codes= {}, flags= {} }
--- M.blocked = { proj_codes= {}, pckg_codes= {}, flags= {} }
 M.session_discovered_codes = M.session_discovered_codes or {}
 
 local autoProj, autoPckg, autoGlob = false, false, true
@@ -38,7 +32,6 @@ local function ensure_default_db_exists(db_path)
   -- File exists, do not overwrite it!
   if stat then return true end
   local raw_json = '{\n  "proj_codes": {},\n  "pckg_codes": {},\n  "glob_codes": {},\n  "flags": {}\n}'
-  -- local raw_json = '{\n  "proj_codes": {},\n  "pckg_codes": {},\n  "flags": {}\n}'
   -- Perform a safe, single-point background disk write operation
   local f = io.open(db_path, 'wb')
   if f then
@@ -316,20 +309,20 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
     end
   end
 
-  -- Seed tracking lists with active on-screen errors
-  local raw_diagnostics = vim.diagnostic.get(bufnr)
-  for _, d in ipairs(raw_diagnostics) do
-    local c = d.code and tostring(d.code) or ''
-    local msg = d.message or ''
-
-    local is_automated_arg = c:match('^drv_') or c:match('^fatal_')
-    local is_flag_err = msg:match('[Aa][Rr][Gg][Uu][Mm][Ee][Nn][Tt]') or msg:lower():match('unknown flag')
-    -- local is_flag_err = msg:lower():match('argument') or msg:lower():match('unknown flag')
-
-    if c ~= '' and not is_automated_arg and not is_flag_err then
-      M.session_discovered_codes[c] = true
-    end
-  end
+  -- -- Seed tracking lists with active on-screen errors
+  -- local raw_diagnostics = vim.diagnostic.get(bufnr)
+  -- for _, d in ipairs(raw_diagnostics) do
+  --   local c = d.code and tostring(d.code) or ''
+  --   local msg = d.message or ''
+  --
+  --   local is_automated_arg = c:match('^drv_') or c:match('^fatal_')
+  --   local is_flag_err = msg:match('[Aa][Rr][Gg][Uu][Mm][Ee][Nn][Tt]') or msg:lower():match('unknown flag')
+  --   -- local is_flag_err = msg:lower():match('argument') or msg:lower():match('unknown flag')
+  --
+  --   if c ~= '' and not is_automated_arg and not is_flag_err then
+  --     M.session_discovered_codes[c] = true
+  --   end
+  -- end
 
   -- Sort keys alphabetically
   local registered_keys = {}
