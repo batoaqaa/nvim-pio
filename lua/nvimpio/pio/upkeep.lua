@@ -746,48 +746,48 @@ fetch_metadata = function(callback, active_env, from, attempts)
     local cok, decoded = pcall(vim.json.decode, content)
     if cok and M.apply_metadata(decoded[active_env], active_env, from) then
       -- if cok and M.apply_metadata(decoded, active_env) then
-      if from == 'Meta active_env change: ' then
-        -- cli
-        require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
-          if is_successful then
-            -- OS.notify('Database is ready. Proceeding with analysis...', OS.debug)
-            -- clangd.getUnknownArgsCli(from)
-          else
-            OS.notify('Skipping next steps due to compilation database failure.', 'error')
-          end
-        end)
-      else
-        -- gui
-        if attempts > 0 then
-          local cb = function(status)
-            require('nvimpio.device.parser').handlePioDB(status, active_env, function(success)
-              -- if success then do end end
-              if success then
-                do
-                end
+      -- if from == 'Meta active_env change: ' then
+      --   -- cli
+      --   require('nvimpio.pio.cli').buildCompileDB(from, active_env, function(is_successful)
+      --     if is_successful then
+      --       -- OS.notify('Database is ready. Proceeding with analysis...', OS.debug)
+      --       -- clangd.getUnknownArgsCli(from)
+      --     else
+      --       OS.notify('Skipping next steps due to compilation database failure.', 'error')
+      --     end
+      --   end)
+      -- else
+      -- gui
+      if attempts > 0 then
+        local cb = function(status)
+          require('nvimpio.device.parser').handlePioDB(status, active_env, function(success)
+            -- if success then do end end
+            if success then
+              do
               end
-            end)
-          end
-
-          local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-          require('nvimpio.device.parser').run_sequence({ cmnds = { dbcmd }, cb = cb, from = string.format('%s refresh ', from) })
-          -- clangd.clangdIntall(function(clangdCmd)
-          --   local check_file = vim.fs.find(function(name)
-          --     return name:match('%.cpp$') or name:match('%.c$')
-          --   end, { limit = 1, path = uv.cwd() .. '/src' })[1]
-          --   if not check_file then
-          --     boilerplate_gen([[main.cpp]], uv.cwd() .. '/src')
-          --     boilerplate_gen([[main.hpp]], uv.cwd() .. '/include')
-          --     check_file = uv.cwd() .. '/src/main.cpp'
-          --   end
-          --   -- local argscmd = string.format('%s --compile-commands-dir=. --check=%s --log=error', clangdCmd, check_file)
-          --   local argscmd = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error', clangdCmd, check_file, _G.metadata.query_driver)
-          --   local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
-          --   -- require('nvimpio.device.parser')run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
-          --   require('nvimpio.device.parser').run_sequence({ cmnds = { dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ', from) })
-          -- end, 'clangd')
+            end
+          end)
         end
+
+        local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+        require('nvimpio.device.parser').run_sequence({ cmnds = { dbcmd }, cb = cb, from = string.format('%s refresh ', from) })
+        -- clangd.clangdIntall(function(clangdCmd)
+        --   local check_file = vim.fs.find(function(name)
+        --     return name:match('%.cpp$') or name:match('%.c$')
+        --   end, { limit = 1, path = uv.cwd() .. '/src' })[1]
+        --   if not check_file then
+        --     boilerplate_gen([[main.cpp]], uv.cwd() .. '/src')
+        --     boilerplate_gen([[main.hpp]], uv.cwd() .. '/include')
+        --     check_file = uv.cwd() .. '/src/main.cpp'
+        --   end
+        --   -- local argscmd = string.format('%s --compile-commands-dir=. --check=%s --log=error', clangdCmd, check_file)
+        --   local argscmd = string.format('%s --compile-commands-dir=. --check=%s --query-driver=%s --log=error', clangdCmd, check_file, _G.metadata.query_driver)
+        --   local dbcmd = string.format('pio run -t compiledb -e %s', active_env)
+        --   -- require('nvimpio.device.parser')run_sequence({ cmnds = { idecmd, dbcmd }, cb = cb, from = string.format('%s refresh ' , from) })
+        --   require('nvimpio.device.parser').run_sequence({ cmnds = { dbcmd, argscmd }, cb = cb, from = string.format('%s refresh ', from) })
+        -- end, 'clangd')
       end
+      -- end
 
       OS.notify(from .. 'Metadata synced from cache', OS.debug)
       -- local ok, pretty_json = pcall(misc.jsonFormat, decoded)
