@@ -309,20 +309,20 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
     end
   end
 
-  -- -- Seed tracking lists with active on-screen errors
-  -- local raw_diagnostics = vim.diagnostic.get(bufnr)
-  -- for _, d in ipairs(raw_diagnostics) do
-  --   local c = d.code and tostring(d.code) or ''
-  --   local msg = d.message or ''
-  --
-  --   local is_automated_arg = c:match('^drv_') or c:match('^fatal_')
-  --   local is_flag_err = msg:match('[Aa][Rr][Gg][Uu][Mm][Ee][Nn][Tt]') or msg:lower():match('unknown flag')
-  --   -- local is_flag_err = msg:lower():match('argument') or msg:lower():match('unknown flag')
-  --
-  --   if c ~= '' and not is_automated_arg and not is_flag_err then
-  --     M.session_discovered_codes[c] = true
-  --   end
-  -- end
+  -- Seed tracking lists with active on-screen errors
+  local raw_diagnostics = vim.diagnostic.get(bufnr)
+  for _, d in ipairs(raw_diagnostics) do
+    local c = d.code and tostring(d.code) or ''
+    -- local msg = d.message or ''
+    --
+    -- local is_automated_arg = c:match('^drv_') or c:match('^fatal_')
+    -- local is_flag_err = msg:match('[Aa][Rr][Gg][Uu][Mm][Ee][Nn][Tt]') or msg:lower():match('unknown flag')
+    -- -- local is_flag_err = msg:lower():match('argument') or msg:lower():match('unknown flag')
+    --
+    -- if c ~= '' and not is_automated_arg and not is_flag_err then
+      M.session_discovered_codes[c] = true
+    -- end
+  end
 
   -- Sort keys alphabetically
   local registered_keys = {}
