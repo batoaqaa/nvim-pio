@@ -293,13 +293,7 @@ vim.ui.select = function(items, opts, on_choice)
           local clicked_item = selection.value
           local clicked_index = selection.index
 
-          -- DETERMINE IF MENU SHOULD STAY OPEN:
-          -- 1. Explicit flag in options: opts.keep_open = true
-          -- 2. Auto-detect toggleable items (tables containing action or id keys)
-          local should_keep_open = (opts.keep_open == true) or
-            (type(clicked_item) == "table" and (clicked_item.action ~= nil or clicked_item.id ~= nil))
-
-          if should_keep_open then
+          if opts.keep_open == true then
             ------------------------------------------------------------------
             -- CASE A: KEEP OPEN (Multi-select / Interactive Toggle Menus)
             ------------------------------------------------------------------
