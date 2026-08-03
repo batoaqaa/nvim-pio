@@ -276,41 +276,21 @@ local plugins = {
     end,
   },
 
-  { 'nvim-tree/nvim-tree.lua',
-    dependencies = { 'nvim-tree/nvim-web-devicons', },
-    config = function()
-      -- WARNING: Place these two lines at the absolute top of your main 'init.lua' file!
-      vim.g.loaded_netrw = 1
-      vim.g.loaded_netrwPlugin = 1
-
-      -- Set termguicolors to enable highlight groups
-      vim.opt.termguicolors = true
-
-      require('nvim-tree').setup({
-        -- UPDATED: This replaces the deprecated 'sort_by' property
-        sort = { sorter = 'case_sensitive', },
-        view = { width = 30, side = 'left', },
-        renderer = {
-          group_empty = true,
-          icons = {
-            show = {
-              file = true,
-              folder = true,
-              folder_arrow = true,
-              git = true,
-            },
-          },
-        },
-        filters = { dotfiles = false, custom = { '^\\.git$' }, },
-        git = { enable = true, ignore = false, },
-      })
-      -- Global keymaps
-      vim.keymap.set('n', '\\', ':NvimTreeToggle<CR>', { silent = true, desc = 'Toggle File Explorer' })
-    end,
+  { 'nvim-neo-tree/neo-tree.nvim',
+    branch = 'v3.x',
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      'nvim-tree/nvim-web-devicons',
+      'MunifTanjim/nui.nvim',
+    },
+    opts = {
+      window = { mappings = { ['<space>'] = false, }, },
+      filesystem = { filtered_items = { hide_dotfiles = true, hide_gitignored = false, hide_by_name = { }, },
+      },
+    },
   },
 
   { 'dchinmay2/clangd_extensions.nvim' },
-
   { 'batoaqaa/nvim-pio',
     -- lazy = true,
     lazy = false,
@@ -325,6 +305,7 @@ local plugins = {
     --   end
     -- end,
     dependencies = {
+      { 'akinsho/toggleterm.nvim' },
       { 'nvim-telescope/telescope.nvim' },
       { 'nvim-telescope/telescope-ui-select.nvim' },
       { 'nvim-lua/plenary.nvim' },
