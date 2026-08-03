@@ -354,6 +354,7 @@ function M.manage_file_diagnostics_interactive()   -- change pckg_codes  --> wri
   --------------------------------------------------------------------------------------------
   vim.ui.select(items, {
     prompt = string.format('📁 %s | Blocked: %d', vim.fs.basename(filter_db_path), block_count),
+    keep_open = true, -- <--- Keeps the menu open for in-place toggling!
     format_item = function(item) return item.text end,
   }, function(choice)
     -- GATE 1: User pressed Escape or q. Save choices to disk exactly once!

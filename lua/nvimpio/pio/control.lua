@@ -293,74 +293,104 @@ vim.ui.select = function(items, opts, on_choice)
           local clicked_item = selection.value
           local clicked_index = selection.index
 
-          -- Capture state of all items before callback to detect bulk changes
-          local snapshot_before = {}
-          for i, itm in ipairs(items) do
-            snapshot_before[i] = format_single_item(itm)
-          end
+          -- DETERMINE IF MENU SHOULD STAY OPEN:
+          -- 1. Explicit flag in options: opts.keep_open = true
+          -- 2. Auto-detect toggleable items (tables containing action or id keys)
+          local should_keep_open = (opts.keep_open == true) or
+            (type(clicked_item) == "table" and (clicked_item.action ~= nil or clicked_item.id ~= nil))
 
-          -- Execute choice callback
-          on_choice(clicked_item, clicked_index)
-
-          local current_picker = action_state.get_current_picker(prompt_bufnr)
-          if current_picker then
-            -- Count how many items changed text representation during on_choice
-            local changed_count = 0
+          if should_keep_open then
+            ------------------------------------------------------------------
+            -- CASE A: KEEP OPEN (Multi-select / Interactive Toggle Menus)
+            ------------------------------------------------------------------
+            -- Capture state of all items before callback to detect bulk changes
+            local snapshot_before = {}
             for i, itm in ipairs(items) do
-              if format_single_item(itm) ~= snapshot_before[i] then
-                changed_count = changed_count + 1
-              end
+              snapshot_before[i] = format_single_item(itm)
             end
 
-            if changed_count > 1 then
-              -- BULK CHANGE DETECTED (e.g. Reset All): Full finder refresh
-              current_picker:refresh(make_entry_list(), { reset_prompt = false })
-            else
-              -- SINGLE OR NO LINE CHANGE: Fast in-place buffer mutation
-              local updated_text = format_single_item(clicked_item)
-              selection.display = updated_text
-              selection.ordinal = updated_text
+            -- Execute choice callback while window stays open
+            on_choice(clicked_item, clicked_index)
 
-              local results_buf = current_picker.results_bufnr
-              if vim.api.nvim_buf_is_valid(results_buf) then
-                local prefix = current_picker.selection_caret or dropdown_settings.selection_caret or "  "
-                local final_line = prefix .. updated_text
+            local current_picker = action_state.get_current_picker(prompt_bufnr)
+            if current_picker then
+              -- Count how many items changed text representation during on_choice
+              local changed_count = 0
+              for i, itm in ipairs(items) do
+                if format_single_item(itm) ~= snapshot_before[i] then
+                  changed_count = changed_count + 1
+                end
+              end
 
-                vim.api.nvim_buf_set_lines(results_buf, clicked_index - 1, clicked_index, false, { final_line })
+              if changed_count > 1 then
+                -- BULK CHANGE DETECTED (e.g. Reset All): Full finder refresh
+                current_picker:refresh(make_entry_list(), { reset_prompt = false })
+              else
+                -- SINGLE OR NO LINE CHANGE: Fast in-place buffer mutation
+                local updated_text = format_single_item(clicked_item)
+                selection.display = updated_text
+                selection.ordinal = updated_text
+
+                local results_buf = current_picker.results_bufnr
+                if vim.api.nvim_buf_is_valid(results_buf) then
+                  local prefix = current_picker.selection_caret or dropdown_settings.selection_caret or "  "
+                  local final_line = prefix .. updated_text
+
+                  vim.api.nvim_buf_set_lines(results_buf, clicked_index - 1, clicked_index, false, { final_line })
+                end
               end
             end
+          else
+            ------------------------------------------------------------------
+            -- CASE B: CLOSE ON ENTER (Standard Single-Select Pickers)
+            ------------------------------------------------------------------
+            actions.close(prompt_bufnr)
+            vim.schedule(function()
+              on_choice(clicked_item, clicked_index)
+            end)
           end
-          -- -- AUTO-DETECTION RADAR: 
-          -- -- Check if the incoming items look like a checkbox toggle array (has choice.action or choice.id)
-          -- local is_checkbox_menu = type(clicked_item) == "table" and (clicked_item.action ~= nil or clicked_item.id ~= nil)
+          -- local selection = action_state.get_selected_entry()
+          -- if not selection then return end
           --
-          -- if is_checkbox_menu then
-          --   on_choice(clicked_item, clicked_index)
+          -- local clicked_item = selection.value
+          -- local clicked_index = selection.index
           --
-          --   local current_picker = action_state.get_current_picker(prompt_bufnr)
-          --   if current_picker then
+          -- -- Capture state of all items before callback to detect bulk changes
+          -- local snapshot_before = {}
+          -- for i, itm in ipairs(items) do
+          --   snapshot_before[i] = format_single_item(itm)
+          -- end
+          --
+          -- -- Execute choice callback
+          -- on_choice(clicked_item, clicked_index)
+          --
+          -- local current_picker = action_state.get_current_picker(prompt_bufnr)
+          -- if current_picker then
+          --   -- Count how many items changed text representation during on_choice
+          --   local changed_count = 0
+          --   for i, itm in ipairs(items) do
+          --     if format_single_item(itm) ~= snapshot_before[i] then
+          --       changed_count = changed_count + 1
+          --     end
+          --   end
+          --
+          --   if changed_count > 1 then
+          --     -- BULK CHANGE DETECTED (e.g. Reset All): Full finder refresh
+          --     current_picker:refresh(make_entry_list(), { reset_prompt = false })
+          --   else
+          --     -- SINGLE OR NO LINE CHANGE: Fast in-place buffer mutation
           --     local updated_text = format_single_item(clicked_item)
-          --
-          --     -- Update Telescope's internal memory maps
           --     selection.display = updated_text
           --     selection.ordinal = updated_text
           --
           --     local results_buf = current_picker.results_bufnr
           --     if vim.api.nvim_buf_is_valid(results_buf) then
-          --       -- Use selection caret prefix if configured, otherwise fall back to entry prefix padding
           --       local prefix = current_picker.selection_caret or dropdown_settings.selection_caret or "  "
           --       local final_line = prefix .. updated_text
           --
-          --       -- Single atomic buffer line write (Zero flicker, zero cursor jump, zero alignment shift)
           --       vim.api.nvim_buf_set_lines(results_buf, clicked_index - 1, clicked_index, false, { final_line })
           --     end
           --   end
-          -- else
-          --   -- CASE B: Standard Selection Menu -> CLOSE WINDOW INSTANTLY AND JUMP
-          --   actions.close(prompt_bufnr)
-          --   vim.schedule(function()
-          --     on_choice(clicked_item, clicked_index)
-          --   end)
           -- end
         end)
         return true
