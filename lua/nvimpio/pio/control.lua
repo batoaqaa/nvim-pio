@@ -9,31 +9,37 @@ M.watcher_handles = {}
 M.augroup = vim.api.nvim_create_augroup('NvimpioWatchers', { clear = true })
 
 local uv = vim.uv or vim.loop
+
+--- Non-blocking, error-trapped SHA256 file hashing
+---@param path string
+---@return string hash SHA256 string or empty string ''
 function M.get_hash(path)
-  if vim.fn.filereadable(path) == 0 then
-    return nil
+  if not path or path == '' then return '' end
+
+  local stat = uv.fs_stat(path)
+  if not stat or stat.type ~= 'file' or stat.size == 0 then
+    return ''
   end
-  -- local ok, data = pcall(vim.fn.readfile, path) -- readfile is safer than io.open
-  -- return ok and vim.fn.sha256(table.concat(data, '\n')) or nil
-  local ok, data = misc.readFile(path) -- readfile is safer than io.open
-  return (ok and type(data) == 'string' and data ~= '') and vim.fn.sha256(data) or ''
+
+  local fd = uv.fs_open(path, 'r', 438) -- 0666 permissions octal
+  if not fd then
+    return ''
+  end
+
+  local ok, data = pcall(uv.fs_read, fd, stat.size, 0)
+  pcall(uv.fs_close, fd)
+
+  if not ok or type(data) ~= 'string' or data == '' then
+    return ''
+  end
+
+  return vim.fn.sha256(data)
 end
 
---- Standardize paths safely across Windows, Linux, and macOS
+--- Standardize paths safely across platforms
 local function normalize_path(path)
   if not path or path == '' then return '' end
-  local normalized = vim.fs.normalize(path)
-  if OS.is_win then
-    normalized = normalized:gsub('^%a:', string.lower)
-  end
-  return normalized
-end
-
---- Escape special Vim pattern characters for autocmd patterns
-local function escape_pattern(path)
-  if not path or path == '' then return '' end
-  -- Parentheses wrap the gsub result to discard the second return value (count integer)
-  return (path:gsub('([%[%]%*%?])', '\\%1'))
+  return vim.fs.normalize(path)
 end
 
 --- Case-insensitive string comparison for OS compatibility
@@ -105,7 +111,7 @@ local function add_watch_target(target)
   local safe_execute = vim.schedule_wrap(function()
     if target.is_busy then return end
 
-    local new_hash = M.get_hash(target.path) or ''
+    local new_hash = M.get_hash(target.path)
     if new_hash == '' or new_hash == target.last_hash then return end
 
     -- Update last_hash immediately upon qualification to prevent duplicate tick triggers
@@ -142,12 +148,14 @@ local function add_watch_target(target)
     end
   end
 
-  -- CHANNEL 1: Internal Neovim file saves (Escaped Vim Pattern Matching)
-  vim.api.nvim_create_autocmd({ 'BufWritePost', 'FileChangedShellPost' }, {
+  -- CHANNEL 1: Internal Neovim file saves (Direct Lua path check instead of fragile C pattern matching)
+  vim.api.nvim_create_autocmd('BufWritePost', {
     group = M.augroup,
-    pattern = { escape_pattern(norm_target_path), escape_pattern(target.path) },
-    callback = function()
-      trigger()
+    callback = function(ev)
+      local buf_path = normalize_path(vim.api.nvim_buf_get_name(ev.buf))
+      if filenames_equal(buf_path, norm_target_path) then
+        trigger()
+      end
     end,
   })
 
@@ -230,9 +238,12 @@ function M.start_watchers()
       name = 'db',
       path = vim.fs.joinpath(project_root, 'compile_commands.json'),
       cb = function(_, done)
-        OS.notify('PIO compiledb changed', OS.debug)
-        require('nvimpio.clangd.control').restart()
-        done()
+        -- Debounce LSP restart to ensure compiledb file lock releases cleanly
+        vim.defer_fn(function()
+          OS.notify('PIO compiledb changed', OS.debug)
+          require('nvimpio.clangd.control').restart()
+          done()
+        end, 300)
       end,
     },
     {
@@ -252,6 +263,9 @@ function M.start_watchers()
     add_watch_target(target)
   end
 end
+
+
+
 
 -- --INFO:
 -- --=============================================================================
