@@ -59,7 +59,6 @@ function M.stop_watchers()
     nvim_tree_timer = nil
   end
 
-  -- Clear autocmd group if present
   pcall(vim.api.nvim_clear_autocmds, { group = 'NvimpioWatchersAuto' })
 end
 
@@ -99,6 +98,7 @@ end
 --- Robust watcher supporting dynamic directory auto-attachment, CLI atomic writes, and handle recycling
 local function watch_file(target, callback)
   local folder_path = vim.fs.dirname(target.path)
+  local target_filename = vim.fs.basename(target.path)
 
   local debounce_timer = uv.new_timer()
   if debounce_timer then table.insert(M.watcher_handles, debounce_timer) end
@@ -109,8 +109,7 @@ local function watch_file(target, callback)
         local is_closing = pcall(function() return debounce_timer:is_closing() end) and debounce_timer:is_closing()
         if not is_closing then
           pcall(function() debounce_timer:stop() end)
-          -- 500ms buffer gives PlatformIO CLI time to release file lock and finalize replace
-          debounce_timer:start(500, 0, vim.schedule_wrap(function()
+          debounce_timer:start(400, 0, vim.schedule_wrap(function()
             callback(target)
           end))
         end
@@ -118,15 +117,35 @@ local function watch_file(target, callback)
     end)
   end
 
+  -- Expose trigger_check on target for external autocmd triggers
+  target.trigger_check = trigger_check
+
   local function attach()
     if not uv.fs_stat(folder_path) then return false end
 
     local handle = uv.new_fs_event()
     if not handle then return false end
 
-    -- Catch ALL events in folder (do NOT check filename because atomic renames omit/change filename)
-    local err = handle:start(folder_path, { recursive = false }, function(start_err, _, _)
+    local err = handle:start(folder_path, { recursive = false }, function(start_err, filename, _)
       if start_err then return end
+
+      -- Allow unnamed OS events (atomic renames) OR filename matches/swaps
+      if filename and filename ~= '' then
+        local base = vim.fs.basename(filename):lower()
+        local target_lower = target_filename:lower()
+
+        -- Broad match: exact name, contains target name, or contains temp file patterns (.tmp, .pio, compile)
+        local is_exact = (base == target_lower)
+        local is_swap = base:find(target_lower, 1, true) ~= nil
+                     or base:find('tmp', 1, true) ~= nil
+                     or base:find('compile', 1, true) ~= nil
+                     or base:find('.pio', 1, true) ~= nil
+
+        if not (is_exact or is_swap) then
+          return
+        end
+      end
+
       trigger_check()
     end)
 
@@ -154,15 +173,6 @@ local function watch_file(target, callback)
       end))
     end
   end
-
-  -- CHANNEL 2: Catch terminal commands finishing, `:!` execution, or focus returning from external terminal
-  local augroup = vim.api.nvim_create_augroup('NvimpioWatchersAuto', { clear = false })
-  vim.api.nvim_create_autocmd({ 'TermClose', 'ShellCmdPost', 'FocusGained' }, {
-    group = augroup,
-    callback = function()
-      trigger_check()
-    end,
-  })
 end
 
 function M.start_watchers()
@@ -174,7 +184,7 @@ function M.start_watchers()
     {
       name = 'db',
       isBusy = false,
-      last_hash = '',
+      last_hash = M.get_hash(vim.fs.joinpath(project_root, 'compile_commands.json')),
       path = vim.fs.joinpath(project_root, 'compile_commands.json'),
       cb = function(self)
         if self.isBusy then return end
@@ -183,8 +193,8 @@ function M.start_watchers()
           retry_count = retry_count or 0
           local new_hash = M.get_hash(self.path)
 
-          -- If file is empty or locked mid-write by PlatformIO CLI, retry up to 4 times (1.4s window)
-          if new_hash == '' and retry_count < 4 then
+          -- If file is empty or locked mid-write by PlatformIO CLI, retry up to 6 times (2.1s window)
+          if new_hash == '' and retry_count < 6 then
             vim.defer_fn(function()
               check_and_execute(retry_count + 1)
             end, 350)
@@ -237,7 +247,7 @@ function M.start_watchers()
     {
       name = 'checksum',
       isBusy = false,
-      last_hash = '',
+      last_hash = M.get_hash(vim.fs.joinpath(project_root, '.pio', 'build', 'project.checksum')),
       path = vim.fs.joinpath(project_root, '.pio', 'build', 'project.checksum'),
       cb = function(self)
         if self.isBusy then return end
@@ -259,6 +269,19 @@ function M.start_watchers()
   for _, target in ipairs(targets) do
     watch_file(target, target.cb)
   end
+
+  -- Register autocmd group ONCE for all targets instead of inside watch_file loop
+  local augroup = vim.api.nvim_create_augroup('NvimpioWatchersAuto', { clear = true })
+  vim.api.nvim_create_autocmd({ 'BufWritePost', 'TermClose', 'ShellCmdPost', 'FocusGained' }, {
+    group = augroup,
+    callback = function()
+      for _, target in ipairs(targets) do
+        if target.trigger_check then
+          target.trigger_check()
+        end
+      end
+    end,
+  })
 end
 
 
