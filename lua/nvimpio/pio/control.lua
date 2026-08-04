@@ -32,7 +32,9 @@ end
 
 --- Escape special Vim pattern characters for autocmd patterns
 local function escape_pattern(path)
-  return path:gsub('([%[%]%*%?])', '\\%1')
+  if not path or path == '' then return '' end
+  -- Parentheses wrap the gsub result to discard the second return value (count integer)
+  return (path:gsub('([%[%]%*%?])', '\\%1'))
 end
 
 --- Case-insensitive string comparison for OS compatibility
