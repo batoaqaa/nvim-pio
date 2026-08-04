@@ -225,6 +225,7 @@ function M.start_watchers()
     {
       name = 'ini',
       path = vim.fs.joinpath(project_root, 'platformio.ini'),
+      external = false, -- Internal Neovim BufWritePost is faster & lighter
       cb = function(_, done)
         local meta = require('nvimpio.pio.metadata')
         local env = meta.get_active_env('PIO platformio.ini change:')
@@ -255,7 +256,7 @@ function M.start_watchers()
     {
       name = 'checksum',
       path = vim.fs.joinpath(project_root, '.pio', 'build', 'project.checksum'),
-      external = true,
+      external = true, -- REQUIRED: Modified externally by CLI
       cb = function(_, done)
         require('nvimpio.pio.upkeep').pio_refresh(function(success)
           if success then OS.notify('PIO checksum: Metadata synced', OS.debug) end
