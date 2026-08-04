@@ -104,7 +104,7 @@ function M.try_refresh_nvim_tree()
   end
 end
 
---- Robust watcher supporting dynamic directory auto-attachment and handle recycling
+--- Robust watcher supporting dynamic directory auto-attachment, CLI atomic writes, and handle recycling
 local function watch_file(target, callback)
   local folder_path = vim.fs.dirname(target.path)
   local target_filename = vim.fs.basename(target.path)
@@ -120,10 +120,16 @@ local function watch_file(target, callback)
 
     local err = handle:start(folder_path, { recursive = false }, function(start_err, filename, events)
       if start_err then return end
-      if filename and not filenames_equal(vim.fs.basename(filename), target_filename) then return end
-      if events and not (events.change or events['rename']) then return end
 
-      if not uv.fs_access(target.path, 'r') then return end
+      -- Match exact filename OR temporary CLI swap files during atomic replaces
+      if filename and filename ~= '' then
+        local base = vim.fs.basename(filename)
+        local is_target = filenames_equal(base, target_filename)
+        local is_swap = base:find(target_filename, 1, true) ~= nil or base:find('tmp', 1, true) ~= nil or base:find('compile', 1, true) ~= nil
+        if not (is_target or is_swap) then
+          return
+        end
+      end
 
       -- Wrap inside main thread schedule to ensure thread-safe timer restarts
       vim.schedule(function()
@@ -131,7 +137,8 @@ local function watch_file(target, callback)
           local is_closing = pcall(function() return debounce_timer:is_closing() end) and debounce_timer:is_closing()
           if not is_closing then
             pcall(function() debounce_timer:stop() end)
-            debounce_timer:start(600, 0, vim.schedule_wrap(function()
+            -- 700ms buffer gives PlatformIO CLI time to release file lock and finalize replace
+            debounce_timer:start(700, 0, vim.schedule_wrap(function()
               callback(target)
             end))
           end
@@ -183,8 +190,8 @@ function M.start_watchers()
           retry_count = retry_count or 0
           local new_hash = M.get_hash(self.path)
 
-          -- If file is empty or locked mid-write by PlatformIO CLI, retry up to 3 times
-          if new_hash == '' and retry_count < 3 then
+          -- If file is empty or locked mid-write by PlatformIO CLI, retry up to 4 times (1.4s window)
+          if new_hash == '' and retry_count < 4 then
             vim.defer_fn(function()
               check_and_execute(retry_count + 1)
             end, 350)
