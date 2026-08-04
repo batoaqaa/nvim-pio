@@ -9,7 +9,6 @@ M.watcher_handles = {}
 M.augroup = vim.api.nvim_create_augroup('NvimpioWatchers', { clear = true })
 
 local uv = vim.uv or vim.loop
-
 --- Non-blocking, error-trapped SHA256 file hashing
 ---@param path string
 ---@return string hash SHA256 string or empty string ''
@@ -17,11 +16,17 @@ function M.get_hash(path)
   if not path or path == '' then return '' end
 
   local stat = uv.fs_stat(path)
-  if not stat or stat.type ~= 'file' or stat.size == 0 then
+  if not stat or stat.type ~= 'file' then
     return ''
   end
 
-  local fd = uv.fs_open(path, 'r', 438) -- 0666 permissions octal
+  -- If the file is mid-write (0 bytes), return a unique timestamp hash 
+  -- so target.last_hash forces the debouncer to re-check when write finishes
+  if stat.size == 0 then
+    return 'EMPTY_OR_MID_WRITE_' .. tostring(uv.now())
+  end
+
+  local fd = uv.fs_open(path, 'r', 438)
   if not fd then
     return ''
   end
@@ -237,6 +242,7 @@ function M.start_watchers()
     {
       name = 'db',
       path = vim.fs.joinpath(project_root, 'compile_commands.json'),
+      external = true,-- <--- REQUIRED for CLI / external writes to trigger Channel 2!
       cb = function(_, done)
         -- Debounce LSP restart to ensure compiledb file lock releases cleanly
         vim.defer_fn(function()
