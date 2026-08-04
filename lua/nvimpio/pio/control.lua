@@ -141,7 +141,8 @@ function M.start_watchers()
         self.last_hash = new_hash
         self.isBusy = true
 
-        OS.notify('PIO compiledb changed', OS.debug)
+        -- OS.notify('PIO compiledb changed', OS.debug)
+        OS.notify('PIO compiledb changed', 'info')
         require('nvimpio.clangd.control').restart()
 
         vim.defer_fn(function() self.isBusy = false end, 1000)
