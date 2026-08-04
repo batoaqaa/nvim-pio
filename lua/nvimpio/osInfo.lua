@@ -106,7 +106,7 @@ local os_info = {
     '-NoLogo',
     '-NoProfile',
     '-ExecutionPolicy', 'Bypass',
-    '-Command', '[Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;'
+    '-Command', '$OutputEncoding = [System.Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Set-PSReadLineOption -PredictionViewStyle Inline -ErrorAction SilentlyContinue'
   } or (function()
     local default_shell = vim.o.shell
     if default_shell and default_shell ~= '' then

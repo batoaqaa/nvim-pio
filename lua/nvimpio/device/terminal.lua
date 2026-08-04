@@ -175,8 +175,6 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   return self
 end
 
-
-
 --- Instantiates a pure, untainted native Neovim scratch buffer and encapsulates its termopen execution logic securely
 ---@return nil
 function Terminal:on_create()
@@ -184,23 +182,19 @@ function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
 
   local target_shell = M.config.shell or native_shell
-  if type(target_shell) == 'table' then
-    target_shell = target_shell.program or target_shell
+
+  -- If a custom shell object `{ program = '...' }` is provided, unpack it properly;
+  -- otherwise, preserve raw string or table array ({ 'pwsh.exe', ... }) as-is.
+  if type(target_shell) == 'table' and target_shell.program then
+    target_shell = target_shell.program
   end
+  -- if type(target_shell) == 'table' then
+  --   target_shell = target_shell.program or target_shell
+  -- end
 
-  -- 2. Build cross-platform job environment options
-  local is_win = vim.fn.has('win32') == 1 or vim.fn.has('win64') == 1
-  local term_env = {}
-
-  if is_win then
-    -- Headless terminal indicator disables PSReadLine multi-line prediction UI in small split panels
-    term_env['TERM'] = 'dumb'
-  end
-
-  -- 3. Use termopen inside nvim_buf_call to avoid "modified buffer" checks
+  -- 2. Use termopen inside nvim_buf_call to avoid "modified buffer" checks
   vim.api.nvim_buf_call(self.buf, function()
     local channel_id = vim.fn.termopen(target_shell, {
-      env = term_env,
       on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
       on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
       on_exit = function() self:on_exit() end,
@@ -209,7 +203,7 @@ function Terminal:on_create()
     self.job = (channel_id and channel_id > 0) and channel_id or nil
   end)
 
-  -- 4. Set filetype & options AFTER terminal channel attaches
+  -- 3. Set filetype & options AFTER terminal channel attaches
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
 
@@ -220,40 +214,6 @@ function Terminal:on_create()
   self:_register_viewport_mappings()
   self:_register_viewport_bindings()
 end
-
--- --- Instantiates a pure, untainted native Neovim scratch buffer and encapsulates its termopen execution logic securely
--- ---@return nil
--- function Terminal:on_create()
---   -- 1. Create a pristine unlisted scratch buffer
---   self.buf = vim.api.nvim_create_buf(false, true)
---
---   local target_shell = M.config.shell or native_shell
---   if type(target_shell) == 'table' then
---     target_shell = target_shell.program or target_shell
---   end
---
---   -- 2. Use termopen inside nvim_buf_call to avoid "modified buffer" checks
---   vim.api.nvim_buf_call(self.buf, function()
---     local channel_id = vim.fn.termopen(target_shell, {
---       on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
---       on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
---       on_exit = function() self:on_exit() end,
---     })
---
---     self.job = (channel_id and channel_id > 0) and channel_id or nil
---   end)
---
---   -- 3. Set filetype & options AFTER terminal channel attaches
---   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
---   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
---
---   pcall(function() vim.b[self.buf].bufferline_deny = true end)
---
---   vim.b[self.buf].pio_term_type = self.term_type
---
---   self:_register_viewport_mappings()
---   self:_register_viewport_bindings()
--- end
 
 -- nvimpio/device/terminal.lua - Part 3
 
