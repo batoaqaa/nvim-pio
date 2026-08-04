@@ -9,17 +9,6 @@ local misc = require('nvimpio.utils.misc')
 local uv = vim.uv or vim.loop
 M.watcher_handles = {}
 
--- Cache OS check at module load time to avoid main-thread locks inside libuv callbacks
-local IS_WIN_OR_MAC = (vim.fn.has('win32') == 1 or vim.fn.has('mac') == 1)
-
---- Case-insensitive string equality check for Windows/macOS path safety
-local function filenames_equal(a, b)
-  if IS_WIN_OR_MAC then
-    return string.lower(a) == string.lower(b)
-  end
-  return a == b
-end
-
 --- Synchronous, safe file hashing with exception trap
 function M.get_hash(path)
   if not path or path == '' or vim.fn.filereadable(path) == 0 then
@@ -110,7 +99,6 @@ end
 --- Robust watcher supporting dynamic directory auto-attachment, CLI atomic writes, and handle recycling
 local function watch_file(target, callback)
   local folder_path = vim.fs.dirname(target.path)
-  local target_filename = vim.fs.basename(target.path)
 
   local debounce_timer = uv.new_timer()
   if debounce_timer then table.insert(M.watcher_handles, debounce_timer) end
@@ -208,7 +196,8 @@ function M.start_watchers()
           self.last_hash = new_hash
           self.isBusy = true
 
-          OS.notify('PIO compiledb changed', OS.debug)
+          -- OS.notify('PIO compiledb changed', OS.debug)
+          OS.notify('PIO compiledb changed', 'info')
           require('nvimpio.clangd.control').restart()
           M.try_refresh_nvim_tree()
 
