@@ -5,7 +5,6 @@ local clangd = require('nvimpio.clangd.control')
 local misc = require('nvimpio.utils.misc')
 
 ------------------------------------------------------------------------------------
-
 M.watcher_handles = {}
 M.augroup = vim.api.nvim_create_augroup('NvimpioWatchers', { clear = true })
 
@@ -253,7 +252,6 @@ function M.start_watchers()
     add_watch_target(target)
   end
 end
-
 
 -- --INFO:
 -- --=============================================================================
