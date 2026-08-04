@@ -69,6 +69,9 @@ function M.stop_watchers()
     safe_close(nvim_tree_timer)
     nvim_tree_timer = nil
   end
+
+  -- Clear autocmd group if present
+  pcall(vim.api.nvim_clear_autocmds, { group = 'NvimpioWatchersAuto' })
 end
 
 --- Auto-cleanup handles when leaving Neovim to guarantee zero exit lag
@@ -112,38 +115,31 @@ local function watch_file(target, callback)
   local debounce_timer = uv.new_timer()
   if debounce_timer then table.insert(M.watcher_handles, debounce_timer) end
 
+  local function trigger_check()
+    vim.schedule(function()
+      if debounce_timer then
+        local is_closing = pcall(function() return debounce_timer:is_closing() end) and debounce_timer:is_closing()
+        if not is_closing then
+          pcall(function() debounce_timer:stop() end)
+          -- 500ms buffer gives PlatformIO CLI time to release file lock and finalize replace
+          debounce_timer:start(500, 0, vim.schedule_wrap(function()
+            callback(target)
+          end))
+        end
+      end
+    end)
+  end
+
   local function attach()
     if not uv.fs_stat(folder_path) then return false end
 
     local handle = uv.new_fs_event()
     if not handle then return false end
 
-    local err = handle:start(folder_path, { recursive = false }, function(start_err, filename, events)
+    -- Catch ALL events in folder (do NOT check filename because atomic renames omit/change filename)
+    local err = handle:start(folder_path, { recursive = false }, function(start_err, _, _)
       if start_err then return end
-
-      -- Match exact filename OR temporary CLI swap files during atomic replaces
-      if filename and filename ~= '' then
-        local base = vim.fs.basename(filename)
-        local is_target = filenames_equal(base, target_filename)
-        local is_swap = base:find(target_filename, 1, true) ~= nil or base:find('tmp', 1, true) ~= nil or base:find('compile', 1, true) ~= nil
-        if not (is_target or is_swap) then
-          return
-        end
-      end
-
-      -- Wrap inside main thread schedule to ensure thread-safe timer restarts
-      vim.schedule(function()
-        if debounce_timer then
-          local is_closing = pcall(function() return debounce_timer:is_closing() end) and debounce_timer:is_closing()
-          if not is_closing then
-            pcall(function() debounce_timer:stop() end)
-            -- 700ms buffer gives PlatformIO CLI time to release file lock and finalize replace
-            debounce_timer:start(700, 0, vim.schedule_wrap(function()
-              callback(target)
-            end))
-          end
-        end
-      end)
+      trigger_check()
     end)
 
     if err == 0 then
@@ -170,6 +166,15 @@ local function watch_file(target, callback)
       end))
     end
   end
+
+  -- CHANNEL 2: Catch terminal commands finishing, `:!` execution, or focus returning from external terminal
+  local augroup = vim.api.nvim_create_augroup('NvimpioWatchersAuto', { clear = false })
+  vim.api.nvim_create_autocmd({ 'TermClose', 'ShellCmdPost', 'FocusGained' }, {
+    group = augroup,
+    callback = function()
+      trigger_check()
+    end,
+  })
 end
 
 function M.start_watchers()
@@ -203,8 +208,7 @@ function M.start_watchers()
           self.last_hash = new_hash
           self.isBusy = true
 
-          -- OS.notify('PIO compiledb changed', OS.debug)
-          OS.notify('PIO compiledb changed', 'info')
+          OS.notify('PIO compiledb changed', OS.debug)
           require('nvimpio.clangd.control').restart()
           M.try_refresh_nvim_tree()
 
