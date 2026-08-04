@@ -4,18 +4,12 @@ local M = {}
 local clangd = require('nvimpio.clangd.control')
 local misc = require('nvimpio.utils.misc')
 
---INFO:
---=============================================================================
---  watchers setup
---=============================================================================
--- Ensure this is at the TOP of your file, outside any functions
--------------------------------------------------------------------------------
-local uv = vim.uv or vim.loop
-M.watcher_handles = {}
+------------------------------------------------------------------------------------
 
--- INFO:
--- Unified hashing for change detection
--------------------------------------------------------------------------------
+M.watcher_handles = {}
+M.augroup = vim.api.nvim_create_augroup('NvimpioWatchers', { clear = true })
+
+local uv = vim.uv or vim.loop
 function M.get_hash(path)
   if vim.fn.filereadable(path) == 0 then
     return nil
@@ -26,191 +20,446 @@ function M.get_hash(path)
   return (ok and type(data) == 'string' and data ~= '') and vim.fn.sha256(data) or ''
 end
 
---INFO:
---1.stop_watchers 
--------------------------------------------------------------------------------
-function M.stop_watchers()
-  if not M.watcher_handles or (type(M.watcher_handles) ~= 'table') then M.watcher_handles = {} return end
+--- Standardize paths safely across Windows, Linux, and macOS
+local function normalize_path(path)
+  if not path or path == '' then return '' end
+  local normalized = vim.fs.normalize(path)
+  if OS.is_win then
+    normalized = normalized:gsub('^%a:', string.lower)
+  end
+  return normalized
+end
 
-  for _, handle in ipairs(M.watcher_handles) do
-    if handle and not handle:is_closing() then
-      handle:stop()
-      handle:close() -- CRITICAL: This allows Neovim to quit instantly
+--- Escape special Vim pattern characters for autocmd patterns
+local function escape_pattern(path)
+  return path:gsub('([%[%]%*%?])', '\\%1')
+end
+
+--- Case-insensitive string comparison for OS compatibility
+local function filenames_equal(a, b)
+  if OS.is_win or OS.is_mac then
+    return string.lower(a) == string.lower(b)
+  end
+  return a == b
+end
+
+--- Safely close any libuv handle (timer or fs_event) with explicit nil checks
+local function safe_close_handle(handle)
+  if handle and type(handle) == 'userdata' then
+    local is_closing = pcall(function() return handle:is_closing() end) and handle:is_closing()
+    if not is_closing then
+      if handle.stop then
+        pcall(function() handle:stop() end)
+      end
+      pcall(function() handle:close() end)
     end
   end
-  M.watcher_handles = {}
 end
 
---INFO:
---2.watcher cleanup
--------------------------------------------------------------------------------
-function M.cleanup()
-  M.stop_watchers()
-  -- if debounce_timer and not debounce_timer:is_closing() then
-  --   debounce_timer:stop()
-  --   debounce_timer:close()
-  -- end
-end
+function M.stop_watchers()
+  local handles_to_close = M.watcher_handles
+  M.watcher_handles = {} -- Clear reference first to prevent iteration mutation bugs
 
--- Force cleanup when leaving Neovim to prevent :qa lag
-vim.api.nvim_create_autocmd('VimLeavePre', {
-  callback = function()
-    M.cleanup()
-  end,
-})
-
---INFO:
---3. MAIN WATCHER: Efficient Folder Monitoring
--------------------------------------------------------------------------------
-local function watch_file(target, callback)
-  local folder_path     = vim.fs.dirname(target.path)
-  local target_filename = vim.fs.basename(target.path)
-  -- local folder_path = target.path:match('(.*[/\\])')
-  -- local target_filename = target.path:match('[^/\\]+$')
-  local last_mtime = 0
-
-  local handle = uv.new_fs_event()
-  if not handle then
-    return
+  for _, handle in ipairs(handles_to_close) do
+    safe_close_handle(handle)
   end
 
+  vim.api.nvim_clear_autocmds({ group = M.augroup })
+end
+
+--- Remove a specific handle from the global handle array safely
+local function remove_watcher_handle(handle)
+  if not handle then return end
+  for i = #M.watcher_handles, 1, -1 do
+    if M.watcher_handles[i] == handle then
+      table.remove(M.watcher_handles, i)
+      break
+    end
+  end
+end
+
+local function add_watch_target(target)
+  target.last_hash = target.last_hash or ''
+  target.is_busy = false
+
+  local norm_target_path = normalize_path(target.path)
   local debounce_timer = uv.new_timer()
-  handle:start(folder_path, { recursive = false }, function(err, filename, events)
-    if err or (filename and filename ~= target_filename) then return end
-    if events and not (events.change or events['rename']) then return end
+  local busy_timeout_timer = uv.new_timer()
 
-    -- if target.isBusy then return end
+  if debounce_timer then table.insert(M.watcher_handles, debounce_timer) end
+  if busy_timeout_timer then table.insert(M.watcher_handles, busy_timeout_timer) end
 
-    -- 'r': Read access
-    --'w': Write access
-    --'x': Execute access
-    --'f': Existence check (checks if the file simply exists on disk
-    if not uv.fs_access(target.path, 'r') then return end
+  local current_execution_id = 0
 
-    if debounce_timer then
-      debounce_timer:stop()
-      debounce_timer:start(
-        500,
-        0,
-        vim.schedule_wrap(function()
-          local stat = uv.fs_stat(target.path)
-          if stat and stat.mtime.sec > last_mtime then
-            last_mtime = stat.mtime.sec
+  local function done(exec_id)
+    -- Ignore stale completion tokens from previous runs
+    if exec_id and exec_id ~= current_execution_id then return end
 
-            -- Set Busy flags before entering the heavy callback
-            -- target.isBusy = true
-            -- if _G.metadata then _G.isBusy = true end
+    if busy_timeout_timer then
+      pcall(function() busy_timeout_timer:stop() end)
+    end
+    target.is_busy = false
+  end
 
-            callback(target)
-          end
-        end)
-      )
+  local safe_execute = vim.schedule_wrap(function()
+    if target.is_busy then return end
+
+    local new_hash = M.get_hash(target.path) or ''
+    if new_hash == '' or new_hash == target.last_hash then return end
+
+    -- Update last_hash immediately upon qualification to prevent duplicate tick triggers
+    target.last_hash = new_hash
+    target.is_busy = true
+    current_execution_id = current_execution_id + 1
+    local local_exec_id = current_execution_id
+
+    -- SAFEGUARD: Reset busy flag after 10s timeout to prevent permanent lock
+    if busy_timeout_timer then
+      pcall(function() busy_timeout_timer:stop() end)
+      busy_timeout_timer:start(10000, 0, vim.schedule_wrap(function()
+        if target.is_busy and current_execution_id == local_exec_id then
+          target.is_busy = false
+          vim.notify('Nvimpio Watcher Timeout [' .. target.name .. ']: Reset busy flag', vim.log.levels.WARN)
+        end
+      end))
+    end
+
+    local status, err = pcall(function()
+      target.cb(target, function() done(local_exec_id) end)
+    end)
+
+    if not status then
+      done(local_exec_id)
+      vim.notify('Nvimpio Watcher Error [' .. target.name .. ']: ' .. tostring(err), vim.log.levels.ERROR)
     end
   end)
 
-  table.insert(M.watcher_handles, handle)
-  return handle
-end
-
---INFO:
---4. start_watches
--------------------------------------------------------------------------------
-function M.start_watchers()
-  -- Clean up any existing watchers first to prevent duplicates
-  if next(M.watcher_handles) then
-    M.stop_watchers()
+  local function trigger()
+    if debounce_timer then
+      pcall(function() debounce_timer:stop() end)
+      debounce_timer:start(75, 0, safe_execute)
+    end
   end
 
-  local project_root = OS.project_dir or vim.uv.cwd()
+  -- CHANNEL 1: Internal Neovim file saves (Escaped Vim Pattern Matching)
+  vim.api.nvim_create_autocmd({ 'BufWritePost', 'FileChangedShellPost' }, {
+    group = M.augroup,
+    pattern = { escape_pattern(norm_target_path), escape_pattern(target.path) },
+    callback = function()
+      trigger()
+    end,
+  })
+
+  -- CHANNEL 2: External CLI writes (Directory Watcher with Safe Retries)
+  if target.external then
+    local dir_path = vim.fs.dirname(target.path)
+    local target_filename = vim.fs.basename(target.path)
+
+    local function attach_fs_event()
+      if not uv.fs_stat(dir_path) then return false end
+
+      local handle = uv.new_fs_event()
+      if handle then
+        handle:start(dir_path, { recursive = false }, function(err, filename)
+          if err then return end
+
+          if filename then
+            local norm_filename = vim.fs.basename(normalize_path(filename))
+            if not filenames_equal(norm_filename, target_filename) then
+              return
+            end
+          end
+
+          trigger()
+        end)
+        table.insert(M.watcher_handles, handle)
+        return true
+      end
+      return false
+    end
+
+    -- Retry attachment if directory doesn't exist yet
+    if not attach_fs_event() then
+      local retry_timer = uv.new_timer()
+      local attempts = 0
+      local max_attempts = 30 -- Stop polling after 60s
+
+      if retry_timer then
+        table.insert(M.watcher_handles, retry_timer)
+        retry_timer:start(2000, 2000, vim.schedule_wrap(function()
+          if not retry_timer then return end
+          local is_closing = pcall(function() return retry_timer:is_closing() end) and retry_timer:is_closing()
+          if is_closing then return end
+
+          attempts = attempts + 1
+          if attach_fs_event() or attempts >= max_attempts then
+            safe_close_handle(retry_timer)
+            remove_watcher_handle(retry_timer)
+          end
+        end))
+      end
+    end
+  end
+end
+
+function M.start_watchers()
+  M.stop_watchers()
+
+  local project_root = OS.project_dir or uv.cwd()
 
   local targets = {
-    { -- watcher for compile_commands.json
-      name = 'db',
-      isBusy = false,
-      last_hash = '',
-      path = vim.fs.joinpath(project_root, 'compile_commands.json'),
-      cb = function(self)
-        if self.isBusy then return end
-        -- If no real change, unlock immediately and exit
-        local new_hash = M.get_hash(self.path) or ''
-        if new_hash == self.last_hash then
-          OS.notify('PIO compiledb no change', OS.debug)
+    {
+      name = 'ini',
+      path = vim.fs.joinpath(project_root, 'platformio.ini'),
+      cb = function(_, done)
+        local meta = require('nvimpio.pio.metadata')
+        local env = meta.get_active_env('PIO platformio.ini change:')
+        if not env then
+          done()
           return
         end
 
-        self.last_hash = new_hash
-
-        vim.schedule(function()
-          OS.notify('PIO compiledb changed', OS.debug)
-          self.isBusy = true
-          -- require('nvimpio.pio.upkeep').compile_commandsFix(function ()
-          -- require('nvimpio.pio.upkeep').generate(function ()
-          --   self.last_hash = get_hash(self.path)
-            -- _G.isBusy = false
-            self.isBusy = false
-            require('nvimpio.clangd.control').restart()
-          -- end)
-        end)
+        require('nvimpio.pio.upkeep').pio_refresh(function(success)
+          if not success then OS.notify('PIO platformio change: fail') end
+          done()
+        end, 'PIO platformio.ini change: ')
       end,
     },
-    { -- watcher for platformio.ini
-      name = 'ini',
-      isBusy = false,
-      last_hash = M.get_hash(vim.fs.joinpath(project_root, 'platformio.ini')) or '',
-      path = vim.fs.joinpath(project_root, 'platformio.ini'),
-      cb = function(self)
-        if _G.isBusy or self.isBusy then return end
-        -- If no real change, unlock immediately and exit
-        local new_hash = M.get_hash(self.path) or ''
-        if new_hash == self.last_hash then return end
-
-        self.last_hash = new_hash
-
-        local meta = require('nvimpio.pio.metadata')
-        local env, _ = meta.get_active_env('PIO platformio.ini change:')
-        if not env then return end
-
-        vim.schedule(function()
-          self.isBusy = true
-          local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-          pio_refresh(function(success)
-            if success then
-              -- do end
-              -- OS.notify("PIO platformio change: success")
-            else OS.notify("PIO platformio change: fail")
-            end
-            self.isBusy = false
-          end, 'PIO platformio.ini change: ')
-        end)
+    {
+      name = 'db',
+      path = vim.fs.joinpath(project_root, 'compile_commands.json'),
+      cb = function(_, done)
+        OS.notify('PIO compiledb changed', OS.debug)
+        require('nvimpio.clangd.control').restart()
+        done()
       end,
     },
-    { -- watcher for ./.pio/build/projct.checksum
+    {
       name = 'checksum',
-      isBusy = false,
-      last_hash = '',
-      path = vim.fs.joinpath(project_root, '.pio', 'build', 'project.checksum'), --checksum_path
-      cb = function(self)
-        -- Check if we should exit early
-        if self.isBusy then return end
-        local ok, new_hash = misc.readFile(self.path)
-        if ok and type(new_hash) == 'string' and new_hash ~= '' then
-          if new_hash == self.last_hash then return end
-
-          self.last_hash = new_hash
-          vim.schedule(function()
-            self.isBusy = true
-            local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
-            pio_refresh(function(success)
-              if success then OS.notify('PIO checksum: Metadata synced', OS.debug) end
-              self.isBusy = false
-            end, 'PIO checksum: ')
-          end)
-        end
+      path = vim.fs.joinpath(project_root, '.pio', 'build', 'project.checksum'),
+      external = true,
+      cb = function(_, done)
+        require('nvimpio.pio.upkeep').pio_refresh(function(success)
+          if success then OS.notify('PIO checksum: Metadata synced', OS.debug) end
+          done()
+        end, 'PIO checksum: ')
       end,
     },
   }
-  for _, target in ipairs(targets) do watch_file(target, target.cb) end
+
+  for _, target in ipairs(targets) do
+    add_watch_target(target)
+  end
 end
+
+
+-- --INFO:
+-- --=============================================================================
+-- --  watchers setup
+-- --=============================================================================
+-- -- Ensure this is at the TOP of your file, outside any functions
+-- -------------------------------------------------------------------------------
+-- local uv = vim.uv or vim.loop
+-- M.watcher_handles = {}
+--
+-- -- INFO:
+-- -- Unified hashing for change detection
+-- -------------------------------------------------------------------------------
+-- function M.get_hash(path)
+--   if vim.fn.filereadable(path) == 0 then
+--     return nil
+--   end
+--   -- local ok, data = pcall(vim.fn.readfile, path) -- readfile is safer than io.open
+--   -- return ok and vim.fn.sha256(table.concat(data, '\n')) or nil
+--   local ok, data = misc.readFile(path) -- readfile is safer than io.open
+--   return (ok and type(data) == 'string' and data ~= '') and vim.fn.sha256(data) or ''
+-- end
+--
+-- --INFO:
+-- --1.stop_watchers 
+-- -------------------------------------------------------------------------------
+-- function M.stop_watchers()
+--   if not M.watcher_handles or (type(M.watcher_handles) ~= 'table') then M.watcher_handles = {} return end
+--
+--   for _, handle in ipairs(M.watcher_handles) do
+--     if handle and not handle:is_closing() then
+--       handle:stop()
+--       handle:close() -- CRITICAL: This allows Neovim to quit instantly
+--     end
+--   end
+--   M.watcher_handles = {}
+-- end
+--
+-- --INFO:
+-- --2.watcher cleanup
+-- -------------------------------------------------------------------------------
+-- function M.cleanup()
+--   M.stop_watchers()
+--   -- if debounce_timer and not debounce_timer:is_closing() then
+--   --   debounce_timer:stop()
+--   --   debounce_timer:close()
+--   -- end
+-- end
+--
+-- -- Force cleanup when leaving Neovim to prevent :qa lag
+-- vim.api.nvim_create_autocmd('VimLeavePre', {
+--   callback = function()
+--     M.cleanup()
+--   end,
+-- })
+--
+-- --INFO:
+-- --3. MAIN WATCHER: Efficient Folder Monitoring
+-- -------------------------------------------------------------------------------
+-- local function watch_file(target, callback)
+--   local folder_path     = vim.fs.dirname(target.path)
+--   local target_filename = vim.fs.basename(target.path)
+--   -- local folder_path = target.path:match('(.*[/\\])')
+--   -- local target_filename = target.path:match('[^/\\]+$')
+--   local last_mtime = 0
+--
+--   local handle = uv.new_fs_event()
+--   if not handle then
+--     return
+--   end
+--
+--   local debounce_timer = uv.new_timer()
+--   handle:start(folder_path, { recursive = false }, function(err, filename, events)
+--     if err or (filename and filename ~= target_filename) then return end
+--     if events and not (events.change or events['rename']) then return end
+--
+--     -- if target.isBusy then return end
+--
+--     -- 'r': Read access
+--     --'w': Write access
+--     --'x': Execute access
+--     --'f': Existence check (checks if the file simply exists on disk
+--     if not uv.fs_access(target.path, 'r') then return end
+--
+--     if debounce_timer then
+--       debounce_timer:stop()
+--       debounce_timer:start(
+--         500,
+--         0,
+--         vim.schedule_wrap(function()
+--           local stat = uv.fs_stat(target.path)
+--           if stat and stat.mtime.sec > last_mtime then
+--             last_mtime = stat.mtime.sec
+--
+--             -- Set Busy flags before entering the heavy callback
+--             -- target.isBusy = true
+--             -- if _G.metadata then _G.isBusy = true end
+--
+--             callback(target)
+--           end
+--         end)
+--       )
+--     end
+--   end)
+--
+--   table.insert(M.watcher_handles, handle)
+--   return handle
+-- end
+--
+-- --INFO:
+-- --4. start_watches
+-- -------------------------------------------------------------------------------
+-- function M.start_watchers()
+--   -- Clean up any existing watchers first to prevent duplicates
+--   if next(M.watcher_handles) then
+--     M.stop_watchers()
+--   end
+--
+--   local project_root = OS.project_dir or vim.uv.cwd()
+--
+--   local targets = {
+--     { -- watcher for compile_commands.json
+--       name = 'db',
+--       isBusy = false,
+--       last_hash = '',
+--       path = vim.fs.joinpath(project_root, 'compile_commands.json'),
+--       cb = function(self)
+--         if self.isBusy then return end
+--         -- If no real change, unlock immediately and exit
+--         local new_hash = M.get_hash(self.path) or ''
+--         if new_hash == self.last_hash then
+--           OS.notify('PIO compiledb no change', OS.debug)
+--           return
+--         end
+--
+--         self.last_hash = new_hash
+--
+--         vim.schedule(function()
+--           OS.notify('PIO compiledb changed', OS.debug)
+--           self.isBusy = true
+--           -- require('nvimpio.pio.upkeep').compile_commandsFix(function ()
+--           -- require('nvimpio.pio.upkeep').generate(function ()
+--           --   self.last_hash = get_hash(self.path)
+--             -- _G.isBusy = false
+--             self.isBusy = false
+--             require('nvimpio.clangd.control').restart()
+--           -- end)
+--         end)
+--       end,
+--     },
+--     { -- watcher for platformio.ini
+--       name = 'ini',
+--       isBusy = false,
+--       last_hash = M.get_hash(vim.fs.joinpath(project_root, 'platformio.ini')) or '',
+--       path = vim.fs.joinpath(project_root, 'platformio.ini'),
+--       cb = function(self)
+--         if _G.isBusy or self.isBusy then return end
+--         -- If no real change, unlock immediately and exit
+--         local new_hash = M.get_hash(self.path) or ''
+--         if new_hash == self.last_hash then return end
+--
+--         self.last_hash = new_hash
+--
+--         local meta = require('nvimpio.pio.metadata')
+--         local env, _ = meta.get_active_env('PIO platformio.ini change:')
+--         if not env then return end
+--
+--         vim.schedule(function()
+--           self.isBusy = true
+--           local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+--           pio_refresh(function(success)
+--             if success then
+--               -- do end
+--               -- OS.notify("PIO platformio change: success")
+--             else OS.notify("PIO platformio change: fail")
+--             end
+--             self.isBusy = false
+--           end, 'PIO platformio.ini change: ')
+--         end)
+--       end,
+--     },
+--     { -- watcher for ./.pio/build/projct.checksum
+--       name = 'checksum',
+--       isBusy = false,
+--       last_hash = '',
+--       path = vim.fs.joinpath(project_root, '.pio', 'build', 'project.checksum'), --checksum_path
+--       cb = function(self)
+--         -- Check if we should exit early
+--         if self.isBusy then return end
+--         local ok, new_hash = misc.readFile(self.path)
+--         if ok and type(new_hash) == 'string' and new_hash ~= '' then
+--           if new_hash == self.last_hash then return end
+--
+--           self.last_hash = new_hash
+--           vim.schedule(function()
+--             self.isBusy = true
+--             local pio_refresh = require('nvimpio.pio.upkeep').pio_refresh
+--             pio_refresh(function(success)
+--               if success then OS.notify('PIO checksum: Metadata synced', OS.debug) end
+--               self.isBusy = false
+--             end, 'PIO checksum: ')
+--           end)
+--         end
+--       end,
+--     },
+--   }
+--   for _, target in ipairs(targets) do watch_file(target, target.cb) end
+-- end
 
 --INFO: telescope settings vim.ui.select()
 local dropdown_settings = {
