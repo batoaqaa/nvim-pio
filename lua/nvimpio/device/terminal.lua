@@ -327,7 +327,16 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Find a valid content window to anchor from
+  -- If the container window was already created previously in this session,
+  -- reuse it instantly without running any split commands or triggering layout reflows.
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+    M.layout.active_type = self.term_type
+    return
+  end
+
+  -- Cold-start fallback: If no container exists yet, we create it cleanly 
+  -- by ensuring we target a non-sidebar window or falling back to a safe layout command.
   local target_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
@@ -347,9 +356,8 @@ function Terminal:on_open()
     pcall(vim.cmd, 'wincmd w')
   end
 
-  -- Open the split reliably at the absolute bottom
-  vim.cmd('botright ' .. target_height .. 'split')
-
+  vim.cmd('botright ' + target_height + 'split')
+  
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
 
