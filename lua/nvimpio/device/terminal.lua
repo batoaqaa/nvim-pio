@@ -303,42 +303,39 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a true full-width root bottom split that pushes code buffers up
---- and blocks cursor pass-through.
+--- Opens a hijack-proof full-width bottom split that pushes code up safely
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-
-  -- Ensure statusline behaves as a single global bar so splits can occupy full screen width
-  vim.o.laststatus = 3
   vim.go.splitkeep = 'screen'
 
-  -- 1. Create a split below
-  vim.cmd('botright ' .. target_height .. 'split')
+  -- Save your active code window so we can return exactly to it
+  local original_win = vim.api.nvim_get_current_win()
 
+  -- 1. Create a raw bottom split while IGNORING all interfering layout plugins/autocmds
+  vim.cmd('noautocmd botright ' .. target_height .. 'new')
   M.layout.container_win = vim.api.nvim_get_current_win()
+
+  -- 2. Attach the terminal buffer to this clean window
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  -- 2. CRITICAL STEP: Move split to the absolute ROOT of the window tree graph.
-  -- This forces it to stretch under nvim-tree and resize code buffers upwards.
-  vim.cmd('wincmd J')
+  -- 3. Force it to the absolute bottom tree root (again, ignoring interfering plugins)
+  vim.cmd('noautocmd wincmd J')
   vim.api.nvim_win_set_height(M.layout.container_win, target_height)
 
-  -- 3. Prevent cursor pass-through and lock buffer to this window
-  vim.wo[M.layout.container_win].winfixbuf = true
-
-  -- Window options configuration
+  -- 4. Apply window layout options
   vim.w[M.layout.container_win].pio_managed = true
   vim.wo[M.layout.container_win].winfixheight = true
+  vim.wo[M.layout.container_win].winfixbuf = true
   vim.wo[M.layout.container_win].number = false
   vim.wo[M.layout.container_win].relativenumber = false
   vim.wo[M.layout.container_win].signcolumn = 'no'
 
   self:_register_viewport_mappings()
 
-  -- Return focus to the code window
-  vim.cmd('wincmd p')
+  -- 5. Return focus silently to your code file without triggering layout shifts
+  vim.api.nvim_set_current_win(original_win)
 end
 
 
