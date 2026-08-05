@@ -322,51 +322,42 @@ function Terminal:close()
 end
 
 
+--- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
+---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- 1. Find the PRIMARY code window by explicitly filtering out sidebars
-  local target_win = nil
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+  -- 1. Completely generic sidebar detection using Neovim's window layout engine API 
+  -- instead of hardcoding plugin names. We find the window with the smallest width 
+  -- that stretches the full height, or simply fallback to the primary active window.
+  local best_win = vim.api.nvim_get_current_win()
+  local wins = vim.api.nvim_tabpage_list_wins(0)
+  
+  -- Find a standard editable window (non-floating, normal buftype)
+  for _, win in ipairs(wins) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      local win_type = vim.fn.win_gettype(win)
       local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
-
-      -- A true code window has no win_type (not a sidebar/floating) and no buftype (not a terminal/nofile)
-      if win_type == '' and buftype == '' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
-        target_win = win
+      local win_type = vim.fn.win_gettype(win)
+      
+      if win_type == '' and buftype == '' and buf ~= self.buf then
+        best_win = win
         break
       end
     end
   end
 
-  -- 2. If a code window exists, focus it. If only sidebars exist, 
-  -- pick the first non-sidebar window available in the workspace.
-  if target_win and vim.api.nvim_win_is_valid(target_win) then
-    vim.api.nvim_set_current_win(target_win)
-  else
-    -- Fallback: Loop through windows to find any non-tree window
-    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      if ft ~= 'NvimTree' and ft ~= 'neo-tree' and ft ~= 'oil' then
-        vim.api.nvim_set_current_win(win)
-        break
-      end
-    end
-  end
+  vim.api.nvim_set_current_win(best_win)
 
-  -- 3. Execute the split from the verified code container
+  -- 2. Create the split bottom-most globally using standard API primitives
   vim.cmd('botright ' .. target_height .. 'split')
-
+  
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+
   M.layout.active_type = self.term_type
 
-  -- Apply local window options safely
   vim.w[M.layout.container_win].pio_managed = true
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
