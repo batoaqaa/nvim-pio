@@ -328,7 +328,7 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Check if a valid editable code window exists
+  -- Check if a valid editable code window already exists
   local wins = vim.api.nvim_tabpage_list_wins(0)
   local code_wins = 0
   for _, win in ipairs(wins) do
@@ -344,19 +344,22 @@ function Terminal:on_open()
     end
   end
 
-  -- If NO code window exists (only nvim-tree and terminal), create a scratch window 
-  -- safely beside the tree instead of overwriting the tree window itself.
+  -- If NO code window exists (only nvim-tree and terminal state), safely create 
+  -- an initial scratch window placeholder next to the tree before dropping the terminal.
   if code_wins == 0 then
-    -- Jump out of the tree to a neutral position if needed, or open a clean vertical split for the scratch buffer
+    -- Find the nvim-tree window and move focus out of it temporarily to the right
     pcall(function()
       for _, win in ipairs(wins) do
         local ft = vim.api.nvim_get_option_value('filetype', { buf = vim.api.nvim_win_get_buf(win) })
-        if ft ~= 'NvimTree' and ft ~= 'pio_terminal' then
+        if ft == 'NvimTree' or ft == 'neo-tree' then
           vim.api.nvim_set_current_win(win)
+          vim.cmd('wincmd l') -- Move to the editor area
           break
         end
       end
     end)
+    -- Open a clean empty scratch buffer here so the canvas has an anchor
+    vim.cmd('enew')
   end
 
   -- Now open the terminal split cleanly at the bottom
