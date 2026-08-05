@@ -322,47 +322,51 @@ function Terminal:close()
 end
 
 
---- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
----@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Find a valid content window to anchor from
+  -- 1. Find the PRIMARY code window by explicitly filtering out sidebars
   local target_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local win_type = vim.fn.win_gettype(win)
-      if win_type == '' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
+      local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
+
+      -- A true code window has no win_type (not a sidebar/floating) and no buftype (not a terminal/nofile)
+      if win_type == '' and buftype == '' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
         target_win = win
         break
       end
     end
   end
 
+  -- 2. If a code window exists, focus it. If only sidebars exist, 
+  -- pick the first non-sidebar window available in the workspace.
   if target_win and vim.api.nvim_win_is_valid(target_win) then
     vim.api.nvim_set_current_win(target_win)
   else
-    pcall(vim.cmd, 'wincmd w')
+    -- Fallback: Loop through windows to find any non-tree window
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      if ft ~= 'NvimTree' and ft ~= 'neo-tree' and ft ~= 'oil' then
+        vim.api.nvim_set_current_win(win)
+        break
+      end
+    end
   end
 
-  -- 1. Open the split normally at the bottom of the current column context
+  -- 3. Execute the split from the verified code container
   vim.cmd('botright ' .. target_height .. 'split')
 
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
-
-  -- 2. Instantly promote the terminal window layout frame to break out of 
-  -- any column trapping and stretch it across the absolute full width of the screen.
-  vim.api.nvim_win_call(M.layout.container_win, function()
-    vim.cmd('wincmd J')
-    vim.cmd('resize ' .. target_height)
-  end)
-
   M.layout.active_type = self.term_type
 
+  -- Apply local window options safely
   vim.w[M.layout.container_win].pio_managed = true
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
