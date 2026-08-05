@@ -291,25 +291,25 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a true full-width bottom-dock floating panel that bypasses column traps entirely
+--- Opens a non-focusable floating terminal overlay that can never trap or steal focus
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local total_width = vim.o.columns
   local total_lines = vim.o.lines
 
-  -- Calculate precise editor-grid coordinates for a bottom-dock layout
-  local row_pos = total_lines - target_height - 2 -- account for statusline/cmdline
+  local row_pos = total_lines - target_height - 2
   local col_pos = 0
 
-  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+  M.layout.container_win = vim.api.nvim_open_win(self.buf, false, { -- Note: 'false' prevents entering it on creation
     relative = 'editor',
     width = total_width,
     height = target_height,
     row = row_pos,
     col = col_pos,
     style = 'minimal',
-    border = 'single', -- or 'none' / 'rounded' depending on preference
+    border = 'single',
+    focusable = false, -- THE NATIVE : Completely disables focus/cursor pass-through
   })
 
   M.layout.active_type = self.term_type
@@ -322,6 +322,39 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 end
+
+
+-- --- Opens a true full-width bottom-dock floating panel that bypasses column traps entirely
+-- ---@return nil
+-- function Terminal:on_open()
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+--   local total_width = vim.o.columns
+--   local total_lines = vim.o.lines
+--
+--   -- Calculate precise editor-grid coordinates for a bottom-dock layout
+--   local row_pos = total_lines - target_height - 2 -- account for statusline/cmdline
+--   local col_pos = 0
+--
+--   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+--     relative = 'editor',
+--     width = total_width,
+--     height = target_height,
+--     row = row_pos,
+--     col = col_pos,
+--     style = 'minimal',
+--     border = 'single', -- or 'none' / 'rounded' depending on preference
+--   })
+--
+--   M.layout.active_type = self.term_type
+--
+--   vim.w[M.layout.container_win].pio_managed = true
+--   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+--
+--   self:_register_viewport_mappings()
+-- end
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
@@ -571,47 +604,14 @@ function M.send_and_restore(cmd)
   target_instance:send(cmd)
 end
 
--- ABSOLUTE MOTION WALL: Prevents cursor from ever leaving the final file line downward
-local function hard_stop_down()
-  -- Check if your terminal container is open and valid
-  if M.IsTerminalOpen() then
-    local current_win = vim.api.nvim_get_current_win()
-
-    -- If we are currently in a code window (not inside the terminal itself)
-    if current_win ~= M.layout.container_win then
-      local cursor = vim.api.nvim_win_get_cursor(0)
-      local current_line = cursor[1]
-      local last_line = vim.api.nvim_buf_line_count(0)
-
-      -- If the user is on the last line, swallow the key entirely so it can't bleed out
-      if current_line >= last_line then
-        return
-      end
-    end
-  end
-
-  -- Safe fallback execution for normal downward motion
-  local mode = vim.api.nvim_get_mode().mode
-  if mode:find('^i') then
-    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Down>', true, true, true), 'n', false)
+-- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
+vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    vim.api.nvim_set_current_win(M.layout.container_win)
   else
-    vim.cmd('normal! j')
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
   end
-end
-
--- Override regular movement keys to enforce the wall
-vim.keymap.set({ 'n', 'v' }, 'j', hard_stop_down, { silent = true })
-vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', hard_stop_down, { silent = true })
-
-
--- -- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
--- vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
---   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
---     vim.api.nvim_set_current_win(M.layout.container_win)
---   else
---     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
---   end
--- end, { silent = true })
+end, { silent = true })
 
 --- Initializes configurations by executing a deep dictionary merge block over existing options
 ---@param opts TerminalConfig|nil Table configuration overrides dictionary mapping structure parameters
