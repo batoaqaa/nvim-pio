@@ -328,8 +328,7 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- PRE-WARM CHECK: If there are no standard code/scratch windows open (only sidebars/explorers),
-  -- create a silent empty buffer first so the workspace layout has a stable anchor.
+  -- Check if a valid editable code window exists
   local wins = vim.api.nvim_tabpage_list_wins(0)
   local code_wins = 0
   for _, win in ipairs(wins) do
@@ -345,14 +344,22 @@ function Terminal:on_open()
     end
   end
 
-  -- If no code/scratch window exists, spawn one right now before dropping the terminal dock
+  -- If NO code window exists (only nvim-tree and terminal), create a scratch window 
+  -- safely beside the tree instead of overwriting the tree window itself.
   if code_wins == 0 then
-    vim.cmd('enew')
-    -- Focus back to the file tree or the main context so the terminal splits properly underneath the content area
-    pcall(vim.cmd, 'wincmd p')
+    -- Jump out of the tree to a neutral position if needed, or open a clean vertical split for the scratch buffer
+    pcall(function()
+      for _, win in ipairs(wins) do
+        local ft = vim.api.nvim_get_option_value('filetype', { buf = vim.api.nvim_win_get_buf(win) })
+        if ft ~= 'NvimTree' and ft ~= 'pio_terminal' then
+          vim.api.nvim_set_current_win(win)
+          break
+        end
+      end
+    end)
   end
 
-  -- Now open the terminal split cleanly
+  -- Now open the terminal split cleanly at the bottom
   vim.cmd('botright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
