@@ -291,18 +291,19 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a true full-width bottom-docked floating panel that bypasses column traps entirely
+--- Opens a professional, full-width bottom floating panel that is completely isolated from tiled window motion
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local total_width = vim.o.columns
   local total_lines = vim.o.lines
 
-  -- Position precisely at the bottom of the editor grid spanning 100% width
   local row_pos = total_lines - target_height - 2
   local col_pos = 0
 
-  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+  -- Create the float without stealing focus immediately (enter = false) 
+  -- so your cursor stays safely in your code file.
+  M.layout.container_win = vim.api.nvim_open_win(self.buf, false, {
     relative = 'editor',
     width = total_width,
     height = target_height,
@@ -310,6 +311,7 @@ function Terminal:on_open()
     col = col_pos,
     style = 'minimal',
     border = 'single',
+    focusable = true,
   })
 
   M.layout.active_type = self.term_type
