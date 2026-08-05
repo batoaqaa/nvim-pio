@@ -291,17 +291,26 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a clean split pane layout below your active code container column context
+--- Opens a clean split pane layout and forces a one-time global full-width span across the screen base
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
+  -- 1. Create the split natively below the current window
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
     win = -1,
     height = target_height,
   })
+
+  -- 2. Execute a strict, one-time structural promotion to break column confinement 
+  -- and stretch the terminal across the absolute full width of the screen base.
+  vim.api.nvim_win_call(M.layout.container_win, function()
+    vim.cmd('wincmd J')
+    vim.cmd('resize ' .. target_height)
+  end)
+
   M.layout.active_type = self.term_type
 
   vim.w[M.layout.container_win].pio_managed = true
