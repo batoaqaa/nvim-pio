@@ -300,6 +300,19 @@ function Terminal:close()
   M.hide()
 end
 
+
+--- Forces the terminal window to stay docked at the bottom spanning full width
+local function enforce_bottom_dock()
+  vim.schedule(function()
+    if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+      -- Move the terminal window to the very bottom full-width pane
+      pcall(vim.api.nvim_win_call, M.layout.container_win, function()
+        vim.cmd('wincmd J')
+      end)
+    end
+  end)
+end
+
 --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
 function Terminal:on_open()
@@ -319,6 +332,9 @@ function Terminal:on_open()
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+
+  -- Instantly force it to stay anchored as a full-width bottom split
+  enforce_bottom_dock()
 
   self:_register_viewport_mappings()
 end
