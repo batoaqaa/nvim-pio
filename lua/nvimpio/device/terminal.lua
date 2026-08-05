@@ -62,28 +62,26 @@ vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter' }, {
   group = vim.api.nvim_create_augroup('PioGlobalLayoutSanitizer', { clear = true }),
   callback = function()
     vim.schedule(function()
-      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
+      local term_win = M.layout.container_win
+      if not term_win or not vim.api.nvim_win_is_valid(term_win) then
         return
       end
 
       local wins = vim.api.nvim_tabpage_list_wins(0)
       local code_wins = {}
-      local term_win = M.layout.container_win
 
       for _, win in ipairs(wins) do
         if vim.api.nvim_win_is_valid(win) then
           local buf = vim.api.nvim_win_get_buf(win)
           local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
           local win_type = vim.fn.win_gettype(win)
+          local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
 
+          -- Generic check for standard code windows
           if win_type == ''
+            and buftype == ''
             and ft ~= 'pio_terminal'
             and not ft:match('^terminal_')
-            and ft ~= 'NvimTree'
-            and ft ~= 'neo-tree'
-            and ft ~= 'oil'
-            and ft ~= 'aerial'
-            and ft ~= 'pio_workspace'
           then
             table.insert(code_wins, win)
           end
@@ -348,14 +346,18 @@ function Terminal:on_open()
   -- If the user only has nvim-tree open, spawning a terminal leaves 0 code windows,
   -- forcing nvim-tree to spawn a rogue split later. We prevent this by ensuring
   -- a clean, reusable code window exists before opening the terminal.
+  -- If no code window exists, create a clean empty buffer window first so nvim-tree has a target to reuse
   local wins = vim.api.nvim_tabpage_list_wins(0)
   local has_code_win = false
   for _, win in ipairs(wins) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local win_type = vim.fn.win_gettype(win)
-      if win_type == '' and ft ~= 'NvimTree' and ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_workspace' then
+      local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
+
+      -- Generic definition of a code window: standard layout window 
+      -- with an empty buftype (meaning it's a normal file or scratch text buffer, not a plugin utility panel)
+      if win_type == '' and buftype == '' then
         has_code_win = true
         break
       end
@@ -528,7 +530,7 @@ function M.show(term_type)
   local current_buf = vim.api.nvim_get_current_win() and vim.api.nvim_win_get_buf(current_win) or 0
   local ft = vim.api.nvim_get_option_value('filetype', { buf = current_buf })
   if ft == 'NvimTree' or ft == 'neo-tree' or ft == 'oil' or ft == 'aerial' then
-    pcall(vim.cmd, 'wincmd w')
+    pcall(function () vim.cmd('wincmd w') end)
   end
 
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
