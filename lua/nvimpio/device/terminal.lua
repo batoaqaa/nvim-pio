@@ -333,8 +333,8 @@ function Terminal:on_open()
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
 
-  -- Instantly force it to stay anchored as a full-width bottom split
-  enforce_bottom_dock()
+  -- -- Instantly force it to stay anchored as a full-width bottom split
+  -- enforce_bottom_dock()
 
   self:_register_viewport_mappings()
 end
@@ -366,17 +366,62 @@ end
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
+
   vim.api.nvim_create_autocmd({ 'BufWinEnter', 'BufEnter' }, {
     group = group_id,
-    buffer = self.buf,
-    callback = function()
+    callback = function(args)
+      -- 1. Maintain terminal window visual settings if our container is active
       if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
         vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
         vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
         vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
       end
+
+      -- 2. Prevent/heal accidental 3-way parallel splits globally when files open
+      vim.schedule(function()
+        local wins = vim.api.nvim_tabpage_list_wins(0)
+        local code_wins = {}
+        local term_win = nil
+
+        for _, win in ipairs(wins) do
+          if vim.api.nvim_win_is_valid(win) then
+            local buf = vim.api.nvim_win_get_buf(win)
+            local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+            local win_type = vim.fn.win_gettype(win)
+
+            if ft == 'pio_terminal' or ft:match('^terminal_') then
+              term_win = win
+            elseif win_type == '' and ft ~= 'NvimTree' and ft ~= 'neo-tree' and ft ~= 'oil' then
+              table.insert(code_wins, win)
+            end
+          end
+        end
+
+        -- If a rogue parallel code split was forced alongside the terminal, collapse it instantly
+        if #code_wins > 1 and term_win then
+          for i = 2, #code_wins do
+            if vim.api.nvim_win_is_valid(code_wins[i]) then
+              pcall(vim.api.nvim_win_close, code_wins[i], true)
+            end
+          end
+          pcall(vim.api.nvim_win_call, term_win, function()
+            vim.cmd('wincmd J')
+          end)
+        end
+      end)
     end,
   })
+  -- vim.api.nvim_create_autocmd({ 'BufWinEnter', 'BufEnter' }, {
+  --   group = group_id,
+  --   buffer = self.buf,
+  --   callback = function()
+  --     if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+  --       vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+  --       vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+  --       vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+  --     end
+  --   end,
+  -- })
 
   vim.api.nvim_create_autocmd('BufWipeout', {
     group = group_id,
