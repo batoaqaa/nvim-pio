@@ -1,5 +1,5 @@
 -- stylua: ignore start
--- nvimpio/device/terminal.lua - Complete Fixed Version
+-- nvimpio/device/terminal.lua - Part 1
 
 local M = {}
 
@@ -52,13 +52,9 @@ M.terminals = {}
 ---@class TerminalLayout Matrix for managing terminal split window geometry positioning
 ---@field container_win integer|nil Explicit native Neovim window handle ID containing the active terminal split panel
 ---@field active_type string|nil String reference token representing the currently focused terminal pane
----@field original_layout table|nil Saved layout for restoration
----@field file_win integer|nil Window handle for the file buffer above terminal
 M.layout = {
   container_win = nil,
   active_type = nil,
-  original_layout = nil,
-  file_win = nil,
 }
 
 --- Pure C-API Highlight winbar renderer (Preserves explicit layout creation order)
@@ -108,161 +104,33 @@ function M.UpdateWinbarTitles()
   )
 end
 
---- Dynamic Workspace Tree Focus Router Matrix - FIXED
+--- Dynamic Workspace Tree Focus Router Matrix
 ---@return nil
 function M.RestoreWorkspaceFocus()
   local target_win = nil
-  
-  -- First try to find the last non-terminal window
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_is_valid(win) and win ~= M.layout.container_win then
+    if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
-      local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local win_type = vim.fn.win_gettype(win)
-      
-      if buftype == '' and win_type == '' then
-        target_win = win
-        break
+
+      if
+        ft ~= 'pio_terminal'
+        and win_type == ''
+        and ft ~= 'neo-tree'
+        and ft ~= 'oil'
+        and ft ~= 'aerial'
+        and ft ~= 'pio_workspace'
+        and not ft:match('^terminal_')
+      then target_win = win break
       end
     end
   end
 
-  if target_win then
-    vim.api.nvim_set_current_win(target_win)
-  end
+  if target_win then vim.api.nvim_set_current_win(target_win) end
 end
 
---- FIXED: Force all new windows to open above terminal
-function M.SetupWindowManagement()
-  -- Override the default window opening behavior
-  local original_split = vim.cmd.split
-  local original_vsplit = vim.cmd.vsplit
-  local original_new = vim.cmd.new
-  local original_edit = vim.cmd.edit
-  
-  -- Track if we're in the middle of a file open operation
-  M._opening_file = false
-  
-  -- Intercept split commands
-  vim.cmd.split = function(...)
-    if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-      -- If terminal is open, force horizontal split above it
-      local current_win = vim.api.nvim_get_current_win()
-      local current_buf = vim.api.nvim_win_get_buf(current_win)
-      local buftype = vim.api.nvim_get_option_value('buftype', { buf = current_buf })
-      
-      if buftype == 'terminal' or vim.bo[current_buf].filetype == 'neo-tree' then
-        -- Create split above terminal
-        vim.cmd('aboveleft split')
-        return
-      end
-    end
-    original_split(...)
-  end
-  
-  -- Intercept vertical split commands and redirect to horizontal
-  vim.cmd.vsplit = function(...)
-    if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-      local current_win = vim.api.nvim_get_current_win()
-      local current_buf = vim.api.nvim_win_get_buf(current_win)
-      local buftype = vim.api.nvim_get_option_value('buftype', { buf = current_buf })
-      
-      if buftype == 'terminal' or vim.bo[current_buf].filetype == 'neo-tree' then
-        -- Convert vsplit to horizontal split
-        vim.cmd('aboveleft split')
-        return
-      end
-    end
-    original_vsplit(...)
-  end
-  
-  -- Intercept new window creation
-  vim.cmd.new = function(...)
-    if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-      local current_win = vim.api.nvim_get_current_win()
-      local current_buf = vim.api.nvim_win_get_buf(current_win)
-      local buftype = vim.api.nvim_get_option_value('buftype', { buf = current_buf })
-      
-      if buftype == 'terminal' or vim.bo[current_buf].filetype == 'neo-tree' then
-        vim.cmd('aboveleft split')
-        return
-      end
-    end
-    original_new(...)
-  end
-  
-  -- Intercept file edits
-  vim.cmd.edit = function(...)
-    if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-      local current_win = vim.api.nvim_get_current_win()
-      local current_buf = vim.api.nvim_win_get_buf(current_win)
-      local buftype = vim.api.nvim_get_option_value('buftype', { buf = current_buf })
-      
-      if buftype == 'terminal' or vim.bo[current_buf].filetype == 'neo-tree' then
-        -- Check if we already have a window above terminal
-        local has_above = false
-        for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-          if vim.api.nvim_win_is_valid(win) and win ~= M.layout.container_win then
-            local win_config = vim.api.nvim_win_get_config(win)
-            if win_config.relative == '' then
-              has_above = true
-              break
-            end
-          end
-        end
-        
-        if not has_above then
-          vim.cmd('aboveleft split')
-        end
-        -- Let the edit happen in the new window
-        original_edit(...)
-        return
-      end
-    end
-    original_edit(...)
-  end
-end
-
---- Monitor and fix layout after any window operation
-function M.MonitorLayout()
-  vim.api.nvim_create_autocmd({ 'WinNew', 'BufNew', 'BufRead' }, {
-    callback = function()
-      if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-        -- Check if we have vertical splits when we shouldn't
-        local wins = vim.api.nvim_tabpage_list_wins(0)
-        local terminal_win = M.layout.container_win
-        
-        -- Find the terminal window position
-        local term_pos = nil
-        for i, win in ipairs(wins) do
-          if win == terminal_win then
-            term_pos = i
-            break
-          end
-        end
-        
-        if term_pos then
-          -- Check if there are windows to the right of terminal (vertical splits)
-          for i = term_pos + 1, #wins do
-            local win = wins[i]
-            if vim.api.nvim_win_is_valid(win) then
-              local buf = vim.api.nvim_win_get_buf(win)
-              local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
-              local win_type = vim.fn.win_gettype(win)
-              
-              if buftype == '' and win_type == '' then
-                -- This is a file window to the right of terminal - fix it
-                vim.api.nvim_set_current_win(win)
-                vim.cmd('wincmd K') -- Move it above terminal
-                break
-              end
-            end
-          end
-        end
-      end
-    end,
-  })
-end
+-- nvimpio/device/terminal.lua - Part 2
 
 ----------------------------------------------------------------------------------------
 -- HIGH-PERFORMANCE OBJECT-ORIENTED TERMINAL SPECIFICATION
@@ -320,6 +188,9 @@ function Terminal:on_create()
   if type(target_shell) == 'table' and target_shell.program then
     target_shell = target_shell.program
   end
+  -- if type(target_shell) == 'table' then
+  --   target_shell = target_shell.program or target_shell
+  -- end
 
   -- 2. Use termopen inside nvim_buf_call to avoid "modified buffer" checks
   vim.api.nvim_buf_call(self.buf, function()
@@ -343,6 +214,8 @@ function Terminal:on_create()
   self:_register_viewport_mappings()
   self:_register_viewport_bindings()
 end
+
+-- nvimpio/device/terminal.lua - Part 3
 
 --- Pipes an explicit text statement down the asynchronous backend system process pipeline securely
 ---@param command string|integer Text command statement sequence dispatched downstream into the terminal container pipe
@@ -430,41 +303,23 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view - FIXED
+--- Opens a true full-width bottom split protected by native winfixbuf isolation
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Save current layout
-  M.layout.original_layout = vim.fn.winsaveview()
-
-  -- 1. Find a valid window to split from
-  local current_win = vim.api.nvim_get_current_win()
-  local current_buf = vim.api.nvim_win_get_buf(current_win)
-  
-  -- If we're in a terminal buffer, find another window
-  if current_buf == self.buf or vim.api.nvim_get_option_value('buftype', { buf = current_buf }) == 'terminal' then
-    local wins = vim.api.nvim_tabpage_list_wins(0)
-    for _, win in ipairs(wins) do
-      local buf = vim.api.nvim_win_get_buf(win)
-      local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
-      if buftype ~= 'terminal' and vim.fn.win_gettype(win) == '' then
-        vim.api.nvim_set_current_win(win)
-        break
-      end
-    end
-  end
-
-  -- 2. Create the split using standard command
+  -- 1. Create a true bottom-level split spanning the entire editor frame width
   vim.cmd('botright ' .. target_height .. 'split')
-  
-  -- 3. Store the new window and set the buffer
+
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  -- 4. Setup window options
+  -- 2. Native Window-Local Protection: Correctly set via vim.wo on the container window handle
+  vim.wo[M.layout.container_win].winfixbuf = true
+
+  -- Window layout styling options
   vim.w[M.layout.container_win].pio_managed = true
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
@@ -472,8 +327,35 @@ function Terminal:on_open()
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
 
   self:_register_viewport_mappings()
-  M.UpdateWinbarTitles()
+
+  -- Immediately return focus back to your code window so you never lose your place
+  vim.cmd('wincmd p')
 end
+
+
+
+-- --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
+-- ---@return nil
+-- function Terminal:on_open()
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+--   vim.go.splitkeep = 'screen'
+--
+--   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+--     split = 'below',
+--     win = -1,
+--     height = target_height,
+--   })
+--   M.layout.active_type = self.term_type
+--
+--   vim.w[M.layout.container_win].pio_managed = true
+--   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+--
+--   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+--
+--   self:_register_viewport_mappings()
+-- end
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
@@ -542,6 +424,16 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 
+  -- vim.api.nvim_create_autocmd('WinClosed', {
+  --   group = group_id,
+  --   callback = function()
+  --     local closed_win = tonumber(vim.fn.expand('<amatch>'))
+  --     if closed_win == M.layout.container_win then
+  --       M.layout.container_win = nil
+  --       M.layout.active_type = nil
+  --     end
+  --   end,
+  -- })
   vim.api.nvim_create_autocmd('WinClosed', {
     group = group_id,
     callback = function(args)
@@ -553,6 +445,8 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 end
+
+-- nvimpio/device/terminal.lua - Part 4
 
 ----------------------------------------------------------------------------------------
 -- CORE API ORCHESTRATION INTERFACE LAYER
@@ -597,7 +491,7 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   return M.terminals[name]
 end
 
---- Projects a targeted terminal buffer onto the screen view layout space - FIXED to use proper window focus
+--- Projects a targeted terminal buffer onto the screen view layout space
 ---@param term_type string|nil Target key name token representing the pane selection matrix context
 ---@return nil
 function M.show(term_type)
@@ -612,7 +506,6 @@ function M.show(term_type)
   end
 
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    -- Save current window to restore later
     local old_win = vim.api.nvim_get_current_win()
 
     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
@@ -621,15 +514,15 @@ function M.show(term_type)
     target_instance:_register_viewport_mappings()
     M.UpdateWinbarTitles()
 
-    -- Don't auto-enter insert mode if we were in a file
-    if old_win ~= M.layout.container_win then
-      -- User can manually enter insert mode with i
+    if old_win == M.layout.container_win then
+      -- vim.cmd('startinsert')
     end
     return
   end
 
   target_instance:on_open()
   M.UpdateWinbarTitles()
+  -- vim.cmd('startinsert')
 end
 
 --- Hides the active panel split view window layout frame cleanly from the viewport screen
@@ -732,22 +625,13 @@ function M.send_and_restore(cmd)
   target_instance:send(cmd)
 end
 
---- FIXED: Universal interactive directional down navigator
+-- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
-    if vim.api.nvim_get_option_value('buftype', { buf = vim.api.nvim_win_get_buf(M.layout.container_win) }) == 'terminal' then
-      vim.cmd('startinsert')
-    end
+    -- vim.cmd('startinsert')
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
-  end
-end, { silent = true })
-
---- FIXED: Add keymap to go up from terminal to file buffer
-vim.keymap.set({ 'n', 't' }, '<C-k>', function()
-  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    vim.cmd('wincmd k')
   end
 end, { silent = true })
 
@@ -756,10 +640,6 @@ end, { silent = true })
 ---@return nil
 function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
-  
-  -- Setup window management
-  M.SetupWindowManagement()
-  M.MonitorLayout()
 end
 
 ----------------------------------------------------------------------------------------
@@ -780,10 +660,6 @@ end
 M.reopen()
 ----------------------------------------------------------------------------------------
 
--- Initialize window management
-M.SetupWindowManagement()
-M.MonitorLayout()
-
 setmetatable(M, {
   __index = function(table, key)
     return rawget(table, 'terminals')[key]
@@ -791,4 +667,4 @@ setmetatable(M, {
 })
 
 return M
---
+-- stylua: ignore end
