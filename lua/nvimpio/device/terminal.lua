@@ -303,26 +303,20 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a true full-width root bottom split that spans underneath sidebars like nvim-tree
+--- Opens a true full-width bottom split that ignores sidebars and prevents cursor pass-through
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Force a global root-level split layout spanning the absolute full width of the editor
-  vim.api.nvim_cmd({
-    cmd = 'split',
-    mods = {
-      botright = true,
-      split = target_height,
-    },
-  }, {})
+  -- Use standard robust string execution for botright split to avoid API table mapping errors
+  vim.cmd('botright ' .. target_height .. 'split')
 
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  -- Native window protection to prevent focus leaks and cursor pass-through
+  -- Native window protection to completely stop cursor bleeding/pass-through
   vim.wo[M.layout.container_win].winfixbuf = true
 
   -- Window configuration options
