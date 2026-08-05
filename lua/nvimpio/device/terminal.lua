@@ -328,22 +328,38 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Force focus to the top-left-most window in the entire tabpage 
-  -- (which escapes individual vertical columns and targets the master layout root).
-  vim.cmd('wincmd t')
+  -- Find a valid content window to anchor from
+  local target_win = nil
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local win_type = vim.fn.win_gettype(win)
+      if win_type == '' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
+        target_win = win
+        break
+      end
+    end
+  end
 
-  -- If the top-left window happens to be a sidebar, move right to the actual code editor area
-  local current_buf = vim.api.nvim_get_current_buf()
-  local current_ft = vim.api.nvim_get_option_value('filetype', { buf = current_buf })
-  if current_ft == 'NvimTree' or current_ft == 'neo-tree' or current_ft == 'oil' then
+  if target_win and vim.api.nvim_win_is_valid(target_win) then
+    vim.api.nvim_set_current_win(target_win)
+  else
     pcall(vim.cmd, 'wincmd w')
   end
 
-  -- Now open the split globally at the absolute bottom of the entire screen frame
+  -- 1. Open the split normally at the bottom of the current column context
   vim.cmd('botright ' .. target_height .. 'split')
 
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+
+  -- 2. Instantly promote the terminal window layout frame to break out of 
+  -- any column trapping and stretch it across the absolute full width of the screen.
+  vim.api.nvim_win_call(M.layout.container_win, function()
+    vim.cmd('wincmd J')
+    vim.cmd('resize ' .. target_height)
+  end)
 
   M.layout.active_type = self.term_type
 
