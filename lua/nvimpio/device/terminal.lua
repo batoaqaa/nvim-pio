@@ -321,15 +321,39 @@ function Terminal:close()
   M.hide()
 end
 
+
 --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Create the split atomically at the absolute bottom right layout edge in one go
-  vim.cmd('botright ' .. target_height .. 'split')
+  -- PRE-WARM CHECK: If there are no standard code/scratch windows open (only sidebars/explorers),
+  -- create a silent empty buffer first so the workspace layout has a stable anchor.
+  local wins = vim.api.nvim_tabpage_list_wins(0)
+  local code_wins = 0
+  for _, win in ipairs(wins) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local win_type = vim.fn.win_gettype(win)
+      local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
 
+      if win_type == '' and buftype == '' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
+        code_wins = code_wins + 1
+      end
+    end
+  end
+
+  -- If no code/scratch window exists, spawn one right now before dropping the terminal dock
+  if code_wins == 0 then
+    vim.cmd('enew')
+    -- Focus back to the file tree or the main context so the terminal splits properly underneath the content area
+    pcall(vim.cmd, 'wincmd p')
+  end
+
+  -- Now open the terminal split cleanly
+  vim.cmd('botright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
 
@@ -343,6 +367,29 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 end
+
+-- --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
+-- ---@return nil
+-- function Terminal:on_open()
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+--   vim.go.splitkeep = 'screen'
+--
+--   -- Create the split atomically at the absolute bottom right layout edge in one go
+--   vim.cmd('botright ' .. target_height .. 'split')
+--
+--   M.layout.container_win = vim.api.nvim_get_current_win()
+--   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+--
+--   M.layout.active_type = self.term_type
+--
+--   vim.w[M.layout.container_win].pio_managed = true
+--   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+--
+--   self:_register_viewport_mappings()
+-- end
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
