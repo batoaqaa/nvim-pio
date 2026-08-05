@@ -327,10 +327,18 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Force a clean window split using command-line evaluation to bypass API column-trap constraints
+  -- Silence window layout triggers temporarily to prevent nvim-tree from racing and flashing a 3-way split
+  local old_eventignore = vim.o.eventignore
+  vim.o.eventignore = 'all'
+
   vim.cmd('botright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+
+  -- Instantly secure the bottom full-width dock layout before events re-enable
+  vim.cmd('wincmd J')
+
+  vim.o.eventignore = old_eventignore
 
   M.layout.active_type = self.term_type
 
