@@ -322,104 +322,81 @@ function Terminal:close()
 end
 
 
---- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
----@return nil
-function Terminal:on_open()
-  local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  vim.go.splitkeep = 'screen'
-
-  -- 1. Inspect windows to find an existing valid code window or a reusable scratch buffer
-  local wins = vim.api.nvim_tabpage_list_wins(0)
-  local code_win_target = nil
-
-  for _, win in ipairs(wins) do
-    if vim.api.nvim_win_is_valid(win) then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      local win_type = vim.fn.win_gettype(win)
-      local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
-
-      -- If it's a normal window and NOT a sidebar/explorer and NOT a terminal
-      if win_type == '' and buftype == '' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
-        code_win_target = win
-        break
-      end
-    end
-  end
-
-  -- 2. If NO code window exists at all, check if we can reuse an existing scratch buffer 
-  -- in the background, or create one safely without touching nvim-tree.
-  if not code_win_target then
-    -- First, check if any unlisted/empty scratch buffer already exists in the buffer list
-    local existing_scratch_buf = nil
-    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-      if vim.api.nvim_buf_is_valid(buf) then
-        local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
-        local bufname = vim.api.nvim_buf_get_name(buf)
-        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-        -- Identify an empty unlisted or blank buffer
-        if buftype == '' and bufname == '' and ft == '' and vim.api.nvim_buf_line_count(buf) == 1 and vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] == '' then
-          existing_scratch_buf = buf
-          break
-        end
-      end
-    end
-
-    -- Find the sidebar window to use as a reference anchor for a split
-    local sidebar_win = nil
-    for _, win in ipairs(wins) do
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      if ft == 'NvimTree' or ft == 'neo-tree' or vim.fn.win_gettype(win) ~= '' then
-        sidebar_win = win
-        break
-      end
-    end
-
-    if sidebar_win and vim.api.nvim_win_is_valid(sidebar_win) then
-      vim.api.nvim_set_current_win(sidebar_win)
-      vim.cmd('vsplit')
-      code_win_target = vim.api.nvim_get_current_win()
-      
-      -- Reuse the existing scratch buffer if found, otherwise create a new one just this once
-      if existing_scratch_buf and vim.api.nvim_buf_is_valid(existing_scratch_buf) then
-        vim.api.nvim_win_set_buf(code_win_target, existing_scratch_buf)
-      else
-        local scratch_buf = vim.api.nvim_create_buf(false, true)
-        vim.api.nvim_win_set_buf(code_win_target, scratch_buf)
-      end
-    end
-  end
-
-  -- 3. Focus back to our target code window and open the terminal split cleanly at the bottom
-  if code_win_target and vim.api.nvim_win_is_valid(code_win_target) then
-    vim.api.nvim_set_current_win(code_win_target)
-  end
-
-  vim.cmd('botright ' .. target_height .. 'split')
-  M.layout.container_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
-
-  M.layout.active_type = self.term_type
-
-  vim.w[M.layout.container_win].pio_managed = true
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
-
-  self:_register_viewport_mappings()
-end
-
 -- --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 -- ---@return nil
 -- function Terminal:on_open()
 --   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
 --   vim.go.splitkeep = 'screen'
 --
---   -- Create the split atomically at the absolute bottom right layout edge in one go
---   vim.cmd('botright ' .. target_height .. 'split')
+--   -- 1. Inspect windows to find an existing valid code window or a reusable scratch buffer
+--   local wins = vim.api.nvim_tabpage_list_wins(0)
+--   local code_win_target = nil
 --
+--   for _, win in ipairs(wins) do
+--     if vim.api.nvim_win_is_valid(win) then
+--       local buf = vim.api.nvim_win_get_buf(win)
+--       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+--       local win_type = vim.fn.win_gettype(win)
+--       local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
+--
+--       -- If it's a normal window and NOT a sidebar/explorer and NOT a terminal
+--       if win_type == '' and buftype == '' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
+--         code_win_target = win
+--         break
+--       end
+--     end
+--   end
+--
+--   -- 2. If NO code window exists at all, check if we can reuse an existing scratch buffer 
+--   -- in the background, or create one safely without touching nvim-tree.
+--   if not code_win_target then
+--     -- First, check if any unlisted/empty scratch buffer already exists in the buffer list
+--     local existing_scratch_buf = nil
+--     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+--       if vim.api.nvim_buf_is_valid(buf) then
+--         local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
+--         local bufname = vim.api.nvim_buf_get_name(buf)
+--         local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+--         -- Identify an empty unlisted or blank buffer
+--         if buftype == '' and bufname == '' and ft == '' and vim.api.nvim_buf_line_count(buf) == 1 and vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] == '' then
+--           existing_scratch_buf = buf
+--           break
+--         end
+--       end
+--     end
+--
+--     -- Find the sidebar window to use as a reference anchor for a split
+--     local sidebar_win = nil
+--     for _, win in ipairs(wins) do
+--       local buf = vim.api.nvim_win_get_buf(win)
+--       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+--       if ft == 'NvimTree' or ft == 'neo-tree' or vim.fn.win_gettype(win) ~= '' then
+--         sidebar_win = win
+--         break
+--       end
+--     end
+--
+--     if sidebar_win and vim.api.nvim_win_is_valid(sidebar_win) then
+--       vim.api.nvim_set_current_win(sidebar_win)
+--       vim.cmd('vsplit')
+--       code_win_target = vim.api.nvim_get_current_win()
+--
+--       -- Reuse the existing scratch buffer if found, otherwise create a new one just this once
+--       if existing_scratch_buf and vim.api.nvim_buf_is_valid(existing_scratch_buf) then
+--         vim.api.nvim_win_set_buf(code_win_target, existing_scratch_buf)
+--       else
+--         local scratch_buf = vim.api.nvim_create_buf(false, true)
+--         vim.api.nvim_win_set_buf(code_win_target, scratch_buf)
+--       end
+--     end
+--   end
+--
+--   -- 3. Focus back to our target code window and open the terminal split cleanly at the bottom
+--   if code_win_target and vim.api.nvim_win_is_valid(code_win_target) then
+--     vim.api.nvim_set_current_win(code_win_target)
+--   end
+--
+--   vim.cmd('botright ' .. target_height .. 'split')
 --   M.layout.container_win = vim.api.nvim_get_current_win()
 --   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
 --
@@ -433,6 +410,51 @@ end
 --
 --   self:_register_viewport_mappings()
 -- end
+
+--- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
+---@return nil
+function Terminal:on_open()
+  local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+  vim.go.splitkeep = 'screen'
+
+  -- Find a valid non-sidebar window to split from, if available
+  local target_win = nil
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local win_type = vim.fn.win_gettype(win)
+      if win_type == '' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
+        target_win = win
+        break
+      end
+    end
+  end
+
+  -- If we found a proper content window, focus it so the split anchors nicely below code
+  if target_win and vim.api.nvim_win_is_valid(target_win) then
+    vim.api.nvim_set_current_win(target_win)
+  else
+    -- Fallback: if only sidebars exist, jump out of them to avoid vertical column trapping
+    pcall(vim.cmd, 'wincmd w')
+  end
+
+  -- Force the split to evaluate as a full-width row at the very bottom of the editor layout
+  vim.cmd('botright ' .. target_height .. 'split')
+
+  M.layout.container_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+
+  M.layout.active_type = self.term_type
+
+  vim.w[M.layout.container_win].pio_managed = true
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+
+  self:_register_viewport_mappings()
+end
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
