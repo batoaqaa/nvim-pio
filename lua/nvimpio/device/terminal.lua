@@ -327,15 +327,21 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Use noautocmd to freeze external plugin layout hooks during the split operation, 
-  -- completely preventing the 3-way split render flicker.
-  vim.cmd('noautocmd botright ' .. target_height .. 'split')
+  -- If there is already a focused code window, split below it silently.
+  -- Otherwise, target the current window directly to prevent multi-column grid jitter.
+  local current_win = vim.api.nvim_get_current_win()
+  local current_buf = vim.api.nvim_win_get_buf(current_win)
+  local ft = vim.api.nvim_get_option_value('filetype', { buf = current_buf })
 
+  if ft == 'NvimTree' or ft == 'neo-tree' or ft == 'oil' then
+    -- If trapped in a sidebar, jump out to a valid window first or fallback to root split safely
+    pcall(vim.cmd, 'wincmd w')
+  end
+
+  -- Perform a silent horizontal split
+  vim.cmd('silent! botright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
-
-  -- Force absolute bottom full-width alignment silently
-  vim.cmd('noautocmd wincmd J')
 
   M.layout.active_type = self.term_type
 
