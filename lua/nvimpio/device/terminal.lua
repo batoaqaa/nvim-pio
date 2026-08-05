@@ -344,19 +344,34 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Force a clean full-width bottom split evaluation, breaking any vertical grid trap
-  local old_eventignore = vim.opt.eventignore:get()
-  vim.opt.eventignore = 'all'
+  -- Check if there are any normal code windows open right now.
+  -- If the user only has nvim-tree open, spawning a terminal leaves 0 code windows,
+  -- forcing nvim-tree to spawn a rogue split later. We prevent this by ensuring
+  -- a clean, reusable code window exists before opening the terminal.
+  local wins = vim.api.nvim_tabpage_list_wins(0)
+  local has_code_win = false
+  for _, win in ipairs(wins) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local win_type = vim.fn.win_gettype(win)
+      if win_type == '' and ft ~= 'NvimTree' and ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_workspace' then
+        has_code_win = true
+        break
+      end
+    end
+  end
+
+  -- If no code window exists, create a clean empty buffer window first so nvim-tree has a target to reuse
+  if not has_code_win then
+    vim.cmd('enew')
+  end
 
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
     win = -1,
     height = target_height,
   })
-
-  vim.cmd('wincmd J') -- Force lock to absolute bottom full-width pane
-  vim.opt.eventignore = old_eventignore
-
   M.layout.active_type = self.term_type
 
   vim.w[M.layout.container_win].pio_managed = true
