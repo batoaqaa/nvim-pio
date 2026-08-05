@@ -188,9 +188,6 @@ function Terminal:on_create()
   if type(target_shell) == 'table' and target_shell.program then
     target_shell = target_shell.program
   end
-  -- if type(target_shell) == 'table' then
-  --   target_shell = target_shell.program or target_shell
-  -- end
 
   -- 2. Use termopen inside nvim_buf_call to avoid "modified buffer" checks
   vim.api.nvim_buf_call(self.buf, function()
