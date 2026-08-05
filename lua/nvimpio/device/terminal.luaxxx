@@ -1,5 +1,5 @@
 -- stylua: ignore start
--- nvimpio/device/terminal.lua
+-- nvimpio/device/terminal.lua - Part 1
 
 local M = {}
 
@@ -56,53 +56,6 @@ M.layout = {
   container_win = nil,
   active_type = nil,
 }
-
--- Global layout guard to instantly catch and heal any 3-way parallel split layout glitches
-vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter' }, {
-  group = vim.api.nvim_create_augroup('PioGlobalLayoutSanitizer', { clear = true }),
-  callback = function()
-    vim.schedule(function()
-      if not M.layout.container_win or not vim.api.nvim_win_is_valid(M.layout.container_win) then
-        return
-      end
-
-      local wins = vim.api.nvim_tabpage_list_wins(0)
-      local code_wins = {}
-      local term_win = M.layout.container_win
-
-      for _, win in ipairs(wins) do
-        if vim.api.nvim_win_is_valid(win) then
-          local buf = vim.api.nvim_win_get_buf(win)
-          local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-          local win_type = vim.fn.win_gettype(win)
-
-          if win_type == '' 
-            and ft ~= 'pio_terminal' 
-            and not ft:match('^terminal_') 
-            and ft ~= 'NvimTree' 
-            and ft ~= 'neo-tree' 
-            and ft ~= 'oil' 
-            and ft ~= 'aerial' 
-            and ft ~= 'pio_workspace' 
-          then
-            table.insert(code_wins, win)
-          end
-        end
-      end
-
-      if #code_wins > 1 and vim.api.nvim_win_is_valid(term_win) then
-        for i = 2, #code_wins do
-          if vim.api.nvim_win_is_valid(code_wins[i]) then
-            pcall(vim.api.nvim_win_close, code_wins[i], true)
-          end
-        end
-        pcall(vim.api.nvim_win_call, term_win, function()
-          vim.cmd('wincmd J')
-        end)
-      end
-    end)
-  end,
-})
 
 --- Pure C-API Highlight winbar renderer (Preserves explicit layout creation order)
 ---@return nil
@@ -177,6 +130,8 @@ function M.RestoreWorkspaceFocus()
   if target_win then vim.api.nvim_set_current_win(target_win) end
 end
 
+-- nvimpio/device/terminal.lua - Part 2
+
 ----------------------------------------------------------------------------------------
 -- HIGH-PERFORMANCE OBJECT-ORIENTED TERMINAL SPECIFICATION
 ----------------------------------------------------------------------------------------
@@ -223,14 +178,21 @@ end
 --- Instantiates a pure, untainted native Neovim scratch buffer and encapsulates its termopen execution logic securely
 ---@return nil
 function Terminal:on_create()
+  -- 1. Create a pristine unlisted scratch buffer
   self.buf = vim.api.nvim_create_buf(false, true)
 
   local target_shell = M.config.shell or native_shell
 
+  -- If a custom shell object `{ program = '...' }` is provided, unpack it properly;
+  -- otherwise, preserve raw string or table array ({ 'pwsh.exe', ... }) as-is.
   if type(target_shell) == 'table' and target_shell.program then
     target_shell = target_shell.program
   end
+  -- if type(target_shell) == 'table' then
+  --   target_shell = target_shell.program or target_shell
+  -- end
 
+  -- 2. Use termopen inside nvim_buf_call to avoid "modified buffer" checks
   vim.api.nvim_buf_call(self.buf, function()
     local channel_id = vim.fn.termopen(target_shell, {
       on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
@@ -241,6 +203,7 @@ function Terminal:on_create()
     self.job = (channel_id and channel_id > 0) and channel_id or nil
   end)
 
+  -- 3. Set filetype & options AFTER terminal channel attaches
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
 
@@ -251,6 +214,8 @@ function Terminal:on_create()
   self:_register_viewport_mappings()
   self:_register_viewport_bindings()
 end
+
+-- nvimpio/device/terminal.lua - Part 3
 
 --- Pipes an explicit text statement down the asynchronous backend system process pipeline securely
 ---@param command string|integer Text command statement sequence dispatched downstream into the terminal container pipe
@@ -428,6 +393,16 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 
+  -- vim.api.nvim_create_autocmd('WinClosed', {
+  --   group = group_id,
+  --   callback = function()
+  --     local closed_win = tonumber(vim.fn.expand('<amatch>'))
+  --     if closed_win == M.layout.container_win then
+  --       M.layout.container_win = nil
+  --       M.layout.active_type = nil
+  --     end
+  --   end,
+  -- })
   vim.api.nvim_create_autocmd('WinClosed', {
     group = group_id,
     callback = function(args)
@@ -439,6 +414,8 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 end
+
+-- nvimpio/device/terminal.lua - Part 4
 
 ----------------------------------------------------------------------------------------
 -- CORE API ORCHESTRATION INTERFACE LAYER
@@ -617,20 +594,11 @@ function M.send_and_restore(cmd)
   target_instance:send(cmd)
 end
 
--- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR (Generic Explorer Protection)
+-- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
-  local current_win = vim.api.nvim_get_current_win()
-  local win_type = vim.fn.win_gettype(current_win)
-  local current_buf = vim.api.nvim_get_current_buf()
-  local buftype = vim.api.nvim_get_option_value('buftype', { buf = current_buf })
-
-  if win_type ~= '' or buftype == 'nofile' or buftype == 'acwrite' or buftype == 'prompt' then
-    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
-    return
-  end
-
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
+    -- vim.cmd('startinsert')
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
   end
