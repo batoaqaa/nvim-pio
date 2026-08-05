@@ -303,24 +303,29 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a true full-width bottom split layout that never covers code 
---- and blocks cursor bleed natively.
+--- Opens a true full-width root bottom split that spans underneath sidebars like nvim-tree
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- 1. Force a root-level full-width split across the entire editor frame
-  vim.cmd('botright ' .. target_height .. 'split')
+  -- Force a global root-level split layout spanning the absolute full width of the editor
+  vim.api.nvim_cmd({
+    cmd = 'split',
+    mods = {
+      botright = true,
+      split = target_height,
+    },
+  }, {})
 
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  -- 2. Native window protection: prevents the cursor from leaking or stepping into it
+  -- Native window protection to prevent focus leaks and cursor pass-through
   vim.wo[M.layout.container_win].winfixbuf = true
 
-  -- 3. Standard layout options
+  -- Window configuration options
   vim.w[M.layout.container_win].pio_managed = true
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
@@ -329,7 +334,7 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- 4. Instantly return focus back to your code file so your workflow remains uninterrupted
+  -- Instantly snap focus back to your code file
   vim.cmd('wincmd p')
 end
 
