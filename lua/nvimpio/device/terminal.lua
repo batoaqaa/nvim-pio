@@ -291,25 +291,26 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a clean split pane layout and forces a one-time global full-width span across the screen base
+--- Opens a true full-width bottom-dock floating panel that bypasses column traps entirely
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  vim.go.splitkeep = 'screen'
+  local total_width = vim.o.columns
+  local total_lines = vim.o.lines
 
-  -- 1. Create the split natively below the current window
+  -- Calculate precise editor-grid coordinates for a bottom-dock layout
+  local row_pos = total_lines - target_height - 2 -- account for statusline/cmdline
+  local col_pos = 0
+
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
-    split = 'below',
-    win = -1,
+    relative = 'editor',
+    width = total_width,
     height = target_height,
+    row = row_pos,
+    col = col_pos,
+    style = 'minimal',
+    border = 'single', -- or 'none' / 'rounded' depending on preference
   })
-
-  -- 2. Execute a strict, one-time structural promotion to break column confinement 
-  -- and stretch the terminal across the absolute full width of the screen base.
-  vim.api.nvim_win_call(M.layout.container_win, function()
-    vim.cmd('wincmd J')
-    vim.cmd('resize ' .. target_height)
-  end)
 
   M.layout.active_type = self.term_type
 
