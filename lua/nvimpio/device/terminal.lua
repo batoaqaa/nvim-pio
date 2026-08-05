@@ -347,7 +347,7 @@ function Terminal:on_open()
     pcall(vim.cmd, 'wincmd w')
   end
 
-  -- Safely concatenate using .. instead of + to prevent arithmetic type crashes
+  -- Clean, standard split initialization
   vim.cmd('botright ' .. target_height .. 'split')
   
   M.layout.container_win = vim.api.nvim_get_current_win()
