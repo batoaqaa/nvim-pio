@@ -303,33 +303,40 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a true full-width bottom split guaranteed to ignore sidebars like nvim-tree
+--- Opens a true full-width bottom-docked panel via the editor grid layer, 
+--- completely eliminating 3-parallel columns and focus leaks.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  vim.go.splitkeep = 'screen'
+  local total_width = vim.o.columns
+  local total_lines = vim.o.lines
 
-  -- Force a global bottom-most root split across the entire editor frame width
-  vim.cmd('botright ' .. target_height + 1 .. 'split')
+  -- Position explicitly across the entire editor grid boundary
+  local row_pos = total_lines - target_height - 2
+  local col_pos = 0
 
-  M.layout.container_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+  -- Create a floating window spanning 100% of editor width (bypassing nvim-tree completely)
+  M.layout.container_win = vim.api.nvim_open_win(self.buf, false, {
+    relative = 'editor',
+    width = total_width,
+    height = target_height,
+    row = row_pos,
+    col = col_pos,
+    style = 'minimal',
+    border = 'single',
+    focusable = true,
+  })
+
   M.layout.active_type = self.term_type
 
-  -- Native window-local protection to completely prevent cursor pass-through/focus leaks
-  vim.wo[M.layout.container_win].winfixbuf = true
-
-  -- Window layout styling options
+  -- Window options setup
   vim.w[M.layout.container_win].pio_managed = true
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+  vim.wo[M.layout.container_win].winfixheight = true
+  vim.wo[M.layout.container_win].number = false
+  vim.wo[M.layout.container_win].relativenumber = false
+  vim.wo[M.layout.container_win].signcolumn = 'no'
 
   self:_register_viewport_mappings()
-
-  -- Instantly snap focus back to your code file
-  vim.cmd('wincmd p')
 end
 
 
