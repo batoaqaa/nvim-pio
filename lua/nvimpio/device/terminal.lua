@@ -57,35 +57,35 @@ M.layout = {
   active_type = nil,
 }
 
--- -- Global layout guard: Physically destroys 3-way vertical parallel columns and forces bottom horizontal layout
--- vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter', 'WinResized' }, {
---   group = vim.api.nvim_create_augroup('PioGridBreaker', { clear = true }),
---   callback = function()
---     vim.schedule(function()
---       local term_win = M.layout.container_win
---       if not term_win or not vim.api.nvim_win_is_valid(term_win) then
---         return
---       end
---
---       -- Check if the terminal window has been trapped in a vertical column layout
---       local term_width = vim.api.nvim_win_get_width(term_win)
---       local total_width = vim.o.columns
---
---       -- If the terminal width is significantly less than total columns, it's trapped in a vertical 3-way split!
---       if term_width < (total_width - 5) then
---         pcall(function()
---           vim.api.nvim_win_call(term_win, function()
---             -- Force Neovim to rotate/move the terminal window to an absolute bottom row split
---             vim.cmd('wincmd J')
---             -- Fix height to match configured ratio
---             local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
---             vim.cmd('resize ' .. target_height)
---           end)
---         end)
---       end
---     end)
---   end,
--- })
+-- Global layout guard: Physically destroys 3-way vertical parallel columns and forces bottom horizontal layout
+vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter', 'WinResized' }, {
+  group = vim.api.nvim_create_augroup('PioGridBreaker', { clear = true }),
+  callback = function()
+    vim.schedule(function()
+      local term_win = M.layout.container_win
+      if not term_win or not vim.api.nvim_win_is_valid(term_win) then
+        return
+      end
+
+      -- Check if the terminal window has been trapped in a vertical column layout
+      local term_width = vim.api.nvim_win_get_width(term_win)
+      local total_width = vim.o.columns
+
+      -- If the terminal width is significantly less than total columns, it's trapped in a vertical 3-way split!
+      if term_width < (total_width - 5) then
+        pcall(function()
+          vim.api.nvim_win_call(term_win, function()
+            -- Force Neovim to rotate/move the terminal window to an absolute bottom row split
+            vim.cmd('wincmd J')
+            -- Fix height to match configured ratio
+            local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+            vim.cmd('resize ' .. target_height)
+          end)
+        end)
+      end
+    end)
+  end,
+})
 
 --- Pure C-API Highlight winbar renderer (Preserves explicit layout creation order)
 ---@return nil
@@ -321,26 +321,23 @@ function Terminal:close()
   M.hide()
 end
 
-
 --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- 1. Completely generic sidebar detection using Neovim's window layout engine API 
-  -- instead of hardcoding plugin names. We find the window with the smallest width 
-  -- that stretches the full height, or simply fallback to the primary active window.
-  local best_win = vim.api.nvim_get_current_win()
-  local wins = vim.api.nvim_tabpage_list_wins(0)
-  
   -- Find a standard editable window (non-floating, normal buftype)
+  local best_win = nil
+  local wins = vim.api.nvim_tabpage_list_wins(0)
+
   for _, win in ipairs(wins) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
       local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
       local win_type = vim.fn.win_gettype(win)
-      
+
+      -- Check if it's a regular window with a normal buffer
       if win_type == '' and buftype == '' and buf ~= self.buf then
         best_win = win
         break
@@ -348,16 +345,29 @@ function Terminal:on_open()
     end
   end
 
+  -- Fallback to a valid window, but ensure it's not the terminal buffer
+  if not best_win then
+    local current_win = vim.api.nvim_get_current_win()
+    local current_buf = vim.api.nvim_win_get_buf(current_win)
+    if current_buf ~= self.buf then
+      best_win = current_win
+    else
+      -- If we're in the terminal buffer, find any other window or create one
+      best_win = wins[1] or vim.api.nvim_get_current_win()
+    end
+  end
+
   vim.api.nvim_set_current_win(best_win)
 
-  -- 2. Create the split bottom-most globally using standard API primitives
+  -- Create the split bottom-most
   vim.cmd('botright ' .. target_height .. 'split')
-  
+
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
 
   M.layout.active_type = self.term_type
 
+  -- Setup window options
   vim.w[M.layout.container_win].pio_managed = true
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
