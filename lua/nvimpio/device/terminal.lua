@@ -291,24 +291,29 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a true full-width bottom split that breaks out of vertical columns
+--- Opens a true full-width bottom-docked floating panel that bypasses column traps entirely
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  vim.go.splitkeep = 'screen'
+  local total_width = vim.o.columns
+  local total_lines = vim.o.lines
 
-  -- 1. Create a root-level bottom split using Neovim's `:botright` modifier
-  vim.cmd('botright ' .. target_height .. 'split')
+  -- Position precisely at the bottom of the editor grid spanning 100% width
+  local row_pos = total_lines - target_height - 2
+  local col_pos = 0
 
-  M.layout.container_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+    relative = 'editor',
+    width = total_width,
+    height = target_height,
+    row = row_pos,
+    col = col_pos,
+    style = 'minimal',
+    border = 'single',
+  })
+
   M.layout.active_type = self.term_type
 
-  -- 2. Force the window to stretch across the ENTIRE editor width (spanning under nvim-tree)
-  vim.cmd('wincmd J')
-  vim.cmd('resize ' .. target_height)
-
-  -- Configure window options safely
   vim.w[M.layout.container_win].pio_managed = true
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
