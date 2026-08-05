@@ -342,18 +342,10 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
-    split = 'below',
-    win = -1,
-    height = target_height,
-  })
-
-  -- Force absolute bottom full-width placement immediately on open
-  pcall(function()
-    vim.api.nvim_win_call(M.layout.container_win, function()
-      vim.cmd('wincmd J')
-    end)
-  end)
+  -- Force a full-width bottom split spanning underneath any active sidebars
+  vim.cmd('botright ' .. target_height .. 'split')
+  M.layout.container_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
 
   M.layout.active_type = self.term_type
 
