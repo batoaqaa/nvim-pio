@@ -480,9 +480,6 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   return M.terminals[name]
 end
 
-
-
-
 --- Projects a targeted terminal buffer onto the screen view layout space
 ---@param term_type string|nil Target key name token representing the pane selection matrix context
 ---@return nil
@@ -497,34 +494,23 @@ function M.show(term_type)
     target_instance:on_create()
   end
 
-  -- PRE-EMPTIVE: If focus is currently trapped in a file tree/explorer, 
-  -- jump to a valid code window first so splits anchor properly.
-  local current_win = vim.api.nvim_get_current_win()
-  local current_buf = vim.api.nvim_get_current_win() and vim.api.nvim_win_get_buf(current_win) or 0
-  local ft = vim.api.nvim_get_option_value('filetype', { buf = current_buf })
-  if ft == 'NvimTree' or ft == 'neo-tree' or ft == 'oil' or ft == 'aerial' then
-    pcall(function () vim.cmd('wincmd w') end)
-  end
-
+  -- FAIL-SAFE: If the container window already exists and is valid, 
+  -- ALWAYS just swap the buffer instead of creating a new split. 
+  -- This completely eliminates 3-way parallel split loops.
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    local old_win = vim.api.nvim_get_current_win()
-
     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
     M.layout.active_type = term_type
-
     target_instance:_register_viewport_mappings()
     M.UpdateWinbarTitles()
-
-    if old_win == M.layout.container_win then
-      -- vim.cmd('startinsert')
-    end
     return
   end
 
+  -- Only execute a fresh split if no container window exists on screen at all
   target_instance:on_open()
   M.UpdateWinbarTitles()
-  -- vim.cmd('startinsert')
 end
+
+
 -- --- Projects a targeted terminal buffer onto the screen view layout space
 -- ---@param term_type string|nil Target key name token representing the pane selection matrix context
 -- ---@return nil
