@@ -344,16 +344,23 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
+  -- Force a clean full-width bottom split evaluation, breaking any vertical grid trap
+  local old_eventignore = vim.opt.eventignore:get()
+  vim.opt.eventignore = 'all'
+
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
     win = -1,
     height = target_height,
   })
+
+  vim.cmd('wincmd J') -- Force lock to absolute bottom full-width pane
+  vim.opt.eventignore = old_eventignore
+
   M.layout.active_type = self.term_type
 
   vim.w[M.layout.container_win].pio_managed = true
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
-
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
