@@ -327,16 +327,11 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Temporarily lock layout sizing variables to block tree reflow recalculations
-  local save_siso = vim.o.siso
-  vim.o.siso = 0
+  -- Create the split atomically at the absolute bottom right layout edge in one go
+  vim.cmd('botright ' .. target_height .. 'split')
 
-  -- Execute split inside an un-interrupted command block
-  vim.cmd('belowright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
-
-  vim.o.siso = save_siso
 
   M.layout.active_type = self.term_type
 
