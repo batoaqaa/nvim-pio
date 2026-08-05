@@ -342,33 +342,18 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Find a valid window to split from. If only file trees/explorers are open, 
-  -- pick the tree window so we split cleanly underneath it without destroying layout.
-  local target_win = -1
-  local wins = vim.api.nvim_tabpage_list_wins(0)
-
-  for _, win in ipairs(wins) do
-    if vim.api.nvim_win_is_valid(win) then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local win_type = vim.fn.win_gettype(win)
-      local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
-
-      -- Prefer a standard code window if available
-      if win_type == '' and buftype == '' then
-        target_win = win
-        break
-      end
-    end
-  end
-
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
-    win = target_win, -- If no code window exists (-1), it splits relative to current window safely
+    win = -1,
     height = target_height,
   })
 
-  -- Force absolute bottom full-width placement
-  vim.cmd('wincmd J')
+  -- Force absolute bottom full-width placement immediately on open
+  pcall(function()
+    vim.api.nvim_win_call(M.layout.container_win, function()
+      vim.cmd('wincmd J')
+    end)
+  end)
 
   M.layout.active_type = self.term_type
 
