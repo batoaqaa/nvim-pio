@@ -1,5 +1,5 @@
 -- stylua: ignore start
--- nvimpio/device/terminal.lua - Complete Fixed Version
+-- nvimpio/device/terminal.lua - Complete Fixed Version with Proper Layout Management
 
 local M = {}
 
@@ -52,9 +52,11 @@ M.terminals = {}
 ---@class TerminalLayout Matrix for managing terminal split window geometry positioning
 ---@field container_win integer|nil Explicit native Neovim window handle ID containing the active terminal split panel
 ---@field active_type string|nil String reference token representing the currently focused terminal pane
+---@field original_layout table|nil Saved layout for restoration
 M.layout = {
   container_win = nil,
   active_type = nil,
+  original_layout = nil,
 }
 
 --- Pure C-API Highlight winbar renderer (Preserves explicit layout creation order)
@@ -126,6 +128,44 @@ function M.RestoreWorkspaceFocus()
   if target_win then
     vim.api.nvim_set_current_win(target_win)
   end
+end
+
+--- FIXED: Ensure files open above terminal, not in vertical splits
+function M.SetupFileOpening()
+  -- Create autocmd to handle file opening when terminal is present
+  vim.api.nvim_create_autocmd({ 'BufRead', 'BufNewFile' }, {
+    callback = function()
+      -- Check if terminal is open
+      if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+        local current_win = vim.api.nvim_get_current_win()
+        local current_buf = vim.api.nvim_win_get_buf(current_win)
+        local buftype = vim.api.nvim_get_option_value('buftype', { buf = current_buf })
+        
+        -- If we're in a terminal or nvim-tree, and opening a file
+        if buftype == 'terminal' or vim.bo[current_buf].filetype == 'neo-tree' then
+          -- Check if we already have a window above the terminal
+          local has_above = false
+          for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+            if vim.api.nvim_win_is_valid(win) and win ~= M.layout.container_win then
+              local win_config = vim.api.nvim_win_get_config(win)
+              -- Check if this window is above the terminal
+              if win_config.relative == '' then
+                has_above = true
+                break
+              end
+            end
+          end
+          
+          -- If no window above terminal, create one
+          if not has_above then
+            vim.cmd('split')
+            -- Move the new window above the terminal
+            vim.cmd('wincmd K')
+          end
+        end
+      end
+    end,
+  })
 end
 
 ----------------------------------------------------------------------------------------
@@ -299,6 +339,9 @@ end
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
+
+  -- Save current layout
+  M.layout.original_layout = vim.fn.winsaveview()
 
   -- 1. Find a valid window to split from
   local current_win = vim.api.nvim_get_current_win()
@@ -597,6 +640,10 @@ end
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
+    -- Enter insert mode if in terminal
+    if vim.api.nvim_get_option_value('buftype', { buf = vim.api.nvim_win_get_buf(M.layout.container_win) }) == 'terminal' then
+      vim.cmd('startinsert')
+    end
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
   end
@@ -615,6 +662,9 @@ end, { silent = true })
 ---@return nil
 function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
+  
+  -- Setup file opening behavior
+  M.SetupFileOpening()
 end
 
 ----------------------------------------------------------------------------------------
@@ -634,6 +684,9 @@ function M.reopen()
 end
 M.reopen()
 ----------------------------------------------------------------------------------------
+
+-- Initialize file opening behavior
+M.SetupFileOpening()
 
 setmetatable(M, {
   __index = function(table, key)
