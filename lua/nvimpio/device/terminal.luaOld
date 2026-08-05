@@ -1,5 +1,5 @@
 -- stylua: ignore start
--- nvimpio/device/terminal.lua
+-- nvimpio/device/terminal.lua - Part 1
 
 local M = {}
 
@@ -130,6 +130,8 @@ function M.RestoreWorkspaceFocus()
   if target_win then vim.api.nvim_set_current_win(target_win) end
 end
 
+-- nvimpio/device/terminal.lua - Part 2
+
 ----------------------------------------------------------------------------------------
 -- HIGH-PERFORMANCE OBJECT-ORIENTED TERMINAL SPECIFICATION
 ----------------------------------------------------------------------------------------
@@ -176,14 +178,21 @@ end
 --- Instantiates a pure, untainted native Neovim scratch buffer and encapsulates its termopen execution logic securely
 ---@return nil
 function Terminal:on_create()
+  -- 1. Create a pristine unlisted scratch buffer
   self.buf = vim.api.nvim_create_buf(false, true)
 
   local target_shell = M.config.shell or native_shell
 
+  -- If a custom shell object `{ program = '...' }` is provided, unpack it properly;
+  -- otherwise, preserve raw string or table array ({ 'pwsh.exe', ... }) as-is.
   if type(target_shell) == 'table' and target_shell.program then
     target_shell = target_shell.program
   end
+  -- if type(target_shell) == 'table' then
+  --   target_shell = target_shell.program or target_shell
+  -- end
 
+  -- 2. Use termopen inside nvim_buf_call to avoid "modified buffer" checks
   vim.api.nvim_buf_call(self.buf, function()
     local channel_id = vim.fn.termopen(target_shell, {
       on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
@@ -194,6 +203,7 @@ function Terminal:on_create()
     self.job = (channel_id and channel_id > 0) and channel_id or nil
   end)
 
+  -- 3. Set filetype & options AFTER terminal channel attaches
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
 
@@ -204,6 +214,8 @@ function Terminal:on_create()
   self:_register_viewport_mappings()
   self:_register_viewport_bindings()
 end
+
+-- nvimpio/device/terminal.lua - Part 3
 
 --- Pipes an explicit text statement down the asynchronous backend system process pipeline securely
 ---@param command string|integer Text command statement sequence dispatched downstream into the terminal container pipe
@@ -291,7 +303,7 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a clean split pane layout below your active code container column context
+--- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
@@ -306,6 +318,7 @@ function Terminal:on_open()
 
   vim.w[M.layout.container_win].pio_managed = true
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
@@ -380,6 +393,16 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 
+  -- vim.api.nvim_create_autocmd('WinClosed', {
+  --   group = group_id,
+  --   callback = function()
+  --     local closed_win = tonumber(vim.fn.expand('<amatch>'))
+  --     if closed_win == M.layout.container_win then
+  --       M.layout.container_win = nil
+  --       M.layout.active_type = nil
+  --     end
+  --   end,
+  -- })
   vim.api.nvim_create_autocmd('WinClosed', {
     group = group_id,
     callback = function(args)
@@ -391,6 +414,8 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 end
+
+-- nvimpio/device/terminal.lua - Part 4
 
 ----------------------------------------------------------------------------------------
 -- CORE API ORCHESTRATION INTERFACE LAYER
@@ -450,15 +475,23 @@ function M.show(term_type)
   end
 
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    local old_win = vim.api.nvim_get_current_win()
+
     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
     M.layout.active_type = term_type
+
     target_instance:_register_viewport_mappings()
     M.UpdateWinbarTitles()
+
+    if old_win == M.layout.container_win then
+      -- vim.cmd('startinsert')
+    end
     return
   end
 
   target_instance:on_open()
   M.UpdateWinbarTitles()
+  -- vim.cmd('startinsert')
 end
 
 --- Hides the active panel split view window layout frame cleanly from the viewport screen
@@ -565,6 +598,7 @@ end
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
+    -- vim.cmd('startinsert')
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
   end
