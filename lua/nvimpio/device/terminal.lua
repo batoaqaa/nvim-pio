@@ -592,10 +592,30 @@ function M.send_and_restore(cmd)
 end
 
 -- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
+-- vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
+--   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+--     vim.api.nvim_set_current_win(M.layout.container_win)
+--     -- vim.cmd('startinsert')
+--   else
+--     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
+--   end
+-- end, { silent = true })
+-- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR (Generic Explorer Protection)
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
+  local current_win = vim.api.nvim_get_current_win()
+  local win_type = vim.fn.win_gettype(current_win)
+  local current_buf = vim.api.nvim_get_current_buf()
+  local buftype = vim.api.nvim_get_option_value('buftype', { buf = current_buf })
+
+  -- Generic protection: If current window is a special view, floating window, 
+  -- or utility buffer (like a file tree), bypass terminal hijacking entirely.
+  if win_type ~= '' or buftype == 'nofile' or buftype == 'acwrite' or buftype == 'prompt' then
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
+    return
+  end
+
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
-    -- vim.cmd('startinsert')
   else
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
   end
