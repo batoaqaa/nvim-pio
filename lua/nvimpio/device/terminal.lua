@@ -76,14 +76,14 @@ vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter' }, {
           local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
           local win_type = vim.fn.win_gettype(win)
 
-          if win_type == '' 
-            and ft ~= 'pio_terminal' 
-            and not ft:match('^terminal_') 
-            and ft ~= 'NvimTree' 
-            and ft ~= 'neo-tree' 
-            and ft ~= 'oil' 
-            and ft ~= 'aerial' 
-            and ft ~= 'pio_workspace' 
+          if win_type == ''
+            and ft ~= 'pio_terminal'
+            and not ft:match('^terminal_')
+            and ft ~= 'NvimTree'
+            and ft ~= 'neo-tree'
+            and ft ~= 'oil'
+            and ft ~= 'aerial'
+            and ft ~= 'pio_workspace'
           then
             table.insert(code_wins, win)
           end
@@ -483,6 +483,9 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   return M.terminals[name]
 end
 
+
+
+
 --- Projects a targeted terminal buffer onto the screen view layout space
 ---@param term_type string|nil Target key name token representing the pane selection matrix context
 ---@return nil
@@ -495,6 +498,15 @@ function M.show(term_type)
 
   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
     target_instance:on_create()
+  end
+
+  -- PRE-EMPTIVE: If focus is currently trapped in a file tree/explorer, 
+  -- jump to a valid code window first so splits anchor properly.
+  local current_win = vim.api.nvim_get_current_win()
+  local current_buf = vim.api.nvim_get_current_win() and vim.api.nvim_win_get_buf(current_win) or 0
+  local ft = vim.api.nvim_get_option_value('filetype', { buf = current_buf })
+  if ft == 'NvimTree' or ft == 'neo-tree' or ft == 'oil' or ft == 'aerial' then
+    pcall(vim.cmd, 'wincmd w')
   end
 
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
@@ -516,6 +528,39 @@ function M.show(term_type)
   M.UpdateWinbarTitles()
   -- vim.cmd('startinsert')
 end
+-- --- Projects a targeted terminal buffer onto the screen view layout space
+-- ---@param term_type string|nil Target key name token representing the pane selection matrix context
+-- ---@return nil
+-- function M.show(term_type)
+--   if not term_type then
+--     term_type = next(M.terminals)
+--   end
+--   local target_instance = M.terminals[term_type]
+--   if not target_instance then return end
+--
+--   if not target_instance.buf or not vim.api.nvim_buf_is_valid(target_instance.buf) then
+--     target_instance:on_create()
+--   end
+--
+--   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+--     local old_win = vim.api.nvim_get_current_win()
+--
+--     vim.api.nvim_win_set_buf(M.layout.container_win, target_instance.buf)
+--     M.layout.active_type = term_type
+--
+--     target_instance:_register_viewport_mappings()
+--     M.UpdateWinbarTitles()
+--
+--     if old_win == M.layout.container_win then
+--       -- vim.cmd('startinsert')
+--     end
+--     return
+--   end
+--
+--   target_instance:on_open()
+--   M.UpdateWinbarTitles()
+--   -- vim.cmd('startinsert')
+-- end
 
 --- Hides the active panel split view window layout frame cleanly from the viewport screen
 ---@return nil
