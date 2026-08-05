@@ -327,7 +327,7 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Find a valid content window to anchor from, or fallback safely
+  -- Find a valid content window to anchor from
   local target_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
@@ -347,14 +347,11 @@ function Terminal:on_open()
     pcall(vim.cmd, 'wincmd w')
   end
 
-  -- Use direct API window creation to construct the bottom split atomically 
-  -- without triggering command-line layout parser flickering on cold starts.
-  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
-    split = 'below',
-    win = vim.api.nvim_get_current_win(),
-    height = target_height,
-    rel = 'win',
-  })
+  -- Open the split reliably at the absolute bottom
+  vim.cmd('botright ' .. target_height .. 'split')
+
+  M.layout.container_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
 
   M.layout.active_type = self.term_type
 
