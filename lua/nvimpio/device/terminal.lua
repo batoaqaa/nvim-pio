@@ -57,10 +57,9 @@ M.layout = {
   active_type = nil,
 }
 
--- Global layout guard to instantly catch and heal any 3-way parallel split layout glitches
--- Global layout guard to instantly annihilate 3-way parallel split grids
-vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter' }, {
-  group = vim.api.nvim_create_augroup('PioGlobalLayoutSanitizer', { clear = true }),
+-- Global layout guard: Physically destroys 3-way vertical parallel columns and forces bottom horizontal layout
+vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter', 'WinResized' }, {
+  group = vim.api.nvim_create_augroup('PioGridBreaker', { clear = true }),
   callback = function()
     vim.schedule(function()
       local term_win = M.layout.container_win
@@ -68,33 +67,19 @@ vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter' }, {
         return
       end
 
-      local wins = vim.api.nvim_tabpage_list_wins(0)
-      local code_wins = {}
+      -- Check if the terminal window has been trapped in a vertical column layout
+      local term_width = vim.api.nvim_win_get_width(term_win)
+      local total_width = vim.o.columns
 
-      for _, win in ipairs(wins) do
-        if vim.api.nvim_win_is_valid(win) then
-          local buf = vim.api.nvim_win_get_buf(win)
-          local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-          local win_type = vim.fn.win_gettype(win)
-          local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
-
-          -- Count standard editing code windows
-          if win_type == '' and buftype == '' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
-            table.insert(code_wins, win)
-          end
-        end
-      end
-
-      -- If a 3-way parallel split happens, collapse extra code windows immediately
-      if #code_wins > 1 and vim.api.nvim_win_is_valid(term_win) then
-        for i = 2, #code_wins do
-          if vim.api.nvim_win_is_valid(code_wins[i]) then
-            pcall(vim.api.nvim_win_close, code_wins[i], true)
-          end
-        end
+      -- If the terminal width is significantly less than total columns, it's trapped in a vertical 3-way split!
+      if term_width < (total_width - 5) then
         pcall(function()
           vim.api.nvim_win_call(term_win, function()
+            -- Force Neovim to rotate/move the terminal window to an absolute bottom row split
             vim.cmd('wincmd J')
+            -- Fix height to match configured ratio
+            local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+            vim.cmd('resize ' .. target_height)
           end)
         end)
       end
