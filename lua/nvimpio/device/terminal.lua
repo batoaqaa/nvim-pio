@@ -303,20 +303,20 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a true full-width bottom split protected by native winfixbuf isolation
+--- Opens a true full-width bottom split guaranteed to ignore sidebars like nvim-tree
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- 1. Create a true bottom-level split spanning the entire editor frame width
-  vim.cmd('botright ' .. target_height .. 'split')
+  -- Force a global bottom-most root split across the entire editor frame width
+  vim.cmd('botright ' .. target_height + 1 .. 'split')
 
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  -- 2. Native Window-Local Protection: Correctly set via vim.wo on the container window handle
+  -- Native window-local protection to completely prevent cursor pass-through/focus leaks
   vim.wo[M.layout.container_win].winfixbuf = true
 
   -- Window layout styling options
@@ -328,10 +328,9 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- Immediately return focus back to your code window so you never lose your place
+  -- Instantly snap focus back to your code file
   vim.cmd('wincmd p')
 end
-
 
 
 -- --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
