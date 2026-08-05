@@ -328,9 +328,10 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Check if a valid editable code window already exists
+  -- 1. Dynamically count valid, non-sidebar/non-terminal windows
   local wins = vim.api.nvim_tabpage_list_wins(0)
   local code_wins = 0
+
   for _, win in ipairs(wins) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
@@ -338,29 +339,38 @@ function Terminal:on_open()
       local win_type = vim.fn.win_gettype(win)
       local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
 
+      -- Generic check: Is it a normal, editable code/scratch window?
+      -- (win_type == '' means normal window, buftype == '' means standard editable buffer)
       if win_type == '' and buftype == '' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
         code_wins = code_wins + 1
       end
     end
   end
 
-  -- If NO code window exists, pre-load a hidden scratch buffer silently 
-  -- WITHOUT touching nvim-tree's window layout or focus.
+  -- 2. If no normal editor window exists (only sidebars and terminals), 
+  -- create a generic scratch anchor safely without hardcoding any file explorer names.
   if code_wins == 0 then
-    local scratch_buf = vim.api.nvim_create_buf(true, false)
-    -- Temporarily find a non-tree window or create a split safely
+    -- Move focus away from any sidebar window to a normal layout slot if possible
     pcall(function()
       for _, win in ipairs(wins) do
-        local ft = vim.api.nvim_get_option_value('filetype', { buf = vim.api.nvim_win_get_buf(win) })
-        if ft ~= 'NvimTree' and ft ~= 'neo-tree' and ft ~= 'pio_terminal' then
-          vim.api.nvim_win_set_buf(win, scratch_buf)
-          break
+        if vim.api.nvim_win_is_valid(win) then
+          local win_type = vim.fn.win_gettype(win)
+          local buf = vim.api.nvim_win_get_buf(win)
+          local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+          if win_type == '' and ft ~= 'pio_terminal' then
+            vim.api.nvim_set_current_win(win)
+            break
+          end
         end
       end
     end)
+
+    -- Create and assign a generic scratch buffer anchor
+    local scratch_buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_win_set_buf(0, scratch_buf)
   end
 
-  -- Now open the terminal split cleanly at the bottom
+  -- 3. Now open the terminal split cleanly at the absolute bottom
   vim.cmd('botright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
