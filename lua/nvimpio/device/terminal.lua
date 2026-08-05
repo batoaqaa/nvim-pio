@@ -342,38 +342,34 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Check if there are any normal code windows open right now.
-  -- If the user only has nvim-tree open, spawning a terminal leaves 0 code windows,
-  -- forcing nvim-tree to spawn a rogue split later. We prevent this by ensuring
-  -- a clean, reusable code window exists before opening the terminal.
-  -- If no code window exists, create a clean empty buffer window first so nvim-tree has a target to reuse
+  -- Find a valid window to split from. If only file trees/explorers are open, 
+  -- pick the tree window so we split cleanly underneath it without destroying layout.
+  local target_win = -1
   local wins = vim.api.nvim_tabpage_list_wins(0)
-  local has_code_win = false
+
   for _, win in ipairs(wins) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
       local win_type = vim.fn.win_gettype(win)
       local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
 
-      -- Generic definition of a code window: standard layout window 
-      -- with an empty buftype (meaning it's a normal file or scratch text buffer, not a plugin utility panel)
+      -- Prefer a standard code window if available
       if win_type == '' and buftype == '' then
-        has_code_win = true
+        target_win = win
         break
       end
     end
   end
 
-  -- If no code window exists, create a clean empty buffer window first so nvim-tree has a target to reuse
-  if not has_code_win then
-    vim.cmd('enew')
-  end
-
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
-    win = -1,
+    win = target_win, -- If no code window exists (-1), it splits relative to current window safely
     height = target_height,
   })
+
+  -- Force absolute bottom full-width placement
+  vim.cmd('wincmd J')
+
   M.layout.active_type = self.term_type
 
   vim.w[M.layout.container_win].pio_managed = true
