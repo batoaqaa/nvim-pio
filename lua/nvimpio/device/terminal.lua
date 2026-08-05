@@ -328,36 +328,18 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Force focus out of any sidebar to the top-left root editor space 
-  -- so the split spans the entire screen width instead of getting trapped in a vertical column.
-  local wins = vim.api.nvim_tabpage_list_wins(0)
-  local target_win = nil
+  -- Force focus to the top-left-most window in the entire tabpage 
+  -- (which escapes individual vertical columns and targets the master layout root).
+  vim.cmd('wincmd t')
 
-  for _, win in ipairs(wins) do
-    if vim.api.nvim_win_is_valid(win) then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      local win_type = vim.fn.win_gettype(win)
-      local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
-
-      -- Find a clean, standard code window
-      if win_type == '' and buftype == '' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
-        target_win = win
-        break
-      end
-    end
+  -- If the top-left window happens to be a sidebar, move right to the actual code editor area
+  local current_buf = vim.api.nvim_get_current_buf()
+  local current_ft = vim.api.nvim_get_option_value('filetype', { buf = current_buf })
+  if current_ft == 'NvimTree' or current_ft == 'neo-tree' or current_ft == 'oil' then
+    pcall(vim.cmd, 'wincmd w')
   end
 
-  if target_win and vim.api.nvim_win_is_valid(target_win) then
-    vim.api.nvim_set_current_win(target_win)
-  else
-    -- Fallback to top-left root window if only sidebars are present
-    -- pcall(vim.cmd, 'wincmd t')
-    pcall(function () vim.cmd('wincmd w') end)
-  end
-
-  -- Use 'topleft' or absolute bottom expansion flags to guarantee full-width row positioning 
-  -- without needing a background thrashing loop.
+  -- Now open the split globally at the absolute bottom of the entire screen frame
   vim.cmd('botright ' .. target_height .. 'split')
 
   M.layout.container_win = vim.api.nvim_get_current_win()
