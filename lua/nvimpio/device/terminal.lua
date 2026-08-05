@@ -342,7 +342,10 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Force a full-width bottom split spanning underneath any active sidebars
+  -- 1. Jump to the absolute top-left window layout node to escape sidebar column traps
+  pcall(function () vim.cmd('wincmd t') end)
+
+  -- 2. Open a full-width bottom split from the root layout frame
   vim.cmd('botright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
@@ -357,7 +360,6 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 end
-
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
 function Terminal:_register_viewport_mappings()
