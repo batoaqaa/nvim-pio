@@ -327,12 +327,15 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Create the terminal window cleanly
-  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
-    split = 'below',
-    win = -1,
-    height = target_height,
-  })
+  -- Use noautocmd to freeze external plugin layout hooks during the split operation, 
+  -- completely preventing the 3-way split render flicker.
+  vim.cmd('noautocmd botright ' .. target_height .. 'split')
+
+  M.layout.container_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+
+  -- Force absolute bottom full-width alignment silently
+  vim.cmd('noautocmd wincmd J')
 
   M.layout.active_type = self.term_type
 
@@ -341,15 +344,6 @@ function Terminal:on_open()
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
-
-  -- Instantly normalize layout coordinates inside the same microtask frame to suppress render flickering
-  vim.schedule(function()
-    if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-      vim.api.nvim_win_call(M.layout.container_win, function()
-        vim.cmd('wincmd J')
-      end)
-    end
-  end)
 
   self:_register_viewport_mappings()
 end
