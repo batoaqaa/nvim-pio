@@ -571,14 +571,49 @@ function M.send_and_restore(cmd)
   target_instance:send(cmd)
 end
 
--- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
+-- STRICT BOUNDARY-PROTECTED DOWN NAVIGATOR 
+-- Prevents cursor/focus from accidentally passing through into the terminal panel
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
+  local current_win = vim.api.nvim_get_current_win()
+
+  -- If the terminal is open, check if we are currently in a regular file/code window right above it
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    vim.api.nvim_set_current_win(M.layout.container_win)
+    -- Get window layout positions to see if terminal is directly below current window
+    local cur_row = vim.api.nvim_win_get_position(current_win)[1]
+    local term_row = vim.api.nvim_win_get_position(M.layout.container_win)[1]
+
+    -- If current window is directly above the terminal panel, block normal downward 
+    -- cursor bleeding so you don't accidentally fall into the terminal window.
+    if cur_row < term_row then
+      -- In normal mode, prevent cursor from stepping past the final text line into the split.
+      local mode = vim.api.nvim_get_mode().mode
+      if mode:find('^n') then
+        local line = vim.api.nvim_win_get_cursor(0)[1]
+        local last_line = vim.api.nvim_buf_line_count(0)
+        if line >= last_line then
+          return -- Block cursor from passing through on the final line
+        end
+      end
+    end
+  end
+
+  -- Safe fallback using raw normal execution to prevent recursive mapping loops
+  local mode = vim.api.nvim_get_mode().mode
+  if mode:find('^i') then
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Down>', true, true, true), 'n', false)
   else
-    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
+    vim.cmd('normal! j')
   end
 end, { silent = true })
+
+-- -- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
+-- vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
+--   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+--     vim.api.nvim_set_current_win(M.layout.container_win)
+--   else
+--     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-w>j', true, true, true), 'n', false)
+--   end
+-- end, { silent = true })
 
 --- Initializes configurations by executing a deep dictionary merge block over existing options
 ---@param opts TerminalConfig|nil Table configuration overrides dictionary mapping structure parameters
