@@ -327,21 +327,16 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- If there is already a focused code window, split below it silently.
-  -- Otherwise, target the current window directly to prevent multi-column grid jitter.
-  local current_win = vim.api.nvim_get_current_win()
-  local current_buf = vim.api.nvim_win_get_buf(current_win)
-  local ft = vim.api.nvim_get_option_value('filetype', { buf = current_buf })
+  -- Temporarily lock layout sizing variables to block tree reflow recalculations
+  local save_siso = vim.o.siso
+  vim.o.siso = 0
 
-  if ft == 'NvimTree' or ft == 'neo-tree' or ft == 'oil' then
-    -- If trapped in a sidebar, jump out to a valid window first or fallback to root split safely
-    pcall(vim.cmd, 'wincmd w')
-  end
-
-  -- Perform a silent horizontal split
-  vim.cmd('silent! botright ' .. target_height .. 'split')
+  -- Execute split inside an un-interrupted command block
+  vim.cmd('belowright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+
+  vim.o.siso = save_siso
 
   M.layout.active_type = self.term_type
 
