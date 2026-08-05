@@ -291,31 +291,29 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a permanent, fully visible monitoring split that blocks accidental cursor entry
+--- Opens a true full-width bottom split that breaks out of vertical columns
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- 1. Create the native split panel below
-  M.layout.container_win = vim.api.nvim_open_win(self.buf, false, { -- 'false' ensures your cursor stays safely in your code file on open!
-    split = 'below',
-    win = -1,
-    height = target_height,
-  })
+  -- 1. Create a root-level bottom split using Neovim's `:botright` modifier
+  vim.cmd('botright ' .. target_height .. 'split')
 
+  M.layout.container_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  -- 2. Lock the window down so it remains visible for monitoring, 
-  -- but cannot be accidentally focused via normal cursor movements or clicks.
+  -- 2. Force the window to stretch across the ENTIRE editor width (spanning under nvim-tree)
+  vim.cmd('wincmd J')
+  vim.cmd('resize ' .. target_height)
+
+  -- Configure window options safely
   vim.w[M.layout.container_win].pio_managed = true
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
-
-  -- Prevent accidental edits or cursor leakage inside the monitor pane
-  vim.api.nvim_set_option_value('modifiable', false, { scope = 'local', buf = self.buf })
 
   self:_register_viewport_mappings()
 end
