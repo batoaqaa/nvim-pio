@@ -291,34 +291,31 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a non-focusable floating terminal overlay that can never trap or steal focus
+--- Opens a permanent, fully visible monitoring split that blocks accidental cursor entry
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  local total_width = vim.o.columns
-  local total_lines = vim.o.lines
+  vim.go.splitkeep = 'screen'
 
-  local row_pos = total_lines - target_height - 2
-  local col_pos = 0
-
-  M.layout.container_win = vim.api.nvim_open_win(self.buf, false, { -- Note: 'false' prevents entering it on creation
-    relative = 'editor',
-    width = total_width,
+  -- 1. Create the native split panel below
+  M.layout.container_win = vim.api.nvim_open_win(self.buf, false, { -- 'false' ensures your cursor stays safely in your code file on open!
+    split = 'below',
+    win = -1,
     height = target_height,
-    row = row_pos,
-    col = col_pos,
-    style = 'minimal',
-    border = 'single',
-    focusable = false, -- THE NATIVE : Completely disables focus/cursor pass-through
   })
 
   M.layout.active_type = self.term_type
 
+  -- 2. Lock the window down so it remains visible for monitoring, 
+  -- but cannot be accidentally focused via normal cursor movements or clicks.
   vim.w[M.layout.container_win].pio_managed = true
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+
+  -- Prevent accidental edits or cursor leakage inside the monitor pane
+  vim.api.nvim_set_option_value('modifiable', false, { scope = 'local', buf = self.buf })
 
   self:_register_viewport_mappings()
 end
