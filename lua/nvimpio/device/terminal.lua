@@ -303,32 +303,41 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a true full-width bottom split that ignores sidebars and prevents cursor pass-through
+--- Opens a true full-width root bottom split that pushes code buffers up
+--- and blocks cursor pass-through.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+
+  -- Ensure statusline behaves as a single global bar so splits can occupy full screen width
+  vim.o.laststatus = 3
   vim.go.splitkeep = 'screen'
 
-  -- Use standard robust string execution for botright split to avoid API table mapping errors
+  -- 1. Create a split below
   vim.cmd('botright ' .. target_height .. 'split')
 
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  -- Native window protection to completely stop cursor bleeding/pass-through
+  -- 2. CRITICAL STEP: Move split to the absolute ROOT of the window tree graph.
+  -- This forces it to stretch under nvim-tree and resize code buffers upwards.
+  vim.cmd('wincmd J')
+  vim.api.nvim_win_set_height(M.layout.container_win, target_height)
+
+  -- 3. Prevent cursor pass-through and lock buffer to this window
   vim.wo[M.layout.container_win].winfixbuf = true
 
-  -- Window configuration options
+  -- Window options configuration
   vim.w[M.layout.container_win].pio_managed = true
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+  vim.wo[M.layout.container_win].winfixheight = true
+  vim.wo[M.layout.container_win].number = false
+  vim.wo[M.layout.container_win].relativenumber = false
+  vim.wo[M.layout.container_win].signcolumn = 'no'
 
   self:_register_viewport_mappings()
 
-  -- Instantly snap focus back to your code file
+  -- Return focus to the code window
   vim.cmd('wincmd p')
 end
 
