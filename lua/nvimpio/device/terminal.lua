@@ -328,7 +328,7 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- 1. Inspect windows to find if a real code/scratch window already exists
+  -- 1. Inspect windows to find an existing valid code window or a reusable scratch buffer
   local wins = vim.api.nvim_tabpage_list_wins(0)
   local code_win_target = nil
 
@@ -347,10 +347,25 @@ function Terminal:on_open()
     end
   end
 
-  -- 2. If NO code window exists at all (meaning only sidebars/terminals are present),
-  -- safely spawn a scratch window beside the tree without hijacking the tree pane.
+  -- 2. If NO code window exists at all, check if we can reuse an existing scratch buffer 
+  -- in the background, or create one safely without touching nvim-tree.
   if not code_win_target then
-    -- Find any sidebar window to use as a reference anchor, then split right/above it
+    -- First, check if any unlisted/empty scratch buffer already exists in the buffer list
+    local existing_scratch_buf = nil
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_valid(buf) then
+        local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
+        local bufname = vim.api.nvim_buf_get_name(buf)
+        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+        -- Identify an empty unlisted or blank buffer
+        if buftype == '' and bufname == '' and ft == '' and vim.api.nvim_buf_line_count(buf) == 1 and vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] == '' then
+          existing_scratch_buf = buf
+          break
+        end
+      end
+    end
+
+    -- Find the sidebar window to use as a reference anchor for a split
     local sidebar_win = nil
     for _, win in ipairs(wins) do
       local buf = vim.api.nvim_win_get_buf(win)
@@ -362,19 +377,21 @@ function Terminal:on_open()
     end
 
     if sidebar_win and vim.api.nvim_win_is_valid(sidebar_win) then
-      -- Temporarily focus the sidebar, open a vertical split to its right for the code area, 
-      -- and leave the sidebar completely untouched and open!
       vim.api.nvim_set_current_win(sidebar_win)
       vim.cmd('vsplit')
       code_win_target = vim.api.nvim_get_current_win()
       
-      -- Assign a clean scratch buffer to this new window
-      local scratch_buf = vim.api.nvim_create_buf(false, true)
-      vim.api.nvim_win_set_buf(code_win_target, scratch_buf)
+      -- Reuse the existing scratch buffer if found, otherwise create a new one just this once
+      if existing_scratch_buf and vim.api.nvim_buf_is_valid(existing_scratch_buf) then
+        vim.api.nvim_win_set_buf(code_win_target, existing_scratch_buf)
+      else
+        local scratch_buf = vim.api.nvim_create_buf(false, true)
+        vim.api.nvim_win_set_buf(code_win_target, scratch_buf)
+      end
     end
   end
 
-  -- 3. Now focus back to our target code window and open the terminal split cleanly at the bottom
+  -- 3. Focus back to our target code window and open the terminal split cleanly at the bottom
   if code_win_target and vim.api.nvim_win_is_valid(code_win_target) then
     vim.api.nvim_set_current_win(code_win_target)
   end
