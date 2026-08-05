@@ -321,37 +321,43 @@ function Terminal:close()
   M.hide()
 end
 
--- flicker
+
 --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- Find a valid non-sidebar window to split from, if available
+  -- Force focus out of any sidebar to the top-left root editor space 
+  -- so the split spans the entire screen width instead of getting trapped in a vertical column.
+  local wins = vim.api.nvim_tabpage_list_wins(0)
   local target_win = nil
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+
+  for _, win in ipairs(wins) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local win_type = vim.fn.win_gettype(win)
-      if win_type == '' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
+      local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
+
+      -- Find a clean, standard code window
+      if win_type == '' and buftype == '' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
         target_win = win
         break
       end
     end
   end
 
-  -- If we found a proper content window, focus it so the split anchors nicely below code
   if target_win and vim.api.nvim_win_is_valid(target_win) then
     vim.api.nvim_set_current_win(target_win)
   else
-    -- Fallback: if only sidebars exist, jump out of them to avoid vertical column trapping
-    -- pcall(vim.cmd, 'wincmd w')
+    -- Fallback to top-left root window if only sidebars are present
+    -- pcall(vim.cmd, 'wincmd t')
     pcall(function () vim.cmd('wincmd w') end)
   end
 
-  -- Force the split to evaluate as a full-width row at the very bottom of the editor layout
+  -- Use 'topleft' or absolute bottom expansion flags to guarantee full-width row positioning 
+  -- without needing a background thrashing loop.
   vim.cmd('botright ' .. target_height .. 'split')
 
   M.layout.container_win = vim.api.nvim_get_current_win()
@@ -367,6 +373,54 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 end
+
+
+-- -- flicker
+-- --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
+-- ---@return nil
+-- function Terminal:on_open()
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+--   vim.go.splitkeep = 'screen'
+--
+--   -- Find a valid non-sidebar window to split from, if available
+--   local target_win = nil
+--   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+--     if vim.api.nvim_win_is_valid(win) then
+--       local buf = vim.api.nvim_win_get_buf(win)
+--       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+--       local win_type = vim.fn.win_gettype(win)
+--       if win_type == '' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
+--         target_win = win
+--         break
+--       end
+--     end
+--   end
+--
+--   -- If we found a proper content window, focus it so the split anchors nicely below code
+--   if target_win and vim.api.nvim_win_is_valid(target_win) then
+--     vim.api.nvim_set_current_win(target_win)
+--   else
+--     -- Fallback: if only sidebars exist, jump out of them to avoid vertical column trapping
+--     -- pcall(vim.cmd, 'wincmd w')
+--     pcall(function () vim.cmd('wincmd w') end)
+--   end
+--
+--   -- Force the split to evaluate as a full-width row at the very bottom of the editor layout
+--   vim.cmd('botright ' .. target_height .. 'split')
+--
+--   M.layout.container_win = vim.api.nvim_get_current_win()
+--   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+--
+--   M.layout.active_type = self.term_type
+--
+--   vim.w[M.layout.container_win].pio_managed = true
+--   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+--
+--   self:_register_viewport_mappings()
+-- end
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
