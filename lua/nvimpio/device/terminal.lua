@@ -571,24 +571,26 @@ function M.send_and_restore(cmd)
   target_instance:send(cmd)
 end
 
--- ABSOLUTE BOUNDARY GUARD FOR DOWN MOTION
-local function block_terminal_bleed()
-  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+-- ABSOLUTE MOTION WALL: Prevents cursor from ever leaving the final file line downward
+local function hard_stop_down()
+  -- Check if your terminal container is open and valid
+  if M.IsTerminalOpen() then
     local current_win = vim.api.nvim_get_current_win()
-    -- If we are NOT currently in the terminal window itself
+
+    -- If we are currently in a code window (not inside the terminal itself)
     if current_win ~= M.layout.container_win then
       local cursor = vim.api.nvim_win_get_cursor(0)
       local current_line = cursor[1]
       local last_line = vim.api.nvim_buf_line_count(0)
 
-      -- If we are on the very last line of the code file, block downward movement entirely
+      -- If the user is on the last line, swallow the key entirely so it can't bleed out
       if current_line >= last_line then
-        return -- Stops cursor from bleeding into the terminal window below
+        return
       end
     end
   end
 
-  -- Otherwise, perform standard motion
+  -- Safe fallback execution for normal downward motion
   local mode = vim.api.nvim_get_mode().mode
   if mode:find('^i') then
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Down>', true, true, true), 'n', false)
@@ -597,9 +599,9 @@ local function block_terminal_bleed()
   end
 end
 
--- Bind to both regular 'j' and '<C-j>' when the terminal is active
-vim.keymap.set({ 'n', 'v' }, 'j', block_terminal_bleed, { silent = true })
-vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', block_terminal_bleed, { silent = true })
+-- Override regular movement keys to enforce the wall
+vim.keymap.set({ 'n', 'v' }, 'j', hard_stop_down, { silent = true })
+vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', hard_stop_down, { silent = true })
 
 
 -- -- UNIVERSAL INTERACTIVE DIRECTIONAL DOWN NAVIGATOR
