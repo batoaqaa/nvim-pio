@@ -164,15 +164,13 @@ function Terminal:on_create()
   self:_register_viewport_bindings()
 end
 
---- Opens a full-width floating terminal locked precisely to the bottom edge 
---- with message shielding to permanently prevent command-line prompt expansion.
+--- Opens a native column-scoped bottom split with ironclad sidebar protection.
+--- Guarantees no text covering, no cursor pass-through, no command-line expansion,
+--- and completely prevents nvim-tree 3-parallel column panics.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  local total_width = vim.o.columns
-  local total_lines = vim.o.lines
-  local cmd_height = vim.o.cmdheight or 1
-  local total_float_height = target_height + 2 -- Accounts for top and bottom borders
+  vim.go.splitkeep = 'screen'
 
   -- 1. CLEANUP: Close any existing ghost instances of this terminal
   for _, win in ipairs(vim.api.nvim_list_wins()) do
@@ -181,44 +179,84 @@ function Terminal:on_open()
     end
   end
 
-  -- 2. PRECISE BOTTOM-EDGE POSITIONING WITH MESSAGE SHIELDING
-  local row_pos = total_lines - total_float_height - cmd_height
-  local col_pos = 0
+  -- 2. FIND A VALID CODE WINDOW (Strictly avoiding nvim-tree/neo-tree sidebars)
+  local code_win = nil
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local win_type = vim.fn.win_gettype(win)
+      if win_type == '' and ft ~= 'nvim-tree' and ft ~= 'neo-tree' and ft ~= 'oil' and ft ~= 'aerial' and ft ~= 'pio_panel' and not ft:match('^pio_pane_') then
+        code_win = win
+        break
+      end
+    end
+  end
 
-  local old_shortmess = vim.o.shortmess
-  vim.o.shortmess = old_shortmess .. 'filmnrxoOtT'
+  -- 3. IRONCLAD SAFEGUARD: If no code window exists (or only nvim-tree is open),
+  -- find nvim-tree, focus it, and create a vertical split to generate a safe code pane first.
+  if not code_win or not vim.api.nvim_win_is_valid(code_win) then
+    local tree_win = nil
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_is_valid(win) then
+        local buf = vim.api.nvim_win_get_buf(win)
+        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+        if ft == 'nvim-tree' or ft == 'neo-tree' then
+          tree_win = win
+          break
+        end
+      end
+    end
 
-  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
-    relative = 'editor',
-    width = total_width,
-    height = target_height,
-    row = row_pos,
-    col = col_pos,
-    style = 'minimal',
-    border = 'single',
-    focusable = true,
-    zindex = 150,
-  })
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      vim.api.nvim_set_current_win(tree_win)
+      vim.cmd('vsplit')
+      code_win = vim.api.nvim_get_current_win()
+      local scratch_buf = vim.api.nvim_create_buf(false, true)
+      pcall(vim.api.nvim_buf_set_name, scratch_buf, "pio_scratch")
+      vim.api.nvim_win_set_buf(code_win, scratch_buf)
+      vim.bo[scratch_buf].buftype = 'nofile'
+      vim.bo[scratch_buf].bufhidden = 'wipe'
+      vim.bo[scratch_buf].swapfile = false
+    else
+      code_win = vim.api.nvim_get_current_win()
+      local buf = vim.api.nvim_win_get_buf(code_win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      if ft == 'nvim-tree' or ft == 'neo-tree' then
+        vim.cmd('vsplit')
+        code_win = vim.api.nvim_get_current_win()
+      end
+    end
+  end
+
+  -- 4. FOCUS THE SAFE CODE WINDOW AND SPLIT LOCALLY BELOW IT
+  -- 'belowright' splits ONLY the code column. nvim-tree remains pristine and full-height.
+  if code_win and vim.api.nvim_win_is_valid(code_win) then
+    vim.api.nvim_set_current_win(code_win)
+  end
+
+  vim.cmd('belowright ' .. target_height .. 'split')
+  M.layout.container_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  vim.o.shortmess = old_shortmess
-  pcall(vim.api.nvim_command, 'silent! redraw!')
-
-  -- 3. PROTECTION & CLOAKING
-  pcall(vim.api.nvim_set_option_value, 'buflisted', false, { buf = self.buf })
-  pcall(vim.api.nvim_set_option_value, 'bufhidden', 'hide', { buf = self.buf })
+  -- 5. WINDOW PROTECTIONS & OPTIONS
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
-
-  -- Window options styling
   vim.w[M.layout.container_win].pio_managed = true
-  vim.wo[M.layout.container_win].winfixheight = true
-  vim.wo[M.layout.container_win].number = false
-  vim.wo[M.layout.container_win].relativenumber = false
-  vim.wo[M.layout.container_win].signcolumn = 'no'
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
 
   self:_register_viewport_mappings()
-end
 
+  -- 6. Return focus smoothly to the code window above
+  if code_win and vim.api.nvim_win_is_valid(code_win) then
+    vim.api.nvim_set_current_win(code_win)
+  else
+    vim.cmd('wincmd k')
+  end
+end
 
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
