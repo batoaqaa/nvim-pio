@@ -303,26 +303,21 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a floating terminal with a cmdheight-shield.
---- Cloaks the buffer so third-party plugins and nvim-tree cannot hijack the layout.
+--- Opens a floating terminal anchored safely above the command line,
+--- completely bypassing nvim-tree columns and layout overlap issues.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local total_width = vim.o.columns
   local total_lines = vim.o.lines
+  local cmd_height = vim.o.cmdheight
 
-  -- If using a 'single' border, the total physical space needed is target_height + 2
-  local total_float_height = target_height + 2
+  -- If using a 'single' border, add 2 lines for top and bottom border borders
+  local total_float_height = target_height + 2 
 
-  -- =========================================================================
-  -- 1. CMDHEIGHT SHIELD: Physically shrinks the code editor upward.
-  -- This creates a blank space at the bottom for the float, preventing EOF overlap.
-  -- =========================================================================
-  M.layout._original_cmdheight = vim.o.cmdheight
-  vim.o.cmdheight = total_float_height
-
-  -- 2. CREATE THE FLOAT exactly over the newly reserved space
-  local row_pos = total_lines - total_float_height
+  -- Position the floating window right above Neovim's command line area
+  -- This leaves the command line visible at the very bottom, and the float right above it.
+  local row_pos = total_lines - total_float_height - cmd_height
   local col_pos = 0
 
   M.layout.container_win = vim.api.nvim_open_win(self.buf, false, {
@@ -334,37 +329,22 @@ function Terminal:on_open()
     style = 'minimal',
     border = 'single',
     focusable = true,
-    zindex = 50,
+    zindex = 45, -- Sits cleanly under UI popups/menus, but above code
   })
   M.layout.active_type = self.term_type
 
   -- =========================================================================
-  -- 3. THE CLOAKING DEVICE: Fixes the 3-Parallel Column & Nvim-Tree Hijack
+  -- CLOAKING DEVICE: Prevent nvim-tree and layout managers from hijacking it
   -- =========================================================================
-  -- Hide from buffer lists so layout managers ignore it
   pcall(vim.api.nvim_set_option_value, 'buflisted', false, { buf = self.buf })
   pcall(vim.api.nvim_set_option_value, 'bufhidden', 'hide', { buf = self.buf })
-
-  -- Tell aggressive layout plugins (like Edgy.nvim) to ignore this buffer/window
+  
   vim.b[self.buf].edgy_disable = true
   vim.w[M.layout.container_win].edgy_disable = true
-
-  -- Strictly forbid nvim-tree from trying to route opened files into this float
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
   -- =========================================================================
 
-  -- 4. AUTO-RESTORE: Instantly restore normal editor dimensions when the terminal closes
-  vim.api.nvim_create_autocmd("WinClosed", {
-    pattern = tostring(M.layout.container_win),
-    callback = function()
-      if M.layout._original_cmdheight then
-        vim.o.cmdheight = M.layout._original_cmdheight
-      end
-    end,
-    once = true,
-  })
-
-  -- 5. Apply standard styling and protections (Notice: no winfixbuf needed)
+  -- Apply standard styling and layout protections
   vim.w[M.layout.container_win].pio_managed = true
   vim.wo[M.layout.container_win].winfixheight = true
   vim.wo[M.layout.container_win].number = false
