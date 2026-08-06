@@ -341,7 +341,6 @@ function Terminal:on_open()
       if ft == 'nvim-tree' or ft == 'neo-tree' then
         tree_win = win
         local current_w = vim.api.nvim_win_get_width(win)
-        -- Only inherit width if it acts like a compact sidebar
         if current_w > 0 and current_w < (vim.o.columns * 0.4) then
           tree_width = current_w
         end
@@ -350,31 +349,33 @@ function Terminal:on_open()
     end
   end
 
-  -- 3. BOOTSTRAP CODE WINDOW (Direct Sibling to nvim-tree)
+  -- 3. BOOTSTRAP CODE WINDOW SAFELY
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      vim.api.nvim_set_current_win(tree_win)
-      vim.cmd('rightbelow vnew')
-      code_win = vim.api.nvim_get_current_win()
-    else
-      vim.cmd('vnew')
-      code_win = vim.api.nvim_get_current_win()
-    end
+    -- Use botright vnew to spawn on the far right edge without splitting nvim-tree directly
+    vim.cmd('botright vnew')
+    code_win = vim.api.nvim_get_current_win()
   end
 
   -- =====================================================================
-  -- THE MAGIC FIX: STRIP INHERITED FLAGS SO NVIM-TREE RECOGNIZES THIS WINDOW
+  -- ABSOLUTE SAFETY GUARD: ENSURE CODE WINDOW IS NEVER NVIM-TREE ITSELF
   -- =====================================================================
-  vim.w[code_win].nvim_tree_no_window_picker = false
-
-  -- Ensure buffer is standard and listed
   local code_buf = vim.api.nvim_win_get_buf(code_win)
+  local code_ft = vim.api.nvim_get_option_value('filetype', { buf = code_buf })
+  
+  if code_ft == 'nvim-tree' or code_ft == 'neo-tree' then
+    vim.cmd('botright vnew')
+    code_win = vim.api.nvim_get_current_win()
+    code_buf = vim.api.nvim_win_get_buf(code_win)
+  end
+
+  -- Configure code buffer safely (prevents 3-column bug & save prompts)
+  vim.w[code_win].nvim_tree_no_window_picker = false
   if vim.api.nvim_buf_is_valid(code_buf) then
     vim.bo[code_buf].buflisted = true
     vim.bo[code_buf].buftype = ''
   end
 
-  -- 4. OPEN TERMINAL CONTAINER
+  -- 4. OPEN TERMINAL CONTAINER STRICTLY BELOW CODE WINDOW
   vim.api.nvim_set_current_win(code_win)
   vim.cmd('belowright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
@@ -390,26 +391,23 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- Return focus to the code window explicitly so you can type immediately
+  -- Return focus to the code window explicitly
   if code_win and vim.api.nvim_win_is_valid(code_win) then
     vim.api.nvim_set_current_win(code_win)
   end
 
-  -- 6. SILENT RESIZE (Fixes 50/50 split instantly)
+  -- 6. SILENT RESIZE
   vim.schedule(function()
-    -- Lock Nvim-Tree width securely in the background
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
       pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
       pcall(vim.api.nvim_set_option_value, 'winfixwidth', true, { scope = 'local', win = tree_win })
     end
 
-    -- Lock Terminal height securely in the background
     if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
       pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
       pcall(vim.api.nvim_set_option_value, 'winfixheight', true, { scope = 'local', win = M.layout.container_win })
     end
 
-    -- Restore equalalways only after our manual dimensions are fully set
     vim.o.equalalways = saved_ea
   end)
 end
