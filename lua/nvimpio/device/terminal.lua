@@ -325,61 +325,63 @@ function Terminal:on_open()
     return
   end
 
-  -- 2. RESOLVE CODE WINDOW
+  -- 2. RESOLVE WINDOWS
   local code_win = find_best_code_window()
   local tree_win = nil
+  local tree_width = 30
 
-  -- Locate nvim-tree if present
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       if ft == 'nvim-tree' or ft == 'neo-tree' then
         tree_win = win
+        local current_w = vim.api.nvim_win_get_width(win)
+        if current_w > 0 and current_w < (vim.o.columns * 0.4) then
+          tree_width = current_w
+        end
         break
       end
     end
   end
 
-  -- 3. BOOTSTRAP CODE WINDOW USING MODERN NATIVE API (Prevents 50/50 split entirely)
+  -- 3. BOOTSTRAP CODE WINDOW SAFELY
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    local scratch_buf = vim.api.nvim_create_buf(true, false)
-    vim.bo[scratch_buf].buflisted = true
-    vim.bo[scratch_buf].buftype = ''
-
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      -- NATIVE API SPLIT: Opens the code window directly to the right of nvim-tree 
-      -- without triggering legacy vsplit 50/50 redistribution.
-      code_win = vim.api.nvim_open_win(scratch_buf, true, {
-        split = 'right',
-        win = tree_win,
-      })
+      -- PRE-SHRINK: Force nvim-tree to compact width FIRST so the split doesn't do 50/50
+      pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
+      
+      vim.api.nvim_set_current_win(tree_win)
+      vim.cmd('rightbelow vnew')
+      code_win = vim.api.nvim_get_current_win()
     else
-      code_win = vim.api.nvim_open_win(scratch_buf, true, {
-        split = 'right',
-      })
+      vim.cmd('botright vnew')
+      code_win = vim.api.nvim_get_current_win()
     end
   end
 
-  -- Absolute safety check: ensure code_win is never nvim-tree itself
+  -- =====================================================================
+  -- BULLETPROOF GUARD: VERIFY BUFFER BEFORE TOUCHING ANY PROPERTIES
+  -- =====================================================================
   local code_buf = vim.api.nvim_win_get_buf(code_win)
   local code_ft = vim.api.nvim_get_option_value('filetype', { buf = code_buf })
-  if code_ft == 'nvim-tree' or code_ft == 'neo-tree' then
-    local scratch_buf = vim.api.nvim_create_buf(true, false)
-    vim.bo[scratch_buf].buflisted = true
-    vim.bo[scratch_buf].buftype = ''
-    code_win = vim.api.nvim_open_win(scratch_buf, true, {
-      split = 'right',
-      win = code_win,
-    })
+  local buf_name = vim.api.nvim_buf_get_name(code_buf)
+
+  if code_ft == 'nvim-tree' or code_ft == 'neo-tree' or buf_name:match('NvimTree') then
+    vim.cmd('botright vnew')
+    code_win = vim.api.nvim_get_current_win()
     code_buf = vim.api.nvim_win_get_buf(code_win)
   end
 
-  -- Ensure code window allows window picking and buffer is clean/listed
+  -- Now safe to configure the code buffer (prevents 3-column bug & save prompts)
   vim.w[code_win].nvim_tree_no_window_picker = false
   if vim.api.nvim_buf_is_valid(code_buf) then
-    vim.bo[code_buf].buflisted = true
-    vim.bo[code_buf].buftype = ''
+    local final_ft = vim.api.nvim_get_option_value('filetype', { buf = code_buf })
+    local final_name = vim.api.nvim_buf_get_name(code_buf)
+    if final_ft ~= 'nvim-tree' and not final_name:match('NvimTree') then
+      vim.bo[code_buf].buflisted = true
+      vim.bo[code_buf].buftype = ''
+    end
   end
 
   -- 4. OPEN TERMINAL CONTAINER STRICTLY BELOW CODE WINDOW
@@ -399,10 +401,23 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- Return focus smoothly to code window above
+  -- Return focus to the code window explicitly
   if code_win and vim.api.nvim_win_is_valid(code_win) then
     vim.api.nvim_set_current_win(code_win)
   end
+
+  -- 6. FINAL HEIGHT LOCK
+  vim.schedule(function()
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
+      pcall(vim.api.nvim_set_option_value, 'winfixwidth', true, { scope = 'local', win = tree_win })
+    end
+
+    if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+      pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+      pcall(vim.api.nvim_set_option_value, 'winfixheight', true, { scope = 'local', win = M.layout.container_win })
+    end
+  end)
 end
 
 
