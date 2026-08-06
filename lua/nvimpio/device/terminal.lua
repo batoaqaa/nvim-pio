@@ -306,25 +306,6 @@ function Terminal:on_exit()
   M.UpdateWinbarTitles()
 end
 
---- Turns down the active system process stream channel and wipes the tracking buffer cache cleanly from memory
----@return nil
-function Terminal:on_close()
-  local tracking_buf = self.buf
-  self.job = nil
-  self.buf = nil
-  self._on_next_exit = nil
-
-  if tracking_buf and vim.api.nvim_buf_is_valid(tracking_buf) then
-    pcall(vim.api.nvim_buf_delete, tracking_buf, { force = true })
-  end
-end
-
---- Wrapper orchestration function handling channel termination and layout visibility structures concurrently
----@return nil
-function Terminal:close()
-  self:on_close()
-  M.hide()
-end
 
 --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
@@ -341,16 +322,16 @@ function Terminal:on_open()
     return
   end
 
-  -- CRITICAL: Disable auto-balancing temporarily so splits don't cascade 50/50
+  -- CRITICAL: Disable auto-balancing temporarily so splits don't cascade
   local saved_ea = vim.o.equalalways
   vim.o.equalalways = false
 
   -- 2. RESOLVE WINDOWS
   local code_win = find_best_code_window()
   local tree_win = nil
-  local tree_width = 30
+  local tree_width = 30 -- Standard compact sidebar width
 
-  -- Locate nvim-tree securely and grab its true width
+  -- Locate nvim-tree securely
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
@@ -366,24 +347,28 @@ function Terminal:on_open()
     end
   end
 
-  -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup)
+  -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup with only nvim-tree open)
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      -- NATIVE FIX: Force nvim-tree to compact width FIRST, lock its width via winfixwidth,
+      -- then split. This forces Neovim to give all remaining space to the new code window.
+      pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
+      vim.api.nvim_set_option_value('winfixwidth', true, { scope = 'local', win = tree_win })
       vim.api.nvim_set_current_win(tree_win)
     end
     
-    vim.cmd('vnew')
+    vim.cmd('botright vnew')
     code_win = vim.api.nvim_get_current_win()
   end
 
-  -- CRITICAL FIX: Force the code buffer to be listed and normal so nvim-tree seamlessly reuses it
+  -- CRITICAL FIX: Force the code buffer to be listed and normal so nvim-tree seamlessly reuses it (prevents 3-column bug)
   local code_buf = vim.api.nvim_win_get_buf(code_win)
   if vim.api.nvim_buf_is_valid(code_buf) then
     vim.bo[code_buf].buflisted = true
     vim.bo[code_buf].buftype = ''
   end
 
-  -- 4. OPEN TERMINAL CONTAINER
+  -- 4. OPEN TERMINAL CONTAINER STRICTLY BELOW CODE WINDOW
   vim.api.nvim_set_current_win(code_win)
   vim.cmd('belowright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
@@ -400,7 +385,7 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- Restore auto-balancing BEFORE our final lock
+  -- Restore auto-balancing configuration
   vim.o.equalalways = saved_ea
 
   -- Focus code window so nvim-tree defaults to this target when opening files
@@ -408,17 +393,131 @@ function Terminal:on_open()
     vim.api.nvim_set_current_win(code_win)
   end
 
-  -- 6. THE "LAST WORD": Softly snap dimensions into place
+  -- 6. FINAL SAFETY LOCK
   vim.schedule(function()
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
       pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
     end
-    
     if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
       pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
     end
   end)
 end
+
+
+-- --- Turns down the active system process stream channel and wipes the tracking buffer cache cleanly from memory
+-- ---@return nil
+-- function Terminal:on_close()
+--   local tracking_buf = self.buf
+--   self.job = nil
+--   self.buf = nil
+--   self._on_next_exit = nil
+--
+--   if tracking_buf and vim.api.nvim_buf_is_valid(tracking_buf) then
+--     pcall(vim.api.nvim_buf_delete, tracking_buf, { force = true })
+--   end
+-- end
+--
+-- --- Wrapper orchestration function handling channel termination and layout visibility structures concurrently
+-- ---@return nil
+-- function Terminal:close()
+--   self:on_close()
+--   M.hide()
+-- end
+--
+-- --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
+-- ---@return nil
+-- function Terminal:on_open()
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+--   vim.go.splitkeep = 'screen'
+--
+--   -- 1. PERSISTENT REUSE: If container window is valid, simply swap buffer securely
+--   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+--     vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+--     M.layout.active_type = self.term_type
+--     self:_register_viewport_mappings()
+--     M.UpdateWinbarTitles()
+--     return
+--   end
+--
+--   -- CRITICAL: Disable auto-balancing temporarily so splits don't cascade 50/50
+--   local saved_ea = vim.o.equalalways
+--   vim.o.equalalways = false
+--
+--   -- 2. RESOLVE WINDOWS
+--   local code_win = find_best_code_window()
+--   local tree_win = nil
+--   local tree_width = 30
+--
+--   -- Locate nvim-tree securely and grab its true width
+--   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+--     if vim.api.nvim_win_is_valid(win) then
+--       local buf = vim.api.nvim_win_get_buf(win)
+--       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+--       if ft == 'nvim-tree' or ft == 'neo-tree' then
+--         tree_win = win
+--         local current_w = vim.api.nvim_win_get_width(win)
+--         if current_w < (vim.o.columns * 0.4) then
+--           tree_width = current_w
+--         end
+--         break
+--       end
+--     end
+--   end
+--
+--   -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup)
+--   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
+--     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+--       vim.api.nvim_set_current_win(tree_win)
+--     end
+--
+--     vim.cmd('vnew')
+--     code_win = vim.api.nvim_get_current_win()
+--   end
+--
+--   -- CRITICAL FIX: Force the code buffer to be listed and normal so nvim-tree seamlessly reuses it
+--   local code_buf = vim.api.nvim_win_get_buf(code_win)
+--   if vim.api.nvim_buf_is_valid(code_buf) then
+--     vim.bo[code_buf].buflisted = true
+--     vim.bo[code_buf].buftype = ''
+--   end
+--
+--   -- 4. OPEN TERMINAL CONTAINER
+--   vim.api.nvim_set_current_win(code_win)
+--   vim.cmd('belowright ' .. target_height .. 'split')
+--   M.layout.container_win = vim.api.nvim_get_current_win()
+--   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+--   M.layout.active_type = self.term_type
+--
+--   -- 5. LATCH GEOMETRY & OPTIONS
+--   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+--   vim.w[M.layout.container_win].pio_managed = true
+--   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
+--   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+--
+--   self:_register_viewport_mappings()
+--
+--   -- Restore auto-balancing BEFORE our final lock
+--   vim.o.equalalways = saved_ea
+--
+--   -- Focus code window so nvim-tree defaults to this target when opening files
+--   if code_win and vim.api.nvim_win_is_valid(code_win) then
+--     vim.api.nvim_set_current_win(code_win)
+--   end
+--
+--   -- 6. THE "LAST WORD": Softly snap dimensions into place
+--   vim.schedule(function()
+--     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+--       pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
+--     end
+--
+--     if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+--       pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+--     end
+--   end)
+-- end
 
 
 
