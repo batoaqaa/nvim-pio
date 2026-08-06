@@ -326,7 +326,7 @@ function Terminal:close()
   M.hide()
 end
 
---- Internal helper to locate a safe code window securely by filetype, bypassing layout placement checks
+--- Internal helper to locate a safe code window securely by filetype
 ---@return integer|nil
 local function find_best_code_window()
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -335,7 +335,7 @@ local function find_best_code_window()
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local win_type = vim.fn.win_gettype(win)
 
-      -- Strictly filter by filetype to guarantee we NEVER pick nvim-tree or terminals
+      -- Strictly filter to guarantee we NEVER pick sidebars or terminals
       if win_type == '' 
          and ft ~= 'nvim-tree' 
          and ft ~= 'neo-tree' 
@@ -366,16 +366,16 @@ function Terminal:on_open()
     return
   end
 
-  -- CRITICAL: Disable auto-balancing to stop Neovim from forcing a 50/50 split cascade
+  -- CRITICAL: Disable auto-balancing temporarily so splits don't cascade 50/50
   local saved_ea = vim.o.equalalways
   vim.o.equalalways = false
 
   -- 2. RESOLVE WINDOWS
   local code_win = find_best_code_window()
   local tree_win = nil
-  local tree_width = 30 -- The standard nvim-tree fallback width
+  local tree_width = 30 -- Default fallback width
 
-  -- Locate nvim-tree securely and grab its width
+  -- Locate nvim-tree securely and grab its true width
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
@@ -383,7 +383,7 @@ function Terminal:on_open()
       if ft == 'nvim-tree' or ft == 'neo-tree' then
         tree_win = win
         local current_w = vim.api.nvim_win_get_width(win)
-        -- Only inherit the width if it's currently acting like a compact sidebar
+        -- Only inherit the width if it's acting like a compact sidebar (not stretched 100%)
         if current_w < (vim.o.columns * 0.4) then
           tree_width = current_w
         end
@@ -392,16 +392,16 @@ function Terminal:on_open()
     end
   end
 
-  -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup with only nvim-tree open)
+  -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup)
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    vim.cmd('botright vnew')
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      vim.api.nvim_set_current_win(tree_win)
+    end
+    
+    -- PURE NATIVE SPLIT: Do NOT manually inject buffers. Let Neovim generate 
+    -- its native empty buffer so nvim-tree securely reuses it on file open.
+    vim.cmd('vnew')
     code_win = vim.api.nvim_get_current_win()
-
-    -- Create a clean, listed normal buffer so nvim-tree seamlessly reuses it
-    local scratch_buf = vim.api.nvim_create_buf(true, false)
-    vim.api.nvim_win_set_buf(code_win, scratch_buf)
-    vim.bo[scratch_buf].buflisted = true
-    vim.bo[scratch_buf].buftype = ''
   end
 
   -- 4. OPEN TERMINAL CONTAINER
@@ -411,7 +411,7 @@ function Terminal:on_open()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  -- 5. ENFORCE STRICT GEOMETRY LATCHES
+  -- 5. LATCH GEOMETRY & OPTIONS
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
   vim.w[M.layout.container_win].pio_managed = true
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
@@ -421,22 +421,22 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- Return focus smoothly to the code window above
+  -- Restore auto-balancing BEFORE our final lock, so our explicit dimensions get the final say
+  vim.o.equalalways = saved_ea
+
+  -- Focus code window so nvim-tree defaults to this target when opening files
   if code_win and vim.api.nvim_win_is_valid(code_win) then
     vim.api.nvim_set_current_win(code_win)
   end
 
-  -- Restore original balancing setting safely
-  vim.o.equalalways = saved_ea
-
-  -- 6. THE "LAST WORD": Softly snap nvim-tree back into place
+  -- 6. THE "LAST WORD": Softly snap dimensions into place
   vim.schedule(function()
-    -- Gently restore nvim-tree to exactly 30 columns without crushing it
+    -- Gently restore nvim-tree exactly back to its compact size
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
       pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
     end
     
-    -- Final confirmation lock on the terminal height
+    -- Guarantee the terminal stays at the requested panel height
     if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
       pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
     end
