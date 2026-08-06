@@ -343,7 +343,7 @@ function Terminal:on_open()
       vim.cmd('vsplit')
       code_win = vim.api.nvim_get_current_win()
       
-      -- Create a normal empty buffer (buftype = '') so nvim-tree seamlessly reuses this window on file open
+      -- Create a normal empty buffer so nvim-tree seamlessly reuses this window on file open
       local scratch_buf = vim.api.nvim_create_buf(true, false)
       vim.api.nvim_win_set_buf(code_win, scratch_buf)
       vim.bo[scratch_buf].buflisted = false
@@ -352,15 +352,10 @@ function Terminal:on_open()
     end
   end
 
-  -- Focus the valid code window before splitting
-  if code_win and vim.api.nvim_win_is_valid(code_win) then
-    vim.api.nvim_set_current_win(code_win)
-  end
-
-  -- 3. OPEN THE TERMINAL SPLIT SAFELY BELOW THE CODE WINDOW
+  -- 3. OPEN THE TERMINAL SPLIT SAFELY BELOW THE CODE WINDOW ONLY (Never -1)
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
-    win = code_win or -1,
+    win = code_win,
     height = target_height,
   })
   M.layout.active_type = self.term_type
