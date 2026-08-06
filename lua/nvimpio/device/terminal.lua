@@ -303,20 +303,72 @@ function Terminal:close()
   M.hide()
 end
 
+
 --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
+  -- 1. FIND A VALID CODE WINDOW (Strictly avoiding sidebars like nvim-tree)
+  local code_win = nil
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local win_type = vim.fn.win_gettype(win)
+      if win_type == '' and ft ~= 'nvim-tree' and ft ~= 'neo-tree' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
+        code_win = win
+        break
+      end
+    end
+  end
+
+  -- 2. BOOTSTRAP: If only nvim-tree is open, create a safe code window next to it first
+  if not code_win then
+    local tree_win = nil
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_is_valid(win) then
+        local buf = vim.api.nvim_win_get_buf(win)
+        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+        if ft == 'nvim-tree' or ft == 'neo-tree' then
+          tree_win = win
+          break
+        end
+      end
+    end
+
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      vim.api.nvim_set_current_win(tree_win)
+      vim.cmd('vsplit')
+      code_win = vim.api.nvim_get_current_win()
+      
+      local scratch_buf = vim.api.nvim_create_buf(false, true)
+      pcall(vim.api.nvim_buf_set_name, scratch_buf, "pio_scratch")
+      vim.api.nvim_win_set_buf(code_win, scratch_buf)
+      vim.bo[scratch_buf].buftype = 'nofile'
+      vim.bo[scratch_buf].bufhidden = 'wipe'
+      vim.bo[scratch_buf].swapfile = false
+    else
+      code_win = vim.api.nvim_get_current_win()
+    end
+  end
+
+  -- Focus the valid code window before splitting
+  if code_win and vim.api.nvim_win_is_valid(code_win) then
+    vim.api.nvim_set_current_win(code_win)
+  end
+
+  -- 3. OPEN THE TERMINAL SPLIT SAFELY BELOW THE CODE WINDOW
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
-    win = -1,
+    win = code_win or -1,
     height = target_height,
   })
   M.layout.active_type = self.term_type
 
   vim.w[M.layout.container_win].pio_managed = true
+  vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
 
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
@@ -325,6 +377,30 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 end
+
+
+-- --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
+-- ---@return nil
+-- function Terminal:on_open()
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+--   vim.go.splitkeep = 'screen'
+--
+--   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+--     split = 'below',
+--     win = -1,
+--     height = target_height,
+--   })
+--   M.layout.active_type = self.term_type
+--
+--   vim.w[M.layout.container_win].pio_managed = true
+--   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+--
+--   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+--
+--   self:_register_viewport_mappings()
+-- end
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
