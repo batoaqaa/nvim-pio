@@ -234,14 +234,13 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a precision column-aligned floating terminal beneath the code window.
+--- Opens a precision column-aligned floating terminal locked beneath the code window.
 --- Dynamically shrinks the code window to prevent text covering and cursor pass-through,
---- locks precisely above the command line to prevent expansion, and leaves nvim-tree untouched.
+--- while keeping total height intact to completely prevent command-line expansion.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local total_float_height = target_height + 2 -- Accounts for top and bottom borders
-  local max_content_lines = vim.o.lines - (vim.o.cmdheight or 1)
 
   -- 1. CLEANUP: Close any existing ghost instances of this terminal
   for _, win in ipairs(vim.api.nvim_list_wins()) do
@@ -250,7 +249,7 @@ function Terminal:on_open()
     end
   end
 
-  -- 2. FIND THE ACTIVE CODE WINDOW
+  -- 2. FIND THE ACTIVE CODE WINDOW (Strictly avoiding nvim-tree/neo-tree)
   local code_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
@@ -264,28 +263,57 @@ function Terminal:on_open()
     end
   end
 
+  -- Bootstrap code window via vertical split if only nvim-tree is open
+  if not code_win then
+    local tree_win = nil
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_is_valid(win) then
+        local buf = vim.api.nvim_win_get_buf(win)
+        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+        if ft == 'nvim-tree' or ft == 'neo-tree' then
+          tree_win = win
+          break
+        end
+      end
+    end
+
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      vim.api.nvim_set_current_win(tree_win)
+      vim.cmd('vsplit')
+      code_win = vim.api.nvim_get_current_win()
+      local scratch_buf = vim.api.nvim_create_buf(false, true)
+      pcall(vim.api.nvim_buf_set_name, scratch_buf, "pio_scratch")
+      vim.api.nvim_win_set_buf(code_win, scratch_buf)
+      vim.bo[scratch_buf].buftype = 'nofile'
+      vim.bo[scratch_buf].bufhidden = 'wipe'
+    else
+      code_win = vim.api.nvim_get_current_win()
+    end
+  end
+
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
     code_win = vim.api.nvim_get_current_win()
   end
 
-  -- 3. GET CODE WINDOW GEOMETRY & CALCULATE SAFE HEIGHT
+  -- 3. GET CODE WINDOW GEOMETRY & SAFELY SHRINK HEIGHT
   local code_pos = vim.api.nvim_win_get_position(code_win) -- {row, col}
   local code_row = code_pos[1]
   local code_col = code_pos[2]
   local code_width = vim.api.nvim_win_get_width(code_win)
+  local code_height = vim.api.nvim_win_get_height(code_win)
 
-  -- Ensure code window leaves exact room for the terminal panel and command line
-  local target_code_height = max_content_lines - code_row - total_float_height
-  if target_code_height < 4 then target_code_height = 4 end
+  M.layout._shrunk_code_win = nil
+  M.layout._original_code_height = nil
 
-  M.layout._shrunk_code_win = code_win
-  M.layout._original_code_height = vim.api.nvim_win_get_height(code_win)
+  if code_height > total_float_height + 3 then
+    M.layout._shrunk_code_win = code_win
+    M.layout._original_code_height = code_height
+    vim.api.nvim_win_set_height(code_win, code_height - total_float_height)
+    code_height = code_height - total_float_height
+  end
 
-  -- Physically shrink code window so text stops at EOF and cursor cannot pass through
-  vim.api.nvim_win_set_height(code_win, target_code_height)
-
-  -- 4. PRECISION POSITIONING (Zero command-line expansion, column-aligned)
-  local row_pos = code_row + target_code_height
+  -- 4. COLUMN-ALIGNED POSITIONING (Locked perfectly beneath the code window)
+  local row_pos = code_row + code_height
   local col_pos = code_col
 
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
