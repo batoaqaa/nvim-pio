@@ -303,56 +303,44 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a full-width bottom split and safely preserves window routing for nvim-tree
+--- Opens a clean bottom split that perfectly coexists with nvim-tree
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  vim.go.splitkeep = 'screen'
+  local current_win = vim.api.nvim_get_current_win()
 
-  -- Clean up old stuck windows if any
+  -- 1. Clean up any stuck terminal windows from previous toggles
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == self.buf then
       vim.api.nvim_win_close(win, true)
     end
   end
 
-  -- =====================================================================
-  -- 1. SAVE FOCUS HISTORY: Record current AND previous (alternate) window
-  -- =====================================================================
-  local current_win = vim.api.nvim_get_current_win()
-  local alt_win = vim.fn.win_getid(vim.fn.winnr('#'))
-
-  -- 2. CREATE ROOT SPLIT (ignoring hijackers)
-  local old_ignore = vim.o.eventignore
-  vim.o.eventignore = 'all'
-
-  vim.cmd('botright ' .. target_height .. 'split')
+  -- 2. CREATE A LOCAL SPLIT
+  -- 'belowright' splits horizontally inside the code column ONLY.
+  -- This prevents nvim-tree from detecting a global layout break and panicking.
+  vim.cmd('belowright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
-
-  vim.o.eventignore = old_ignore
   M.layout.active_type = self.term_type
 
-  -- 3. LOCK DOWN THE TERMINAL WINDOW
-  -- (Removed the invalid buftype assignment here, Neovim already sets it to 'terminal')
-  vim.bo[self.buf].buflisted = false
+  -- 3. EXPLICITLY BLOCK NVIM-TREE
+  -- This strictly tells nvim-tree's internal logic to skip this window
+  -- so it correctly targets your code window instead of creating a 3rd column.
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
 
+  -- 4. NATIVE PROTECTIONS
   vim.w[M.layout.container_win].pio_managed = true
   vim.wo[M.layout.container_win].winfixheight = true
-  vim.wo[M.layout.container_win].winfixbuf = true  -- Prevents cursor pass-through
+  -- winfixbuf physically stops your cursor from passing into the terminal via 'j'
+  vim.wo[M.layout.container_win].winfixbuf = true
   vim.wo[M.layout.container_win].number = false
   vim.wo[M.layout.container_win].relativenumber = false
   vim.wo[M.layout.container_win].signcolumn = 'no'
 
   self:_register_viewport_mappings()
 
-  -- =====================================================================
-  -- 4. REPAIR FOCUS HISTORY FOR NVIM-TREE
-  -- =====================================================================
-  if alt_win ~= 0 and alt_win ~= current_win and vim.api.nvim_win_is_valid(alt_win) then
-    vim.api.nvim_set_current_win(alt_win)
-  end
+  -- 5. Return focus gracefully to the code window
   vim.api.nvim_set_current_win(current_win)
 end
 
