@@ -234,13 +234,16 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a native column-scoped bottom split using Neovim's modern split API.
---- Keeps nvim-tree full-height and pristine, prevents command-line expansion,
---- and eliminates text-covering/cursor pass-through issues.
+--- Opens a full-width floating terminal locked precisely to the bottom screen edge.
+--- Bypasses the window tree entirely, permanently eliminating nvim-tree column panics,
+--- while using exact coordinate math to prevent command-line expansion.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  vim.go.splitkeep = 'screen'
+  local total_width = vim.o.columns
+  local total_lines = vim.o.lines
+  local cmd_height = vim.o.cmdheight or 1
+  local total_float_height = target_height + 2 -- Accounts for top and bottom borders
 
   -- 1. CLEANUP: Close any existing ghost instances of this terminal
   for _, win in ipairs(vim.api.nvim_list_wins()) do
@@ -249,82 +252,38 @@ function Terminal:on_open()
     end
   end
 
-  -- 2. FIND A VALID CODE WINDOW (Strictly avoiding nvim-tree/neo-tree)
-  local code_win = nil
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_is_valid(win) then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      local win_type = vim.fn.win_gettype(win)
-      if win_type == '' and ft ~= 'nvim-tree' and ft ~= 'neo-tree' and ft ~= 'pio_panel' and not ft:match('^pio_pane_') then
-        code_win = win
-        break
-      end
-    end
-  end
+  -- 2. PRECISE BOTTOM-EDGE POSITIONING
+  -- Subtracts both the float height and cmdheight from total lines to guarantee 
+  -- it locks flush to the bottom without forcing Neovim to expand the command line.
+  local row_pos = total_lines - total_float_height - cmd_height
+  local col_pos = 0
 
-  -- 3. BOOTSTRAP: If only nvim-tree is open, create a safe code window next to it first
-  if not code_win then
-    local tree_win = nil
-    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-      if vim.api.nvim_win_is_valid(win) then
-        local buf = vim.api.nvim_win_get_buf(win)
-        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-        if ft == 'nvim-tree' or ft == 'neo-tree' then
-          tree_win = win
-          break
-        end
-      end
-    end
-
-    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      vim.api.nvim_set_current_win(tree_win)
-      vim.cmd('vsplit')
-      code_win = vim.api.nvim_get_current_win()
-      
-      local scratch_buf = vim.api.nvim_create_buf(false, true)
-      pcall(vim.api.nvim_buf_set_name, scratch_buf, "pio_scratch")
-      vim.api.nvim_win_set_buf(code_win, scratch_buf)
-      vim.bo[scratch_buf].buftype = 'nofile'
-      vim.bo[scratch_buf].bufhidden = 'wipe'
-      vim.bo[scratch_buf].swapfile = false
-    else
-      code_win = vim.api.nvim_get_current_win()
-    end
-  end
-
-  -- 4. CREATE NATIVE COLUMN-SCOPED SPLIT BELOW THE CODE WINDOW
-  -- This splits ONLY the code column. nvim-tree remains untouched and full-height.
-  if code_win and vim.api.nvim_win_is_valid(code_win) then
-    M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
-      split = 'below',
-      win = code_win,
-      height = target_height,
-    })
-  else
-    vim.cmd('belowright ' .. target_height .. 'split')
-    M.layout.container_win = vim.api.nvim_get_current_win()
-    vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
-  end
-
+  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+    relative = 'editor',
+    width = total_width,
+    height = target_height,
+    row = row_pos,
+    col = col_pos,
+    style = 'minimal',
+    border = 'single',
+    focusable = true,
+    zindex = 150,
+  })
   M.layout.active_type = self.term_type
 
-  -- 5. WINDOW PROTECTIONS & OPTIONS
+  -- 3. WINDOW PICKER PROTECTION & CLOAKING
+  pcall(vim.api.nvim_set_option_value, 'buflisted', false, { buf = self.buf })
+  pcall(vim.api.nvim_set_option_value, 'bufhidden', 'hide', { buf = self.buf })
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
+
+  -- 4. WINDOW OPTIONS SETUP
   vim.w[M.layout.container_win].pio_managed = true
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+  vim.wo[M.layout.container_win].winfixheight = true
+  vim.wo[M.layout.container_win].number = false
+  vim.wo[M.layout.container_win].relativenumber = false
+  vim.wo[M.layout.container_win].signcolumn = 'no'
 
   self:_register_viewport_mappings()
-
-  -- 6. Return focus smoothly to the code window above
-  if code_win and vim.api.nvim_win_is_valid(code_win) then
-    vim.api.nvim_set_current_win(code_win)
-  else
-    vim.cmd('wincmd k')
-  end
 end
 
 
