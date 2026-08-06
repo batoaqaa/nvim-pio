@@ -304,8 +304,8 @@ function Terminal:close()
 end
 
 
---- Opens a clean bottom split, automatically bootstrapping a scratch code window 
---- if none exists, preventing nvim-tree from panicking into a 3-parallel vertical split.
+--- Opens a native bottom split, safely bootstrapping a named code window 
+--- if none exists to prevent nvim-tree column panics and git watcher crashes.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
@@ -318,7 +318,7 @@ function Terminal:on_open()
     end
   end
 
-  -- 2. FIND OR BOOTSTRAP A VALID CODE WINDOW
+  -- 2. FIND OR BOOTSTRAP A VALID CODE WINDOW SAFELY
   local target_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
@@ -332,7 +332,7 @@ function Terminal:on_open()
     end
   end
 
-  -- If no code window exists (e.g., only nvim-tree is open), bootstrap one via vsplit
+  -- If no code window exists (only nvim-tree is open), bootstrap a safe scratch pane
   if not target_win then
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
       if vim.api.nvim_win_is_valid(win) then
@@ -342,9 +342,10 @@ function Terminal:on_open()
           vim.api.nvim_set_current_win(win)
           vim.cmd('vsplit')
           target_win = vim.api.nvim_get_current_win()
-          
-          -- Set up a clean empty scratch buffer so nvim-tree has an immediate target
+
+          -- Create a named scratch buffer so nvim-tree's git watcher never encounters a nil path
           local scratch_buf = vim.api.nvim_create_buf(false, true)
+          pcall(vim.api.nvim_buf_set_name, scratch_buf, "internal_pio_scratch")
           vim.api.nvim_win_set_buf(target_win, scratch_buf)
           vim.bo[scratch_buf].buftype = 'nofile'
           vim.bo[scratch_buf].bufhidden = 'wipe'
@@ -379,7 +380,7 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- 6. Return focus back to the code/scratch window safely
+  -- 6. Return focus back to the code window safely
   vim.cmd('wincmd p')
 end
 
