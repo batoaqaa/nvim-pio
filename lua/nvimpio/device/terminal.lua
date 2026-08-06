@@ -344,19 +344,43 @@ function Terminal:on_open()
   -- 2. RESOLVE CODE WINDOW
   local code_win = find_best_code_window()
 
-  -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup with only nvim-tree open),
-  -- use Neovim's native :botright vnew to spawn a true primary code window with a native [No Name] buffer.
+  -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup with only nvim-tree open)
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    vim.cmd('botright vnew')
-    code_win = vim.api.nvim_get_current_win()
+    local tree_win = nil
+    local tree_width = 30 -- Default fallback width
+    
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_is_valid(win) then
+        local buf = vim.api.nvim_win_get_buf(win)
+        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+        if ft == 'nvim-tree' or ft == 'neo-tree' then
+          tree_win = win
+          tree_width = vim.api.nvim_win_get_width(win) -- Capture original tree width
+          break
+        end
+      end
+    end
+
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      vim.api.nvim_set_current_win(tree_win)
+      vim.cmd('botright vnew')
+      code_win = vim.api.nvim_get_current_win()
+      
+      -- Restore nvim-tree width so it doesn't take 50% of the screen
+      pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
+    else
+      code_win = vim.api.nvim_get_current_win()
+    end
   end
 
   -- Absolute safety check: ensure code_win is never nvim-tree itself
   local check_buf = vim.api.nvim_win_get_buf(code_win)
   local check_ft = vim.api.nvim_get_option_value('filetype', { buf = check_buf })
   if check_ft == 'nvim-tree' or check_ft == 'neo-tree' then
+    local tree_width = vim.api.nvim_win_get_width(code_win)
     vim.cmd('botright vnew')
     code_win = vim.api.nvim_get_current_win()
+    pcall(vim.api.nvim_win_set_width, check_win, tree_width)
   end
 
   -- 4. OPEN PERMANENT CONTAINER WINDOW STRICTLY BELOW CODE WINDOW
