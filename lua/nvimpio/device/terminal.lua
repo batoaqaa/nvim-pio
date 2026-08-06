@@ -334,7 +334,7 @@ function Terminal:on_open()
   M.layout.active_type = self.term_type
 
   -- 3. LOCK DOWN THE TERMINAL WINDOW
-  vim.bo[self.buf].buftype = 'nofile'
+  -- (Removed the invalid buftype assignment here, Neovim already sets it to 'terminal')
   vim.bo[self.buf].buflisted = false
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
 
@@ -349,9 +349,6 @@ function Terminal:on_open()
 
   -- =====================================================================
   -- 4. REPAIR FOCUS HISTORY FOR NVIM-TREE
-  -- By visiting the old alternate window first, and then the current window,
-  -- we perfectly restore Neovim's 'previous window' state. 
-  -- Now nvim-tree will correctly target your code pane, not the terminal!
   -- =====================================================================
   if alt_win ~= 0 and alt_win ~= current_win and vim.api.nvim_win_is_valid(alt_win) then
     vim.api.nvim_set_current_win(alt_win)
