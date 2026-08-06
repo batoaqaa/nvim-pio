@@ -234,13 +234,15 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a precision column-aligned floating terminal locked beneath the code window.
---- Dynamically shrinks the code window to prevent text covering and cursor pass-through,
---- while keeping total height intact to completely prevent command-line expansion.
+--- Opens a precision column-aligned floating terminal locked flush above the command line.
+--- Uses strict boundary math to prevent command-line expansion, middle-screen jumping, 
+--- text covering, and nvim-tree layout panics.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local total_float_height = target_height + 2 -- Accounts for top and bottom borders
+  local total_lines = vim.o.lines
+  local cmd_height = vim.o.cmdheight or 1
 
   -- 1. CLEANUP: Close any existing ghost instances of this terminal
   for _, win in ipairs(vim.api.nvim_list_wins()) do
@@ -295,33 +297,33 @@ function Terminal:on_open()
     code_win = vim.api.nvim_get_current_win()
   end
 
-  -- 3. GET CODE WINDOW GEOMETRY & SAFELY SHRINK HEIGHT
+  -- 3. STRICT SCREEN-BOUNDARY & GEOMETRY CALCULATION
   local code_pos = vim.api.nvim_win_get_position(code_win) -- {row, col}
   local code_row = code_pos[1]
   local code_col = code_pos[2]
   local code_width = vim.api.nvim_win_get_width(code_win)
-  local code_height = vim.api.nvim_win_get_height(code_win)
 
-  M.layout._shrunk_code_win = nil
-  M.layout._original_code_height = nil
+  -- Calculate exact row where terminal starts to sit flush above cmdheight (Zero expansion)
+  local max_content_row = total_lines - cmd_height
+  local row_pos = max_content_row - total_float_height
 
-  if code_height > total_float_height + 3 then
-    M.layout._shrunk_code_win = code_win
-    M.layout._original_code_height = code_height
-    vim.api.nvim_win_set_height(code_win, code_height - total_float_height)
-    code_height = code_height - total_float_height
-  end
+  -- Calculate exact required code window height so text stops right where terminal begins
+  local target_code_height = row_pos - code_row
+  if target_code_height < 3 then target_code_height = 3 end
 
-  -- 4. COLUMN-ALIGNED POSITIONING (Locked perfectly beneath the code window)
-  local row_pos = code_row + code_height
-  local col_pos = code_col
+  M.layout._shrunk_code_win = code_win
+  M.layout._original_code_height = vim.api.nvim_win_get_height(code_win)
 
+  -- Physically resize code window (Prevents text covering & cursor pass-through)
+  vim.api.nvim_win_set_height(code_win, target_code_height)
+
+  -- 4. OPEN FLOATING WINDOW WITH BULLETPROOF BOUNDS
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
     relative = 'editor',
     width = code_width,
     height = target_height,
     row = row_pos,
-    col = col_pos,
+    col = code_col,
     style = 'minimal',
     border = 'single',
     focusable = true,
