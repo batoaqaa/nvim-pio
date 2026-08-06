@@ -303,32 +303,57 @@ function Terminal:close()
   M.hide()
 end
 
-
---- Opens a clean, stable native bottom split without background flickering watchers.
+--- Opens a native bottom split and ensures a scratch code window always exists,
+--- preventing nvim-tree from panicking into a 3-parallel vertical split.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
   local current_win = vim.api.nvim_get_current_win()
 
-  -- 1. CLEANUP: Close any existing ghost instances
+  -- 1. CLEANUP: Close any existing ghost terminal instances
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == self.buf then
       vim.api.nvim_win_close(win, true)
     end
   end
 
-  -- 2. CREATE SPLIT: Request a full-width bottom root split
+  -- 2. CHECK FOR AN EXISTING CODE WINDOW
+  local has_code_win = false
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local win_type = vim.fn.win_gettype(win)
+      if win_type == '' and ft ~= 'nvim-tree' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
+        has_code_win = true
+        break
+      end
+    end
+  end
+
+  -- 3. CREATE BOTTOM SPLIT
   vim.cmd('botright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
 
-  -- 3. THE ANCHOR: Force to absolute bottom tree root once on open
+  -- Anchor to absolute bottom root
   vim.cmd('wincmd J')
   vim.api.nvim_win_set_height(M.layout.container_win, target_height)
   M.layout.active_type = self.term_type
 
-  -- 4. NVIM-TREE PROTECTION
+  -- 4. IF NO CODE WINDOW EXISTED, CREATE A SCRATCH TARGET WINDOW ABOVE IT
+  -- This guarantees nvim-tree always has a valid pane to load files into.
+  if not has_code_win then
+    vim.cmd('wincmd k')
+    local scratch_buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_win_set_buf(0, scratch_buf)
+    vim.bo[scratch_buf].buftype = 'nofile'
+    vim.bo[scratch_buf].bufhidden = 'wipe'
+    vim.bo[scratch_buf].swapfile = false
+  end
+
+  -- 5. NVIM-TREE PROTECTION
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
 
   -- Window options styling
@@ -340,13 +365,14 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- 5. Return focus to your code window safely without delayed layout jumps
+  -- 6. Return focus safely back to your active workflow window
   if vim.api.nvim_win_is_valid(current_win) and current_win ~= M.layout.container_win then
     vim.api.nvim_set_current_win(current_win)
   else
     vim.cmd('wincmd p')
   end
 end
+
 
 
 
