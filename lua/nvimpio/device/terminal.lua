@@ -205,87 +205,6 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
 end
 
 
-
---- Instantiates a pure, untainted native Neovim scratch buffer with event shielding
----@return nil
-function Terminal:on_create()
-  self.buf = vim.api.nvim_create_buf(false, true)
-
-  local target_shell = M.config.shell or native_shell
-  if type(target_shell) == 'table' and target_shell.program then
-    target_shell = target_shell.program
-  end
-
-  -- =========================================================================
-  -- EVENT SHIELD: Block external framework plugins from hijacking termopen
-  -- =========================================================================
-  local old_ei = vim.o.eventignore
-  vim.o.eventignore = 'TermOpen,TermEnter,BufWinEnter,WinEnter'
-
-  vim.api.nvim_buf_call(self.buf, function()
-    local channel_id = vim.fn.termopen(target_shell, {
-      on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
-      on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
-      on_exit = function() self:on_exit() end,
-    })
-
-    self.job = (channel_id and channel_id > 0) and channel_id or nil
-  end)
-
-  vim.o.eventignore = old_ei
-  -- =========================================================================
-
-  vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
-  vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
-
-  pcall(function() vim.b[self.buf].bufferline_deny = true end)
-  vim.b[self.buf].pio_term_type = self.term_type
-
-  self:_register_viewport_mappings()
-  self:_register_viewport_bindings()
-end
-
-
--- --- Instantiates a pure, untainted native Neovim scratch buffer and encapsulates its termopen execution logic securely
--- ---@return nil
--- function Terminal:on_create()
---   -- 1. Create a pristine unlisted scratch buffer
---   self.buf = vim.api.nvim_create_buf(false, true)
---
---   local target_shell = M.config.shell or native_shell
---
---   -- If a custom shell object `{ program = '...' }` is provided, unpack it properly;
---   -- otherwise, preserve raw string or table array ({ 'pwsh.exe', ... }) as-is.
---   if type(target_shell) == 'table' and target_shell.program then
---     target_shell = target_shell.program
---   end
---   -- if type(target_shell) == 'table' then
---   --   target_shell = target_shell.program or target_shell
---   -- end
---
---   -- 2. Use termopen inside nvim_buf_call to avoid "modified buffer" checks
---   vim.api.nvim_buf_call(self.buf, function()
---     local channel_id = vim.fn.termopen(target_shell, {
---       on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
---       on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
---       on_exit = function() self:on_exit() end,
---     })
---
---     self.job = (channel_id and channel_id > 0) and channel_id or nil
---   end)
---
---   -- 3. Set filetype & options AFTER terminal channel attaches
---   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
---   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
---
---   pcall(function() vim.b[self.buf].bufferline_deny = true end)
---
---   vim.b[self.buf].pio_term_type = self.term_type
---
---   self:_register_viewport_mappings()
---   self:_register_viewport_bindings()
--- end
-
 -- nvimpio/device/terminal.lua - Part 3
 
 --- Pipes an explicit text statement down the asynchronous backend system process pipeline securely
@@ -375,8 +294,92 @@ function Terminal:close()
 end
 
 
+
+-- --- Instantiates a pure, untainted native Neovim scratch buffer and encapsulates its termopen execution logic securely
+-- ---@return nil
+-- function Terminal:on_create()
+--   -- 1. Create a pristine unlisted scratch buffer
+--   self.buf = vim.api.nvim_create_buf(false, true)
+--
+--   local target_shell = M.config.shell or native_shell
+--
+--   -- If a custom shell object `{ program = '...' }` is provided, unpack it properly;
+--   -- otherwise, preserve raw string or table array ({ 'pwsh.exe', ... }) as-is.
+--   if type(target_shell) == 'table' and target_shell.program then
+--     target_shell = target_shell.program
+--   end
+--   -- if type(target_shell) == 'table' then
+--   --   target_shell = target_shell.program or target_shell
+--   -- end
+--
+--   -- 2. Use termopen inside nvim_buf_call to avoid "modified buffer" checks
+--   vim.api.nvim_buf_call(self.buf, function()
+--     local channel_id = vim.fn.termopen(target_shell, {
+--       on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
+--       on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
+--       on_exit = function() self:on_exit() end,
+--     })
+--
+--     self.job = (channel_id and channel_id > 0) and channel_id or nil
+--   end)
+--
+--   -- 3. Set filetype & options AFTER terminal channel attaches
+--   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
+--   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
+--
+--   pcall(function() vim.b[self.buf].bufferline_deny = true end)
+--
+--   vim.b[self.buf].pio_term_type = self.term_type
+--
+--   self:_register_viewport_mappings()
+--   self:_register_viewport_bindings()
+-- end
+
+--- Instantiates a pure, untainted native Neovim scratch buffer with layout manager shielding
+---@return nil
+function Terminal:on_create()
+  self.buf = vim.api.nvim_create_buf(false, true)
+
+  -- =========================================================================
+  -- PRE-EMPTIVE LAYOUT SHIELD: Stop edgy.nvim and UI managers from seizing the terminal
+  -- =========================================================================
+  vim.b[self.buf].edgy_disable = true
+  vim.bo[self.buf].buflisted = false
+  vim.bo[self.buf].bufhidden = 'hide'
+
+  local target_shell = M.config.shell or native_shell
+  if type(target_shell) == 'table' and target_shell.program then
+    target_shell = target_shell.program
+  end
+
+  -- Block external framework autocommands during termopen attachment
+  local old_ei = vim.o.eventignore
+  vim.o.eventignore = 'TermOpen,TermEnter,BufWinEnter,WinEnter,WinNew'
+
+  vim.api.nvim_buf_call(self.buf, function()
+    local channel_id = vim.fn.termopen(target_shell, {
+      on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
+      on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
+      on_exit = function() self:on_exit() end,
+    })
+
+    self.job = (channel_id and channel_id > 0) and channel_id or nil
+  end)
+
+  vim.o.eventignore = old_ei
+  -- =========================================================================
+
+  vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
+
+  pcall(function() vim.b[self.buf].bufferline_deny = true end)
+  vim.b[self.buf].pio_term_type = self.term_type
+
+  self:_register_viewport_mappings()
+  self:_register_viewport_bindings()
+end
+
 --- Opens a local horizontal bottom split with strict event shielding 
---- to permanently stop external plugins from forcing 3-parallel columns.
+--- to permanently block external plugins from forcing 3-parallel columns.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
@@ -389,7 +392,7 @@ function Terminal:on_open()
     end
   end
 
-  -- 2. FIND A VALID CODE WINDOW (Strictly avoiding nvim-tree)
+  -- 2. FIND A VALID CODE WINDOW (Strictly avoiding nvim-tree/neo-tree)
   local target_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
@@ -408,7 +411,7 @@ function Terminal:on_open()
   end
 
   -- =========================================================================
-  -- 3. EVENT SHIELDED SPLIT: Blind layout-hijacking plugins during split creation
+  -- 3. EVENT SHIELDED SPLIT: Blind layout managers during window creation
   -- =========================================================================
   local old_ei = vim.o.eventignore
   vim.o.eventignore = 'TermOpen,TermEnter,BufWinEnter,WinEnter,WinNew'
@@ -422,7 +425,9 @@ function Terminal:on_open()
   vim.o.eventignore = old_ei
   -- =========================================================================
 
-  -- 4. NVIM-TREE WINDOW PICKER PROTECTION
+  -- 4. LAYOUT & WINDOW PICKER PROTECTIONS
+  vim.b[self.buf].edgy_disable = true
+  vim.w[M.layout.container_win].edgy_disable = true
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
 
   -- 5. WINDOW OPTIONS SETUP
@@ -437,7 +442,6 @@ function Terminal:on_open()
   -- 6. Return focus smoothly to the code window above
   vim.cmd('wincmd k')
 end
-
 
 -- --flicker
 -- --- Opens a native bottom split with a self-healing layout guardian 
