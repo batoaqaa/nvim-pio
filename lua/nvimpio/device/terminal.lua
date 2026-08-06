@@ -303,19 +303,26 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a bulletproof full-width bottom split that nvim-tree will safely ignore
+--- Opens a full-width bottom split and safely preserves window routing for nvim-tree
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
+  -- Clean up old stuck windows if any
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == self.buf then
       vim.api.nvim_win_close(win, true)
     end
   end
 
-  local original_win = vim.api.nvim_get_current_win()
+  -- =====================================================================
+  -- 1. SAVE FOCUS HISTORY: Record current AND previous (alternate) window
+  -- =====================================================================
+  local current_win = vim.api.nvim_get_current_win()
+  local alt_win = vim.fn.win_getid(vim.fn.winnr('#'))
+
+  -- 2. CREATE ROOT SPLIT (ignoring hijackers)
   local old_ignore = vim.o.eventignore
   vim.o.eventignore = 'all'
 
@@ -326,30 +333,30 @@ function Terminal:on_open()
   vim.o.eventignore = old_ignore
   M.layout.active_type = self.term_type
 
-  -- =========================================================================
-  -- CRITICAL FIX: Tell nvim-tree this is NOT a code window so it skips it!
-  -- =========================================================================
-
-  -- 1. Make sure Neovim knows this is a tool buffer, not a file.
-  if vim.bo[self.buf].buftype == '' then
-    vim.bo[self.buf].buftype = 'nofile'
-  end
+  -- 3. LOCK DOWN THE TERMINAL WINDOW
+  vim.bo[self.buf].buftype = 'nofile'
   vim.bo[self.buf].buflisted = false
-
-  -- 2. Explicitly tell nvim-tree's window picker to ignore this exact window
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
-  -- =========================================================================
 
   vim.w[M.layout.container_win].pio_managed = true
   vim.wo[M.layout.container_win].winfixheight = true
-  vim.wo[M.layout.container_win].winfixbuf = true
+  vim.wo[M.layout.container_win].winfixbuf = true  -- Prevents cursor pass-through
   vim.wo[M.layout.container_win].number = false
   vim.wo[M.layout.container_win].relativenumber = false
   vim.wo[M.layout.container_win].signcolumn = 'no'
 
   self:_register_viewport_mappings()
 
-  vim.api.nvim_set_current_win(original_win)
+  -- =====================================================================
+  -- 4. REPAIR FOCUS HISTORY FOR NVIM-TREE
+  -- By visiting the old alternate window first, and then the current window,
+  -- we perfectly restore Neovim's 'previous window' state. 
+  -- Now nvim-tree will correctly target your code pane, not the terminal!
+  -- =====================================================================
+  if alt_win ~= 0 and alt_win ~= current_win and vim.api.nvim_win_is_valid(alt_win) then
+    vim.api.nvim_set_current_win(alt_win)
+  end
+  vim.api.nvim_set_current_win(current_win)
 end
 
 
