@@ -348,7 +348,7 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- 1. FIND A VALID CODE WINDOW (Must be a normal window with col > 0, strictly avoiding nvim-tree)
+  -- 1. FIND A VALID CODE WINDOW (Must be in the right-hand editor column, col > 0)
   local code_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
@@ -358,7 +358,6 @@ function Terminal:on_open()
       local pos = vim.api.nvim_win_get_position(win)
       local col = pos[2]
 
-      -- Crucial: col > 0 guarantees it's in the right-hand editor pane, never nvim-tree at col 0
       if win_type == '' 
          and col > 0 
          and ft ~= 'nvim-tree' 
@@ -394,6 +393,7 @@ function Terminal:on_open()
       vim.cmd('vsplit')
       code_win = vim.api.nvim_get_current_win()
       
+      -- Create a normal empty buffer so nvim-tree seamlessly reuses this window on file open
       local scratch_buf = vim.api.nvim_create_buf(true, false)
       vim.api.nvim_win_set_buf(code_win, scratch_buf)
       vim.bo[scratch_buf].buflisted = false
@@ -410,9 +410,13 @@ function Terminal:on_open()
     vim.api.nvim_set_current_win(code_win)
     vim.cmd('vsplit')
     code_win = vim.api.nvim_get_current_win()
+    local scratch_buf = vim.api.nvim_create_buf(true, false)
+    vim.api.nvim_win_set_buf(code_win, scratch_buf)
+    vim.bo[scratch_buf].buflisted = false
+    vim.bo[scratch_buf].buftype = ''
   end
 
-  -- 3. OPEN THE TERMINAL SPLIT SAFELY BELOW THE CODE WINDOW ONLY
+  -- 3. OPEN THE TERMINAL SPLIT STRICTLY BELOW THE CODE WINDOW (Never global -1)
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
     win = code_win,
