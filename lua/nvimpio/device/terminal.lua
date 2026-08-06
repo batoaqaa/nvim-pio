@@ -303,55 +303,36 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a floating terminal that physically pushes the editor up via cmdheight.
---- Ignores nvim-tree completely, handles EOF perfectly, and stops cursor bleed.
+--- Opens a native bottom split and forcefully defeats third-party vertical layout hijackers.
+--- Code physically wraps above it (no EOF overlaps), and nvim-tree ignores it.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  local total_width = vim.o.columns
-  local total_lines = vim.o.lines
+  local current_win = vim.api.nvim_get_current_win()
 
-  -- If using a 'single' border, the total physical space needed is target_height + 2
-  local total_float_height = target_height + 2
+  -- 1. CLEANUP: Close any existing ghost instances
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == self.buf then
+      vim.api.nvim_win_close(win, true)
+    end
+  end
 
-  -- =========================================================================
-  -- THE MASTER SHIELD: Hijack the Command Line space.
-  -- This physically shrinks the entire editor (and EOF) upward so the float 
-  -- covers the empty command line instead of your code.
-  -- =========================================================================
-  M._original_cmdheight = vim.o.cmdheight
-  vim.o.cmdheight = total_float_height
+  -- 2. CREATE SPLIT: Request a standard bottom split
+  vim.cmd('botright ' .. target_height .. 'split')
+  M.layout.container_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
 
-  -- Place the float exactly over the newly created blank space at the bottom
-  local row_pos = total_lines - total_float_height
-  local col_pos = 0
-
-  M.layout.container_win = vim.api.nvim_open_win(self.buf, false, {
-    relative = 'editor',
-    width = total_width,
-    height = target_height,
-    row = row_pos,
-    col = col_pos,
-    style = 'minimal',
-    border = 'single',
-    focusable = true,
-    zindex = 50,
-  })
+  -- 3. THE ANCHOR: Force the window to the absolute bottom of the layout tree.
+  -- This defeats any immediate autocommands that tried to move it to a side column.
+  vim.cmd('wincmd J')
+  vim.api.nvim_win_set_height(M.layout.container_win, target_height)
   M.layout.active_type = self.term_type
 
-  -- AUTO-RESTORE: When you close the terminal, restore the editor size instantly
-  vim.api.nvim_create_autocmd("WinClosed", {
-    pattern = tostring(M.layout.container_win),
-    callback = function()
-      if M._original_cmdheight then
-        vim.o.cmdheight = M._original_cmdheight
-      end
-    end,
-    once = true,
-  })
-  -- =========================================================================
+  -- 4. NVIM-TREE PROTECTION: Tell nvim-tree's routing logic to completely ignore this window.
+  -- DO NOT use winfixbuf here, as winfixbuf causes nvim-tree to panic.
+  vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
 
-  -- Apply standard layout protections
+  -- Standard window styling
   vim.w[M.layout.container_win].pio_managed = true
   vim.wo[M.layout.container_win].winfixheight = true
   vim.wo[M.layout.container_win].number = false
@@ -359,6 +340,27 @@ function Terminal:on_open()
   vim.wo[M.layout.container_win].signcolumn = 'no'
 
   self:_register_viewport_mappings()
+
+  -- 5. THE DELAYED SHIELD: Defeat "lazy" plugins (like Edgy.nvim) that wait 
+  -- a few milliseconds before hijacking the terminal into a vertical column.
+  vim.schedule(function()
+    if vim.api.nvim_win_is_valid(M.layout.container_win) then
+      local restore_win = vim.api.nvim_get_current_win()
+      vim.api.nvim_set_current_win(M.layout.container_win)
+
+      -- Re-assert absolute bottom positioning
+      vim.cmd('wincmd J')
+      vim.api.nvim_win_set_height(M.layout.container_win, target_height)
+
+      -- If focus shouldn't be in the terminal, restore it
+      if restore_win ~= M.layout.container_win and vim.api.nvim_win_is_valid(restore_win) then
+        vim.api.nvim_set_current_win(restore_win)
+      end
+    end
+  end)
+
+  -- 6. Return focus to your code so your cursor is safe
+  vim.api.nvim_set_current_win(current_win)
 end
 
 -- floating
