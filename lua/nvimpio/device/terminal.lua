@@ -234,16 +234,14 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a full-width floating terminal at the absolute bottom of the screen.
---- Dynamically shrinks code windows to prevent text covering and cursor pass-through,
---- while completely bypassing nvim-tree's horizontal-split panic (no 3-column bugs).
+--- Opens a full-width floating terminal locked to the absolute bottom screen edge,
+--- completely bypassing command-line height inflation and nvim-tree column bugs.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local total_width = vim.o.columns
   local total_lines = vim.o.lines
-  local cmd_height = vim.o.cmdheight
-  local total_float_height = target_height + 2 -- Accounts for 'single' border lines
+  local total_float_height = target_height + 2 -- Accounts for top and bottom borders
 
   -- 1. CLEANUP: Close any existing ghost instances of this terminal
   for _, win in ipairs(vim.api.nvim_list_wins()) do
@@ -270,8 +268,7 @@ function Terminal:on_open()
     code_win = vim.api.nvim_get_current_win()
   end
 
-  -- 3. DYNAMICALLY SHRINK CODE WINDOW HEIGHT 
-  -- This prevents text from being hidden at EOF and stops the cursor from passing through.
+  -- 3. DYNAMICALLY SHRINK CODE WINDOW HEIGHT (Prevents text covering & cursor pass-through)
   M.layout._shrunk_code_win = nil
   M.layout._original_code_height = nil
   if code_win and vim.api.nvim_win_is_valid(code_win) then
@@ -283,8 +280,8 @@ function Terminal:on_open()
     end
   end
 
-  -- 4. PERFECT MATHEMATICAL POSITIONING (Zero gaps, leaves command line visible)
-  local row_pos = total_lines - total_float_height - cmd_height
+  -- 4. ABSOLUTE BOTTOM EDGE POSITIONING (Zero gaps, zero middle-screen jumping)
+  local row_pos = total_lines - total_float_height
   local col_pos = 0
 
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
