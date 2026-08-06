@@ -348,53 +348,25 @@ function Terminal:on_open()
   -- 2. RESOLVE CODE WINDOW
   local code_win = find_best_code_window()
   local tree_win = nil
-  local tree_width = 30 -- Default compact width
+
+  -- Locate nvim-tree securely so we can apply max pressure to it later
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      if ft == 'nvim-tree' or ft == 'neo-tree' then
+        tree_win = win
+        break
+      end
+    end
+  end
 
   -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup with only nvim-tree open)
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-      if vim.api.nvim_win_is_valid(win) then
-        local buf = vim.api.nvim_win_get_buf(win)
-        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-        if ft == 'nvim-tree' or ft == 'neo-tree' then
-          tree_win = win
-          local current_width = vim.api.nvim_win_get_width(win)
-
-          -- THE FIX: Only capture the width if it's already a compact sidebar.
-          -- If it's stretched across the screen, ignore it and force 30 columns.
-          if current_width < (vim.o.columns * 0.4) then
-            tree_width = current_width
-          end
-          break
-        end
-      end
-    end
-
-    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      vim.api.nvim_set_current_win(tree_win)
-      vim.cmd('botright vnew')
-      code_win = vim.api.nvim_get_current_win()
-      
-      -- Instantly squash nvim-tree back to the left side
-      pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
-    else
-      vim.cmd('botright vnew')
-      code_win = vim.api.nvim_get_current_win()
-    end
-
-    -- Create a clean, listed, unnamed normal buffer so nvim-tree seamlessly reuses it
-    local scratch_buf = vim.api.nvim_create_buf(true, false)
-    vim.api.nvim_win_set_buf(code_win, scratch_buf)
-    vim.bo[scratch_buf].buflisted = true
-    vim.bo[scratch_buf].buftype = ''
-  end
-
-  -- Absolute safety check: ensure code_win is never nvim-tree itself
-  local check_buf = vim.api.nvim_win_get_buf(code_win)
-  local check_ft = vim.api.nvim_get_option_value('filetype', { buf = check_buf })
-  if check_ft == 'nvim-tree' or check_ft == 'neo-tree' then
     vim.cmd('botright vnew')
     code_win = vim.api.nvim_get_current_win()
+
+    -- Create a clean, listed, unnamed normal buffer so nvim-tree seamlessly reuses it
     local scratch_buf = vim.api.nvim_create_buf(true, false)
     vim.api.nvim_win_set_buf(code_win, scratch_buf)
     vim.bo[scratch_buf].buflisted = true
@@ -426,11 +398,20 @@ function Terminal:on_open()
   -- Restore original balancing setting safely
   vim.o.equalalways = saved_ea
 
-  -- THE "LAST WORD": Final lock to guarantee the layout shapes are perfectly set
+  -- 6. THE "LAST WORD": Combo-Lock the Layout
   vim.schedule(function()
+    -- Lock the tree to exactly 30 columns
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
+      pcall(vim.api.nvim_win_set_width, tree_win, 30)
     end
+    
+    -- Apply MAX PRESSURE: Tell Neovim to make the code window as wide as mathematically 
+    -- possible, physically crushing the sidebar back to the left edge to cure the 50/50 split.
+    if code_win and vim.api.nvim_win_is_valid(code_win) then
+      pcall(vim.api.nvim_win_set_width, code_win, 99999)
+    end
+    
+    -- Final confirmation lock on the terminal height
     if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
       pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
     end
