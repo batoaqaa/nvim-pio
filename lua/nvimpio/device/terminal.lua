@@ -344,8 +344,7 @@ function Terminal:on_open()
     end
   end
 
-  -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup with only nvim-tree open),
-  -- create a clean vertical split from nvim-tree first so we never split nvim-tree horizontally.
+  -- 3. BOOTSTRAP: If no valid code window exists, create a clean vertical split from nvim-tree first
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
     local tree_win = nil
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -364,7 +363,6 @@ function Terminal:on_open()
       vim.cmd('vsplit')
       code_win = vim.api.nvim_get_current_win()
       
-      -- CRITICAL FIX: Create a fully listed, normal buffer so nvim-tree seamlessly reuses it
       local scratch_buf = vim.api.nvim_create_buf(true, false)
       vim.api.nvim_win_set_buf(code_win, scratch_buf)
       vim.bo[scratch_buf].buflisted = true
@@ -374,7 +372,7 @@ function Terminal:on_open()
     end
   end
 
-  -- Final absolute safety check: ensure code_win is never nvim-tree itself
+  -- Ensure code_win is never nvim-tree itself
   local check_buf = vim.api.nvim_win_get_buf(code_win)
   local check_ft = vim.api.nvim_get_option_value('filetype', { buf = check_buf })
   if check_ft == 'nvim-tree' or check_ft == 'neo-tree' then
@@ -402,6 +400,11 @@ function Terminal:on_open()
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+
+  -- Return focus smoothly to the code window above so it remains the active target
+  if code_win and vim.api.nvim_win_is_valid(code_win) then
+    vim.api.nvim_set_current_win(code_win)
+  end
 
   self:_register_viewport_mappings()
 end
