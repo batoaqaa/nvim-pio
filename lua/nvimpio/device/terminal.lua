@@ -324,7 +324,7 @@ function Terminal:on_open()
     end
   end
 
-  -- 2. BOOTSTRAP: If only nvim-tree is open, create a safe code window next to it first
+  -- 2. BOOTSTRAP: If only nvim-tree is open, create a reusable normal code window next to it first
   if not code_win then
     local tree_win = nil
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -343,12 +343,10 @@ function Terminal:on_open()
       vim.cmd('vsplit')
       code_win = vim.api.nvim_get_current_win()
       
-      local scratch_buf = vim.api.nvim_create_buf(false, true)
-      pcall(vim.api.nvim_buf_set_name, scratch_buf, "pio_scratch")
+      -- Create a normal empty buffer (buftype = '') so nvim-tree seamlessly reuses this window on file open
+      local scratch_buf = vim.api.nvim_create_buf(true, false)
       vim.api.nvim_win_set_buf(code_win, scratch_buf)
-      vim.bo[scratch_buf].buftype = 'nofile'
-      vim.bo[scratch_buf].bufhidden = 'wipe'
-      vim.bo[scratch_buf].swapfile = false
+      vim.bo[scratch_buf].buflisted = false
     else
       code_win = vim.api.nvim_get_current_win()
     end
