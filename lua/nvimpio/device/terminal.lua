@@ -137,7 +137,7 @@ function M.RestoreWorkspaceFocus()
   end
 end
 
---- Internal helper to locate a safe code window in the right-hand column (col > 0)
+--- Internal helper to locate a safe code window securely by filetype
 ---@return integer|nil
 local function find_best_code_window()
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -145,17 +145,15 @@ local function find_best_code_window()
       local buf = vim.api.nvim_win_get_buf(win)
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local win_type = vim.fn.win_gettype(win)
-      local pos = vim.api.nvim_win_get_position(win)
-      local col = pos[2]
 
-      if win_type == ''
-         and col > 0
-         and ft ~= 'nvim-tree'
-         and ft ~= 'neo-tree'
-         and ft ~= 'oil'
-         and ft ~= 'aerial'
-         and ft ~= 'pio_terminal'
-         and not ft:match('^terminal_')
+      -- Strictly filter to guarantee we NEVER pick sidebars or terminals
+      if win_type == '' 
+         and ft ~= 'nvim-tree' 
+         and ft ~= 'neo-tree' 
+         and ft ~= 'oil' 
+         and ft ~= 'aerial' 
+         and ft ~= 'pio_terminal' 
+         and not ft:match('^terminal_') 
          and not ft:match('^pio_pane_') then
         return win
       end
@@ -163,7 +161,6 @@ local function find_best_code_window()
   end
   return nil
 end
-
 ----------------------------------------------------------------------------------------
 -- HIGH-PERFORMANCE OBJECT-ORIENTED TERMINAL SPECIFICATION
 ----------------------------------------------------------------------------------------
@@ -306,30 +303,6 @@ function Terminal:on_exit()
   M.UpdateWinbarTitles()
 end
 
---- Internal helper to locate a safe code window securely by filetype
----@return integer|nil
-local function find_best_code_window()
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_is_valid(win) then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      local win_type = vim.fn.win_gettype(win)
-
-      -- Strictly filter to guarantee we NEVER pick sidebars or terminals
-      if win_type == '' 
-         and ft ~= 'nvim-tree' 
-         and ft ~= 'neo-tree' 
-         and ft ~= 'oil' 
-         and ft ~= 'aerial' 
-         and ft ~= 'pio_terminal' 
-         and not ft:match('^terminal_') 
-         and not ft:match('^pio_pane_') then
-        return win
-      end
-    end
-  end
-  return nil
-end
 
 --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
@@ -337,7 +310,7 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- 1. PERSISTENT REUSE: If container window is valid, simply swap buffer securely
+  -- 1. PERSISTENT REUSE
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
     M.layout.active_type = self.term_type
@@ -345,6 +318,10 @@ function Terminal:on_open()
     M.UpdateWinbarTitles()
     return
   end
+
+  -- Disable auto-balancing safely
+  local saved_ea = vim.o.equalalways
+  vim.o.equalalways = false
 
   -- 2. RESOLVE WINDOWS
   local code_win = find_best_code_window()
@@ -367,14 +344,19 @@ function Terminal:on_open()
     end
   end
 
-  -- 3. BOOTSTRAP CODE WINDOW
+  -- 3. BOOTSTRAP CODE WINDOW (Direct Sibling to nvim-tree)
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    -- Safely open a native new window to the far right
-    vim.cmd('botright vnew')
-    code_win = vim.api.nvim_get_current_win()
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      vim.api.nvim_set_current_win(tree_win)
+      vim.cmd('rightbelow vnew')
+      code_win = vim.api.nvim_get_current_win()
+    else
+      vim.cmd('vnew')
+      code_win = vim.api.nvim_get_current_win()
+    end
   end
 
-  -- CRITICAL: Prevent the 3-column bug by guaranteeing the code buffer is listed and normal
+  -- CRITICAL: Prevent the 3-column bug by making sure this buffer is standard and listed
   local code_buf = vim.api.nvim_win_get_buf(code_win)
   if vim.api.nvim_buf_is_valid(code_buf) then
     vim.bo[code_buf].buflisted = true
@@ -388,7 +370,7 @@ function Terminal:on_open()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  -- 5. CONFIGURE TERMINAL OPTIONS
+  -- 5. LATCH GEOMETRY & OPTIONS
   vim.w[M.layout.container_win].pio_managed = true
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
@@ -397,37 +379,30 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- Return focus to the code window initially
+  -- Return focus to the code window explicitly. 
+  -- This solidifies the "previous window" history so nvim-tree seamlessly finds it.
   if code_win and vim.api.nvim_win_is_valid(code_win) then
     vim.api.nvim_set_current_win(code_win)
   end
 
-  -- 6. ABSOLUTE RESIZE ENFORCEMENT (The Final Say)
-  -- By using native Ex resize commands on the next tick, we simulate human dragging.
-  -- Neovim's layout engine CANNOT override this because we are executing it 
-  -- after all auto-balancing processes have finished.
+  -- 6. SILENT RESIZE (Fixes 50/50 split AND prevents history destruction)
   vim.schedule(function()
-    -- Lock Nvim-Tree width perfectly
+    -- Lock Nvim-Tree width securely in the background without shifting focus
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      vim.api.nvim_set_current_win(tree_win)
-      vim.cmd('vertical resize ' .. tree_width)
-      vim.api.nvim_set_option_value('winfixwidth', true, { scope = 'local', win = tree_win })
+      pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
+      pcall(vim.api.nvim_set_option_value, 'winfixwidth', true, { scope = 'local', win = tree_win })
     end
 
-    -- Lock Terminal height perfectly
+    -- Lock Terminal height securely in the background without shifting focus
     if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-      vim.api.nvim_set_current_win(M.layout.container_win)
-      vim.cmd('resize ' .. target_height)
-      vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+      pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+      pcall(vim.api.nvim_set_option_value, 'winfixheight', true, { scope = 'local', win = M.layout.container_win })
     end
 
-    -- Finish gracefully by snapping the cursor directly back to the code window
-    if code_win and vim.api.nvim_win_is_valid(code_win) then
-      vim.api.nvim_set_current_win(code_win)
-    end
+    -- Restore equalalways only after our manual dimensions are fully set
+    vim.o.equalalways = saved_ea
   end)
 end
-
 
 
 
