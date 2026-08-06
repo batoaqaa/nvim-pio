@@ -341,6 +341,11 @@ function Terminal:on_open()
     return
   end
 
+  -- CRITICAL FIX: Temporarily disable Neovim's auto-balancing to stop it 
+  -- from forcing 50/50 splits every time we open a window.
+  local saved_ea = vim.o.equalalways
+  vim.o.equalalways = false
+
   -- 2. RESOLVE CODE WINDOW
   local code_win = find_best_code_window()
 
@@ -363,32 +368,28 @@ function Terminal:on_open()
 
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
       vim.api.nvim_set_current_win(tree_win)
-      vim.cmd('vsplit')
+      vim.cmd('rightbelow vnew') -- Split specifically to the right of the tree
       code_win = vim.api.nvim_get_current_win()
       
-      -- CRITICAL: Immediately restore nvim-tree width so it doesn't stay at 50%
+      -- Lock nvim-tree back to its exact width instantly
       pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
-
-      -- Create a clean, listed, unnamed normal buffer so nvim-tree seamlessly reuses it on file open
-      local scratch_buf = vim.api.nvim_create_buf(true, false)
-      vim.api.nvim_win_set_buf(code_win, scratch_buf)
-      vim.bo[scratch_buf].buflisted = true
-      vim.bo[scratch_buf].buftype = ''
     else
-      vim.cmd('vnew')
+      vim.cmd('botright vnew')
       code_win = vim.api.nvim_get_current_win()
-      local scratch_buf = vim.api.nvim_create_buf(true, false)
-      vim.api.nvim_win_set_buf(code_win, scratch_buf)
-      vim.bo[scratch_buf].buflisted = true
-      vim.bo[scratch_buf].buftype = ''
     end
+
+    -- Create a clean, listed, unnamed normal buffer so nvim-tree seamlessly reuses it
+    local scratch_buf = vim.api.nvim_create_buf(true, false)
+    vim.api.nvim_win_set_buf(code_win, scratch_buf)
+    vim.bo[scratch_buf].buflisted = true
+    vim.bo[scratch_buf].buftype = ''
   end
 
   -- Absolute safety check: ensure code_win is never nvim-tree itself
   local check_buf = vim.api.nvim_win_get_buf(code_win)
   local check_ft = vim.api.nvim_get_option_value('filetype', { buf = check_buf })
   if check_ft == 'nvim-tree' or check_ft == 'neo-tree' then
-    vim.cmd('vnew')
+    vim.cmd('botright vnew')
     code_win = vim.api.nvim_get_current_win()
     local scratch_buf = vim.api.nvim_create_buf(true, false)
     vim.api.nvim_win_set_buf(code_win, scratch_buf)
@@ -399,6 +400,10 @@ function Terminal:on_open()
   -- 4. OPEN PERMANENT CONTAINER WINDOW STRICTLY BELOW CODE WINDOW
   vim.api.nvim_set_current_win(code_win)
   vim.cmd('belowright ' .. target_height .. 'split')
+  
+  -- Restore Neovim's auto-balancing NOW, only after all splits are finished
+  vim.o.equalalways = saved_ea
+
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
