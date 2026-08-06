@@ -104,9 +104,6 @@ function M.UpdateWinbarTitles()
   )
 end
 
-
-
-
 --- Dynamic Workspace Tree Focus Router Matrix
 ---@return nil
 function M.RestoreWorkspaceFocus()
@@ -121,7 +118,6 @@ function M.RestoreWorkspaceFocus()
         ft ~= 'pio_terminal'
         and win_type == ''
         and ft ~= 'neo-tree'
-        and ft ~= 'nvim-tree' -- Added to prevent focusing the sidebar on close
         and ft ~= 'oil'
         and ft ~= 'aerial'
         and ft ~= 'pio_workspace'
@@ -133,31 +129,6 @@ function M.RestoreWorkspaceFocus()
 
   if target_win then vim.api.nvim_set_current_win(target_win) end
 end
--- --- Dynamic Workspace Tree Focus Router Matrix
--- ---@return nil
--- function M.RestoreWorkspaceFocus()
---   local target_win = nil
---   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
---     if vim.api.nvim_win_is_valid(win) then
---       local buf = vim.api.nvim_win_get_buf(win)
---       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
---       local win_type = vim.fn.win_gettype(win)
---
---       if
---         ft ~= 'pio_terminal'
---         and win_type == ''
---         and ft ~= 'neo-tree'
---         and ft ~= 'oil'
---         and ft ~= 'aerial'
---         and ft ~= 'pio_workspace'
---         and not ft:match('^terminal_')
---       then target_win = win break
---       end
---     end
---   end
---
---   if target_win then vim.api.nvim_set_current_win(target_win) end
--- end
 
 -- nvimpio/device/terminal.lua - Part 2
 
@@ -204,24 +175,24 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   return self
 end
 
-
-
---- Instantiates a pure, untainted native Neovim scratch buffer with event shielding
+--- Instantiates a pure, untainted native Neovim scratch buffer and encapsulates its termopen execution logic securely
 ---@return nil
 function Terminal:on_create()
+  -- 1. Create a pristine unlisted scratch buffer
   self.buf = vim.api.nvim_create_buf(false, true)
 
   local target_shell = M.config.shell or native_shell
+
+  -- If a custom shell object `{ program = '...' }` is provided, unpack it properly;
+  -- otherwise, preserve raw string or table array ({ 'pwsh.exe', ... }) as-is.
   if type(target_shell) == 'table' and target_shell.program then
     target_shell = target_shell.program
   end
+  -- if type(target_shell) == 'table' then
+  --   target_shell = target_shell.program or target_shell
+  -- end
 
-  -- =========================================================================
-  -- EVENT SHIELD: Block external framework plugins from hijacking termopen
-  -- =========================================================================
-  local old_ei = vim.o.eventignore
-  vim.o.eventignore = 'TermOpen,TermEnter,BufWinEnter,WinEnter'
-
+  -- 2. Use termopen inside nvim_buf_call to avoid "modified buffer" checks
   vim.api.nvim_buf_call(self.buf, function()
     local channel_id = vim.fn.termopen(target_shell, {
       on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
@@ -232,59 +203,17 @@ function Terminal:on_create()
     self.job = (channel_id and channel_id > 0) and channel_id or nil
   end)
 
-  vim.o.eventignore = old_ei
-  -- =========================================================================
-
+  -- 3. Set filetype & options AFTER terminal channel attaches
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
 
   pcall(function() vim.b[self.buf].bufferline_deny = true end)
+
   vim.b[self.buf].pio_term_type = self.term_type
 
   self:_register_viewport_mappings()
   self:_register_viewport_bindings()
 end
-
-
--- --- Instantiates a pure, untainted native Neovim scratch buffer and encapsulates its termopen execution logic securely
--- ---@return nil
--- function Terminal:on_create()
---   -- 1. Create a pristine unlisted scratch buffer
---   self.buf = vim.api.nvim_create_buf(false, true)
---
---   local target_shell = M.config.shell or native_shell
---
---   -- If a custom shell object `{ program = '...' }` is provided, unpack it properly;
---   -- otherwise, preserve raw string or table array ({ 'pwsh.exe', ... }) as-is.
---   if type(target_shell) == 'table' and target_shell.program then
---     target_shell = target_shell.program
---   end
---   -- if type(target_shell) == 'table' then
---   --   target_shell = target_shell.program or target_shell
---   -- end
---
---   -- 2. Use termopen inside nvim_buf_call to avoid "modified buffer" checks
---   vim.api.nvim_buf_call(self.buf, function()
---     local channel_id = vim.fn.termopen(target_shell, {
---       on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
---       on_stderr = function(j, d, e) self:on_stderr(j, d, e) end,
---       on_exit = function() self:on_exit() end,
---     })
---
---     self.job = (channel_id and channel_id > 0) and channel_id or nil
---   end)
---
---   -- 3. Set filetype & options AFTER terminal channel attaches
---   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
---   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
---
---   pcall(function() vim.b[self.buf].bufferline_deny = true end)
---
---   vim.b[self.buf].pio_term_type = self.term_type
---
---   self:_register_viewport_mappings()
---   self:_register_viewport_bindings()
--- end
 
 -- nvimpio/device/terminal.lua - Part 3
 
@@ -374,225 +303,28 @@ function Terminal:close()
   M.hide()
 end
 
-
---- Opens a local horizontal bottom split with strict event shielding 
---- to permanently stop external plugins from forcing 3-parallel columns.
+--- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- 1. CLEANUP: Close any existing ghost instances of this terminal
-  for _, win in ipairs(vim.api.nvim_list_wins()) do
-    if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == self.buf then
-      vim.api.nvim_win_close(win, true)
-    end
-  end
-
-  -- 2. FIND A VALID CODE WINDOW (Strictly avoiding nvim-tree)
-  local target_win = nil
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_is_valid(win) then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      local win_type = vim.fn.win_gettype(win)
-      if win_type == '' and ft ~= 'nvim-tree' and ft ~= 'neo-tree' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
-        target_win = win
-        break
-      end
-    end
-  end
-
-  if not target_win or not vim.api.nvim_win_is_valid(target_win) then
-    target_win = vim.api.nvim_get_current_win()
-  end
-
-  -- =========================================================================
-  -- 3. EVENT SHIELDED SPLIT: Blind layout-hijacking plugins during split creation
-  -- =========================================================================
-  local old_ei = vim.o.eventignore
-  vim.o.eventignore = 'TermOpen,TermEnter,BufWinEnter,WinEnter,WinNew'
-
-  vim.api.nvim_set_current_win(target_win)
-  vim.cmd('belowright ' .. target_height .. 'split')
-  M.layout.container_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+    split = 'below',
+    win = -1,
+    height = target_height,
+  })
   M.layout.active_type = self.term_type
 
-  vim.o.eventignore = old_ei
-  -- =========================================================================
-
-  -- 4. NVIM-TREE WINDOW PICKER PROTECTION
-  vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
-
-  -- 5. WINDOW OPTIONS SETUP
   vim.w[M.layout.container_win].pio_managed = true
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
 
   self:_register_viewport_mappings()
-
-  -- 6. Return focus smoothly to the code window above
-  vim.cmd('wincmd k')
 end
-
-
--- --flicker
--- --- Opens a native bottom split with a self-healing layout guardian 
--- --- that instantly defeats nvim-tree column traps.
--- ---@return nil
--- function Terminal:on_open()
---   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
---   vim.go.splitkeep = 'screen'
---   local current_win = vim.api.nvim_get_current_win()
---
---   -- 1. CLEANUP: Close any existing ghost instances
---   for _, win in ipairs(vim.api.nvim_list_wins()) do
---     if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == self.buf then
---       vim.api.nvim_win_close(win, true)
---     end
---   end
---
---   -- 2. CREATE SPLIT: Request a full-width bottom root split
---   vim.cmd('botright ' .. target_height .. 'split')
---   M.layout.container_win = vim.api.nvim_get_current_win()
---   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
---
---   -- 3. THE ANCHOR: Force to absolute bottom tree root
---   vim.cmd('wincmd J')
---   vim.api.nvim_win_set_height(M.layout.container_win, target_height)
---   M.layout.active_type = self.term_type
---
---   -- 4. NVIM-TREE PROTECTION
---   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
---
---   -- Window options styling
---   vim.w[M.layout.container_win].pio_managed = true
---   vim.wo[M.layout.container_win].winfixheight = true
---   vim.wo[M.layout.container_win].number = false
---   vim.wo[M.layout.container_win].relativenumber = false
---   vim.wo[M.layout.container_win].signcolumn = 'no'
---
---   self:_register_viewport_mappings()
---
---   -- =========================================================================
---   -- 5. SELF-HEALING LAYOUT GUARDIAN
---   -- If nvim-tree slices the layout into a 3rd column when opening a file,
---   -- this background watcher instantly pulls the terminal back to a 100% full-width bottom split.
---   -- =========================================================================
---   if not M._layout_guardian_auid then
---     M._layout_guardian_auid = vim.api.nvim_create_autocmd({ 'BufWinEnter' }, {
---       callback = function()
---         if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
---           local buf = vim.api.nvim_get_current_buf()
---           local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
---           if ft ~= 'pio_terminal' and not ft:match('^terminal_') and ft ~= 'nvim-tree' then
---             vim.schedule(function()
---               if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
---                 local cur = vim.api.nvim_get_current_win()
---                 if cur ~= M.layout.container_win then
---                   vim.api.nvim_set_current_win(M.layout.container_win)
---                   vim.cmd('wincmd J')
---                   vim.api.nvim_win_set_height(M.layout.container_win, target_height)
---                   if vim.api.nvim_win_is_valid(cur) then
---                     vim.api.nvim_set_current_win(cur)
---                   end
---                 end
---               end
---             end)
---           end
---         end
---       end,
---     })
---   end
---   -- =========================================================================
---
---   -- 6. Return focus to your code window safely
---   vim.api.nvim_set_current_win(current_win)
--- end
-
--- floating
--- --- Opens a floating terminal with a dynamic scrolloff shield.
--- --- Completely ignores nvim-tree columns and physically prevents cursor pass-through.
--- ---@return nil
--- function Terminal:on_open()
---   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
---   local total_width = vim.o.columns
---   local total_lines = vim.o.lines
---
---   -- 1. CREATE A GLOBAL FLOAT: nvim-tree cannot break this because it is not a split.
---   local row_pos = total_lines - target_height - 2
---   local col_pos = 0
---
---   M.layout.container_win = vim.api.nvim_open_win(self.buf, false, {
---     relative = 'editor',
---     width = total_width,
---     height = target_height,
---     row = row_pos,
---     col = col_pos,
---     style = 'minimal',
---     border = 'single',
---     focusable = true,
---     zindex = 50, -- Ensure it sits cleanly on top
---   })
---   M.layout.active_type = self.term_type
---
---   -- =========================================================================
---   -- 2. THE SCROLLOFF SHIELD: Prevents cursor from passing behind the float!
---   -- =========================================================================
---   M._original_scrolloff = vim.o.scrolloff
---
---   -- Force the cursor to stay 'target_height' lines away from the bottom of the screen.
---   -- This creates a solid invisible wall right above the terminal float.
---   vim.o.scrolloff = math.max(vim.o.scrolloff, target_height + 1)
---
---   -- 3. AUTO-RESTORE: When you close the terminal, restore normal scrolling behavior
---   vim.api.nvim_create_autocmd("WinClosed", {
---     pattern = tostring(M.layout.container_win),
---     callback = function()
---       if M._original_scrolloff then
---         vim.o.scrolloff = M._original_scrolloff
---       end
---     end,
---     once = true,
---   })
---   -- =========================================================================
---
---   -- 4. Apply standard layout protections
---   vim.w[M.layout.container_win].pio_managed = true
---   vim.wo[M.layout.container_win].winfixheight = true
---   vim.wo[M.layout.container_win].number = false
---   vim.wo[M.layout.container_win].relativenumber = false
---   vim.wo[M.layout.container_win].signcolumn = 'no'
---
---   self:_register_viewport_mappings()
--- end
-
-
--- --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
--- ---@return nil
--- function Terminal:on_open()
---   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
---   vim.go.splitkeep = 'screen'
---
---   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
---     split = 'below',
---     win = -1,
---     height = target_height,
---   })
---   M.layout.active_type = self.term_type
---
---   vim.w[M.layout.container_win].pio_managed = true
---   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
---
---   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
---   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
---   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
---
---   self:_register_viewport_mappings()
--- end
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
