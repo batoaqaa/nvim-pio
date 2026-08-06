@@ -303,46 +303,63 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a clean horizontal bottom split beneath the active code window
---- using Neovim's native split API, eliminating vertical columns, flicker, and git crashes.
+
+--- Opens a clean bottom split, automatically bootstrapping a scratch code window 
+--- if none exists, preventing nvim-tree from panicking into a 3-parallel vertical split.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- 1. CLEANUP: Close any existing ghost instances of this terminal window
+  -- 1. CLEANUP: Close any existing ghost terminal instances
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == self.buf then
       vim.api.nvim_win_close(win, true)
     end
   end
 
-  -- 2. FIND A VALID CODE WINDOW TO SPLIT FROM
-  local target_win = vim.api.nvim_get_current_win()
-  local current_buf = vim.api.nvim_win_get_buf(target_win)
-  local current_ft = vim.api.nvim_get_option_value('filetype', { buf = current_buf })
+  -- 2. FIND OR BOOTSTRAP A VALID CODE WINDOW
+  local target_win = nil
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local win_type = vim.fn.win_gettype(win)
+      if win_type == '' and ft ~= 'nvim-tree' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
+        target_win = win
+        break
+      end
+    end
+  end
 
-  if current_ft == 'nvim-tree' or current_ft:match('^terminal_') or current_ft == 'pio_terminal' then
+  -- If no code window exists (e.g., only nvim-tree is open), bootstrap one via vsplit
+  if not target_win then
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
       if vim.api.nvim_win_is_valid(win) then
         local buf = vim.api.nvim_win_get_buf(win)
         local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-        local win_type = vim.fn.win_gettype(win)
-        if win_type == '' and ft ~= 'nvim-tree' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
-          target_win = win
+        if ft == 'nvim-tree' then
+          vim.api.nvim_set_current_win(win)
+          vim.cmd('vsplit')
+          target_win = vim.api.nvim_get_current_win()
+          
+          -- Set up a clean empty scratch buffer so nvim-tree has an immediate target
+          local scratch_buf = vim.api.nvim_create_buf(false, true)
+          vim.api.nvim_win_set_buf(target_win, scratch_buf)
+          vim.bo[scratch_buf].buftype = 'nofile'
+          vim.bo[scratch_buf].bufhidden = 'wipe'
+          vim.bo[scratch_buf].swapfile = false
           break
         end
       end
     end
   end
 
-  if vim.api.nvim_win_is_valid(target_win) then
+  if target_win and vim.api.nvim_win_is_valid(target_win) then
     vim.api.nvim_set_current_win(target_win)
   end
 
-  -- 3. CREATE NATIVE HORIZONTAL SPLIT BELOW CURRENT WINDOW
-  -- This guarantees a horizontal bottom split inside the code column 
-  -- without touching nvim-tree's global layout structure.
+  -- 3. CREATE NATIVE HORIZONTAL SPLIT BELOW THE CODE WINDOW
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
     win = 0,
@@ -350,7 +367,7 @@ function Terminal:on_open()
   })
   M.layout.active_type = self.term_type
 
-  -- 4. NVIM-TREE WINDOW PICKER PROTECTION
+  -- 4. NVIM-TREE PROTECTION
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
 
   -- 5. WINDOW OPTIONS SETUP
@@ -362,10 +379,9 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- 6. Return focus back to your code window safely
+  -- 6. Return focus back to the code/scratch window safely
   vim.cmd('wincmd p')
 end
-
 
 
 
