@@ -303,64 +303,102 @@ function Terminal:close()
   M.hide()
 end
 
-
-
--- floating
---- Opens a floating terminal with a dynamic scrolloff shield.
---- Completely ignores nvim-tree columns and physically prevents cursor pass-through.
+--- Opens a true native bottom split using Neovim's window split API.
+--- Physically pushes code up so nothing is covered and cursor cannot pass through.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  local total_width = vim.o.columns
-  local total_lines = vim.o.lines
+  vim.go.splitkeep = 'screen'
 
-  -- 1. CREATE A GLOBAL FLOAT: nvim-tree cannot break this because it is not a split.
-  local row_pos = total_lines - target_height - 2
-  local col_pos = 0
+  -- 1. CLEANUP: Close any existing ghost instances of this terminal
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == self.buf then
+      vim.api.nvim_win_close(win, true)
+    end
+  end
 
-  M.layout.container_win = vim.api.nvim_open_win(self.buf, false, {
-    relative = 'editor',
-    width = total_width,
+  -- 2. CREATE A NATIVE BOTTOM SPLIT VIA API
+  -- 'split = "below"' creates a true horizontal split beneath your current code window
+  -- without triggering nvim-tree's global layout panic (preventing the 3-column bug).
+  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+    split = 'below',
+    win = -1,
     height = target_height,
-    row = row_pos,
-    col = col_pos,
-    style = 'minimal',
-    border = 'single',
-    focusable = true,
-    zindex = 50, -- Ensure it sits cleanly on top
   })
   M.layout.active_type = self.term_type
 
-  -- =========================================================================
-  -- 2. THE SCROLLOFF SHIELD: Prevents cursor from passing behind the float!
-  -- =========================================================================
-  M._original_scrolloff = vim.o.scrolloff
+  -- 3. NVIM-TREE PROTECTION: Tell window-pickers to skip this panel
+  vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
 
-  -- Force the cursor to stay 'target_height' lines away from the bottom of the screen.
-  -- This creates a solid invisible wall right above the terminal float.
-  vim.o.scrolloff = math.max(vim.o.scrolloff, target_height + 1)
-
-  -- 3. AUTO-RESTORE: When you close the terminal, restore normal scrolling behavior
-  vim.api.nvim_create_autocmd("WinClosed", {
-    pattern = tostring(M.layout.container_win),
-    callback = function()
-      if M._original_scrolloff then
-        vim.o.scrolloff = M._original_scrolloff
-      end
-    end,
-    once = true,
-  })
-  -- =========================================================================
-
-  -- 4. Apply standard layout protections
+  -- 4. WINDOW OPTIONS SETUP
   vim.w[M.layout.container_win].pio_managed = true
-  vim.wo[M.layout.container_win].winfixheight = true
-  vim.wo[M.layout.container_win].number = false
-  vim.wo[M.layout.container_win].relativenumber = false
-  vim.wo[M.layout.container_win].signcolumn = 'no'
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
 
   self:_register_viewport_mappings()
+
+  -- 5. Return focus back to your code window so you stay in your file
+  vim.cmd('wincmd p')
 end
+
+-- floating
+-- --- Opens a floating terminal with a dynamic scrolloff shield.
+-- --- Completely ignores nvim-tree columns and physically prevents cursor pass-through.
+-- ---@return nil
+-- function Terminal:on_open()
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+--   local total_width = vim.o.columns
+--   local total_lines = vim.o.lines
+--
+--   -- 1. CREATE A GLOBAL FLOAT: nvim-tree cannot break this because it is not a split.
+--   local row_pos = total_lines - target_height - 2
+--   local col_pos = 0
+--
+--   M.layout.container_win = vim.api.nvim_open_win(self.buf, false, {
+--     relative = 'editor',
+--     width = total_width,
+--     height = target_height,
+--     row = row_pos,
+--     col = col_pos,
+--     style = 'minimal',
+--     border = 'single',
+--     focusable = true,
+--     zindex = 50, -- Ensure it sits cleanly on top
+--   })
+--   M.layout.active_type = self.term_type
+--
+--   -- =========================================================================
+--   -- 2. THE SCROLLOFF SHIELD: Prevents cursor from passing behind the float!
+--   -- =========================================================================
+--   M._original_scrolloff = vim.o.scrolloff
+--
+--   -- Force the cursor to stay 'target_height' lines away from the bottom of the screen.
+--   -- This creates a solid invisible wall right above the terminal float.
+--   vim.o.scrolloff = math.max(vim.o.scrolloff, target_height + 1)
+--
+--   -- 3. AUTO-RESTORE: When you close the terminal, restore normal scrolling behavior
+--   vim.api.nvim_create_autocmd("WinClosed", {
+--     pattern = tostring(M.layout.container_win),
+--     callback = function()
+--       if M._original_scrolloff then
+--         vim.o.scrolloff = M._original_scrolloff
+--       end
+--     end,
+--     once = true,
+--   })
+--   -- =========================================================================
+--
+--   -- 4. Apply standard layout protections
+--   vim.w[M.layout.container_win].pio_managed = true
+--   vim.wo[M.layout.container_win].winfixheight = true
+--   vim.wo[M.layout.container_win].number = false
+--   vim.wo[M.layout.container_win].relativenumber = false
+--   vim.wo[M.layout.container_win].signcolumn = 'no'
+--
+--   self:_register_viewport_mappings()
+-- end
 
 
 -- --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
