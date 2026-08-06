@@ -348,14 +348,19 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- 1. FIND A VALID CODE WINDOW (Strictly avoiding sidebars like nvim-tree)
+  -- 1. FIND A VALID CODE WINDOW (Must be a normal window with col > 0, strictly avoiding nvim-tree)
   local code_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local win_type = vim.fn.win_gettype(win)
+      local pos = vim.api.nvim_win_get_position(win)
+      local col = pos[2]
+
+      -- Crucial: col > 0 guarantees it's in the right-hand editor pane, never nvim-tree at col 0
       if win_type == '' 
+         and col > 0 
          and ft ~= 'nvim-tree' 
          and ft ~= 'neo-tree' 
          and ft ~= 'oil' 
@@ -389,8 +394,6 @@ function Terminal:on_open()
       vim.cmd('vsplit')
       code_win = vim.api.nvim_get_current_win()
       
-      -- CRITICAL FIX: Create a completely UNNAMED normal buffer so nvim-tree 
-      -- considers it an empty window and seamlessly reuses it when opening a file.
       local scratch_buf = vim.api.nvim_create_buf(true, false)
       vim.api.nvim_win_set_buf(code_win, scratch_buf)
       vim.bo[scratch_buf].buflisted = false
@@ -427,7 +430,6 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 end
-
 
 
 -- --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
