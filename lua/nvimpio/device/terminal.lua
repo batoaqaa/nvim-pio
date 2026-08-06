@@ -326,31 +326,6 @@ function Terminal:close()
   M.hide()
 end
 
---- Internal helper to locate a safe code window securely by filetype
----@return integer|nil
-local function find_best_code_window()
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_is_valid(win) then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      local win_type = vim.fn.win_gettype(win)
-
-      -- Strictly filter to guarantee we NEVER pick sidebars or terminals
-      if win_type == '' 
-         and ft ~= 'nvim-tree' 
-         and ft ~= 'neo-tree' 
-         and ft ~= 'oil' 
-         and ft ~= 'aerial' 
-         and ft ~= 'pio_terminal' 
-         and not ft:match('^terminal_') 
-         and not ft:match('^pio_pane_') then
-        return win
-      end
-    end
-  end
-  return nil
-end
-
 --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
 function Terminal:on_open()
@@ -373,7 +348,7 @@ function Terminal:on_open()
   -- 2. RESOLVE WINDOWS
   local code_win = find_best_code_window()
   local tree_win = nil
-  local tree_width = 30 -- Default fallback width
+  local tree_width = 30
 
   -- Locate nvim-tree securely and grab its true width
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -383,7 +358,6 @@ function Terminal:on_open()
       if ft == 'nvim-tree' or ft == 'neo-tree' then
         tree_win = win
         local current_w = vim.api.nvim_win_get_width(win)
-        -- Only inherit the width if it's acting like a compact sidebar (not stretched 100%)
         if current_w < (vim.o.columns * 0.4) then
           tree_width = current_w
         end
@@ -398,10 +372,15 @@ function Terminal:on_open()
       vim.api.nvim_set_current_win(tree_win)
     end
     
-    -- PURE NATIVE SPLIT: Do NOT manually inject buffers. Let Neovim generate 
-    -- its native empty buffer so nvim-tree securely reuses it on file open.
     vim.cmd('vnew')
     code_win = vim.api.nvim_get_current_win()
+  end
+
+  -- CRITICAL FIX: Force the code buffer to be listed and normal so nvim-tree seamlessly reuses it
+  local code_buf = vim.api.nvim_win_get_buf(code_win)
+  if vim.api.nvim_buf_is_valid(code_buf) then
+    vim.bo[code_buf].buflisted = true
+    vim.bo[code_buf].buftype = ''
   end
 
   -- 4. OPEN TERMINAL CONTAINER
@@ -421,7 +400,7 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- Restore auto-balancing BEFORE our final lock, so our explicit dimensions get the final say
+  -- Restore auto-balancing BEFORE our final lock
   vim.o.equalalways = saved_ea
 
   -- Focus code window so nvim-tree defaults to this target when opening files
@@ -431,12 +410,10 @@ function Terminal:on_open()
 
   -- 6. THE "LAST WORD": Softly snap dimensions into place
   vim.schedule(function()
-    -- Gently restore nvim-tree exactly back to its compact size
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
       pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
     end
     
-    -- Guarantee the terminal stays at the requested panel height
     if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
       pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
     end
