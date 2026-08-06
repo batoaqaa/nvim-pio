@@ -303,13 +303,13 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a clean bottom split that perfectly coexists with nvim-tree
+--- Opens a clean bottom split that perfectly coexists with nvim-tree and file routing
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local current_win = vim.api.nvim_get_current_win()
 
-  -- 1. Clean up any stuck terminal windows from previous toggles
+  -- 1. Clean up any stuck terminal windows
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == self.buf then
       vim.api.nvim_win_close(win, true)
@@ -318,22 +318,19 @@ function Terminal:on_open()
 
   -- 2. CREATE A LOCAL SPLIT
   -- 'belowright' splits horizontally inside the code column ONLY.
-  -- This prevents nvim-tree from detecting a global layout break and panicking.
+  -- This keeps nvim-tree as a full-height sidebar, preventing it from panicking.
   vim.cmd('belowright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  -- 3. EXPLICITLY BLOCK NVIM-TREE
-  -- This strictly tells nvim-tree's internal logic to skip this window
-  -- so it correctly targets your code window instead of creating a 3rd column.
+  -- 3. EXPLICITLY TELL NVIM-TREE TO IGNORE THIS WINDOW
+  -- This ensures nvim-tree routes files to your code window, not the terminal.
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
 
-  -- 4. NATIVE PROTECTIONS
+  -- 4. NATIVE PROTECTIONS (Notice: NO winfixbuf!)
   vim.w[M.layout.container_win].pio_managed = true
   vim.wo[M.layout.container_win].winfixheight = true
-  -- winfixbuf physically stops your cursor from passing into the terminal via 'j'
-  vim.wo[M.layout.container_win].winfixbuf = true
   vim.wo[M.layout.container_win].number = false
   vim.wo[M.layout.container_win].relativenumber = false
   vim.wo[M.layout.container_win].signcolumn = 'no'
