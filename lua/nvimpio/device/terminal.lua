@@ -341,30 +341,38 @@ function Terminal:on_open()
     return
   end
 
-  -- 2. CAPTURE STATE: Turn off equalalways temporarily, and grab nvim-tree's exact width
-  local saved_ea = vim.o.equalalways
-  vim.o.equalalways = false
-
+  -- 2. RESOLVE CODE WINDOW
+  local code_win = find_best_code_window()
   local tree_win = nil
   local tree_width = 30
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_is_valid(win) then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      if ft == 'nvim-tree' or ft == 'neo-tree' then
-        tree_win = win
-        tree_width = vim.api.nvim_win_get_width(win)
-        break
+
+  -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup with only nvim-tree open)
+  if not code_win or not vim.api.nvim_win_is_valid(code_win) then
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_is_valid(win) then
+        local buf = vim.api.nvim_win_get_buf(win)
+        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+        if ft == 'nvim-tree' or ft == 'neo-tree' then
+          tree_win = win
+          tree_width = vim.api.nvim_win_get_width(win) -- Capture original sidebar width
+          break
+        end
       end
     end
-  end
 
-  -- 3. RESOLVE OR BOOTSTRAP CODE WINDOW
-  local code_win = find_best_code_window()
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      -- NATIVE FIX: Lock nvim-tree's width BEFORE splitting so Neovim respects it
+      vim.api.nvim_set_option_value('winfixwidth', true, { scope = 'local', win = tree_win })
+      
+      vim.api.nvim_set_current_win(tree_win)
+      vim.cmd('botright vnew')
+      code_win = vim.api.nvim_get_current_win()
+    else
+      vim.cmd('botright vnew')
+      code_win = vim.api.nvim_get_current_win()
+    end
 
-  if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    vim.cmd('botright vnew')
-    code_win = vim.api.nvim_get_current_win()
+    -- Create a clean, listed, unnamed normal buffer so nvim-tree seamlessly reuses it
     local scratch_buf = vim.api.nvim_create_buf(true, false)
     vim.api.nvim_win_set_buf(code_win, scratch_buf)
     vim.bo[scratch_buf].buflisted = true
@@ -385,27 +393,13 @@ function Terminal:on_open()
 
   -- 4. OPEN TERMINAL CONTAINER
   vim.api.nvim_set_current_win(code_win)
-  vim.cmd('belowright split')
+  vim.cmd('belowright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  -- 5. ENFORCE STRICT GEOMETRY (The "Last Word")
-  -- First, restore equalalways so Neovim gets its recalculation out of its system...
-  vim.o.equalalways = saved_ea
-
-  -- ...THEN immediately override it by forcing the exact height and width we want!
-  
-  -- Force terminal height
-  vim.api.nvim_win_set_height(M.layout.container_win, target_height)
+  -- 5. ENFORCE STRICT GEOMETRY LATCHES
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
-
-  -- Force nvim-tree width back to its compact size
-  if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-    pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
-  end
-
-  -- 6. APPLY OPTIONS
   vim.w[M.layout.container_win].pio_managed = true
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
@@ -418,6 +412,17 @@ function Terminal:on_open()
   if code_win and vim.api.nvim_win_is_valid(code_win) then
     vim.api.nvim_set_current_win(code_win)
   end
+
+  -- THE "LAST WORD": Run on the next Neovim tick to hammer dimensions into place,
+  -- bypassing any rogue autocommands triggered by nvim-tree during the split.
+  vim.schedule(function()
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
+    end
+    if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+      pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+    end
+  end)
 end
 
 
