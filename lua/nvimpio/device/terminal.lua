@@ -378,8 +378,9 @@ function Terminal:on_create()
   self:_register_viewport_bindings()
 end
 
---- Opens a local horizontal bottom split with strict event shielding 
---- to permanently block external plugins from forcing 3-parallel columns.
+--- Opens a local horizontal bottom split strictly scoped to the code window column.
+--- Safely bootstraps a code pane via vertical split if only nvim-tree is open, 
+--- completely preventing sidebar-splitting panics and 3-parallel columns.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
@@ -393,44 +394,65 @@ function Terminal:on_open()
   end
 
   -- 2. FIND A VALID CODE WINDOW (Strictly avoiding nvim-tree/neo-tree)
-  local target_win = nil
+  local code_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local win_type = vim.fn.win_gettype(win)
       if win_type == '' and ft ~= 'nvim-tree' and ft ~= 'neo-tree' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
-        target_win = win
+        code_win = win
         break
       end
     end
   end
 
-  if not target_win or not vim.api.nvim_win_is_valid(target_win) then
-    target_win = vim.api.nvim_get_current_win()
+  -- 3. BOOTSTRAP: If NO code window exists (only nvim-tree is open), 
+  -- create a vertical split from nvim-tree first so we never split the sidebar horizontally.
+  if not code_win then
+    local tree_win = nil
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_is_valid(win) then
+        local buf = vim.api.nvim_win_get_buf(win)
+        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+        if ft == 'nvim-tree' or ft == 'neo-tree' then
+          tree_win = win
+          break
+        end
+      end
+    end
+
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      vim.api.nvim_set_current_win(tree_win)
+      vim.cmd('vsplit')
+      code_win = vim.api.nvim_get_current_win()
+
+      local scratch_buf = vim.api.nvim_create_buf(false, true)
+      pcall(vim.api.nvim_buf_set_name, scratch_buf, "pio_bootstrap_scratch")
+      vim.api.nvim_win_set_buf(code_win, scratch_buf)
+      vim.bo[scratch_buf].buftype = 'nofile'
+      vim.bo[scratch_buf].bufhidden = 'wipe'
+      vim.bo[scratch_buf].swapfile = false
+    else
+      code_win = vim.api.nvim_get_current_win()
+    end
   end
 
-  -- =========================================================================
-  -- 3. EVENT SHIELDED SPLIT: Blind layout managers during window creation
-  -- =========================================================================
-  local old_ei = vim.o.eventignore
-  vim.o.eventignore = 'TermOpen,TermEnter,BufWinEnter,WinEnter,WinNew'
+  -- 4. FOCUS CODE WINDOW AND CREATE LOCAL HORIZONTAL SPLIT BELOW IT
+  -- 'belowright' splits ONLY the code pane. nvim-tree stays full-height and pristine.
+  if code_win and vim.api.nvim_win_is_valid(code_win) then
+    vim.api.nvim_set_current_win(code_win)
+  end
 
-  vim.api.nvim_set_current_win(target_win)
   vim.cmd('belowright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  vim.o.eventignore = old_ei
-  -- =========================================================================
-
-  -- 4. LAYOUT & WINDOW PICKER PROTECTIONS
-  vim.b[self.buf].edgy_disable = true
-  vim.w[M.layout.container_win].edgy_disable = true
+  -- 5. NVIM-TREE WINDOW PICKER PROTECTION
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
 
-  -- 5. WINDOW OPTIONS SETUP
+  -- 6. WINDOW OPTIONS SETUP
   vim.w[M.layout.container_win].pio_managed = true
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
@@ -439,9 +461,11 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- 6. Return focus smoothly to the code window above
+  -- 7. Return focus smoothly to the code window above
   vim.cmd('wincmd k')
 end
+
+
 
 -- --flicker
 -- --- Opens a native bottom split with a self-healing layout guardian 
