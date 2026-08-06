@@ -234,13 +234,14 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a full-width floating terminal locked to the absolute bottom screen edge,
---- completely bypassing command-line height inflation and nvim-tree column bugs.
+--- Opens a full-width floating terminal locked precisely to the bottom screen edge,
+--- spanning the entire screen width underneath nvim-tree without triggering layout bugs.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local total_width = vim.o.columns
   local total_lines = vim.o.lines
+  local cmd_height = vim.o.cmdheight or 1
   local total_float_height = target_height + 2 -- Accounts for top and bottom borders
 
   -- 1. CLEANUP: Close any existing ghost instances of this terminal
@@ -250,38 +251,10 @@ function Terminal:on_open()
     end
   end
 
-  -- 2. FIND THE ACTIVE CODE WINDOW TO SHRINK
-  local code_win = nil
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_is_valid(win) then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      local win_type = vim.fn.win_gettype(win)
-      if win_type == '' and ft ~= 'nvim-tree' and ft ~= 'neo-tree' and ft ~= 'pio_panel' and not ft:match('^pio_pane_') then
-        code_win = win
-        break
-      end
-    end
-  end
-
-  if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    code_win = vim.api.nvim_get_current_win()
-  end
-
-  -- 3. DYNAMICALLY SHRINK CODE WINDOW HEIGHT (Prevents text covering & cursor pass-through)
-  M.layout._shrunk_code_win = nil
-  M.layout._original_code_height = nil
-  if code_win and vim.api.nvim_win_is_valid(code_win) then
-    local current_height = vim.api.nvim_win_get_height(code_win)
-    if current_height > total_float_height + 3 then
-      M.layout._shrunk_code_win = code_win
-      M.layout._original_code_height = current_height
-      vim.api.nvim_win_set_height(code_win, current_height - total_float_height)
-    end
-  end
-
-  -- 4. ABSOLUTE BOTTOM EDGE POSITIONING (Zero gaps, zero middle-screen jumping)
-  local row_pos = total_lines - total_float_height
+  -- 2. PRECISE BOTTOM-EDGE POSITIONING 
+  -- Subtracts both the float height and the active command-line height from total lines 
+  -- to guarantee it locks to the bottom without triggering command-line expansion.
+  local row_pos = total_lines - total_float_height - cmd_height
   local col_pos = 0
 
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
@@ -297,25 +270,10 @@ function Terminal:on_open()
   })
   M.layout.active_type = self.term_type
 
-  -- 5. PROTECTION & CLOAKING
+  -- 3. PROTECTION & CLOAKING (Completely invisible to nvim-tree window pickers)
   pcall(vim.api.nvim_set_option_value, 'buflisted', false, { buf = self.buf })
   pcall(vim.api.nvim_set_option_value, 'bufhidden', 'hide', { buf = self.buf })
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
-
-  -- 6. AUTO-RESTORE CODE WINDOW HEIGHT ON CLOSE
-  vim.api.nvim_create_autocmd("WinClosed", {
-    pattern = tostring(M.layout.container_win),
-    callback = function()
-      if M.layout._shrunk_code_win and vim.api.nvim_win_is_valid(M.layout._shrunk_code_win) then
-        if M.layout._original_code_height then
-          pcall(vim.api.nvim_win_set_height, M.layout._shrunk_code_win, M.layout._original_code_height)
-        end
-      end
-      M.layout._shrunk_code_win = nil
-      M.layout._original_code_height = nil
-    end,
-    once = true,
-  })
 
   -- Window options styling
   vim.w[M.layout.container_win].pio_managed = true
