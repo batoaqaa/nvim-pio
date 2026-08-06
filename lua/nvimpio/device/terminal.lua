@@ -305,42 +305,6 @@ end
 
 
 
---- Event-driven layout shield for nvim-tree
---- Temporarily hides the terminal when a file is opened so nvim-tree never gets 
---- confused by stacked window splits, then instantly restores the terminal below the code.
-vim.api.nvim_create_autocmd('FileType', {
-  group = vim.api.nvim_create_augroup('PioTreeShield', { clear = true }),
-  callback = function(args)
-    if not M.IsTerminalOpen() then
-      return
-    end
-
-    local ft = args.match
-    -- Ignore sidebars, terminals, and special UI elements
-    local is_code_file = ft ~= '' 
-      and ft ~= 'nvim-tree' 
-      and ft ~= 'neo-tree' 
-      and ft ~= 'oil' 
-      and ft ~= 'aerial' 
-      and ft ~= 'pio_terminal' 
-      and not ft:match('^terminal_') 
-      and not ft:match('^pio_pane_')
-
-    if is_code_file then
-      local active_type = M.layout.active_type
-      
-      -- 1. Instantly hide the terminal so nvim-tree sees a clean 2-column layout
-      M.hide()
-
-      -- 2. Once the file buffer and window settle, reopen the terminal cleanly below the code
-      vim.schedule(function()
-        if active_type and not M.IsTerminalOpen() then
-          M.show(active_type)
-        end
-      end)
-    end
-  end,
-})
 
 --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
