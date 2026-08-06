@@ -129,7 +129,12 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   return self
 end
 
+--- Instantiates a pure terminal buffer with message prompt shielding
+---@return nil
 function Terminal:on_create()
+  local old_shortmess = vim.o.shortmess
+  vim.o.shortmess = old_shortmess .. 'filmnrxoOtT'
+
   self.buf = vim.api.nvim_create_buf(false, true)
 
   local target_shell = M.config.shell or native_shell
@@ -147,6 +152,8 @@ function Terminal:on_create()
     self.job = (channel_id and channel_id > 0) and channel_id or nil
   end)
 
+  vim.o.shortmess = old_shortmess
+
   vim.api.nvim_set_option_value('filetype', self.filetype, { buf = self.buf })
   vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = self.buf })
 
@@ -156,6 +163,62 @@ function Terminal:on_create()
   self:_register_viewport_mappings()
   self:_register_viewport_bindings()
 end
+
+--- Opens a full-width floating terminal locked precisely to the bottom edge 
+--- with message shielding to permanently prevent command-line prompt expansion.
+---@return nil
+function Terminal:on_open()
+  local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+  local total_width = vim.o.columns
+  local total_lines = vim.o.lines
+  local cmd_height = vim.o.cmdheight or 1
+  local total_float_height = target_height + 2 -- Accounts for top and bottom borders
+
+  -- 1. CLEANUP: Close any existing ghost instances of this terminal
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == self.buf then
+      vim.api.nvim_win_close(win, true)
+    end
+  end
+
+  -- 2. PRECISE BOTTOM-EDGE POSITIONING WITH MESSAGE SHIELDING
+  local row_pos = total_lines - total_float_height - cmd_height
+  local col_pos = 0
+
+  local old_shortmess = vim.o.shortmess
+  vim.o.shortmess = old_shortmess .. 'filmnrxoOtT'
+
+  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+    relative = 'editor',
+    width = total_width,
+    height = target_height,
+    row = row_pos,
+    col = col_pos,
+    style = 'minimal',
+    border = 'single',
+    focusable = true,
+    zindex = 150,
+  })
+  M.layout.active_type = self.term_type
+
+  vim.o.shortmess = old_shortmess
+  pcall(vim.api.nvim_command, 'silent! redraw!')
+
+  -- 3. PROTECTION & CLOAKING
+  pcall(vim.api.nvim_set_option_value, 'buflisted', false, { buf = self.buf })
+  pcall(vim.api.nvim_set_option_value, 'bufhidden', 'hide', { buf = self.buf })
+  vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
+
+  -- Window options styling
+  vim.w[M.layout.container_win].pio_managed = true
+  vim.wo[M.layout.container_win].winfixheight = true
+  vim.wo[M.layout.container_win].number = false
+  vim.wo[M.layout.container_win].relativenumber = false
+  vim.wo[M.layout.container_win].signcolumn = 'no'
+
+  self:_register_viewport_mappings()
+end
+
 
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
@@ -234,132 +297,7 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a precision column-aligned floating terminal locked flush above the command line.
---- Uses strict boundary math to prevent command-line expansion, middle-screen jumping, 
---- text covering, and nvim-tree layout panics.
----@return nil
-function Terminal:on_open()
-  local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  local total_float_height = target_height + 2 -- Accounts for top and bottom borders
-  local total_lines = vim.o.lines
-  local cmd_height = vim.o.cmdheight or 1
 
-  -- 1. CLEANUP: Close any existing ghost instances of this terminal
-  for _, win in ipairs(vim.api.nvim_list_wins()) do
-    if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == self.buf then
-      vim.api.nvim_win_close(win, true)
-    end
-  end
-
-  -- 2. FIND THE ACTIVE CODE WINDOW (Strictly avoiding nvim-tree/neo-tree)
-  local code_win = nil
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_is_valid(win) then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      local win_type = vim.fn.win_gettype(win)
-      if win_type == '' and ft ~= 'nvim-tree' and ft ~= 'neo-tree' and ft ~= 'pio_panel' and not ft:match('^pio_pane_') then
-        code_win = win
-        break
-      end
-    end
-  end
-
-  -- Bootstrap code window via vertical split if only nvim-tree is open
-  if not code_win then
-    local tree_win = nil
-    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-      if vim.api.nvim_win_is_valid(win) then
-        local buf = vim.api.nvim_win_get_buf(win)
-        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-        if ft == 'nvim-tree' or ft == 'neo-tree' then
-          tree_win = win
-          break
-        end
-      end
-    end
-
-    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      vim.api.nvim_set_current_win(tree_win)
-      vim.cmd('vsplit')
-      code_win = vim.api.nvim_get_current_win()
-      local scratch_buf = vim.api.nvim_create_buf(false, true)
-      pcall(vim.api.nvim_buf_set_name, scratch_buf, "pio_scratch")
-      vim.api.nvim_win_set_buf(code_win, scratch_buf)
-      vim.bo[scratch_buf].buftype = 'nofile'
-      vim.bo[scratch_buf].bufhidden = 'wipe'
-    else
-      code_win = vim.api.nvim_get_current_win()
-    end
-  end
-
-  if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    code_win = vim.api.nvim_get_current_win()
-  end
-
-  -- 3. STRICT SCREEN-BOUNDARY & GEOMETRY CALCULATION
-  local code_pos = vim.api.nvim_win_get_position(code_win) -- {row, col}
-  local code_row = code_pos[1]
-  local code_col = code_pos[2]
-  local code_width = vim.api.nvim_win_get_width(code_win)
-
-  -- Calculate exact row where terminal starts to sit flush above cmdheight (Zero expansion)
-  local max_content_row = total_lines - cmd_height
-  local row_pos = max_content_row - total_float_height
-
-  -- Calculate exact required code window height so text stops right where terminal begins
-  local target_code_height = row_pos - code_row
-  if target_code_height < 3 then target_code_height = 3 end
-
-  M.layout._shrunk_code_win = code_win
-  M.layout._original_code_height = vim.api.nvim_win_get_height(code_win)
-
-  -- Physically resize code window (Prevents text covering & cursor pass-through)
-  vim.api.nvim_win_set_height(code_win, target_code_height)
-
-  -- 4. OPEN FLOATING WINDOW WITH BULLETPROOF BOUNDS
-  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
-    relative = 'editor',
-    width = code_width,
-    height = target_height,
-    row = row_pos,
-    col = code_col,
-    style = 'minimal',
-    border = 'single',
-    focusable = true,
-    zindex = 50,
-  })
-  M.layout.active_type = self.term_type
-
-  -- 5. PROTECTION & CLOAKING
-  pcall(vim.api.nvim_set_option_value, 'buflisted', false, { buf = self.buf })
-  pcall(vim.api.nvim_set_option_value, 'bufhidden', 'hide', { buf = self.buf })
-  vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
-
-  -- 6. AUTO-RESTORE CODE WINDOW HEIGHT ON CLOSE
-  vim.api.nvim_create_autocmd("WinClosed", {
-    pattern = tostring(M.layout.container_win),
-    callback = function()
-      if M.layout._shrunk_code_win and vim.api.nvim_win_is_valid(M.layout._shrunk_code_win) then
-        if M.layout._original_code_height then
-          pcall(vim.api.nvim_win_set_height, M.layout._shrunk_code_win, M.layout._original_code_height)
-        end
-      end
-      M.layout._shrunk_code_win = nil
-      M.layout._original_code_height = nil
-    end,
-    once = true,
-  })
-
-  -- Window options styling
-  vim.w[M.layout.container_win].pio_managed = true
-  vim.wo[M.layout.container_win].winfixheight = true
-  vim.wo[M.layout.container_win].number = false
-  vim.wo[M.layout.container_win].relativenumber = false
-  vim.wo[M.layout.container_win].signcolumn = 'no'
-
-  self:_register_viewport_mappings()
-end
 
 
 
