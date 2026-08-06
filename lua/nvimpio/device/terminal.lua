@@ -341,10 +341,14 @@ function Terminal:on_open()
     return
   end
 
+  -- CRITICAL: Disable auto-balancing to stop Neovim from fighting our layout
+  local saved_ea = vim.o.equalalways
+  vim.o.equalalways = false
+
   -- 2. RESOLVE CODE WINDOW
   local code_win = find_best_code_window()
   local tree_win = nil
-  local tree_width = 30
+  local tree_width = 30 -- Default compact width
 
   -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup with only nvim-tree open)
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
@@ -354,19 +358,25 @@ function Terminal:on_open()
         local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
         if ft == 'nvim-tree' or ft == 'neo-tree' then
           tree_win = win
-          tree_width = vim.api.nvim_win_get_width(win) -- Capture original sidebar width
+          local current_width = vim.api.nvim_win_get_width(win)
+
+          -- THE FIX: Only capture the width if it's already a compact sidebar.
+          -- If it's stretched across the screen, ignore it and force 30 columns.
+          if current_width < (vim.o.columns * 0.4) then
+            tree_width = current_width
+          end
           break
         end
       end
     end
 
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      -- NATIVE FIX: Lock nvim-tree's width BEFORE splitting so Neovim respects it
-      vim.api.nvim_set_option_value('winfixwidth', true, { scope = 'local', win = tree_win })
-      
       vim.api.nvim_set_current_win(tree_win)
       vim.cmd('botright vnew')
       code_win = vim.api.nvim_get_current_win()
+      
+      -- Instantly squash nvim-tree back to the left side
+      pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
     else
       vim.cmd('botright vnew')
       code_win = vim.api.nvim_get_current_win()
@@ -413,8 +423,10 @@ function Terminal:on_open()
     vim.api.nvim_set_current_win(code_win)
   end
 
-  -- THE "LAST WORD": Run on the next Neovim tick to hammer dimensions into place,
-  -- bypassing any rogue autocommands triggered by nvim-tree during the split.
+  -- Restore original balancing setting safely
+  vim.o.equalalways = saved_ea
+
+  -- THE "LAST WORD": Final lock to guarantee the layout shapes are perfectly set
   vim.schedule(function()
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
       pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
