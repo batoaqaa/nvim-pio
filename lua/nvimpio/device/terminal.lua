@@ -303,36 +303,68 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a native bottom split and forcefully defeats third-party vertical layout hijackers.
---- Code physically wraps above it (no EOF overlaps), and nvim-tree ignores it.
+--- Opens a floating terminal with a cmdheight-shield.
+--- Cloaks the buffer so third-party plugins and nvim-tree cannot hijack the layout.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  local current_win = vim.api.nvim_get_current_win()
+  local total_width = vim.o.columns
+  local total_lines = vim.o.lines
 
-  -- 1. CLEANUP: Close any existing ghost instances
-  for _, win in ipairs(vim.api.nvim_list_wins()) do
-    if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == self.buf then
-      vim.api.nvim_win_close(win, true)
-    end
-  end
+  -- If using a 'single' border, the total physical space needed is target_height + 2
+  local total_float_height = target_height + 2
 
-  -- 2. CREATE SPLIT: Request a standard bottom split
-  vim.cmd('botright ' .. target_height .. 'split')
-  M.layout.container_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+  -- =========================================================================
+  -- 1. CMDHEIGHT SHIELD: Physically shrinks the code editor upward.
+  -- This creates a blank space at the bottom for the float, preventing EOF overlap.
+  -- =========================================================================
+  M.layout._original_cmdheight = vim.o.cmdheight
+  vim.o.cmdheight = total_float_height
 
-  -- 3. THE ANCHOR: Force the window to the absolute bottom of the layout tree.
-  -- This defeats any immediate autocommands that tried to move it to a side column.
-  vim.cmd('wincmd J')
-  vim.api.nvim_win_set_height(M.layout.container_win, target_height)
+  -- 2. CREATE THE FLOAT exactly over the newly reserved space
+  local row_pos = total_lines - total_float_height
+  local col_pos = 0
+
+  M.layout.container_win = vim.api.nvim_open_win(self.buf, false, {
+    relative = 'editor',
+    width = total_width,
+    height = target_height,
+    row = row_pos,
+    col = col_pos,
+    style = 'minimal',
+    border = 'single',
+    focusable = true,
+    zindex = 50,
+  })
   M.layout.active_type = self.term_type
 
-  -- 4. NVIM-TREE PROTECTION: Tell nvim-tree's routing logic to completely ignore this window.
-  -- DO NOT use winfixbuf here, as winfixbuf causes nvim-tree to panic.
-  vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
+  -- =========================================================================
+  -- 3. THE CLOAKING DEVICE: Fixes the 3-Parallel Column & Nvim-Tree Hijack
+  -- =========================================================================
+  -- Hide from buffer lists so layout managers ignore it
+  pcall(vim.api.nvim_set_option_value, 'buflisted', false, { buf = self.buf })
+  pcall(vim.api.nvim_set_option_value, 'bufhidden', 'hide', { buf = self.buf })
 
-  -- Standard window styling
+  -- Tell aggressive layout plugins (like Edgy.nvim) to ignore this buffer/window
+  vim.b[self.buf].edgy_disable = true
+  vim.w[M.layout.container_win].edgy_disable = true
+
+  -- Strictly forbid nvim-tree from trying to route opened files into this float
+  vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
+  -- =========================================================================
+
+  -- 4. AUTO-RESTORE: Instantly restore normal editor dimensions when the terminal closes
+  vim.api.nvim_create_autocmd("WinClosed", {
+    pattern = tostring(M.layout.container_win),
+    callback = function()
+      if M.layout._original_cmdheight then
+        vim.o.cmdheight = M.layout._original_cmdheight
+      end
+    end,
+    once = true,
+  })
+
+  -- 5. Apply standard styling and protections (Notice: no winfixbuf needed)
   vim.w[M.layout.container_win].pio_managed = true
   vim.wo[M.layout.container_win].winfixheight = true
   vim.wo[M.layout.container_win].number = false
@@ -340,27 +372,6 @@ function Terminal:on_open()
   vim.wo[M.layout.container_win].signcolumn = 'no'
 
   self:_register_viewport_mappings()
-
-  -- 5. THE DELAYED SHIELD: Defeat "lazy" plugins (like Edgy.nvim) that wait 
-  -- a few milliseconds before hijacking the terminal into a vertical column.
-  vim.schedule(function()
-    if vim.api.nvim_win_is_valid(M.layout.container_win) then
-      local restore_win = vim.api.nvim_get_current_win()
-      vim.api.nvim_set_current_win(M.layout.container_win)
-
-      -- Re-assert absolute bottom positioning
-      vim.cmd('wincmd J')
-      vim.api.nvim_win_set_height(M.layout.container_win, target_height)
-
-      -- If focus shouldn't be in the terminal, restore it
-      if restore_win ~= M.layout.container_win and vim.api.nvim_win_is_valid(restore_win) then
-        vim.api.nvim_set_current_win(restore_win)
-      end
-    end
-  end)
-
-  -- 6. Return focus to your code so your cursor is safe
-  vim.api.nvim_set_current_win(current_win)
 end
 
 -- floating
