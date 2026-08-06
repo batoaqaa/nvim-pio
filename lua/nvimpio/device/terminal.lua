@@ -234,13 +234,13 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a precision column-aligned floating terminal beneath the code window.
---- Dynamically shrinks the code window to prevent text covering and cursor pass-through,
---- while leaving nvim-tree completely untouched (zero 3-column bugs).
+--- Opens a native column-scoped bottom split using Neovim's modern split API.
+--- Keeps nvim-tree full-height and pristine, prevents command-line expansion,
+--- and eliminates text-covering/cursor pass-through issues.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
-  local total_float_height = target_height + 2 -- Accounts for top and bottom borders
+  vim.go.splitkeep = 'screen'
 
   -- 1. CLEANUP: Close any existing ghost instances of this terminal
   for _, win in ipairs(vim.api.nvim_list_wins()) do
@@ -249,7 +249,7 @@ function Terminal:on_open()
     end
   end
 
-  -- 2. FIND THE ACTIVE CODE WINDOW
+  -- 2. FIND A VALID CODE WINDOW (Strictly avoiding nvim-tree/neo-tree)
   local code_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
@@ -263,75 +263,68 @@ function Terminal:on_open()
     end
   end
 
-  if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    code_win = vim.api.nvim_get_current_win()
-  end
-
-  -- 3. GET CODE WINDOW GEOMETRY & DYNAMICALLY SHRINK IT
-  -- This physically shortens the file view so text never goes behind the terminal 
-  -- and your cursor cannot scroll/pass through into empty space.
-  M.layout._shrunk_code_win = nil
-  M.layout._original_code_height = nil
-
-  local code_pos = vim.api.nvim_win_get_position(code_win) -- {row, col}
-  local code_row = code_pos[1]
-  local code_col = code_pos[2]
-  local code_width = vim.api.nvim_win_get_width(code_win)
-  local code_height = vim.api.nvim_win_get_height(code_win)
-
-  if code_height > total_float_height + 3 then
-    M.layout._shrunk_code_win = code_win
-    M.layout._original_code_height = code_height
-    vim.api.nvim_win_set_height(code_win, code_height - total_float_height)
-    code_height = code_height - total_float_height
-  end
-
-  -- 4. PRECISION COLUMN-ALIGNED POSITIONING
-  -- Matches the exact width of your code pane, right next to nvim-tree.
-  local row_pos = code_row + code_height
-  local col_pos = code_col
-
-  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
-    relative = 'editor',
-    width = code_width,
-    height = target_height,
-    row = row_pos,
-    col = col_pos,
-    style = 'minimal',
-    border = 'single',
-    focusable = true,
-    zindex = 50,
-  })
-  M.layout.active_type = self.term_type
-
-  -- 5. PROTECTION & CLOAKING
-  pcall(vim.api.nvim_set_option_value, 'buflisted', false, { buf = self.buf })
-  pcall(vim.api.nvim_set_option_value, 'bufhidden', 'hide', { buf = self.buf })
-  vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
-
-  -- 6. AUTO-RESTORE CODE WINDOW HEIGHT ON CLOSE
-  vim.api.nvim_create_autocmd("WinClosed", {
-    pattern = tostring(M.layout.container_win),
-    callback = function()
-      if M.layout._shrunk_code_win and vim.api.nvim_win_is_valid(M.layout._shrunk_code_win) then
-        if M.layout._original_code_height then
-          pcall(vim.api.nvim_win_set_height, M.layout._shrunk_code_win, M.layout._original_code_height)
+  -- 3. BOOTSTRAP: If only nvim-tree is open, create a safe code window next to it first
+  if not code_win then
+    local tree_win = nil
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_is_valid(win) then
+        local buf = vim.api.nvim_win_get_buf(win)
+        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+        if ft == 'nvim-tree' or ft == 'neo-tree' then
+          tree_win = win
+          break
         end
       end
-      M.layout._shrunk_code_win = nil
-      M.layout._original_code_height = nil
-    end,
-    once = true,
-  })
+    end
 
-  -- Window options styling
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      vim.api.nvim_set_current_win(tree_win)
+      vim.cmd('vsplit')
+      code_win = vim.api.nvim_get_current_win()
+      
+      local scratch_buf = vim.api.nvim_create_buf(false, true)
+      pcall(vim.api.nvim_buf_set_name, scratch_buf, "pio_scratch")
+      vim.api.nvim_win_set_buf(code_win, scratch_buf)
+      vim.bo[scratch_buf].buftype = 'nofile'
+      vim.bo[scratch_buf].bufhidden = 'wipe'
+      vim.bo[scratch_buf].swapfile = false
+    else
+      code_win = vim.api.nvim_get_current_win()
+    end
+  end
+
+  -- 4. CREATE NATIVE COLUMN-SCOPED SPLIT BELOW THE CODE WINDOW
+  -- This splits ONLY the code column. nvim-tree remains untouched and full-height.
+  if code_win and vim.api.nvim_win_is_valid(code_win) then
+    M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+      split = 'below',
+      win = code_win,
+      height = target_height,
+    })
+  else
+    vim.cmd('belowright ' .. target_height .. 'split')
+    M.layout.container_win = vim.api.nvim_get_current_win()
+    vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+  end
+
+  M.layout.active_type = self.term_type
+
+  -- 5. WINDOW PROTECTIONS & OPTIONS
+  vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
   vim.w[M.layout.container_win].pio_managed = true
-  vim.wo[M.layout.container_win].winfixheight = true
-  vim.wo[M.layout.container_win].number = false
-  vim.wo[M.layout.container_win].relativenumber = false
-  vim.wo[M.layout.container_win].signcolumn = 'no'
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
 
   self:_register_viewport_mappings()
+
+  -- 6. Return focus smoothly to the code window above
+  if code_win and vim.api.nvim_win_is_valid(code_win) then
+    vim.api.nvim_set_current_win(code_win)
+  else
+    vim.cmd('wincmd k')
+  end
 end
 
 
