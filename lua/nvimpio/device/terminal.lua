@@ -348,7 +348,16 @@ function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  -- 1. FIND A VALID CODE WINDOW (Must be in the right-hand editor column, col > 0)
+  -- 1. REUSE CHECK: If container window is already valid, just swap buffer securely
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+    M.layout.active_type = self.term_type
+    self:_register_viewport_mappings()
+    M.UpdateWinbarTitles()
+    return
+  end
+
+  -- 2. FIND A VALID CODE WINDOW (Must be in the right-hand editor column, col > 0)
   local code_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
@@ -373,7 +382,7 @@ function Terminal:on_open()
     end
   end
 
-  -- 2. BOOTSTRAP: If no valid code window exists (e.g., fresh startup with only nvim-tree open),
+  -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup with only nvim-tree open),
   -- create a clean vertical split from nvim-tree first so we never split nvim-tree horizontally.
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
     local tree_win = nil
@@ -393,7 +402,6 @@ function Terminal:on_open()
       vim.cmd('vsplit')
       code_win = vim.api.nvim_get_current_win()
       
-      -- Create a normal empty buffer so nvim-tree seamlessly reuses this window on file open
       local scratch_buf = vim.api.nvim_create_buf(true, false)
       vim.api.nvim_win_set_buf(code_win, scratch_buf)
       vim.bo[scratch_buf].buflisted = false
@@ -416,7 +424,7 @@ function Terminal:on_open()
     vim.bo[scratch_buf].buftype = ''
   end
 
-  -- 3. OPEN THE TERMINAL SPLIT STRICTLY BELOW THE CODE WINDOW (Never global -1)
+  -- 4. OPEN THE TERMINAL SPLIT STRICTLY BELOW THE CODE WINDOW (Never global -1)
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
     win = code_win,
