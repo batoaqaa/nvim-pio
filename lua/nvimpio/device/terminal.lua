@@ -303,8 +303,8 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a native bottom split with a self-healing layout guardian 
---- that instantly defeats nvim-tree column traps.
+
+--- Opens a clean, stable native bottom split without background flickering watchers.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
@@ -323,7 +323,7 @@ function Terminal:on_open()
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
 
-  -- 3. THE ANCHOR: Force to absolute bottom tree root
+  -- 3. THE ANCHOR: Force to absolute bottom tree root once on open
   vim.cmd('wincmd J')
   vim.api.nvim_win_set_height(M.layout.container_win, target_height)
   M.layout.active_type = self.term_type
@@ -340,41 +340,89 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- =========================================================================
-  -- 5. SELF-HEALING LAYOUT GUARDIAN
-  -- If nvim-tree slices the layout into a 3rd column when opening a file,
-  -- this background watcher instantly pulls the terminal back to a 100% full-width bottom split.
-  -- =========================================================================
-  if not M._layout_guardian_auid then
-    M._layout_guardian_auid = vim.api.nvim_create_autocmd({ 'BufWinEnter' }, {
-      callback = function()
-        if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-          local buf = vim.api.nvim_get_current_buf()
-          local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-          if ft ~= 'pio_terminal' and not ft:match('^terminal_') and ft ~= 'nvim-tree' then
-            vim.schedule(function()
-              if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-                local cur = vim.api.nvim_get_current_win()
-                if cur ~= M.layout.container_win then
-                  vim.api.nvim_set_current_win(M.layout.container_win)
-                  vim.cmd('wincmd J')
-                  vim.api.nvim_win_set_height(M.layout.container_win, target_height)
-                  if vim.api.nvim_win_is_valid(cur) then
-                    vim.api.nvim_set_current_win(cur)
-                  end
-                end
-              end
-            end)
-          end
-        end
-      end,
-    })
+  -- 5. Return focus to your code window safely without delayed layout jumps
+  if vim.api.nvim_win_is_valid(current_win) and current_win ~= M.layout.container_win then
+    vim.api.nvim_set_current_win(current_win)
+  else
+    vim.cmd('wincmd p')
   end
-  -- =========================================================================
-
-  -- 6. Return focus to your code window safely
-  vim.api.nvim_set_current_win(current_win)
 end
+
+
+
+-- --flicker
+-- --- Opens a native bottom split with a self-healing layout guardian 
+-- --- that instantly defeats nvim-tree column traps.
+-- ---@return nil
+-- function Terminal:on_open()
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+--   vim.go.splitkeep = 'screen'
+--   local current_win = vim.api.nvim_get_current_win()
+--
+--   -- 1. CLEANUP: Close any existing ghost instances
+--   for _, win in ipairs(vim.api.nvim_list_wins()) do
+--     if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == self.buf then
+--       vim.api.nvim_win_close(win, true)
+--     end
+--   end
+--
+--   -- 2. CREATE SPLIT: Request a full-width bottom root split
+--   vim.cmd('botright ' .. target_height .. 'split')
+--   M.layout.container_win = vim.api.nvim_get_current_win()
+--   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+--
+--   -- 3. THE ANCHOR: Force to absolute bottom tree root
+--   vim.cmd('wincmd J')
+--   vim.api.nvim_win_set_height(M.layout.container_win, target_height)
+--   M.layout.active_type = self.term_type
+--
+--   -- 4. NVIM-TREE PROTECTION
+--   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
+--
+--   -- Window options styling
+--   vim.w[M.layout.container_win].pio_managed = true
+--   vim.wo[M.layout.container_win].winfixheight = true
+--   vim.wo[M.layout.container_win].number = false
+--   vim.wo[M.layout.container_win].relativenumber = false
+--   vim.wo[M.layout.container_win].signcolumn = 'no'
+--
+--   self:_register_viewport_mappings()
+--
+--   -- =========================================================================
+--   -- 5. SELF-HEALING LAYOUT GUARDIAN
+--   -- If nvim-tree slices the layout into a 3rd column when opening a file,
+--   -- this background watcher instantly pulls the terminal back to a 100% full-width bottom split.
+--   -- =========================================================================
+--   if not M._layout_guardian_auid then
+--     M._layout_guardian_auid = vim.api.nvim_create_autocmd({ 'BufWinEnter' }, {
+--       callback = function()
+--         if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+--           local buf = vim.api.nvim_get_current_buf()
+--           local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+--           if ft ~= 'pio_terminal' and not ft:match('^terminal_') and ft ~= 'nvim-tree' then
+--             vim.schedule(function()
+--               if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+--                 local cur = vim.api.nvim_get_current_win()
+--                 if cur ~= M.layout.container_win then
+--                   vim.api.nvim_set_current_win(M.layout.container_win)
+--                   vim.cmd('wincmd J')
+--                   vim.api.nvim_win_set_height(M.layout.container_win, target_height)
+--                   if vim.api.nvim_win_is_valid(cur) then
+--                     vim.api.nvim_set_current_win(cur)
+--                   end
+--                 end
+--               end
+--             end)
+--           end
+--         end
+--       end,
+--     })
+--   end
+--   -- =========================================================================
+--
+--   -- 6. Return focus to your code window safely
+--   vim.api.nvim_set_current_win(current_win)
+-- end
 
 -- floating
 -- --- Opens a floating terminal with a dynamic scrolloff shield.
