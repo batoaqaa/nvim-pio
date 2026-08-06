@@ -344,45 +344,19 @@ function Terminal:on_open()
   -- 2. RESOLVE CODE WINDOW
   local code_win = find_best_code_window()
 
-  -- 3. BOOTSTRAP: If only nvim-tree is open, create a clean vertical split first
+  -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup with only nvim-tree open),
+  -- use Neovim's native :botright vnew to spawn a true primary code window with a native [No Name] buffer.
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    local tree_win = nil
-    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-      if vim.api.nvim_win_is_valid(win) then
-        local buf = vim.api.nvim_win_get_buf(win)
-        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-        if ft == 'nvim-tree' or ft == 'neo-tree' then
-          tree_win = win
-          break
-        end
-      end
-    end
-
-    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      vim.api.nvim_set_current_win(tree_win)
-      vim.cmd('vsplit')
-      code_win = vim.api.nvim_get_current_win()
-      
-      local scratch_buf = vim.api.nvim_create_buf(true, false)
-      vim.api.nvim_win_set_buf(code_win, scratch_buf)
-      vim.bo[scratch_buf].buflisted = true
-      vim.bo[scratch_buf].buftype = ''
-    else
-      code_win = vim.api.nvim_get_current_win()
-    end
+    vim.cmd('botright vnew')
+    code_win = vim.api.nvim_get_current_win()
   end
 
-  -- Absolute safety check
+  -- Absolute safety check: ensure code_win is never nvim-tree itself
   local check_buf = vim.api.nvim_win_get_buf(code_win)
   local check_ft = vim.api.nvim_get_option_value('filetype', { buf = check_buf })
   if check_ft == 'nvim-tree' or check_ft == 'neo-tree' then
-    vim.api.nvim_set_current_win(code_win)
-    vim.cmd('vsplit')
+    vim.cmd('botright vnew')
     code_win = vim.api.nvim_get_current_win()
-    local scratch_buf = vim.api.nvim_create_buf(true, false)
-    vim.api.nvim_win_set_buf(code_win, scratch_buf)
-    vim.bo[scratch_buf].buflisted = true
-    vim.bo[scratch_buf].buftype = ''
   end
 
   -- 4. OPEN PERMANENT CONTAINER WINDOW STRICTLY BELOW CODE WINDOW
@@ -406,6 +380,8 @@ function Terminal:on_open()
     vim.api.nvim_set_current_win(code_win)
   end
 end
+
+
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
