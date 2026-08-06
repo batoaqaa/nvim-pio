@@ -303,16 +303,27 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a floating terminal with a dynamic scrolloff shield.
---- Completely ignores nvim-tree columns and physically prevents cursor pass-through.
+--- Opens a floating terminal that physically pushes the editor up via cmdheight.
+--- Ignores nvim-tree completely, handles EOF perfectly, and stops cursor bleed.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   local total_width = vim.o.columns
   local total_lines = vim.o.lines
 
-  -- 1. CREATE A GLOBAL FLOAT: nvim-tree cannot break this because it is not a split.
-  local row_pos = total_lines - target_height - 2
+  -- If using a 'single' border, the total physical space needed is target_height + 2
+  local total_float_height = target_height + 2
+
+  -- =========================================================================
+  -- THE MASTER SHIELD: Hijack the Command Line space.
+  -- This physically shrinks the entire editor (and EOF) upward so the float 
+  -- covers the empty command line instead of your code.
+  -- =========================================================================
+  M._original_cmdheight = vim.o.cmdheight
+  vim.o.cmdheight = total_float_height
+
+  -- Place the float exactly over the newly created blank space at the bottom
+  local row_pos = total_lines - total_float_height
   local col_pos = 0
 
   M.layout.container_win = vim.api.nvim_open_win(self.buf, false, {
@@ -324,32 +335,23 @@ function Terminal:on_open()
     style = 'minimal',
     border = 'single',
     focusable = true,
-    zindex = 50, -- Ensure it sits cleanly on top
+    zindex = 50,
   })
   M.layout.active_type = self.term_type
 
-  -- =========================================================================
-  -- 2. THE SCROLLOFF SHIELD: Prevents cursor from passing behind the float!
-  -- =========================================================================
-  M._original_scrolloff = vim.o.scrolloff
-
-  -- Force the cursor to stay 'target_height' lines away from the bottom of the screen.
-  -- This creates a solid invisible wall right above the terminal float.
-  vim.o.scrolloff = math.max(vim.o.scrolloff, target_height + 1)
-
-  -- 3. AUTO-RESTORE: When you close the terminal, restore normal scrolling behavior
+  -- AUTO-RESTORE: When you close the terminal, restore the editor size instantly
   vim.api.nvim_create_autocmd("WinClosed", {
     pattern = tostring(M.layout.container_win),
     callback = function()
-      if M._original_scrolloff then
-        vim.o.scrolloff = M._original_scrolloff
+      if M._original_cmdheight then
+        vim.o.cmdheight = M._original_cmdheight
       end
     end,
     once = true,
   })
   -- =========================================================================
 
-  -- 4. Apply standard layout protections
+  -- Apply standard layout protections
   vim.w[M.layout.container_win].pio_managed = true
   vim.wo[M.layout.container_win].winfixheight = true
   vim.wo[M.layout.container_win].number = false
@@ -358,6 +360,63 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 end
+
+-- floating
+-- --- Opens a floating terminal with a dynamic scrolloff shield.
+-- --- Completely ignores nvim-tree columns and physically prevents cursor pass-through.
+-- ---@return nil
+-- function Terminal:on_open()
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+--   local total_width = vim.o.columns
+--   local total_lines = vim.o.lines
+--
+--   -- 1. CREATE A GLOBAL FLOAT: nvim-tree cannot break this because it is not a split.
+--   local row_pos = total_lines - target_height - 2
+--   local col_pos = 0
+--
+--   M.layout.container_win = vim.api.nvim_open_win(self.buf, false, {
+--     relative = 'editor',
+--     width = total_width,
+--     height = target_height,
+--     row = row_pos,
+--     col = col_pos,
+--     style = 'minimal',
+--     border = 'single',
+--     focusable = true,
+--     zindex = 50, -- Ensure it sits cleanly on top
+--   })
+--   M.layout.active_type = self.term_type
+--
+--   -- =========================================================================
+--   -- 2. THE SCROLLOFF SHIELD: Prevents cursor from passing behind the float!
+--   -- =========================================================================
+--   M._original_scrolloff = vim.o.scrolloff
+--
+--   -- Force the cursor to stay 'target_height' lines away from the bottom of the screen.
+--   -- This creates a solid invisible wall right above the terminal float.
+--   vim.o.scrolloff = math.max(vim.o.scrolloff, target_height + 1)
+--
+--   -- 3. AUTO-RESTORE: When you close the terminal, restore normal scrolling behavior
+--   vim.api.nvim_create_autocmd("WinClosed", {
+--     pattern = tostring(M.layout.container_win),
+--     callback = function()
+--       if M._original_scrolloff then
+--         vim.o.scrolloff = M._original_scrolloff
+--       end
+--     end,
+--     once = true,
+--   })
+--   -- =========================================================================
+--
+--   -- 4. Apply standard layout protections
+--   vim.w[M.layout.container_win].pio_managed = true
+--   vim.wo[M.layout.container_win].winfixheight = true
+--   vim.wo[M.layout.container_win].number = false
+--   vim.wo[M.layout.container_win].relativenumber = false
+--   vim.wo[M.layout.container_win].signcolumn = 'no'
+--
+--   self:_register_viewport_mappings()
+-- end
 
 
 -- --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
