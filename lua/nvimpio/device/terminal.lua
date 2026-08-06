@@ -347,7 +347,7 @@ function Terminal:on_open()
   -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup with only nvim-tree open)
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
     local tree_win = nil
-    local tree_width = 30 -- Default fallback width
+    local tree_width = 30
     
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
       if vim.api.nvim_win_is_valid(win) then
@@ -363,12 +363,13 @@ function Terminal:on_open()
 
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
       vim.api.nvim_set_current_win(tree_win)
-      vim.cmd('botright vnew')
+      vim.cmd('vsplit')
       code_win = vim.api.nvim_get_current_win()
       
-      -- Restore nvim-tree width so it doesn't take 50% of the screen
+      -- Restores nvim-tree width correctly using the captured value
       pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
     else
+      vim.cmd('vnew')
       code_win = vim.api.nvim_get_current_win()
     end
   end
@@ -377,10 +378,8 @@ function Terminal:on_open()
   local check_buf = vim.api.nvim_win_get_buf(code_win)
   local check_ft = vim.api.nvim_get_option_value('filetype', { buf = check_buf })
   if check_ft == 'nvim-tree' or check_ft == 'neo-tree' then
-    local tree_width = vim.api.nvim_win_get_width(code_win)
-    vim.cmd('botright vnew')
+    vim.cmd('vnew')
     code_win = vim.api.nvim_get_current_win()
-    pcall(vim.api.nvim_win_set_width, check_win, tree_width)
   end
 
   -- 4. OPEN PERMANENT CONTAINER WINDOW STRICTLY BELOW CODE WINDOW
