@@ -325,14 +325,10 @@ function Terminal:on_open()
     return
   end
 
-  -- Disable auto-balancing safely
-  local saved_ea = vim.o.equalalways
-  vim.o.equalalways = false
-
   -- 2. RESOLVE WINDOWS
   local code_win = find_best_code_window()
   local tree_win = nil
-  local tree_width = 30 -- Standard fallback for nvim-tree width
+  local tree_width = 30
 
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
@@ -340,34 +336,30 @@ function Terminal:on_open()
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       if ft == 'nvim-tree' or ft == 'neo-tree' then
         tree_win = win
-        local current_w = vim.api.nvim_win_get_width(win)
-        if current_w > 30 and current_w < (vim.o.columns * 0.4) then
-          tree_width = current_w
-        end
         break
       end
     end
   end
 
-  -- 3. BOOTSTRAP CODE WINDOW (Pre-shrink nvim-tree to prevent 50/50 split)
+  -- 3. BOOTSTRAP CODE WINDOW WITH SYNCHRONOUS WIDTH ENFORCEMENT
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
+    local saved_ea = vim.o.equalalways
+    vim.o.equalalways = false
+
+    -- Create the vertical split
+    vim.cmd('botright vnew')
+    code_win = vim.api.nvim_get_current_win()
+
+    -- Instantly enforce 30 columns on nvim-tree synchronously before any render
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      -- CRITICAL FIX: Shrink nvim-tree FIRST so it isn't fullscreen when we split
       pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
-      vim.api.nvim_set_option_value('winfixwidth', true, { scope = 'local', win = tree_win })
-      
-      vim.api.nvim_set_current_win(tree_win)
-      vim.cmd('rightbelow vnew')
-      code_win = vim.api.nvim_get_current_win()
-    else
-      vim.cmd('botright vnew')
-      code_win = vim.api.nvim_get_current_win()
+      pcall(vim.api.nvim_set_option_value, 'winfixwidth', true, { scope = 'local', win = tree_win })
     end
+
+    vim.o.equalalways = saved_ea
   end
 
-  -- =====================================================================
-  -- BULLETPROOF GUARD: ABSOLUTELY NEVER TOUCH NVIM-TREE BUFFERS
-  -- =====================================================================
+  -- SAFETY GUARD: Ensure code window is never nvim-tree
   local code_buf = vim.api.nvim_win_get_buf(code_win)
   local code_ft = vim.api.nvim_get_option_value('filetype', { buf = code_buf })
   local buf_name = vim.api.nvim_buf_get_name(code_buf)
@@ -397,6 +389,7 @@ function Terminal:on_open()
   M.layout.active_type = self.term_type
 
   -- 5. LATCH GEOMETRY & OPTIONS
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
   vim.w[M.layout.container_win].pio_managed = true
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
@@ -405,7 +398,7 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- Return focus to the code window explicitly
+  -- Return focus to code window
   if code_win and vim.api.nvim_win_is_valid(code_win) then
     vim.api.nvim_set_current_win(code_win)
   end
@@ -414,10 +407,7 @@ function Terminal:on_open()
   vim.schedule(function()
     if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
       pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
-      pcall(vim.api.nvim_set_option_value, 'winfixheight', true, { scope = 'local', win = M.layout.container_win })
     end
-
-    vim.o.equalalways = saved_ea
   end)
 end
 
