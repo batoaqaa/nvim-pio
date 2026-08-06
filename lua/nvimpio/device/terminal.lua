@@ -304,8 +304,6 @@ function Terminal:close()
 end
 
 
-
-
 --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
 function Terminal:on_open()
@@ -366,9 +364,10 @@ function Terminal:on_open()
       vim.cmd('vsplit')
       code_win = vim.api.nvim_get_current_win()
       
+      -- CRITICAL FIX: Create a fully listed, normal buffer so nvim-tree seamlessly reuses it
       local scratch_buf = vim.api.nvim_create_buf(true, false)
       vim.api.nvim_win_set_buf(code_win, scratch_buf)
-      vim.bo[scratch_buf].buflisted = false
+      vim.bo[scratch_buf].buflisted = true
       vim.bo[scratch_buf].buftype = ''
     else
       code_win = vim.api.nvim_get_current_win()
@@ -384,11 +383,11 @@ function Terminal:on_open()
     code_win = vim.api.nvim_get_current_win()
     local scratch_buf = vim.api.nvim_create_buf(true, false)
     vim.api.nvim_win_set_buf(code_win, scratch_buf)
-    vim.bo[scratch_buf].buflisted = false
+    vim.bo[scratch_buf].buflisted = true
     vim.bo[scratch_buf].buftype = ''
   end
 
-  -- 4. OPEN THE TERMINAL SPLIT STRICTLY BELOW THE CODE WINDOW (Never global -1)
+  -- 4. OPEN THE TERMINAL SPLIT STRICTLY BELOW THE CODE WINDOW
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
     win = code_win,
@@ -406,6 +405,7 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 end
+
 
 
 -- --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
