@@ -351,28 +351,32 @@ function Terminal:on_open()
 
   -- 3. BOOTSTRAP CODE WINDOW SAFELY
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    -- Use botright vnew to spawn on the far right edge without splitting nvim-tree directly
     vim.cmd('botright vnew')
     code_win = vim.api.nvim_get_current_win()
   end
 
   -- =====================================================================
-  -- ABSOLUTE SAFETY GUARD: ENSURE CODE WINDOW IS NEVER NVIM-TREE ITSELF
+  -- BULLETPROOF GUARD: ABSOLUTELY NEVER TOUCH NVIM-TREE BUFFERS
   -- =====================================================================
   local code_buf = vim.api.nvim_win_get_buf(code_win)
   local code_ft = vim.api.nvim_get_option_value('filetype', { buf = code_buf })
-  
-  if code_ft == 'nvim-tree' or code_ft == 'neo-tree' then
+  local buf_name = vim.api.nvim_buf_get_name(code_buf)
+
+  if code_ft == 'nvim-tree' or code_ft == 'neo-tree' or buf_name:match('NvimTree') then
     vim.cmd('botright vnew')
     code_win = vim.api.nvim_get_current_win()
     code_buf = vim.api.nvim_win_get_buf(code_win)
   end
 
-  -- Configure code buffer safely (prevents 3-column bug & save prompts)
+  -- Configure code buffer safely (prevents 3-column bug & ensures it's a normal editor)
   vim.w[code_win].nvim_tree_no_window_picker = false
   if vim.api.nvim_buf_is_valid(code_buf) then
-    vim.bo[code_buf].buflisted = true
-    vim.bo[code_buf].buftype = ''
+    local final_ft = vim.api.nvim_get_option_value('filetype', { buf = code_buf })
+    local final_name = vim.api.nvim_buf_get_name(code_buf)
+    if final_ft ~= 'nvim-tree' and not final_name:match('NvimTree') then
+      vim.bo[code_buf].buflisted = true
+      vim.bo[code_buf].buftype = ''
+    end
   end
 
   -- 4. OPEN TERMINAL CONTAINER STRICTLY BELOW CODE WINDOW
