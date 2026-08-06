@@ -317,15 +317,23 @@ function Terminal:on_open()
       local buf = vim.api.nvim_win_get_buf(win)
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local win_type = vim.fn.win_gettype(win)
-      if win_type == '' and ft ~= 'nvim-tree' and ft ~= 'neo-tree' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
+      if win_type == ''
+         and ft ~= 'nvim-tree'
+         and ft ~= 'neo-tree'
+         and ft ~= 'oil'
+         and ft ~= 'aerial'
+         and ft ~= 'pio_terminal'
+         and not ft:match('^terminal_')
+         and not ft:match('^pio_pane_') then
         code_win = win
         break
       end
     end
   end
 
-  -- 2. BOOTSTRAP: If only nvim-tree is open, create a reusable normal code window next to it first
-  if not code_win then
+  -- 2. BOOTSTRAP: If no valid code window exists (only nvim-tree is open), 
+  -- create a clean vertical split from nvim-tree first so we never split nvim-tree horizontally.
+  if not code_win or not vim.api.nvim_win_is_valid(code_win) then
     local tree_win = nil
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
       if vim.api.nvim_win_is_valid(win) then
@@ -342,17 +350,28 @@ function Terminal:on_open()
       vim.api.nvim_set_current_win(tree_win)
       vim.cmd('vsplit')
       code_win = vim.api.nvim_get_current_win()
-      
+
       -- Create a normal empty buffer so nvim-tree seamlessly reuses this window on file open
       local scratch_buf = vim.api.nvim_create_buf(true, false)
+      pcall(vim.api.nvim_buf_set_name, scratch_buf, "pio_scratch_" .. os.time())
       vim.api.nvim_win_set_buf(code_win, scratch_buf)
       vim.bo[scratch_buf].buflisted = false
+      vim.bo[scratch_buf].buftype = ''
     else
       code_win = vim.api.nvim_get_current_win()
     end
   end
 
-  -- 3. OPEN THE TERMINAL SPLIT SAFELY BELOW THE CODE WINDOW ONLY (Never -1)
+  -- Final absolute safety check: ensure code_win is never nvim-tree itself
+  local check_buf = vim.api.nvim_win_get_buf(code_win)
+  local check_ft = vim.api.nvim_get_option_value('filetype', { buf = check_buf })
+  if check_ft == 'nvim-tree' or check_ft == 'neo-tree' then
+    vim.api.nvim_set_current_win(code_win)
+    vim.cmd('vsplit')
+    code_win = vim.api.nvim_get_current_win()
+  end
+
+  -- 3. OPEN THE TERMINAL SPLIT SAFELY BELOW THE CODE WINDOW ONLY
   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
     split = 'below',
     win = code_win,
