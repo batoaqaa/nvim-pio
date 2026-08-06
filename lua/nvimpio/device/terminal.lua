@@ -333,8 +333,8 @@ function Terminal:close()
 end
 
 
---- Opens a local horizontal bottom split strictly scoped to the active code window column,
---- ensuring sidebars are never split and layout integrity is fully preserved.
+--- Opens a local horizontal bottom split strictly scoped to the code column.
+--- Keeps nvim-tree full-height and untouched, completely preventing 3-parallel columns.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
@@ -347,22 +347,22 @@ function Terminal:on_open()
     end
   end
 
-  -- 2. FIND A VALID CODE WINDOW TO SPLIT FROM (Strictly avoiding nvim-tree)
-  local target_win = nil
+  -- 2. FIND A VALID CODE WINDOW (Strictly avoiding nvim-tree)
+  local code_win = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local win_type = vim.fn.win_gettype(win)
       if win_type == '' and ft ~= 'nvim-tree' and ft ~= 'neo-tree' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
-        target_win = win
+        code_win = win
         break
       end
     end
   end
 
   -- 3. BOOTSTRAP: If only nvim-tree is open, create a safe code window next to it first
-  if not target_win then
+  if not code_win then
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
       if vim.api.nvim_win_is_valid(win) then
         local buf = vim.api.nvim_win_get_buf(win)
@@ -370,11 +370,11 @@ function Terminal:on_open()
         if ft == 'nvim-tree' or ft == 'neo-tree' then
           vim.api.nvim_set_current_win(win)
           vim.cmd('vsplit')
-          target_win = vim.api.nvim_get_current_win()
+          code_win = vim.api.nvim_get_current_win()
 
           local scratch_buf = vim.api.nvim_create_buf(false, true)
           pcall(vim.api.nvim_buf_set_name, scratch_buf, "pio_bootstrap_scratch")
-          vim.api.nvim_win_set_buf(target_win, scratch_buf)
+          vim.api.nvim_win_set_buf(code_win, scratch_buf)
           vim.bo[scratch_buf].buftype = 'nofile'
           vim.bo[scratch_buf].bufhidden = 'wipe'
           vim.bo[scratch_buf].swapfile = false
@@ -384,12 +384,13 @@ function Terminal:on_open()
     end
   end
 
-  if not target_win or not vim.api.nvim_win_is_valid(target_win) then
-    target_win = vim.api.nvim_get_current_win()
+  if not code_win or not vim.api.nvim_win_is_valid(code_win) then
+    code_win = vim.api.nvim_get_current_win()
   end
 
-  -- 4. FOCUS THE CODE WINDOW AND CREATE LOCAL HORIZONTAL SPLIT
-  vim.api.nvim_set_current_win(target_win)
+  -- 4. FOCUS CODE WINDOW AND CREATE LOCAL COLUMN-SCOPED SPLIT
+  -- 'belowright' splits ONLY the code pane. nvim-tree stays full-height and never panics.
+  vim.api.nvim_set_current_win(code_win)
   vim.cmd('belowright ' .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
