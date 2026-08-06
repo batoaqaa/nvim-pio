@@ -303,74 +303,67 @@ function Terminal:close()
   M.hide()
 end
 
---- Opens a native bottom split and ensures a scratch code window always exists,
---- preventing nvim-tree from panicking into a 3-parallel vertical split.
+--- Opens a clean horizontal bottom split beneath the active code window
+--- using Neovim's native split API, eliminating vertical columns, flicker, and git crashes.
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
-  local current_win = vim.api.nvim_get_current_win()
 
-  -- 1. CLEANUP: Close any existing ghost terminal instances
+  -- 1. CLEANUP: Close any existing ghost instances of this terminal window
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == self.buf then
       vim.api.nvim_win_close(win, true)
     end
   end
 
-  -- 2. CHECK FOR AN EXISTING CODE WINDOW
-  local has_code_win = false
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_is_valid(win) then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-      local win_type = vim.fn.win_gettype(win)
-      if win_type == '' and ft ~= 'nvim-tree' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
-        has_code_win = true
-        break
+  -- 2. FIND A VALID CODE WINDOW TO SPLIT FROM
+  local target_win = vim.api.nvim_get_current_win()
+  local current_buf = vim.api.nvim_win_get_buf(target_win)
+  local current_ft = vim.api.nvim_get_option_value('filetype', { buf = current_buf })
+
+  if current_ft == 'nvim-tree' or current_ft:match('^terminal_') or current_ft == 'pio_terminal' then
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_is_valid(win) then
+        local buf = vim.api.nvim_win_get_buf(win)
+        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+        local win_type = vim.fn.win_gettype(win)
+        if win_type == '' and ft ~= 'nvim-tree' and ft ~= 'pio_terminal' and not ft:match('^terminal_') then
+          target_win = win
+          break
+        end
       end
     end
   end
 
-  -- 3. CREATE BOTTOM SPLIT
-  vim.cmd('botright ' .. target_height .. 'split')
-  M.layout.container_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
-
-  -- Anchor to absolute bottom root
-  vim.cmd('wincmd J')
-  vim.api.nvim_win_set_height(M.layout.container_win, target_height)
-  M.layout.active_type = self.term_type
-
-  -- 4. IF NO CODE WINDOW EXISTED, CREATE A SCRATCH TARGET WINDOW ABOVE IT
-  -- This guarantees nvim-tree always has a valid pane to load files into.
-  if not has_code_win then
-    vim.cmd('wincmd k')
-    local scratch_buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_win_set_buf(0, scratch_buf)
-    vim.bo[scratch_buf].buftype = 'nofile'
-    vim.bo[scratch_buf].bufhidden = 'wipe'
-    vim.bo[scratch_buf].swapfile = false
+  if vim.api.nvim_win_is_valid(target_win) then
+    vim.api.nvim_set_current_win(target_win)
   end
 
-  -- 5. NVIM-TREE PROTECTION
+  -- 3. CREATE NATIVE HORIZONTAL SPLIT BELOW CURRENT WINDOW
+  -- This guarantees a horizontal bottom split inside the code column 
+  -- without touching nvim-tree's global layout structure.
+  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+    split = 'below',
+    win = 0,
+    height = target_height,
+  })
+  M.layout.active_type = self.term_type
+
+  -- 4. NVIM-TREE WINDOW PICKER PROTECTION
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
 
-  -- Window options styling
+  -- 5. WINDOW OPTIONS SETUP
   vim.w[M.layout.container_win].pio_managed = true
-  vim.wo[M.layout.container_win].winfixheight = true
-  vim.wo[M.layout.container_win].number = false
-  vim.wo[M.layout.container_win].relativenumber = false
-  vim.wo[M.layout.container_win].signcolumn = 'no'
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
 
   self:_register_viewport_mappings()
 
-  -- 6. Return focus safely back to your active workflow window
-  if vim.api.nvim_win_is_valid(current_win) and current_win ~= M.layout.container_win then
-    vim.api.nvim_set_current_win(current_win)
-  else
-    vim.cmd('wincmd p')
-  end
+  -- 6. Return focus back to your code window safely
+  vim.cmd('wincmd p')
 end
 
 
