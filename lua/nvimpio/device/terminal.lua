@@ -341,44 +341,30 @@ function Terminal:on_open()
     return
   end
 
-  -- CRITICAL FIX: Temporarily disable Neovim's auto-balancing to stop it 
-  -- from forcing 50/50 splits every time we open a window.
+  -- 2. CAPTURE STATE: Turn off equalalways temporarily, and grab nvim-tree's exact width
   local saved_ea = vim.o.equalalways
   vim.o.equalalways = false
 
-  -- 2. RESOLVE CODE WINDOW
-  local code_win = find_best_code_window()
-
-  -- 3. BOOTSTRAP: If no valid code window exists (e.g., fresh startup with only nvim-tree open)
-  if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    local tree_win = nil
-    local tree_width = 30
-    
-    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-      if vim.api.nvim_win_is_valid(win) then
-        local buf = vim.api.nvim_win_get_buf(win)
-        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-        if ft == 'nvim-tree' or ft == 'neo-tree' then
-          tree_win = win
-          tree_width = vim.api.nvim_win_get_width(win) -- Capture original sidebar width
-          break
-        end
+  local tree_win = nil
+  local tree_width = 30
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      if ft == 'nvim-tree' or ft == 'neo-tree' then
+        tree_win = win
+        tree_width = vim.api.nvim_win_get_width(win)
+        break
       end
     end
+  end
 
-    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      vim.api.nvim_set_current_win(tree_win)
-      vim.cmd('rightbelow vnew') -- Split specifically to the right of the tree
-      code_win = vim.api.nvim_get_current_win()
-      
-      -- Lock nvim-tree back to its exact width instantly
-      pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
-    else
-      vim.cmd('botright vnew')
-      code_win = vim.api.nvim_get_current_win()
-    end
+  -- 3. RESOLVE OR BOOTSTRAP CODE WINDOW
+  local code_win = find_best_code_window()
 
-    -- Create a clean, listed, unnamed normal buffer so nvim-tree seamlessly reuses it
+  if not code_win or not vim.api.nvim_win_is_valid(code_win) then
+    vim.cmd('botright vnew')
+    code_win = vim.api.nvim_get_current_win()
     local scratch_buf = vim.api.nvim_create_buf(true, false)
     vim.api.nvim_win_set_buf(code_win, scratch_buf)
     vim.bo[scratch_buf].buflisted = true
@@ -397,27 +383,38 @@ function Terminal:on_open()
     vim.bo[scratch_buf].buftype = ''
   end
 
-  -- 4. OPEN PERMANENT CONTAINER WINDOW STRICTLY BELOW CODE WINDOW
+  -- 4. OPEN TERMINAL CONTAINER
   vim.api.nvim_set_current_win(code_win)
-  vim.cmd('belowright ' .. target_height .. 'split')
-  
-  -- Restore Neovim's auto-balancing NOW, only after all splits are finished
-  vim.o.equalalways = saved_ea
-
+  vim.cmd('belowright split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
+  -- 5. ENFORCE STRICT GEOMETRY (The "Last Word")
+  -- First, restore equalalways so Neovim gets its recalculation out of its system...
+  vim.o.equalalways = saved_ea
+
+  -- ...THEN immediately override it by forcing the exact height and width we want!
+  
+  -- Force terminal height
+  vim.api.nvim_win_set_height(M.layout.container_win, target_height)
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+
+  -- Force nvim-tree width back to its compact size
+  if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+    pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
+  end
+
+  -- 6. APPLY OPTIONS
   vim.w[M.layout.container_win].pio_managed = true
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
 
   self:_register_viewport_mappings()
 
-  -- Return focus smoothly to code window above
+  -- Return focus smoothly to the code window above
   if code_win and vim.api.nvim_win_is_valid(code_win) then
     vim.api.nvim_set_current_win(code_win)
   end
