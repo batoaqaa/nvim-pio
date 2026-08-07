@@ -36,6 +36,91 @@
       move_right = '<C-l>',
     },
   })
+
+Option: panel_height
+Type: number
+Default Value: 0.2
+Description: Sizing percentage for terminal window height relative to editor lines (0.0 to 1.0).
+
+Option: sidebar_default_width
+Type: number
+Default Value: 30
+Description: Fallback column width applied to file tree sidebars if geometry resetting is triggered.
+
+Option: layout_style
+Type: string
+Default Value: 'below_code'
+Description: Controls horizontal width alignment for the terminal panel. Options:
+  • 'below_code': Splits strictly underneath the active code window, leaving file tree sidebars at full height.
+  • 'full_bottom': Splits edge-to-edge across the absolute bottom of the entire editor interface.
+
+Option: winbar_bg
+Type: string|nil
+Default Value: nil
+Description: Hex color string for the active winbar tab background (e.g., '#80a3d4'). If nil, it automatically adapts to your colorscheme via TabLineSel.
+
+Option: winbar_fg
+Type: string|nil
+Default Value: nil
+Description: Hex color string for the active winbar text label. If nil, falls back safely.
+
+Option: winbar_hl_group
+Type: string
+Default Value: 'PioWinBar'
+Description: Custom highlight group namespace identifier registered in Neovim's highlight database.
+
+Option: shell
+Type: string|table
+Default Value: Auto-detected OS shell
+Description: Active system shell program (e.g., 'pwsh', 'zsh', 'bash', or a table configuration).
+
+Option: is_sidebar
+Type: function|nil
+Default Value: nil
+Description: Custom Inversion of Control (IoC) predicate function function(win, buf) -> boolean to identify custom sidebars or panels programmatically.
+
+Option: ignored_filetypes
+Type: string[]
+Default Value: { 'pio_terminal' }
+Description: List of Neovim filetypes to ignore when resolving active code workspace windows.
+
+Option: ignored_patterns
+Type: string[]
+Default Value: { '^terminal_', '^pio_pane_' }
+Description: List of Lua pattern prefixes used to filter out internal system buffers/filetypes.
+
+Option: keymaps
+Type: table
+Default Value: (See below)
+Description: Keymap registration mappings dictionary for terminal viewports.
+
+Keymap Key: hide_pane
+Default Value: '\<q\>'
+Action Description: Action shortcut to hide the window panel split layout frame.
+
+Keymap Key: switch_pane
+Default Value: '\<Tab\>'
+Action Description: Action shortcut to rotate horizontally between active terminal tabs (CLI, Monitor, Logs).
+
+Keymap Key: escape_term
+Default Value: '\<Esc\>'
+Action Description: Action shortcut to escape interactive terminal input mode back to normal mode.
+
+Keymap Key: move_up
+Default Value: '\<C-k\>'
+Action Description: Boundary navigation focus router shortcut moving to the window above.
+
+Keymap Key: move_down
+Default Value: '\<C-j\>'
+Action Description: Boundary navigation focus router shortcut moving to the window below.
+
+Keymap Key: move_left
+Default Value: '\<C-h\>'
+Action Description: Boundary navigation focus router shortcut moving to the window left.
+
+Keymap Key: move_right
+Default Value: '\<C-l\>'
+Action Description: Boundary navigation focus router shortcut moving to the window right.
 ]]
 
 local M = {}
