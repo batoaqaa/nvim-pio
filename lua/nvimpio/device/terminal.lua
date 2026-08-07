@@ -1,6 +1,6 @@
 -- stylua: ignore start
 ---@brief [[
---- nvimpio/device/terminal.lua - Production-Grade Asynchronous Terminal Manager
+--- nvimpio/device/terminal.lua - Production-Grade Asynchronous Terminal Manager (Zero Autocmd Bloat)
 ---@brief ]]
 
 local M = {}
@@ -83,20 +83,17 @@ M.layout = {
 local function is_sidebar_window(win)
   if not vim.api.nvim_win_is_valid(win) then return true end
 
-  -- 1. Check native Neovim window types (quickfix, location lists, popups, etc.)
   local win_type = vim.fn.win_gettype(win)
   if win_type ~= '' then return true end
 
   local buf = vim.api.nvim_win_get_buf(win)
 
-  -- 2. Allow user-defined extension hook via M.setup() (Inversion of Control)
   if type(M.config.is_sidebar) == 'function' then
     if M.config.is_sidebar(win, buf) then
       return true
     end
   end
 
-  -- 3. Generic buffer type heuristics (filetrees, explorers, and panels use 'nofile' etc.)
   local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
   if buftype == 'nofile' or buftype == 'quickfix' or buftype == 'help' then
     return true
@@ -499,37 +496,8 @@ function Terminal:hide()
 end
 
 ----------------------------------------------------------------------------------------
--- 4. ORCHESTRATION & FOCUS ROUTING SUBSYSTEM
+-- 4. PUBLIC ORCHESTRATION LAYER (Zero Global Autocmd Bloat)
 ----------------------------------------------------------------------------------------
-
-local _is_routing_focus = false
-vim.api.nvim_create_autocmd('WinEnter', {
-  group = vim.api.nvim_create_augroup('PioTerminalFocusRouter', { clear = true }),
-  callback = function()
-    if _is_routing_focus then return end
-    local win = vim.api.nvim_get_current_win()
-    if not vim.api.nvim_win_is_valid(win) then return end
-
-    if is_sidebar_window(win) then
-      if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-        local code_win = M.layout.code_win
-        if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-          code_win = find_best_code_window()
-        end
-
-        if code_win and vim.api.nvim_win_is_valid(code_win) and code_win ~= win then
-          _is_routing_focus = true
-          local sidebar_win = win
-          pcall(function()
-            vim.fn.win_gotoid(code_win)
-            vim.fn.win_gotoid(sidebar_win)
-          end)
-          _is_routing_focus = false
-        end
-      end
-    end
-  end,
-})
 
 function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   local final_filetype = nil
@@ -664,7 +632,7 @@ end
 ----------------------------------------------------------------------------------------
 -- SYSTEM FACTORY CHANNELS INITIALIZATION
 ----------------------------------------------------------------------------------------
-function  M.reopen()
+function M.reopen()
   if M.terminals['logs'] then M.terminals['logs']:close() end
   if M.terminals['mon'] then M.terminals['mon']:close() end
   if M.terminals['cli'] then M.terminals['cli']:close() end
