@@ -341,37 +341,14 @@ function Terminal:on_open()
     return
   end
 
-  -- 2. RESOLVE CODE WINDOW
+-- 2. RESOLVE CODE WINDOW
   local code_win = find_best_code_window()
 
-  -- 3. BOOTSTRAP CODE WINDOW USING MODERN NATIVE API (Prevents 50/50 split and buffer leaks)
+  -- 3. BOOTSTRAP CODE WINDOW SAFELY
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    local tree_win = nil
-    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-      if vim.api.nvim_win_is_valid(win) then
-        local buf = vim.api.nvim_win_get_buf(win)
-        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-        if ft == 'nvim-tree' or ft == 'neo-tree' then
-          tree_win = win
-          break
-        end
-      end
-    end
-
-    local scratch_buf = vim.api.nvim_create_buf(true, false)
-    vim.bo[scratch_buf].buflisted = true
-    vim.bo[scratch_buf].buftype = ''
-
-    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      code_win = vim.api.nvim_open_win(scratch_buf, true, {
-        split = 'right',
-        win = tree_win,
-      })
-    else
-      code_win = vim.api.nvim_open_win(scratch_buf, true, {
-        split = 'right',
-      })
-    end
+    -- If no standard code window exists, create a clean full-width split layout
+    vim.cmd('enew')
+    code_win = vim.api.nvim_get_current_win()
   end
 
   -- Safety check to ensure code_win is valid and not nvim-tree
