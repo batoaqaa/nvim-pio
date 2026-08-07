@@ -65,9 +65,11 @@ M.terminals = {}
 ---@class TerminalLayout Matrix for managing terminal split window geometry positioning
 ---@field container_win integer|nil Explicit native Neovim window handle ID containing the active terminal split panel
 ---@field active_type string|nil String reference token representing the currently focused terminal pane
+---@field code_win integer|nil Explicit native Neovim window handle ID for the top code/scratch workspace panel
 M.layout = {
   container_win = nil,
   active_type = nil,
+  code_win = nil,
 }
 
 --- Pure C-API Highlight winbar renderer (Preserves explicit layout creation order)
@@ -310,19 +312,29 @@ function Terminal:on_exit()
   M.UpdateWinbarTitles()
 end
 
---- Turns down the active system process stream channel and wipes the tracking buffer cache cleanly from memory
----@return nil
+function M.hide()
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    if vim.w[M.layout.container_win].pio_managed then
+      pcall(vim.api.nvim_win_close, M.layout.container_win, true)
+    end
+  end
+  M.layout.container_win = nil
+  M.layout.active_type = nil
+  M.layout.code_win = nil
+  M.RestoreWorkspaceFocus()
+end
+
 function Terminal:on_close()
   local tracking_buf = self.buf
   self.job = nil
   self.buf = nil
   self._on_next_exit = nil
+  M.layout.code_win = nil
 
   if tracking_buf and vim.api.nvim_buf_is_valid(tracking_buf) then
     pcall(vim.api.nvim_buf_delete, tracking_buf, { force = true })
   end
 end
-
 --- Wrapper orchestration function handling channel termination and layout visibility structures concurrently
 ---@return nil
 function Terminal:close()
@@ -381,28 +393,10 @@ function Terminal:on_open()
     end
   end
 
-  -- Final absolute safety check to ensure code_win is never nvim-tree
-  local code_buf = vim.api.nvim_win_get_buf(code_win)
-  local code_ft = vim.api.nvim_get_option_value('filetype', { buf = code_buf })
-  local code_bufname = vim.api.nvim_buf_get_name(code_buf)
-  if code_ft == 'nvim-tree' or code_ft == 'neo-tree' or code_bufname:match('NvimTree') then
-    local scratch_buf = vim.api.nvim_create_buf(true, false)
-    vim.bo[scratch_buf].buflisted = true
-    vim.bo[scratch_buf].buftype = ''
-    vim.bo[scratch_buf].bufhidden = 'wipe'
-    code_win = vim.api.nvim_open_win(scratch_buf, true, {
-      split = 'right',
-    })
-    code_buf = vim.api.nvim_win_get_buf(code_win)
-  end
+  -- Cache code window explicitly
+  M.layout.code_win = code_win
 
-  vim.w[code_win].nvim_tree_no_window_picker = false
-  if vim.api.nvim_buf_is_valid(code_buf) then
-    vim.bo[code_buf].buflisted = true
-    vim.bo[code_buf].buftype = ''
-  end
-
-  -- Style the placeholder code window cleanly
+  -- Style placeholder cleanly
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = code_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = code_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = code_win })
@@ -424,12 +418,10 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
-  -- Return focus smoothly to code window above
   if code_win and vim.api.nvim_win_is_valid(code_win) then
     vim.api.nvim_set_current_win(code_win)
   end
 end
-
 
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
@@ -510,29 +502,46 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 end
---- Global Focus Router: Ensures nvim-tree always targets the code window instead of the terminal
+
+local _is_routing_focus = false
+
+--- Global Focus Router: Forces nvim-tree to target the top code window instead of the terminal
 vim.api.nvim_create_autocmd('WinEnter', {
   group = vim.api.nvim_create_augroup('PioTerminalFocusRouter', { clear = true }),
   callback = function()
+    if _is_routing_focus then return end
+
     local win = vim.api.nvim_get_current_win()
     if not vim.api.nvim_win_is_valid(win) then return end
+
     local buf = vim.api.nvim_win_get_buf(win)
     local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
     local bufname = vim.api.nvim_buf_get_name(buf)
 
     if ft == 'nvim-tree' or ft == 'neo-tree' or bufname:match('NvimTree') then
       if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-        local code_win = find_best_code_window()
-        if code_win and vim.api.nvim_win_is_valid(code_win) then
+        local code_win = M.layout.code_win
+        if not code_win or not vim.api.nvim_win_is_valid(code_win) then
+          code_win = find_best_code_window()
+        end
+
+        if code_win and vim.api.nvim_win_is_valid(code_win) and code_win ~= win then
+          _is_routing_focus = true
           local tree_win = win
-          -- Temporarily jump to code_win and back to update Neovim's alternate window pointer
-          vim.fn.win_gotoid(code_win)
-          vim.fn.win_gotoid(tree_win)
+          pcall(function()
+            vim.fn.win_gotoid(code_win)
+            vim.fn.win_gotoid(tree_win)
+          end)
+          _is_routing_focus = false
         end
       end
     end
   end,
 })
+
+
+
+
 -- nvimpio/device/terminal.lua - Part 4
 
 ----------------------------------------------------------------------------------------
@@ -609,19 +618,6 @@ function M.show(term_type)
 
   target_instance:on_open()
   M.UpdateWinbarTitles()
-end
-
---- Hides the active panel split view window layout frame cleanly from the viewport screen
----@return nil
-function M.hide()
-  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    if vim.w[M.layout.container_win].pio_managed then
-      pcall(vim.api.nvim_win_close, M.layout.container_win, true)
-    end
-  end
-  M.layout.container_win = nil
-  M.layout.active_type = nil
-  M.RestoreWorkspaceFocus()
 end
 
 --- Public automation macro toggling layout panel split view visibilities dynamically
