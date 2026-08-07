@@ -117,7 +117,6 @@ function M.UpdateWinbarTitles()
   )
 end
 
-
 --- Internal helper to locate a safe code window dynamically using configuration parameters
 ---@return integer|nil
 local function find_best_code_window()
@@ -331,7 +330,6 @@ function Terminal:close()
   M.hide()
 end
 
-
 --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
 function Terminal:on_open()
@@ -426,31 +424,6 @@ function Terminal:on_open()
     vim.api.nvim_set_current_win(code_win)
   end
 end
-
-
-  -- 4. OPEN TERMINAL CONTAINER STRICTLY BELOW CODE WINDOW
-  vim.api.nvim_set_current_win(code_win)
-  vim.cmd('belowright ' .. target_height .. 'split')
-  M.layout.container_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
-  M.layout.active_type = self.term_type
-
-  -- 5. LATCH GEOMETRY & OPTIONS
-  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
-  vim.w[M.layout.container_win].pio_managed = true
-  vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
-  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
-  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
-
-  self:_register_viewport_mappings()
-
-  -- Return focus smoothly to code window above
-  if code_win and vim.api.nvim_win_is_valid(code_win) then
-    vim.api.nvim_set_current_win(code_win)
-  end
-end
-
 
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
