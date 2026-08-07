@@ -41,7 +41,7 @@ M.config = {
   winbar_fg = nil,
   winbar_hl_group = 'PioWinBar',
   shell = native_shell,
-  is_sidebar = nil, -- Now fully compliant with LuaLS type definitions
+  is_sidebar = nil,
   ignored_filetypes = {
     'pio_terminal',
   },
@@ -60,11 +60,6 @@ M.config = {
   },
 }
 
-----------------------------------------------------------------------------------------
--- GENERIC INTROSPECTION (Zero Hardcoded Plugin Names)
-----------------------------------------------------------------------------------------
-
-
 M.stdout_callback = nil
 M.terminals = {}
 
@@ -79,10 +74,7 @@ M.layout = {
 }
 
 ----------------------------------------------------------------------------------------
--- 2. DYNAMIC LAYOUT & WINDOW RESOLUTION ENGINE
-----------------------------------------------------------------------------------------
-----------------------------------------------------------------------------------------
--- 2. CENTRALIZED DYNAMIC INTROSPECTION HELPERS (Zero Hardcoding)
+-- 2. DYNAMIC LAYOUT & WINDOW RESOLUTION ENGINE (Zero Hardcoding)
 ----------------------------------------------------------------------------------------
 
 --- Dynamically evaluates whether a window is a sidebar or filetree using native Neovim heuristics
@@ -117,7 +109,7 @@ end
 ---@return integer|nil
 local function find_sidebar_window()
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if is_sidebar_window(win) then -- Actively uses is_sidebar_window
+    if is_sidebar_window(win) then
       return win
     end
   end
@@ -132,7 +124,7 @@ local function find_best_code_window()
 
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) and win ~= M.layout.container_win then
-      if not is_sidebar_window(win) then -- Actively uses is_sidebar_window
+      if not is_sidebar_window(win) then
         local buf = vim.api.nvim_win_get_buf(win)
         local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
         local is_ignored = false
@@ -159,7 +151,6 @@ function M.UpdateWinbarTitles()
   local maps = M.config.keymaps
   local hl = M.config.winbar_hl_group
 
-  -- Fallback or custom highlight generation
   if M.config.winbar_bg then
     vim.api.nvim_set_hl(0, hl, { bg = M.config.winbar_bg, fg = M.config.winbar_fg or '#000000', bold = true })
     vim.api.nvim_set_hl(0, hl .. 'Dim', { bg = M.config.winbar_bg, fg = '#4e5a6b', italic = true })
@@ -359,7 +350,6 @@ function Terminal:on_open()
   vim.o.equalalways = false
 
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    -- Actively use find_sidebar_window() here
     local sidebar_win = find_sidebar_window()
     local scratch_buf = vim.api.nvim_create_buf(true, false)
     vim.bo[scratch_buf].buflisted = true
@@ -421,7 +411,6 @@ function Terminal:on_open()
     vim.api.nvim_set_current_win(code_win)
   end
 end
-
 
 function Terminal:_register_viewport_mappings()
   local maps = M.config.keymaps
@@ -521,11 +510,7 @@ vim.api.nvim_create_autocmd('WinEnter', {
     local win = vim.api.nvim_get_current_win()
     if not vim.api.nvim_win_is_valid(win) then return end
 
-    local buf = vim.api.nvim_win_get_buf(win)
-    local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-    local bufname = vim.api.nvim_buf_get_name(buf)
-
-    if ft == 'nvim-tree' or ft == 'neo-tree' or bufname:match('NvimTree') or bufname:match('neo%-tree') then
+    if is_sidebar_window(win) then
       if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
         local code_win = M.layout.code_win
         if not code_win or not vim.api.nvim_win_is_valid(code_win) then
@@ -534,10 +519,10 @@ vim.api.nvim_create_autocmd('WinEnter', {
 
         if code_win and vim.api.nvim_win_is_valid(code_win) and code_win ~= win then
           _is_routing_focus = true
-          local tree_win = win
+          local sidebar_win = win
           pcall(function()
             vim.fn.win_gotoid(code_win)
-            vim.fn.win_gotoid(tree_win)
+            vim.fn.win_gotoid(sidebar_win)
           end)
           _is_routing_focus = false
         end
@@ -679,7 +664,7 @@ end
 ----------------------------------------------------------------------------------------
 -- SYSTEM FACTORY CHANNELS INITIALIZATION
 ----------------------------------------------------------------------------------------
-function M.reopen()
+functionM.reopen = function()
   if M.terminals['logs'] then M.terminals['logs']:close() end
   if M.terminals['mon'] then M.terminals['mon']:close() end
   if M.terminals['cli'] then M.terminals['cli']:close() end
