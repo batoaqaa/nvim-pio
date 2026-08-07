@@ -1,6 +1,16 @@
 -- stylua: ignore start
 ---@brief [[
 --- nvimpio/device/terminal.lua - Production-Grade Asynchronous Terminal Manager
+---
+--- Architectural Overview:
+--- 1. Configuration & Environment Setup: Dynamic OS shell detection and strict LuaLS typing.
+--- 2. Dynamic Layout & Window Resolution Engine: Zero-hardcoding heuristic layout engine 
+---    that automatically identifies sidebars/file trees and code editing windows.
+--- 3. Object-Oriented Terminal Specification: Encapsulates terminal state, asynchronous 
+---    job piping (termopen), buffer management, viewport keymaps, and split orchestration.
+--- 4. Public Orchestration Layer: Provides global factory channels, tab switching, toggling, 
+---    and seamless workspace focus restoration.
+---@brief ]]
 
 --[[
   require('nvimpio.device.terminal').setup({
@@ -26,13 +36,13 @@
     },
   })
 ]]
----@brief ]]
 
 local M = {}
 
 ----------------------------------------------------------------------------------------
 -- 1. CONFIGURATION & ENVIRONMENT SETUP
 ----------------------------------------------------------------------------------------
+-- Safely resolve OS environment settings with fallback mechanisms to ensure portability across Windows and Unix.
 local OS = _G.OS or (pcall(require, 'nvimpio.osInfo') and _G.OS or {})
 local native_shell = OS.shell or (vim.fn.has('win32') == 1 and 'pwsh' or 'sh')
 local native_eol = OS.eol or '\n'
@@ -63,15 +73,12 @@ local native_eol = OS.eol or '\n'
 M.config = {
   panel_height = 0.2,
   sidebar_default_width = 30,
-  -- layout_style = 'below_code', -- Options: 'below_code' (respects sidebar) or 'full_bottom' (edge-to-edge)
   layout_style = 'full_bottom', -- Options: 'below_code' (respects sidebar) or 'full_bottom' (edge-to-edge)
   winbar_bg = '#80a3d4',
   winbar_fg = '#000000',
-  -- winbar_bg = nil,
-  -- winbar_fg = nil,
   winbar_hl_group = 'PioWinBar',
   shell = native_shell,
-  is_sidebar = nil, -- Optional custom predicate: function(win, buf) -> boolean
+  is_sidebar = nil, -- Optional Inversion of Control (IoC) custom predicate hook: function(win, buf) -> boolean
   ignored_filetypes = {
     'pio_terminal',
   },
@@ -108,22 +115,26 @@ M.layout = {
 ----------------------------------------------------------------------------------------
 
 --- Dynamically evaluates whether a window is a sidebar or filetree using native Neovim heuristics
+--- This guarantees zero hardcoding of specific third-party plugin names (e.g., nvim-tree, neo-tree).
 ---@param win integer Window handle ID
 ---@return boolean
 local function is_sidebar_window(win)
   if not vim.api.nvim_win_is_valid(win) then return true end
 
+  -- 1. Check native Neovim window types (quickfix, location lists, floating popups, etc.)
   local win_type = vim.fn.win_gettype(win)
   if win_type ~= '' then return true end
 
   local buf = vim.api.nvim_win_get_buf(win)
 
+  -- 2. Allow user-defined extension hook via M.setup() (Inversion of Control pattern)
   if type(M.config.is_sidebar) == 'function' then
     if M.config.is_sidebar(win, buf) then
       return true
     end
   end
 
+  -- 3. Generic buffer type heuristics (filetrees, explorers, and scratch panels use 'nofile', etc.)
   local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
   if buftype == 'nofile' or buftype == 'quickfix' or buftype == 'help' then
     return true
@@ -143,7 +154,7 @@ local function find_sidebar_window()
   return nil
 end
 
---- Dynamically resolves the best active code editing window
+--- Dynamically resolves the best active code editing window by filtering out sidebars and system/ignored filetypes
 ---@return integer|nil
 local function find_best_code_window()
   local ignored_fts = M.config.ignored_filetypes or {}
@@ -172,12 +183,13 @@ local function find_best_code_window()
   return nil
 end
 
---- Professional Winbar Renderer (Distinctly highlighted via TabLineSel)
+--- Professional Winbar Renderer (Generates clean tabbed titles with dynamic highlighting)
 ---@return nil
 function M.UpdateWinbarTitles()
   local maps = M.config.keymaps
   local hl = M.config.winbar_hl_group
 
+  -- Configure dynamic highlight groups for active and inactive terminal tabs
   if M.config.winbar_bg then
     vim.api.nvim_set_hl(0, hl, { bg = M.config.winbar_bg, fg = M.config.winbar_fg or '#abb2bf', bold = true })
     vim.api.nvim_set_hl(0, hl .. 'Dim', { bg = M.config.winbar_bg, fg = '#5c6370', italic = true })
@@ -190,6 +202,7 @@ function M.UpdateWinbarTitles()
     return
   end
 
+  -- Collect and sort active terminal buffers based on creation order index
   local ordered_terminals = {}
   for _, term in pairs(M.terminals) do
     if term.buf and vim.api.nvim_buf_is_valid(term.buf) then
@@ -215,6 +228,7 @@ function M.UpdateWinbarTitles()
     end
   end
 
+  -- Render navigation hints dynamically depending on tab count
   local hint = (total_terminals > 1) and string.format(' [ %s  Switch;  %s  Hide; :q! Quit ] ', maps.switch_pane, maps.hide_pane)
     or string.format(' [ %s  Hide; :q! Quit ] ', maps.hide_pane)
 
@@ -225,6 +239,8 @@ function M.UpdateWinbarTitles()
   )
 end
 
+--- Restores workspace focus back to the best code editing window when terminal hides
+---@return nil
 function M.RestoreWorkspaceFocus()
   local target_win = find_best_code_window()
   if target_win and vim.api.nvim_win_is_valid(target_win) then
@@ -260,6 +276,12 @@ local Terminal = {
 }
 Terminal.__index = Terminal
 
+--- Constructor for creating a new Terminal object instance
+---@param term_type string Identifier token (e.g., 'cli', 'mon', 'logs')
+---@param panel_title string Display title shown in the winbar tab header
+---@param filetype? string Custom buffer filetype identifier
+---@param custom_stdout? fun(job_id: integer, data: string[], event: string) Optional custom stdout stream handler
+---@return Terminal
 function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   local self = setmetatable({}, Terminal)
   self.term_type = term_type
@@ -269,6 +291,8 @@ function Terminal.new(term_type, panel_title, filetype, custom_stdout)
   return self
 end
 
+--- Initializes the underlying asynchronous Neovim buffer and spawns the background shell job channel
+---@return nil
 function Terminal:on_create()
   self.buf = vim.api.nvim_create_buf(false, true)
 
@@ -277,6 +301,7 @@ function Terminal:on_create()
     target_shell = target_shell.program
   end
 
+  -- Spawn asynchronous background terminal process via Neovim's termopen API
   vim.api.nvim_buf_call(self.buf, function()
     local channel_id = vim.fn.termopen(target_shell, {
       on_stdout = function(j, d, e) self:on_stdout(j, d, e) end,
@@ -296,6 +321,9 @@ function Terminal:on_create()
   self:_register_viewport_bindings()
 end
 
+--- Sends raw shell commands to the asynchronous job channel with automatic auto-scrolling
+---@param command string Command string to execute
+---@return nil
 function Terminal:send(command)
   local cmd_str = tostring(command or '')
   local original_work_win = vim.api.nvim_get_current_win()
@@ -311,6 +339,7 @@ function Terminal:send(command)
 
   vim.fn.chansend(self.job, cmd_str .. self.newline)
 
+  -- Throttled auto-scroll cursor to the bottom line of the terminal buffer output
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) and not self._is_scrolling then
     self._is_scrolling = true
     vim.schedule(function()
@@ -329,6 +358,11 @@ function Terminal:send(command)
   end
 end
 
+--- Handles standard output streams from background shell processes
+---@param j integer Job ID channel handle
+---@param d string[] Data lines received
+---@param e string Event type
+---@return nil
 function Terminal:on_stdout(j, d, e)
   if self._custom_stdout then
     self._custom_stdout(j, d, e)
@@ -337,10 +371,17 @@ function Terminal:on_stdout(j, d, e)
   end
 end
 
+--- Handles standard error streams by routing them through stdout handlers
+---@param j integer Job ID channel handle
+---@param d string[] Data lines received
+---@param e string Event type
+---@return nil
 function Terminal:on_stderr(j, d, e)
   self:on_stdout(j, d, e)
 end
 
+--- Triggered when the background terminal job exits, executing registered callbacks
+---@return nil
 function Terminal:on_exit()
   local cb = self._on_next_exit
   self._on_next_exit = nil
@@ -348,7 +389,7 @@ function Terminal:on_exit()
   M.UpdateWinbarTitles()
 end
 
---- Clean Configuration-Driven Layout Handler (Supports Layout Styles)
+--- Clean Configuration-Driven Layout Handler (Supports below_code and full_bottom layout styles)
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
@@ -369,10 +410,9 @@ function Terminal:on_open()
     end
   end
 
-  if not code_win then
-    code_win = find_best_code_window()
-  end
+  if not code_win then code_win = find_best_code_window() end
 
+  -- Temporarily disable equalalways to protect custom split heights from collapsing
   local old_ea = vim.o.equalalways
   vim.o.equalalways = false
 
@@ -418,9 +458,9 @@ function Terminal:on_open()
     vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = code_win })
   end
 
-  -- Modern future-proof split routing
+  -- Modern future-proof split routing: jumps to absolute bottom if full_bottom style is chosen
   if M.config.layout_style == 'full_bottom' then
-    vim.cmd.wincmd('b') -- Modern callable Lua command interface
+    vim.cmd.wincmd('b')
   else
     vim.api.nvim_set_current_win(code_win)
   end
@@ -432,6 +472,7 @@ function Terminal:on_open()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
+  -- Configure isolated window appearance options for the terminal container
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
   vim.w[M.layout.container_win].pio_managed = true
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
@@ -447,104 +488,8 @@ function Terminal:on_open()
   end
 end
 
-
--- --- Clean Configuration-Driven Layout Handler (Supports Layout Styles)
--- ---@return nil
--- function Terminal:on_open()
---   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
---   vim.go.splitkeep = 'screen'
---
---   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
---     vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
---     M.layout.active_type = self.term_type
---     self:_register_viewport_mappings()
---     M.UpdateWinbarTitles()
---     return
---   end
---
---   local code_win = nil
---   if M.layout.code_win and vim.api.nvim_win_is_valid(M.layout.code_win) then
---     if not is_sidebar_window(M.layout.code_win) then
---       code_win = M.layout.code_win
---     end
---   end
---
---   if not code_win then
---     code_win = find_best_code_window()
---   end
---
---   local old_ea = vim.o.equalalways
---   vim.o.equalalways = false
---
---   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
---     local sidebar_win = find_sidebar_window()
---     local scratch_buf = vim.api.nvim_create_buf(true, false)
---     vim.bo[scratch_buf].buflisted = true
---     vim.bo[scratch_buf].buftype = ''
---     vim.bo[scratch_buf].bufhidden = 'hide'
---     vim.bo[scratch_buf].swapfile = false
---
---     if sidebar_win and vim.api.nvim_win_is_valid(sidebar_win) then
---       local current_width = vim.api.nvim_win_get_width(sidebar_win)
---       if current_width > (vim.o.columns * 0.4) then
---         current_width = M.config.sidebar_default_width or 30
---       end
---
---       code_win = vim.api.nvim_open_win(scratch_buf, true, {
---         split = 'right',
---         win = sidebar_win,
---       })
---       pcall(vim.api.nvim_win_set_width, sidebar_win, current_width)
---     else
---       code_win = vim.api.nvim_open_win(scratch_buf, true, {
---         split = 'right',
---       })
---     end
---   end
---
---   M.layout.code_win = code_win
---
---   local code_buf = vim.api.nvim_win_get_buf(code_win)
---   if vim.api.nvim_buf_is_valid(code_buf) then
---     vim.bo[code_buf].buflisted = true
---     if vim.bo[code_buf].buftype ~= 'nofile' then
---       vim.bo[code_buf].buftype = ''
---     end
---   end
---
---   if vim.api.nvim_buf_get_name(code_buf) == '' and vim.api.nvim_buf_line_count(code_buf) <= 1 then
---     vim.api.nvim_set_option_value('number', false, { scope = 'local', win = code_win })
---     vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = code_win })
---     vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = code_win })
---   end
---
---   vim.api.nvim_set_current_win(code_win)
---
---   local split_cmd = 'belowright '
---   if M.config.layout_style == 'full_bottom' then
---     split_cmd = 'botright '
---   end
---
---   vim.cmd(split_cmd .. target_height .. 'split')
---   M.layout.container_win = vim.api.nvim_get_current_win()
---   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
---   M.layout.active_type = self.term_type
---
---   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
---   vim.w[M.layout.container_win].pio_managed = true
---   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
---   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
---   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
---   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
---
---   vim.o.equalalways = old_ea
---   self:_register_viewport_mappings()
---
---   if code_win and vim.api.nvim_win_is_valid(code_win) then
---     vim.api.nvim_set_current_win(code_win)
---   end
--- end
-
+--- Registers local buffer-scoped keymap shortcuts for interactive terminal viewports
+---@return nil
 function Terminal:_register_viewport_mappings()
   local maps = M.config.keymaps
   vim.keymap.set('t', maps.escape_term, [[<C-\><C-n>]], { buffer = self.buf, silent = true })
@@ -557,6 +502,8 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
 
+--- Registers localized autocommand event bindings scoped strictly to individual terminal buffers
+---@return nil
 function Terminal:_register_viewport_bindings()
   local group_id = vim.api.nvim_create_augroup('PioLocalEvents_' .. self.buf, { clear = true })
 
@@ -607,6 +554,8 @@ function Terminal:_register_viewport_bindings()
   })
 end
 
+--- Safely cleans up internal states and deletes the terminal buffer resource
+---@return nil
 function Terminal:on_close()
   local tracking_buf = self.buf
   self.job = nil
@@ -635,6 +584,12 @@ end
 -- 4. PUBLIC ORCHESTRATION LAYER (Zero Global Autocmd Bloat)
 ----------------------------------------------------------------------------------------
 
+--- Factory function to create or update managed terminal instances
+---@param name string Unique token identifier for the terminal channel
+---@param title string Display header title string
+---@param filetype_or_cb? string|fun(j: integer, d: string[], e: string) Custom filetype string or stdout callback
+---@param custom_stdout? fun(j: integer, d: string[], e: string) Custom stdout event callback
+---@return Terminal
 function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   local final_filetype = nil
   local final_cb = nil
@@ -668,6 +623,9 @@ function M.create_terminal(name, title, filetype_or_cb, custom_stdout)
   return M.terminals[name]
 end
 
+--- Displays a specific terminal instance in the layout container window
+---@param term_type? string Terminal key identifier
+---@return nil
 function M.show(term_type)
   if not term_type then term_type = next(M.terminals) end
   local target_instance = M.terminals[term_type]
@@ -689,6 +647,8 @@ function M.show(term_type)
   M.UpdateWinbarTitles()
 end
 
+--- Hides the active terminal panel and restores workspace focus
+---@return nil
 function M.hide()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     if vim.w[M.layout.container_win].pio_managed then
@@ -700,6 +660,8 @@ function M.hide()
   M.RestoreWorkspaceFocus()
 end
 
+--- Toggles visibility of the active terminal window panel container
+---@return nil
 function M.toggle()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     M.hide()
@@ -708,6 +670,8 @@ function M.toggle()
   end
 end
 
+--- Rotates horizontally through open managed terminal pane tabs sequentially
+---@return nil
 function M.SwitchTerminalPane()
   local ordered_keys = {}
   for k, _ in pairs(M.terminals) do table.insert(ordered_keys, k) end
@@ -727,10 +691,15 @@ function M.SwitchTerminalPane()
   M.show(ordered_keys[next_index])
 end
 
+--- Checks whether the managed terminal container window is currently open and valid
+---@return boolean
 function M.IsTerminalOpen()
   return M.layout.container_win ~= nil and vim.api.nvim_win_is_valid(M.layout.container_win)
 end
 
+--- Executes a command in the CLI terminal instance and automatically restores focus on exit
+---@param cmd string Command string to execute
+---@return nil
 function M.send_and_restore(cmd)
   local target_instance = M.terminals.cli
   if not target_instance then return end
@@ -753,6 +722,7 @@ function M.send_and_restore(cmd)
   target_instance:send(cmd)
 end
 
+-- Global helper keymap to quickly jump focus into the terminal panel from anywhere
 vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
     vim.api.nvim_set_current_win(M.layout.container_win)
@@ -761,6 +731,9 @@ vim.keymap.set({ 'n', 'i', 'v' }, '<C-j>', function()
   end
 end, { silent = true })
 
+--- Merges user-supplied configuration options into the default configuration table
+---@param opts? TerminalConfig User options table
+---@return nil
 function M.setup(opts)
   M.config = vim.tbl_deep_extend('force', M.config, opts or {})
 end
@@ -768,6 +741,8 @@ end
 ----------------------------------------------------------------------------------------
 -- SYSTEM FACTORY CHANNELS INITIALIZATION
 ----------------------------------------------------------------------------------------
+--- Re-initializes standard default system factory terminal channels (CLI, Monitor, OS Logs)
+---@return nil
 function M.reopen()
   if M.terminals['logs'] then M.terminals['logs']:close() end
   if M.terminals['mon'] then M.terminals['mon']:close() end
@@ -781,6 +756,7 @@ function M.reopen()
 end
 M.reopen()
 
+-- Metatable proxy enabling direct table property lookups on M to access individual terminals (e.g., M.cli)
 setmetatable(M, {
   __index = function(table, key)
     return rawget(table, 'terminals')[key]
