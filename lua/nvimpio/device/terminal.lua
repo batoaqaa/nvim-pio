@@ -360,43 +360,47 @@ function Terminal:on_open()
   -- 2. RESOLVE CODE WINDOW
   local code_win = find_best_code_window()
 
-  -- 3. BOOTSTRAP CODE WINDOW SAFELY NEXT TO TREE
+  -- 3. CREATE CODE WINDOW NATIVELY NEXT TO TREE (Prevents vertical split cascade)
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
     local tree_win = nil
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
       if vim.api.nvim_win_is_valid(win) then
         local buf = vim.api.nvim_win_get_buf(win)
         local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-        local bufname = vim.api.nvim_buf_get_name(buf)
-        if ft == 'nvim-tree' or ft == 'neo-tree' or bufname:match('NvimTree') then
+        if ft == 'nvim-tree' or ft == 'neo-tree' or vim.api.nvim_buf_get_name(buf):match('NvimTree') then
           tree_win = win
           break
         end
       end
     end
 
-    local scratch_buf = vim.api.nvim_create_buf(true, false)
-    vim.bo[scratch_buf].buflisted = true
-    vim.bo[scratch_buf].buftype = ''
-    vim.bo[scratch_buf].bufhidden = 'wipe'
-    vim.bo[scratch_buf].swapfile = false
-
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      code_win = vim.api.nvim_open_win(scratch_buf, true, {
-        split = 'right',
-        win = tree_win,
-      })
+      vim.api.nvim_set_current_win(tree_win)
+      vim.cmd('wincmd l')
+      if vim.api.nvim_get_current_win() == tree_win then
+        vim.cmd('vsplit')
+      end
     else
-      code_win = vim.api.nvim_open_win(scratch_buf, true, {
-        split = 'right',
-      })
+      vim.cmd('enew')
     end
+    code_win = vim.api.nvim_get_current_win()
   end
 
-  -- Cache code window explicitly
+  -- Ensure code_win is valid and never a tree window
+  local code_buf = vim.api.nvim_win_get_buf(code_win)
+  local code_ft = vim.api.nvim_get_option_value('filetype', { buf = code_buf })
+  if code_ft == 'nvim-tree' or code_ft == 'neo-tree' then
+    vim.cmd('vsplit')
+    code_win = vim.api.nvim_get_current_win()
+    code_buf = vim.api.nvim_win_get_buf(code_win)
+  end
+
   M.layout.code_win = code_win
 
-  -- Style placeholder cleanly
+  -- Style the placeholder code window cleanly as an empty canvas
+  vim.bo[code_buf].buflisted = true
+  vim.bo[code_buf].buftype = ''
+  vim.bo[code_buf].bufhidden = 'wipe'
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = code_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = code_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = code_win })
@@ -418,11 +422,11 @@ function Terminal:on_open()
 
   self:_register_viewport_mappings()
 
+  -- Return focus smoothly to code window above
   if code_win and vim.api.nvim_win_is_valid(code_win) then
     vim.api.nvim_set_current_win(code_win)
   end
 end
-
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
