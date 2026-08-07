@@ -509,7 +509,29 @@ function Terminal:_register_viewport_bindings()
     end,
   })
 end
+--- Global Focus Router: Ensures nvim-tree always targets the code window instead of the terminal
+vim.api.nvim_create_autocmd('WinEnter', {
+  group = vim.api.nvim_create_augroup('PioTerminalFocusRouter', { clear = true }),
+  callback = function()
+    local win = vim.api.nvim_get_current_win()
+    if not vim.api.nvim_win_is_valid(win) then return end
+    local buf = vim.api.nvim_win_get_buf(win)
+    local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+    local bufname = vim.api.nvim_buf_get_name(buf)
 
+    if ft == 'nvim-tree' or ft == 'neo-tree' or bufname:match('NvimTree') then
+      if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+        local code_win = find_best_code_window()
+        if code_win and vim.api.nvim_win_is_valid(code_win) then
+          local tree_win = win
+          -- Temporarily jump to code_win and back to update Neovim's alternate window pointer
+          vim.fn.win_gotoid(code_win)
+          vim.fn.win_gotoid(tree_win)
+        end
+      end
+    end
+  end,
+})
 -- nvimpio/device/terminal.lua - Part 4
 
 ----------------------------------------------------------------------------------------
