@@ -23,12 +23,10 @@ local native_eol = OS.eol or '\n'
 
 ---@class TerminalConfig
 ---@field panel_height number
----@field sidebar_default_width number
 ---@field winbar_bg string|nil
 ---@field winbar_fg string|nil
 ---@field winbar_hl_group string
 ---@field shell table|string
----@field is_sidebar? fun(win: integer, buf: integer): boolean
 ---@field ignored_filetypes string[]
 ---@field ignored_patterns string[]
 ---@field keymaps TerminalKeymaps
@@ -36,13 +34,15 @@ local native_eol = OS.eol or '\n'
 ---@type TerminalConfig
 M.config = {
   panel_height = 0.2,
-  sidebar_default_width = 30,
-  winbar_bg = nil,
+  winbar_bg = nil, -- Inherit or default dynamically
   winbar_fg = nil,
   winbar_hl_group = 'PioWinBar',
   shell = native_shell,
-  is_sidebar = nil, -- Now fully compliant with LuaLS type definitions
   ignored_filetypes = {
+    'nvim-tree',
+    'neo-tree',
+    'oil',
+    'aerial',
     'pio_terminal',
   },
   ignored_patterns = {
@@ -60,11 +60,6 @@ M.config = {
   },
 }
 
-----------------------------------------------------------------------------------------
--- GENERIC INTROSPECTION (Zero Hardcoded Plugin Names)
-----------------------------------------------------------------------------------------
-
-
 M.stdout_callback = nil
 M.terminals = {}
 
@@ -81,50 +76,24 @@ M.layout = {
 ----------------------------------------------------------------------------------------
 -- 2. DYNAMIC LAYOUT & WINDOW RESOLUTION ENGINE
 ----------------------------------------------------------------------------------------
-----------------------------------------------------------------------------------------
--- 2. CENTRALIZED DYNAMIC INTROSPECTION HELPERS (Zero Hardcoding)
-----------------------------------------------------------------------------------------
 
---- Dynamically evaluates whether a window is a sidebar or filetree using native Neovim heuristics
----@param win integer Window handle ID
----@return boolean
-local function is_sidebar_window(win)
-  if not vim.api.nvim_win_is_valid(win) then return true end
-
-  -- 1. Check native Neovim window types (quickfix, location lists, popups, etc.)
-  local win_type = vim.fn.win_gettype(win)
-  if win_type ~= '' then return true end
-
-  local buf = vim.api.nvim_win_get_buf(win)
-
-  -- 2. Allow user-defined extension hook via M.setup() (Inversion of Control)
-  if type(M.config.is_sidebar) == 'function' then
-    if M.config.is_sidebar(win, buf) then
-      return true
-    end
-  end
-
-  -- 3. Generic buffer type heuristics (filetrees, explorers, and panels use 'nofile' etc.)
-  local buftype = vim.api.nvim_get_option_value('buftype', { buf = buf })
-  if buftype == 'nofile' or buftype == 'quickfix' or buftype == 'help' then
-    return true
-  end
-
-  return false
-end
-
---- Dynamically searches for an active sidebar/tree window in the current tabpage
+--- Dynamically inspects the workspace to find an active file tree window
 ---@return integer|nil
-local function find_sidebar_window()
+local function find_tree_window()
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if is_sidebar_window(win) then -- Actively uses is_sidebar_window
-      return win
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local bufname = vim.api.nvim_buf_get_name(buf)
+      if ft == 'nvim-tree' or ft == 'neo-tree' or bufname:match('NvimTree') or bufname:match('neo%-tree') then
+        return win
+      end
     end
   end
   return nil
 end
 
---- Dynamically resolves the best active code editing window
+--- Dynamically evaluates the best code window based on configuration filters
 ---@return integer|nil
 local function find_best_code_window()
   local ignored_fts = M.config.ignored_filetypes or {}
@@ -132,11 +101,13 @@ local function find_best_code_window()
 
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if vim.api.nvim_win_is_valid(win) and win ~= M.layout.container_win then
-      if not is_sidebar_window(win) then -- Actively uses is_sidebar_window
-        local buf = vim.api.nvim_win_get_buf(win)
-        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-        local is_ignored = false
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local bufname = vim.api.nvim_buf_get_name(buf)
+      local win_type = vim.fn.win_gettype(win)
 
+      if win_type == '' and not find_tree_window() == win then
+        local is_ignored = false
         for _, ignored in ipairs(ignored_fts) do
           if ft == ignored then is_ignored = true; break end
         end
@@ -330,7 +301,7 @@ function Terminal:on_exit()
   M.UpdateWinbarTitles()
 end
 
---- Clean Configuration-Driven Layout Handler
+--- Professional Layout Opening Handler (Dynamic Inspector Pattern)
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
@@ -346,7 +317,9 @@ function Terminal:on_open()
 
   local code_win = nil
   if M.layout.code_win and vim.api.nvim_win_is_valid(M.layout.code_win) then
-    if not is_sidebar_window(M.layout.code_win) then
+    local buf = vim.api.nvim_win_get_buf(M.layout.code_win)
+    local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+    if ft ~= 'nvim-tree' and ft ~= 'neo-tree' then
       code_win = M.layout.code_win
     end
   end
@@ -355,29 +328,29 @@ function Terminal:on_open()
     code_win = find_best_code_window()
   end
 
+  -- Preserve layout proportions cleanly
   local old_ea = vim.o.equalalways
   vim.o.equalalways = false
 
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    -- Actively use find_sidebar_window() here
-    local sidebar_win = find_sidebar_window()
+    local tree_win = find_tree_window()
     local scratch_buf = vim.api.nvim_create_buf(true, false)
     vim.bo[scratch_buf].buflisted = true
     vim.bo[scratch_buf].buftype = ''
     vim.bo[scratch_buf].bufhidden = 'hide'
     vim.bo[scratch_buf].swapfile = false
 
-    if sidebar_win and vim.api.nvim_win_is_valid(sidebar_win) then
-      local current_width = vim.api.nvim_win_get_width(sidebar_win)
-      if current_width > (vim.o.columns * 0.4) then
-        current_width = M.config.sidebar_default_width or 30
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      local current_tree_width = vim.api.nvim_win_get_width(tree_win)
+      if current_tree_width > (vim.o.columns * 0.4) then
+        current_tree_width = 30
       end
 
       code_win = vim.api.nvim_open_win(scratch_buf, true, {
         split = 'right',
-        win = sidebar_win,
+        win = tree_win,
       })
-      pcall(vim.api.nvim_win_set_width, sidebar_win, current_width)
+      pcall(vim.api.nvim_win_set_width, tree_win, current_tree_width)
     else
       code_win = vim.api.nvim_open_win(scratch_buf, true, {
         split = 'right',
@@ -421,6 +394,7 @@ function Terminal:on_open()
     vim.api.nvim_set_current_win(code_win)
   end
 end
+
 
 
 function Terminal:_register_viewport_mappings()
