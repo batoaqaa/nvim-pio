@@ -312,36 +312,6 @@ function Terminal:on_exit()
   M.UpdateWinbarTitles()
 end
 
-function M.hide()
-  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
-    if vim.w[M.layout.container_win].pio_managed then
-      pcall(vim.api.nvim_win_close, M.layout.container_win, true)
-    end
-  end
-  M.layout.container_win = nil
-  M.layout.active_type = nil
-  M.layout.code_win = nil
-  M.RestoreWorkspaceFocus()
-end
-
-function Terminal:on_close()
-  local tracking_buf = self.buf
-  self.job = nil
-  self.buf = nil
-  self._on_next_exit = nil
-  M.layout.code_win = nil
-
-  if tracking_buf and vim.api.nvim_buf_is_valid(tracking_buf) then
-    pcall(vim.api.nvim_buf_delete, tracking_buf, { force = true })
-  end
-end
---- Wrapper orchestration function handling channel termination and layout visibility structures concurrently
----@return nil
-function Terminal:close()
-  self:on_close()
-  M.hide()
-end
-
 --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
 function Terminal:on_open()
@@ -357,10 +327,21 @@ function Terminal:on_open()
     return
   end
 
-  -- 2. RESOLVE CODE WINDOW
-  local code_win = find_best_code_window()
+  -- 2. RESOLVE CODE WINDOW (Reuse cached code_win if valid, otherwise find or create)
+  local code_win = nil
+  if M.layout.code_win and vim.api.nvim_win_is_valid(M.layout.code_win) then
+    local buf = vim.api.nvim_win_get_buf(M.layout.code_win)
+    local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+    if ft ~= 'nvim-tree' and ft ~= 'neo-tree' then
+      code_win = M.layout.code_win
+    end
+  end
 
-  -- 3. CREATE CODE WINDOW CLEANLY USING vnew (Prevents tree duplication & layout distortion)
+  if not code_win then
+    code_win = find_best_code_window()
+  end
+
+  -- 3. CREATE CODE WINDOW SAFELY NEXT TO TREE (Only if none exists)
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
     local tree_win = nil
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -374,27 +355,41 @@ function Terminal:on_open()
       end
     end
 
+    local scratch_buf = vim.api.nvim_create_buf(true, false)
+    vim.bo[scratch_buf].buflisted = true
+    vim.bo[scratch_buf].buftype = ''
+    vim.bo[scratch_buf].bufhidden = 'hide'
+    vim.bo[scratch_buf].swapfile = false
+
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      vim.api.nvim_set_current_win(tree_win)
-      vim.cmd('vnew')
+      code_win = vim.api.nvim_open_win(scratch_buf, true, {
+        split = 'right',
+        win = tree_win,
+      })
     else
-      vim.cmd('vnew')
+      code_win = vim.api.nvim_open_win(scratch_buf, true, {
+        split = 'right',
+      })
     end
-    code_win = vim.api.nvim_get_current_win()
   end
 
+  -- Cache the code window reference
   M.layout.code_win = code_win
 
   local code_buf = vim.api.nvim_win_get_buf(code_win)
-  vim.bo[code_buf].buflisted = true
-  vim.bo[code_buf].buftype = ''
-  vim.bo[code_buf].bufhidden = 'wipe'
-  vim.bo[code_buf].swapfile = false
+  if vim.api.nvim_buf_is_valid(code_buf) then
+    vim.bo[code_buf].buflisted = true
+    if vim.bo[code_buf].buftype ~= 'nofile' then
+      vim.bo[code_buf].buftype = ''
+    end
+  end
 
-  -- Style the placeholder code window cleanly as an empty canvas
-  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = code_win })
-  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = code_win })
-  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = code_win })
+  -- Style placeholder cleanly if it's an empty buffer
+  if vim.api.nvim_buf_get_name(code_buf) == '' and vim.api.nvim_buf_line_count(code_buf) <= 1 then
+    vim.api.nvim_set_option_value('number', false, { scope = 'local', win = code_win })
+    vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = code_win })
+    vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = code_win })
+  end
 
   -- 4. OPEN TERMINAL CONTAINER STRICTLY BELOW CODE WINDOW
   vim.api.nvim_set_current_win(code_win)
@@ -418,6 +413,39 @@ function Terminal:on_open()
     vim.api.nvim_set_current_win(code_win)
   end
 end
+
+--- Hides the active panel split view window layout frame cleanly from the viewport screen
+---@return nil
+function M.hide()
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    if vim.w[M.layout.container_win].pio_managed then
+      pcall(vim.api.nvim_win_close, M.layout.container_win, true)
+    end
+  end
+  M.layout.container_win = nil
+  M.layout.active_type = nil
+  -- Note: We intentionally keep M.layout.code_win active so toggling the terminal back on reuses the existing window instead of spamming new buffers.
+  M.RestoreWorkspaceFocus()
+end
+
+function Terminal:on_close()
+  local tracking_buf = self.buf
+  self.job = nil
+  self.buf = nil
+  self._on_next_exit = nil
+  M.layout.code_win = nil
+
+  if tracking_buf and vim.api.nvim_buf_is_valid(tracking_buf) then
+    pcall(vim.api.nvim_buf_delete, tracking_buf, { force = true })
+  end
+end
+--- Wrapper orchestration function handling channel termination and layout visibility structures concurrently
+---@return nil
+function Terminal:close()
+  self:on_close()
+  M.hide()
+end
+
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
