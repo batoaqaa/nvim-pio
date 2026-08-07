@@ -664,7 +664,7 @@ end
 ----------------------------------------------------------------------------------------
 -- SYSTEM FACTORY CHANNELS INITIALIZATION
 ----------------------------------------------------------------------------------------
-functionM.reopen = function()
+function  M.reopen()
   if M.terminals['logs'] then M.terminals['logs']:close() end
   if M.terminals['mon'] then M.terminals['mon']:close() end
   if M.terminals['cli'] then M.terminals['cli']:close() end
