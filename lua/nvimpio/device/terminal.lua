@@ -344,20 +344,48 @@ function Terminal:on_open()
 -- 2. RESOLVE CODE WINDOW
   local code_win = find_best_code_window()
 
-  -- 3. BOOTSTRAP CODE WINDOW SAFELY
+-- 3. BOOTSTRAP CODE WINDOW SAFELY (Prevents prompts and buffer leaks)
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    -- If no standard code window exists, create a clean full-width split layout
-    vim.cmd('enew')
-    code_win = vim.api.nvim_get_current_win()
+    local tree_win = nil
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_is_valid(win) then
+        local buf = vim.api.nvim_win_get_buf(win)
+        local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+        if ft == 'nvim-tree' or ft == 'neo-tree' then
+          tree_win = win
+          break
+        end
+      end
+    end
+
+    -- CREATE A SECURE NO-FILE SCRATCH BUFFER (Never prompts to save)
+    local scratch_buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[scratch_buf].buftype = 'nofile'
+    vim.bo[scratch_buf].bufhidden = 'wipe'
+    vim.bo[scratch_buf].swapfile = false
+    vim.bo[scratch_buf].buflisted = false
+
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      code_win = vim.api.nvim_open_win(scratch_buf, true, {
+        split = 'right',
+        win = tree_win,
+      })
+    else
+      code_win = vim.api.nvim_open_win(scratch_buf, true, {
+        split = 'right',
+      })
+    end
   end
 
   -- Safety check to ensure code_win is valid and not nvim-tree
   local code_buf = vim.api.nvim_win_get_buf(code_win)
   local code_ft = vim.api.nvim_get_option_value('filetype', { buf = code_buf })
-  if code_ft == 'nvim-tree' or code_ft == 'neo-tree' then
-    local scratch_buf = vim.api.nvim_create_buf(true, false)
-    vim.bo[scratch_buf].buflisted = true
-    vim.bo[scratch_buf].buftype = ''
+  if code_ft == 'nvim-tree' or code_ft == 'neo-tree' or vim.api.nvim_buf_get_name(code_buf):match('NvimTree') then
+    local scratch_buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[scratch_buf].buftype = 'nofile'
+    vim.bo[scratch_buf].bufhidden = 'wipe'
+    vim.bo[scratch_buf].swapfile = false
+    vim.bo[scratch_buf].buflisted = false
     code_win = vim.api.nvim_open_win(scratch_buf, true, {
       split = 'right',
     })
