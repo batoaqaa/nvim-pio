@@ -304,28 +304,157 @@ function Terminal:close()
   M.hide()
 end
 
+
+
+
+--- Internal helper to locate a safe code window securely by filetype
+---@return integer|nil
+local function find_best_code_window()
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local win_type = vim.fn.win_gettype(win)
+
+      -- Strictly filter to guarantee we NEVER pick sidebars or terminals
+      if win_type == '' 
+         and ft ~= 'nvim-tree' 
+         and ft ~= 'neo-tree' 
+         and ft ~= 'oil' 
+         and ft ~= 'aerial' 
+         and ft ~= 'pio_terminal' 
+         and not ft:match('^terminal_') 
+         and not ft:match('^pio_pane_') then
+        return win
+      end
+    end
+  end
+  return nil
+end
+
 --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
   vim.go.splitkeep = 'screen'
 
-  M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
-    split = 'below',
-    win = -1,
-    height = target_height,
-  })
+  -- 1. PERSISTENT REUSE
+  if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+    vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+    M.layout.active_type = self.term_type
+    self:_register_viewport_mappings()
+    M.UpdateWinbarTitles()
+    return
+  end
+
+  -- 2. RESOLVE WINDOWS
+  local code_win = find_best_code_window()
+  local tree_win = nil
+  local tree_width = 30
+
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_is_valid(win) then
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      if ft == 'nvim-tree' or ft == 'neo-tree' then
+        tree_win = win
+        break
+      end
+    end
+  end
+
+  -- 3. BOOTSTRAP CODE WINDOW WITH SYNCHRONOUS WIDTH ENFORCEMENT
+  if not code_win or not vim.api.nvim_win_is_valid(code_win) then
+    local saved_ea = vim.o.equalalways
+    vim.o.equalalways = false
+
+    -- Create the vertical split
+    vim.cmd('botright vnew')
+    code_win = vim.api.nvim_get_current_win()
+
+    -- Instantly enforce 30 columns on nvim-tree synchronously before any render
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
+      pcall(vim.api.nvim_set_option_value, 'winfixwidth', true, { scope = 'local', win = tree_win })
+    end
+
+    vim.o.equalalways = saved_ea
+  end
+
+  -- SAFETY GUARD: Ensure code window is never nvim-tree
+  local code_buf = vim.api.nvim_win_get_buf(code_win)
+  local code_ft = vim.api.nvim_get_option_value('filetype', { buf = code_buf })
+  local buf_name = vim.api.nvim_buf_get_name(code_buf)
+
+  if code_ft == 'nvim-tree' or code_ft == 'neo-tree' or buf_name:match('NvimTree') then
+    vim.cmd('botright vnew')
+    code_win = vim.api.nvim_get_current_win()
+    code_buf = vim.api.nvim_win_get_buf(code_win)
+  end
+
+  -- Configure code buffer safely (prevents 3-column bug & save prompts)
+  vim.w[code_win].nvim_tree_no_window_picker = false
+  if vim.api.nvim_buf_is_valid(code_buf) then
+    local final_ft = vim.api.nvim_get_option_value('filetype', { buf = code_buf })
+    local final_name = vim.api.nvim_buf_get_name(code_buf)
+    if final_ft ~= 'nvim-tree' and not final_name:match('NvimTree') then
+      vim.bo[code_buf].buflisted = true
+      vim.bo[code_buf].buftype = ''
+    end
+  end
+
+  -- 4. OPEN TERMINAL CONTAINER STRICTLY BELOW CODE WINDOW
+  vim.api.nvim_set_current_win(code_win)
+  vim.cmd('belowright ' .. target_height .. 'split')
+  M.layout.container_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  vim.w[M.layout.container_win].pio_managed = true
+  -- 5. LATCH GEOMETRY & OPTIONS
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
-
+  vim.w[M.layout.container_win].pio_managed = true
+  vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
 
   self:_register_viewport_mappings()
+
+  -- Return focus to code window
+  if code_win and vim.api.nvim_win_is_valid(code_win) then
+    vim.api.nvim_set_current_win(code_win)
+  end
+
+  -- 6. FINAL HEIGHT LOCK
+  vim.schedule(function()
+    if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+      pcall(vim.api.nvim_win_set_height, M.layout.container_win, target_height)
+    end
+  end)
 end
+
+-- --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
+-- ---@return nil
+-- function Terminal:on_open()
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+--   vim.go.splitkeep = 'screen'
+--
+--   M.layout.container_win = vim.api.nvim_open_win(self.buf, true, {
+--     split = 'below',
+--     win = -1,
+--     height = target_height,
+--   })
+--   M.layout.active_type = self.term_type
+--
+--   vim.w[M.layout.container_win].pio_managed = true
+--   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+--
+--   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+--
+--   self:_register_viewport_mappings()
+-- end
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
