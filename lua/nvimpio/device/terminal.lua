@@ -1,6 +1,6 @@
 -- stylua: ignore start
 ---@brief [[
---- nvimpio/device/terminal.lua - Production-Grade Asynchronous Terminal Manager (Zero Autocmd Bloat)
+--- nvimpio/device/terminal.lua - Production-Grade Asynchronous Terminal Manager
 ---@brief ]]
 
 local M = {}
@@ -24,6 +24,7 @@ local native_eol = OS.eol or '\n'
 ---@class TerminalConfig
 ---@field panel_height number
 ---@field sidebar_default_width number
+---@field layout_style string " 'below_code' (respects sidebar) or 'full_bottom' (edge-to-edge) "
 ---@field winbar_bg string|nil
 ---@field winbar_fg string|nil
 ---@field winbar_hl_group string
@@ -37,6 +38,8 @@ local native_eol = OS.eol or '\n'
 M.config = {
   panel_height = 0.2,
   sidebar_default_width = 30,
+  -- layout_style = 'below_code', -- Toggle: 'below_code' or 'full_bottom'
+  layout_style = 'full_bottom', -- Toggle: 'below_code' or 'full_bottom'
   winbar_bg = nil,
   winbar_fg = nil,
   winbar_hl_group = 'PioWinBar',
@@ -318,7 +321,7 @@ function Terminal:on_exit()
   M.UpdateWinbarTitles()
 end
 
---- Clean Configuration-Driven Layout Handler
+--- Clean Configuration-Driven Layout Handler (Supports Style Toggles)
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
@@ -389,7 +392,14 @@ function Terminal:on_open()
   end
 
   vim.api.nvim_set_current_win(code_win)
-  vim.cmd('belowright ' .. target_height .. 'split')
+
+  -- Dynamically select split command based on config layout style toggle
+  local split_cmd = 'belowright '
+  if M.config.layout_style == 'full_bottom' then
+    split_cmd = 'botright ' -- Spans edge-to-edge across the entire screen width
+  end
+
+  vim.cmd(split_cmd .. target_height .. 'split')
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
