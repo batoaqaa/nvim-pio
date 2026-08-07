@@ -8,13 +8,13 @@
     layout_style = 'below_code',         -- Options: 'below_code' (respects sidebar) or 'full_bottom'
     sidebar_default_width = 35,          -- Default sidebar width fallback
     winbar_hl_group = 'MyCustomTermBar', -- Custom highlight group name
-  
+
     -- Optional custom sidebar predicate matcher (Zero hardcoding)
     is_sidebar = function(win, buf)
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       return ft == 'custom_explorer_ft'
     end,
-  
+
     keymaps = {
       hide_pane = 'q',
       switch_pane = '<Tab>',
@@ -63,7 +63,8 @@ local native_eol = OS.eol or '\n'
 M.config = {
   panel_height = 0.2,
   sidebar_default_width = 30,
-  layout_style = 'below_code', -- Options: 'below_code' (respects sidebar) or 'full_bottom' (edge-to-edge)
+  -- layout_style = 'below_code', -- Options: 'below_code' (respects sidebar) or 'full_bottom' (edge-to-edge)
+  layout_style = 'full_bottom', -- Options: 'below_code' (respects sidebar) or 'full_bottom' (edge-to-edge)
   winbar_bg = '#80a3d4',
   winbar_fg = '#000000',
   -- winbar_bg = nil,
