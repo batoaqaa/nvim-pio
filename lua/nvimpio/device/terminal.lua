@@ -128,9 +128,12 @@ local function find_best_code_window()
     if vim.api.nvim_win_is_valid(win) and win ~= M.layout.container_win then
       local buf = vim.api.nvim_win_get_buf(win)
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      local bufname = vim.api.nvim_buf_get_name(buf)
       local win_type = vim.fn.win_gettype(win)
 
-      if win_type == '' then
+      -- Strictly ignore nvim-tree, neo-tree, and terminal windows
+      local is_tree = ft == 'nvim-tree' or ft == 'neo-tree' or bufname:match('NvimTree')
+      if win_type == '' and not is_tree then
         local is_ignored = false
         for _, ignored in ipairs(ignored_fts) do
           if ft == ignored then
@@ -328,6 +331,7 @@ function Terminal:close()
   M.hide()
 end
 
+
 --- Opens a clean split pane layout below your code buffer and attaches this instance context to your canvas view
 ---@return nil
 function Terminal:on_open()
@@ -346,33 +350,83 @@ function Terminal:on_open()
   -- 2. RESOLVE CODE WINDOW
   local code_win = find_best_code_window()
 
-  -- 3. REUSE OR CREATE CODE WINDOW SAFELY (Prevents duplicate scratch buffer spam)
+  -- 3. BOOTSTRAP CODE WINDOW SAFELY NEXT TO TREE (Prevents vertical column corruption)
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-    -- Check if any normal non-tree window already exists in the tab page to reuse
+    local tree_win = nil
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
       if vim.api.nvim_win_is_valid(win) then
         local buf = vim.api.nvim_win_get_buf(win)
         local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
-        if ft ~= 'nvim-tree' and ft ~= 'neo-tree' and vim.fn.win_gettype(win) == '' then
-          code_win = win
+        local bufname = vim.api.nvim_buf_get_name(buf)
+        if ft == 'nvim-tree' or ft == 'neo-tree' or bufname:match('NvimTree') then
+          tree_win = win
           break
         end
       end
     end
 
-    -- If absolutely no valid window exists, create a single clean nofile scratch window once
-    if not code_win or not vim.api.nvim_win_is_valid(code_win) then
-      local scratch_buf = vim.api.nvim_create_buf(false, true)
-      vim.bo[scratch_buf].buftype = 'nofile'
-      vim.bo[scratch_buf].bufhidden = 'hide'
-      vim.bo[scratch_buf].swapfile = false
-      vim.bo[scratch_buf].buflisted = false
+    local scratch_buf = vim.api.nvim_create_buf(true, false)
+    vim.bo[scratch_buf].buflisted = true
+    vim.bo[scratch_buf].buftype = ''
+    vim.bo[scratch_buf].swapfile = false
 
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      code_win = vim.api.nvim_open_win(scratch_buf, true, {
+        split = 'right',
+        win = tree_win,
+      })
+    else
       code_win = vim.api.nvim_open_win(scratch_buf, true, {
         split = 'right',
       })
     end
   end
+
+  -- Final absolute safety check to ensure code_win is never nvim-tree
+  local code_buf = vim.api.nvim_win_get_buf(code_win)
+  local code_ft = vim.api.nvim_get_option_value('filetype', { buf = code_buf })
+  local code_bufname = vim.api.nvim_buf_get_name(code_buf)
+  if code_ft == 'nvim-tree' or code_ft == 'neo-tree' or code_bufname:match('NvimTree') then
+    local scratch_buf = vim.api.nvim_create_buf(true, false)
+    vim.bo[scratch_buf].buflisted = true
+    vim.bo[scratch_buf].buftype = ''
+    code_win = vim.api.nvim_open_win(scratch_buf, true, {
+      split = 'right',
+    })
+    code_buf = vim.api.nvim_win_get_buf(code_win)
+  end
+
+  vim.w[code_win].nvim_tree_no_window_picker = false
+  if vim.api.nvim_buf_is_valid(code_buf) then
+    vim.bo[code_buf].buflisted = true
+    if vim.bo[code_buf].buftype ~= 'nofile' then
+      vim.bo[code_buf].buftype = ''
+    end
+  end
+
+  -- 4. OPEN TERMINAL CONTAINER STRICTLY BELOW CODE WINDOW
+  vim.api.nvim_set_current_win(code_win)
+  vim.cmd('belowright ' .. target_height .. 'split')
+  M.layout.container_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+  M.layout.active_type = self.term_type
+
+  -- 5. LATCH GEOMETRY & OPTIONS
+  vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+  vim.w[M.layout.container_win].pio_managed = true
+  vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
+  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+
+  self:_register_viewport_mappings()
+
+  -- Return focus smoothly to code window above
+  if code_win and vim.api.nvim_win_is_valid(code_win) then
+    vim.api.nvim_set_current_win(code_win)
+  end
+end
+
 
   -- 4. OPEN TERMINAL CONTAINER STRICTLY BELOW CODE WINDOW
   vim.api.nvim_set_current_win(code_win)
