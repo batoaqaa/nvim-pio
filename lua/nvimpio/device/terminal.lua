@@ -13,38 +13,37 @@ local native_shell = OS.shell or (vim.fn.has('win32') == 1 and 'pwsh' or 'sh')
 local native_eol = OS.eol or '\n'
 
 ---@class TerminalKeymaps
----@field hide_pane string
----@field switch_pane string
----@field escape_term string
----@field move_up string
----@field move_down string
----@field move_left string
----@field move_right string
+---@field hide_pane string Action shortcut to hide the window panel split layout frame
+---@field switch_pane string Action shortcut to rotate horizontally between active terminal tabs
+---@field escape_term string Action shortcut to escape interactive terminal input mode
+---@field move_up string Boundary navigation focus shortcut moving to window above
+---@field move_down string Boundary navigation focus shortcut moving to window below
+---@field move_left string Boundary navigation focus shortcut moving to window left
+---@field move_right string Boundary navigation focus shortcut moving to window right
 
 ---@class TerminalConfig
----@field panel_height number
----@field sidebar_default_width number
----@field layout_style string " 'below_code' (respects sidebar) or 'full_bottom' (edge-to-edge) "
----@field winbar_bg string|nil
----@field winbar_fg string|nil
----@field winbar_hl_group string
----@field shell table|string
----@field is_sidebar? fun(win: integer, buf: integer): boolean
----@field ignored_filetypes string[]
----@field ignored_patterns string[]
----@field keymaps TerminalKeymaps
+---@field panel_height number Height ratio of terminal pane relative to editor lines (0.0 to 1.0)
+---@field sidebar_default_width number Fallback width column size applied to sidebars/file trees
+---@field layout_style string Width alignment: 'below_code' (respects sidebar) or 'full_bottom' (edge-to-edge)
+---@field winbar_bg string|nil Hex background color string or nil for theme default (TabLineSel)
+---@field winbar_fg string|nil Hex text foreground color string or nil
+---@field winbar_hl_group string Highlight group namespace identifier registered in Neovim
+---@field shell table|string Active system shell program override (e.g., 'pwsh', 'zsh', 'bash')
+---@field is_sidebar? fun(win: integer, buf: integer): boolean Custom IoC predicate for sidebars/panels
+---@field ignored_filetypes string[] List of Neovim filetypes ignored when resolving code windows
+---@field ignored_patterns string[] Lua pattern filters used to filter out internal system buffers
+---@field keymaps TerminalKeymaps Keymap registration mappings dictionary
 
 ---@type TerminalConfig
 M.config = {
   panel_height = 0.2,
   sidebar_default_width = 30,
-  -- layout_style = 'below_code', -- Toggle: 'below_code' or 'full_bottom'
-  layout_style = 'full_bottom', -- Toggle: 'below_code' or 'full_bottom'
+  layout_style = 'below_code', -- Options: 'below_code' (respects sidebar) or 'full_bottom' (edge-to-edge)
   winbar_bg = nil,
   winbar_fg = nil,
   winbar_hl_group = 'PioWinBar',
   shell = native_shell,
-  is_sidebar = nil,
+  is_sidebar = nil, -- Optional custom predicate: function(win, buf) -> boolean
   ignored_filetypes = {
     'pio_terminal',
   },
@@ -145,17 +144,17 @@ local function find_best_code_window()
   return nil
 end
 
---- Professional Winbar Renderer with automatic fallback highlighting
+--- Professional Winbar Renderer (Distinctly highlighted via TabLineSel)
 ---@return nil
 function M.UpdateWinbarTitles()
   local maps = M.config.keymaps
   local hl = M.config.winbar_hl_group
 
   if M.config.winbar_bg then
-    vim.api.nvim_set_hl(0, hl, { bg = M.config.winbar_bg, fg = M.config.winbar_fg or '#000000', bold = true })
-    vim.api.nvim_set_hl(0, hl .. 'Dim', { bg = M.config.winbar_bg, fg = '#4e5a6b', italic = true })
+    vim.api.nvim_set_hl(0, hl, { bg = M.config.winbar_bg, fg = M.config.winbar_fg or '#abb2bf', bold = true })
+    vim.api.nvim_set_hl(0, hl .. 'Dim', { bg = M.config.winbar_bg, fg = '#5c6370', italic = true })
   else
-    vim.api.nvim_set_hl(0, hl, { link = 'StatusLine', bold = true })
+    vim.api.nvim_set_hl(0, hl, { link = 'TabLineSel', bold = true })
     vim.api.nvim_set_hl(0, hl .. 'Dim', { link = 'Comment', italic = true })
   end
 
@@ -321,7 +320,7 @@ function Terminal:on_exit()
   M.UpdateWinbarTitles()
 end
 
---- Clean Configuration-Driven Layout Handler (Supports Style Toggles)
+--- Clean Configuration-Driven Layout Handler (Supports Layout Styles)
 ---@return nil
 function Terminal:on_open()
   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
@@ -393,10 +392,9 @@ function Terminal:on_open()
 
   vim.api.nvim_set_current_win(code_win)
 
-  -- Dynamically select split command based on config layout style toggle
   local split_cmd = 'belowright '
   if M.config.layout_style == 'full_bottom' then
-    split_cmd = 'botright ' -- Spans edge-to-edge across the entire screen width
+    split_cmd = 'botright '
   end
 
   vim.cmd(split_cmd .. target_height .. 'split')
