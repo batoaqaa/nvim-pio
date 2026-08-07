@@ -13,6 +13,7 @@
 ---@brief ]]
 
 --[[
+-- future setup to do
   require('nvimpio.device.terminal').setup({
     panel_height = 0.25,                  -- Set terminal split to 25% of screen height
     layout_style = 'below_code',         -- Options: 'below_code' (respects sidebar) or 'full_bottom'
@@ -51,10 +52,10 @@ local native_eol = OS.eol or '\n'
 ---@field hide_pane string Action shortcut to hide the window panel split layout frame
 ---@field switch_pane string Action shortcut to rotate horizontally between active terminal tabs
 ---@field escape_term string Action shortcut to escape interactive terminal input mode
----@field move_up string Boundary navigation focus shortcut moving to window above
----@field move_down string Boundary navigation focus shortcut moving to window below
----@field move_left string Boundary navigation focus shortcut moving to window left
----@field move_right string Boundary navigation focus shortcut moving to window right
+--@field move_up string Boundary navigation focus shortcut moving to window above
+--@field move_down string Boundary navigation focus shortcut moving to window below
+--@field move_left string Boundary navigation focus shortcut moving to window left
+--@field move_right string Boundary navigation focus shortcut moving to window right
 
 ---@class TerminalConfig
 ---@field panel_height number Height ratio of terminal pane relative to editor lines (0.0 to 1.0)
@@ -90,10 +91,10 @@ M.config = {
     hide_pane = 'q',
     switch_pane = '<Tab>',
     escape_term = '<Esc>',
-    move_up = '<C-k>',
-    move_down = '<C-j>',
-    move_left = '<C-h>',
-    move_right = '<C-l>',
+    -- move_up = '<C-k>',
+    -- move_down = '<C-j>',
+    -- move_left = '<C-h>',
+    -- move_right = '<C-l>',
   },
 }
 
@@ -496,10 +497,10 @@ function Terminal:_register_viewport_mappings()
   vim.keymap.set('t', maps.switch_pane, function() M.SwitchTerminalPane() end, { buffer = self.buf, silent = true })
   vim.keymap.set('n', maps.switch_pane, function() M.SwitchTerminalPane() end, { buffer = self.buf, silent = true })
   vim.keymap.set('n', maps.hide_pane, function() M.toggle() end, { buffer = self.buf })
-  vim.keymap.set('t', maps.move_up, [[<C-\><C-n><C-w>k]], { buffer = self.buf, silent = true })
-  vim.keymap.set('n', maps.move_up, '<C-w>k', { buffer = self.buf, silent = true })
-  vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
-  vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
+  -- vim.keymap.set('t', maps.move_up, [[<C-\><C-n><C-w>k]], { buffer = self.buf, silent = true })
+  -- vim.keymap.set('n', maps.move_up, '<C-w>k', { buffer = self.buf, silent = true })
+  -- vim.keymap.set('n', maps.move_left, '<C-w>h', { buffer = self.buf })
+  -- vim.keymap.set('n', maps.move_right, '<C-w>l', { buffer = self.buf })
 end
 
 --- Registers localized autocommand event bindings scoped strictly to individual terminal buffers
