@@ -348,7 +348,7 @@ function Terminal:on_open()
   -- 2. RESOLVE CODE WINDOW
   local code_win = find_best_code_window()
 
-  -- 3. BOOTSTRAP CODE WINDOW SAFELY NEXT TO TREE (Reusable placeholder)
+  -- 3. BOOTSTRAP CODE WINDOW SAFELY NEXT TO TREE
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
     local tree_win = nil
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -363,7 +363,6 @@ function Terminal:on_open()
       end
     end
 
-    -- Create a clean empty buffer that nvim-tree will seamlessly reuse when opening files
     local scratch_buf = vim.api.nvim_create_buf(true, false)
     vim.bo[scratch_buf].buflisted = true
     vim.bo[scratch_buf].buftype = ''
@@ -403,7 +402,7 @@ function Terminal:on_open()
     vim.bo[code_buf].buftype = ''
   end
 
-  -- Style the placeholder code window cleanly (hide line numbers until a file is opened)
+  -- Style the placeholder code window cleanly
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = code_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = code_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = code_win })
@@ -430,6 +429,8 @@ function Terminal:on_open()
     vim.api.nvim_set_current_win(code_win)
   end
 end
+
+
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
