@@ -118,6 +118,7 @@ function M.RestoreWorkspaceFocus()
         ft ~= 'pio_terminal'
         and win_type == ''
         and ft ~= 'neo-tree'
+        and ft ~= 'nvim-tree'
         and ft ~= 'oil'
         and ft ~= 'aerial'
         and ft ~= 'pio_workspace'
