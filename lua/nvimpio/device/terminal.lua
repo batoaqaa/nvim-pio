@@ -327,7 +327,7 @@ function Terminal:on_open()
     return
   end
 
-  -- 2. RESOLVE CODE WINDOW (Reuse cached code_win if valid, otherwise find or create)
+  -- 2. RESOLVE CODE WINDOW
   local code_win = nil
   if M.layout.code_win and vim.api.nvim_win_is_valid(M.layout.code_win) then
     local buf = vim.api.nvim_win_get_buf(M.layout.code_win)
@@ -341,7 +341,11 @@ function Terminal:on_open()
     code_win = find_best_code_window()
   end
 
-  -- 3. CREATE CODE WINDOW SAFELY NEXT TO TREE (Only if none exists)
+  -- Temporarily disable equalalways to prevent Neovim from forcing 50/50 splits next to nvim-tree
+  local old_ea = vim.opt.equalalways:get()
+  vim.opt.equalalways = false
+
+  -- 3. CREATE CODE WINDOW SAFELY NEXT TO TREE
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
     local tree_win = nil
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -362,10 +366,13 @@ function Terminal:on_open()
     vim.bo[scratch_buf].swapfile = false
 
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      local tree_width = vim.api.nvim_win_get_width(tree_win)
       code_win = vim.api.nvim_open_win(scratch_buf, true, {
         split = 'right',
         win = tree_win,
       })
+      -- Restore nvim-tree width so it doesn't get stretched to 50%
+      pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
     else
       code_win = vim.api.nvim_open_win(scratch_buf, true, {
         split = 'right',
@@ -373,7 +380,6 @@ function Terminal:on_open()
     end
   end
 
-  -- Cache the code window reference
   M.layout.code_win = code_win
 
   local code_buf = vim.api.nvim_win_get_buf(code_win)
@@ -384,7 +390,7 @@ function Terminal:on_open()
     end
   end
 
-  -- Style placeholder cleanly if it's an empty buffer
+  -- Style placeholder cleanly if empty
   if vim.api.nvim_buf_get_name(code_buf) == '' and vim.api.nvim_buf_line_count(code_buf) <= 1 then
     vim.api.nvim_set_option_value('number', false, { scope = 'local', win = code_win })
     vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = code_win })
@@ -406,6 +412,9 @@ function Terminal:on_open()
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
 
+  -- Restore original equalalways configuration
+  vim.opt.equalalways = old_ea
+
   self:_register_viewport_mappings()
 
   -- Return focus smoothly to code window above
@@ -413,7 +422,6 @@ function Terminal:on_open()
     vim.api.nvim_set_current_win(code_win)
   end
 end
-
 --- Hides the active panel split view window layout frame cleanly from the viewport screen
 ---@return nil
 function M.hide()
