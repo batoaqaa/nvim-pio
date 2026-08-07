@@ -341,8 +341,11 @@ function Terminal:on_open()
     vim.bo[scratch_buf].swapfile = false
 
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      -- Dynamically query actual current width of tree instead of hardcoded numbers
       local current_tree_width = vim.api.nvim_win_get_width(tree_win)
+      if current_tree_width > (vim.o.columns * 0.4) then
+        current_tree_width = 30
+      end
+
       code_win = vim.api.nvim_open_win(scratch_buf, true, {
         split = 'right',
         win = tree_win,
@@ -391,6 +394,8 @@ function Terminal:on_open()
     vim.api.nvim_set_current_win(code_win)
   end
 end
+
+
 
 function Terminal:_register_viewport_mappings()
   local maps = M.config.keymaps
