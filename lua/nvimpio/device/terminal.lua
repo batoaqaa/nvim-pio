@@ -418,14 +418,16 @@ function Terminal:on_open()
     vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = code_win })
   end
 
-  vim.api.nvim_set_current_win(code_win)
-
-  local split_cmd = 'belowright '
+  -- Modern future-proof split routing
   if M.config.layout_style == 'full_bottom' then
-    split_cmd = 'botright '
+    vim.cmd.wincmd('b') -- Modern callable Lua command interface
+  else
+    vim.api.nvim_set_current_win(code_win)
   end
 
+  local split_cmd = (M.config.layout_style == 'full_bottom') and 'botright ' or 'belowright '
   vim.cmd(split_cmd .. target_height .. 'split')
+
   M.layout.container_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
@@ -444,6 +446,104 @@ function Terminal:on_open()
     vim.api.nvim_set_current_win(code_win)
   end
 end
+
+
+-- --- Clean Configuration-Driven Layout Handler (Supports Layout Styles)
+-- ---@return nil
+-- function Terminal:on_open()
+--   local target_height = math.ceil(vim.o.lines * (M.config.panel_height or 0.2))
+--   vim.go.splitkeep = 'screen'
+--
+--   if M.layout.container_win and vim.api.nvim_win_is_valid(M.layout.container_win) then
+--     vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+--     M.layout.active_type = self.term_type
+--     self:_register_viewport_mappings()
+--     M.UpdateWinbarTitles()
+--     return
+--   end
+--
+--   local code_win = nil
+--   if M.layout.code_win and vim.api.nvim_win_is_valid(M.layout.code_win) then
+--     if not is_sidebar_window(M.layout.code_win) then
+--       code_win = M.layout.code_win
+--     end
+--   end
+--
+--   if not code_win then
+--     code_win = find_best_code_window()
+--   end
+--
+--   local old_ea = vim.o.equalalways
+--   vim.o.equalalways = false
+--
+--   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
+--     local sidebar_win = find_sidebar_window()
+--     local scratch_buf = vim.api.nvim_create_buf(true, false)
+--     vim.bo[scratch_buf].buflisted = true
+--     vim.bo[scratch_buf].buftype = ''
+--     vim.bo[scratch_buf].bufhidden = 'hide'
+--     vim.bo[scratch_buf].swapfile = false
+--
+--     if sidebar_win and vim.api.nvim_win_is_valid(sidebar_win) then
+--       local current_width = vim.api.nvim_win_get_width(sidebar_win)
+--       if current_width > (vim.o.columns * 0.4) then
+--         current_width = M.config.sidebar_default_width or 30
+--       end
+--
+--       code_win = vim.api.nvim_open_win(scratch_buf, true, {
+--         split = 'right',
+--         win = sidebar_win,
+--       })
+--       pcall(vim.api.nvim_win_set_width, sidebar_win, current_width)
+--     else
+--       code_win = vim.api.nvim_open_win(scratch_buf, true, {
+--         split = 'right',
+--       })
+--     end
+--   end
+--
+--   M.layout.code_win = code_win
+--
+--   local code_buf = vim.api.nvim_win_get_buf(code_win)
+--   if vim.api.nvim_buf_is_valid(code_buf) then
+--     vim.bo[code_buf].buflisted = true
+--     if vim.bo[code_buf].buftype ~= 'nofile' then
+--       vim.bo[code_buf].buftype = ''
+--     end
+--   end
+--
+--   if vim.api.nvim_buf_get_name(code_buf) == '' and vim.api.nvim_buf_line_count(code_buf) <= 1 then
+--     vim.api.nvim_set_option_value('number', false, { scope = 'local', win = code_win })
+--     vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = code_win })
+--     vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = code_win })
+--   end
+--
+--   vim.api.nvim_set_current_win(code_win)
+--
+--   local split_cmd = 'belowright '
+--   if M.config.layout_style == 'full_bottom' then
+--     split_cmd = 'botright '
+--   end
+--
+--   vim.cmd(split_cmd .. target_height .. 'split')
+--   M.layout.container_win = vim.api.nvim_get_current_win()
+--   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
+--   M.layout.active_type = self.term_type
+--
+--   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
+--   vim.w[M.layout.container_win].pio_managed = true
+--   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
+--   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = M.layout.container_win })
+--   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
+--
+--   vim.o.equalalways = old_ea
+--   self:_register_viewport_mappings()
+--
+--   if code_win and vim.api.nvim_win_is_valid(code_win) then
+--     vim.api.nvim_set_current_win(code_win)
+--   end
+-- end
 
 function Terminal:_register_viewport_mappings()
   local maps = M.config.keymaps
