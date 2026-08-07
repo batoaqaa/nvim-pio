@@ -341,9 +341,9 @@ function Terminal:on_open()
     code_win = find_best_code_window()
   end
 
-  -- Temporarily disable equalalways to prevent Neovim from forcing 50/50 splits next to nvim-tree
-  local old_ea = vim.opt.equalalways:get()
-  vim.opt.equalalways = false
+  -- Temporarily disable equalalways using vim.o to prevent Neovim from forcing proportions
+  local old_ea = vim.o.equalalways
+  vim.o.equalalways = false
 
   -- 3. CREATE CODE WINDOW SAFELY NEXT TO TREE
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
@@ -366,13 +366,12 @@ function Terminal:on_open()
     vim.bo[scratch_buf].swapfile = false
 
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      local tree_width = vim.api.nvim_win_get_width(tree_win)
       code_win = vim.api.nvim_open_win(scratch_buf, true, {
         split = 'right',
         win = tree_win,
       })
-      -- Restore nvim-tree width so it doesn't get stretched to 50%
-      pcall(vim.api.nvim_win_set_width, tree_win, tree_width)
+      -- Force nvim-tree to a clean, standard width (30 columns)
+      pcall(vim.api.nvim_win_set_width, tree_win, 30)
     else
       code_win = vim.api.nvim_open_win(scratch_buf, true, {
         split = 'right',
@@ -413,7 +412,7 @@ function Terminal:on_open()
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = M.layout.container_win })
 
   -- Restore original equalalways configuration
-  vim.opt.equalalways = old_ea
+  vim.o.equalalways = old_ea
 
   self:_register_viewport_mappings()
 
@@ -422,6 +421,7 @@ function Terminal:on_open()
     vim.api.nvim_set_current_win(code_win)
   end
 end
+
 --- Hides the active panel split view window layout frame cleanly from the viewport screen
 ---@return nil
 function M.hide()
