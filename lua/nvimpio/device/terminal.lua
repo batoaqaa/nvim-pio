@@ -348,7 +348,7 @@ function Terminal:on_open()
   -- 2. RESOLVE CODE WINDOW
   local code_win = find_best_code_window()
 
-  -- 3. BOOTSTRAP CODE WINDOW SAFELY NEXT TO TREE
+  -- 3. BOOTSTRAP CODE WINDOW SAFELY NEXT TO TREE (Reusable placeholder)
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
     local tree_win = nil
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -363,9 +363,11 @@ function Terminal:on_open()
       end
     end
 
+    -- Create a clean empty buffer that nvim-tree will seamlessly reuse when opening files
     local scratch_buf = vim.api.nvim_create_buf(true, false)
     vim.bo[scratch_buf].buflisted = true
     vim.bo[scratch_buf].buftype = ''
+    vim.bo[scratch_buf].bufhidden = 'wipe'
     vim.bo[scratch_buf].swapfile = false
 
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
@@ -388,6 +390,7 @@ function Terminal:on_open()
     local scratch_buf = vim.api.nvim_create_buf(true, false)
     vim.bo[scratch_buf].buflisted = true
     vim.bo[scratch_buf].buftype = ''
+    vim.bo[scratch_buf].bufhidden = 'wipe'
     code_win = vim.api.nvim_open_win(scratch_buf, true, {
       split = 'right',
     })
@@ -397,12 +400,10 @@ function Terminal:on_open()
   vim.w[code_win].nvim_tree_no_window_picker = false
   if vim.api.nvim_buf_is_valid(code_buf) then
     vim.bo[code_buf].buflisted = true
-    if vim.bo[code_buf].buftype ~= 'nofile' then
-      vim.bo[code_buf].buftype = ''
-    end
+    vim.bo[code_buf].buftype = ''
   end
 
-  -- Style the placeholder code window cleanly so it looks like a minimalist canvas
+  -- Style the placeholder code window cleanly (hide line numbers until a file is opened)
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = code_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = code_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = code_win })
