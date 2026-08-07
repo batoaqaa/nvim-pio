@@ -1,6 +1,31 @@
 -- stylua: ignore start
 ---@brief [[
 --- nvimpio/device/terminal.lua - Production-Grade Asynchronous Terminal Manager
+
+--[[
+  require('nvimpio.device.terminal').setup({
+    panel_height = 0.25,                  -- Set terminal split to 25% of screen height
+    layout_style = 'below_code',         -- Options: 'below_code' (respects sidebar) or 'full_bottom'
+    sidebar_default_width = 35,          -- Default sidebar width fallback
+    winbar_hl_group = 'MyCustomTermBar', -- Custom highlight group name
+  
+    -- Optional custom sidebar predicate matcher (Zero hardcoding)
+    is_sidebar = function(win, buf)
+      local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
+      return ft == 'custom_explorer_ft'
+    end,
+  
+    keymaps = {
+      hide_pane = 'q',
+      switch_pane = '<Tab>',
+      escape_term = '<Esc>',
+      move_up = '<C-k>',
+      move_down = '<C-j>',
+      move_left = '<C-h>',
+      move_right = '<C-l>',
+    },
+  })
+]]
 ---@brief ]]
 
 local M = {}
@@ -39,8 +64,10 @@ M.config = {
   panel_height = 0.2,
   sidebar_default_width = 30,
   layout_style = 'below_code', -- Options: 'below_code' (respects sidebar) or 'full_bottom' (edge-to-edge)
-  winbar_bg = nil,
-  winbar_fg = nil,
+  winbar_bg = '#80a3d4',
+  winbar_fg = '#000000',
+  -- winbar_bg = nil,
+  -- winbar_fg = nil,
   winbar_hl_group = 'PioWinBar',
   shell = native_shell,
   is_sidebar = nil, -- Optional custom predicate: function(win, buf) -> boolean
