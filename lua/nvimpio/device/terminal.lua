@@ -726,5 +726,5 @@ setmetatable(M, {
   end,
 })
 
-return Terminal
+return M
 -- stylua: ignore end
