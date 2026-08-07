@@ -360,7 +360,7 @@ function Terminal:on_open()
   -- 2. RESOLVE CODE WINDOW
   local code_win = find_best_code_window()
 
-  -- 3. CREATE CODE WINDOW NATIVELY NEXT TO TREE (Prevents vertical split cascade)
+  -- 3. CREATE CODE WINDOW SAFELY NEXT TO TREE (Without duplicating tree buffers)
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
     local tree_win = nil
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -374,33 +374,43 @@ function Terminal:on_open()
       end
     end
 
+    -- Create a pristine, isolated scratch buffer explicitly for the code placeholder
+    local scratch_buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[scratch_buf].buftype = 'nofile'
+    vim.bo[scratch_buf].bufhidden = 'wipe'
+    vim.bo[scratch_buf].swapfile = false
+    vim.bo[scratch_buf].buflisted = false
+
     if tree_win and vim.api.nvim_win_is_valid(tree_win) then
-      vim.api.nvim_set_current_win(tree_win)
-      vim.cmd('wincmd l')
-      if vim.api.nvim_get_current_win() == tree_win then
-        vim.cmd('vsplit')
-      end
+      code_win = vim.api.nvim_open_win(scratch_buf, true, {
+        split = 'right',
+        win = tree_win,
+      })
     else
-      vim.cmd('enew')
+      code_win = vim.api.nvim_open_win(scratch_buf, true, {
+        split = 'right',
+      })
     end
-    code_win = vim.api.nvim_get_current_win()
   end
 
-  -- Ensure code_win is valid and never a tree window
+  -- Absolute safety check: ensure code_win is never nvim-tree
   local code_buf = vim.api.nvim_win_get_buf(code_win)
   local code_ft = vim.api.nvim_get_option_value('filetype', { buf = code_buf })
-  if code_ft == 'nvim-tree' or code_ft == 'neo-tree' then
-    vim.cmd('vsplit')
-    code_win = vim.api.nvim_get_current_win()
+  if code_ft == 'nvim-tree' or code_ft == 'neo-tree' or vim.api.nvim_buf_get_name(code_buf):match('NvimTree') then
+    local scratch_buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[scratch_buf].buftype = 'nofile'
+    vim.bo[scratch_buf].bufhidden = 'wipe'
+    vim.bo[scratch_buf].swapfile = false
+    vim.bo[scratch_buf].buflisted = false
+    code_win = vim.api.nvim_open_win(scratch_buf, true, {
+      split = 'right',
+    })
     code_buf = vim.api.nvim_win_get_buf(code_win)
   end
 
   M.layout.code_win = code_win
 
   -- Style the placeholder code window cleanly as an empty canvas
-  vim.bo[code_buf].buflisted = true
-  vim.bo[code_buf].buftype = ''
-  vim.bo[code_buf].bufhidden = 'wipe'
   vim.api.nvim_set_option_value('number', false, { scope = 'local', win = code_win })
   vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = code_win })
   vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = code_win })
