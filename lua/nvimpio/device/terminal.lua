@@ -348,7 +348,7 @@ function Terminal:on_open()
   -- 2. RESOLVE CODE WINDOW
   local code_win = find_best_code_window()
 
-  -- 3. BOOTSTRAP CODE WINDOW SAFELY NEXT TO TREE (Prevents vertical column corruption)
+  -- 3. BOOTSTRAP CODE WINDOW SAFELY NEXT TO TREE
   if not code_win or not vim.api.nvim_win_is_valid(code_win) then
     local tree_win = nil
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -402,6 +402,11 @@ function Terminal:on_open()
     end
   end
 
+  -- Style the placeholder code window cleanly so it looks like a minimalist canvas
+  vim.api.nvim_set_option_value('number', false, { scope = 'local', win = code_win })
+  vim.api.nvim_set_option_value('relativenumber', false, { scope = 'local', win = code_win })
+  vim.api.nvim_set_option_value('signcolumn', 'no', { scope = 'local', win = code_win })
+
   -- 4. OPEN TERMINAL CONTAINER STRICTLY BELOW CODE WINDOW
   vim.api.nvim_set_current_win(code_win)
   vim.cmd('belowright ' .. target_height .. 'split')
@@ -409,7 +414,7 @@ function Terminal:on_open()
   vim.api.nvim_win_set_buf(M.layout.container_win, self.buf)
   M.layout.active_type = self.term_type
 
-  -- 5. LATCH GEOMETRY & OPTIONS
+  -- 5. LATCH GEOMETRY & OPTIONS FOR TERMINAL
   vim.api.nvim_set_option_value('winfixheight', true, { scope = 'local', win = M.layout.container_win })
   vim.w[M.layout.container_win].pio_managed = true
   vim.w[M.layout.container_win].nvim_tree_no_window_picker = true
@@ -424,7 +429,6 @@ function Terminal:on_open()
     vim.api.nvim_set_current_win(code_win)
   end
 end
-
 
 --- Maps local interactive hotkeys inside the buffer instance scope boundary context cleanly
 ---@return nil
