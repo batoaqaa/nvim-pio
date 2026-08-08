@@ -311,7 +311,8 @@ CompileFlags:
     local globCodesSuppress = {}
     local projCodesSuppress = {}
 
-    local compileFlagsRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
+    -- local compileFlagsRemove = {'"-xc"', '"-xc++"', '"-std=*"'}
+    local compileFlagsRemove = {'"-std=*"'}
 
     local success, pio_diag = pcall(require, 'nvimpio.clangd.diagnostic')
     if success and pio_diag then
@@ -402,11 +403,16 @@ CompileFlags:
 
     local is_cpp = is_cpp_project()
     ------------------ start .clangd compileFlagsAdd section  ----------------------
-    local compileFlagsAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"' }
-                                    or { '"-xc"', '"-std=gnu17"' }
+    -- local compileFlagsAdd = is_cpp and { '"-xc++"', '"-std=gnu++17"' }
+    --                                 or { '"-xc"', '"-std=gnu17"' }
+    --
+    -- local compileFlagsHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' }
+    --                                  or { '"-xc-header"', '"-std=gnu17"' }
+    local compileFlagsAdd = is_cpp and { '"-std=gnu++17"' }
+                                    or { '"-std=gnu17"' }
 
-    local compileFlagsHAdd = is_cpp and { '"-xc++-header"', '"-std=gnu++17"' }
-                                     or { '"-xc-header"', '"-std=gnu17"' }
+    local compileFlagsHAdd = is_cpp and { '"-std=gnu++17"' }
+                                     or { '"-std=gnu17"' }
     --------------------- end .clangd compileFlagsAdd section ----------------------
 
     -- Simply wrap your dynamic variables before feeding them to string.format
