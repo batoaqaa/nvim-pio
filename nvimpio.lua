@@ -456,6 +456,7 @@ if tok then
   -- Keymap to open the buffer list
   vim.keymap.set('n', '<leader>fb', '<cmd>Telescope buffers<cr>', { desc = 'Find Buffers' })
 end
+vim.cmd('set completeopt+=noselect')
 
 local pioConfig = {
   pio = {
