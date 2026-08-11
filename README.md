@@ -21,16 +21,24 @@ A high-performance, asynchronous embedded development framework for Neovim. It b
 
 ---
 
-## ⚡ Quickstart: Zero to First Build
+## ⚡ Isolated Evaluation Environment (Zero-Risk Sandbox)
 
-![nvim-pio Demo](https://raw.githubusercontent.com/batoaqaa/nvim-pio/main/assets/demo.gif)
+![nvim-pio Sandbox](https://raw.githubusercontent.com/batoaqaa/nvim-pio/main/assets/sandbox.gif)
 
-Create, configure, and code a brand-new microcontroller project (e.g., ESP32, STM32, Arduino) inside an empty folder without ever touching the terminal CLI:
+Test the complete capabilities of this extension inside an insulated runtime sandbox without modifying your production editor configurations. Execute this sequence from a standard terminal prompt:
 
-```sh
-mkdir my-esp32-project
-cd my-esp32-project
-nvim .
+```
+cd
+mkdir pio_test
+cd pio_test
+
+# Fetch the automated sandbox bootstrapper script
+wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/nvimpio.lua
+
+nvim -u nvimpio.lua .
+
+# Inside Neovim, kickstart your environment using:
+:Pioinitsh
 ```
 
 ### 1. Initialize Project (`:Pioinit`)
@@ -225,28 +233,6 @@ require('nvimpio').setup({
 ```
 
 </details>
-
----
-
-## ⚡ Isolated Evaluation Environment (Zero-Risk Sandbox)
-
-![nvim-pio Sandbox](https://raw.githubusercontent.com/batoaqaa/nvim-pio/main/assets/sandbox.gif)
-
-Test the complete capabilities of this extension inside an insulated runtime sandbox without modifying your production editor configurations. Execute this sequence from a standard terminal prompt:
-
-```
-cd
-mkdir pio_test
-cd pio_test
-
-# Fetch the automated sandbox bootstrapper script
-wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/nvimpio.lua
-
-nvim -u nvimpio.lua .
-
-# Inside Neovim, kickstart your environment using:
-:Pioinitsh
-```
 
 ---
 
