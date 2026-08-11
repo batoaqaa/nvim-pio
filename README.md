@@ -61,7 +61,7 @@ Inside Neovim, kickstart your environment using:
 | `<leader>\` **g u** | **Upload Code** | Runs `:Piocli run -t upload` to flash target board |
 | `<leader>\` **a b** | **Generate LSP Data** | Re-generates `compile_commands.json` |
 | `<leader>\` **m** | **Serial Monitor** | Opens asynchronous terminal monitor |
-| `<leader>\` **b** | **block error** | Dynamic selection utility to toggle syntax warnings or static alerts  |
+| `<leader>\` **b** | **block error** | Dynamic selection utility to toggle syntax warnings or alerts  |
 | `:Piolib <query>` | **Install Library** | Interactively search/install libraries and refresh LSP |
 
 ---
