@@ -230,6 +230,8 @@ require('nvimpio').setup({
 
 ## ⚡ Isolated Evaluation Environment (Zero-Risk Sandbox)
 
+![nvim-pio Sandbox](https://raw.githubusercontent.com/batoaqaa/nvim-pio/main/assets/sandbox.gif)
+
 Test the complete capabilities of this extension inside an insulated runtime sandbox without modifying your production editor configurations. Execute this sequence from a standard terminal prompt:
 
 ```
