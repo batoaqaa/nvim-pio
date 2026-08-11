@@ -27,7 +27,7 @@ A high-performance, asynchronous embedded development framework for Neovim. It b
 
 Test the complete capabilities of this extension inside an insulated runtime sandbox without modifying your production editor configurations. Execute this sequence from a standard terminal prompt:
 
-```
+````
 cd
 mkdir pio_test
 cd pio_test
@@ -38,7 +38,7 @@ wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/nvimpio
 nvim -u nvimpio.lua .
 
 # Inside Neovim, kickstart your environment using:
-:Pioinitsh
+:Pioinit
 ```
 
 ### 1. Initialize Project (`:Pioinit`)
@@ -47,7 +47,7 @@ Inside Neovim, run:
 
 ```vim
 :Pioinit
-```
+````
 
 - **Auto-Dependency Check:** If PlatformIO CLI is not installed, it will prompt you to install it (`Y/N`).
 - **Interactive Board Selection:** Type or select your target board (e.g., `seeed_xiao_esp32s3`).
