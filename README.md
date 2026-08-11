@@ -9,8 +9,6 @@
 
 A high-performance, asynchronous embedded development framework for Neovim. It bridges **PlatformIO** project structures with **`clangd`** language servers, managing include file mappings and cross-compiler parameter translations on Windows, Linux, and macOS.
 
-![nvim-pio Demo](https://raw.githubusercontent.com/batoaqaa/nvim-pio/main/assets/demo.gif)
-
 ---
 
 ## ✨ Features
@@ -24,6 +22,8 @@ A high-performance, asynchronous embedded development framework for Neovim. It b
 ---
 
 ## ⚡ Quickstart: Zero to First Build
+
+![nvim-pio Demo](https://raw.githubusercontent.com/batoaqaa/nvim-pio/main/assets/demo.gif)
 
 Create, configure, and code a brand-new microcontroller project (e.g., ESP32, STM32, Arduino) inside an empty folder without ever touching the terminal CLI:
 
