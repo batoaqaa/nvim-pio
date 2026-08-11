@@ -36,14 +36,11 @@ cd pio_test
 wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/nvimpio.lua
 
 nvim -u nvimpio.lua .
-
-# Inside Neovim, kickstart your environment using:
-:Pioinit
 ```
 
 ### 1. Initialize Project (`:Pioinit`)
 
-Inside Neovim, run:
+Inside Neovim, kickstart your environment using:
 
 ```vim
 :Pioinit
