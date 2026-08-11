@@ -232,16 +232,18 @@ require('nvimpio').setup({
 
 Test the complete capabilities of this extension inside an insulated runtime sandbox without modifying your production editor configurations. Execute this sequence from a standard terminal prompt:
 
-```sh
+```
+cd
+mkdir pio_test
+cd pio_test
+
 # Fetch the automated sandbox bootstrapper script
+wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/refs/heads/main/nvimpio.lua
 
-wget https://raw.githubusercontent.com/batoaqaa/nvim-pio/main/nvimpio.lua
-
-# Execute the isolated evaluation environment
 nvim -u nvimpio.lua .
 
 # Inside Neovim, kickstart your environment using:
-:Pioinit
+:Pioinitsh
 ```
 
 ---
