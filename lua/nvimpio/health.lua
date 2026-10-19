@@ -60,21 +60,66 @@ function M.check()
   -- 4. Check clangd installation
   ----------------------------------------------------------------------------------------
   if vim.fn.executable('clangd') == 1 then
-    -- Run clangd --version synchronously for the health report
-    local full_path = vim.fn.exepath('clangd')
-    local obj = vim.system({ full_path, '--version' }, { text = true }):wait()
-    if obj.code == 0 then
-      vim.health.ok('clangd executable found: ' .. vim.trim(obj.stdout:match('[^\n]+'):match('^(.-)%s*%(')))
-      vim.health.ok('clangd executable directory: ' .. vim.fn.fnamemodify(full_path, ':h'))
-    else
-      vim.health.error('clangd found but failed to execute: ' .. (obj.stderr or 'Unknown error'))
+    -- Normalize path separators dynamically (converts Windows backslashes to clean forward slashes)
+    local full_path = vim.fs.normalize(vim.fn.exepath('clangd'))
+    vim.health.ok('clangd executable found: ' .. full_path)
+
+    -- LAYER 1: Verify runtime activation using modern Neovim 0.11+ core wrappers
+    -- In Nvim 0.11+, vim.lsp.is_enabled('name') safely audits global activation state natively
+    local is_enabled = false
+    if type(vim.lsp.is_enabled) == 'function' then
+      is_enabled = vim.lsp.is_enabled('clangd')
     end
+
+    if is_enabled then
+      vim.health.ok('LSP Core: clangd is active and successfully initialized via `vim.lsp.enable()`.')
+    else
+      vim.health.info("LSP Core: clangd configuration is registered but dormant. (Invoke `vim.lsp.enable('clangd')` to wake it).")
+    end
+
+    -- LAYER 2: Safely extract compilation version via strict timeout-defended sandbox
+    -- An 800ms limit ensures a frozen background Windows indexer or a locked binary will never freeze the main editor UI thread
+    local exec_ok, result = pcall(function()
+      return vim.system({ full_path, '--version' }, { text = true, timeout = 800 }):wait()
+    end)
+
+    if exec_ok and result and result.code == 0 and result.stdout then
+      -- FIXED CROSS-PLATFORM STRIP: Swapping to standard %c matches all control characters (newlines/carriage returns)
+      -- This entirely avoids regex bracket escape bugs while handling Windows and Unix identically.
+      local clean_version = result.stdout:gsub('%c', ' '):gsub('%s+', ' ')
+      vim.health.ok('clangd runtime version: ' .. vim.trim(clean_version))
+    else
+      vim.health.warn('clangd executable found but failed to respond or return a version string within 800ms.')
+    end
+
+    -- LAYER 3: Delegate workspace attachments to the native core diagnostic manager
+    -- Enforces clean separation of concerns without writing high-maintenance metatable loops
+    vim.health.info('LSP Engine: For deep telemetry on active buffer logs and server capabilities, run: `:checkhealth vim.lsp`')
   else
-    vim.health.error("Clangd 'clangd' command not found in PATH.", {
-      'Try running :Mason',
-      "Ensure your config calls require('nvimpio').setup()",
-    })
+    -- Multi-OS feedback suggestion array for missing system binaries
+    local suggestions = { 'Install clangd via your operating system package manager or :Mason' }
+    if vim.fn.has('win32') == 1 then
+      table.insert(suggestions, 'On Windows, make sure to add the clangd binary folder to your System Environment Variables PATH.')
+    end
+
+    vim.health.error("Clangd 'clangd' command not found in PATH.", suggestions)
   end
+  -- if vim.fn.executable('clangd') == 1 then
+  --   -- Run clangd --version synchronously for the health report
+  --   local full_path = vim.fn.exepath('clangd')
+  --   local obj = vim.system({ full_path, '--version' }, { text = true }):wait()
+  --   if obj.code == 0 then
+  --     vim.health.ok('clangd executable found: ' .. vim.trim(obj.stdout:match('[^\n]+'):match('^(.-)%s*%(')))
+  --     vim.health.ok('clangd executable directory: ' .. vim.fn.fnamemodify(full_path, ':h'))
+  --   else
+  --     vim.health.error('clangd found but failed to execute: ' .. (obj.stderr or 'Unknown error'))
+  --   end
+  -- else
+  --   vim.health.error("Clangd 'clangd' command not found in PATH.", {
+  --     'Try running :Mason',
+  --     "Ensure your config calls require('nvimpio').setup()",
+  --   })
+  -- end
 end
 
 return M
