@@ -98,7 +98,7 @@ function M.check()
   else
     -- Multi-OS feedback suggestion array for missing system binaries
     local suggestions = { 'Install clangd via your operating system package manager or :Mason' }
-    if vim.fn.has('win32') == 1 then
+    if OS.is_win then
       table.insert(suggestions, 'On Windows, make sure to add the clangd binary folder to your System Environment Variables PATH.')
     end
 
