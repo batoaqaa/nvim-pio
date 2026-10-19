@@ -65,17 +65,17 @@ function M.check()
     vim.health.ok('clangd executable found: ' .. full_path)
 
     -- LAYER 1: Verify runtime activation using modern Neovim 0.11+ core wrappers
-    -- In Nvim 0.11+, vim.lsp.is_enabled('name') safely audits global activation state natively
-    local is_enabled = false
-    if type(vim.lsp.is_enabled) == 'function' then
-      is_enabled = vim.lsp.is_enabled('clangd')
-    end
-
-    if is_enabled then
-      vim.health.ok('LSP Core: clangd is active and successfully initialized via `vim.lsp.enable()`.')
-    else
-      vim.health.info("LSP Core: clangd configuration is registered but dormant. (Invoke `vim.lsp.enable('clangd')` to wake it).")
-    end
+    -- -- In Nvim 0.11+, vim.lsp.is_enabled('name') safely audits global activation state natively
+    -- local is_enabled = false
+    -- if type(vim.lsp.is_enabled) == 'function' then
+    --   is_enabled = vim.lsp.is_enabled('clangd')
+    -- end
+    --
+    -- if is_enabled then
+    --   vim.health.ok('LSP Core: clangd is active and successfully initialized via `vim.lsp.enable()`.')
+    -- else
+    --   vim.health.info("LSP Core: clangd configuration is registered but dormant. (Invoke `vim.lsp.enable('clangd')` to wake it).")
+    -- end
 
     -- LAYER 2: Safely extract compilation version via strict timeout-defended sandbox
     -- An 800ms limit ensures a frozen background Windows indexer or a locked binary will never freeze the main editor UI thread
