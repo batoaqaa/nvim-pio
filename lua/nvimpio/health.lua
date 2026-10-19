@@ -94,7 +94,7 @@ function M.check()
 
     -- LAYER 3: Delegate workspace attachments to the native core diagnostic manager
     -- Enforces clean separation of concerns without writing high-maintenance metatable loops
-    vim.health.info('LSP Engine: For deep telemetry on active buffer logs and server capabilities, run: `:checkhealth vim.lsp`')
+    -- vim.health.info('LSP Engine: For deep telemetry on active buffer logs and server capabilities, run: `:checkhealth vim.lsp`')
   else
     -- Multi-OS feedback suggestion array for missing system binaries
     local suggestions = { 'Install clangd via your operating system package manager or :Mason' }
