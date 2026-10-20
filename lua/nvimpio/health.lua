@@ -3,7 +3,6 @@ local M = {}
 function M.check()
   vim.health.start('nvimpio Check')
 
-  -- INFO: main.hpp
   --- stylua: ignore
   -- 1. Check Python installation
   ----------------------------------------------------------------------------------------
@@ -42,20 +41,6 @@ function M.check()
       })
     end
   end
-
-  -- if vim.fn.executable('pio') == 1 then
-  --   -- Run pio --version synchronously for the health report
-  --   local obj = vim.system({ 'pio', '--version' }, { text = true }):wait()
-  --   if obj.code == 0 then
-  --     vim.health.ok('PlatformIO executable found: ' .. vim.trim(obj.stdout))
-  --   else
-  --     vim.health.error('PlatformIO found but failed to execute: ' .. (obj.stderr or 'Unknown error'))
-  --   end
-  -- else
-  --   vim.health.error("PlatformIO 'pio' command not found in PATH.", {
-  --     'Try running :PioInstall',
-  --   })
-  -- end
 
   -- 4. Check clangd installation
   ----------------------------------------------------------------------------------------
